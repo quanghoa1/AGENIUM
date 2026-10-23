@@ -464,7 +464,11 @@ impl App {
             if base.version != rev.base_version {
                 return Err(OrchError::Conflict(format!("base_version {} is stale; the latest plan is v{}", rev.base_version, base.version)));
             }
-            let spec = plans::spec(w.tx, project, base.body.spec_version)?.ok_or_else(|| invalid("plan spec missing"))?;
+            // A revision follows the newest approved spec (the spec may have grown since the base plan).
+            let spec = match plans::latest_spec(w.tx, project)? {
+                Some(s) if s.locked_at.is_some() && s.version >= base.body.spec_version => s,
+                _ => plans::spec(w.tx, project, base.body.spec_version)?.ok_or_else(|| invalid("plan spec missing"))?,
+            };
             check_trace(&spec, &rev.items)?;
             // Items that have tickets must keep existing (shrink scope, never drop work silently).
             for t in tickets::list(w.tx, project, &Default::default())? {
@@ -481,10 +485,10 @@ impl App {
                 id: ulid::Ulid::new().to_string(),
                 project,
                 version,
-                spec_version: base.body.spec_version,
+                spec_version: spec.version,
                 reason: Some(rev.reason.clone()),
                 diff: Some(diff.clone()),
-                body: agenium_core::plan::TicketPlan { spec_version: base.body.spec_version, milestones: rev.milestones, items: rev.items },
+                body: agenium_core::plan::TicketPlan { spec_version: spec.version, milestones: rev.milestones, items: rev.items },
                 proposed_by: ctx.actor.label(),
                 approved_by: self_approve.then(|| ctx.actor.label()),
             };

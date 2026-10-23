@@ -47,9 +47,39 @@ Windows 11 (Rust GNU toolchain + MSYS2 gcc, no MSVC); the first release still ta
 12. **OpenCode relay flavor.** For `opencode.ai` base URLs the OpenAI-compatible adapter sends `x-opencode-session` =
     the conversation cache key (OpenCode Go rejects requests without it; same value per conversation keeps the upstream
     cache warm), and DeepSeek models get DeepSeek effort levels and `reasoning_content` replay.
-13. **Not yet built (explicitly):** the real local embedding model (a deterministic hashing embedder stands in), the ANN
-    sidecar (exact sqlite-vec search is correct and below the 100 000-fact threshold), MCP, skills, team templates,
-    Linux/macOS sandbox backends (M2).
+13. **OpenCode model routing.** On opencode.ai bases the wire is chosen per model: Anthropic messages for `claude-*`,
+    `minimax-*`, `qwen*`, `union-alpha`; Responses-only models (`gpt-*`, `grok-*`, `muse-spark`) are refused; the rest
+    use chat/completions.
+14. **Skills (M15-4).** An agent's skills = its role's skills (`roles/<role>/skills`) plus its own
+    (`agents/<id>/skills`); an own skill with a role skill's name is its overlay (tagged `[updated]`). The agent's
+    `skills` binding filters by name; empty = all. `load_skill` is answered by the run (no event); skill folders are
+    extra read-only roots of `read_file`. The frontmatter parser supports the subset skills use (scalars, quoted
+    values, block scalars; nested keys ignored) instead of a YAML dependency.
+15. **Agent export (M15-5)** is a JSONL file (header, profile, agent-folder files, memory tables as typed rows, end line
+    with line count + sha256); vectors are not exported (re-embedded on import); a stored secret value anywhere
+    refuses the export. Import creates a new Solo agent of a project (team import arrives with M4). **Deletion** keeps
+    the agent row as a tombstone (`core_002`: `deleted_at`, renamed `<name>~<id>`, Offline) so runs, tickets and
+    events keep valid references; memory DB, folder and MCP working folder are removed (locked files are purged at
+    the next start). Backups made before the deletion still contain the agent until retention prunes them.
+16. **MCP (M15-3)** is Agenium's own client (no SDK dependency): JSON-RPC over stdio or Streamable HTTP, revision
+    2025-06-18 requested. Servers live in `config.toml` (`[[mcp]]`, `command` xor `url`; https except localhost);
+    values use `${secret:<name>}` or `${cred:<KEY>}` (resolved from the agent's binding, so agents can hold different
+    keys for one server); secret-looking literals are refused, pasted JSON moves them to the vault. Sessions are per
+    agent and server; read-only tools (`readOnlyHint`) retry once after a reconnect, others never; output is
+    untrusted; review/chat runs only get read-only MCP tools. Stdio servers run with a clean environment in
+    `<root>/mcp/<agent>/<server>` and a process-tree guard (job object / process group); there is no OS sandbox on
+    Windows (ADR-39); the user configures every server.
+17. **Embedding (M15-2)**: `bge-small-en-v1.5` (decision 2b) run with candle 0.11, CLS pooling, L2 norm, the BGE query
+    instruction; files pinned to upstream revision `5c38ec7` and checked by sha256; installed by `agenium models
+    download`. Until installed the hashing embedder is used; databases are re-embedded from text once the model is
+    present. The default model was not changed (ADR-47 remains Proposed).
+18. **Memory pipeline**: runs for the assignee when a ticket reaches Closed or Reopened (once per state), with the
+    agent's own model at low effort; extraction and decision answer in JSON; ids outside the shown candidates,
+    secret-looking facts and empty facts are rejected; facts from external content are stored untrusted and never
+    recalled.
+19. **Not yet built (explicitly):** graph memory (ADR-51), lessons/decay/overlay updates (M4.5), the ANN sidecar
+    (exact sqlite-vec search is correct and below the 100 000-fact threshold), team templates, Linux/macOS sandbox
+    backends (M2).
 
 ## Re-verification on this machine (Windows 11 Pro, 10 cores, 32 GB)
 

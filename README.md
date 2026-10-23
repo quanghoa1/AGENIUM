@@ -4,7 +4,8 @@ Rust application that orchestrates AI agents — a Solo agent, or a Lead with Wo
 Every change of state goes through typed, validated tool calls; work happens in a git worktree per ticket and reaches
 `main` only through review and a sequential merge queue.
 
-**Status:** milestones M0 (backend) and M1 (Solo agent) are implemented and tested; the desktop UI is not part of this
+**Status:** milestones M0 (backend), M1 (Solo agent) and most of M1.5 (skills, MCP, local embedding model + memory
+pipeline, agent export/import/delete) are implemented and tested; the desktop UI is not part of this
 phase — the headless CLI `agenium` is the front-end. Details and the honest NOT RUN list: [`docs/PROGRESS.md`](docs/PROGRESS.md).
 This is a fresh implementation of the design in [`docs/design/`](docs/design) (priority on conflict: `DECISIONS.md`);
 its own decisions are in [`docs/adr/ADR-52-fresh-implementation.md`](docs/adr/ADR-52-fresh-implementation.md).
@@ -36,6 +37,11 @@ agenium ticket list --project demo
 agenium answer --project demo AGN-1 <question-id> "Use port 8080"
 agenium events --follow
 agenium backup full && agenium backup list
+agenium models download                              # local embedding model for agent memory (~130 MB, sha256-checked)
+agenium skill import ./my-skill --agent ada          # SKILL.md folder, .zip or https URL
+agenium mcp import mcp.json                          # {"mcpServers": {...}}; literal secrets move to the vault
+agenium agent mcp ada --server github --cred TOKEN=gh-dev --tools create_issue
+agenium agent export ada ada.agent.jsonl.zst         # import: agenium agent import <file> --project <p>
 ```
 
 Safety model in this phase: there is no OS sandbox on Windows (v1 targets Linux + macOS, ADR-39), so YOLO mode is
@@ -56,7 +62,9 @@ databases, git or logs. Language: talk to the Lead/Solo in any language; everyth
 | `agenium-sandbox` | Command execution: fail-closed sandbox detection, clean env, process-tree kill |
 | `agenium-llm` | Provider trait, Anthropic / Gemini / OpenAI-compatible adapters, retry, pricing |
 | `agenium-tools` | Work tools (files, patch, grep/glob, shell, fetch, todo) |
-| `agenium-memory` | Embedder trait, memory retrieval for work orders |
+| `agenium-memory` | Embedder trait + local model (candle), retrieval for work orders, memory pipeline |
+| `agenium-skills` | Skill folders (SKILL.md): validation, role/agent resolution, import |
+| `agenium-mcp` | MCP client hub (stdio, Streamable HTTP), credential binding, MCP tools |
 | `agenium-backend` | The agent loop (work order, model turns, tool execution, limits) |
 | `agenium-orchestrator` | App service, intent engine, git effects + reconcile, scheduler, agent runtime |
 | `agenium-eval` | Golden tasks and score table |

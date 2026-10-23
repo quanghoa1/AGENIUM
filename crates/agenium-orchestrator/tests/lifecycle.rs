@@ -501,3 +501,46 @@ fn merge_conflict_reopens_with_file_list() {
         |c| matches!(&c.body, CommentBody::System { text } if text.contains("notes/shared.md"))
     ));
 }
+
+/// Found with a real model: after a new spec version adds a requirement, a plan revision must trace to the newest
+/// approved spec, not to the spec of the base plan.
+#[test]
+fn plan_revision_follows_the_newest_approved_spec() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let lead = Actor::Lead(a.id);
+    let mut s2 = spec();
+    s2.requirements.push(agenium_core::plan::Requirement {
+        id: "REQ-2".into(),
+        text: "A second greeting file exists".into(),
+        acceptance: vec![agenium_core::ticket::AcceptanceCriterion {
+            id: "AC-1".into(),
+            text: "hello2.txt says hello".into(),
+        }],
+    });
+    f.app
+        .apply(&ctx(&f, lead), Intent::ProposeSpec(s2))
+        .unwrap();
+    let mut p = plan(&[("PI-1", &[]), ("PI-2", &[])]);
+    p.items[1].trace_to = vec!["REQ-2".into()];
+    let out = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::RevisePlan(agenium_core::plan::PlanRevision {
+                base_version: 1,
+                reason: "add the second greeting".into(),
+                milestones: p.milestones,
+                items: p.items,
+            }),
+        )
+        .unwrap();
+    assert_eq!(out.result["plan_version"], 2);
+    let latest = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::plans::latest_plan(c, f.project.id))
+        .unwrap()
+        .unwrap();
+    assert_eq!(latest.body.spec_version, 2);
+}
