@@ -1,0 +1,8 @@
+Agenium
+Copyright 2026 The Agenium authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Design references: OpenAI Codex (https://github.com/openai/codex, Apache-2.0) informs the sandbox, apply_patch
+format and exec design. Any code ported from Codex keeps its original header and is listed here.
+No Codex source is included at this time.

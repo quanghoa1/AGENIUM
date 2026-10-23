@@ -1,0 +1,5 @@
+name,pkg,features,rc,wall_s,bin_bytes,target_bytes
+base,s0-tauri-base,,rc=0,wall_s=63,bin_bytes=10804680,target_bytes=1207077306
+surrealkv,s0-full,surrealkv,rc=0,wall_s=320,bin_bytes=196253256,target_bytes=3526825295
+rocksdb,s0-full,rocksdb,rc=0,wall_s=515,bin_bytes=207483008,target_bytes=3738136581
+done

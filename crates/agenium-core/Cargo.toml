@@ -1,0 +1,19 @@
+[package]
+name = "agenium-core"
+description = "Agenium domain types: ids, tickets, comments, forms, intents, state machine and dependency rules (no I/O)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ulid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

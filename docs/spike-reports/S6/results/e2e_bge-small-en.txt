@@ -1,0 +1,11 @@
+METRIC bge-small-en,e2e_embed_2000_facts_s,4.0
+METRIC bge-small-en,e2e_embed_throughput_facts_per_s,503.4
+METRIC bge-small-en,e2e_insert_2000_with_hnsw_s,1.4
+METRIC bge-small-en,e2e_hnsw_recall@10_vs_exact_real_embeddings_ef40,0.9660
+METRIC bge-small-en,e2e_hnsw_recall@10_vs_exact_real_embeddings_ef100,0.9920
+METRIC bge-small-en,e2e_tickets,50
+METRIC bge-small-en,e2e_recall@5_in_2000,0.200
+METRIC bge-small-en,e2e_recall@1_in_2000,0.180
+METRIC bge-small-en,e2e_embed_query_p50_ms,4.6
+METRIC bge-small-en,e2e_total_p50_ms,5.6
+METRIC bge-small-en,e2e_total_p95_ms,7.1

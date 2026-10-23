@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/get_team.schema.json",
+  "title": "get_team",
+  "description": "Read the team roster (role, tags, status, current ticket)",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}

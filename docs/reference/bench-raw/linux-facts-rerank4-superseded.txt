@@ -1,0 +1,37 @@
+=== facts 10000 14:16:18
+RESULT facts.10000.ingest_exact n=10000 ingest_s=0.6 rate_per_s=17781 rss_delta_mb=22 db_mb_before_ckpt=19 wal_mb_before_ckpt=5 ckpt_truncate_s=0.00 db_mb=19 wal_mb_after=0.0 bytes_per_fact=1939
+RESULT facts.10000.knn_exact open_s=0.001 queries=200 p50_ms=5.02 p95_ms=5.53 recall10=1.0000 rss_mb=52
+RESULT facts.10000.bm25_hybrid_exact bm25_p50_ms=0.86 bm25_p95_ms=1.78 hybrid_p50_ms=6.34 hybrid_p95_ms=7.46
+RESULT facts.10000.hybrid_needle found_of_50=50
+RESULT facts.10000.knn_ann build_s=0.3 build_rate_per_s=28755 save_s=0.02 sidecar_mb=9 p50_ms=0.761 p95_ms=1.340 recall10=0.9885 rss_mb=93 ann_mem_mb=17
+RESULT facts.10000.hybrid_ann hybrid_p50_ms=3.84 hybrid_p95_ms=4.92 needle_found_of_50=50
+RESULT facts.10000.reopen_with_sidecar open_s=0.009 ready_at_open=true
+RESULT facts.10000.live_ingest_ann facts=3000 rate_per_s=3235 consistent=true
+RESULT facts.10000.concurrent_4r_1w reader_queries=901 reader_p50_ms=35.409 reader_p95_ms=43.679 reader_max_ms=124.1 writer_facts_per_s=1159 consistent=true
+RESULT facts.10000.backup_vacuum rows=22280 backup_s=0.2 backup_mb=34 wal_mb_before_ckpt=70 ckpt_truncate_s=0.02 vacuum_s=0.2 db_mb_before_vacuum=40 db_mb_after_vacuum=40
+RESULT facts.10000.restore restore_s=0.1 open_s=0.002 ann_rebuild_s=1.0 ann_ready=true rows_equal=true rows=22280
+RESULT facts.10000.peak peak_rss_mb=203
+=== facts 100000 14:16:34
+RESULT facts.100000.ingest_exact n=100000 ingest_s=5.6 rate_per_s=17872 rss_delta_mb=22 db_mb_before_ckpt=184 wal_mb_before_ckpt=8 ckpt_truncate_s=0.00 db_mb=184 wal_mb_after=0.0 bytes_per_fact=1843
+RESULT facts.100000.knn_exact open_s=0.001 queries=200 p50_ms=49.86 p95_ms=57.10 recall10=1.0000 rss_mb=184
+RESULT facts.100000.bm25_hybrid_exact bm25_p50_ms=7.64 bm25_p95_ms=15.64 hybrid_p50_ms=63.78 hybrid_p95_ms=74.03
+RESULT facts.100000.hybrid_needle found_of_50=50
+RESULT facts.100000.knn_ann build_s=5.8 build_rate_per_s=17176 save_s=0.20 sidecar_mb=92 p50_ms=6.223 p95_ms=7.697 recall10=0.9805 rss_mb=330 ann_mem_mb=152
+RESULT facts.100000.hybrid_ann hybrid_p50_ms=47.89 hybrid_p95_ms=75.63 needle_found_of_50=50
+RESULT facts.100000.reopen_with_sidecar open_s=0.083 ready_at_open=true
+RESULT facts.100000.live_ingest_ann facts=3000 rate_per_s=2038 consistent=true
+RESULT facts.100000.concurrent_4r_1w reader_queries=681 reader_p50_ms=43.344 reader_p95_ms=71.260 reader_max_ms=118.2 writer_facts_per_s=859 consistent=true
+RESULT facts.100000.backup_vacuum rows=109880 backup_s=1.1 backup_mb=170 wal_mb_before_ckpt=56 ckpt_truncate_s=0.01 vacuum_s=1.0 db_mb_before_vacuum=202 db_mb_after_vacuum=202
+RESULT facts.100000.restore restore_s=0.4 open_s=0.002 ann_rebuild_s=7.2 ann_ready=true rows_equal=true rows=109880
+RESULT facts.100000.peak peak_rss_mb=616
+=== facts 500000 14:17:45
+RESULT facts.500000.ingest_exact n=500000 ingest_s=28.4 rate_per_s=17612 rss_delta_mb=22 db_mb_before_ckpt=918 wal_mb_before_ckpt=14 ckpt_truncate_s=0.00 db_mb=918 wal_mb_after=0.0 bytes_per_fact=1837
+RESULT facts.500000.knn_exact open_s=0.003 queries=60 p50_ms=280.96 p95_ms=299.90 recall10=1.0000 rss_mb=770
+RESULT facts.500000.bm25_hybrid_exact bm25_p50_ms=36.70 bm25_p95_ms=112.21 hybrid_p50_ms=328.90 hybrid_p95_ms=388.03
+RESULT facts.500000.hybrid_needle found_of_50=50
+RESULT facts.500000.knn_ann build_s=38.2 build_rate_per_s=13080 save_s=0.67 sidecar_mb=458 p50_ms=8.364 p95_ms=12.129 recall10=0.9650 rss_mb=1311 ann_mem_mb=659
+RESULT facts.500000.hybrid_ann hybrid_p50_ms=185.62 hybrid_p95_ms=712.57 needle_found_of_50=50
+RESULT facts.500000.reopen_with_sidecar open_s=1.067 ready_at_open=true
+RESULT facts.500000.live_ingest_ann facts=3000 rate_per_s=1716 consistent=true
+RESULT facts.500000.concurrent_4r_1w reader_queries=722 reader_p50_ms=41.325 reader_p95_ms=57.305 reader_max_ms=350.1 writer_facts_per_s=766 consistent=true
+RESULT facts.500000.backup_vacuum rows=509140 backup_s=8.1 backup_mb=780 wal_mb_before_ckpt=49 ckpt_truncate_s=0.00 vacuum_s=6.6 db_mb_before_vacuum=934 db_mb_after_vacuum=934

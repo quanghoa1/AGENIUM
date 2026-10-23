@@ -1,0 +1,293 @@
+[
+ {
+  "point": 1,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T1: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after MergeStarted event"
+ },
+ {
+  "point": 1,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T2: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after MergeStarted event"
+ },
+ {
+  "point": 1,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T3: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after MergeStarted event"
+ },
+ {
+  "point": 2,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": -9,
+  "reconcile_actions": [
+   "RECONCILE: T1: aborted half-done rebase",
+   "RECONCILE: T1: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid-rebase"
+ },
+ {
+  "point": 2,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": -9,
+  "reconcile_actions": [
+   "RECONCILE: T2: aborted half-done rebase",
+   "RECONCILE: T2: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid-rebase"
+ },
+ {
+  "point": 2,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": -9,
+  "reconcile_actions": [
+   "RECONCILE: T3: aborted half-done rebase",
+   "RECONCILE: T3: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid-rebase"
+ },
+ {
+  "point": 3,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T1: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after rebase, before pre-merge check"
+ },
+ {
+  "point": 3,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T2: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after rebase, before pre-merge check"
+ },
+ {
+  "point": 3,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T3: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after rebase, before pre-merge check"
+ },
+ {
+  "point": 4,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": -9,
+  "reconcile_actions": [
+   "RECONCILE: T1: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid pre-merge check"
+ },
+ {
+  "point": 4,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": -9,
+  "reconcile_actions": [
+   "RECONCILE: T2: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid pre-merge check"
+ },
+ {
+  "point": 4,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": -9,
+  "reconcile_actions": [
+   "RECONCILE: T3: merge incomplete -> re-queued (main untouched)"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid pre-merge check"
+ },
+ {
+  "point": 5,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T1: merge was complete -> wrote MergeDone"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after merge, before MergeDone"
+ },
+ {
+  "point": 5,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T2: merge was complete -> wrote MergeDone"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after merge, before MergeDone"
+ },
+ {
+  "point": 5,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T3: merge was complete -> wrote MergeDone"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "after merge, before MergeDone"
+ },
+ {
+  "point": 6,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T1: re-ran idempotent auto-commit"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid auto-commit (after git add)"
+ },
+ {
+  "point": 6,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T2: re-ran idempotent auto-commit"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid auto-commit (after git add)"
+ },
+ {
+  "point": 6,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T3: re-ran idempotent auto-commit"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid auto-commit (after git add)"
+ },
+ {
+  "point": 7,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T1: finished worktree removal"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid worktree removal"
+ },
+ {
+  "point": 7,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T2: finished worktree removal"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid worktree removal"
+ },
+ {
+  "point": 7,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: T3: finished worktree removal"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "mid worktree removal"
+ },
+ {
+  "point": 8,
+  "nth": 1,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: push: remote already has main -> wrote PushDone"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "while pushing to remote"
+ },
+ {
+  "point": 8,
+  "nth": 2,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: push: remote already has main -> wrote PushDone"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "while pushing to remote"
+ },
+ {
+  "point": 8,
+  "nth": 3,
+  "killed": true,
+  "kill_rc": 137,
+  "reconcile_actions": [
+   "RECONCILE: push: remote already has main -> wrote PushDone"
+  ],
+  "problems": [],
+  "result": "SELF-HEALED",
+  "name": "while pushing to remote"
+ }
+]

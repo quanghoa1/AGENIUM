@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/approve_permission.schema.json",
+  "title": "approve_permission",
+  "description": "Allowlist only; valid for the current run only. There is no 'always' option — only the user can grant always-allow",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "Approve",
+        "Deny"
+      ]
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "request_id",
+    "decision"
+  ]
+}

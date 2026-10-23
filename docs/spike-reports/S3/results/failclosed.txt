@@ -1,0 +1,12 @@
+## SBX_SIM_NO_LANDLOCK=1 target-sbx/release/sbx --rw /tmp -- echo RAN
+sbx: landlock unavailable (simulated ENOSYS) -> REFUSING TO RUN (fail-closed)
+rc=126
+## target-sbx/release/sbx --require-abi 99 --rw /tmp -- echo RAN
+sbx: host landlock abi 6 < required 99 -> REFUSING TO RUN (fail-closed)
+rc=126
+## target-sbx/release/sbx --require-abi 1 --rw /tmp -- echo RAN
+RAN
+rc=0
+## target-sbx/release/sbx --rw /tmp -- echo RAN
+RAN
+rc=0

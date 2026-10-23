@@ -1,0 +1,29 @@
+test ann::exact_mode_never_builds_an_index ... ok
+test delete_keeps_vector_and_text_indexes_in_sync ... ok
+test persists_and_refuses_other_dimension ... ok
+test bm25_hybrid_supersede_and_validation ... ok
+test exact_knn_equals_brute_force ... ok
+test ann::auto_mode_switches_at_the_threshold ... ok
+test ann::corrupt_or_missing_sidecar_is_rebuilt ... ok
+test ann::crash_after_inserts_replays_the_journal ... ok
+test busy_readers_do_not_keep_the_wal_growing ... ok
+test ann::forced_ann_has_high_recall_and_survives_reopen ... ok
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.89s
+   Compiling agenium-store v0.1.0 (/workspace/agenium-app/crates/agenium-store)
+   Compiling agenium-store-bench v0.1.0 (/workspace/agenium-app/crates/agenium-store-bench)
+    Finished `release` profile [optimized] target(s) in 1m 51s
+=== stress 100k walgate 15:31:30
+RESULT stress.100000.walgate.setup n=100000 index_ready_s=5.1 autockpt=1000 tick=1 batch=20 sqlite_memory_used=0
+RESULT stress.100000.walgate.bm25.idle secs=8 reader_queries=4337 p50_ms=7.11 p95_ms=13.97 p99_ms=16.36 max_ms=20.3 over_100ms=0 worst_window_max_ms=20@2s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.100000.walgate.bm25.writer secs=20 reader_queries=7491 p50_ms=8.82 p95_ms=23.03 p99_ms=56.78 max_ms=99.0 over_100ms=0 worst_window_max_ms=99@0s writer_facts_per_s=1655 writer_batch_p95_ms=20.8 writer_batch_max_ms=238 wal_peak_mb=96 wal_end_mb=66 consistent=true
+RESULT stress.100000.walgate.hybrid.idle secs=8 reader_queries=3837 p50_ms=8.08 p95_ms=15.34 p99_ms=17.68 max_ms=26.4 over_100ms=0 worst_window_max_ms=26@6s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=66 wal_end_mb=66 consistent=true
+RESULT stress.100000.walgate.hybrid.writer secs=20 reader_queries=6872 p50_ms=9.52 p95_ms=22.62 p99_ms=68.09 max_ms=139.4 over_100ms=14 worst_window_max_ms=139@0s writer_facts_per_s=1487 writer_batch_p95_ms=23.1 writer_batch_max_ms=367 wal_peak_mb=96 wal_end_mb=12 consistent=true
+RESULT stress.100000.walgate.exact.idle secs=8 reader_queries=520 p50_ms=60.20 p95_ms=67.49 p99_ms=76.08 max_ms=199.0 over_100ms=4 worst_window_max_ms=199@0s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=12 wal_end_mb=12 consistent=true
+RESULT stress.100000.walgate.exact.writer secs=20 reader_queries=835 p50_ms=93.36 p95_ms=120.91 p99_ms=139.75 max_ms=262.5 over_100ms=290 worst_window_max_ms=263@0s writer_facts_per_s=1610 writer_batch_p95_ms=15.2 writer_batch_max_ms=317 wal_peak_mb=96 wal_end_mb=70 consistent=true
+RESULT stress.100000.walgate.peak peak_rss_mb=1692
+=== stress 500k walgate 15:33:06
+RESULT stress.500000.walgate.setup n=500000 index_ready_s=32.6 autockpt=1000 tick=1 batch=20 sqlite_memory_used=0
+RESULT stress.500000.walgate.hybrid.idle secs=8 reader_queries=842 p50_ms=35.51 p95_ms=75.79 p99_ms=91.53 max_ms=107.3 over_100ms=2 worst_window_max_ms=107@4s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.500000.walgate.hybrid.writer secs=20 reader_queries=1396 p50_ms=49.54 p95_ms=133.51 p99_ms=190.99 max_ms=286.3 over_100ms=152 worst_window_max_ms=286@0s writer_facts_per_s=1467 writer_batch_p95_ms=20.0 writer_batch_max_ms=928 wal_peak_mb=95 wal_end_mb=38 consistent=true
+RESULT stress.500000.walgate.peak peak_rss_mb=2593
+FINISHED

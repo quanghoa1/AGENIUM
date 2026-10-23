@@ -1,0 +1,54 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/request_permission.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Request a permission the sandbox does not give (network domain, path outside the worktree, blocked command). The ticket pauses until decided.",
+  "properties": {
+    "command": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "domains": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "kind": {
+      "enum": [
+        "network",
+        "path",
+        "command"
+      ],
+      "type": "string"
+    },
+    "paths": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "reason": {
+      "minLength": 5,
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "kind",
+    "reason"
+  ],
+  "title": "request_permission",
+  "type": "object",
+  "x-agenium-role": "Worker"
+}

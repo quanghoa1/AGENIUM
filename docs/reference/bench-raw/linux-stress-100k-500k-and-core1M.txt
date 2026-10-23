@@ -1,0 +1,43 @@
+=== stress 100k fixed 15:18:36
+RESULT stress.100000.fixed.setup n=100000 index_ready_s=5.0 autockpt=1000 tick=1 batch=20 sqlite_memory_used=0
+RESULT stress.100000.fixed.knn.idle secs=8 reader_queries=90979 p50_ms=0.35 p95_ms=0.45 p99_ms=0.66 max_ms=91.1 over_100ms=0 worst_window_max_ms=91@7s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.100000.fixed.knn.writer secs=15 reader_queries=168759 p50_ms=0.33 p95_ms=0.43 p99_ms=0.55 max_ms=24.3 over_100ms=0 worst_window_max_ms=24@3s writer_facts_per_s=1875 writer_batch_p95_ms=13.5 writer_batch_max_ms=189 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.100000.fixed.bm25.idle secs=8 reader_queries=4000 p50_ms=7.41 p95_ms=14.74 p99_ms=21.95 max_ms=158.9 over_100ms=3 worst_window_max_ms=159@3s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.100000.fixed.bm25.writer secs=15 reader_queries=5645 p50_ms=8.91 p95_ms=19.85 p99_ms=55.94 max_ms=118.1 over_100ms=3 worst_window_max_ms=118@14s writer_facts_per_s=1499 writer_batch_p95_ms=22.4 writer_batch_max_ms=258 wal_peak_mb=176 wal_end_mb=176 consistent=true
+RESULT stress.100000.fixed.hybrid.idle secs=8 reader_queries=3826 p50_ms=7.95 p95_ms=15.27 p99_ms=18.42 max_ms=71.3 over_100ms=0 worst_window_max_ms=71@2s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=176 wal_end_mb=176 consistent=true
+RESULT stress.100000.fixed.hybrid.writer secs=15 reader_queries=5536 p50_ms=9.35 p95_ms=19.28 p99_ms=53.12 max_ms=92.5 over_100ms=0 worst_window_max_ms=92@8s writer_facts_per_s=1566 writer_batch_p95_ms=19.8 writer_batch_max_ms=305 wal_peak_mb=357 wal_end_mb=359 consistent=true
+RESULT stress.100000.fixed.exact.idle secs=8 reader_queries=467 p50_ms=67.44 p95_ms=74.08 p99_ms=89.04 max_ms=206.3 over_100ms=4 worst_window_max_ms=206@0s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=359 wal_end_mb=359 consistent=true
+RESULT stress.100000.fixed.exact.writer secs=15 reader_queries=555 p50_ms=106.79 p95_ms=137.28 p99_ms=195.77 max_ms=219.5 over_100ms=341 worst_window_max_ms=219@6s writer_facts_per_s=1511 writer_batch_p95_ms=16.4 writer_batch_max_ms=340 wal_peak_mb=535 wal_end_mb=535 consistent=true
+RESULT stress.100000.fixed.peak peak_rss_mb=1708
+=== stress 100k nommap 15:20:20
+RESULT stress.100000.nommap.setup n=100000 index_ready_s=5.6 autockpt=1000 tick=1 batch=20 sqlite_memory_used=0
+RESULT stress.100000.nommap.hybrid.idle secs=8 reader_queries=416 p50_ms=75.68 p95_ms=149.97 p99_ms=170.93 max_ms=189.4 over_100ms=113 worst_window_max_ms=189@1s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.100000.nommap.hybrid.writer secs=15 reader_queries=656 p50_ms=88.33 p95_ms=172.40 p99_ms=203.09 max_ms=222.6 over_100ms=270 worst_window_max_ms=223@6s writer_facts_per_s=989 writer_batch_p95_ms=27.0 writer_batch_max_ms=83 wal_peak_mb=115 wal_end_mb=116 consistent=true
+RESULT stress.100000.nommap.peak peak_rss_mb=365
+=== stress 500k fixed 15:20:55
+RESULT stress.500000.fixed.setup n=500000 index_ready_s=31.7 autockpt=1000 tick=1 batch=20 sqlite_memory_used=0
+RESULT stress.500000.fixed.knn.idle secs=8 reader_queries=86698 p50_ms=0.37 p95_ms=0.51 p99_ms=0.56 max_ms=0.9 over_100ms=0 worst_window_max_ms=1@2s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.500000.fixed.knn.writer secs=20 reader_queries=215916 p50_ms=0.37 p95_ms=0.52 p99_ms=0.59 max_ms=86.6 over_100ms=0 worst_window_max_ms=87@14s writer_facts_per_s=1789 writer_batch_p95_ms=13.8 writer_batch_max_ms=832 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.500000.fixed.hybrid.idle secs=8 reader_queries=511 p50_ms=57.89 p95_ms=125.00 p99_ms=161.33 max_ms=199.5 over_100ms=80 worst_window_max_ms=200@0s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.500000.fixed.hybrid.writer secs=20 reader_queries=1588 p50_ms=44.60 p95_ms=101.37 p99_ms=196.59 max_ms=406.0 over_100ms=86 worst_window_max_ms=406@13s writer_facts_per_s=1290 writer_batch_p95_ms=19.7 writer_batch_max_ms=1011 wal_peak_mb=209 wal_end_mb=210 consistent=true
+RESULT stress.500000.fixed.peak peak_rss_mb=2321
+=== core 1M 15:22:55
+RESULT core.1000000e_100000t_300000c.bulk_load load_s=11.1 db_mb=382 bytes_per_event_ticket_comment_avg=273
+RESULT core.1000000e_100000t_300000c.open open_and_migrate_noop_s=0.002 rss_mb=18
+RESULT core.1000000e_100000t_300000c.append_event rate_per_s=4925 p50_ms=0.07 p95_ms=0.23
+RESULT core.1000000e_100000t_300000c.create_and_assign_ticket p50_ms=0.80 p95_ms=2.14
+RESULT core.1000000e_100000t_300000c.events_since_500 p50_ms=0.49 p95_ms=0.69 last_seq=1003601
+RESULT core.1000000e_100000t_300000c.events_for_ticket p50_ms=0.08 p95_ms=0.11
+RESULT core.1000000e_100000t_300000c.get_ticket_by_key p50_ms=0.05 p95_ms=0.06
+RESULT core.1000000e_100000t_300000c.list_tickets.InProgress rows=3792 ms=30.9
+RESULT core.1000000e_100000t_300000c.list_tickets.Assigned rows=4206 ms=31.1
+RESULT core.1000000e_100000t_300000c.ready_tickets rows=8005 ms=52.2
+RESULT core.1000000e_100000t_300000c.concurrent_4r_1w reader_queries=81223 reader_p50_ms=0.38 reader_p95_ms=0.52 writer_events_per_s=6101 wal_mb_after=8.7
+RESULT core.1000000e_100000t_300000c.backup_full s=2.0 mb=72
+RESULT core.1000000e_100000t_300000c.backup_incremental s=2.1 mb=2.5
+RESULT core.1000000e_100000t_300000c.archive archived_rows=750003 files=4 archive_s=5.6 archive_mb=21 verify_s=0.0 verified_rows=750003 archived_read_p50_ms=58.17 archived_read_p95_ms=235.20 db_mb_before=387 db_mb_after_delete=387
+RESULT core.1000000e_100000t_300000c.archive_seq_continuity last_seq_before=1054410 next_seq=1054411 contiguous=true
+RESULT core.1000000e_100000t_300000c.vacuum s=0.9 db_mb_after=196
+RESULT core.1000000e_100000t_300000c.migrate_index_with_prebackup from=1 to=2 s=1.0
+RESULT core.1000000e_100000t_300000c.peak peak_rss_mb=894 dir_mb=335
+FINISHED

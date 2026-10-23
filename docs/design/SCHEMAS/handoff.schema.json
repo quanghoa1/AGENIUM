@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/handoff.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "source_ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "target_ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "source_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "finding",
+              "artifact",
+              "comment",
+              "fact"
+            ]
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "ref"
+        ]
+      },
+      "minItems": 1
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "author": {
+      "type": "string",
+      "enum": [
+        "Lead",
+        "User",
+        "System"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "source_ticket",
+    "target_ticket",
+    "source_items",
+    "summary",
+    "author",
+    "created_at"
+  ],
+  "title": "Handoff",
+  "description": "Immutable; created only by Lead/User/System; creates a TicketLink automatically"
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/load_skill.schema.json",
+  "title": "load_skill",
+  "description": "Load the full SKILL.md",
+  "x-agenium-role": "Shared",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

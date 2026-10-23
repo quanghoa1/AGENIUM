@@ -1,0 +1,5 @@
+### canary scan of vault + data dir + results
+pattern=[CANARY] hits (excluding the source key files): 
+pattern=[ghp_CANARY] hits (excluding the source key files): 
+pattern=[sk-ant-CANARY] hits (excluding the source key files): 
+pattern=[b3BlbnNzaC1rZXktdjEA] hits (excluding the source key files): 

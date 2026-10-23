@@ -1,0 +1,17 @@
+[package]
+name = "agenium-bus"
+description = "Realtime event bus: tokio broadcast fed by the store's EventSink, with gap/lag resync from the event log."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-core.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+agenium-store.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

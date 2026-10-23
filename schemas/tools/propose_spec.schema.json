@@ -1,0 +1,89 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Propose the requirement spec after discovery. A team's spec waits for user approval; a Solo agent's spec is locked at once and the user is informed.",
+  "properties": {
+    "constraints": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "goals": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "out_of_scope": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "requirements": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance": {
+            "items": {
+              "additionalProperties": false,
+              "description": "One acceptance criterion; ids look like `AC-1` and are referenced by reports and reviews.",
+              "properties": {
+                "id": {
+                  "pattern": "^AC-[0-9]+$",
+                  "type": "string"
+                },
+                "text": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "text"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "id": {
+            "description": "Requirement id, e.g. REQ-1.",
+            "pattern": "^REQ-[0-9]+$",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "acceptance"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "scope": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "goals",
+    "requirements"
+  ],
+  "title": "propose_spec",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/create_ticket.schema.json",
+  "title": "create_ticket",
+  "description": "Create a ticket; the dependency graph must be acyclic; overlapping scope_paths require depends_on",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Epic",
+        "Story",
+        "Task",
+        "Bug",
+        "Requirement"
+      ]
+    },
+    "plan_item": {
+      "type": "string",
+      "pattern": "^PI-[0-9]+$"
+    },
+    "parent": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "description": "TicketKey, vd. AGN-11"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string"
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^AC-[0-9]+$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ]
+      },
+      "minItems": 1
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]+-[0-9]+$",
+        "description": "TicketKey, vd. AGN-11"
+      }
+    },
+    "required_role": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "required_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report_template": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+@[0-9]+$"
+    }
+  },
+  "required": [
+    "intent_id",
+    "kind",
+    "plan_item",
+    "title",
+    "acceptance"
+  ]
+}

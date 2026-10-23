@@ -1,0 +1,12 @@
+RESULT vectorlite n=10000 build_s=1.7 rate_per_s=5899 rss_mb=63
+RESULT vectorlite.ef64 n=10000 p50_ms=0.123 p95_ms=0.147 recall10=0.9825
+RESULT vectorlite.ef128 n=10000 p50_ms=0.210 p95_ms=0.254 recall10=0.9965
+RESULT vectorlite.trigger_insert=ERR Failed to insert row 10001 due to: The number of elements exceeds the specified limit
+file_mb n/a (written on close)
+file_mb_after_close 16.846132
+RESULT vectorlite n=100000 build_s=25.8 rate_per_s=3877 rss_mb=348
+RESULT vectorlite.ef64 n=100000 p50_ms=0.124 p95_ms=0.160 recall10=0.9620
+RESULT vectorlite.ef128 n=100000 p50_ms=0.210 p95_ms=0.263 recall10=0.9885
+RESULT vectorlite.trigger_insert=ERR Failed to insert row 100001 due to: The number of elements exceeds the specified limit
+file_mb n/a (written on close)
+file_mb_after_close 168.444136

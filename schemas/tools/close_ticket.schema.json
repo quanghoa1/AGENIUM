@@ -1,0 +1,24 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/close_ticket.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Close a Resolved, approved ticket with a reason. Code tickets must be merged first. Closed is final.",
+  "properties": {
+    "reason": {
+      "minLength": 5,
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "reason"
+  ],
+  "title": "close_ticket",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

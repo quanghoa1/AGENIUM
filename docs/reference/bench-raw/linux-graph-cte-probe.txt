@@ -1,0 +1,32 @@
+# graph CTE feasibility probe (python3 sqlite3 3.46, Linux 8 cores, warm page cache, NOT the Rust store). Script: graph-cte-probe.py
+# 1M run (edges=1,000,000; entities=333,333; ~10% of edges carry a vendor scope; context vendor=netgear; 100 seeds, 30 for path-guarded depth 3)
+edges=1000000 entities=333333 build=15.9s file=248MB
+A path-guarded     depth=1 seeds=random     n=100 p50=    0.04ms p95=    0.07ms timeouts(>3s)=0 avg_result_rows=5
+A path-guarded     depth=1 seeds=hub-biased n=100 p50=    0.04ms p95=    0.18ms timeouts(>3s)=0 avg_result_rows=10
+A path-guarded     depth=2 seeds=random     n=100 p50=    0.19ms p95=    0.62ms timeouts(>3s)=0 avg_result_rows=33
+A path-guarded     depth=2 seeds=hub-biased n=100 p50=    0.28ms p95=    2.17ms timeouts(>3s)=0 avg_result_rows=41
+A path-guarded     depth=3 seeds=random     n=30 p50=    1.19ms p95=    4.55ms timeouts(>3s)=0 avg_result_rows=49
+A path-guarded     depth=3 seeds=hub-biased n=30 p50=    1.71ms p95=   15.22ms timeouts(>3s)=0 avg_result_rows=49
+B set-based UNION  depth=1 seeds=random     n=100 p50=    0.03ms p95=    0.05ms timeouts(>3s)=0 avg_result_rows=5
+B set-based UNION  depth=1 seeds=hub-biased n=100 p50=    0.04ms p95=    0.15ms timeouts(>3s)=0 avg_result_rows=10
+B set-based UNION  depth=2 seeds=random     n=100 p50=    0.16ms p95=    0.45ms timeouts(>3s)=0 avg_result_rows=34
+B set-based UNION  depth=2 seeds=hub-biased n=100 p50=    0.23ms p95=    2.00ms timeouts(>3s)=0 avg_result_rows=42
+B set-based UNION  depth=3 seeds=random     n=100 p50=    1.11ms p95=    4.77ms timeouts(>3s)=0 avg_result_rows=49
+B set-based UNION  depth=3 seeds=hub-biased n=100 p50=    1.68ms p95=   15.55ms timeouts(>3s)=0 avg_result_rows=49
+
+# 100k run, same script (the first run used a UNION ALL view over edge and cost ~300 ms/query = a full scan per step; it is the anti-pattern ADR-51 warns about)
+A path-guarded     depth=1 seeds=random     n=100 p50=    0.06ms p95=    0.09ms timeouts(>3s)=0 avg_result_rows=5
+A path-guarded     depth=1 seeds=hub-biased n=100 p50=    0.04ms p95=    0.21ms timeouts(>3s)=0 avg_result_rows=10
+A path-guarded     depth=2 seeds=random     n=100 p50=    0.17ms p95=    0.35ms timeouts(>3s)=0 avg_result_rows=36
+A path-guarded     depth=2 seeds=hub-biased n=100 p50=    0.22ms p95=    1.20ms timeouts(>3s)=0 avg_result_rows=40
+A path-guarded     depth=3 seeds=random     n=30 p50=    0.77ms p95=    2.59ms timeouts(>3s)=0 avg_result_rows=50
+A path-guarded     depth=3 seeds=hub-biased n=30 p50=    1.56ms p95=    3.69ms timeouts(>3s)=0 avg_result_rows=50
+B set-based UNION  depth=1 seeds=random     n=100 p50=    0.02ms p95=    0.04ms timeouts(>3s)=0 avg_result_rows=5
+B set-based UNION  depth=1 seeds=hub-biased n=100 p50=    0.03ms p95=    0.13ms timeouts(>3s)=0 avg_result_rows=10
+B set-based UNION  depth=2 seeds=random     n=100 p50=    0.13ms p95=    0.30ms timeouts(>3s)=0 avg_result_rows=36
+B set-based UNION  depth=2 seeds=hub-biased n=100 p50=    0.18ms p95=    1.14ms timeouts(>3s)=0 avg_result_rows=40
+B set-based UNION  depth=3 seeds=random     n=100 p50=    0.80ms p95=    2.48ms timeouts(>3s)=0 avg_result_rows=49
+B set-based UNION  depth=3 seeds=hub-biased n=100 p50=    1.32ms p95=    7.39ms timeouts(>3s)=0 avg_result_rows=50
+
+# hub test (node with degree 1761 as dst + its out edges), 1M graph, set-based, scope filter on:
+depth 1: 5.8 ms (50 rows)   depth 2: 43.5 ms   depth 3: 319 ms ; full 3-hop reach without LIMIT/filters = 82,607 nodes in 191 ms

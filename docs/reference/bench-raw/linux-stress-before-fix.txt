@@ -1,0 +1,24 @@
+=== stress 100k cur 14:50:13
+RESULT stress.100000.cur.setup n=100000 index_ready_s=5.4 autockpt=1000 tick=1 batch=20
+RESULT stress.100000.cur.knn.idle secs=8 reader_queries=101477 p50_ms=0.32 p95_ms=0.40 p99_ms=0.44 max_ms=84.8 over_100ms=0 worst_window_max_ms=85@5s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.100000.cur.knn.writer secs=15 reader_queries=196109 p50_ms=0.30 p95_ms=0.39 p99_ms=0.43 max_ms=155.2 over_100ms=1 worst_window_max_ms=155@10s writer_facts_per_s=1741 writer_batch_p95_ms=11.9 writer_batch_max_ms=1639 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.100000.cur.hybrid.idle secs=8 reader_queries=419 p50_ms=75.15 p95_ms=146.43 p99_ms=162.31 max_ms=188.1 over_100ms=115 worst_window_max_ms=188@3s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.100000.cur.hybrid.writer secs=102 reader_queries=4411 p50_ms=89.30 p95_ms=174.79 p99_ms=206.31 max_ms=326.0 over_100ms=1809 worst_window_max_ms=326@69s writer_facts_per_s=25 writer_batch_p95_ms=27.7 writer_batch_max_ms=99305 wal_peak_mb=23 wal_end_mb=23 consistent=true
+RESULT stress.100000.cur.exact.idle secs=8 reader_queries=428 p50_ms=72.83 p95_ms=90.41 p99_ms=159.85 max_ms=166.8 over_100ms=20 worst_window_max_ms=167@0s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=23 wal_end_mb=23 consistent=true
+RESULT stress.100000.cur.exact.writer secs=22 reader_queries=1176 p50_ms=72.42 p95_ms=86.94 p99_ms=131.33 max_ms=204.2 over_100ms=39 worst_window_max_ms=204@3s writer_facts_per_s=190 writer_batch_p95_ms=16.4 writer_batch_max_ms=19121 wal_peak_mb=55 wal_end_mb=55 consistent=true
+RESULT stress.100000.cur.peak peak_rss_mb=418
+=== stress 100k notick 14:53:08
+RESULT stress.100000.notick.setup n=100000 index_ready_s=5.8 autockpt=1000 tick=0 batch=20
+RESULT stress.100000.notick.knn.idle secs=8 reader_queries=99495 p50_ms=0.32 p95_ms=0.41 p99_ms=0.44 max_ms=13.1 over_100ms=0 worst_window_max_ms=13@0s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.100000.notick.knn.writer secs=15 reader_queries=189671 p50_ms=0.32 p95_ms=0.41 p99_ms=0.44 max_ms=28.4 over_100ms=0 worst_window_max_ms=28@10s writer_facts_per_s=2137 writer_batch_p95_ms=10.9 writer_batch_max_ms=181 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.100000.notick.hybrid.idle secs=8 reader_queries=414 p50_ms=74.79 p95_ms=149.11 p99_ms=188.60 max_ms=252.2 over_100ms=113 worst_window_max_ms=252@4s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.100000.notick.hybrid.writer secs=15 reader_queries=588 p50_ms=95.12 p95_ms=201.71 p99_ms=266.31 max_ms=410.7 over_100ms=270 worst_window_max_ms=411@3s writer_facts_per_s=912 writer_batch_p95_ms=30.9 writer_batch_max_ms=266 wal_peak_mb=107 wal_end_mb=108 consistent=true
+RESULT stress.100000.notick.peak peak_rss_mb=408
+=== stress 500k 14:54:07
+RESULT stress.500000.cur.setup n=500000 index_ready_s=37.4 autockpt=1000 tick=1 batch=20
+RESULT stress.500000.cur.knn.idle secs=8 reader_queries=78798 p50_ms=0.39 p95_ms=0.57 p99_ms=0.69 max_ms=85.2 over_100ms=0 worst_window_max_ms=85@3s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=0 wal_end_mb=0 consistent=true
+RESULT stress.500000.cur.knn.writer secs=20 reader_queries=200146 p50_ms=0.39 p95_ms=0.57 p99_ms=0.66 max_ms=89.3 over_100ms=0 worst_window_max_ms=89@12s writer_facts_per_s=1544 writer_batch_p95_ms=14.1 writer_batch_max_ms=915 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.500000.cur.hybrid.idle secs=8 reader_queries=53 p50_ms=526.77 p95_ms=1582.06 p99_ms=1863.03 max_ms=1863.0 over_100ms=49 worst_window_max_ms=1863@7s writer_facts_per_s=0 writer_batch_p95_ms=0.0 writer_batch_max_ms=0 wal_peak_mb=6 wal_end_mb=6 consistent=true
+RESULT stress.500000.cur.hybrid.writer secs=102 reader_queries=439 p50_ms=857.24 p95_ms=1849.24 p99_ms=2304.16 max_ms=2749.7 over_100ms=426 worst_window_max_ms=2750@40s writer_facts_per_s=19 writer_batch_p95_ms=30.0 writer_batch_max_ms=99641 wal_peak_mb=17 wal_end_mb=17 consistent=true
+RESULT stress.500000.cur.peak peak_rss_mb=1390
+=== stress 1M 14:57:37

@@ -1,0 +1,29 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/suggest_link.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Suggest that your ticket is related to another ticket; the Lead decides.",
+  "properties": {
+    "from": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "to": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "reason"
+  ],
+  "title": "suggest_link",
+  "type": "object",
+  "x-agenium-role": "Worker"
+}

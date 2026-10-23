@@ -1,0 +1,55 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/review_ticket.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Review a Resolved ticket. Approve marks it approved (code tickets then enter the merge queue); Reopen sends it back with feedback per unmet acceptance criterion.",
+  "properties": {
+    "ac_feedback": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "ac_id": {
+            "type": "string"
+          },
+          "feedback": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ac_id",
+          "feedback"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "decision": {
+      "enum": [
+        "Approve",
+        "Reopen"
+      ],
+      "type": "string"
+    },
+    "required_changes": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "decision"
+  ],
+  "title": "review_ticket",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

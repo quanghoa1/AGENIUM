@@ -1,0 +1,1002 @@
+//! `agenium`: headless front-end over the orchestrator (the desktop UI comes later). Every state change goes
+//! through the same App/Runtime API the UI will use.
+
+use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+use agenium_config::{ApprovalPolicy, ProviderConfig, ProviderKind};
+use agenium_core::forms::PermissionDecision;
+use agenium_core::*;
+use agenium_orchestrator::app::{App, AppOptions, CheckFactory, CreateAgent, CreateProject};
+use agenium_orchestrator::maintenance::BackupRequest;
+use agenium_orchestrator::runtime::{Approval, Approver, ConfiguredProviders, Runtime};
+use agenium_store::core::{comments, events, projects::Project, runs};
+use anyhow::{anyhow, bail, Context, Result};
+use async_trait::async_trait;
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(
+    name = "agenium",
+    version,
+    about = "Agenium: AI agents that work through tickets (headless CLI)"
+)]
+struct Cli {
+    /// Agenium root (default: AGENIUM_HOME, then the root chosen at setup, then ~/.agenium).
+    #[arg(long, global = true)]
+    root: Option<PathBuf>,
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand)]
+enum Cmd {
+    /// First-run setup: create the root, config.toml and (for a custom root) the bootstrap file.
+    Setup {
+        #[arg(long, default_value = "en")]
+        ui_language: String,
+        /// Language you talk to the Lead/Solo agent in (everything below the Lead is English).
+        #[arg(long, default_value = "en")]
+        user_language: String,
+    },
+    /// System requirements, sandbox, keyring and reconcile report.
+    Doctor,
+    /// Model providers (API keys go to the encrypted vault, never to config.toml).
+    #[command(subcommand)]
+    Provider(ProviderCmd),
+    /// Secrets in the vault.
+    #[command(subcommand)]
+    Secret(SecretCmd),
+    #[command(subcommand)]
+    Project(ProjectCmd),
+    #[command(subcommand)]
+    Agent(AgentCmd),
+    /// Talk to the project's Lead/Solo agent (one turn).
+    Chat {
+        #[arg(long)]
+        project: String,
+        message: String,
+    },
+    /// Run the scheduler: work runs for ready tickets and Lead reviews, until idle.
+    Run {
+        #[arg(long)]
+        project: String,
+        #[arg(long, default_value_t = 20)]
+        rounds: usize,
+    },
+    #[command(subcommand)]
+    Ticket(TicketCmd),
+    /// Answer an open question on a ticket.
+    Answer {
+        #[arg(long)]
+        project: String,
+        ticket: String,
+        question: String,
+        answer: String,
+        #[arg(long)]
+        option: Option<usize>,
+    },
+    /// Decide a permission request (`--always` adds it to the project allowlist).
+    Permission {
+        #[arg(long)]
+        project: String,
+        ticket: String,
+        request: String,
+        #[arg(value_parser = ["approve", "deny"])]
+        decision: String,
+        #[arg(long)]
+        always: bool,
+    },
+    /// Approve a requirement spec or plan version waiting for you.
+    Approve {
+        #[arg(long)]
+        project: String,
+        #[arg(value_parser = ["spec", "plan", "merge"])]
+        what: String,
+        /// Version (spec/plan) or ticket key (merge).
+        target: String,
+    },
+    /// Event log (resync source of every UI).
+    Events {
+        #[arg(long, default_value_t = 0)]
+        since: u64,
+        #[arg(long)]
+        follow: bool,
+    },
+    /// Backups (hourly incremental / daily full; retention 24/7/4).
+    Backup {
+        #[arg(value_parser = ["auto", "full", "incr", "list"], default_value = "auto")]
+        kind: String,
+    },
+    /// Restore a backup set into a new, empty root.
+    Restore { set: String, into: PathBuf },
+}
+
+#[derive(Subcommand)]
+enum ProviderCmd {
+    /// Add or replace a provider. The key is read from --key-env or stdin.
+    Add {
+        id: String,
+        #[arg(long, value_parser = ["anthropic", "gemini", "openai_compat"])]
+        kind: String,
+        #[arg(long)]
+        base_url: Option<String>,
+        /// Environment variable holding the API key.
+        #[arg(long)]
+        key_env: Option<String>,
+        /// Read the API key from stdin.
+        #[arg(long)]
+        key_stdin: bool,
+        #[arg(long, default_value_t = 4)]
+        max_concurrency: u32,
+    },
+    List,
+    /// List models from the provider's API.
+    Models {
+        id: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum SecretCmd {
+    /// Store a secret read from stdin.
+    Set {
+        name: String,
+    },
+    List,
+    Delete {
+        name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProjectCmd {
+    /// Create a project (git repository + agenium.toml); adopts an existing folder with agenium.toml.
+    Create {
+        name: String,
+        #[arg(long)]
+        path: Option<PathBuf>,
+        #[arg(long)]
+        prefix: Option<String>,
+        #[arg(long)]
+        template: Option<String>,
+    },
+    List,
+    /// Project setting `review_before_merge` (Solo agents wait for you before merging).
+    ReviewBeforeMerge {
+        project: String,
+        #[arg(value_parser = ["on", "off"])]
+        value: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum AgentCmd {
+    /// Create a Solo agent (Lead + Worker in one) for a project.
+    Solo {
+        #[arg(long)]
+        project: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        provider: String,
+        #[arg(long)]
+        model: String,
+        #[arg(long, default_value = "high")]
+        effort: String,
+    },
+    List,
+    /// Change an agent's model (memory, MCP and skills stay with the agent).
+    Model {
+        name: String,
+        #[arg(long)]
+        provider: String,
+        #[arg(long)]
+        model: String,
+        #[arg(long, default_value = "high")]
+        effort: String,
+    },
+    /// Put an agent back to Idle after you fixed its quota/connectivity.
+    Resume {
+        name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum TicketCmd {
+    List {
+        #[arg(long)]
+        project: String,
+    },
+    Show {
+        #[arg(long)]
+        project: String,
+        key: String,
+    },
+    /// Add a User comment (steer the work).
+    Comment {
+        #[arg(long)]
+        project: String,
+        key: String,
+        text: String,
+    },
+}
+
+/// Interactive approval on the terminal (M1-7: no command runs without the user's approval).
+struct TerminalApprover {
+    lock: Mutex<()>,
+}
+
+fn ask(prompt: &str) -> String {
+    let mut out = std::io::stderr();
+    let _ = write!(out, "{prompt}");
+    let _ = out.flush();
+    let mut line = String::new();
+    let _ = std::io::stdin().lock().read_line(&mut line);
+    line.trim().to_lowercase()
+}
+
+fn interactive() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal()
+}
+
+#[async_trait]
+impl Approver for TerminalApprover {
+    async fn approve_command(
+        &self,
+        ticket: Option<&TicketKey>,
+        agent: &str,
+        command: &str,
+        cwd: &Path,
+    ) -> Approval {
+        if !interactive() {
+            return Approval::Deny("no terminal to ask the user".into());
+        }
+        let prompt = format!(
+            "\n[approval] {agent} on {} wants to run:\n    {command}\n  in {}\n  [y]es / [a]lways for this project / [N]o: ",
+            ticket.map(|t| t.to_string()).unwrap_or_else(|| "-".into()),
+            cwd.display()
+        );
+        let answer = {
+            let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+            tokio::task::block_in_place(|| ask(&prompt))
+        };
+        match answer.as_str() {
+            "y" | "yes" => Approval::Allow,
+            "a" | "always" => Approval::AllowAlways,
+            _ => Approval::Deny("declined at the terminal".into()),
+        }
+    }
+}
+
+/// Pre-merge checks configured in `agenium.toml` run only after approval (no sandbox before M2).
+struct ApprovedChecks;
+
+struct ApprovedCheck {
+    command: String,
+}
+
+impl agenium_vcs::CheckRunner for ApprovedCheck {
+    fn run(&self, worktree: &Path) -> agenium_vcs::CheckOutcome {
+        if !interactive() {
+            return agenium_vcs::CheckOutcome {
+                ok: false,
+                log: format!(
+                    "pre-merge check `{}` needs approval and no terminal is attached",
+                    self.command
+                ),
+            };
+        }
+        let a = ask(&format!(
+            "\n[approval] pre-merge check:\n    {}\n  in {}\n  run it? [y/N]: ",
+            self.command,
+            worktree.display()
+        ));
+        if a != "y" && a != "yes" {
+            return agenium_vcs::CheckOutcome {
+                ok: false,
+                log: "the user declined the pre-merge check".into(),
+            };
+        }
+        let ex = agenium_sandbox::Executor::new(agenium_sandbox::Shell::detect());
+        let spec = agenium_sandbox::CommandSpec {
+            command: self.command.clone(),
+            cwd: worktree.into(),
+            timeout: std::time::Duration::from_secs(1800),
+            env: Default::default(),
+        };
+        let policy = agenium_sandbox::SandboxPolicy {
+            mode: agenium_sandbox::SandboxMode::WorkspaceWrite,
+            writable_roots: vec![worktree.into()],
+            network: false,
+        };
+        let r = match tokio::runtime::Handle::try_current() {
+            Ok(h) => h.block_on(ex.run(&spec, &policy)),
+            Err(_) => tokio::runtime::Runtime::new()
+                .map_err(agenium_sandbox::ExecError::Io)
+                .and_then(|rt| rt.block_on(ex.run(&spec, &policy))),
+        };
+        match r {
+            Ok(o) => agenium_vcs::CheckOutcome {
+                ok: o.exit_code == Some(0) && !o.timed_out,
+                log: format!("{}\n{}", o.stdout, o.stderr),
+            },
+            Err(e) => agenium_vcs::CheckOutcome {
+                ok: false,
+                log: e.to_string(),
+            },
+        }
+    }
+}
+
+impl CheckFactory for ApprovedChecks {
+    fn for_project(
+        &self,
+        _: &Project,
+        m: &agenium_orchestrator::manifest::ProjectManifest,
+    ) -> Arc<dyn agenium_vcs::CheckRunner> {
+        if m.checks.pre_merge.trim().is_empty() {
+            Arc::new(agenium_vcs::NoCheck)
+        } else {
+            Arc::new(ApprovedCheck {
+                command: m.checks.pre_merge.clone(),
+            })
+        }
+    }
+}
+
+fn root(cli: &Cli) -> Result<PathBuf> {
+    match &cli.root {
+        Some(r) => Ok(r.clone()),
+        None => Ok(agenium_config::resolve_root()?.0),
+    }
+}
+
+fn open(root: &Path) -> Result<Arc<App>> {
+    if agenium_config::setup::needs_setup(root) {
+        bail!(
+            "{} is not set up yet: run `agenium setup` first",
+            root.display()
+        );
+    }
+    let keyring: Arc<dyn agenium_secrets::KeyringBackend> =
+        Arc::new(agenium_secrets::OsKeyring::default());
+    let (app, report) = App::open(
+        root,
+        AppOptions {
+            keyring,
+            checks: Arc::new(ApprovedChecks),
+        },
+    )?;
+    for a in &report.actions {
+        eprintln!("[reconcile] {a}");
+    }
+    Ok(Arc::new(app))
+}
+
+fn project(app: &App, name: &str) -> Result<Project> {
+    app.projects()?
+        .into_iter()
+        .find(|p| p.name == name || p.id.to_string() == name)
+        .ok_or_else(|| anyhow!("no project named {name:?} (see `agenium project list`)"))
+}
+
+fn runtime(app: Arc<App>) -> Runtime {
+    let mut rt = Runtime::new(
+        app.clone(),
+        Arc::new(ConfiguredProviders::new(app)),
+        Arc::new(TerminalApprover {
+            lock: Mutex::new(()),
+        }),
+    );
+    rt.live = Some(Arc::new(
+        |_run: &RunId, e: &agenium_llm::ChatEvent| match e {
+            agenium_llm::ChatEvent::TextDelta(t) => {
+                print!("{t}");
+                let _ = std::io::stdout().flush();
+            }
+            agenium_llm::ChatEvent::ToolCall(c) => {
+                let args = c.args.to_string();
+                eprintln!(
+                    "\n  > {} {}",
+                    c.name,
+                    args.chars().take(160).collect::<String>()
+                );
+            }
+            agenium_llm::ChatEvent::Restart => {
+                eprintln!("\n  (connection problem, retrying the turn)")
+            }
+            _ => {}
+        },
+    ));
+    rt
+}
+
+fn print_runs(rs: &[agenium_orchestrator::runtime::RunSummary]) {
+    for r in rs {
+        println!(
+            "\n{} run {} on {} by {}: {} ({} steps, {} in / {} out tokens{})",
+            r.kind,
+            r.run,
+            r.ticket
+                .as_ref()
+                .map(|k| k.to_string())
+                .unwrap_or_else(|| "chat".into()),
+            r.agent,
+            r.outcome,
+            r.steps,
+            r.usage.tokens_in,
+            r.usage.tokens_out,
+            if r.usage.estimated_cost_usd > 0.0 {
+                format!(", ~${:.4}", r.usage.estimated_cost_usd)
+            } else {
+                String::new()
+            }
+        );
+    }
+}
+
+fn read_secret_stdin() -> Result<String> {
+    if interactive() {
+        eprint!("value (input is not hidden; prefer piping it): ");
+    }
+    let mut s = String::new();
+    std::io::stdin().lock().read_line(&mut s)?;
+    let s = s.trim_end_matches(['\r', '\n']).to_owned();
+    if s.is_empty() {
+        bail!("empty value");
+    }
+    Ok(s)
+}
+
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_env("AGENIUM_LOG")
+                .unwrap_or_else(|_| "warn".into()),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+    let cli = Cli::parse();
+    match &cli.cmd {
+        Cmd::Setup {
+            ui_language,
+            user_language,
+        } => {
+            let default_root = dirs_home().join(".agenium");
+            let input = agenium_config::setup::SetupInput {
+                root: cli.root.clone(),
+                ui_language: ui_language.clone(),
+                user_language: user_language.clone(),
+            };
+            let out = agenium_config::setup::complete_setup(
+                &input,
+                &default_root,
+                agenium_config::Bootstrap::default_path().as_deref(),
+            )?;
+            println!("Agenium root: {}", out.root.display());
+            for c in out.report.warnings() {
+                println!("  warning: {} = {} ({})", c.name, c.value, c.message);
+            }
+            println!(
+                "Suggested parallel agents: {}",
+                out.report.suggested_parallel
+            );
+        }
+        Cmd::Doctor => {
+            let r = root(&cli)?;
+            let rep = agenium_config::sysreq::check(&r);
+            println!("root: {}\nos: {}", r.display(), rep.os);
+            for c in &rep.checks {
+                println!("  [{:?}] {} = {} ({})", c.level, c.name, c.value, c.message);
+            }
+            let sb = agenium_sandbox::detect();
+            println!("sandbox: {:?} - {}", sb.backend, sb.reason);
+            println!("shell: {}", agenium_sandbox::Shell::detect().describe());
+            match agenium_secrets::OsKeyring::status() {
+                Ok(()) => println!("keyring: available"),
+                Err(e) => println!("keyring: {e}"),
+            }
+            if !agenium_config::setup::needs_setup(&r) {
+                let app = open(&r)?;
+                let cfg = app.config();
+                println!(
+                    "approval policy: {:?}{}",
+                    cfg.sandbox.approval,
+                    if cfg.sandbox.approval == ApprovalPolicy::Never && sb.backend.is_none() {
+                        " (YOLO is refused: no sandbox backend, fail-closed)"
+                    } else {
+                        ""
+                    }
+                );
+                println!("secrets: {}", app.secrets().describe());
+                println!(
+                    "projects: {}, agents: {}",
+                    app.projects()?.len(),
+                    app.agents()?.len()
+                );
+            }
+        }
+        Cmd::Provider(pc) => {
+            let app = open(&root(&cli)?)?;
+            match pc {
+                ProviderCmd::Add {
+                    id,
+                    kind,
+                    base_url,
+                    key_env,
+                    key_stdin,
+                    max_concurrency,
+                } => {
+                    let key = match (key_env, key_stdin) {
+                        (Some(v), _) => Some(
+                            std::env::var(v)
+                                .with_context(|| format!("environment variable {v} is not set"))?,
+                        ),
+                        (None, true) => Some(read_secret_stdin()?),
+                        (None, false) => None,
+                    };
+                    let secret_name = format!("provider/{id}");
+                    if let Some(k) = &key {
+                        app.secrets().set(&secret_name, k.as_bytes())?;
+                    }
+                    let kind = match kind.as_str() {
+                        "anthropic" => ProviderKind::Anthropic,
+                        "gemini" => ProviderKind::Gemini,
+                        _ => ProviderKind::OpenaiCompat,
+                    };
+                    let pc = ProviderConfig {
+                        id: id.clone(),
+                        kind,
+                        base_url: base_url.clone(),
+                        api_key_ref: if key.is_some() {
+                            secret_name
+                        } else {
+                            String::new()
+                        },
+                        max_concurrency: *max_concurrency,
+                        models: vec![],
+                    };
+                    app.update_config(|c| {
+                        c.providers.retain(|p| p.id != pc.id);
+                        c.providers.push(pc);
+                    })?;
+                    println!(
+                        "provider {id} saved{}",
+                        if key.is_some() {
+                            " (key stored in the vault)"
+                        } else {
+                            ""
+                        }
+                    );
+                }
+                ProviderCmd::List => {
+                    for p in app.config().providers {
+                        println!(
+                            "{}\t{:?}\t{}\t{}",
+                            p.id,
+                            p.kind,
+                            p.base_url.unwrap_or_default(),
+                            if p.api_key_ref.is_empty() {
+                                "no key"
+                            } else {
+                                "key in vault"
+                            }
+                        );
+                    }
+                }
+                ProviderCmd::Models { id } => {
+                    let ps = ConfiguredProviders::new(app.clone());
+                    let p = agenium_orchestrator::runtime::ProviderSource::provider(&ps, id)?;
+                    for m in p.list_models().await.map_err(|e| anyhow!("{e}"))? {
+                        println!(
+                            "{}\t{}",
+                            m.id,
+                            m.context_window
+                                .map(|c| format!("{c} tokens"))
+                                .unwrap_or_default()
+                        );
+                    }
+                }
+            }
+        }
+        Cmd::Secret(sc) => {
+            let app = open(&root(&cli)?)?;
+            match sc {
+                SecretCmd::Set { name } => {
+                    let v = read_secret_stdin()?;
+                    app.secrets().set(name, v.as_bytes())?;
+                    println!("stored {name}");
+                }
+                SecretCmd::List => app.secrets().list()?.iter().for_each(|n| println!("{n}")),
+                SecretCmd::Delete { name } => {
+                    app.secrets().delete(name)?;
+                    println!("deleted {name}");
+                }
+            }
+        }
+        Cmd::Project(pc) => {
+            let app = open(&root(&cli)?)?;
+            match pc {
+                ProjectCmd::Create {
+                    name,
+                    path,
+                    prefix,
+                    template,
+                } => {
+                    let p = app.create_project(&CreateProject {
+                        name: name.clone(),
+                        path: path.clone(),
+                        key_prefix: prefix.clone(),
+                        template: template.clone(),
+                    })?;
+                    println!("project {} at {}", p.name, p.path);
+                }
+                ProjectCmd::List => {
+                    for p in app.projects()? {
+                        println!("{}\t{}\t{}\t{}", p.name, p.status, p.key_prefix, p.path);
+                    }
+                }
+                ProjectCmd::ReviewBeforeMerge {
+                    project: name,
+                    value,
+                } => {
+                    let p = project(&app, name)?;
+                    app.set_project_setting(
+                        p.id,
+                        "review_before_merge",
+                        serde_json::json!(value == "on"),
+                    )?;
+                    println!("review_before_merge = {value}");
+                }
+            }
+        }
+        Cmd::Agent(ac) => {
+            let app = open(&root(&cli)?)?;
+            match ac {
+                AgentCmd::Solo {
+                    project: pname,
+                    name,
+                    provider,
+                    model,
+                    effort,
+                } => {
+                    let p = project(&app, pname)?;
+                    if app.config().provider(provider).is_none() {
+                        bail!("provider {provider:?} is not configured (agenium provider add ...)");
+                    }
+                    let binding = ModelBinding {
+                        provider: provider.clone(),
+                        model: model.clone(),
+                        effort: effort.parse().map_err(|e: String| anyhow!(e))?,
+                        max_tokens: None,
+                    };
+                    let (_, a) = app.create_solo(
+                        p.id,
+                        &CreateAgent {
+                            name: name.clone(),
+                            role: "solo".into(),
+                            role_kind: RoleKind::Lead,
+                            tags: vec![],
+                            model: binding,
+                        },
+                    )?;
+                    println!("solo agent {} ({}) on {}", a.name, a.id, p.name);
+                }
+                AgentCmd::List => {
+                    for a in app.agents()? {
+                        println!(
+                            "{}\t{}\t{}\t{}/{} ({})",
+                            a.name,
+                            a.id,
+                            a.status,
+                            a.model.provider,
+                            a.model.model,
+                            a.model.effort.as_str()
+                        );
+                    }
+                }
+                AgentCmd::Model {
+                    name,
+                    provider,
+                    model,
+                    effort,
+                } => {
+                    let a = app
+                        .agents()?
+                        .into_iter()
+                        .find(|a| &a.name == name)
+                        .ok_or_else(|| anyhow!("no agent {name}"))?;
+                    app.set_agent_model(
+                        a.id,
+                        &ModelBinding {
+                            provider: provider.clone(),
+                            model: model.clone(),
+                            effort: effort.parse().map_err(|e: String| anyhow!(e))?,
+                            max_tokens: None,
+                        },
+                    )?;
+                    println!("{name} now uses {provider}/{model}");
+                }
+                AgentCmd::Resume { name } => {
+                    let a = app
+                        .agents()?
+                        .into_iter()
+                        .find(|a| &a.name == name)
+                        .ok_or_else(|| anyhow!("no agent {name}"))?;
+                    app.set_agent_status(a.id, AgentStatus::Idle)?;
+                    println!("{name} is Idle");
+                }
+            }
+        }
+        Cmd::Chat {
+            project: pname,
+            message,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let rt = runtime(app);
+            let r = rt.chat(p.id, message).await?;
+            println!();
+            if r.outcome != "Completed" && !r.text.is_empty() {
+                eprintln!("{}", r.text);
+            }
+            print_runs(&[r]);
+        }
+        Cmd::Run {
+            project: pname,
+            rounds,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let rt = runtime(app.clone());
+            let cancel = rt.cancel.clone();
+            tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    eprintln!("\nstopping after the current step (Ctrl+C)...");
+                    cancel.cancel();
+                }
+            });
+            let rs = rt.drive(p.id, *rounds).await?;
+            print_runs(&rs);
+            if rs.is_empty() {
+                println!("nothing to run (no ready tickets or reviews)");
+            }
+            let needs = app
+                .store()
+                .read(|c| events::recent_of_kind(c, "NeedsUser", 5))?;
+            for e in needs {
+                println!(
+                    "needs you: {}",
+                    e.payload["reason"].as_str().unwrap_or_default()
+                );
+            }
+        }
+        Cmd::Ticket(tc) => {
+            let app = open(&root(&cli)?)?;
+            match tc {
+                TicketCmd::List { project: pname } => {
+                    let p = project(&app, pname)?;
+                    for t in app.tickets(p.id)? {
+                        println!(
+                            "{}\t{}\t{}{}{}\t{}",
+                            t.key,
+                            t.status,
+                            if t.approved { "approved " } else { "" },
+                            if t.merged { "merged " } else { "" },
+                            t.plan_item,
+                            t.title
+                        );
+                    }
+                }
+                TicketCmd::Show {
+                    project: pname,
+                    key,
+                } => {
+                    let p = project(&app, pname)?;
+                    let t =
+                        app.ticket(p.id, &key.parse().map_err(|e: IdParseError| anyhow!(e))?)?;
+                    println!("{}", agenium_backend_text(&t));
+                    for c in app.store().read(|c| comments::for_ticket(c, t.id))? {
+                        println!(
+                            "[{}] {} {}: {}",
+                            c.created_at,
+                            c.kind,
+                            c.id,
+                            serde_json::to_string(&c.body)?
+                                .chars()
+                                .take(400)
+                                .collect::<String>()
+                        );
+                    }
+                    for r in app.store().read(|c| runs::for_ticket(c, t.id))? {
+                        println!(
+                            "run {} {} {} steps={} tokens={}/{}",
+                            r.id,
+                            r.started_at,
+                            r.outcome.unwrap_or_else(|| "live".into()),
+                            r.steps,
+                            r.usage.tokens_in,
+                            r.usage.tokens_out
+                        );
+                    }
+                }
+                TicketCmd::Comment {
+                    project: pname,
+                    key,
+                    text,
+                } => {
+                    let p = project(&app, pname)?;
+                    app.user_comment(
+                        p.id,
+                        &key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                        text,
+                    )?;
+                    println!("comment added");
+                }
+            }
+        }
+        Cmd::Answer {
+            project: pname,
+            ticket,
+            question,
+            answer,
+            option,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let out = app.user_answer(
+                p.id,
+                &ticket.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                question.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                answer,
+                *option,
+            )?;
+            println!("{}", out.result);
+        }
+        Cmd::Permission {
+            project: pname,
+            ticket,
+            request,
+            decision,
+            always,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let d = if decision == "approve" {
+                PermissionDecision::Approve
+            } else {
+                PermissionDecision::Deny
+            };
+            let out = app.decide_permission(
+                p.id,
+                &ticket.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                request.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                d,
+                *always,
+                None,
+            )?;
+            println!("{}", out.result);
+        }
+        Cmd::Approve {
+            project: pname,
+            what,
+            target,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            match what.as_str() {
+                "spec" => app.approve_spec(p.id, target.parse()?)?,
+                "plan" => app.approve_plan(p.id, target.parse()?)?,
+                _ => {
+                    app.user_approve_merge(
+                        p.id,
+                        &target.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                    )?;
+                }
+            }
+            println!("approved {what} {target}");
+        }
+        Cmd::Events { since, follow } => {
+            let app = open(&root(&cli)?)?;
+            let mut sub = app.subscribe(*since);
+            for e in sub.catch_up().map_err(|e| anyhow!("{e:?}"))? {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}",
+                    e.seq, e.at, e.actor, e.kind, e.payload
+                );
+            }
+            if *follow {
+                eprintln!("(following; Ctrl+C to stop)");
+                while let Ok(e) = sub.recv().await {
+                    println!(
+                        "{}\t{}\t{}\t{}\t{}",
+                        e.seq, e.at, e.actor, e.kind, e.payload
+                    );
+                }
+            }
+        }
+        Cmd::Backup { kind } => {
+            let app = open(&root(&cli)?)?;
+            if kind == "list" {
+                for m in agenium_store::backup::list_sets(&app.backups_dir())? {
+                    println!(
+                        "{}\t{:?}\t{}\t{} db(s)",
+                        m.id,
+                        m.kind,
+                        m.created_at,
+                        m.dbs.len()
+                    );
+                }
+                return Ok(());
+            }
+            let req = match kind.as_str() {
+                "full" => BackupRequest::Full,
+                "incr" => BackupRequest::Incremental,
+                _ => BackupRequest::Scheduled,
+            };
+            match app.backup(req, chrono::Utc::now())? {
+                Some(m) => println!(
+                    "backup {} ({:?}) in {}",
+                    m.id,
+                    m.kind,
+                    app.backups_dir().display()
+                ),
+                None => println!("no backup due"),
+            }
+            let cfg = app.config().backup;
+            let pruned = agenium_store::backup::prune(
+                &app.backups_dir(),
+                agenium_store::backup::Retention {
+                    hourly: cfg.hourly_keep as usize,
+                    daily: cfg.daily_keep as usize,
+                    weekly: cfg.weekly_keep as usize,
+                },
+            )?;
+            if !pruned.is_empty() {
+                println!("pruned {} old set(s)", pruned.len());
+            }
+        }
+        Cmd::Restore { set, into } => {
+            let r = root(&cli)?;
+            let app = open(&r)?;
+            let m = agenium_orchestrator::maintenance::restore_into_new_root(
+                &r,
+                &app.backups_dir(),
+                set,
+                into,
+            )?;
+            println!(
+                "restored {} into {} (content hashes verified)",
+                m.id,
+                into.display()
+            );
+        }
+    }
+    Ok(())
+}
+
+fn dirs_home() -> PathBuf {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn agenium_backend_text(t: &Ticket) -> String {
+    let mut s = format!(
+        "{} [{}] {}\nplan item {} | priority P{} | template {}\n",
+        t.key, t.status, t.title, t.plan_item, t.priority, t.report_template
+    );
+    s.push_str(&format!(
+        "approved={} merged={} has_code={} reopened={} escalated={}\n",
+        t.approved, t.merged, t.has_code, t.reopen_count, t.escalated
+    ));
+    for a in &t.acceptance {
+        s.push_str(&format!("  {}: {}\n", a.id, a.text));
+    }
+    s
+}

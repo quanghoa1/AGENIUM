@@ -1,0 +1,14 @@
+RESULT vec0.int8 n=10000 insert_s=0.1 rate_per_s=169358 db_mb=4 p50_ms=5.22 p95_ms=5.73 recall10=0.9265 rss_mb=25
+RESULT vec0.int8 n=100000 insert_s=0.6 rate_per_s=162631 db_mb=41 p50_ms=53.18 p95_ms=56.57 recall10=0.9155 rss_mb=157
+ground truth 500000: 4.2s
+RESULT vec0.float n=500000 insert_s=7.2 rate_per_s=69841 db_mb=782 p50_ms=322.75 p95_ms=350.21 recall10=1.0000 rss_mb=744
+RESULT vec0.int8 n=500000 insert_s=3.1 rate_per_s=160042 db_mb=204 p50_ms=269.18 p95_ms=281.77 recall10=0.8915 rss_mb=743
+RESULT usearch.f16.16.128.96.8 n=500000 build_s=30.7 rate_per_s=16269 rss_delta_mb=485 file_mb=458 save_s=0.99 view_s=0.051 load_s=0.69 p50_ms=0.427 p95_ms=0.640 recall10=0.9630 recall10_view=0.9630
+RESULT usearch.i8.16.128.96.8 n=500000 build_s=22.4 rate_per_s=22336 rss_delta_mb=302 file_mb=266 save_s=0.68 view_s=0.039 load_s=0.27 p50_ms=0.272 p95_ms=0.461 recall10=0.8625 recall10_view=0.8625
+RESULT usearch.f32.16.128.96.8 n=500000 build_s=61.0 rate_per_s=8201 rss_delta_mb=850 file_mb=842 save_s=2.08 view_s=0.036 load_s=1.95 p50_ms=0.626 p95_ms=0.985 recall10=0.9605 recall10_view=0.9605
+ground truth 1000000: 9.9s
+RESULT vec0.float n=1000000 insert_s=15.7 rate_per_s=63823 db_mb=1562 p50_ms=664.32 p95_ms=746.92 recall10=1.0000 rss_mb=1476
+RESULT vec0.int8 n=1000000 insert_s=6.9 rate_per_s=144644 db_mb=408 p50_ms=582.57 p95_ms=643.14 recall10=0.8725 rss_mb=1475
+RESULT usearch.f16.16.128.96.8 n=1000000 build_s=73.7 rate_per_s=13569 rss_delta_mb=969 file_mb=917 save_s=1.75 view_s=0.100 load_s=1.23 p50_ms=0.443 p95_ms=0.741 recall10=0.9320 recall10_view=0.9320
+RESULT usearch.i8.16.128.96.8 n=1000000 build_s=52.1 rate_per_s=19204 rss_delta_mb=602 file_mb=533 save_s=1.40 view_s=0.096 load_s=0.73 p50_ms=0.288 p95_ms=0.504 recall10=0.8275 recall10_view=0.8275
+RESULT usearch.f32.16.128.96.8 n=1000000 build_s=107.7 rate_per_s=9282 rss_delta_mb=1701 file_mb=1685 save_s=2.83 view_s=0.093 load_s=2.28 p50_ms=0.653 p95_ms=1.017 recall10=0.9215 recall10_view=0.9215

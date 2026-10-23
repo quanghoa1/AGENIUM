@@ -1,0 +1,89 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/ask_question.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Ask a question on your ticket. blocking=true pauses the ticket until it is answered. Use category Blocker for missing MCP/credentials/skills or work outside your role.",
+  "properties": {
+    "blocking": {
+      "type": "boolean"
+    },
+    "category": {
+      "oneOf": [
+        {
+          "enum": [
+            "Requirement",
+            "Technical",
+            "Permission"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "Blocker",
+          "description": "Missing MCP/credential/skill, or work outside your role.",
+          "type": "string"
+        }
+      ]
+    },
+    "context": {
+      "default": "",
+      "description": "What you already checked, at most 1500 characters.",
+      "maxLength": 1500,
+      "type": "string"
+    },
+    "options": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "question": {
+      "description": "The question, 10-500 characters.",
+      "maxLength": 500,
+      "minLength": 10,
+      "type": "string"
+    },
+    "recommendation": {
+      "default": null,
+      "description": "Index into options of the option you recommend.",
+      "format": "uint",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    },
+    "urgency": {
+      "default": "Normal",
+      "enum": [
+        "Low",
+        "Normal",
+        "High"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "category",
+    "question",
+    "blocking"
+  ],
+  "title": "ask_question",
+  "type": "object",
+  "x-agenium-role": "Worker"
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "error_codes": {
+      "command_denied": 1
+    },
+    "reopened": 0,
+    "tokens_in": 73133,
+    "tokens_out": 1108,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25227
+  }
+]

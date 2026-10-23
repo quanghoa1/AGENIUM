@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/create_handoff.schema.json",
+  "title": "create_handoff",
+  "description": "Immutable handoff; creates a TicketLink automatically",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "source_ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "target_ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "source_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "ref"
+        ]
+      },
+      "minItems": 1
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "intent_id",
+    "source_ticket",
+    "target_ticket",
+    "source_items",
+    "summary"
+  ]
+}

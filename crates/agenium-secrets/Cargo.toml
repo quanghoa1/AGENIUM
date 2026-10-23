@@ -1,0 +1,17 @@
+[package]
+name = "agenium-secrets"
+description = "Secret storage: encrypted vault with its master key in the OS keyring (spike S5), redaction, secret scanning."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+chacha20poly1305 = "0.10"
+keyring = "4"
+regex = "1"
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

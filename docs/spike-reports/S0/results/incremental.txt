@@ -1,0 +1,4 @@
+    Finished `release` profile [optimized] target(s) in 2m 04s
+incr_surrealkv_s=124.87
+    Finished `release` profile [optimized] target(s) in 2m 03s
+incr_rocksdb_s=123.18

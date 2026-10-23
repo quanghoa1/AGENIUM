@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/cancel_ticket.schema.json",
+  "title": "cancel_ticket",
+  "description": "Cancel a ticket that is not finished",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 5
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "reason"
+  ]
+}

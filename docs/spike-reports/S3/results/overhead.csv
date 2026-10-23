@@ -1,0 +1,13 @@
+workload,mode,median_ms,rc_last,overhead_pct_vs_plain
+git,plain,180.5,rc=0,0.0
+git,sbx,194.5,rc=0,7.8
+git,bwrap,172.5,rc=0,-4.4
+cargo,plain,82.5,rc=0,0.0
+cargo,sbx,88.0,rc=0,6.7
+cargo,bwrap,81.0,rc=0,-1.8
+py,plain,127.5,rc=0,0.0
+py,sbx,133.0,rc=0,4.3
+py,bwrap,129.5,rc=0,1.6
+node,plain,225.0,rc=0,0.0
+node,sbx,235.0,rc=0,4.4
+node,bwrap,227.5,rc=0,1.1

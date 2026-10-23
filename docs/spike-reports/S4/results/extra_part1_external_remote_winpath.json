@@ -1,0 +1,37 @@
+{
+ "external_edit": {
+  "false_positives_on_agent_writes": 0,
+  "detect_latency_ms": 1.0,
+  "flagged": [
+   "/src/m1/f1.txt"
+  ],
+  "f2_untouched": true,
+  "f1_reverted": true,
+  "caveat": "inotify cannot attribute the writer: the guard needs the agent tool layer to record hashes of its own writes; a valid user edit and an agent write racing on the same file is ambiguous -> the design must lock/ask, not silently revert"
+ },
+ "remote": {
+  "local_bare_ls_remote_ms": 13,
+  "dry_run_push_rc": 0,
+  "real_push_temp_ref_rc": 0,
+  "temp_ref_visible": true,
+  "delete_temp_ref_rc": 0,
+  "temp_ref_gone": true,
+  "public_github_ls_remote_rc": 0,
+  "public_github_ls_remote_s": 0.24,
+  "missing_or_private_repo_rc": 128,
+  "missing_or_private_msg": "remote: Repository not found.\nfatal: Authentication failed for 'https://github.com/quanghoa111/this-repo-does-not-exist-xyz.git/'",
+  "note": "dry-run/real push of temp ref + delete tested only against local bare remote (user forbade pushing to any real remote); GitHub write path and self-hosted GitLab NOT RUN (no credentials / no instance)"
+ },
+ "winpath_estimate_only": {
+  "worst_len_by_case": {
+   "my-project..(10)/T-0042": 149,
+   "my-project..(10)/T-xxxxxx": 175,
+   "aaaaaaaaaaaa..(40)/T-0042": 179,
+   "aaaaaaaaaaaa..(40)/T-xxxxxx": 205,
+   "aaaaaaaaaaaa..(80)/T-0042": 219,
+   "aaaaaaaaaaaa..(80)/T-xxxxxx": 245
+  },
+  "limit": 260,
+  "note": "ARITHMETIC ESTIMATE only - not run on Windows. Agenium keeps worktrees under <project>/.agenium/worktrees/<ticket-id>; use short ticket dir names + core.longpaths=true + \\\\?\\ prefix"
+ }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/assign_ticket.schema.json",
+  "title": "assign_ticket",
+  "description": "New/Reopened → Assigned; the worker must match role/tags and not be Offline/QuotaExhausted",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "worker": {
+      "type": "string",
+      "pattern": "^agent_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "worker"
+  ]
+}

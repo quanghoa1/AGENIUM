@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/ask_question.schema.json",
+  "title": "ask_question",
+  "description": "blocking=true → ticket Pending, agent Waiting. Blocker = missing MCP/credential/skill, or work outside the role",
+  "x-agenium-role": "Worker",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Requirement",
+        "Technical",
+        "Permission",
+        "Blocker"
+      ]
+    },
+    "question": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 1500
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ]
+      }
+    },
+    "recommendation": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "blocking": {
+      "type": "boolean"
+    },
+    "urgency": {
+      "type": "string",
+      "enum": [
+        "Low",
+        "Normal",
+        "High"
+      ]
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "category",
+    "question",
+    "blocking"
+  ]
+}

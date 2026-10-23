@@ -1,0 +1,108 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/submit_report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run.",
+  "properties": {
+    "acceptance": {
+      "description": "One result per acceptance criterion of the ticket (all of them).",
+      "items": {
+        "additionalProperties": false,
+        "description": "Result for one acceptance criterion of the ticket.",
+        "properties": {
+          "ac_id": {
+            "description": "Acceptance criterion id, e.g. AC-1.",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Where the evidence is: a test name, file path, command output or explanation.",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "Met",
+              "Partial",
+              "NotMet"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "ac_id",
+          "status",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "artifacts": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "description": "A produced artifact (file, diff, commit, log, ...).",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "ref"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "confidence": {
+      "description": "Your confidence that every criterion is met, 0..1.",
+      "format": "double",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "extension": {
+      "additionalProperties": true,
+      "default": {},
+      "description": "Template specific section, validated against the ticket's report template.",
+      "type": "object"
+    },
+    "follow_ups": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "risks": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "summary": {
+      "description": "What was done, at most 800 characters.",
+      "maxLength": 800,
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "summary",
+    "acceptance",
+    "confidence"
+  ],
+  "title": "submit_report",
+  "type": "object",
+  "x-agenium-role": "Worker"
+}

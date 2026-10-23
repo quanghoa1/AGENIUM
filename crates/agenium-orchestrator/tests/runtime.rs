@@ -1,0 +1,431 @@
+//! M1 exit criterion with a scripted model: a Solo agent takes a request from chat to a closed, merged ticket.
+
+mod common;
+
+use std::sync::Arc;
+
+use agenium_core::*;
+use agenium_llm::mock::{calls_response, ScriptedProvider};
+use agenium_llm::Provider;
+use agenium_orchestrator::runtime::{Approval, Approver, AutoApprove, Runtime, StaticProviders};
+use agenium_store::core::{events, runs};
+use async_trait::async_trait;
+use common::*;
+use serde_json::json;
+
+fn runtime(
+    f: &Fixture,
+    p: Arc<ScriptedProvider>,
+    approver: Arc<dyn Approver>,
+) -> (Arc<agenium_orchestrator::App>, Runtime) {
+    // The runtime shares the App; tests keep using the fixture's handle through the Arc.
+    let app = Arc::new(open_app(
+        &f.root.parent().unwrap().join("rt-root"),
+        f.keyring.clone(),
+        None,
+    ));
+    let rt = Runtime::new(
+        app.clone(),
+        Arc::new(StaticProviders(vec![(
+            "mock".into(),
+            p as Arc<dyn Provider>,
+        )])),
+        approver,
+    );
+    (app, rt)
+}
+
+fn solo(app: &agenium_orchestrator::App) -> (ProjectId, AgentId) {
+    let p = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "greet".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+        })
+        .unwrap();
+    let (_, a) = app
+        .create_solo(p.id, &agent_spec("ada", "solo", RoleKind::Lead, &["rust"]))
+        .unwrap();
+    (p.id, a.id)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+
+    // --- chat: discovery -> spec -> plan -> ticket -> assign (all English below the Lead)
+    p.push_calls(
+        "I will plan this.",
+        vec![("propose_spec", serde_json::to_value(spec()).unwrap())],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "create_plan",
+            serde_json::to_value(plan(&[("PI-1", &[])])).unwrap(),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "create_ticket",
+            serde_json::to_value(new_ticket(
+                "PI-1",
+                "Write hello file",
+                &[],
+                &["deliverables/**"],
+            ))
+            .unwrap(),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "assign_ticket",
+            json!({"ticket_id": "AGN-1", "worker": agent.to_string()}),
+        )],
+    );
+    p.push_text("Đã tạo ticket AGN-1 và tôi sẽ làm ngay.");
+    let chat = rt.chat(project, "Hãy thêm file chào hỏi").await.unwrap();
+    assert_eq!(chat.outcome, "Completed");
+    assert_eq!(chat.text, "Đã tạo ticket AGN-1 và tôi sẽ làm ngay.");
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    assert_eq!(
+        (t.status, t.assignee),
+        (TicketStatus::Assigned, Some(agent))
+    );
+
+    // --- work run: write, verify with an approved command, submit
+    p.push_calls(
+        "",
+        vec![(
+            "write_file",
+            json!({"path": "deliverables/hello.txt", "content": "hello\n"}),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![("shell", json!({"command": "cat deliverables/hello.txt"}))],
+    );
+    p.push(Box::new(|req| {
+        // The shell result reached the model.
+        let last = req.messages.last().unwrap();
+        let ok = matches!(&last.parts[0], agenium_llm::Part::ToolResult { content, .. } if content.contains("hello"));
+        assert!(ok, "shell output is returned to the model");
+        Ok(calls_response("", vec![("submit_report", serde_json::to_value(report("AGN-1")).unwrap())]))
+    }));
+    // --- review run (Solo reviews itself): approve -> merge queue -> close
+    p.push_calls(
+        "",
+        vec![(
+            "review_ticket",
+            json!({"ticket_id": "AGN-1", "decision": "Approve"}),
+        )],
+    );
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap();
+        let merged = matches!(&last.parts[0], agenium_llm::Part::ToolResult { content, .. } if content.contains("\"merge_queued\":true"));
+        assert!(merged, "approval result says the merge ran");
+        Ok(calls_response("", vec![("close_ticket", json!({"ticket_id": "AGN-1", "reason": "All AC met, merged into main"}))]))
+    }));
+
+    let runs1 = rt.drive(project, 5).await.unwrap();
+    let kinds: Vec<(String, String)> = runs1
+        .iter()
+        .map(|r| (r.kind.clone(), r.outcome.clone()))
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            ("work".into(), "Completed".into()),
+            ("review".into(), "Completed".into())
+        ]
+    );
+    assert_eq!(p.remaining(), 0, "every scripted turn was used");
+
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    assert_eq!(t.status, TicketStatus::Closed);
+    assert!(t.approved && t.merged && t.has_code);
+    assert!(
+        t.usage.tokens_in > 0,
+        "usage is recorded per ticket (display only)"
+    );
+    let proj = app.project(project).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(std::path::Path::new(&proj.path).join("deliverables/hello.txt"))
+            .unwrap(),
+        "hello\n"
+    );
+    assert!(!std::path::Path::new(&proj.path)
+        .join(".agenium/worktrees/AGN-1")
+        .exists());
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+
+    // Work order structure: cache-stable order, protocol + work tools, no sampling knobs.
+    let reqs = p.requests();
+    let work = &reqs[5];
+    assert!(work.system[0].text.contains("You are an agent of Agenium") && !work.system[0].cache);
+    assert!(
+        work.system[1].cache,
+        "SOUL/ROLE block ends the cached prefix"
+    );
+    assert!(work.system[2].text.contains("Capabilities for this run"));
+    let names: Vec<&str> = work.tools.iter().map(|t| t.name.as_str()).collect();
+    assert!(
+        names.windows(2).all(|w| w[0] < w[1]),
+        "tools sorted by name"
+    );
+    for n in ["submit_report", "write_file", "shell", "review_ticket"] {
+        assert!(names.contains(&n), "{n}");
+    }
+    assert!(!names.contains(&"load_skill"));
+    assert!(work.messages[0].text().contains("# Ticket AGN-1"));
+    assert!(work.messages[0]
+        .text()
+        .contains("AC-1: hello.txt says hello"));
+
+    // Intent ids are derived from run + call id: replaying the same call is idempotent.
+    let evs = app.store().read(|c| events::since(c, 0, 10_000)).unwrap();
+    assert!(evs.iter().any(|e| e.kind == "TicketStatusChanged"
+        && e.intent_id
+            .as_deref()
+            .is_some_and(|i| i.ends_with(":call_submit_report_0"))));
+    let all_runs = app.store().read(|c| runs::for_ticket(c, t.id)).unwrap();
+    assert_eq!(all_runs.len(), 2);
+    assert!(all_runs.iter().all(|r| r.ended_at.is_some()));
+    let log = app
+        .store()
+        .read(|c| runs::log_entries(c, all_runs[0].id))
+        .unwrap();
+    assert!(log
+        .iter()
+        .any(|e| e.kind == "tool" && e.data["tool"] == "shell"));
+    drop(f);
+}
+
+struct Denier;
+#[async_trait]
+impl Approver for Denier {
+    async fn approve_command(
+        &self,
+        _: Option<&TicketKey>,
+        _: &str,
+        command: &str,
+        _: &std::path::Path,
+    ) -> Approval {
+        Approval::Deny(format!("not now: {command}"))
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn denied_command_question_and_continuation() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(Denier));
+    let (project, agent) = solo(&app);
+    let lead = Actor::Lead(agent);
+    let ctxp = |a: Actor| agenium_orchestrator::CallCtx {
+        project,
+        actor: a,
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&ctxp(lead), Intent::ProposeSpec(spec())).unwrap();
+    app.apply(&ctxp(lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::CreateTicket(new_ticket("PI-1", "t", &[], &[])),
+    )
+    .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+
+    // The command is denied by the user; the agent asks a blocking question and the run parks.
+    p.push_calls(
+        "",
+        vec![("shell", json!({"command": "curl https://example.com"}))],
+    );
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap();
+        let denied = matches!(&last.parts[0], agenium_llm::Part::ToolResult { content, is_error: true, .. } if content.contains("command_denied") && content.contains("not now"));
+        assert!(denied);
+        Ok(calls_response("", vec![("ask_question", json!({"ticket_id": "AGN-1", "category": "Permission", "question": "May I download the example page?", "blocking": true}))]))
+    }));
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Parked");
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Pending
+    );
+    assert!(
+        rt.tick(project).await.unwrap().is_empty(),
+        "nothing runs while Pending"
+    );
+
+    // The user answers; the continuation run resumes the stored conversation with the answer appended.
+    let q = app
+        .store()
+        .read(|c| {
+            agenium_store::core::comments::open_blocking(
+                c,
+                app.ticket(project, &key("AGN-1")).unwrap().id,
+            )
+        })
+        .unwrap();
+    app.user_answer(project, &key("AGN-1"), q[0].id, "No, work offline.", None)
+        .unwrap();
+    p.push(Box::new(|req| {
+        let texts: String = req
+            .messages
+            .iter()
+            .map(|m| m.text())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            texts.contains("Your run resumes") && texts.contains("No, work offline."),
+            "{texts}"
+        );
+        assert!(
+            req.messages
+                .iter()
+                .any(|m| m.tool_calls().iter().any(|c| c.name == "ask_question")),
+            "previous turns are kept"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "write_file",
+                json!({"path": "notes/offline.md", "content": "offline\n"}),
+            )],
+        ))
+    }));
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Resolved
+    );
+    drop(f);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn quota_exhaustion_parks_the_agent_and_repeated_failures_escalate() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let lead = Actor::Lead(agent);
+    let ctxp = |a: Actor| agenium_orchestrator::CallCtx {
+        project,
+        actor: a,
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&ctxp(lead), Intent::ProposeSpec(spec())).unwrap();
+    app.apply(&ctxp(lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::CreateTicket(new_ticket("PI-1", "t", &[], &[])),
+    )
+    .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+
+    p.push_error(agenium_llm::LlmError::Http {
+        status: 429,
+        kind: "insufficient_quota".into(),
+        message: "quota".into(),
+        quota: true,
+        retry_after: None,
+    });
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "QuotaExhausted");
+    assert_eq!(
+        app.agent(agent).unwrap().status,
+        AgentStatus::QuotaExhausted
+    );
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::InProgress,
+        "the ticket keeps its state"
+    );
+    assert!(
+        app.ready_tickets(project).unwrap().is_empty(),
+        "no new work for a QuotaExhausted agent"
+    );
+
+    // The user switches the model / adds credit: the agent is Idle again and the ticket continues; two stopped runs
+    // in a row stop auto-restarts and ask the user.
+    app.set_agent_status(agent, AgentStatus::Idle).unwrap();
+    for _ in 0..2 {
+        for _ in 0..3 {
+            p.push_text("thinking out loud");
+        }
+        let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+        assert_eq!(s.outcome, "Stopped:no_tool_call");
+    }
+    assert!(
+        rt.tick(project).await.unwrap().is_empty(),
+        "auto-restart stops after repeated failures"
+    );
+    let needs = app
+        .store()
+        .read(|c| events::recent_of_kind(c, "NeedsUser", 10))
+        .unwrap();
+    assert!(needs.iter().any(|e| e.payload["reason"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("runs keep stopping")));
+    drop(f);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn chat_with_exhausted_credit_marks_the_agent_and_explains() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    // The real OpenCode Zen answer of an unfunded account (2026-10-23).
+    p.push_error(agenium_llm::LlmError::Http {
+        status: 402,
+        kind: "server_error".into(),
+        message: "Upstream request failed: Insufficient account funds".into(),
+        quota: true,
+        retry_after: None,
+    });
+    let r = rt.chat(project, "hello").await.unwrap();
+    assert_eq!(r.outcome, "QuotaExhausted");
+    assert!(r.text.contains("Insufficient account funds"), "{}", r.text);
+    assert_eq!(
+        app.agent(agent).unwrap().status,
+        AgentStatus::QuotaExhausted
+    );
+    drop(f);
+}

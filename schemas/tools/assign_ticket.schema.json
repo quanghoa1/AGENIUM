@@ -1,0 +1,31 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/assign_ticket.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Assign a New or Reopened ticket to a worker of your team whose role and tags match. The scheduler starts the work when dependencies are satisfied.",
+  "properties": {
+    "note": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    },
+    "worker": {
+      "pattern": "^agent_[0-9A-HJKMNP-TV-Z]{26}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "worker"
+  ],
+  "title": "assign_ticket",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

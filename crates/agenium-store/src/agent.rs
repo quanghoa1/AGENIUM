@@ -1,0 +1,618 @@
+//! Per-agent private memory database (`db/agents/<agent-id>.db`): facts with an exact cosine vector index
+//! (sqlite-vec `vec0`), BM25 keyword search (FTS5), hybrid retrieval by reciprocal-rank fusion, the fact-usage log
+//! and the resumable conversation store. Only the owning agent's runtime opens this file (decision 2).
+//!
+//! The ANN sidecar of ADR-50 (usearch, from 100 000 facts) is not built yet: exact search is always correct and
+//! below the threshold it is the configured mode anyway; `ann_journal` is already maintained so a sidecar can be
+//! added without a migration.
+
+use std::collections::HashMap;
+use std::path::Path;
+
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use serde::{Deserialize, Serialize};
+
+use crate::db::{Db, DbOptions};
+use crate::migrate::{migrate, Migration};
+use crate::{backup, StoreError};
+
+pub const AGENT_MIGRATIONS: &[Migration] = &[Migration {
+    version: 1,
+    sql: include_str!("schema/agent_001.sql"),
+}];
+
+/// Reciprocal rank fusion constant (ADR-51 §hybrid retrieval).
+pub const RRF_K: f64 = 60.0;
+/// Facts whose decayed weight falls below this are not retrieved (kept, not deleted; decision 35).
+pub const HIDE_BELOW_WEIGHT: f64 = 0.2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FactKind {
+    Fact,
+    Preference,
+    Lesson,
+}
+
+impl FactKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Fact => "fact",
+            Self::Preference => "preference",
+            Self::Lesson => "lesson",
+        }
+    }
+    fn parse(s: &str) -> Result<Self, StoreError> {
+        match s {
+            "fact" => Ok(Self::Fact),
+            "preference" => Ok(Self::Preference),
+            "lesson" => Ok(Self::Lesson),
+            o => Err(StoreError::Corrupt(format!("fact kind {o:?}"))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewFact {
+    pub text: String,
+    pub kind: FactKind,
+    pub project: Option<String>,
+    pub scope: serde_json::Value,
+    pub cue: Option<String>,
+    pub evidence: Option<String>,
+    pub source: String,
+    pub untrusted: bool,
+    pub confidence: f64,
+}
+
+impl NewFact {
+    pub fn fact(text: impl Into<String>, source: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            kind: FactKind::Fact,
+            project: None,
+            scope: serde_json::json!({}),
+            cue: None,
+            evidence: None,
+            source: source.into(),
+            untrusted: false,
+            confidence: 0.5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Fact {
+    pub id: i64,
+    pub text: String,
+    pub kind: FactKind,
+    pub project: Option<String>,
+    pub scope: serde_json::Value,
+    pub cue: Option<String>,
+    pub evidence: Option<String>,
+    pub source: String,
+    pub untrusted: bool,
+    pub confidence: f64,
+    pub weight: f64,
+    pub model_id: Option<String>,
+    pub superseded_by: Option<i64>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub used_at: Option<String>,
+}
+
+impl Fact {
+    pub fn is_live(&self) -> bool {
+        self.superseded_by.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Via {
+    Vector,
+    Keyword,
+    Hybrid,
+    Graph,
+    Recent,
+}
+
+impl Via {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Via::Vector => "vector",
+            Via::Keyword => "keyword",
+            Via::Hybrid => "hybrid",
+            Via::Graph => "graph",
+            Via::Recent => "recent",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Hit {
+    pub fact: Fact,
+    pub score: f64,
+    pub via: Via,
+}
+
+const FACT_COLS: &str = "id, text, kind, project, scope, cue, evidence, source, untrusted, confidence, weight, model_id, \
+    superseded_by, created_at, updated_at, used_at";
+
+fn map_fact(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Fact, String, String)> {
+    Ok((
+        Fact {
+            id: r.get(0)?,
+            text: r.get(1)?,
+            kind: FactKind::Fact,
+            project: r.get(3)?,
+            scope: serde_json::Value::Null,
+            cue: r.get(5)?,
+            evidence: r.get(6)?,
+            source: r.get(7)?,
+            untrusted: r.get(8)?,
+            confidence: r.get(9)?,
+            weight: r.get(10)?,
+            model_id: r.get(11)?,
+            superseded_by: r.get(12)?,
+            created_at: r.get(13)?,
+            updated_at: r.get(14)?,
+            used_at: r.get(15)?,
+        },
+        r.get(2)?,
+        r.get(4)?,
+    ))
+}
+
+fn decode_fact(v: (Fact, String, String)) -> Result<Fact, StoreError> {
+    let (mut f, kind, scope) = v;
+    f.kind = FactKind::parse(&kind)?;
+    f.scope = crate::core::from_json(&scope)?;
+    Ok(f)
+}
+
+fn vec_blob(v: &[f32]) -> Vec<u8> {
+    v.iter().flat_map(|x| x.to_le_bytes()).collect()
+}
+
+/// Turns free text into a safe FTS5 query: every word token quoted, OR-ed (BM25 ranks by overlap).
+pub fn fts_query(text: &str) -> Option<String> {
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.chars().count() >= 2)
+        .take(32)
+        .map(|w| format!("\"{}\"", w.to_lowercase()))
+        .collect();
+    (!words.is_empty()).then(|| words.join(" OR "))
+}
+
+pub struct AgentStore {
+    db: Db,
+    dim: usize,
+    model_id: String,
+}
+
+impl std::fmt::Debug for AgentStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AgentStore")
+            .field("db", &self.db)
+            .field("dim", &self.dim)
+            .finish()
+    }
+}
+
+impl AgentStore {
+    /// Opens (creating/migrating) an agent database. The embedding dimension is fixed per database (ADR-47):
+    /// opening with another dimension fails; changing the embedder model with the same dimension is allowed and
+    /// recorded (vectors from the old model are re-embedded by `reindex`).
+    pub fn open(
+        path: &Path,
+        dim: usize,
+        model_id: &str,
+        pre_migrate_dir: &Path,
+    ) -> Result<AgentStore, StoreError> {
+        let opts = DbOptions {
+            synchronous_full: false,
+            readers: 2,
+            ..DbOptions::default()
+        };
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("agent")
+            .to_owned();
+        let db = Db::open(path, opts, |c| {
+            migrate(c, AGENT_MIGRATIONS, |c, from| {
+                backup::pre_migrate_snapshot(c, pre_migrate_dir, &format!("agent-{name}"), from)
+                    .map(|_| ())
+            })?;
+            let stored: Option<String> = c
+                .query_row(
+                    "SELECT value FROM agent_meta WHERE key = 'embedding_dim'",
+                    [],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            match stored {
+                Some(d) if d != dim.to_string() => {
+                    return Err(StoreError::Invalid(format!(
+                        "agent database uses {d}-d embeddings, embedder gives {dim}"
+                    )));
+                }
+                Some(_) => {}
+                None => {
+                    c.execute(
+                        "INSERT INTO agent_meta(key, value) VALUES ('embedding_dim', ?1)",
+                        [dim.to_string()],
+                    )?;
+                }
+            }
+            c.execute(
+                "INSERT INTO agent_meta(key, value) VALUES ('embedder', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [model_id],
+            )?;
+            c.execute_batch(&format!(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS fact_vec USING vec0(embedding float[{dim}] distance_metric=cosine);"
+            ))?;
+            Ok(())
+        })?;
+        Ok(AgentStore {
+            db,
+            dim,
+            model_id: model_id.to_owned(),
+        })
+    }
+
+    pub fn db(&self) -> &Db {
+        &self.db
+    }
+
+    pub fn dim(&self) -> usize {
+        self.dim
+    }
+
+    fn check_vec(&self, v: &[f32]) -> Result<(), StoreError> {
+        if v.len() != self.dim {
+            return Err(StoreError::Invalid(format!(
+                "vector has {} dims, expected {}",
+                v.len(),
+                self.dim
+            )));
+        }
+        Ok(())
+    }
+
+    fn insert_fact(
+        &self,
+        tx: &Transaction<'_>,
+        f: &NewFact,
+        vector: Option<&[f32]>,
+    ) -> Result<i64, StoreError> {
+        tx.execute(
+            "INSERT INTO fact(text, kind, project, scope, cue, evidence, source, untrusted, confidence, model_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                f.text,
+                f.kind.as_str(),
+                f.project,
+                f.scope.to_string(),
+                f.cue,
+                f.evidence,
+                f.source,
+                f.untrusted,
+                f.confidence,
+                vector.map(|_| self.model_id.as_str())
+            ],
+        )?;
+        let id = tx.last_insert_rowid();
+        if let Some(v) = vector {
+            tx.execute(
+                "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
+                params![id, vec_blob(v)],
+            )?;
+            tx.execute("INSERT INTO ann_journal(op, fact_id) VALUES (1, ?1)", [id])?;
+        }
+        Ok(id)
+    }
+
+    fn drop_vector(tx: &Transaction<'_>, id: i64) -> Result<(), StoreError> {
+        if tx.execute("DELETE FROM fact_vec WHERE rowid = ?1", [id])? > 0 {
+            tx.execute("INSERT INTO ann_journal(op, fact_id) VALUES (2, ?1)", [id])?;
+        }
+        Ok(())
+    }
+
+    /// ADD.
+    pub fn add(&self, f: &NewFact, vector: Option<&[f32]>) -> Result<i64, StoreError> {
+        if let Some(v) = vector {
+            self.check_vec(v)?;
+        }
+        if f.text.trim().is_empty() {
+            return Err(StoreError::Invalid("fact text is empty".into()));
+        }
+        self.db.write(|tx| self.insert_fact(tx, f, vector))
+    }
+
+    /// UPDATE: a new fact supersedes `old` (history kept, decision 35). Returns the new id.
+    pub fn supersede(
+        &self,
+        old: i64,
+        f: &NewFact,
+        vector: Option<&[f32]>,
+    ) -> Result<i64, StoreError> {
+        if let Some(v) = vector {
+            self.check_vec(v)?;
+        }
+        self.db.write(|tx| {
+            let live: Option<Option<i64>> =
+                tx.query_row("SELECT superseded_by FROM fact WHERE id = ?1", [old], |r| r.get(0)).optional()?;
+            match live {
+                None => return Err(StoreError::NotFound(format!("fact {old}"))),
+                Some(Some(_)) => return Err(StoreError::Conflict(format!("fact {old} is already superseded"))),
+                Some(None) => {}
+            }
+            let id = self.insert_fact(tx, f, vector)?;
+            tx.execute(
+                "UPDATE fact SET superseded_by = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1",
+                params![old, id],
+            )?;
+            Self::drop_vector(tx, old)?;
+            Ok(id)
+        })
+    }
+
+    /// DELETE: retires a fact (self-superseded tombstone; the text stays for audit, it is never retrieved).
+    pub fn retire(&self, id: i64) -> Result<(), StoreError> {
+        self.db.write(|tx| {
+            let n = tx.execute(
+                "UPDATE fact SET superseded_by = id, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                 WHERE id = ?1 AND superseded_by IS NULL",
+                [id],
+            )?;
+            if n == 0 {
+                return Err(StoreError::NotFound(format!("live fact {id}")));
+            }
+            Self::drop_vector(tx, id)
+        })
+    }
+
+    pub fn get(&self, id: i64) -> Result<Fact, StoreError> {
+        self.db
+            .read(|c| {
+                c.query_row(
+                    &format!("SELECT {FACT_COLS} FROM fact WHERE id = ?1"),
+                    [id],
+                    map_fact,
+                )
+                .optional()
+                .map_err(StoreError::from)
+            })?
+            .map(decode_fact)
+            .transpose()?
+            .ok_or_else(|| StoreError::NotFound(format!("fact {id}")))
+    }
+
+    fn facts_by_ids(c: &Connection, ids: &[i64]) -> Result<HashMap<i64, Fact>, StoreError> {
+        let mut out = HashMap::new();
+        let mut st = c.prepare_cached(&format!("SELECT {FACT_COLS} FROM fact WHERE id = ?1"))?;
+        for id in ids {
+            if let Some(v) = st.query_row([id], map_fact).optional()? {
+                out.insert(*id, decode_fact(v)?);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Live facts, newest first.
+    pub fn live(&self, limit: usize) -> Result<Vec<Fact>, StoreError> {
+        self.db.read(|c| {
+            let mut st =
+                c.prepare_cached(&format!("SELECT {FACT_COLS} FROM fact WHERE superseded_by IS NULL ORDER BY id DESC LIMIT ?1"))?;
+            let rows = st.query_map([limit as i64], map_fact)?;
+            rows.map(|r| decode_fact(r?)).collect()
+        })
+    }
+
+    pub fn count_live(&self) -> Result<u64, StoreError> {
+        self.db.read(|c| {
+            Ok(c.query_row(
+                "SELECT count(*) FROM fact WHERE superseded_by IS NULL",
+                [],
+                |r| r.get::<_, i64>(0),
+            )? as u64)
+        })
+    }
+
+    /// Exact cosine KNN over live facts: `(fact id, distance)` ascending.
+    pub fn knn(&self, query: &[f32], k: usize) -> Result<Vec<(i64, f64)>, StoreError> {
+        self.check_vec(query)?;
+        if k == 0 {
+            return Ok(vec![]);
+        }
+        self.db.read(|c| {
+            let mut st = c.prepare_cached("SELECT rowid, distance FROM fact_vec WHERE embedding MATCH ?1 AND k = ?2 ORDER BY distance")?;
+            let rows = st.query_map(params![vec_blob(query), k as i64], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        })
+    }
+
+    /// BM25 keyword search over live facts: `(fact id, bm25)` best first.
+    pub fn keyword(&self, text: &str, k: usize) -> Result<Vec<(i64, f64)>, StoreError> {
+        let Some(q) = fts_query(text) else {
+            return Ok(vec![]);
+        };
+        self.db.read(|c| {
+            let mut st = c.prepare_cached(
+                "SELECT f.id, bm25(fact_fts) AS s FROM fact_fts JOIN fact f ON f.id = fact_fts.rowid
+                 WHERE fact_fts MATCH ?1 AND f.superseded_by IS NULL ORDER BY s LIMIT ?2",
+            )?;
+            let rows = st.query_map(params![q, k as i64], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        })
+    }
+
+    /// Hybrid retrieval: vector KNN + BM25, fused by reciprocal rank (k = 60), hidden facts filtered.
+    /// `project` boosts facts of the current project (decision 25) by ordering ties.
+    pub fn hybrid(
+        &self,
+        text: &str,
+        query: Option<&[f32]>,
+        k: usize,
+    ) -> Result<Vec<Hit>, StoreError> {
+        let pool = (k * 4).max(20);
+        let vec_hits = match query {
+            Some(q) => self.knn(q, pool)?,
+            None => vec![],
+        };
+        let kw_hits = self.keyword(text, pool)?;
+        let mut score: HashMap<i64, (f64, bool, bool)> = HashMap::new();
+        for (rank, (id, _)) in vec_hits.iter().enumerate() {
+            let e = score.entry(*id).or_default();
+            e.0 += 1.0 / (RRF_K + rank as f64 + 1.0);
+            e.1 = true;
+        }
+        for (rank, (id, _)) in kw_hits.iter().enumerate() {
+            let e = score.entry(*id).or_default();
+            e.0 += 1.0 / (RRF_K + rank as f64 + 1.0);
+            e.2 = true;
+        }
+        let ids: Vec<i64> = score.keys().copied().collect();
+        let facts = self.db.read(|c| Self::facts_by_ids(c, &ids))?;
+        let mut hits: Vec<Hit> = score
+            .into_iter()
+            .filter_map(|(id, (s, v, kw))| {
+                let f = facts.get(&id)?.clone();
+                (f.is_live() && f.weight >= HIDE_BELOW_WEIGHT).then_some(Hit {
+                    score: s * f.weight,
+                    via: match (v, kw) {
+                        (true, true) => Via::Hybrid,
+                        (true, false) => Via::Vector,
+                        _ => Via::Keyword,
+                    },
+                    fact: f,
+                })
+            })
+            .collect();
+        hits.sort_by(|a, b| b.score.total_cmp(&a.score).then(b.fact.id.cmp(&a.fact.id)));
+        hits.truncate(k);
+        Ok(hits)
+    }
+
+    /// Logs facts injected into a work order (M1-11) and touches `used_at`.
+    pub fn record_usage(
+        &self,
+        run: &str,
+        ticket: Option<&str>,
+        used: &[(i64, u32, Via)],
+    ) -> Result<(), StoreError> {
+        self.db.write(|tx| {
+            for (fact, rank, via) in used {
+                tx.execute(
+                    "INSERT OR IGNORE INTO fact_usage(fact, ticket, run, rank, via) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![fact, ticket, run, *rank as i64, via.as_str()],
+                )?;
+                tx.execute("UPDATE fact SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1", [fact])?;
+            }
+            Ok(())
+        })
+    }
+
+    pub fn usage_for_run(&self, run: &str) -> Result<Vec<(i64, u32, String)>, StoreError> {
+        self.db.read(|c| {
+            let mut st = c.prepare_cached(
+                "SELECT fact, rank, via FROM fact_usage WHERE run = ?1 ORDER BY rank",
+            )?;
+            let rows = st.query_map([run], |r| {
+                Ok((r.get(0)?, r.get::<_, i64>(1)? as u32, r.get(2)?))
+            })?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        })
+    }
+
+    /// Replaces the vectors of every live fact (embedder change with the same dimension).
+    pub fn reindex(
+        &self,
+        embed: impl Fn(&[String]) -> Result<Vec<Vec<f32>>, String>,
+    ) -> Result<u64, StoreError> {
+        let facts = self.live(usize::MAX >> 1)?;
+        let texts: Vec<String> = facts.iter().map(|f| f.text.clone()).collect();
+        let vecs = embed(&texts).map_err(StoreError::Invalid)?;
+        if vecs.len() != facts.len() {
+            return Err(StoreError::Invalid(
+                "embedder returned a different number of vectors".into(),
+            ));
+        }
+        for v in &vecs {
+            self.check_vec(v)?;
+        }
+        self.db.write(|tx| {
+            for (f, v) in facts.iter().zip(&vecs) {
+                tx.execute("DELETE FROM fact_vec WHERE rowid = ?1", [f.id])?;
+                tx.execute(
+                    "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
+                    params![f.id, vec_blob(v)],
+                )?;
+                tx.execute(
+                    "UPDATE fact SET model_id = ?2 WHERE id = ?1",
+                    params![f.id, self.model_id],
+                )?;
+                tx.execute(
+                    "INSERT INTO ann_journal(op, fact_id) VALUES (1, ?1)",
+                    [f.id],
+                )?;
+            }
+            Ok(facts.len() as u64)
+        })
+    }
+
+    // ------------------------------------------------------------ conversation (resumable run context)
+
+    pub fn append_message(
+        &self,
+        session: &str,
+        message: &serde_json::Value,
+    ) -> Result<u32, StoreError> {
+        self.db.write(|tx| {
+            let n: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(n), 0) + 1 FROM conversation WHERE session = ?1",
+                [session],
+                |r| r.get(0),
+            )?;
+            tx.execute(
+                "INSERT INTO conversation(session, n, message) VALUES (?1, ?2, ?3)",
+                params![session, n, message.to_string()],
+            )?;
+            Ok(n as u32)
+        })
+    }
+
+    pub fn load_messages(&self, session: &str) -> Result<Vec<serde_json::Value>, StoreError> {
+        self.db.read(|c| {
+            let mut st =
+                c.prepare_cached("SELECT message FROM conversation WHERE session = ?1 ORDER BY n")?;
+            let rows = st.query_map([session], |r| r.get::<_, String>(0))?;
+            rows.map(|s| crate::core::from_json(&s?)).collect()
+        })
+    }
+
+    pub fn meta(&self, key: &str) -> Result<Option<String>, StoreError> {
+        self.db.read(|c| {
+            Ok(
+                c.query_row("SELECT value FROM agent_meta WHERE key = ?1", [key], |r| {
+                    r.get(0)
+                })
+                .optional()?,
+            )
+        })
+    }
+
+    pub fn set_meta(&self, key: &str, value: &str) -> Result<(), StoreError> {
+        self.db.write(|tx| {
+            tx.execute(
+                "INSERT INTO agent_meta(key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )?;
+            Ok(())
+        })
+    }
+}

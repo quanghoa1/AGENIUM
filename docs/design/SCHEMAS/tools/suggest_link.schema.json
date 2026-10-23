@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/suggest_link.schema.json",
+  "title": "suggest_link",
+  "description": "Propose a related_to link; the Lead confirms with confirm_link",
+  "x-agenium-role": "Worker",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "from": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "to": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "from",
+    "to",
+    "reason"
+  ]
+}

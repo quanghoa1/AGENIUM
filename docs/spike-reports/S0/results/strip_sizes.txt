@@ -1,0 +1,5 @@
+target-surrealkv/release/s1 raw=151062008 stripped=114324520
+target-rocksdb/release/s1 raw=162416464 stripped=123525664
+target-surrealkv/release/s0-full raw=196253256 stripped=148285720
+target-rocksdb/release/s0-full raw=207483008 stripped=157371320
+target-base/release/s0-tauri-base raw=10804680 stripped=7012848

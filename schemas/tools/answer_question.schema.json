@@ -1,0 +1,39 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/answer_question.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Answer an open Question comment on a ticket of your team. If you are not sure, ask the user instead of guessing.",
+  "properties": {
+    "answer": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "chosen_option": {
+      "default": null,
+      "format": "uint",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "reply_to": {
+      "description": "Id of the Question comment.",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "reply_to",
+    "answer"
+  ],
+  "title": "answer_question",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

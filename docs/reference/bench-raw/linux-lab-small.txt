@@ -1,0 +1,26 @@
+ground truth 10000: 0.1s
+RESULT vec0.float n=10000 insert_s=0.1 rate_per_s=70853 db_mb=16 p50_ms=4.95 p95_ms=5.57 recall10=1.0000 rss_mb=26
+
+thread 'main' (494958) panicked at src/main.rs:133:278:
+called `Result::unwrap()` on an `Err` value: SqlInputError { error: Error { code: Unknown, extended_code: 1 }, msg: "no such function: vec_quantize_i8", sql: "INSERT INTO v(rowid, embedding) VALUES (?1, vec_quantize_i8(?2, 'unit'))", offset: 44 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+RESULT vec0.bit n=10000 insert_s=0.0 rate_per_s=321193 db_mb=1 p50_ms=0.26 p95_ms=0.29 recall10=0.4835 rss_mb=23
+RESULT usearch.f32.16.128.64 n=10000 build_s=2.5 rate_per_s=3953 rss_delta_mb=18 file_mb=17 save_s=0.02 view_s=0.001 load_s=0.01 p50_ms=0.164 p95_ms=0.198 recall10=0.9810 recall10_view=0.9810
+RESULT usearch.f32.16.128.128 n=10000 build_s=2.5 rate_per_s=4022 rss_delta_mb=18 file_mb=17 save_s=0.05 view_s=0.001 load_s=0.01 p50_ms=0.298 p95_ms=0.458 recall10=0.9965 recall10_view=0.9965
+RESULT usearch.f16.16.128.64 n=10000 build_s=1.8 rate_per_s=5695 rss_delta_mb=10 file_mb=9 save_s=0.03 view_s=0.001 load_s=0.01 p50_ms=0.096 p95_ms=0.121 recall10=0.9810 recall10_view=0.9810
+RESULT usearch.i8.16.128.64 n=10000 build_s=1.1 rate_per_s=9306 rss_delta_mb=7 file_mb=5 save_s=0.02 view_s=0.001 load_s=0.00 p50_ms=0.063 p95_ms=0.080 recall10=0.9135 recall10_view=0.9135
+RESULT hnsw_rs.16.128.64 n=10000 build_s=11.3 rate_per_s=886 rss_delta_mb=52 file_mb=21 save_s=0.03 p50_ms=0.725 p95_ms=0.873 recall10=0.9835
+RESULT hnsw_rs.16.128.128 n=10000 build_s=11.0 rate_per_s=909 rss_delta_mb=52 file_mb=21 save_s=0.08 p50_ms=1.212 p95_ms=1.483 recall10=0.9950
+ground truth 100000: 0.5s
+RESULT vec0.float n=100000 insert_s=1.3 rate_per_s=77851 db_mb=157 p50_ms=51.04 p95_ms=57.92 recall10=1.0000 rss_mb=158
+
+thread 'main' (495333) panicked at src/main.rs:133:278:
+called `Result::unwrap()` on an `Err` value: SqlInputError { error: Error { code: Unknown, extended_code: 1 }, msg: "no such function: vec_quantize_i8", sql: "INSERT INTO v(rowid, embedding) VALUES (?1, vec_quantize_i8(?2, 'unit'))", offset: 44 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+RESULT vec0.bit n=100000 insert_s=0.4 rate_per_s=272568 db_mb=7 p50_ms=2.56 p95_ms=2.97 recall10=0.4425 rss_mb=156
+RESULT usearch.f32.16.128.64 n=100000 build_s=50.3 rate_per_s=1987 rss_delta_mb=172 file_mb=168 save_s=0.19 view_s=0.008 load_s=0.14 p50_ms=0.265 p95_ms=0.397 recall10=0.9685 recall10_view=0.9685
+RESULT usearch.f32.16.128.128 n=100000 build_s=53.3 rate_per_s=1877 rss_delta_mb=172 file_mb=168 save_s=0.34 view_s=0.007 load_s=0.11 p50_ms=0.568 p95_ms=0.808 recall10=0.9880 recall10_view=0.9880
+RESULT usearch.f16.16.128.64 n=100000 build_s=35.4 rate_per_s=2824 rss_delta_mb=99 file_mb=92 save_s=0.21 view_s=0.007 load_s=0.07 p50_ms=0.193 p95_ms=0.257 recall10=0.9680 recall10_view=0.9680
+RESULT usearch.i8.16.128.64 n=100000 build_s=23.5 rate_per_s=4259 rss_delta_mb=62 file_mb=53 save_s=0.13 view_s=0.007 load_s=0.04 p50_ms=0.130 p95_ms=0.168 recall10=0.8925 recall10_view=0.8925
+RESULT hnsw_rs.16.128.64 n=100000 build_s=205.5 rate_per_s=487 rss_delta_mb=504 file_mb=210 save_s=0.70 p50_ms=1.243 p95_ms=1.772 recall10=0.9625
+RESULT hnsw_rs.16.128.128 n=100000 build_s=200.5 rate_per_s=499 rss_delta_mb=504 file_mb=210 save_s=0.74 p50_ms=2.079 p95_ms=2.719 recall10=0.9850

@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/ticket.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "parent": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "description": "TicketKey, vd. AGN-11"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Epic",
+        "Story",
+        "Task",
+        "Bug",
+        "Requirement"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string"
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^AC-[0-9]+$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ]
+      },
+      "minItems": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "New",
+        "Assigned",
+        "InProgress",
+        "Pending",
+        "Resolved",
+        "Reopened",
+        "Closed",
+        "Cancelled"
+      ]
+    },
+    "assignee": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^agent_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "plan_item": {
+      "type": "string",
+      "pattern": "^PI-[0-9]+$"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]+-[0-9]+$",
+        "description": "TicketKey, vd. AGN-11"
+      },
+      "uniqueItems": true
+    },
+    "reopen_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "escalated": {
+      "type": "boolean"
+    },
+    "required_role": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "required_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report_template": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+@[0-9]+$"
+    },
+    "approved": {
+      "type": "boolean",
+      "description": "Lead review_ticket approve"
+    },
+    "merged": {
+      "type": "boolean",
+      "description": "Code tickets: the merge queue succeeded"
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokens_in": {
+          "type": "integer"
+        },
+        "tokens_out": {
+          "type": "integer"
+        },
+        "cache_read": {
+          "type": "integer"
+        },
+        "estimated_cost_usd": {
+          "type": "number"
+        },
+        "elapsed_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tokens_in",
+        "tokens_out",
+        "cache_read",
+        "estimated_cost_usd",
+        "elapsed_ms"
+      ],
+      "description": "Display only, never blocks"
+    }
+  },
+  "required": [
+    "id",
+    "key",
+    "project",
+    "parent",
+    "kind",
+    "title",
+    "description",
+    "acceptance",
+    "status",
+    "assignee",
+    "plan_item",
+    "priority",
+    "depends_on",
+    "reopen_count",
+    "escalated",
+    "required_role",
+    "required_tags",
+    "scope_paths",
+    "report_template",
+    "approved",
+    "merged",
+    "usage"
+  ],
+  "title": "Ticket",
+  "description": "A dependency is satisfied when the predecessor is Closed, or Resolved + approved (+ merged for code tickets)."
+}

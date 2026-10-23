@@ -1,0 +1,36 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/confirm_link.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Confirm a link between two tickets (usually one a worker proposed).",
+  "properties": {
+    "from": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "related_to",
+        "blocks",
+        "duplicates",
+        "follow_up_of",
+        "aggregates"
+      ],
+      "type": "string"
+    },
+    "to": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "kind"
+  ],
+  "title": "confirm_link",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

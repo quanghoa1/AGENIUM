@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_role_change.schema.json",
+  "title": "propose_role_change",
+  "description": "Requires user approval",
+  "x-agenium-role": "Shared",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "role_id": {
+      "type": "string"
+    },
+    "patch": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "role_id",
+    "patch",
+    "reason"
+  ]
+}

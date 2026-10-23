@@ -1,0 +1,34 @@
+# Linux, 8 cores, 384-d. `facts <N> ann` (ANN phase only), BENCH_EF pins expansion_search (scale_ef off), M=16/ef_add=128 unless stated.
+# Real = real bge-small-en embeddings + interpolated synthetic vectors; RANDOM = BENCH_RANDOM=1 structureless unit-Gaussian vectors.
+# (Transcribed from the run log; the log file itself was lost in a box restart. The random-500k line is in linux-random-500k-rerun.txt.)
+### RANDOM f16 ef128, 100k
+RESULT facts.100000.knn_ann build_s=9.1 build_rate_per_s=10953 save_s=0.34 sidecar_mb=92 p50_ms=0.594 p95_ms=0.767 recall10=0.1450 rss_mb=765 ann_mem_mb=152
+RESULT facts.100000.hybrid_ann hybrid_p50_ms=8.00 hybrid_p95_ms=14.99 needle_found_of_50=50
+### RANDOM f16 ef256, 100k
+RESULT facts.100000.knn_ann build_s=9.0 build_rate_per_s=11155 save_s=0.33 sidecar_mb=92 p50_ms=1.111 p95_ms=1.271 recall10=0.2380 rss_mb=472 ann_mem_mb=152
+RESULT facts.100000.hybrid_ann hybrid_p50_ms=8.44 hybrid_p95_ms=15.72 needle_found_of_50=50
+### RANDOM f32 ef256, 100k
+RESULT facts.100000.knn_ann build_s=13.5 build_rate_per_s=7400 save_s=0.39 sidecar_mb=168 p50_ms=1.550 p95_ms=1.861 recall10=0.2525 rss_mb=545 ann_mem_mb=286
+RESULT facts.100000.hybrid_ann hybrid_p50_ms=8.98 hybrid_p95_ms=16.36 needle_found_of_50=50
+### RANDOM f32 ef512, 100k
+RESULT facts.100000.knn_ann build_s=13.4 build_rate_per_s=7484 save_s=0.36 sidecar_mb=168 p50_ms=2.666 p95_ms=3.124 recall10=0.3885 rss_mb=545 ann_mem_mb=286
+RESULT facts.100000.hybrid_ann hybrid_p50_ms=10.01 hybrid_p95_ms=17.07 needle_found_of_50=50
+### RANDOM f32 ef256 M32 ef_add256, 100k
+RESULT facts.100000.knn_ann build_s=46.1 build_rate_per_s=2167 save_s=0.36 sidecar_mb=181 p50_ms=2.650 p95_ms=3.033 recall10=0.4720 rss_mb=558 ann_mem_mb=320
+RESULT facts.100000.hybrid_ann hybrid_p50_ms=10.32 hybrid_p95_ms=17.17 needle_found_of_50=50
+### REAL f16 ef256, 500k
+RESULT facts.500000.knn_ann build_s=32.3 build_rate_per_s=15502 save_s=0.91 sidecar_mb=458 p50_ms=0.850 p95_ms=1.241 recall10=0.9875 rss_mb=2146 ann_mem_mb=659
+RESULT facts.500000.hybrid_ann hybrid_p50_ms=34.77 hybrid_p95_ms=72.50 needle_found_of_50=50
+### REAL f32 ef256, 500k
+RESULT facts.500000.knn_ann build_s=46.7 build_rate_per_s=10701 save_s=1.23 sidecar_mb=842 p50_ms=1.360 p95_ms=2.062 recall10=0.9885 rss_mb=2512 ann_mem_mb=1196
+RESULT facts.500000.hybrid_ann hybrid_p50_ms=35.30 hybrid_p95_ms=71.66 needle_found_of_50=50
+### REAL f16 ef256 M32 ef_add256, 500k
+RESULT facts.500000.knn_ann build_s=89.7 build_rate_per_s=5575 save_s=1.06 sidecar_mb=522 p50_ms=1.830 p95_ms=2.918 recall10=0.9960 rss_mb=2208 ann_mem_mb=794
+RESULT facts.500000.hybrid_ann hybrid_p50_ms=37.32 hybrid_p95_ms=80.96 needle_found_of_50=50
+### REAL f16 ef256, 1M
+RESULT facts.1000000.knn_ann build_s=72.3 build_rate_per_s=13833 save_s=1.96 sidecar_mb=917 p50_ms=1.406 p95_ms=3.237 recall10=0.9740 rss_mb=3541 ann_mem_mb=1335
+RESULT facts.1000000.hybrid_ann hybrid_p50_ms=81.21 hybrid_p95_ms=166.13 needle_found_of_50=50
+### REAL f32 ef256, 1M
+RESULT facts.1000000.knn_ann build_s=117.7 build_rate_per_s=8498 save_s=2.45 sidecar_mb=1685 p50_ms=1.635 p95_ms=2.366 recall10=0.9690 rss_mb=4273 ann_mem_mb=2409
+RESULT facts.1000000.hybrid_ann hybrid_p50_ms=79.01 hybrid_p95_ms=173.81 needle_found_of_50=50
+### RANDOM f16 ef256, 500k: hybrid line seen: hybrid_p50_ms=36.50 hybrid_p95_ms=78.97 needle_found_of_50=50 (knn line lost; see rerun file)

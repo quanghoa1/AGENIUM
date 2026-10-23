@@ -1,0 +1,32 @@
+point 1 (after MergeStarted event) occurrence 1: SELF-HEALED ['RECONCILE: T1: merge incomplete -> re-queued (main untouched)'] []
+point 1 (after MergeStarted event) occurrence 2: SELF-HEALED ['RECONCILE: T2: merge incomplete -> re-queued (main untouched)'] []
+point 1 (after MergeStarted event) occurrence 3: SELF-HEALED ['RECONCILE: T3: merge incomplete -> re-queued (main untouched)'] []
+point 2 (mid-rebase) occurrence 1: SELF-HEALED ['RECONCILE: T1: aborted half-done rebase', 'RECONCILE: T1: merge incomplete -> re-queued (main untouched)'] []
+point 2 (mid-rebase) occurrence 2: SELF-HEALED ['RECONCILE: T2: aborted half-done rebase', 'RECONCILE: T2: merge incomplete -> re-queued (main untouched)'] []
+point 2 (mid-rebase) occurrence 3: SELF-HEALED ['RECONCILE: T3: aborted half-done rebase', 'RECONCILE: T3: merge incomplete -> re-queued (main untouched)'] []
+point 3 (after rebase, before pre-merge check) occurrence 1: SELF-HEALED ['RECONCILE: T1: merge incomplete -> re-queued (main untouched)'] []
+point 3 (after rebase, before pre-merge check) occurrence 2: SELF-HEALED ['RECONCILE: T2: merge incomplete -> re-queued (main untouched)'] []
+point 3 (after rebase, before pre-merge check) occurrence 3: SELF-HEALED ['RECONCILE: T3: merge incomplete -> re-queued (main untouched)'] []
+point 4 (mid pre-merge check) occurrence 1: SELF-HEALED ['RECONCILE: T1: merge incomplete -> re-queued (main untouched)'] []
+point 4 (mid pre-merge check) occurrence 2: SELF-HEALED ['RECONCILE: T2: merge incomplete -> re-queued (main untouched)'] []
+point 4 (mid pre-merge check) occurrence 3: SELF-HEALED ['RECONCILE: T3: merge incomplete -> re-queued (main untouched)'] []
+point 5 (after merge, before MergeDone) occurrence 1: SELF-HEALED ['RECONCILE: T1: merge was complete -> wrote MergeDone'] []
+point 5 (after merge, before MergeDone) occurrence 2: SELF-HEALED ['RECONCILE: T2: merge was complete -> wrote MergeDone'] []
+point 5 (after merge, before MergeDone) occurrence 3: SELF-HEALED ['RECONCILE: T3: merge was complete -> wrote MergeDone'] []
+point 6 (mid auto-commit (after git add)) occurrence 1: SELF-HEALED ['RECONCILE: T1: re-ran idempotent auto-commit'] []
+point 6 (mid auto-commit (after git add)) occurrence 2: SELF-HEALED ['RECONCILE: T2: re-ran idempotent auto-commit'] []
+point 6 (mid auto-commit (after git add)) occurrence 3: SELF-HEALED ['RECONCILE: T3: re-ran idempotent auto-commit'] []
+point 7 (mid worktree removal) occurrence 1: SELF-HEALED ['RECONCILE: T1: finished worktree removal'] []
+point 7 (mid worktree removal) occurrence 2: SELF-HEALED ['RECONCILE: T2: finished worktree removal'] []
+point 7 (mid worktree removal) occurrence 3: SELF-HEALED ['RECONCILE: T3: finished worktree removal'] []
+point 8 (while pushing to remote) occurrence 1: SELF-HEALED ['RECONCILE: push: remote already has main -> wrote PushDone'] []
+point 8 (while pushing to remote) occurrence 2: SELF-HEALED ['RECONCILE: push: remote already has main -> wrote PushDone'] []
+point 8 (while pushing to remote) occurrence 3: SELF-HEALED ['RECONCILE: push: remote already has main -> wrote PushDone'] []
+SUMMARY point 1: 3/3 self-healed
+SUMMARY point 2: 3/3 self-healed
+SUMMARY point 3: 3/3 self-healed
+SUMMARY point 4: 3/3 self-healed
+SUMMARY point 5: 3/3 self-healed
+SUMMARY point 6: 3/3 self-healed
+SUMMARY point 7: 3/3 self-healed
+SUMMARY point 8: 3/3 self-healed

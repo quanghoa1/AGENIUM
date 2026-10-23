@@ -1,0 +1,30 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_soul_change.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Propose a change to your SOUL.md; the user decides.",
+  "properties": {
+    "patch": {
+      "description": "Unified diff.",
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "role_id": {
+      "default": null,
+      "description": "For role changes: the role id. Empty for SOUL.md.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "patch",
+    "reason"
+  ],
+  "title": "propose_soul_change",
+  "type": "object",
+  "x-agenium-role": "Shared"
+}

@@ -1,0 +1,24 @@
+[package]
+name = "agenium-llm"
+description = "Vendor API layer: normalized messages, Provider trait, Anthropic / Gemini / OpenAI-compatible adapters, retry, effort mapping, pricing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-core.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+rand = "0.8"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+toml.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }

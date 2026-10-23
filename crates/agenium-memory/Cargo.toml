@@ -1,0 +1,15 @@
+[package]
+name = "agenium-memory"
+description = "Private agent memory: Embedder trait, retrieval for work orders (hybrid vector + BM25), fact usage logging."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-store.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

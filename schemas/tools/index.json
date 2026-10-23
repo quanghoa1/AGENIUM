@@ -1,0 +1,33 @@
+{
+  "Lead": [
+    "propose_spec",
+    "create_plan",
+    "revise_plan",
+    "create_ticket",
+    "assign_ticket",
+    "answer_question",
+    "review_ticket",
+    "close_ticket",
+    "cancel_ticket",
+    "create_handoff",
+    "approve_permission",
+    "propose_role",
+    "get_team",
+    "confirm_link",
+    "create_aggregate"
+  ],
+  "Shared": [
+    "load_skill",
+    "propose_skill_update",
+    "propose_soul_change",
+    "propose_role_change"
+  ],
+  "Solo": "Lead + Worker + Shared",
+  "Worker": [
+    "post_progress",
+    "ask_question",
+    "request_permission",
+    "submit_report",
+    "suggest_link"
+  ]
+}

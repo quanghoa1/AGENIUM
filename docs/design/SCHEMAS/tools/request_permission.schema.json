@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/request_permission.schema.json",
+  "title": "request_permission",
+  "description": "Inside the allowlist the Lead approves (per run); outside it the user decides",
+  "x-agenium-role": "Worker",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "network",
+        "path",
+        "command"
+      ]
+    },
+    "command": {
+      "type": "string"
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 5
+    },
+    "duration": {
+      "type": "string",
+      "enum": [
+        "run"
+      ]
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "kind",
+    "reason"
+  ]
+}

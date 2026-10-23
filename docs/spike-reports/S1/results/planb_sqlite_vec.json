@@ -1,0 +1,1 @@
+{"vec_version": "v0.1.9", "insert_10k_s": 0.19, "knn_p50_ms": 5.11, "knn_p95_ms": 6.02, "recall10_exact": 1.0, "fts5_query_ms": 0.43, "db_bytes": 16740352}

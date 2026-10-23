@@ -1,0 +1,35 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/create_aggregate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Create an aggregate ticket (for example an attack chain) linked to two or more existing tickets.",
+  "properties": {
+    "children": {
+      "items": {
+        "description": "Ticket key, e.g. AGN-11",
+        "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+        "type": "string"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "summary": {
+      "default": "",
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "children",
+    "kind",
+    "title"
+  ],
+  "title": "create_aggregate",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

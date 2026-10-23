@@ -1,0 +1,59 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/create_handoff.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Hand selected context from a source ticket to a target ticket as an immutable Handoff comment; links the tickets.",
+  "properties": {
+    "instruction": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_items": {
+      "items": {
+        "additionalProperties": false,
+        "description": "A produced artifact (file, diff, commit, log, ...).",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "ref"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "source_ticket": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "target_ticket": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_ticket",
+    "target_ticket",
+    "source_items",
+    "summary"
+  ],
+  "title": "create_handoff",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

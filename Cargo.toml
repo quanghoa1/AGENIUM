@@ -1,0 +1,56 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.89"
+publish = false
+
+[workspace.dependencies]
+agenium-core = { path = "crates/agenium-core" }
+agenium-config = { path = "crates/agenium-config" }
+agenium-store = { path = "crates/agenium-store" }
+agenium-bus = { path = "crates/agenium-bus" }
+agenium-secrets = { path = "crates/agenium-secrets" }
+agenium-vcs = { path = "crates/agenium-vcs" }
+agenium-sandbox = { path = "crates/agenium-sandbox" }
+agenium-llm = { path = "crates/agenium-llm" }
+agenium-tools = { path = "crates/agenium-tools" }
+agenium-backend = { path = "crates/agenium-backend" }
+agenium-memory = { path = "crates/agenium-memory" }
+agenium-orchestrator = { path = "crates/agenium-orchestrator" }
+
+anyhow = "1"
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+dirs = "6"
+futures = "0.3"
+proptest = "1"
+rusqlite = { version = "0.40", features = ["bundled", "backup", "functions"] }
+schemars = { version = "1", features = ["chrono04"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlite-vec = "=0.1.9"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process", "io-util"] }
+toml = "0.9"
+tracing = "0.1"
+ulid = { version = "1", features = ["serde"] }
+zstd = "0.13"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+strip = true

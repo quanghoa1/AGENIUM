@@ -1,0 +1,72 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 3,
+    "reopened": 0,
+    "tokens_in": 94267,
+    "tokens_out": 1957,
+    "cost_usd": 0.0,
+    "elapsed_ms": 35031
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "reopened": 0,
+    "tokens_in": 73845,
+    "tokens_out": 1288,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25685
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 1,
+    "reopened": 0,
+    "tokens_in": 106418,
+    "tokens_out": 2484,
+    "cost_usd": 0.0,
+    "elapsed_ms": 38326
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 1,
+    "reopened": 0,
+    "tokens_in": 92648,
+    "tokens_out": 1369,
+    "cost_usd": 0.0,
+    "elapsed_ms": 31004
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 1,
+    "reopened": 0,
+    "tokens_in": 123327,
+    "tokens_out": 1841,
+    "cost_usd": 0.0,
+    "elapsed_ms": 45814
+  }
+]

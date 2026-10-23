@@ -1,0 +1,11 @@
+### C: dbus + gnome-keyring-daemon unlocked
+store_status: Ok(())
+RESULT llm_api_key_50ch (49 bytes): PASS byte-exact
+RESULT oauth_json_1KB (1044 bytes): PASS byte-exact
+RESULT oauth_json_2KB (2052 bytes): PASS byte-exact
+RESULT oauth_json_4KB (4116 bytes): PASS byte-exact
+RESULT mcp_credential_json (87 bytes): PASS byte-exact
+RESULT ssh_ed25519_openssh (411 bytes): PASS byte-exact
+RESULT rsa4096_pem (3272 bytes): PASS byte-exact
+SUMMARY pass=7 fail=0
+VAULT 7 secrets written in 481.534µs, read back in 54.487µs: ok=7 bad=0; plaintext canary in vault file: false

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_skill_update.schema.json",
+  "title": "propose_skill_update",
+  "description": "Write an overlay (decision 35)",
+  "x-agenium-role": "Shared",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "skill": {
+      "type": "string"
+    },
+    "patch": {
+      "type": "string",
+      "description": "unified diff"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "skill",
+    "patch",
+    "reason"
+  ]
+}

@@ -1,0 +1,16 @@
+[package]
+name = "agenium-vcs"
+description = "Git through the git CLI (ADR-44): per-ticket worktrees, auto-commit with secret scan, rebase + ff-only merge, remote test."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-secrets.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

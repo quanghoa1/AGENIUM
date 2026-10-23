@@ -1,0 +1,40 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/approve_permission.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Decide a permission request inside the project allowlist, for the current work on that ticket only. Requests outside the allowlist go to the user.",
+  "properties": {
+    "decision": {
+      "enum": [
+        "Approve",
+        "Deny"
+      ],
+      "type": "string"
+    },
+    "note": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "request_id": {
+      "description": "Id of the Permission comment.",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "request_id",
+    "decision"
+  ],
+  "title": "approve_permission",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

@@ -1,0 +1,26 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_skill_update.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Propose an update to your own copy of a skill, backed by validated lessons.",
+  "properties": {
+    "patch": {
+      "description": "Unified diff against the current SKILL.md.",
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "skill": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "skill",
+    "patch",
+    "reason"
+  ],
+  "title": "propose_skill_update",
+  "type": "object",
+  "x-agenium-role": "Shared"
+}

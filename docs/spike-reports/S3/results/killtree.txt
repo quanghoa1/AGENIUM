@@ -1,0 +1,6 @@
+mode=sbx signal=TERM runs=20 total_survivors=0
+run 19 survivors=5
+run 20 survivors=5
+mode=sbx signal=KILL runs=20 total_survivors=100
+mode=bwrap signal=TERM runs=20 total_survivors=0
+mode=bwrap signal=KILL runs=20 total_survivors=0

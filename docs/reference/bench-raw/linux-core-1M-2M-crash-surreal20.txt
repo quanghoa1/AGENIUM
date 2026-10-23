@@ -1,0 +1,61 @@
+=== core 1M 14:46:49
+RESULT core.1000000e_100000t_300000c.bulk_load load_s=11.4 db_mb=382 bytes_per_event_ticket_comment_avg=273
+RESULT core.1000000e_100000t_300000c.open open_and_migrate_noop_s=0.002 rss_mb=18
+RESULT core.1000000e_100000t_300000c.append_event rate_per_s=4755 p50_ms=0.08 p95_ms=0.22
+RESULT core.1000000e_100000t_300000c.create_and_assign_ticket p50_ms=0.56 p95_ms=1.05
+RESULT core.1000000e_100000t_300000c.events_since_500 p50_ms=0.74 p95_ms=0.92 last_seq=1003601
+RESULT core.1000000e_100000t_300000c.events_for_ticket p50_ms=0.11 p95_ms=0.14
+RESULT core.1000000e_100000t_300000c.get_ticket_by_key p50_ms=0.05 p95_ms=0.07
+RESULT core.1000000e_100000t_300000c.list_tickets.InProgress rows=3792 ms=42.3
+RESULT core.1000000e_100000t_300000c.list_tickets.Assigned rows=4206 ms=38.2
+RESULT core.1000000e_100000t_300000c.ready_tickets rows=8005 ms=81.8
+RESULT core.1000000e_100000t_300000c.concurrent_4r_1w reader_queries=48805 reader_p50_ms=0.64 reader_p95_ms=0.85 writer_events_per_s=3109 wal_mb_after=8.9
+RESULT core.1000000e_100000t_300000c.backup_full s=2.0 mb=72
+RESULT core.1000000e_100000t_300000c.backup_incremental s=2.1 mb=2.5
+RESULT core.1000000e_100000t_300000c.archive archived_rows=750003 files=4 archive_s=4.3 archive_mb=21 verify_s=0.0 verified_rows=750003 archived_read_p50_ms=61.90 archived_read_p95_ms=201.17 db_mb_before=385 db_mb_after_delete=385
+RESULT core.1000000e_100000t_300000c.archive_seq_continuity last_seq_before=1033477 next_seq=1030478
+RESULT core.1000000e_100000t_300000c.vacuum s=1.1 db_mb_after=194
+RESULT core.1000000e_100000t_300000c.migrate_index_with_prebackup from=1 to=2 s=1.0
+RESULT core.1000000e_100000t_300000c.peak peak_rss_mb=827 dir_mb=332
+=== core 2M 14:47:22
+RESULT core.2000000e_1000000t_1000000c.bulk_load load_s=39.5 db_mb=1384 bytes_per_event_ticket_comment_avg=346
+RESULT core.2000000e_1000000t_1000000c.open open_and_migrate_noop_s=0.002 rss_mb=33
+RESULT core.2000000e_1000000t_1000000c.append_event rate_per_s=2737 p50_ms=0.10 p95_ms=0.25
+RESULT core.2000000e_1000000t_1000000c.create_and_assign_ticket p50_ms=0.65 p95_ms=1.72
+RESULT core.2000000e_1000000t_1000000c.events_since_500 p50_ms=0.92 p95_ms=1.27 last_seq=2003601
+RESULT core.2000000e_1000000t_1000000c.events_for_ticket p50_ms=0.06 p95_ms=0.09
+RESULT core.2000000e_1000000t_1000000c.get_ticket_by_key p50_ms=0.07 p95_ms=0.09
+RESULT core.2000000e_1000000t_1000000c.list_tickets.InProgress rows=38290 ms=385.3
+RESULT core.2000000e_1000000t_1000000c.list_tickets.Assigned rows=39009 ms=374.1
+RESULT core.2000000e_1000000t_1000000c.ready_tickets rows=77640 ms=716.9
+RESULT core.2000000e_1000000t_1000000c.concurrent_4r_1w reader_queries=35041 reader_p50_ms=0.91 reader_p95_ms=1.29 writer_events_per_s=2029 wal_mb_after=10.6
+RESULT core.2000000e_1000000t_1000000c.backup_full s=7.1 mb=232
+RESULT core.2000000e_1000000t_1000000c.backup_incremental s=19.8 mb=25.2
+RESULT core.2000000e_1000000t_1000000c.archive archived_rows=1500011 files=7 archive_s=13.6 archive_mb=43 verify_s=0.0 verified_rows=1500011 archived_read_p50_ms=70.65 archived_read_p95_ms=127.98 db_mb_before=1386 db_mb_after_delete=1386
+RESULT core.2000000e_1000000t_1000000c.archive_seq_continuity last_seq_before=2024836 next_seq=2021837
+RESULT core.2000000e_1000000t_1000000c.vacuum s=5.4 db_mb_after=986
+RESULT core.2000000e_1000000t_1000000c.migrate_index_with_prebackup from=1 to=2 s=4.5
+RESULT core.2000000e_1000000t_1000000c.peak peak_rss_mb=4387 dir_mb=1441
+=== crash surreal 14:49:05
+RESULT crash.surreal.round round=0 child_lines=1469 acked_events_total=604 acked_facts_total=804 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.10 verify_s=0.3
+RESULT crash.surreal.round round=1 child_lines=570 acked_events_total=838 acked_facts_total=1116 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.01 verify_s=0.4
+RESULT crash.surreal.round round=2 child_lines=1592 acked_events_total=1492 acked_facts_total=1988 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=0.8
+RESULT crash.surreal.round round=3 child_lines=1889 acked_events_total=2267 acked_facts_total=3024 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=1.1
+RESULT crash.surreal.round round=4 child_lines=341 acked_events_total=2406 acked_facts_total=3212 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=0.7
+RESULT crash.surreal.round round=5 child_lines=898 acked_events_total=2775 acked_facts_total=3704 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.01 verify_s=0.9
+RESULT crash.surreal.round round=6 child_lines=1155 acked_events_total=3250 acked_facts_total=4336 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=1.2
+RESULT crash.surreal.round round=7 child_lines=998 acked_events_total=3659 acked_facts_total=4884 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=1.5
+RESULT crash.surreal.round round=8 child_lines=279 acked_events_total=3774 acked_facts_total=5036 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.01 verify_s=1.1
+RESULT crash.surreal.round round=9 child_lines=1065 acked_events_total=4211 acked_facts_total=5620 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=1.4
+RESULT crash.surreal.round round=10 child_lines=1458 acked_events_total=4809 acked_facts_total=6420 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=1.7
+RESULT crash.surreal.round round=11 child_lines=1612 acked_events_total=5470 acked_facts_total=7304 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.03 verify_s=2.0
+RESULT crash.surreal.round round=12 child_lines=1042 acked_events_total=5897 acked_facts_total=7876 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=1.8
+RESULT crash.surreal.round round=13 child_lines=1693 acked_events_total=6592 acked_facts_total=8804 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.03 verify_s=2.3
+RESULT crash.surreal.round round=14 child_lines=343 acked_events_total=6733 acked_facts_total=8992 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.03 verify_s=2.2
+RESULT crash.surreal.round round=15 child_lines=1060 acked_events_total=7169 acked_facts_total=9572 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.02 verify_s=2.8
+RESULT crash.surreal.round round=16 child_lines=678 acked_events_total=7447 acked_facts_total=9944 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.01 verify_s=2.2
+RESULT crash.surreal.round round=17 child_lines=283 acked_events_total=7562 acked_facts_total=10100 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.05 verify_s=2.3
+RESULT crash.surreal.round round=18 child_lines=1863 acked_events_total=8328 acked_facts_total=11120 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.03 verify_s=2.8
+RESULT crash.surreal.round round=19 child_lines=1395 acked_events_total=8901 acked_facts_total=11884 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 reopen_s=0.04 verify_s=3.2
+RESULT crash.surreal.summary rounds=20 acked_events=8901 acked_facts=11884 acked_tickets=898 lost_events=0 lost_facts=0 lost_tickets=0 seq_gaps=0 index_problems=0 ann_or_hnsw_self_miss=0/1200 worst_reopen_s=0.10 dir_mb=136
+FINISHED

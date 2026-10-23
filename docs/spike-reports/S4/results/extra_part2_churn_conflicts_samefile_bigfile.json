@@ -1,0 +1,100 @@
+{
+ "churn": {
+  "n": 50,
+  "secs": 7.1,
+  "leftover_branches_after_close_unmerged": 50,
+  "leftover_dirs": 0,
+  "stale_registrations": 0,
+  "exclude_ok": true,
+  "main_dirty": false,
+  "note": "close() of a never-merged ticket leaves the branch (git branch -d refuses) -> abandon path must use -D; after -D: 0"
+ },
+ "conflicts": {
+  "results": {
+   "K1": "merged",
+   "K2": "conflict",
+   "K3": "conflict",
+   "K4": "checkfail"
+  },
+  "states": {
+   "K1": "Merged",
+   "K2": "Conflict",
+   "K3": "Conflict",
+   "K4": "InProgress"
+  },
+  "conflict_events": [
+   [
+    "K2",
+    {
+     "files": [
+      "shared.txt"
+     ]
+    }
+   ],
+   [
+    "K3",
+    {
+     "files": [
+      "shared.txt",
+      "src/m1/f1.txt"
+     ]
+    }
+   ]
+  ],
+  "worktrees_clean_after_abort": true,
+  "main_has_only_K1": true
+ },
+ "samefile_disjoint_hunks": {
+  "overlap_detectable_at_commit_via_name_only_diff": [
+   "shared.txt"
+  ],
+  "overlap_check_ms": 2.9,
+  "merge_results": [
+   [
+    "A",
+    "merged"
+   ],
+   [
+    "B",
+    "merged"
+   ]
+  ],
+  "final_has_both": true
+ },
+ "samefile_same_lines": {
+  "merge_results": [
+   [
+    "A",
+    "merged"
+   ],
+   [
+    "B",
+    "conflict"
+   ]
+  ],
+  "detected_at": "merge (rebase conflict) - not at assign/commit unless name-only overlap check is added"
+ },
+ "bigfile": {
+  "plain": {
+   "mean_commit_s": 3.09,
+   "mean_merge_s": 0.67,
+   "git_dir_MB": 1049,
+   "store_MB": 0,
+   "payload_MB": 1000
+  },
+  "lfs": {
+   "mean_commit_s": 1.17,
+   "mean_merge_s": 0.79,
+   "git_dir_MB": 1049,
+   "store_MB": 0,
+   "payload_MB": 1000
+  },
+  "hashstore": {
+   "mean_commit_s": 0.02,
+   "mean_merge_s": 0.01,
+   "git_dir_MB": 0,
+   "store_MB": 1049,
+   "payload_MB": 1000
+  }
+ }
+}

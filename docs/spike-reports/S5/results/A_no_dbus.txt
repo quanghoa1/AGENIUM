@@ -1,0 +1,5 @@
+### A: no D-Bus session at all
+store_status: Err(PlatformFailure(Zbus(Connection(Os { code: 2, kind: NotFound, message: "No such file or directory" }, Address { guid: None, transport: Unix(Unix { path: File("/run/user/1000/bus") }) }))))
+RESULT ssh_ed25519_openssh (411 bytes): FAIL new: No default store has been set, so cannot search or create entries
+RESULT rsa4096_pem (3272 bytes): FAIL new: No default store has been set, so cannot search or create entries
+SUMMARY pass=0 fail=7

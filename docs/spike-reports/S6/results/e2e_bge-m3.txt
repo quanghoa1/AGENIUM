@@ -1,0 +1,9 @@
+METRIC bge-m3,e2e_embed_2000_facts_s,35.7
+METRIC bge-m3,e2e_embed_throughput_facts_per_s,56.0
+METRIC bge-m3,e2e_insert_2000_with_hnsw_s,4.0
+METRIC bge-m3,e2e_tickets,50
+METRIC bge-m3,e2e_recall@5_in_2000,0.400
+METRIC bge-m3,e2e_recall@1_in_2000,0.400
+METRIC bge-m3,e2e_embed_query_p50_ms,32.7
+METRIC bge-m3,e2e_total_p50_ms,34.2
+METRIC bge-m3,e2e_total_p95_ms,44.7

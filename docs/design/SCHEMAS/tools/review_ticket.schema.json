@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/review_ticket.schema.json",
+  "title": "review_ticket",
+  "description": "Approve → approved=true (+ merge queue for code tickets); Reopen requires feedback per acceptance criterion",
+  "x-agenium-role": "Lead",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "Approve",
+        "Reopen"
+      ]
+    },
+    "ac_feedback": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ac_id": {
+            "type": "string"
+          },
+          "feedback": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "ac_id",
+          "feedback"
+        ]
+      }
+    },
+    "required_changes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "decision"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "Reopen"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ac_feedback": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "ac_feedback"
+        ]
+      }
+    }
+  ]
+}

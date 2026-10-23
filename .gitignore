@@ -1,0 +1,4 @@
+/target
+**/*.rs.bk
+# The original design pack archive; its contents are unpacked under docs/ (design/, spike-reports/, adr/, reference/).
+/docs/Agenium-complete-pack.zip

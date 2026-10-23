@@ -1,0 +1,19 @@
+[package]
+name = "agenium-config"
+description = "Agenium root resolution and layout, config.toml, setup wizard backend, system requirements check."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-core.workspace = true
+dirs.workspace = true
+serde.workspace = true
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
+thiserror.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

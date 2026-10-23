@@ -1,0 +1,21 @@
+[package]
+name = "agenium-eval"
+description = "Golden-task runner (decision 38): fixed coding tasks, automatic checks, score table, results history."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-core.workspace = true
+agenium-llm.workspace = true
+agenium-orchestrator.workspace = true
+agenium-secrets.workspace = true
+agenium-store.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

@@ -1,0 +1,3 @@
+METRIC bge-m3,first_download_and_load_s,12.1
+METRIC bge-m3,cache_dir_mb,2284.7
+wall=12.26s

@@ -1,0 +1,11 @@
+METRIC e5-small,e2e_embed_2000_facts_s,3.7
+METRIC e5-small,e2e_embed_throughput_facts_per_s,547.5
+METRIC e5-small,e2e_insert_2000_with_hnsw_s,1.6
+METRIC e5-small,e2e_hnsw_recall@10_vs_exact_real_embeddings_ef40,0.9660
+METRIC e5-small,e2e_hnsw_recall@10_vs_exact_real_embeddings_ef100,0.9790
+METRIC e5-small,e2e_tickets,50
+METRIC e5-small,e2e_recall@5_in_2000,0.400
+METRIC e5-small,e2e_recall@1_in_2000,0.300
+METRIC e5-small,e2e_embed_query_p50_ms,4.4
+METRIC e5-small,e2e_total_p50_ms,5.4
+METRIC e5-small,e2e_total_p95_ms,6.5

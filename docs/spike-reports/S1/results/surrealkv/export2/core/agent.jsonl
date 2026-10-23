@@ -1,0 +1,15 @@
+{ backend: 'Api', id: agent:1, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a1', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:2 }
+{ backend: 'Api', id: agent:10, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a10', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:3 }
+{ backend: 'Api', id: agent:11, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a11', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:4 }
+{ backend: 'Api', id: agent:12, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a12', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:1 }
+{ backend: 'Api', id: agent:13, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a13', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:2 }
+{ backend: 'Api', id: agent:14, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a14', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:3 }
+{ backend: 'Api', id: agent:15, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a15', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:4 }
+{ backend: 'Api', id: agent:2, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a2', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:3 }
+{ backend: 'Api', id: agent:3, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a3', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:4 }
+{ backend: 'Api', id: agent:4, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a4', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:1 }
+{ backend: 'Api', id: agent:5, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a5', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:2 }
+{ backend: 'Api', id: agent:6, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a6', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:3 }
+{ backend: 'Api', id: agent:7, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a7', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:4 }
+{ backend: 'Api', id: agent:8, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a8', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:1 }
+{ backend: 'Api', id: agent:9, mcp: [], memory_db: 'agent_x', model: { effort: 'low', model: 'y', provider: 'x' }, name: 'a9', role: 'Worker', skills: [], status: 'Idle', tags: [], team: team:2 }

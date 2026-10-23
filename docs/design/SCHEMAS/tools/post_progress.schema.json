@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/tools/post_progress.schema.json",
+  "title": "post_progress",
+  "description": "Post a progress update; does not change state",
+  "x-agenium-role": "Worker",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ULID idempotency key",
+      "minLength": 1
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "percent": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "step": {
+      "type": "string"
+    },
+    "current": {
+      "type": "string"
+    },
+    "next": {
+      "type": "string"
+    },
+    "eta": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "ticket_id",
+    "current"
+  ]
+}

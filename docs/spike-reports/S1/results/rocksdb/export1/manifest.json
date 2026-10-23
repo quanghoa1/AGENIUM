@@ -1,0 +1,34 @@
+{
+  "agent": {
+    "rows": 15,
+    "sha256": "7a0d828f62905e5c90dfbfbe7c0cee4a8b492ff600c32138c72522c3c0ffaab9"
+  },
+  "agent_x.fact": {
+    "rows": 11000,
+    "sha256": "8d7bd663aee87328e75ce13de877e55cebbe53679b283d5d4743fd6fad1a2692"
+  },
+  "assigned_to": {
+    "rows": 200,
+    "sha256": "f52ee4034287f0ad4f2b57e32caf307e18209d659a86731750c9fb6dcf0fce11"
+  },
+  "comment": {
+    "rows": 5000,
+    "sha256": "14a0b53334f0ce11b5f99689775d07637a836c9ad70c01811a151f416c0e4f7e"
+  },
+  "event": {
+    "rows": 50000,
+    "sha256": "998e4ab36bb1442c64bc946b0330fd09daa98af3653b44bd722fd66252a298b6"
+  },
+  "project": {
+    "rows": 1,
+    "sha256": "eb536d42e08494daff91467f4b48b9b4e9d12b0d920ab11484c8a8863a056177"
+  },
+  "team": {
+    "rows": 4,
+    "sha256": "a8254014e6d994a20bcfcd7cffaf47521c75eec55d54f7f4374a15fda8b5b0ca"
+  },
+  "ticket": {
+    "rows": 200,
+    "sha256": "2a6e72c8a3a94bc00ce24fe9d8ef070ed616e97879219f90d199bca136680c31"
+  }
+}

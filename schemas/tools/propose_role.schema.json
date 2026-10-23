@@ -1,0 +1,46 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_role.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Propose a new role for the team; an agent is created only if the user approves.",
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "model_hint": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "role_id": {
+      "type": "string"
+    },
+    "skills": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "role_id",
+    "title",
+    "description"
+  ],
+  "title": "propose_role",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

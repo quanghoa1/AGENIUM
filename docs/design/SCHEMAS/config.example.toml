@@ -1,0 +1,62 @@
+# <AGENIUM_ROOT>/config.toml — ví dụ (Agenium v1.0)
+schema_version = 1
+
+[app]
+language = "vi"            # UI: "en" | "vi"
+theme = "system"
+telemetry = false          # quyết định 26: tắt mặc định
+crash_report = false       # opt-in
+
+[paths]
+projects_dir = "projects"  # tương đối với root
+backups_dir = "backups"
+
+[runtime]
+max_parallel_agents = 4    # tự giảm trên máy yếu
+max_steps_per_run = 200
+loop_detect_same_call = 3  # cùng tool + args giống hệt 3 lần liên tiếp
+tool_error_stop = 3        # 3 lỗi validate liên tiếp dừng run
+stall_minutes = 5
+stall_nudges = 3
+blocking_question_sla_minutes = 10
+max_reopen_before_escalate = 3
+
+[retry]
+base_ms = 1000
+max_backoff_ms = 30000
+max_attempts = 8
+max_total_secs = 300
+
+[usage]
+show_tokens = true         # chỉ hiển thị (quyết định 3k), không chặn
+show_estimated_cost = true
+pricing_file = "pricing.toml"
+
+[backup]
+hourly_keep = 24
+daily_keep = 7
+weekly_keep = 4
+
+[memory]
+embedder = "fastembed:bge-small-en-v1.5"   # xem lại sau spike S6
+language = "en"
+
+[secrets]
+backend = "keyring"        # "keyring" | "vault" (phương án B, spike S5)
+
+[[providers]]
+id = "anthropic"
+kind = "anthropic"
+api_key_ref = "keyring:agenium/provider/anthropic"
+
+[[providers]]
+id = "openai"
+kind = "openai_compat"
+base_url = "https://api.openai.com/v1"
+api_key_ref = "keyring:agenium/provider/openai"
+
+[[providers]]
+id = "local-ollama"
+kind = "openai_compat"
+base_url = "http://localhost:11434/v1"
+api_key_ref = ""           # tùy chọn

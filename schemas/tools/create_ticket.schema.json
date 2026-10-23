@@ -1,0 +1,129 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/create_ticket.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Create a ticket for an item of the approved plan. depends_on must stay acyclic; tickets whose scope_paths overlap an open ticket must depend on it.",
+  "properties": {
+    "acceptance": {
+      "items": {
+        "additionalProperties": false,
+        "description": "One acceptance criterion; ids look like `AC-1` and are referenced by reports and reviews.",
+        "properties": {
+          "id": {
+            "pattern": "^AC-[0-9]+$",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "depends_on": {
+      "default": [],
+      "items": {
+        "description": "Ticket key, e.g. AGN-11",
+        "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "type": "string"
+    },
+    "kind": {
+      "oneOf": [
+        {
+          "enum": [
+            "Epic",
+            "Story",
+            "Task",
+            "Bug"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "Requirement",
+          "description": "Discovery ticket that produces the RequirementSpec.",
+          "type": "string"
+        }
+      ]
+    },
+    "parent": {
+      "default": null,
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_item": {
+      "description": "Plan item id, e.g. PI-1.",
+      "pattern": "^PI-[0-9]+$",
+      "type": "string"
+    },
+    "priority": {
+      "default": 2,
+      "description": "0 = most urgent .. 3.",
+      "format": "uint8",
+      "maximum": 3,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "report_template": {
+      "default": null,
+      "description": "Report template, e.g. coding@1. Defaults to the team template.",
+      "pattern": "^[a-z0-9_-]+@[0-9]+$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "required_role": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "required_tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "scope_paths": {
+      "default": [],
+      "description": "Files/areas this ticket may touch (glob patterns relative to the project root).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "title": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "plan_item",
+    "title",
+    "acceptance"
+  ],
+  "title": "create_ticket",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

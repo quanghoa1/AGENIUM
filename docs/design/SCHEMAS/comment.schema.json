@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agenium.dev/schemas/v1/comment.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "TicketKey, vd. AGN-11"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Question",
+        "Answer",
+        "Progress",
+        "Report",
+        "Review",
+        "Permission",
+        "Handoff",
+        "System",
+        "User"
+      ]
+    },
+    "author": {
+      "type": "string"
+    },
+    "reply_to": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "body": {
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "ticket",
+    "kind",
+    "author",
+    "reply_to",
+    "body",
+    "created_at"
+  ],
+  "title": "Comment"
+}

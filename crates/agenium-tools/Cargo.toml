@@ -1,0 +1,27 @@
+[package]
+name = "agenium-tools"
+description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, todo."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-sandbox = { path = "../agenium-sandbox" }
+async-trait.workspace = true
+globset = "0.4"
+ignore = "0.4"
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+agenium-core.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }

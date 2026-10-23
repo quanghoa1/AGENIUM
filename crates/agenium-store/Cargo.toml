@@ -1,0 +1,24 @@
+[package]
+name = "agenium-store"
+description = "Agenium storage: SQLite core.db + per-agent memory databases, migrations, event log, backups (ADR-49/50)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-core.workspace = true
+chrono.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlite-vec.workspace = true
+thiserror.workspace = true
+zstd.workspace = true
+
+[dev-dependencies]
+ulid.workspace = true
+proptest.workspace = true
+tempfile.workspace = true

@@ -1,0 +1,40 @@
+[package]
+name = "agenium-orchestrator"
+description = "The only place that applies rules and writes state: projects, the intent engine, workspace effects, reconcile, scheduling."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-backend.workspace = true
+agenium-llm.workspace = true
+agenium-memory.workspace = true
+agenium-sandbox.workspace = true
+agenium-tools.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+agenium-bus.workspace = true
+agenium-config.workspace = true
+agenium-core.workspace = true
+agenium-secrets.workspace = true
+agenium-store.workspace = true
+agenium-vcs.workspace = true
+chrono.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+tracing.workspace = true
+ulid.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+agenium-llm.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+agenium-store.workspace = true
+chrono.workspace = true
+ulid.workspace = true
+tempfile.workspace = true
