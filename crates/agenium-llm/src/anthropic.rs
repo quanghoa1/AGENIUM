@@ -91,6 +91,15 @@ impl Anthropic {
             ("anthropic-version", API_VERSION.to_owned()),
         ]
     }
+
+    /// Per-request headers: the OpenCode relay needs a per-conversation affinity header.
+    fn request_headers(&self, req: &ChatRequest) -> Vec<(&'static str, String)> {
+        let mut h = self.headers();
+        if self.base_url.to_ascii_lowercase().contains("opencode.ai") {
+            h.push(("x-opencode-session", crate::openai::session_key(req)));
+        }
+        h
+    }
 }
 
 pub fn map_error(status: u16, h: &HeaderMap, body: &str) -> LlmError {
@@ -481,7 +490,7 @@ impl Provider for Anthropic {
         self.http
             .post_sse(
                 &format!("{}/v1/messages", self.base_url),
-                &self.headers(),
+                &self.request_headers(req),
                 &body,
                 map_error,
                 |ev| st.apply(&ev, emit),

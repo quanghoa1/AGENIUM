@@ -172,6 +172,10 @@ pub struct TaskResult {
     pub tool_errors: u32,
     /// Error codes of failed tool calls (e.g. command_denied, invalid).
     pub error_codes: std::collections::BTreeMap<String, u32>,
+    /// `<tool>: <error>` of each failed call (first 300 characters).
+    pub errors: Vec<String>,
+    /// Outcome of each run, in order.
+    pub outcomes: Vec<String>,
     pub reopened: u32,
     pub tokens_in: u64,
     pub tokens_out: u64,
@@ -356,6 +360,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     let all_runs = app.store().read(|c| runs::for_ticket(c, t.id))?;
     let mut tool_errors = 0;
     let mut error_codes = std::collections::BTreeMap::new();
+    let mut errors = Vec::new();
     for r in &all_runs {
         for e in app.store().read(|c| runs::log_entries(c, r.id))? {
             if e.kind == "tool" && e.data["ok"] == false {
@@ -368,6 +373,15 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
                     .unwrap_or_default()
                     .to_owned();
                 *error_codes.entry(code).or_insert(0) += 1;
+                let msg: String = format!(
+                    "{}: {}",
+                    e.data["tool"].as_str().unwrap_or_default(),
+                    e.data["result"].as_str().unwrap_or_default()
+                )
+                .chars()
+                .take(300)
+                .collect();
+                errors.push(msg);
             }
         }
     }
@@ -387,6 +401,11 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         steps: summaries.iter().map(|s| s.steps).sum(),
         tool_errors,
         error_codes,
+        errors,
+        outcomes: summaries
+            .iter()
+            .map(|s| format!("{}:{}", s.kind, s.outcome))
+            .collect(),
         reopened: t.reopen_count,
         tokens_in: t.usage.tokens_in,
         tokens_out: t.usage.tokens_out,

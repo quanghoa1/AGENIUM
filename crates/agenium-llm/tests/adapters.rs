@@ -631,3 +631,27 @@ async fn opencode_relay_sends_session_affinity_and_deepseek_effort() {
         .is_some_and(|v| v.starts_with("oneshot-")));
     assert!(s[1].body.get("reasoning_effort").is_none());
 }
+
+#[tokio::test]
+async fn opencode_router_picks_the_wire_per_model() {
+    let (base, seen) = server(vec![sse(200, ANTHROPIC_STREAM), sse(200, OPENAI_STREAM)]).await;
+    let p = opencode::OpenCode::new(
+        "opencode-go",
+        &format!("{base}/opencode.ai/zen/go/v1"),
+        "oc",
+        http(),
+    );
+    p.chat(&request("claude-haiku-5-5"), &|_| {}).await.unwrap();
+    p.chat(&request("deepseek-v4.1-flash"), &|_| {})
+        .await
+        .unwrap();
+    let e = p.chat(&request("gpt-6-luna"), &|_| {}).await.unwrap_err();
+    assert!(matches!(e, LlmError::Unsupported(_)), "{e}");
+    let s = seen.lock().unwrap().clone();
+    assert_eq!(s[0].path, "/opencode.ai/zen/go/v1/messages");
+    assert_eq!(s[0].header("x-api-key"), Some("oc"));
+    assert_eq!(s[0].header("x-opencode-session"), Some("agent_x:AGN-1"));
+    assert_eq!(s[1].path, "/opencode.ai/zen/go/v1/chat/completions");
+    assert_eq!(s[1].header("authorization"), Some("Bearer oc"));
+    assert_eq!(s[1].header("x-opencode-session"), Some("agent_x:AGN-1"));
+}

@@ -9,6 +9,7 @@ pub mod gemini;
 pub mod http;
 pub mod mock;
 pub mod openai;
+pub mod opencode;
 pub mod pricing;
 pub mod retry;
 pub mod sse;
@@ -152,12 +153,16 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Arc<dyn Provider>, LlmError
                 .base_url
                 .as_deref()
                 .ok_or_else(|| LlmError::Config(format!("provider {} needs base_url", spec.id)))?;
-            Arc::new(openai::OpenAiCompat::new(
-                &spec.id,
-                base,
-                spec.api_key.as_deref(),
-                http,
-            ))
+            if opencode::is_opencode(base) && !key.is_empty() {
+                Arc::new(opencode::OpenCode::new(&spec.id, base, &key, http))
+            } else {
+                Arc::new(openai::OpenAiCompat::new(
+                    &spec.id,
+                    base,
+                    spec.api_key.as_deref(),
+                    http,
+                ))
+            }
         }
         other => return Err(LlmError::Config(format!("unknown provider kind {other:?}"))),
     };

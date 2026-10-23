@@ -123,6 +123,13 @@ impl OpenAiCompat {
     }
 }
 
+/// Conversation affinity key for relays (stable per conversation; one-shot requests get a random key).
+pub fn session_key(req: &ChatRequest) -> String {
+    req.cache_key
+        .clone()
+        .unwrap_or_else(|| format!("oneshot-{:016x}", rand::random::<u64>()))
+}
+
 pub fn map_error(status: u16, h: &HeaderMap, body: &str) -> LlmError {
     let v: Value = serde_json::from_str(body).unwrap_or(Value::Null);
     let err = if v["error"].is_object() {

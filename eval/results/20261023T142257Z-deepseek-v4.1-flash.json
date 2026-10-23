@@ -1,0 +1,123 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 1,
+    "error_codes": {
+      "command_denied": 1
+    },
+    "errors": [
+      "shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command)."
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 82676,
+    "tokens_out": 1044,
+    "cost_usd": 0.0,
+    "elapsed_ms": 27116
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "error_codes": {
+      "command_denied": 1
+    },
+    "errors": [
+      "shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command)."
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 73732,
+    "tokens_out": 1091,
+    "cost_usd": 0.0,
+    "elapsed_ms": 34118
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 1,
+    "error_codes": {
+      "command_denied": 1
+    },
+    "errors": [
+      "shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command)."
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 106624,
+    "tokens_out": 2163,
+    "cost_usd": 0.0,
+    "elapsed_ms": 47431
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 1,
+    "error_codes": {
+      "command_denied": 1
+    },
+    "errors": [
+      "shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command)."
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 93686,
+    "tokens_out": 1729,
+    "cost_usd": 0.0,
+    "elapsed_ms": 34590
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 2,
+    "error_codes": {
+      "command_denied": 2
+    },
+    "errors": [
+      "shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command)."
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 96010,
+    "tokens_out": 2800,
+    "cost_usd": 0.0,
+    "elapsed_ms": 42820
+  }
+]
