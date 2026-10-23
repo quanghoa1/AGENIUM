@@ -198,6 +198,8 @@ pub struct MemorySection {
     pub ann_threshold: u64,
     /// Facts injected into a work order.
     pub top_k: u32,
+    /// Run the memory pipeline (extract -> ADD/UPDATE/DELETE) when a ticket is Closed or Reopened.
+    pub learn: bool,
 }
 
 impl Default for MemorySection {
@@ -207,6 +209,7 @@ impl Default for MemorySection {
             language: "en".into(),
             ann_threshold: 100_000,
             top_k: 8,
+            learn: true,
         }
     }
 }

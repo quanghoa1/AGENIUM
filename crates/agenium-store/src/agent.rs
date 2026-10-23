@@ -533,6 +533,17 @@ impl AgentStore {
         })
     }
 
+    /// Live facts whose vector is missing or comes from another embedder than `model_id`.
+    pub fn stale_vectors(&self, model_id: &str) -> Result<u64, StoreError> {
+        self.db.read(|c| -> Result<u64, StoreError> {
+            Ok(c.query_row(
+                "SELECT count(*) FROM fact WHERE superseded_by IS NULL AND (model_id IS NULL OR model_id <> ?1)",
+                [model_id],
+                |r| r.get::<_, i64>(0),
+            )? as u64)
+        })
+    }
+
     /// Replaces the vectors of every live fact (embedder change with the same dimension).
     pub fn reindex(
         &self,

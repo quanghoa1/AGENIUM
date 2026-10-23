@@ -58,6 +58,11 @@ enum Cmd {
     /// MCP servers (config.toml) and connection tests.
     #[command(subcommand)]
     Mcp(McpCmd),
+    /// Local embedding model for agent memory (download, verify).
+    Models {
+        #[arg(value_parser = ["status", "download", "verify"], default_value = "status")]
+        action: String,
+    },
     /// Talk to the project's Lead/Solo agent (one turn).
     Chat {
         #[arg(long)]
@@ -502,6 +507,75 @@ fn open(root: &Path) -> Result<Arc<App>> {
     Ok(Arc::new(app))
 }
 
+/// Downloads the pinned model files into `<root>/models/<id>/` (resumable per file: a verified file is kept),
+/// checking size and sha256 before a file is moved into place.
+async fn models_cmd(cli: &Cli, action: &str) -> Result<()> {
+    use agenium_memory::local::{self, BGE_SMALL_EN as SPEC};
+    let r = root(cli)?;
+    let models = agenium_config::RootLayout::new(&r).models();
+    let dir = SPEC.dir(&models);
+    match action {
+        "status" => {
+            if local::installed(&SPEC, &models) {
+                println!("{} installed in {}", SPEC.id, dir.display());
+            } else {
+                println!(
+                    "{} not installed ({} MB): run `agenium models download`; until then memory uses keyword-level hashing",
+                    SPEC.id,
+                    SPEC.total_bytes() >> 20
+                );
+            }
+        }
+        "verify" => {
+            let bad = local::verify(&SPEC, &models);
+            if bad.is_empty() {
+                println!("{}: every file matches its sha256", SPEC.id);
+            } else {
+                bail!("{}: files missing or corrupt: {}", SPEC.id, bad.join(", "));
+            }
+        }
+        _ => {
+            std::fs::create_dir_all(&dir)?;
+            let client = reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(30))
+                .build()?;
+            for f in SPEC.files {
+                let dst = dir.join(f.name);
+                if matches!(local::sha256_file(&dst), Ok(h) if h == f.sha256) {
+                    println!("{}: ok", f.name);
+                    continue;
+                }
+                println!("{}: downloading {} KB ...", f.name, f.bytes >> 10);
+                let part = dir.join(format!("{}.partial", f.name));
+                let mut resp = client.get(SPEC.url(f)).send().await?.error_for_status()?;
+                let mut out = std::fs::File::create(&part)?;
+                let mut n = 0u64;
+                while let Some(chunk) = resp.chunk().await? {
+                    n += chunk.len() as u64;
+                    if n > f.bytes {
+                        bail!("{}: larger than expected", f.name);
+                    }
+                    out.write_all(&chunk)?;
+                }
+                out.sync_all()?;
+                drop(out);
+                let h = local::sha256_file(&part)?;
+                if n != f.bytes || h != f.sha256 {
+                    let _ = std::fs::remove_file(&part);
+                    bail!("{}: checksum mismatch (got {h}, {n} bytes)", f.name);
+                }
+                std::fs::rename(&part, &dst)?;
+                println!("{}: verified", f.name);
+            }
+            println!(
+                "{} installed; agent memories are re-embedded on their next run",
+                SPEC.id
+            );
+        }
+    }
+    Ok(())
+}
+
 fn pairs(items: &[String]) -> Result<std::collections::BTreeMap<String, String>> {
     items
         .iter()
@@ -850,6 +924,12 @@ async fn main() -> Result<()> {
             let sb = agenium_sandbox::detect();
             println!("sandbox: {:?} - {}", sb.backend, sb.reason);
             println!("shell: {}", agenium_sandbox::Shell::detect().describe());
+            let models = agenium_config::RootLayout::new(&r).models();
+            if agenium_memory::local::installed(&agenium_memory::local::BGE_SMALL_EN, &models) {
+                println!("embedding model: bge-small-en-v1.5 (local)");
+            } else {
+                println!("embedding model: not installed, memory uses keyword-level hashing (agenium models download)");
+            }
             match agenium_secrets::OsKeyring::status() {
                 Ok(()) => println!("keyring: available"),
                 Err(e) => println!("keyring: {e}"),
@@ -1124,7 +1204,7 @@ async fn main() -> Result<()> {
                     let s = app.export_agent(
                         a.id,
                         file,
-                        agenium_memory::default_embedder().as_ref(),
+                        app.embedder().as_ref(),
                         &agenium_orchestrator::agent_io::ExportOptions {
                             allow_secret_findings: *allow_secret_findings,
                         },
@@ -1148,7 +1228,7 @@ async fn main() -> Result<()> {
                             project: p.id,
                             name: name.clone(),
                         },
-                        agenium_memory::default_embedder().as_ref(),
+                        app.embedder().as_ref(),
                     )?;
                     if app.config().provider(&a.model.provider).is_none() {
                         println!(
@@ -1168,12 +1248,7 @@ async fn main() -> Result<()> {
                 } => {
                     let a = app.agent_named(name)?;
                     if let Some(file) = export {
-                        app.export_agent(
-                            a.id,
-                            file,
-                            agenium_memory::default_embedder().as_ref(),
-                            &Default::default(),
-                        )?;
+                        app.export_agent(a.id, file, app.embedder().as_ref(), &Default::default())?;
                         println!("exported {name} to {}", file.display());
                     }
                     let typed = match confirm {
@@ -1210,6 +1285,7 @@ async fn main() -> Result<()> {
         }
         Cmd::Skill(sc) => skill_cmd(&cli, sc).await?,
         Cmd::Mcp(mc) => mcp_cmd(&cli, mc).await?,
+        Cmd::Models { action } => models_cmd(&cli, action).await?,
         Cmd::Chat {
             project: pname,
             message,

@@ -136,6 +136,11 @@ impl App {
         Ok((app, report))
     }
 
+    /// The embedding model for agent memories (local model when installed in `<root>/models`).
+    pub fn embedder(&self) -> Arc<dyn agenium_memory::Embedder> {
+        agenium_memory::default_embedder(&self.layout.models())
+    }
+
     /// Skill folders of agents and roles (`<root>/agents/<id>/skills`, `<root>/roles/<role>/skills`).
     pub fn skill_registry(&self) -> agenium_skills::Registry {
         agenium_skills::Registry::new(self.layout.agents(), self.layout.roles())

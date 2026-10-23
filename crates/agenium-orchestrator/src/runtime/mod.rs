@@ -9,6 +9,7 @@
 //! switch loses nothing; continuation runs resume the stored conversation (or the checkpoint summary).
 
 pub mod bridge;
+pub mod learn;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -171,6 +172,7 @@ impl Runtime {
             max_total: std::time::Duration::from_secs(r.max_total_secs),
         };
         let k = app.config().memory.top_k as usize;
+        let embedder = app.embedder();
         let mcp = Arc::new(agenium_mcp::McpHub::new(
             crate::mcp::secret_fn(app.clone()),
             app.layout().mcp_work(),
@@ -180,7 +182,7 @@ impl Runtime {
             app,
             providers,
             approver,
-            embedder: agenium_memory::default_embedder(),
+            embedder,
             prices,
             retry,
             live: None,
@@ -190,8 +192,16 @@ impl Runtime {
     }
 
     fn agent_memory(&self, agent: AgentId) -> Result<Arc<agenium_store::AgentStore>> {
-        self.app
-            .agent_store(agent, self.embedder.dim(), self.embedder.model_id())
+        let s = self
+            .app
+            .agent_store(agent, self.embedder.dim(), self.embedder.model_id())?;
+        // Text is the source of truth: vectors from another embedder are rebuilt (model installed later, switch).
+        match agenium_memory::refresh_vectors(&s, self.embedder.as_ref()) {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(%agent, n, "re-embedded memory with the current embedder"),
+            Err(e) => tracing::warn!(%agent, error = %e, "could not re-embed memory"),
+        }
+        Ok(s)
     }
 
     fn soul_and_role(&self, agent: &agenium_store::core::agents::Agent) -> String {
@@ -737,7 +747,7 @@ impl Runtime {
                 return Err(e);
             }
         };
-        self.finish(
+        let summary = self.finish(
             project,
             &t,
             &lead,
@@ -746,7 +756,12 @@ impl Runtime {
             report,
             cost,
             started.elapsed().as_millis() as u64,
-        )
+        )?;
+        // The assignee learns from the outcome (decision 2); a failure here never fails the review.
+        if let Err(e) = self.learn_from_ticket(project, key, run).await {
+            tracing::warn!(ticket = %key, error = %e, "memory pipeline skipped");
+        }
+        Ok(summary)
     }
 
     /// One chat turn of the user with the Lead/Solo (discovery, spec, plan, ticket creation). The conversation is kept
@@ -1059,6 +1074,8 @@ impl Runtime {
             })?;
         }
         let _ = project;
+        self.app
+            .run_log(run, "run", serde_json::json!({ "kind": kind }))?;
         Ok(RunSummary {
             run,
             kind: kind.into(),

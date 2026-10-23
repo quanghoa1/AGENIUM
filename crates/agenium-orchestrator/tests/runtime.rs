@@ -594,7 +594,7 @@ async fn vendor_switch_keeps_memory_skills_and_conversation() {
         "---\nname: house-style\ndescription: House writing style.\n---\nWrite short sentences.\n",
     )
     .unwrap();
-    let e = agenium_memory::default_embedder();
+    let e = app.embedder();
     let mem = app.agent_store(a.id, e.dim(), e.model_id()).unwrap();
     mem.add(
         &agenium_store::NewFact::fact("Greeting files end with a newline", "ticket:OLD-1"),
@@ -944,5 +944,129 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
     }));
     let _ = rt.review(project, &key("AGN-1")).await;
     assert_eq!(p.remaining(), 0, "both review requests were made");
+    drop(f);
+}
+
+/// M15-2: closing a ticket runs the memory pipeline for the assignee once; the next ticket's work order recalls
+/// the learned fact.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn closing_a_ticket_teaches_the_assignee() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let lead = Actor::Lead(agent);
+    let ctxp = |a: Actor| agenium_orchestrator::CallCtx {
+        project,
+        actor: a,
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&ctxp(lead), Intent::ProposeSpec(spec())).unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::CreatePlan(plan(&[("PI-1", &[]), ("PI-2", &[])])),
+    )
+    .unwrap();
+    for (item, title) in [
+        ("PI-1", "Write the greeting"),
+        ("PI-2", "Write the farewell"),
+    ] {
+        app.apply(
+            &ctxp(lead),
+            Intent::CreateTicket(new_ticket(item, title, &[], &[])),
+        )
+        .unwrap();
+    }
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+
+    // Work, then review: approve (merge) and close.
+    p.push_calls(
+        "",
+        vec![(
+            "write_file",
+            json!({"path": "deliverables/hello.txt", "content": "hello\n"}),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "review_ticket",
+            json!({"ticket_id": "AGN-1", "decision": "Approve"}),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "close_ticket",
+            json!({"ticket_id": "AGN-1", "reason": "All AC met, merged into main"}),
+        )],
+    );
+    // Memory pipeline: the extraction sees the work conversation (no thinking), memory is empty so no decision call.
+    p.push(Box::new(|req| {
+        let t = req.messages[0].text();
+        assert!(t.contains("Episode ticket:AGN-1") && t.contains("[tool call] write_file"), "{t}");
+        Ok(calls_response(
+            "{\"facts\": [{\"text\": \"Greeting files in this project end with a newline.\", \"kind\": \"lesson\"}]}",
+            vec![],
+        ))
+    }));
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-1")).await.unwrap().outcome,
+        "Completed"
+    );
+    let s = rt.review(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Closed
+    );
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let facts = mem.live(10).unwrap();
+    assert_eq!(facts.len(), 1);
+    assert_eq!(facts[0].source, "ticket:AGN-1");
+    let log = app.store().read(|c| runs::log_entries(c, s.run)).unwrap();
+    assert!(log
+        .iter()
+        .any(|e| e.kind == "memory" && e.data["added"] == 1));
+    // Once per ticket state.
+    assert!(rt
+        .learn_from_ticket(project, &key("AGN-1"), s.run)
+        .await
+        .unwrap()
+        .is_none());
+
+    // The next ticket recalls it.
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-2"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+    p.push(Box::new(|req| {
+        let t = req.messages[0].text();
+        assert!(t.contains("end with a newline"), "{t}");
+        Err(agenium_llm::LlmError::Unsupported("stop here".into()))
+    }));
+    let _ = rt.run_ticket(project, &key("AGN-2")).await;
+    assert_eq!(p.remaining(), 0);
     drop(f);
 }

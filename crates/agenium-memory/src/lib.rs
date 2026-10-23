@@ -1,8 +1,13 @@
-//! Private agent memory (decision 2, ADR-47/50/51). M1 provides the retrieval hook of the work order (M1-11):
-//! facts already in the agent's database are retrieved by hybrid search and every injected fact is logged in
-//! `fact_usage`. The extraction pipeline (ADD/UPDATE/DELETE) and the real local embedding model arrive in M1.5.
+//! Private agent memory (decision 2, ADR-47/50/51): the retrieval hook of the work order (M1-11: hybrid search,
+//! every injected fact logged in `fact_usage`), the local embedding model (`local`, M15-2) and the extraction
+//! pipeline (`pipeline`: facts -> ADD/UPDATE/DELETE/NOOP decided by the agent's own model).
 
-use std::sync::Arc;
+#[cfg(feature = "local")]
+pub mod local;
+pub mod pipeline;
+
+use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use agenium_store::{AgentStore, StoreError, Via};
 
@@ -12,18 +17,66 @@ pub enum MemoryError {
     Store(#[from] StoreError),
     #[error("embedder: {0}")]
     Embedder(String),
+    #[error("memory model: {0}")]
+    Model(String),
 }
 
 /// Text embedding model. The dimension is fixed per agent database (ADR-47).
 pub trait Embedder: Send + Sync {
     fn model_id(&self) -> &str;
     fn dim(&self) -> usize;
+    /// Embeds stored texts (facts).
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String>;
+    /// Embeds a retrieval query (models such as BGE prepend an instruction).
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>, String> {
+        self.embed(&[text.to_owned()])?
+            .pop()
+            .ok_or_else(|| "embedder returned nothing".to_owned())
+    }
 }
 
-/// The embedder every agent database of this build uses (one place to switch models; ADR-47).
-pub fn default_embedder() -> Arc<dyn Embedder> {
+type Loaded = Mutex<Vec<(std::path::PathBuf, Arc<dyn Embedder>)>>;
+
+/// The embedder for agent databases under `models_root` (one place to switch models; ADR-47): the local
+/// `bge-small-en-v1.5` when it is installed, otherwise the hashing stand-in (keyword-level quality; the
+/// databases are re-embedded from their text once the model is installed). Loaded once per process.
+pub fn default_embedder(models_root: &Path) -> Arc<dyn Embedder> {
+    static LOADED: OnceLock<Loaded> = OnceLock::new();
+    let cache = LOADED.get_or_init(|| Mutex::new(Vec::new()));
+    let mut c = cache.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some((_, e)) = c.iter().find(|(p, _)| p == models_root) {
+        return e.clone();
+    }
+    let e = load_embedder(models_root);
+    c.push((models_root.to_path_buf(), e.clone()));
+    e
+}
+
+fn load_embedder(models_root: &Path) -> Arc<dyn Embedder> {
+    #[cfg(feature = "local")]
+    {
+        let spec = local::BGE_SMALL_EN;
+        if local::installed(&spec, models_root) {
+            match local::LocalEmbedder::load(spec, models_root) {
+                Ok(e) => return Arc::new(e),
+                Err(e) => {
+                    tracing::warn!(error = %e, "cannot load the local embedding model; using the hashing embedder")
+                }
+            }
+        } else {
+            tracing::info!("local embedding model not installed; using the hashing embedder");
+        }
+    }
+    let _ = models_root;
     Arc::new(HashEmbedder::new(384))
+}
+
+/// Re-embeds live facts whose vectors come from another embedder (model switch with the same dimension).
+pub fn refresh_vectors(store: &AgentStore, embedder: &dyn Embedder) -> Result<u64, MemoryError> {
+    if store.stale_vectors(embedder.model_id())? == 0 {
+        return Ok(0);
+    }
+    Ok(store.reindex(|t| embedder.embed(t))?)
 }
 
 /// Deterministic hashing embedder (bag of hashed word unigrams + bigrams, L2-normalised). Keyword-level quality
@@ -111,11 +164,11 @@ impl MemoryRetriever {
         if k == 0 || self.store.count_live()? == 0 {
             return Ok(vec![]);
         }
-        let v = self
-            .embedder
-            .embed(&[query.to_owned()])
-            .map_err(MemoryError::Embedder)?
-            .pop();
+        let v = Some(
+            self.embedder
+                .embed_query(query)
+                .map_err(MemoryError::Embedder)?,
+        );
         let mut hits = self.store.hybrid(query, v.as_deref(), k * 2)?;
         hits.retain(|h| !h.fact.untrusted);
         hits.sort_by(|a, b| {

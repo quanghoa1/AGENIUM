@@ -1,15 +1,32 @@
 [package]
 name = "agenium-memory"
-description = "Private agent memory: Embedder trait, retrieval for work orders (hybrid vector + BM25), fact usage logging."
+description = "Private agent memory: Embedder trait + local embedding model, retrieval for work orders (hybrid vector + BM25), extraction pipeline, fact usage logging."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+default = ["local"]
+# Local embedding model (bge-small-en-v1.5 through candle, pure Rust; ADR-47 / decision 2b).
+local = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers"]
+
 [dependencies]
+agenium-core.workspace = true
+agenium-llm.workspace = true
 agenium-store.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+candle-core = { version = "=0.11.0", optional = true }
+candle-nn = { version = "=0.11.0", optional = true }
+candle-transformers = { version = "=0.11.0", optional = true }
+tokenizers = { version = "=0.23.2", optional = true, default-features = false, features = ["onig"] }
 
 [dev-dependencies]
 tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

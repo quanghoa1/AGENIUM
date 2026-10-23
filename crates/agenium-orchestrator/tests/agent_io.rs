@@ -12,7 +12,7 @@ use agenium_store::{NewFact, Via};
 use common::*;
 
 fn emb() -> std::sync::Arc<dyn agenium_memory::Embedder> {
-    agenium_memory::default_embedder()
+    std::sync::Arc::new(agenium_memory::HashEmbedder::new(384))
 }
 
 /// Memory, files and profile of an agent with some history.
