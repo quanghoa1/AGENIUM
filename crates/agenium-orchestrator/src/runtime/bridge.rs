@@ -145,6 +145,8 @@ pub struct RunProtocol {
     pub run: RunId,
     pub kind: RunKind,
     pub ticket: Option<TicketKey>,
+    /// Skills of this run's agent (`load_skill` is answered here; it changes no state).
+    pub skills: Arc<agenium_skills::SkillSet>,
 }
 
 fn tool_error(e: &OrchError) -> ToolError {
@@ -184,6 +186,22 @@ impl Protocol for RunProtocol {
             };
             ToolError::new(code, msg)
         })?;
+        if let Intent::LoadSkill(l) = &intent {
+            return match self.skills.get(&l.name) {
+                Some(s) => Ok((
+                    serde_json::Value::String(s.instructions()),
+                    Effect::Continue,
+                )),
+                None => Err(ToolError::new(
+                    "invalid",
+                    format!(
+                        "no skill named {:?} is installed for you; available: {}",
+                        l.name,
+                        self.skills.names().join(", ")
+                    ),
+                )),
+            };
+        }
         let tool = intent.tool();
         let actor = match (tool.group(), self.role) {
             (ToolGroup::Lead, _) => Actor::Lead(self.agent),

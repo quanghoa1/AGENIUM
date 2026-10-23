@@ -52,6 +52,9 @@ enum Cmd {
     Project(ProjectCmd),
     #[command(subcommand)]
     Agent(AgentCmd),
+    /// Skills (SKILL.md folders) of agents and roles.
+    #[command(subcommand)]
+    Skill(SkillCmd),
     /// Talk to the project's Lead/Solo agent (one turn).
     Chat {
         #[arg(long)]
@@ -201,6 +204,48 @@ enum AgentCmd {
     Resume {
         name: String,
     },
+    /// Restrict the agent to these skills (no names = every skill of its role and its own).
+    Skills {
+        name: String,
+        skills: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SkillCmd {
+    /// Skills an agent can use (role skills + its own), and folders that failed validation.
+    List {
+        #[arg(long)]
+        agent: String,
+    },
+    /// Print a skill's instructions as the agent sees them (load_skill).
+    Show {
+        #[arg(long)]
+        agent: String,
+        name: String,
+    },
+    /// Import a skill from a folder, a .zip or an https URL of a .zip.
+    Import {
+        source: String,
+        /// Install for one agent.
+        #[arg(long, conflicts_with = "role", required_unless_present = "role")]
+        agent: Option<String>,
+        /// Install for every agent of a role.
+        #[arg(long)]
+        role: Option<String>,
+        #[arg(long)]
+        replace: bool,
+    },
+    /// Delete a skill folder.
+    Remove {
+        name: String,
+        #[arg(long, conflicts_with = "role", required_unless_present = "role")]
+        agent: Option<String>,
+        #[arg(long)]
+        role: Option<String>,
+    },
+    /// Check a skill folder without installing it.
+    Validate { dir: PathBuf },
 }
 
 #[derive(Subcommand)]
@@ -374,6 +419,132 @@ fn open(root: &Path) -> Result<Arc<App>> {
         eprintln!("[reconcile] {a}");
     }
     Ok(Arc::new(app))
+}
+
+fn skill_owner(
+    app: &App,
+    agent: &Option<String>,
+    role: &Option<String>,
+) -> Result<agenium_skills::Owner> {
+    Ok(match (agent, role) {
+        (Some(a), _) => agenium_skills::Owner::Agent(app.agent_named(a)?.id.to_string()),
+        (None, Some(r)) => {
+            if !agenium_skills::valid_name(r) {
+                bail!("invalid role id {r:?}");
+            }
+            agenium_skills::Owner::Role(r.clone())
+        }
+        (None, None) => bail!("pass --agent or --role"),
+    })
+}
+
+/// Downloads an https .zip (at most the skill size limit) into a temporary file.
+async fn download_zip(url: &str, dir: &Path) -> Result<PathBuf> {
+    if !url.starts_with("https://") {
+        bail!("only https URLs are accepted");
+    }
+    let mut resp = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .build()?
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?;
+    let path = dir.join("skill-download.zip");
+    let mut f = std::fs::File::create(&path)?;
+    let mut total = 0u64;
+    while let Some(chunk) = resp.chunk().await? {
+        total += chunk.len() as u64;
+        if total > agenium_skills::MAX_TOTAL_BYTES {
+            bail!(
+                "the download is larger than {} MiB",
+                agenium_skills::MAX_TOTAL_BYTES >> 20
+            );
+        }
+        f.write_all(&chunk)?;
+    }
+    Ok(path)
+}
+
+async fn skill_cmd(cli: &Cli, sc: &SkillCmd) -> Result<()> {
+    if let SkillCmd::Validate { dir } = sc {
+        let s = agenium_skills::validate(dir, agenium_skills::Origin::Agent)?;
+        println!(
+            "ok: {} - {} ({} files)",
+            s.meta.name,
+            s.meta.description,
+            s.files.len()
+        );
+        return Ok(());
+    }
+    let app = open(&root(cli)?)?;
+    let reg = app.skill_registry();
+    match sc {
+        SkillCmd::List { agent } => {
+            let a = app.agent_named(agent)?;
+            let set = reg.for_agent(&a.id.to_string(), &a.role, &a.skills);
+            if set.is_empty() {
+                println!("(no skills)");
+            }
+            for s in &set.skills {
+                let origin = serde_json::to_value(&s.meta.origin)?;
+                println!(
+                    "{}	{}	{}	{}",
+                    s.meta.name,
+                    origin.as_str().unwrap_or_default(),
+                    s.meta.version.as_deref().unwrap_or("-"),
+                    s.meta.description
+                );
+            }
+            for p in &set.problems {
+                println!("INVALID	{}	{}", p.dir.display(), p.error);
+            }
+            if !a.skills.is_empty() {
+                println!("(binding: {})", a.skills.join(", "));
+            }
+        }
+        SkillCmd::Show { agent, name } => {
+            let a = app.agent_named(agent)?;
+            let set = reg.for_agent(&a.id.to_string(), &a.role, &a.skills);
+            let s = set
+                .get(name)
+                .ok_or_else(|| anyhow!("{agent} has no skill {name:?}"))?;
+            println!("{}", s.instructions());
+        }
+        SkillCmd::Import {
+            source,
+            agent,
+            role,
+            replace,
+        } => {
+            let owner = skill_owner(&app, agent, role)?;
+            let tmp;
+            let src = if source.starts_with("http://") || source.starts_with("https://") {
+                tmp = std::env::temp_dir().join(format!("agenium-skill-{}", std::process::id()));
+                std::fs::create_dir_all(&tmp)?;
+                let r = download_zip(source, &tmp).await;
+                if r.is_err() {
+                    let _ = std::fs::remove_dir_all(&tmp);
+                }
+                r?
+            } else {
+                PathBuf::from(source)
+            };
+            let r = reg.import(&src, &owner, *replace);
+            if source.starts_with("https://") {
+                let _ = std::fs::remove_dir_all(src.parent().unwrap_or(&src));
+            }
+            let m = r?;
+            println!("imported {} into {}", m.name, m.dir.display());
+        }
+        SkillCmd::Remove { name, agent, role } => {
+            let owner = skill_owner(&app, agent, role)?;
+            reg.remove(&owner, name)?;
+            println!("removed {name}");
+        }
+        SkillCmd::Validate { .. } => unreachable!(),
+    }
+    Ok(())
 }
 
 fn project(app: &App, name: &str) -> Result<Project> {
@@ -721,6 +892,15 @@ async fn main() -> Result<()> {
                     )?;
                     println!("{name} now uses {provider}/{model}");
                 }
+                AgentCmd::Skills { name, skills } => {
+                    let a = app.agent_named(name)?;
+                    app.set_agent_skills(a.id, skills)?;
+                    if skills.is_empty() {
+                        println!("{name} uses every skill of role {} and its own", a.role);
+                    } else {
+                        println!("{name} is restricted to: {}", skills.join(", "));
+                    }
+                }
                 AgentCmd::Resume { name } => {
                     let a = app
                         .agents()?
@@ -732,6 +912,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
+        Cmd::Skill(sc) => skill_cmd(&cli, sc).await?,
         Cmd::Chat {
             project: pname,
             message,

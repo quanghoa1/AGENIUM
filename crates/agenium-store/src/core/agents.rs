@@ -293,6 +293,17 @@ pub fn set_agent_model(
     Ok(())
 }
 
+pub fn set_agent_skills(c: &Connection, id: AgentId, skills: &[String]) -> Result<(), StoreError> {
+    let n = c.execute(
+        "UPDATE agent SET skills = ?2 WHERE id = ?1",
+        params![id.to_string(), to_json(&skills)?],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("agent {id}")));
+    }
+    Ok(())
+}
+
 pub fn delete_agent(c: &Connection, id: AgentId) -> Result<(), StoreError> {
     c.execute("DELETE FROM agent WHERE id = ?1", [id.to_string()])?;
     Ok(())

@@ -135,6 +135,11 @@ impl App {
         Ok((app, report))
     }
 
+    /// Skill folders of agents and roles (`<root>/agents/<id>/skills`, `<root>/roles/<role>/skills`).
+    pub fn skill_registry(&self) -> agenium_skills::Registry {
+        agenium_skills::Registry::new(self.layout.agents(), self.layout.roles())
+    }
+
     pub fn layout(&self) -> &RootLayout {
         &self.layout
     }
@@ -479,6 +484,29 @@ impl App {
                 Ok(())
             })?;
         Ok(())
+    }
+
+    /// Sets the agent's skill binding (empty = every skill of its role and its own).
+    pub fn set_agent_skills(&self, id: AgentId, skills: &[String]) -> Result<()> {
+        if let Some(bad) = skills.iter().find(|s| !agenium_skills::valid_name(s)) {
+            return Err(OrchError::Invalid(format!("invalid skill name {bad:?}")));
+        }
+        self.store
+            .commit(None, "user", |w| -> std::result::Result<_, StoreError> {
+                agents::set_agent_skills(w.tx, id, skills)?;
+                w.emit(DomainEvent::AgentUpdated {
+                    agent: id,
+                    field: "skills".into(),
+                })?;
+                Ok(())
+            })?;
+        Ok(())
+    }
+
+    pub fn agent_named(&self, name: &str) -> Result<agents::Agent> {
+        self.store
+            .read(|c| agents::agent_by_name(c, name))?
+            .ok_or_else(|| OrchError::NotFound(format!("agent {name}")))
     }
 
     pub fn set_agent_status(&self, id: AgentId, to: AgentStatus) -> Result<()> {

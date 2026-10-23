@@ -266,6 +266,7 @@ impl Run<'_> {
         }
         if self.protocol_names.iter().any(|n| n == name) {
             return match self.protocol.call(name, args, call_id).await {
+                Ok((serde_json::Value::String(text), eff)) => (Ok(text), eff, false),
                 Ok((v, eff)) => (Ok(v.to_string()), eff, false),
                 Err(e) => (Err(e), Effect::Continue, false),
             };

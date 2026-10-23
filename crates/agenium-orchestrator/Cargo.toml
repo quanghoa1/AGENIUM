@@ -12,6 +12,7 @@ agenium-backend.workspace = true
 agenium-llm.workspace = true
 agenium-memory.workspace = true
 agenium-sandbox.workspace = true
+agenium-skills.workspace = true
 agenium-tools.workspace = true
 async-trait.workspace = true
 tokio.workspace = true

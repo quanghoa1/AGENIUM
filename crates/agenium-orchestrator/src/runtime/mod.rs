@@ -22,6 +22,7 @@ use agenium_core::*;
 use agenium_llm::pricing::PriceTable;
 use agenium_llm::{ChatEvent, Message, Provider, ProviderSpec, RetryPolicy, SystemBlock, ToolSpec};
 use agenium_memory::{Embedder, HashEmbedder, MemoryRetriever};
+use agenium_skills::SkillSet;
 use agenium_store::core::{comments, runs, tickets, workspaces};
 use agenium_tools::{Tool, ToolCtx};
 use serde::Serialize;
@@ -196,8 +197,20 @@ impl Runtime {
         if !role.trim().is_empty() {
             s.push_str(&format!("\n\n# Role (ROLE.md)\n{}", role.trim()));
         }
-        s.push_str("\n\n# Skills\n(no skills are installed for you yet)");
+        s.push_str(&format!("\n\n# Skills\n{}", self.skills(agent).index()));
         s
+    }
+
+    /// Skills of an agent (role skills + its own; its binding filters them).
+    pub fn skills(&self, agent: &agenium_store::core::agents::Agent) -> SkillSet {
+        let set =
+            self.app
+                .skill_registry()
+                .for_agent(&agent.id.to_string(), &agent.role, &agent.skills);
+        for p in &set.problems {
+            tracing::warn!(dir = %p.dir.display(), error = %p.error, "skipping invalid skill");
+        }
+        set
     }
 
     fn manifest(
@@ -378,7 +391,14 @@ impl Runtime {
             &agent.name,
             allow,
         );
-        let (pspecs, pnames) = Self::protocol_specs(agent.role_kind, solo, exclude);
+        let skills = Arc::new(self.skills(agent));
+        let mut ctx = ctx;
+        ctx.read_roots = skills.dirs();
+        let mut exclude = exclude.to_vec();
+        if skills.is_empty() {
+            exclude.push(ProtocolTool::LoadSkill);
+        }
+        let (pspecs, pnames) = Self::protocol_specs(agent.role_kind, solo, &exclude);
         let mut specs = work_specs(&work);
         specs.extend(pspecs);
         let specs = sorted_specs(specs);
@@ -408,6 +428,7 @@ impl Runtime {
             run,
             kind,
             ticket: ticket.map(|t| t.key.clone()),
+            skills,
         };
         let cache_key = format!(
             "{}:{}",
@@ -546,7 +567,7 @@ impl Runtime {
                 &root,
                 builder,
                 agenium_tools::work_tools(),
-                &[ProtocolTool::LoadSkill, ProtocolTool::ProposeSkillUpdate],
+                &[ProtocolTool::ProposeSkillUpdate],
             )
             .await;
         let (report, cost, _p) = match res {
@@ -671,7 +692,7 @@ impl Runtime {
                 &root,
                 builder,
                 read_only,
-                &[ProtocolTool::LoadSkill, ProtocolTool::ProposeSkillUpdate],
+                &[ProtocolTool::ProposeSkillUpdate],
             )
             .await;
         let (report, cost, _p) = match res {
@@ -791,7 +812,6 @@ impl Runtime {
                 builder,
                 read_only,
                 &[
-                    ProtocolTool::LoadSkill,
                     ProtocolTool::ProposeSkillUpdate,
                     ProtocolTool::SubmitReport,
                     ProtocolTool::PostProgress,

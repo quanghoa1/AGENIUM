@@ -429,3 +429,127 @@ async fn chat_with_exhausted_credit_marks_the_agent_and_explains() {
     );
     drop(f);
 }
+
+/// M15-4: the skills index is in the cached system prefix, `load_skill` returns the body and the skill folder is
+/// readable (not writable) through `read_file`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn skills_are_indexed_loaded_and_readable() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let dir = app.layout().roles().join("solo/skills/greeting-style");
+    std::fs::create_dir_all(dir.join("references")).unwrap();
+    std::fs::write(
+        dir.join("SKILL.md"),
+        "---\nname: greeting-style\ndescription: How greeting files are written.\n---\nGreetings end with a newline. Tone: [tone](references/tone.md).\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("references/tone.md"), "Be warm.\n").unwrap();
+    let lead = Actor::Lead(agent);
+    let ctxp = |a: Actor| agenium_orchestrator::CallCtx {
+        project,
+        actor: a,
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&ctxp(lead), Intent::ProposeSpec(spec())).unwrap();
+    app.apply(&ctxp(lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::CreateTicket(new_ticket("PI-1", "t", &[], &[])),
+    )
+    .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+
+    let tone = dir.join("references/tone.md").display().to_string();
+    let tone2 = tone.clone();
+    p.push(Box::new(move |req| {
+        assert!(req.system[1].cache);
+        assert!(
+            req.system[1]
+                .text
+                .contains("- greeting-style: How greeting files are written."),
+            "{}",
+            req.system[1].text
+        );
+        assert!(req.tools.iter().any(|t| t.name == "load_skill"));
+        Ok(calls_response(
+            "",
+            vec![
+                ("load_skill", json!({"name": "greeting-style"})),
+                ("load_skill", json!({"name": "nope"})),
+            ],
+        ))
+    }));
+    p.push(Box::new(move |req| {
+        let results: Vec<(String, bool)> = req
+            .messages
+            .iter()
+            .flat_map(|m| m.parts.iter())
+            .filter_map(|p| match p {
+                agenium_llm::Part::ToolResult {
+                    content, is_error, ..
+                } => Some((content.clone(), *is_error)),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            results[0].0.contains("# Skill: greeting-style")
+                && results[0].0.contains("Greetings end with a newline")
+                && results[0].0.contains("references/tone.md")
+                && !results[0].1,
+            "{results:?}"
+        );
+        assert!(results[1].1 && results[1].0.contains("available: greeting-style"));
+        Ok(calls_response(
+            "",
+            vec![
+                ("read_file", json!({"path": tone2})),
+                ("write_file", json!({"path": tone2, "content": "x"})),
+            ],
+        ))
+    }));
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap();
+        let r: Vec<(String, bool)> = last
+            .parts
+            .iter()
+            .filter_map(|p| match p {
+                agenium_llm::Part::ToolResult {
+                    content, is_error, ..
+                } => Some((content.clone(), *is_error)),
+                _ => None,
+            })
+            .collect();
+        assert!(r[0].0.contains("Be warm.") && !r[0].1, "{r:?}");
+        assert!(r[1].1, "skill folders are read-only: {r:?}");
+        Ok(calls_response(
+            "",
+            vec![(
+                "write_file",
+                json!({"path": "deliverables/hello.txt", "content": "hello\n"}),
+            )],
+        ))
+    }));
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    assert_eq!(std::fs::read_to_string(&tone).unwrap(), "Be warm.\n");
+    drop(f);
+}
