@@ -132,6 +132,7 @@ impl App {
             agent_stores: Mutex::new(HashMap::new()),
         };
         let report = app.reconcile()?;
+        app.purge_deleted_agents()?;
         Ok((app, report))
     }
 
@@ -539,6 +540,14 @@ impl App {
         )?);
         m.insert(id, s.clone());
         Ok(s)
+    }
+
+    /// Closes this process's handle of an agent database (deletion).
+    pub(crate) fn forget_agent_store(&self, id: AgentId) {
+        self.agent_stores
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(&id);
     }
 
     /// Agent databases currently open in this process.

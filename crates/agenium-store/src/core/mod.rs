@@ -28,10 +28,16 @@ use crate::db::{Db, DbOptions};
 use crate::migrate::{migrate, MigrateReport, Migration};
 use crate::StoreError;
 
-pub const CORE_MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    sql: include_str!("../schema/core_001.sql"),
-}];
+pub const CORE_MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        sql: include_str!("../schema/core_001.sql"),
+    },
+    Migration {
+        version: 2,
+        sql: include_str!("../schema/core_002.sql"),
+    },
+];
 
 /// Write context handed to [`CoreStore::commit`] closures.
 pub struct WriteCtx<'a, 't> {

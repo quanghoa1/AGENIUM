@@ -1,6 +1,7 @@
 //! Orchestrator: the only component that applies rules and writes state (decision 36). Agents propose actions
 //! through typed intents; the engine validates them against the database and commits deterministically.
 
+pub mod agent_io;
 pub mod app;
 pub mod effects;
 pub mod engine;

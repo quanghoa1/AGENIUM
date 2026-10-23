@@ -61,6 +61,7 @@ dependencies = [
  "agenium-config",
  "agenium-core",
  "agenium-llm",
+ "agenium-memory",
  "agenium-orchestrator",
  "agenium-sandbox",
  "agenium-secrets",
@@ -168,12 +169,14 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tempfile",
  "thiserror",
  "tokio",
  "toml",
  "tracing",
  "ulid",
+ "zstd",
 ]
 
 [[package]]

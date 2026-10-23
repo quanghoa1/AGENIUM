@@ -209,6 +209,33 @@ enum AgentCmd {
         name: String,
         skills: Vec<String>,
     },
+    /// Export an agent (profile, SOUL.md, skills, memory, conversations) to JSONL; `.zst` compresses.
+    Export {
+        name: String,
+        file: PathBuf,
+        /// Export even if secret-looking strings are found in its data.
+        #[arg(long)]
+        allow_secret_findings: bool,
+    },
+    /// Import an exported agent as the Solo agent of a project.
+    Import {
+        file: PathBuf,
+        #[arg(long)]
+        project: String,
+        /// New name (default: the exported name).
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Delete an agent for good: memory, skills, SOUL.md and its folder (blocked while it has open tickets).
+    Delete {
+        name: String,
+        /// Type the agent's name again to confirm (asked interactively when missing).
+        #[arg(long)]
+        confirm: Option<String>,
+        /// Export the agent to this file first.
+        #[arg(long)]
+        export: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -899,6 +926,88 @@ async fn main() -> Result<()> {
                         println!("{name} uses every skill of role {} and its own", a.role);
                     } else {
                         println!("{name} is restricted to: {}", skills.join(", "));
+                    }
+                }
+                AgentCmd::Export {
+                    name,
+                    file,
+                    allow_secret_findings,
+                } => {
+                    let a = app.agent_named(name)?;
+                    let s = app.export_agent(
+                        a.id,
+                        file,
+                        agenium_memory::default_embedder().as_ref(),
+                        &agenium_orchestrator::agent_io::ExportOptions {
+                            allow_secret_findings: *allow_secret_findings,
+                        },
+                    )?;
+                    println!(
+                        "exported {name} to {} ({} files, {} memory rows)",
+                        s.path.display(),
+                        s.files,
+                        s.memory_rows
+                    );
+                }
+                AgentCmd::Import {
+                    file,
+                    project: pname,
+                    name,
+                } => {
+                    let p = project(&app, pname)?;
+                    let a = app.import_agent(
+                        file,
+                        &agenium_orchestrator::agent_io::ImportRequest {
+                            project: p.id,
+                            name: name.clone(),
+                        },
+                        agenium_memory::default_embedder().as_ref(),
+                    )?;
+                    if app.config().provider(&a.model.provider).is_none() {
+                        println!(
+                            "note: provider {:?} is not configured here; add it or run `agenium agent model {} ...`",
+                            a.model.provider, a.name
+                        );
+                    }
+                    println!(
+                        "imported {} ({}) as the Solo agent of {}",
+                        a.name, a.id, p.name
+                    );
+                }
+                AgentCmd::Delete {
+                    name,
+                    confirm,
+                    export,
+                } => {
+                    let a = app.agent_named(name)?;
+                    if let Some(file) = export {
+                        app.export_agent(
+                            a.id,
+                            file,
+                            agenium_memory::default_embedder().as_ref(),
+                            &Default::default(),
+                        )?;
+                        println!("exported {name} to {}", file.display());
+                    }
+                    let typed = match confirm {
+                        Some(c) => c.clone(),
+                        None if interactive() => {
+                            eprintln!(
+                                "This permanently deletes {name}'s memory, learned skills, SOUL.md history and folder."
+                            );
+                            let mut out = std::io::stderr();
+                            let _ = write!(out, "Type the agent's name to confirm: ");
+                            let _ = out.flush();
+                            let mut line = String::new();
+                            std::io::stdin().lock().read_line(&mut line)?;
+                            line.trim().to_owned()
+                        }
+                        None => bail!("pass --confirm <name> to delete without a terminal"),
+                    };
+                    let r = app.delete_agent(a.id, &typed)?;
+                    println!("deleted {}", r.name);
+                    for p in r.pending {
+                        println!("still locked, removed at next start: {p}");
                     }
                 }
                 AgentCmd::Resume { name } => {

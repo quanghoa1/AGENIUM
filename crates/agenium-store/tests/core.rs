@@ -202,7 +202,7 @@ fn seq_is_gap_free_across_rollbacks_and_reopen() {
     assert_eq!(s.read(events::last_seq).unwrap(), 2);
     assert_eq!(
         s.migration().from,
-        1,
+        agenium_store::core::CORE_MIGRATIONS.last().unwrap().version,
         "reopen sees the already migrated schema"
     );
 }
@@ -371,4 +371,40 @@ fn comments_blocking_inbox_and_grants() {
         runs::insert_grant(w.tx, &grant("project", "user", None))
     })
     .unwrap();
+}
+
+/// core_002 (agent tombstones) upgrades a populated v1 database after a pre-migrate snapshot.
+#[test]
+fn v1_database_with_data_migrates_to_v2() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("db/core.db");
+    std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+    {
+        let c = rusqlite::Connection::open(&db).unwrap();
+        c.execute_batch(include_str!("../src/schema/core_001.sql"))
+            .unwrap();
+        c.execute_batch(
+            "PRAGMA user_version = 1;
+             INSERT INTO team(id, name, template) VALUES ('T1', 'solo', 'coding@1');
+             INSERT INTO agent(id, name, team, role, role_kind, status, backend, model)
+               VALUES ('agent_01', 'ada', 'T1', 'solo', 'lead', 'Idle', 'Api', '{}');",
+        )
+        .unwrap();
+    }
+    let s = open(tmp.path());
+    assert_eq!(s.migration().from, 1);
+    assert_eq!(s.migration().to, 2);
+    let names: Vec<String> = s
+        .read(|c| -> Result<Vec<String>, StoreError> {
+            let mut st = c.prepare("SELECT name FROM agent WHERE deleted_at IS NULL")?;
+            let v = st.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+            Ok(v)
+        })
+        .unwrap();
+    assert_eq!(names, vec!["ada"]);
+    let snaps: Vec<_> = std::fs::read_dir(tmp.path().join("backups"))
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .collect();
+    assert!(!snaps.is_empty(), "pre-migrate snapshot written");
 }

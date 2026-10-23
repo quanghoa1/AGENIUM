@@ -553,3 +553,186 @@ async fn skills_are_indexed_loaded_and_readable() {
     assert_eq!(std::fs::read_to_string(&tone).unwrap(), "Be warm.\n");
     drop(f);
 }
+
+/// M15-1: switching an agent to another vendor keeps its memory, skills and the stored conversation; the run
+/// continues on the new provider with the new model.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn vendor_switch_keeps_memory_skills_and_conversation() {
+    let f = fixture();
+    let old = Arc::new(ScriptedProvider::new("vendor-a"));
+    let new = Arc::new(ScriptedProvider::new("vendor-b"));
+    let app = Arc::new(open_app(
+        &f.root.parent().unwrap().join("rt-root"),
+        f.keyring.clone(),
+        None,
+    ));
+    let rt = Runtime::new(
+        app.clone(),
+        Arc::new(StaticProviders(vec![
+            ("vendor-a".into(), old.clone() as Arc<dyn Provider>),
+            ("vendor-b".into(), new.clone() as Arc<dyn Provider>),
+        ])),
+        Arc::new(AutoApprove),
+    );
+    let p = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "switch".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+        })
+        .unwrap();
+    let mut spec_a = agent_spec("ada", "solo", RoleKind::Lead, &[]);
+    spec_a.model.provider = "vendor-a".into();
+    spec_a.model.model = "model-a".into();
+    let (_, a) = app.create_solo(p.id, &spec_a).unwrap();
+    let project = p.id;
+    let dir = app.layout().agent_dir(&a.id).join("skills/house-style");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("SKILL.md"),
+        "---\nname: house-style\ndescription: House writing style.\n---\nWrite short sentences.\n",
+    )
+    .unwrap();
+    let e = agenium_memory::default_embedder();
+    let mem = app.agent_store(a.id, e.dim(), e.model_id()).unwrap();
+    mem.add(
+        &agenium_store::NewFact::fact("Greeting files end with a newline", "ticket:OLD-1"),
+        Some(
+            &e.embed(&["Greeting files end with a newline".into()])
+                .unwrap()[0],
+        ),
+    )
+    .unwrap();
+    let lead = Actor::Lead(a.id);
+    let ctxp = |a: Actor| agenium_orchestrator::CallCtx {
+        project,
+        actor: a,
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&ctxp(lead), Intent::ProposeSpec(spec())).unwrap();
+    app.apply(&ctxp(lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    let mut nt = new_ticket("PI-1", "Write the greeting file", &[], &[]);
+    nt.description = "Write a greeting file that ends with a newline.".into();
+    app.apply(&ctxp(lead), Intent::CreateTicket(nt)).unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: a.id,
+            note: None,
+        }),
+    )
+    .unwrap();
+
+    // Vendor A: thinks (vendor-specific block), asks a blocking question -> parked.
+    old.push(Box::new(|req| {
+        assert_eq!(req.model, "model-a");
+        let mut r = calls_response(
+            "",
+            vec![(
+                "ask_question",
+                json!({"ticket_id": "AGN-1", "category": "Requirement", "question": "Which greeting text?", "blocking": true}),
+            )],
+        );
+        r.message.parts.insert(
+            0,
+            agenium_llm::Part::Thinking {
+                text: "The user wants a greeting.".into(),
+                signature: Some("sig-a".into()),
+                provider: "anthropic".into(),
+                redacted: false,
+            },
+        );
+        Ok(r)
+    }));
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-1")).await.unwrap().outcome,
+        "Parked"
+    );
+
+    // The user answers and switches the agent to vendor B.
+    let q = app
+        .store()
+        .read(|c| {
+            agenium_store::core::comments::open_blocking(
+                c,
+                app.ticket(project, &key("AGN-1")).unwrap().id,
+            )
+        })
+        .unwrap();
+    app.user_answer(project, &key("AGN-1"), q[0].id, "Say hello.", None)
+        .unwrap();
+    app.set_agent_model(
+        a.id,
+        &ModelBinding {
+            provider: "vendor-b".into(),
+            model: "model-b".into(),
+            effort: Effort::Medium,
+            max_tokens: None,
+        },
+    )
+    .unwrap();
+    new.push(Box::new(|req| {
+        assert_eq!(req.model, "model-b");
+        let sys: String = req.system.iter().map(|b| b.text.as_str()).collect();
+        assert!(
+            sys.contains("- house-style: House writing style."),
+            "skills survive"
+        );
+        assert!(req.tools.iter().any(|t| t.name == "load_skill"));
+        let texts: String = req
+            .messages
+            .iter()
+            .map(|m| m.text())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            texts.contains("Greeting files end with a newline"),
+            "memory survives: {texts}"
+        );
+        assert!(texts.contains("Say hello."), "the answer is appended");
+        assert!(
+            req.messages
+                .iter()
+                .any(|m| m.tool_calls().iter().any(|c| c.name == "ask_question")),
+            "the conversation from vendor A is kept"
+        );
+        // Normalized history keeps the block; each adapter drops other vendors' thinking on the wire
+        // (agenium-llm adapter tests).
+        assert!(req.messages.iter().flat_map(|m| m.parts.iter()).any(
+            |p| matches!(p, agenium_llm::Part::Thinking { provider, .. } if provider == "anthropic")
+        ));
+        Ok(calls_response(
+            "",
+            vec![(
+                "write_file",
+                json!({"path": "deliverables/hello.txt", "content": "hello\n"}),
+            )],
+        ))
+    }));
+    new.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    assert_eq!(old.remaining(), 0);
+    assert_eq!(new.remaining(), 0);
+    assert_eq!(
+        mem.count_live().unwrap(),
+        1,
+        "memory untouched by the switch"
+    );
+    let runs_ = app
+        .store()
+        .read(|c| runs::for_ticket(c, app.ticket(project, &key("AGN-1")).unwrap().id))
+        .unwrap();
+    assert_eq!(runs_.last().unwrap().provider, "vendor-b");
+    drop(f);
+}

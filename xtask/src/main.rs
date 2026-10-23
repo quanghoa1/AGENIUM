@@ -54,7 +54,7 @@ fn generated() -> Vec<(PathBuf, String)> {
         serde_json::to_string_pretty(&index).unwrap() + "\n",
     ));
     let sql = root().join("crates/agenium-store/src/schema");
-    for f in ["core_001.sql", "agent_001.sql"] {
+    for f in ["core_001.sql", "core_002.sql", "agent_001.sql"] {
         let text = std::fs::read_to_string(sql.join(f)).unwrap();
         out.push((root().join("schemas/sql").join(f), text));
     }

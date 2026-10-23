@@ -21,7 +21,7 @@ use agenium_backend::{
 use agenium_core::*;
 use agenium_llm::pricing::PriceTable;
 use agenium_llm::{ChatEvent, Message, Provider, ProviderSpec, RetryPolicy, SystemBlock, ToolSpec};
-use agenium_memory::{Embedder, HashEmbedder, MemoryRetriever};
+use agenium_memory::{Embedder, MemoryRetriever};
 use agenium_skills::SkillSet;
 use agenium_store::core::{comments, runs, tickets, workspaces};
 use agenium_tools::{Tool, ToolCtx};
@@ -173,7 +173,7 @@ impl Runtime {
             app,
             providers,
             approver,
-            embedder: Arc::new(HashEmbedder::new(384)),
+            embedder: agenium_memory::default_embedder(),
             prices,
             retry,
             live: None,

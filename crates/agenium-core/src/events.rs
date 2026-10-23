@@ -36,6 +36,11 @@ pub enum DomainEvent {
         agent: AgentId,
         field: String,
     },
+    /// The agent was deleted (decision 32); its row stays as a tombstone.
+    AgentDeleted {
+        agent: AgentId,
+        name: String,
+    },
     AgentStatusChanged {
         agent: AgentId,
         from: AgentStatus,

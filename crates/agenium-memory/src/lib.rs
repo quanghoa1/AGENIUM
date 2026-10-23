@@ -21,6 +21,11 @@ pub trait Embedder: Send + Sync {
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String>;
 }
 
+/// The embedder every agent database of this build uses (one place to switch models; ADR-47).
+pub fn default_embedder() -> Arc<dyn Embedder> {
+    Arc::new(HashEmbedder::new(384))
+}
+
 /// Deterministic hashing embedder (bag of hashed word unigrams + bigrams, L2-normalised). Keyword-level quality
 /// only; used for tests, evals and until the local model is installed.
 pub struct HashEmbedder {

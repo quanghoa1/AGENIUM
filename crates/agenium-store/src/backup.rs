@@ -325,7 +325,7 @@ pub fn create_full_from(
     Ok((dir, m))
 }
 
-fn value_to_json(v: ValueRef<'_>) -> serde_json::Value {
+pub(crate) fn value_to_json(v: ValueRef<'_>) -> serde_json::Value {
     use serde_json::json;
     match v {
         ValueRef::Null => serde_json::Value::Null,
@@ -336,7 +336,7 @@ fn value_to_json(v: ValueRef<'_>) -> serde_json::Value {
     }
 }
 
-fn json_to_value(v: &serde_json::Value) -> Result<Value, StoreError> {
+pub(crate) fn json_to_value(v: &serde_json::Value) -> Result<Value, StoreError> {
     Ok(match v {
         serde_json::Value::Null => Value::Null,
         serde_json::Value::Number(n) => Value::Integer(

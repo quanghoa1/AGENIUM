@@ -239,7 +239,7 @@ pub fn find_agent(c: &Connection, id: AgentId) -> Result<Option<Agent>, StoreErr
 
 pub fn agent_by_name(c: &Connection, name: &str) -> Result<Option<Agent>, StoreError> {
     c.query_row(
-        &format!("SELECT {AGENT_COLS} FROM agent WHERE name = ?1"),
+        &format!("SELECT {AGENT_COLS} FROM agent WHERE name = ?1 AND deleted_at IS NULL"),
         [name],
         map_agent,
     )
@@ -250,7 +250,7 @@ pub fn agent_by_name(c: &Connection, name: &str) -> Result<Option<Agent>, StoreE
 
 pub fn agents(c: &Connection) -> Result<Vec<Agent>, StoreError> {
     let mut st = c.prepare_cached(&format!(
-        "SELECT {AGENT_COLS} FROM agent ORDER BY created_at, rowid"
+        "SELECT {AGENT_COLS} FROM agent WHERE deleted_at IS NULL ORDER BY created_at, rowid"
     ))?;
     let rows = st.query_map([], map_agent)?;
     rows.map(|r| decode_agent(r?)).collect()
@@ -258,7 +258,7 @@ pub fn agents(c: &Connection) -> Result<Vec<Agent>, StoreError> {
 
 pub fn agents_of_team(c: &Connection, team: TeamId) -> Result<Vec<Agent>, StoreError> {
     let mut st = c.prepare_cached(&format!(
-        "SELECT {AGENT_COLS} FROM agent WHERE team = ?1 ORDER BY created_at, rowid"
+        "SELECT {AGENT_COLS} FROM agent WHERE team = ?1 AND deleted_at IS NULL ORDER BY created_at, rowid"
     ))?;
     let rows = st.query_map([team.to_string()], map_agent)?;
     rows.map(|r| decode_agent(r?)).collect()
@@ -304,7 +304,48 @@ pub fn set_agent_skills(c: &Connection, id: AgentId, skills: &[String]) -> Resul
     Ok(())
 }
 
-pub fn delete_agent(c: &Connection, id: AgentId) -> Result<(), StoreError> {
-    c.execute("DELETE FROM agent WHERE id = ?1", [id.to_string()])?;
+/// Turns the agent into a tombstone (decision 32): renamed `<name>~<id>`, Offline, binding cleared, hidden from
+/// listings. References from runs, tickets and events stay valid.
+pub fn tombstone_agent(c: &Connection, id: AgentId) -> Result<(), StoreError> {
+    let n = c.execute(
+        "UPDATE agent SET name = name || '~' || id, status = 'Offline', mcp = '[]', skills = '[]',
+                deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE id = ?1 AND deleted_at IS NULL",
+        [id.to_string()],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("agent {id}")));
+    }
     Ok(())
+}
+
+pub fn set_agent_mcp(
+    c: &Connection,
+    id: AgentId,
+    mcp: &serde_json::Value,
+) -> Result<(), StoreError> {
+    let n = c.execute(
+        "UPDATE agent SET mcp = ?2 WHERE id = ?1",
+        params![id.to_string(), mcp.to_string()],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("agent {id}")));
+    }
+    Ok(())
+}
+
+pub fn deleted_agents(c: &Connection) -> Result<Vec<AgentId>, StoreError> {
+    let mut st = c.prepare_cached("SELECT id FROM agent WHERE deleted_at IS NOT NULL")?;
+    let ids: Vec<String> = st.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    ids.iter().map(|s| parse(s, "agent id")).collect()
+}
+
+pub fn is_deleted(c: &Connection, id: AgentId) -> Result<bool, StoreError> {
+    Ok(c.query_row(
+        "SELECT deleted_at IS NOT NULL FROM agent WHERE id = ?1",
+        [id.to_string()],
+        |r| r.get::<_, bool>(0),
+    )
+    .optional()?
+    .unwrap_or(false))
 }
