@@ -2,7 +2,7 @@
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. Command: `.\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**172 tests** incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 1 helper
+`cargo test --workspace` PASS (**172 tests** incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
@@ -77,6 +77,10 @@ embedding + ranking ~22 ms. Debug builds are ~2x slower.
   8 facts (2.4k tokens in). Ticket 2 (same agent): 8 facts recalled into the work order, 5 work steps (no denied
   shell attempts this time: it used the stored lesson); pipeline: 3 extracted -> 2 ADD, 1 NOOP. Golden tasks after
   the OpenCode router change: 5/5 again (only `command_denied` errors).
+- Graph memory with the real model (2026-10-24, ticket 3 of the same agent): the agent database written in M1.5
+  migrated v1 -> v2 with its facts on open; extraction returned scope, entities and relations: 5 facts -> 2 ADD, 1
+  UPDATE, 2 NOOP; 5 entities and 2 edges (evidence = the new facts); 1 relation refused (named an entity the fact did
+  not list); the 8 memories shown to the work run were marked `helped` on close (6 work steps).
 - Found and fixed with the real model in M1.5: a plan revision after a new spec version was validated against the
   old spec (`revise_plan` now follows the newest approved spec; regression test in `lifecycle.rs`). Adding a plan
   item is a scope change and waits for the user even in Solo mode (by design).
