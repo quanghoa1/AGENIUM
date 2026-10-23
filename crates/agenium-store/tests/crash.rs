@@ -140,3 +140,139 @@ fn kill_during_writes_loses_nothing_acknowledged() {
         }
     }
 }
+
+const GRAPH_CHILD_ENV: &str = "AGENIUM_GRAPH_CRASH_CHILD_DIR";
+
+#[test]
+#[ignore = "helper: run by kill_during_graph_writes_keeps_the_graph_consistent"]
+fn graph_crash_child() {
+    let Ok(dir) = std::env::var(GRAPH_CHILD_ENV) else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    let s = agenium_store::AgentStore::open(&dir.join("agent.db"), 4, "m", &dir.join("backups"))
+        .unwrap();
+    let mut i = s.live(1).unwrap().first().map(|f| f.id as u64).unwrap_or(0) * 1000;
+    let ent = |n: String| agenium_store::graph::NewEntity {
+        kind: "concept".into(),
+        name: n,
+        scope: serde_json::json!({}),
+        description: None,
+        aliases: vec![],
+        confidence: 0.5,
+        evidence: None,
+    };
+    loop {
+        // Extraction-like burst: fact, entities, links, edges; every 7th round a merge.
+        let f = s
+            .add(
+                &agenium_store::NewFact::fact(format!("fact {i}"), "t"),
+                Some(&[1.0, 0.0, 0.0, 0.0]),
+            )
+            .unwrap();
+        let (a, _) = s
+            .upsert_entity(&ent(format!("e{}", i % 50)), Some(&[0.0, 1.0, 0.0, 0.0]))
+            .unwrap();
+        let (b, _) = s
+            .upsert_entity(&ent(format!("e{}", (i * 7 + 3) % 50)), None)
+            .unwrap();
+        s.link_fact(f, a, "subject").unwrap();
+        if a != b {
+            s.add_edge(
+                a,
+                b,
+                "related_to",
+                &serde_json::json!({}),
+                0.5,
+                Some(f),
+                "extract",
+            )
+            .unwrap();
+        }
+        if i % 7 == 6 {
+            let (c, _) = s.upsert_entity(&ent(format!("dup {i}")), None).unwrap();
+            s.add_edge(c, a, "uses", &serde_json::json!({}), 0.5, None, "extract")
+                .unwrap();
+            s.merge_entities(c, a, Some(0.95), "auto").unwrap_or(());
+        }
+        println!("ACK {i}");
+        i += 1;
+    }
+}
+
+#[test]
+fn kill_during_graph_writes_keeps_the_graph_consistent() {
+    let tmp = tempfile::tempdir().unwrap();
+    let exe = std::env::current_exe().unwrap();
+    let rounds: usize = std::env::var("AGENIUM_CRASH_ROUNDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(5);
+    for round in 0..rounds {
+        let mut child = Command::new(&exe)
+            .args([
+                "graph_crash_child",
+                "--exact",
+                "--ignored",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(GRAPH_CHILD_ENV, tmp.path())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let out = BufReader::new(child.stdout.take().unwrap());
+        let want = 20 + round * 11;
+        let mut n = 0;
+        for line in out.lines() {
+            if line.unwrap().starts_with("ACK ") {
+                n += 1;
+                if n >= want {
+                    break;
+                }
+            }
+        }
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(n >= want, "child stopped early in round {round}");
+
+        let s = agenium_store::AgentStore::open(
+            &tmp.path().join("agent.db"),
+            4,
+            "m",
+            &tmp.path().join("backups"),
+        )
+        .unwrap();
+        let checks: (String, i64, i64, i64, i64) = s
+            .db()
+            .read(|c| -> Result<_, StoreError> {
+                Ok((
+                    c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?,
+                    c.query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |r| r.get(0))?,
+                    // Degree cache equals the live edges of every entity.
+                    c.query_row(
+                        "SELECT count(*) FROM entity e WHERE e.degree <>
+                           (SELECT count(*) FROM edge x WHERE x.valid_to IS NULL AND (x.src = e.id OR x.dst = e.id))",
+                        [],
+                        |r| r.get(0),
+                    )?,
+                    // Live edges never touch a merged entity.
+                    c.query_row(
+                        "SELECT count(*) FROM edge x JOIN entity e ON e.id IN (x.src, x.dst)
+                         WHERE x.valid_to IS NULL AND e.merged_into IS NOT NULL",
+                        [],
+                        |r| r.get(0),
+                    )?,
+                    // Merge chains end (no entity merged into a merged entity).
+                    c.query_row(
+                        "SELECT count(*) FROM entity a JOIN entity b ON b.id = a.merged_into WHERE b.merged_into IS NOT NULL",
+                        [],
+                        |r| r.get(0),
+                    )?,
+                ))
+            })
+            .unwrap();
+        assert_eq!(checks, ("ok".to_string(), 0, 0, 0, 0), "round {round}");
+    }
+}

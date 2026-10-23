@@ -59,6 +59,29 @@ fn seed(f: &Fixture, id: AgentId) {
         .unwrap();
     mem.append_message("run-1", &serde_json::json!({"role": "user", "parts": []}))
         .unwrap();
+    // Graph memory travels with the agent.
+    let ent = |n: &str| agenium_store::graph::NewEntity {
+        kind: "service".into(),
+        name: n.into(),
+        scope: serde_json::json!({}),
+        description: None,
+        aliases: vec![],
+        confidence: 0.6,
+        evidence: None,
+    };
+    let (api, _) = mem.upsert_entity(&ent("API"), None).unwrap();
+    let (db, _) = mem.upsert_entity(&ent("database"), None).unwrap();
+    mem.add_edge(
+        api,
+        db,
+        "depends_on",
+        &serde_json::json!({}),
+        0.7,
+        Some(b),
+        "extract",
+    )
+    .unwrap();
+    mem.link_fact(b, api, "subject").unwrap();
     f.app
         .set_agent_skills(id, &["csv-report".to_string()])
         .unwrap();
@@ -84,7 +107,11 @@ fn export_import_round_trip() {
         .export_agent(a.id, &out, emb().as_ref(), &ExportOptions::default())
         .unwrap();
     assert_eq!(s.files, 3, "SOUL.md + SKILL.md + asset");
-    assert_eq!(s.memory_rows, 3 + 1 + 1);
+    assert_eq!(
+        s.memory_rows,
+        3 + 2 + 2 + 1 + 1 + 1 + 1,
+        "facts, entities, aliases, edge, link, usage, message"
+    );
 
     // Import on "another machine".
     let g = fixture();
@@ -132,6 +159,12 @@ fn export_import_round_trip() {
         "The project uses port 9090"
     );
     assert_eq!(mem.load_messages("run-1").unwrap().len(), 1);
+    let linked = mem.entities_in_text("the API is slow", 5).unwrap();
+    assert_eq!(linked.len(), 1, "entity index rebuilt after import");
+    let r = mem
+        .expand(&[linked[0].id], &serde_json::json!({}), &Default::default())
+        .unwrap();
+    assert_eq!(r.reached.len(), 1, "edge imported");
 
     // Exporting the imported agent gives the same memory, byte for byte.
     let again = g._tmp.path().join("ada-again.agent.jsonl.zst");

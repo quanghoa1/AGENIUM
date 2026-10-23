@@ -540,7 +540,14 @@ impl Runtime {
                 .join("\n")
         );
         let recalled = retriever
-            .recall(&query, Some(&project.to_string()), self.memory_k)
+            .recall_in(
+                &query,
+                &agenium_memory::retrieve::RecallContext {
+                    project: Some(project.to_string()),
+                    scope: serde_json::json!({ "project": self.app.project(project)?.name }),
+                },
+                self.memory_k,
+            )
             .unwrap_or_default();
         retriever
             .record(&start.run.to_string(), Some(t.key.as_str()), &recalled)

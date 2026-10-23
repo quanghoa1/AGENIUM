@@ -138,6 +138,30 @@ pub fn logical_tables(c: &Connection) -> Result<Vec<String>, StoreError> {
     Ok(all.into_iter().filter(|t| !derived.contains(t)).collect())
 }
 
+/// Stable row order of a table: `rowid`, or the primary key columns of a `WITHOUT ROWID` table.
+pub(crate) fn row_order(c: &Connection, table: &str) -> Result<String, StoreError> {
+    let sql: String = c.query_row(
+        "SELECT COALESCE(sql, '') FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        [table],
+        |r| r.get(0),
+    )?;
+    if !sql.to_ascii_uppercase().contains("WITHOUT ROWID") {
+        return Ok("rowid".into());
+    }
+    let mut st = c.prepare(&format!(
+        "SELECT name FROM pragma_table_info({}) WHERE pk > 0 ORDER BY pk",
+        quote_literal(table)
+    ))?;
+    let cols: Vec<String> = st
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(cols
+        .iter()
+        .map(|c| quote_ident(c))
+        .collect::<Vec<_>>()
+        .join(", "))
+}
+
 /// `true` when the table has a single-column `INTEGER PRIMARY KEY` (an alias of rowid).
 fn has_rowid_alias(c: &Connection, table: &str) -> Result<bool, StoreError> {
     let mut st = c.prepare(&format!(
@@ -160,12 +184,16 @@ fn quote_ident(s: &str) -> String {
     format!("\"{}\"", s.replace('"', "\"\""))
 }
 
-/// sha256 per logical table over every row (ordered by rowid), type-tagged.
+/// sha256 per logical table over every row (ordered by rowid or primary key), type-tagged.
 pub fn content_hash(c: &Connection) -> Result<BTreeMap<String, String>, StoreError> {
     let mut out = BTreeMap::new();
     for t in logical_tables(c)? {
         let mut h = Sha256::new();
-        let mut st = c.prepare(&format!("SELECT * FROM {} ORDER BY rowid", quote_ident(&t)))?;
+        let order = row_order(c, &t)?;
+        let mut st = c.prepare(&format!(
+            "SELECT * FROM {} ORDER BY {order}",
+            quote_ident(&t)
+        ))?;
         let n = st.column_count();
         let mut rows = st.query([])?;
         while let Some(r) = rows.next()? {

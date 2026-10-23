@@ -375,6 +375,7 @@ impl App {
             let mem = self.agent_store(agent.id, embedder.dim(), embedder.model_id())?;
             mem.import_jsonl(&memory)?;
             mem.reindex(|t| embedder.embed(t))?;
+            mem.reindex_entities(|t| embedder.embed(t))?;
             Ok(())
         })();
         if let Err(e) = finish {

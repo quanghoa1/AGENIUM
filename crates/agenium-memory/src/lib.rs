@@ -5,6 +5,8 @@
 #[cfg(feature = "local")]
 pub mod local;
 pub mod pipeline;
+pub mod resolve;
+pub mod retrieve;
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -76,7 +78,9 @@ pub fn refresh_vectors(store: &AgentStore, embedder: &dyn Embedder) -> Result<u6
     if store.stale_vectors(embedder.model_id())? == 0 {
         return Ok(0);
     }
-    Ok(store.reindex(|t| embedder.embed(t))?)
+    let n = store.reindex(|t| embedder.embed(t))?;
+    store.reindex_entities(|t| embedder.embed(t))?;
+    Ok(n)
 }
 
 /// Deterministic hashing embedder (bag of hashed word unigrams + bigrams, L2-normalised). Keyword-level quality
@@ -140,6 +144,8 @@ pub struct Recalled {
     pub text: String,
     pub via: Via,
     pub score: f64,
+    /// Project the fact was learned in.
+    pub project: Option<String>,
 }
 
 /// Builds the memory block of a work order and records what was used.
@@ -161,31 +167,22 @@ impl MemoryRetriever {
         project: Option<&str>,
         k: usize,
     ) -> Result<Vec<Recalled>, MemoryError> {
-        if k == 0 || self.store.count_live()? == 0 {
-            return Ok(vec![]);
-        }
-        let v = Some(
-            self.embedder
-                .embed_query(query)
-                .map_err(MemoryError::Embedder)?,
-        );
-        let mut hits = self.store.hybrid(query, v.as_deref(), k * 2)?;
-        hits.retain(|h| !h.fact.untrusted);
-        hits.sort_by(|a, b| {
-            let pa = project.is_some() && a.fact.project.as_deref() == project;
-            let pb = project.is_some() && b.fact.project.as_deref() == project;
-            b.score.total_cmp(&a.score).then(pb.cmp(&pa))
-        });
-        hits.truncate(k);
-        Ok(hits
-            .into_iter()
-            .map(|h| Recalled {
-                id: h.fact.id,
-                text: h.fact.text,
-                via: h.via,
-                score: h.score,
-            })
-            .collect())
+        let ctx = retrieve::RecallContext {
+            project: project.map(str::to_owned),
+            scope: serde_json::json!({}),
+        };
+        self.recall_in(query, &ctx, k)
+    }
+
+    /// Top `k` live facts for `query` (ticket title + description + acceptance) in a context scope: vector +
+    /// keyword + graph channels (ADR-51 §7). Untrusted facts and facts whose scope conflicts are never returned.
+    pub fn recall_in(
+        &self,
+        query: &str,
+        ctx: &retrieve::RecallContext,
+        k: usize,
+    ) -> Result<Vec<Recalled>, MemoryError> {
+        retrieve::recall(&self.store, self.embedder.as_ref(), query, ctx, k)
     }
 
     /// Logs every injected fact (rank, channel) for the run (M1-11 acceptance: one `fact_usage` row per fact).

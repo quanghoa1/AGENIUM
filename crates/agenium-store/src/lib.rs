@@ -6,6 +6,7 @@ pub mod backup;
 pub mod core;
 pub mod db;
 mod error;
+pub mod graph;
 pub mod migrate;
 
 pub use agent::{AgentStore, Fact, FactKind, Hit, NewFact, Via};

@@ -46,6 +46,30 @@ fn full_and_incremental_restore_match_content_hashes() {
             Some(&[1.0, 0.0, 0.0, 0.0]),
         )
         .unwrap();
+    let ent = |n: &str| agenium_store::graph::NewEntity {
+        kind: "service".into(),
+        name: n.into(),
+        scope: serde_json::json!({}),
+        description: None,
+        aliases: vec![],
+        confidence: 0.5,
+        evidence: None,
+    };
+    let (a, _) = agent
+        .upsert_entity(&ent("api"), Some(&[0.0, 1.0, 0.0, 0.0]))
+        .unwrap();
+    let (b, _) = agent.upsert_entity(&ent("db"), None).unwrap();
+    agent
+        .add_edge(
+            a,
+            b,
+            "depends_on",
+            &serde_json::json!({}),
+            0.7,
+            None,
+            "extract",
+        )
+        .unwrap();
 
     let t0 = Utc.with_ymd_and_hms(2026, 10, 23, 10, 0, 0).unwrap();
     let (_, full) = backup::create_full(
@@ -91,6 +115,11 @@ fn full_and_incremental_restore_match_content_hashes() {
         1,
         "vectors are restored"
     );
+    let reached = a1
+        .expand(&[a], &serde_json::json!({}), &Default::default())
+        .unwrap();
+    assert_eq!(reached.reached.len(), 1, "graph tables are restored");
+    assert_eq!(a1.entities_in_text("the api", 3).unwrap().len(), 1);
 
     // Restore the incremental: base + delta, content hash equals the live database.
     let r2 = root.join("restore-incr/db");

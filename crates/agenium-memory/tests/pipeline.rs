@@ -23,6 +23,7 @@ fn episode(src: &str) -> Episode {
         project: Some("p1".into()),
         outcome: "Closed: merged".into(),
         transcript: "ticket text, report, conversation".into(),
+        ..Default::default()
     }
 }
 
@@ -62,7 +63,12 @@ async fn add_update_delete_noop_with_guards() {
         (3, 3, 0, 0),
         "{r:?}"
     );
-    assert_eq!(r.rejected.len(), 1, "the secret-looking fact is dropped");
+    assert_eq!(r.rejected.len(), 2, "{:?}", r.rejected);
+    assert!(
+        r.rejected.iter().any(|x| x.contains("secret")),
+        "the secret-looking fact is dropped"
+    );
+    assert!(r.rejected.iter().any(|x| x.contains("external lesson")));
     assert_eq!(
         p.requests().len(),
         1,
@@ -73,6 +79,11 @@ async fn add_update_delete_noop_with_guards() {
     let port = live.iter().find(|f| f.text.contains("8080")).unwrap().id;
     let ext = live.iter().find(|f| f.text.contains("curl")).unwrap();
     assert!(ext.untrusted, "external content is stored as untrusted");
+    assert_eq!(
+        ext.kind,
+        agenium_store::FactKind::Fact,
+        "external content never becomes a lesson"
+    );
     let pref = live
         .iter()
         .find(|f| f.text.contains("short reports"))

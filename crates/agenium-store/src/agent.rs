@@ -16,14 +16,30 @@ use crate::db::{Db, DbOptions};
 use crate::migrate::{migrate, Migration};
 use crate::{backup, StoreError};
 
-pub const AGENT_MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    sql: include_str!("schema/agent_001.sql"),
-}];
+pub const AGENT_MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        sql: include_str!("schema/agent_001.sql"),
+    },
+    Migration {
+        version: 2,
+        sql: include_str!("schema/agent_002.sql"),
+    },
+];
 
 /// Tables carried by an agent export (in dependency order). `agent_meta`, vectors and the ANN journal are
 /// derived or machine-specific.
-pub const EXPORT_TABLES: &[&str] = &["fact", "fact_usage", "conversation", "skill_overlay"];
+pub const EXPORT_TABLES: &[&str] = &[
+    "fact",
+    "entity",
+    "entity_alias",
+    "entity_merge_log",
+    "edge",
+    "fact_entity",
+    "fact_usage",
+    "conversation",
+    "skill_overlay",
+];
 
 /// Reciprocal rank fusion constant (ADR-51 §hybrid retrieval).
 pub const RRF_K: f64 = 60.0;
@@ -175,7 +191,7 @@ fn decode_fact(v: (Fact, String, String)) -> Result<Fact, StoreError> {
     Ok(f)
 }
 
-fn vec_blob(v: &[f32]) -> Vec<u8> {
+pub(crate) fn vec_blob(v: &[f32]) -> Vec<u8> {
     v.iter().flat_map(|x| x.to_le_bytes()).collect()
 }
 
@@ -191,7 +207,7 @@ pub fn fts_query(text: &str) -> Option<String> {
 }
 
 pub struct AgentStore {
-    db: Db,
+    pub(crate) db: Db,
     dim: usize,
     model_id: String,
 }
@@ -256,7 +272,8 @@ impl AgentStore {
                 [model_id],
             )?;
             c.execute_batch(&format!(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS fact_vec USING vec0(embedding float[{dim}] distance_metric=cosine);"
+                "CREATE VIRTUAL TABLE IF NOT EXISTS fact_vec USING vec0(embedding float[{dim}] distance_metric=cosine);
+                 CREATE VIRTUAL TABLE IF NOT EXISTS entity_vec USING vec0(embedding float[{dim}] distance_metric=cosine);"
             ))?;
             Ok(())
         })?;
@@ -275,7 +292,7 @@ impl AgentStore {
         self.dim
     }
 
-    fn check_vec(&self, v: &[f32]) -> Result<(), StoreError> {
+    pub(crate) fn check_vec(&self, v: &[f32]) -> Result<(), StoreError> {
         if v.len() != self.dim {
             return Err(StoreError::Invalid(format!(
                 "vector has {} dims, expected {}",
@@ -396,7 +413,10 @@ impl AgentStore {
             .ok_or_else(|| StoreError::NotFound(format!("fact {id}")))
     }
 
-    fn facts_by_ids(c: &Connection, ids: &[i64]) -> Result<HashMap<i64, Fact>, StoreError> {
+    pub(crate) fn facts_by_ids(
+        c: &Connection,
+        ids: &[i64],
+    ) -> Result<HashMap<i64, Fact>, StoreError> {
         let mut out = HashMap::new();
         let mut st = c.prepare_cached(&format!("SELECT {FACT_COLS} FROM fact WHERE id = ?1"))?;
         for id in ids {
@@ -621,7 +641,8 @@ impl AgentStore {
             let r = (|| -> Result<u64, StoreError> {
                 let mut n = 0u64;
                 for t in EXPORT_TABLES {
-                    let mut st = c.prepare(&format!("SELECT * FROM {t} ORDER BY rowid"))?;
+                    let order = backup::row_order(c, t)?;
+                    let mut st = c.prepare(&format!("SELECT * FROM {t} ORDER BY {order}"))?;
                     let cols: Vec<String> =
                         st.column_names().iter().map(|s| s.to_string()).collect();
                     let header = serde_json::json!({ "kind": "table", "table": t, "cols": cols });

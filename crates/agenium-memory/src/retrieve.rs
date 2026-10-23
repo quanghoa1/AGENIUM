@@ -1,0 +1,211 @@
+//! Hybrid retrieval with the graph channel (ADR-51 §7): vector KNN + BM25 + graph expansion, weighted reciprocal
+//! rank fusion, scope hard filter before fusion, re-rank by scope x recency x confidence. With no entities linked
+//! it is the plain vector + keyword hybrid.
+
+use std::collections::HashMap;
+
+use agenium_store::graph::{normalize_scope, scope_match, Expansion, ScopeMatch};
+use agenium_store::{AgentStore, Fact, Via};
+use serde_json::Value;
+
+use crate::{Embedder, MemoryError, Recalled};
+
+pub const W_VEC: f64 = 1.0;
+pub const W_BM25: f64 = 1.0;
+pub const W_GRAPH: f64 = 0.8;
+pub const RRF_K: f64 = 60.0;
+const POOL: usize = 50;
+/// Vector hits farther than this cosine distance are not evidence (similarity < 0.2).
+pub const MAX_VEC_DISTANCE: f64 = 0.8;
+/// Entity types whose canonical name becomes a context scope key when the ticket mentions them.
+const SCOPE_TYPES: &[&str] = &["vendor", "product", "language", "os", "project"];
+
+/// Where the work happens: the fact `project` column to prefer and the context scope of ADR-51 §5.
+#[derive(Debug, Clone, Default)]
+pub struct RecallContext {
+    pub project: Option<String>,
+    pub scope: Value,
+}
+
+fn days_since(ts: &str) -> f64 {
+    chrono_like_days(ts).unwrap_or(0.0)
+}
+
+/// Days between an RFC 3339 UTC timestamp and now (no chrono dependency: the format is fixed by the store).
+fn chrono_like_days(ts: &str) -> Option<f64> {
+    let (date, time) = ts.split_once('T')?;
+    let mut d = date.split('-').map(|x| x.parse::<i64>());
+    let (y, m, day) = (d.next()?.ok()?, d.next()?.ok()?, d.next()?.ok()?);
+    let hours: f64 = time.get(0..2)?.parse().ok()?;
+    // Days from civil (Howard Hinnant's algorithm).
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    let then = days as f64 * 86_400.0 + hours * 3600.0;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs_f64();
+    Some(((now - then) / 86_400.0).max(0.0))
+}
+
+/// `0.5 + 0.5 * 2^(-age/90)` (ADR-51 §7, floor 0.5).
+pub fn recency(updated_at: &str) -> f64 {
+    0.5 + 0.5 * 2f64.powf(-days_since(updated_at) / 90.0)
+}
+
+pub fn recall(
+    store: &AgentStore,
+    embedder: &dyn Embedder,
+    query: &str,
+    ctx: &RecallContext,
+    k: usize,
+) -> Result<Vec<Recalled>, MemoryError> {
+    if k == 0 || store.count_live()? == 0 {
+        return Ok(vec![]);
+    }
+    let qv = embedder.embed_query(query).map_err(MemoryError::Embedder)?;
+    let mut vec_hits = store.knn(&qv, POOL)?;
+    vec_hits.retain(|(_, d)| *d <= MAX_VEC_DISTANCE);
+    let kw_hits = store.keyword(query, POOL)?;
+
+    // Context scope: the caller's, plus scope-like entities the query names and the identity scope of every named
+    // entity (a ticket about a Nighthawk router has vendor=netgear even if the caller did not know it). The first
+    // value of a key wins.
+    let mut scope = normalize_scope(&ctx.scope);
+    let linked = store.entities_in_text(query, 10)?;
+    if let Some(o) = scope.as_object_mut() {
+        for e in &linked {
+            if SCOPE_TYPES.contains(&e.kind.as_str()) && !o.contains_key(&e.kind) {
+                o.insert(e.kind.clone(), Value::String(e.canonical_key.clone()));
+            }
+            // A named entity brings its identity scope (the Archer C7 is a TP-Link product).
+            for (k, v) in e.scope.as_object().into_iter().flatten() {
+                o.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+        }
+    }
+
+    // Graph channel: query entities (2 hops) and entities of the best text hits (1 hop).
+    let mut top: Vec<i64> = Vec::new();
+    for (id, _) in vec_hits.iter().take(10).chain(kw_hits.iter().take(10)) {
+        if !top.contains(id) {
+            top.push(*id);
+        }
+    }
+    let mut fact_seeds: Vec<i64> = Vec::new();
+    for f in &top {
+        for e in store.fact_entities(*f)? {
+            if !fact_seeds.contains(&e) && !linked.iter().any(|l| l.id == e) {
+                fact_seeds.push(e);
+            }
+        }
+    }
+    let mut scored: Vec<(i64, f64)> = linked.iter().map(|e| (e.id, 1.0)).collect();
+    scored.extend(fact_seeds.iter().map(|e| (*e, 0.8)));
+    let q_ids: Vec<i64> = linked.iter().map(|e| e.id).collect();
+    for (seeds, depth, base) in [(&q_ids, 2, 1.0), (&fact_seeds, 1, 0.8)] {
+        if seeds.is_empty() {
+            continue;
+        }
+        let r = store.expand(
+            seeds,
+            &scope,
+            &Expansion {
+                max_depth: depth,
+                ..Expansion::default()
+            },
+        )?;
+        if r.timed_out {
+            tracing::debug!("graph expansion hit its time budget; using the text channels");
+        }
+        scored.extend(r.reached.iter().map(|n| (n.entity, n.score * base)));
+    }
+    let graph_hits = store.facts_of_entities(&scored, &scope, POOL)?;
+
+    // Fusion over the candidates that pass the hard filters.
+    let mut fused: HashMap<i64, (f64, [bool; 3])> = HashMap::new();
+    let mut add = |id: i64, rank: usize, w: f64, ch: usize| {
+        let e = fused.entry(id).or_insert((0.0, [false; 3]));
+        e.0 += w / (RRF_K + rank as f64 + 1.0);
+        e.1[ch] = true;
+    };
+    for (r, (id, _)) in vec_hits.iter().enumerate() {
+        add(*id, r, W_VEC, 0);
+    }
+    for (r, (id, _)) in kw_hits.iter().enumerate() {
+        add(*id, r, W_BM25, 1);
+    }
+    for (r, (f, _)) in graph_hits.iter().enumerate() {
+        add(f.id, r, W_GRAPH, 2);
+    }
+    let ids: Vec<i64> = fused.keys().copied().collect();
+    let mut facts: HashMap<i64, Fact> = HashMap::new();
+    for id in ids {
+        if let Ok(f) = store.get(id) {
+            facts.insert(id, f);
+        }
+    }
+    let mut out: Vec<Recalled> = Vec::new();
+    for (id, (rrf, ch)) in fused {
+        let Some(f) = facts.remove(&id) else { continue };
+        if !f.is_live() || f.untrusted || f.weight < agenium_store::agent::HIDE_BELOW_WEIGHT {
+            continue;
+        }
+        let sf = match scope_match(&normalize_scope(&f.scope), &scope) {
+            ScopeMatch::Conflict => continue,
+            ScopeMatch::Factor(x) => {
+                let empty = f.scope.as_object().is_none_or(|o| o.is_empty());
+                if empty && f.kind == agenium_store::FactKind::Lesson {
+                    0.9
+                } else {
+                    x
+                }
+            }
+        };
+        let score = rrf * sf * recency(&f.updated_at) * (0.5 + 0.5 * f.confidence) * f.weight;
+        let via = match ch {
+            [_, _, true] if !ch[0] && !ch[1] => Via::Graph,
+            [true, true, _] | [true, _, true] | [_, true, true] => Via::Hybrid,
+            [true, false, false] => Via::Vector,
+            _ => Via::Keyword,
+        };
+        out.push(Recalled {
+            id: f.id,
+            text: f.text,
+            via,
+            score,
+            project: f.project,
+        });
+    }
+    let project = ctx.project.as_deref();
+    out.sort_by(|a, b| {
+        let pa = project.is_some() && a.project.as_deref() == project;
+        let pb = project.is_some() && b.project.as_deref() == project;
+        b.score
+            .total_cmp(&a.score)
+            .then(pb.cmp(&pa))
+            .then(a.id.cmp(&b.id))
+    });
+    out.truncate(k);
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recency_curve() {
+        assert!(
+            (recency("2999-01-01T00:00:00.000Z") - 1.0).abs() < 1e-9,
+            "future clamps to now"
+        );
+        let old = recency("2000-01-01T00:00:00.000Z");
+        assert!((0.5..0.51).contains(&old), "{old}");
+        assert!(chrono_like_days("1970-01-02T00:00:00.000Z").unwrap() > 20_000.0);
+    }
+}

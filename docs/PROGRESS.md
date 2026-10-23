@@ -1,8 +1,8 @@
 # PROGRESS — Agenium (fresh implementation)
 
-Last full verification: 2026-10-23 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
+Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. Command: `.\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**156 tests** incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 1 helper
+`cargo test --workspace` PASS (**172 tests** incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 1 helper
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
@@ -43,7 +43,7 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 -> chat "Hãy thêm file chào hỏi" -> run` produced spec v1, plan v1, AGN-1, a work run, a review run, merge into `main`
 (`AGN-1: Write the hello file`) and Closed.
 
-### M1.5 — Agent registry: DONE except graph memory (M15-7..11) and the UI forms (M15-6)
+### M1.5 — Agent registry: DONE except the UI forms (M15-6) and parts of the graph benchmark plan
 | Item | Status | Evidence |
 |---|---|---|
 | M15-1 agent profile, model switch keeps memory/MCP/skills | DONE | `runtime.rs::vendor_switch_keeps_memory_skills_and_conversation` |
@@ -52,7 +52,11 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | M15-4 SkillRegistry, `load_skill`, skills index | DONE (overlay updates = M4.5) | `agenium-skills/tests/skills.rs`, `runtime.rs::skills_are_indexed_loaded_and_readable` |
 | M15-5 export/import JSONL, delete agent | DONE | `orchestrator/tests/agent_io.rs` (byte-identical memory round trip, tamper/secret refusal, delete rules), core_002 migration test |
 | M15-6 Settings forms (MCP, skill) | CLI equivalents only (UI later) | `agenium mcp add/import/test`, `agenium skill import/validate/show` |
-| M15-7..11 graph memory (ADR-51) | NOT STARTED | next |
+| M15-7 graph memory core (agent_002 migration, entity/alias/edge/fact_entity, merge log, tombstones) | DONE | `agenium-store/tests/graph.rs` (v1 -> v2 migration with data, identity/aliases, merge rewiring + log, plan uses `edge_out`/`edge_in`, property test vs reference BFS), backup round trip, export/import, **20 hard kills** during graph writes: integrity, FKs, degree cache, merge chains consistent |
+| M15-8 extraction + entity resolution | DONE (bands not calibrated) | `agenium-memory/src/{pipeline,resolve}.rs`, unit + pipeline tests; labelled 2 000-pair precision set NOT RUN |
+| M15-9 graph channel + RRF + re-rank + scope hard filter | DONE | `agenium-memory/src/retrieve.rs`, GM-3 (graph finds what text misses), GM-2 (scope leak 0) |
+| M15-10 benchmark | PARTLY: traversal latency at 100 k / 1 M edges RUN (targets met with the hub cap) | `docs/reference/STORE-SCALE.md` §8.1; QA golden set, concurrency, cold cache NOT RUN |
+| M15-11 golden scenarios GM-1..5, GM-7 | DONE (scripted model) | `agenium-memory/tests/graph_memory.rs`; "second ticket >= 20 % fewer steps" seen on the real model in the skill/MCP run (11 -> 5), not as a GM task |
 
 Embedding model measured here (release build, `crates/agenium-memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5
@@ -83,8 +87,9 @@ embedding + ranking ~22 ms. Debug builds are ~2x slower.
 ## Not done / not run (honest list)
 - Real Anthropic, Gemini, OpenAI, OpenRouter, DeepSeek-direct and local endpoints (only OpenCode Go was run). OpenCode
   models that are Responses-only (gpt-*, grok-*) or Anthropic-wire (claude-*, minimax-*, qwen*) are not routed yet.
-- Graph memory (ADR-51, M15-7..11), lessons with scope/decay and skill overlay updates (M4.5), memory extraction
-  after chat sessions (only Closed/Reopened tickets trigger it now).
+- Graph memory: consolidation/forgetting, sharing between agents (ADR-51 §10 needs the owner), adjacency cache, the
+  labelled resolution set and the multi-hop QA set; lessons with cue/decay and skill overlay updates (M4.5); memory
+  extraction after chat sessions (only Closed/Reopened tickets trigger it now).
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
@@ -95,8 +100,8 @@ embedding + ranking ~22 ms. Debug builds are ~2x slower.
 - cargo-deny, GitHub workflows, Linux/macOS runs of this codebase.
 
 ## Next steps (proposed order)
-1. M1.5 rest: graph memory core (ADR-51: agent_003 migration, entity/edge store, resolution, graph channel in hybrid
-   retrieval, benchmark).
-2. M3 completion: Discovery flow with user approvals in the CLI, Kanban-equivalent CLI views, audit export.
+1. M2.5 CLI backend (`agy`, `devin`, `codex` are installed here) and M3 completion (Discovery flow with approvals in
+   the CLI, Kanban-equivalent views, audit export).
+2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
 3. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.
 4. M2 on Linux/macOS machines (sandbox backends + attack suite) — needs those machines.

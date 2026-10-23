@@ -82,9 +82,21 @@ impl Runtime {
             None => vec![],
         };
         let cmts = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
+        let used: Vec<(i64, String)> = match last_work {
+            Some(r) => mem
+                .facts_used_in(&r.id.to_string())?
+                .into_iter()
+                .map(|f| (f.id, f.text))
+                .collect(),
+            None => vec![],
+        };
         let ep = Episode {
             source: format!("ticket:{}", t.key),
             project: Some(project.to_string()),
+            project_name: Some(self.app.project(project)?.name),
+            reopened: t.status == TicketStatus::Reopened,
+            run: last_work.map(|r| r.id.to_string()),
+            used,
             outcome: match t.status {
                 TicketStatus::Reopened => {
                     format!(

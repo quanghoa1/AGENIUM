@@ -199,9 +199,35 @@ Real power loss was **not tested** (agent DBs use `synchronous=NORMAL`: a power 
 * Heavy benchmarks on the user's machine: `scripts/ci-local.sh --heavy` (uses a *synthetic stand-in corpus* unless the real
   corpus files are placed in `$AGENIUM_BENCH_HOME/data`).
 
-## 8. Graph-memory benchmark plan (ADR-51; planned, NOT RUN in the Rust store)
+## 8. Graph-memory benchmark (ADR-51)
 
-Nothing in this section is implemented. What exists: a **feasibility probe** (python `sqlite3` 3.46, Linux, warm cache, synthetic graph, *not* the Rust store) in
+### 8.1 Rust store, run 2026-10-24 (fresh implementation, M15-10)
+
+`cargo run --release -p agenium-store --example graph_bench -- 100000 1000000` on Windows 11 Pro, 10 cores, warm cache,
+1 reader, the store's real `AgentStore::expand` (path-guarded two-arm CTE, `INDEXED BY edge_out/edge_in`, scope guard with
+context vendor=netgear, result cap 50, no time budget so raw latency is visible). Synthetic graph: entities = edges / 3,
+Zipf-like destinations, 10 % of edges scoped, plus one hub with 2 000 incoming edges. Raw:
+`bench-raw/windows-graph-bench-rust-store.txt`.
+
+| 1 M edges, hub cap 200 | p50 | p95 | p99 | ADR-51 target (p95) |
+|---|---|---|---|---|
+| random seeds, depth 1 | 0.25 ms | 0.39 ms | 0.65 ms | |
+| random seeds, depth 2 | 0.42 ms | **0.81 ms** | 0.87 ms | <= 25 ms: **met** |
+| random seeds, depth 3 | 1.59 ms | **6.09 ms** | 7.78 ms | <= 50 ms: **met** |
+| hub seeds (top 1 % degree) | 0.2 ms | 0.3 ms | - | hubs are not expanded (0 nodes) |
+
+Without the hub cap the path-guarded walk enumerates paths: 1 M edges, hub-biased seeds, depth 2 p95 48.8 ms, depth 3 p95
+4.1 s; the 2 000-edge hub as seed costs 4.5 / 82 / 5 222 ms at depth 1 / 2 / 3. At 100 k edges with the cap on, hub-biased
+seeds (whose degree is still below 200) reach p95 29 ms at depth 3 (10 % over the 25 ms budget, which then interrupts the
+expansion). Consequences kept in the code: hub cap 200, depth <= 3 (retrieval uses 2 hops from query entities and 1 hop
+from entities of the best text hits), 25 ms `progress_handler` budget. Not run: cold cache, 4 readers + 1 writer, the
+set-based shape, ingest throughput under readers, entity-resolution precision on a labelled set, the >= 100-question
+multi-hop QA set and Linux/macOS runs. Golden scenarios GM-1..5/7 pass deterministically
+(`crates/agenium-memory/tests/graph_memory.rs`, scope leak 0 on GM-2).
+
+### 8.2 Earlier feasibility probe and plan
+
+What existed before the Rust store: a **feasibility probe** (python `sqlite3` 3.46, Linux, warm cache, synthetic graph, *not* the Rust store) in
 `bench-raw/graph-cte-probe.py` → `bench-raw/linux-graph-cte-probe.txt`: at 1 M edges (333 k entities) a bounded two-arm
 `WITH RECURSIVE` with `INDEXED BY edge_out/edge_in` takes p50 ≈ 0.03 ms (1 hop), 0.2 ms (2 hops), 1.1–1.7 ms (3 hops), p95 ≤ 16 ms; a hub
 (1 761 incoming edges) costs 5.8 / 43 / 319 ms at 1 / 2 / 3 hops (3-hop reach = 82 k nodes) → hub cap + depth ≤ 3 + 25 ms time limit. A union-view

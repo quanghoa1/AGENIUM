@@ -77,9 +77,31 @@ Windows 11 (Rust GNU toolchain + MSYS2 gcc, no MSVC); the first release still ta
     agent's own model at low effort; extraction and decision answer in JSON; ids outside the shown candidates,
     secret-looking facts and empty facts are rejected; facts from external content are stored untrusted and never
     recalled.
-19. **Not yet built (explicitly):** graph memory (ADR-51), lessons/decay/overlay updates (M4.5), the ANN sidecar
-    (exact sqlite-vec search is correct and below the 100 000-fact threshold), team templates, Linux/macOS sandbox
-    backends (M2).
+19. **Graph memory core (ADR-51, M15-7..11)** is built as the agent migration `agent_002` (the draft's
+    `agent_003`: this implementation has one earlier agent migration). Deviations from the draft: `fact_usage` already
+    existed and only gains `signal`/`outcome_at`; `entity.degree` caches live edge counts (maintained in the same
+    transaction as every edge change) for the hub cap; no `ON DELETE CASCADE` (nothing is deleted). Canonical names
+    are lowercase with punctuation collapsed (no NFKC: memory is English). Traversal = the two-arm `WITH RECURSIVE`
+    of ADR-51 §6a with `INDEXED BY edge_out/edge_in`, path cycle guard, per-edge scope guard, depth <= 3, hub cap
+    (hubs are reached but not expanded), result cap and a `progress_handler` time budget (an interrupted expansion
+    returns nothing and the text channels carry the recall).
+20. **Retrieval** (ADR-51 §7): context scope = caller scope (project name) + scope-like entities named in the query
+    (vendor, product, language, os, project) + the identity scope of every named entity; the first value of a key
+    wins. Vector hits need cosine similarity >= 0.2. Weighted RRF (vec 1.0, bm25 1.0, graph 0.8, k = 60) after the
+    hard scope filter, re-rank by scope factor x recency x (0.5 + 0.5 confidence) x weight; the usage factor waits
+    for M4.5 outcome data. Finding from GM-3: with these initial weights a graph-only fact loses to facts that both
+    text channels find at the same rank; the golden test therefore checks that the graph finds what the text-only
+    baseline misses, and the weights stay as designed until the M15-10 golden set tunes them.
+21. **Extraction and resolution** (ADR-51 §3/§4): the extractor returns scope, entities and relations per fact in
+    one call; ambiguous entity pairs (0.80..0.90) are decided in one batched model call; names that differ only in
+    their numbers (`firmware 1.2` / `1.3`) never merge unless an alias says so; external facts are downgraded to
+    untrusted facts (never lessons) and may not create `fixes` / `workaround_for` / `applies_to`; lessons without
+    scope are scoped to the project. Reuse signals: on a clean close the memories shown to the work run get
+    `helped` (+0.05 confidence); on a reopen the model names the misleading ones among those shown (-0.15, `hurt`).
+22. **Not yet built (explicitly):** consolidation/forgetting and knowledge sharing between agents (M4.5; §10 still
+    needs the owner's decision), the adjacency cache, lessons with cue/decay and overlay updates (M4.5), the ANN
+    sidecar (exact sqlite-vec search is correct and below the 100 000-fact threshold), team templates, Linux/macOS
+    sandbox backends (M2).
 
 ## Re-verification on this machine (Windows 11 Pro, 10 cores, 32 GB)
 
