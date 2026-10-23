@@ -15,6 +15,7 @@ path = "src/main.rs"
 agenium-config.workspace = true
 agenium-core.workspace = true
 agenium-llm.workspace = true
+agenium-mcp.workspace = true
 agenium-memory.workspace = true
 agenium-orchestrator.workspace = true
 agenium-sandbox.workspace = true

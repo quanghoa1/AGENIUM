@@ -8,7 +8,10 @@ pub mod sysreq;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub use config::{ApprovalPolicy, Config, ProviderConfig, ProviderKind, SecretsBackend};
+pub use config::{
+    valid_mcp_id, ApprovalPolicy, Config, McpServerConfig, ProviderConfig, ProviderKind,
+    SecretsBackend,
+};
 pub use root::{resolve_root, resolve_root_with, Bootstrap, RootInputs, RootLayout, RootSource};
 
 #[derive(Debug, thiserror::Error)]

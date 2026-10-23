@@ -8,6 +8,7 @@ pub mod engine;
 mod error;
 pub mod maintenance;
 pub mod manifest;
+pub mod mcp;
 pub mod runtime;
 pub mod sched;
 pub mod templates;

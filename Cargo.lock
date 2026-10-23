@@ -61,6 +61,7 @@ dependencies = [
  "agenium-config",
  "agenium-core",
  "agenium-llm",
+ "agenium-mcp",
  "agenium-memory",
  "agenium-orchestrator",
  "agenium-sandbox",
@@ -140,6 +141,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "agenium-mcp"
+version = "0.1.0"
+dependencies = [
+ "agenium-config",
+ "agenium-sandbox",
+ "agenium-tools",
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "agenium-memory"
 version = "0.1.0"
 dependencies = [
@@ -157,6 +175,7 @@ dependencies = [
  "agenium-config",
  "agenium-core",
  "agenium-llm",
+ "agenium-mcp",
  "agenium-memory",
  "agenium-sandbox",
  "agenium-secrets",

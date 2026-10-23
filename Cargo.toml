@@ -23,6 +23,7 @@ agenium-backend = { path = "crates/agenium-backend" }
 agenium-memory = { path = "crates/agenium-memory" }
 agenium-orchestrator = { path = "crates/agenium-orchestrator" }
 agenium-skills = { path = "crates/agenium-skills" }
+agenium-mcp = { path = "crates/agenium-mcp" }
 
 anyhow = "1"
 async-trait = "0.1"

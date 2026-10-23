@@ -126,6 +126,29 @@ pub fn find_in_path(exe: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// Resolves a program name like the OS shell would: on Windows a name without extension is tried with the
+/// `PATHEXT` extensions first (`npx` -> `npx.cmd`, not the extensionless shell script next to it).
+pub fn find_program(cmd: &str) -> Option<PathBuf> {
+    let p = Path::new(cmd);
+    if p.components().count() > 1 || p.is_absolute() {
+        return p.is_file().then(|| p.to_path_buf());
+    }
+    #[cfg(windows)]
+    if p.extension().is_none() {
+        let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+        let path = std::env::var_os("PATH")?;
+        for d in std::env::split_paths(&path) {
+            for e in exts.split(';').filter(|e| !e.is_empty()) {
+                let c = d.join(format!("{cmd}{}", e.to_ascii_lowercase()));
+                if c.is_file() {
+                    return Some(c);
+                }
+            }
+        }
+    }
+    find_in_path(cmd)
+}
+
 /// Environment variables passed through to agent commands; everything else (API keys included) is dropped.
 const ENV_ALLOW: &[&str] = &[
     "PATH",
@@ -315,6 +338,78 @@ impl Executor {
             timed_out,
             elapsed_ms: start.elapsed().as_millis() as u64,
         })
+    }
+}
+
+/// A long-running helper process (an MCP stdio server): program + arguments started directly (no shell), clean
+/// environment plus `env`, piped stdin/stdout/stderr. Pair the child with a [`TreeGuard`].
+pub fn service_command(
+    program: &str,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+) -> tokio::process::Command {
+    let mut c = tokio::process::Command::new(program);
+    c.args(args)
+        .current_dir(cwd)
+        .env_clear()
+        .envs(clean_env(env))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        c.process_group(0);
+    }
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        c.creation_flags(CREATE_NO_WINDOW);
+    }
+    c.kill_on_drop(true);
+    c
+}
+
+/// Kills a child's whole process tree when dropped (Windows: job object; Unix: its process group).
+pub struct TreeGuard {
+    #[cfg(windows)]
+    _job: Option<win_job::Job>,
+    #[cfg(unix)]
+    pgid: Option<u32>,
+}
+
+impl TreeGuard {
+    pub fn attach(child: &tokio::process::Child) -> TreeGuard {
+        #[cfg(windows)]
+        {
+            let job = win_job::Job::new()
+                .and_then(|j| {
+                    child
+                        .raw_handle()
+                        .map(|h| j.assign(h))
+                        .unwrap_or(Ok(()))
+                        .map(|_| j)
+                })
+                .ok();
+            TreeGuard { _job: job }
+        }
+        #[cfg(unix)]
+        {
+            TreeGuard { pgid: child.id() }
+        }
+    }
+}
+
+impl Drop for TreeGuard {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        if let Some(pgid) = self.pgid {
+            let _ = std::process::Command::new("kill")
+                .args(["-KILL", "--", &format!("-{pgid}")])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
     }
 }
 

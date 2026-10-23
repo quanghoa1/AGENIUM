@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 agenium-backend.workspace = true
 agenium-llm.workspace = true
+agenium-mcp.workspace = true
 agenium-memory.workspace = true
 agenium-sandbox.workspace = true
 agenium-skills.workspace = true
@@ -36,7 +37,7 @@ ulid.workspace = true
 [dev-dependencies]
 async-trait.workspace = true
 agenium-llm.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 agenium-store.workspace = true
 chrono.workspace = true
 ulid.workspace = true

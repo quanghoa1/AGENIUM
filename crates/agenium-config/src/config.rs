@@ -24,6 +24,8 @@ pub struct Config {
     pub secrets: SecretsSection,
     pub sandbox: SandboxSection,
     pub providers: Vec<ProviderConfig>,
+    /// MCP servers (`[[mcp]]`); agents use them through their bindings.
+    pub mcp: Vec<McpServerConfig>,
 }
 
 impl Default for Config {
@@ -40,6 +42,7 @@ impl Default for Config {
             secrets: SecretsSection::default(),
             sandbox: SandboxSection::default(),
             providers: Vec::new(),
+            mcp: Vec::new(),
         }
     }
 }
@@ -274,6 +277,51 @@ fn default_concurrency() -> u32 {
     4
 }
 
+/// An MCP server: either a local process (`command`, stdio) or a remote endpoint (`url`, Streamable HTTP).
+/// Values in `env` and `headers` are plain text or contain placeholders, resolved when connecting:
+/// `${secret:<name>}` (a vault secret) or `${cred:<KEY>}` (the secret the agent's binding maps `KEY` to, so two
+/// agents can use different keys for the same server). Secrets never appear in this file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub env: std::collections::BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub headers: std::collections::BTreeMap<String, String>,
+    /// Seconds a tool call may take.
+    #[serde(default = "default_mcp_timeout")]
+    pub timeout_secs: u64,
+}
+
+fn default_mcp_timeout() -> u64 {
+    120
+}
+
+/// MCP server ids: 1-32 characters of `a-z`, `0-9`, `-` (they become part of tool names).
+pub fn valid_mcp_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 32
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        && !id.starts_with('-')
+}
+
+fn is_local_http(u: &str) -> bool {
+    ["http://localhost", "http://127.0.0.1", "http://[::1]"]
+        .iter()
+        .any(|p| {
+            u.strip_prefix(p)
+                .is_some_and(|r| r.is_empty() || r.starts_with([':', '/']))
+        })
+}
+
 impl Config {
     pub fn load(path: &Path) -> Result<Config, ConfigError> {
         let text = fs::read_to_string(path).map_err(|e| ConfigError::io(path, e))?;
@@ -327,7 +375,36 @@ impl Config {
                 return Err(format!("provider {:?}: openai_compat needs base_url", p.id));
             }
         }
+        let mut mcp_ids = std::collections::HashSet::new();
+        for m in &self.mcp {
+            if !valid_mcp_id(&m.id) || !mcp_ids.insert(m.id.as_str()) {
+                return Err(format!(
+                    "mcp server id {:?} must be unique and use a-z, 0-9, - (max 32)",
+                    m.id
+                ));
+            }
+            match (&m.command, &m.url) {
+                (Some(c), None) if !c.trim().is_empty() => {}
+                (None, Some(u)) if u.starts_with("https://") || is_local_http(u) => {}
+                (None, Some(u)) => {
+                    return Err(format!(
+                        "mcp server {:?}: url must be https (http only for localhost), got {u:?}",
+                        m.id
+                    ))
+                }
+                _ => {
+                    return Err(format!(
+                        "mcp server {:?} needs exactly one of command (stdio) or url (HTTP)",
+                        m.id
+                    ))
+                }
+            }
+        }
         Ok(())
+    }
+
+    pub fn mcp_server(&self, id: &str) -> Option<&McpServerConfig> {
+        self.mcp.iter().find(|m| m.id == id)
     }
 
     pub fn provider(&self, id: &str) -> Option<&ProviderConfig> {

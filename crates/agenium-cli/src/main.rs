@@ -55,6 +55,9 @@ enum Cmd {
     /// Skills (SKILL.md folders) of agents and roles.
     #[command(subcommand)]
     Skill(SkillCmd),
+    /// MCP servers (config.toml) and connection tests.
+    #[command(subcommand)]
+    Mcp(McpCmd),
     /// Talk to the project's Lead/Solo agent (one turn).
     Chat {
         #[arg(long)]
@@ -209,6 +212,20 @@ enum AgentCmd {
         name: String,
         skills: Vec<String>,
     },
+    /// Bind an MCP server to an agent (or --remove it).
+    Mcp {
+        name: String,
+        #[arg(long, required_unless_present = "remove")]
+        server: Option<String>,
+        /// KEY=SECRET_NAME for ${cred:KEY} placeholders (repeatable).
+        #[arg(long = "cred")]
+        creds: Vec<String>,
+        /// Only these tools (comma separated MCP names).
+        #[arg(long, value_delimiter = ',')]
+        tools: Option<Vec<String>>,
+        #[arg(long, conflicts_with = "server")]
+        remove: Option<String>,
+    },
     /// Export an agent (profile, SOUL.md, skills, memory, conversations) to JSONL; `.zst` compresses.
     Export {
         name: String,
@@ -235,6 +252,43 @@ enum AgentCmd {
         /// Export the agent to this file first.
         #[arg(long)]
         export: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum McpCmd {
+    /// Add or replace a server: --command (stdio) or --url (Streamable HTTP). Values may use
+    /// ${secret:<name>} (vault) or ${cred:<KEY>} (the agent's binding).
+    Add {
+        id: String,
+        #[arg(long, conflicts_with = "url", required_unless_present = "url")]
+        command: Option<String>,
+        #[arg(long = "arg", allow_hyphen_values = true)]
+        args: Vec<String>,
+        #[arg(long)]
+        url: Option<String>,
+        /// KEY=VALUE (repeatable).
+        #[arg(long = "env")]
+        env: Vec<String>,
+        /// Name=Value (repeatable).
+        #[arg(long = "header")]
+        headers: Vec<String>,
+        #[arg(long, default_value_t = 120)]
+        timeout: u64,
+    },
+    /// Import pasted JSON ({"mcpServers": {...}}) from a file or "-" for stdin; secrets move to the vault.
+    Import {
+        file: String,
+    },
+    List,
+    Remove {
+        id: String,
+    },
+    /// Connect, list the tools, disconnect (with an agent's credentials when --agent is given).
+    Test {
+        id: String,
+        #[arg(long)]
+        agent: Option<String>,
     },
 }
 
@@ -446,6 +500,108 @@ fn open(root: &Path) -> Result<Arc<App>> {
         eprintln!("[reconcile] {a}");
     }
     Ok(Arc::new(app))
+}
+
+fn pairs(items: &[String]) -> Result<std::collections::BTreeMap<String, String>> {
+    items
+        .iter()
+        .map(|i| {
+            i.split_once('=')
+                .map(|(k, v)| (k.trim().to_owned(), v.to_owned()))
+                .ok_or_else(|| anyhow!("expected KEY=VALUE, got {i:?}"))
+        })
+        .collect()
+}
+
+async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
+    let app = open(&root(cli)?)?;
+    match mc {
+        McpCmd::Add {
+            id,
+            command,
+            args,
+            url,
+            env,
+            headers,
+            timeout,
+        } => {
+            app.put_mcp_server(agenium_config::McpServerConfig {
+                id: id.clone(),
+                command: command.clone(),
+                args: args.clone(),
+                env: pairs(env)?,
+                url: url.clone(),
+                headers: pairs(headers)?,
+                timeout_secs: *timeout,
+            })?;
+            println!("MCP server {id} saved (test it: agenium mcp test {id})");
+        }
+        McpCmd::Import { file } => {
+            let text = if file == "-" {
+                let mut s = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut s)?;
+                s
+            } else {
+                std::fs::read_to_string(file)?
+            };
+            let r = app.import_mcp_json(&text)?;
+            println!("imported: {}", r.servers.join(", "));
+            for s in r.secrets {
+                println!("moved a literal secret to the vault as {s}");
+            }
+        }
+        McpCmd::List => {
+            for m in app.config().mcp {
+                let target = match (&m.command, &m.url) {
+                    (Some(c), _) => format!("stdio: {c} {}", m.args.join(" ")),
+                    (_, Some(u)) => format!("http: {u}"),
+                    _ => "?".into(),
+                };
+                println!("{}	{}", m.id, target.trim_end());
+            }
+        }
+        McpCmd::Remove { id } => {
+            app.remove_mcp_server(id)?;
+            println!("removed {id}");
+        }
+        McpCmd::Test { id, agent } => {
+            let cfg = app
+                .config()
+                .mcp_server(id)
+                .cloned()
+                .ok_or_else(|| anyhow!("no MCP server {id}"))?;
+            let binding = match agent {
+                Some(n) => agenium_mcp::parse_bindings(&app.agent_named(n)?.mcp)?
+                    .into_iter()
+                    .find(|b| &b.server == id)
+                    .ok_or_else(|| anyhow!("{n} is not bound to {id}"))?,
+                None => agenium_mcp::Binding {
+                    server: id.clone(),
+                    credentials: Default::default(),
+                    tools: None,
+                },
+            };
+            let hub = agenium_mcp::McpHub::new(
+                agenium_orchestrator::mcp::secret_fn(app.clone()),
+                app.layout().mcp_work(),
+            );
+            let (info, protocol, tools) = hub.test(&cfg, &binding).await?;
+            println!(
+                "connected: {} {} (protocol {protocol})",
+                info["name"].as_str().unwrap_or("?"),
+                info["version"].as_str().unwrap_or("")
+            );
+            for t in tools {
+                let ro = if t.read_only { " [read-only]" } else { "" };
+                println!(
+                    "  {}{ro}: {}",
+                    t.name,
+                    t.description.lines().next().unwrap_or("")
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 fn skill_owner(
@@ -928,6 +1084,37 @@ async fn main() -> Result<()> {
                         println!("{name} is restricted to: {}", skills.join(", "));
                     }
                 }
+                AgentCmd::Mcp {
+                    name,
+                    server,
+                    creds,
+                    tools,
+                    remove,
+                } => {
+                    let a = app.agent_named(name)?;
+                    let mut bindings = agenium_mcp::parse_bindings(&a.mcp)?;
+                    if let Some(r) = remove {
+                        bindings.retain(|b| &b.server != r);
+                    }
+                    if let Some(s) = server {
+                        bindings.retain(|b| &b.server != s);
+                        bindings.push(agenium_mcp::Binding {
+                            server: s.clone(),
+                            credentials: pairs(creds)?,
+                            tools: tools.clone(),
+                        });
+                    }
+                    app.set_agent_mcp(a.id, &bindings)?;
+                    let list: Vec<&str> = bindings.iter().map(|b| b.server.as_str()).collect();
+                    println!(
+                        "{name} MCP servers: {}",
+                        if list.is_empty() {
+                            "(none)".into()
+                        } else {
+                            list.join(", ")
+                        }
+                    );
+                }
                 AgentCmd::Export {
                     name,
                     file,
@@ -1022,6 +1209,7 @@ async fn main() -> Result<()> {
             }
         }
         Cmd::Skill(sc) => skill_cmd(&cli, sc).await?,
+        Cmd::Mcp(mc) => mcp_cmd(&cli, mc).await?,
         Cmd::Chat {
             project: pname,
             message,

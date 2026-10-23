@@ -464,9 +464,13 @@ impl App {
                 pending.push(p.display().to_string());
             }
         }
-        let dir = self.layout().agent_dir(&id);
-        if dir.exists() && std::fs::remove_dir_all(&dir).is_err() {
-            pending.push(dir.display().to_string());
+        for dir in [
+            self.layout().agent_dir(&id),
+            self.layout().mcp_work().join(id.to_string()),
+        ] {
+            if dir.exists() && std::fs::remove_dir_all(&dir).is_err() {
+                pending.push(dir.display().to_string());
+            }
         }
         pending
     }

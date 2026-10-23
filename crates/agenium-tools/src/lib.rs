@@ -140,6 +140,8 @@ pub struct ToolCtx {
     pub env: std::collections::BTreeMap<String, String>,
     /// Domains `fetch` may reach (project allowlist + grants); `*.x` wildcards.
     pub fetch_allow: Vec<String>,
+    /// Extra lines for the capability manifest (connected MCP servers and their problems).
+    pub capabilities: Vec<String>,
     pub http: reqwest::Client,
     ledger: Mutex<HashMap<PathBuf, [u8; 32]>>,
     todo: Mutex<Vec<TodoItem>>,
@@ -165,6 +167,7 @@ impl ToolCtx {
             gate,
             env,
             fetch_allow: vec![],
+            capabilities: vec![],
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
                 .build()
@@ -238,8 +241,8 @@ impl ToolCtx {
 
 #[async_trait]
 pub trait Tool: Send + Sync {
-    fn name(&self) -> &'static str;
-    fn description(&self) -> &'static str;
+    fn name(&self) -> &str;
+    fn description(&self) -> &str;
     fn parameters(&self) -> serde_json::Value;
     /// Read-only tools may run in parallel.
     fn read_only(&self) -> bool {
@@ -272,6 +275,6 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
         Arc::new(FetchTool),
         Arc::new(TodoTool),
     ];
-    v.sort_by_key(|t| t.name());
+    v.sort_by(|a, b| a.name().cmp(b.name()));
     v
 }

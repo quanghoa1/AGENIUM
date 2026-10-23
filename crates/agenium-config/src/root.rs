@@ -132,6 +132,10 @@ impl RootLayout {
     pub fn agent_dir(&self, agent: &agenium_core::AgentId) -> PathBuf {
         self.agents().join(agent.to_string())
     }
+    /// Working folders of MCP stdio servers (`mcp/<agent>/<server>`).
+    pub fn mcp_work(&self) -> PathBuf {
+        self.root.join("mcp")
+    }
     pub fn roles(&self) -> PathBuf {
         self.root.join("roles")
     }

@@ -35,7 +35,8 @@ fn setup() -> (tempfile::TempDir, ToolCtx) {
 
 #[test]
 fn catalogue_is_sorted_and_described() {
-    let names: Vec<&str> = work_tools().iter().map(|t| t.name()).collect();
+    let tools = work_tools();
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
     let mut sorted = names.clone();
     sorted.sort();
     assert_eq!(names, sorted);

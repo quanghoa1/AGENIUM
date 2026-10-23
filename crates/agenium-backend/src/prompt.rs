@@ -60,6 +60,8 @@ pub struct Manifest {
     pub allowed_paths: Vec<String>,
     pub tools: Vec<String>,
     pub team: Option<serde_json::Value>,
+    /// Extra lines (MCP servers).
+    pub extra: Vec<String>,
 }
 
 pub fn manifest_text(m: &Manifest) -> String {
@@ -83,6 +85,9 @@ pub fn manifest_text(m: &Manifest) -> String {
     }
     if let Some(t) = &m.team {
         s.push_str(&format!("\n- Team: {t}"));
+    }
+    for l in &m.extra {
+        s.push_str(&format!("\n- {l}"));
     }
     s
 }
