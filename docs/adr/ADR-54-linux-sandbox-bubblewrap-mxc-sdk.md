@@ -14,7 +14,7 @@ disk is readable, which Agenium's policy (spike S2 threshold: no reads outside t
 
 ## Decision
 
-`agenium-sandbox` uses `mxc_sdk::v1::spawn` with `Containment::Bubblewrap` on Linux (`src/linux.rs`). `detect()`
+`agenium-sandbox` uses `mxc_sdk::v1::spawn` with `Containment::Bubblewrap` on Linux (`src/unix.rs`, shared with macOS). `detect()`
 reports `Bubblewrap` only when `mxc_sdk::v1::available_backends()` lists it (bwrap installed, user namespaces work);
 otherwise `None` and the fail-closed rules apply. Policy: worktree + per-worktree temp dir writable; `/usr`, `/bin`,
 `/sbin`, `/lib*`, `/etc`, `/opt`, PATH toolchains (Cargo: `bin`, `registry`, `git` only; `RUSTUP_HOME`), the
