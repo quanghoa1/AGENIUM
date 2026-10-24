@@ -804,6 +804,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             },
             chat: kind == RunKind::Chat,
             nudge: nudge_for(kind),
+            // Only Solo agents may start the CLI's own subagents (the owner's rule; a team delegates by tickets).
+            subagents: protocol.solo,
         };
         Ok(r.run(order).await)
     }

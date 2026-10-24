@@ -20,7 +20,32 @@ use serde_json::{json, Value};
 
 use crate::driver::{
     copy_login, hand_back_login, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
+    NO_SUBAGENTS,
 };
+
+/// Claude Code tools an Agenium run may use: files, search, shell, and `ToolSearch` (loads the Agenium MCP tools).
+/// Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
+const BASE_TOOLS: [&str; 9] = [
+    "Bash",
+    "PowerShell",
+    "Read",
+    "Write",
+    "Edit",
+    "NotebookEdit",
+    "Glob",
+    "Grep",
+    "ToolSearch",
+];
+/// Subagents and their messaging (Solo only).
+const SUBAGENT_TOOLS: [&str; 4] = ["Task", "SendMessage", "ListAgents", "TaskStop"];
+
+fn allowed_tools(subagents: bool) -> Vec<&'static str> {
+    let mut v = BASE_TOOLS.to_vec();
+    if subagents {
+        v.extend(SUBAGENT_TOOLS);
+    }
+    v
+}
 
 pub struct Claude;
 
@@ -54,7 +79,13 @@ impl Driver for Claude {
         Turns::Stdin
     }
 
-    fn args(&self, model: &str, home: &Path, _resume: Option<&str>) -> Vec<String> {
+    fn args(
+        &self,
+        model: &str,
+        home: &Path,
+        _resume: Option<&str>,
+        subagents: bool,
+    ) -> Vec<String> {
         let mut a: Vec<String> = [
             "-p",
             "--input-format",
@@ -73,6 +104,9 @@ impl Driver for Claude {
         a.extend([
             "--mcp-config".to_owned(),
             home.join(MCP_FILE).display().to_string(),
+            // Only the tools Agenium allows are offered at all (the hook enforces the same list).
+            "--tools".to_owned(),
+            allowed_tools(subagents).join(","),
         ]);
         if !model.is_empty() {
             a.extend(["--model".to_owned(), model.to_owned()]);
@@ -216,6 +250,12 @@ impl Driver for Claude {
         if matches!(name, "WebFetch" | "WebSearch") {
             return Check::Deny("web tools are disabled in Agenium runs".into());
         }
+        if SUBAGENT_TOOLS.contains(&name) && !cx.subagents {
+            return Check::Deny(NO_SUBAGENTS.into());
+        }
+        if !allowed_tools(cx.subagents).contains(&name) {
+            return Check::Deny(format!("{name} is not available in Agenium runs"));
+        }
         for key in ["file_path", "path", "notebook_path"] {
             if let Some(p) = input[key].as_str() {
                 let p = Path::new(p);
@@ -321,7 +361,28 @@ mod tests {
             worktree: wt.path(),
             home: home.path(),
             mcp_name: "agenium",
+            subagents: false,
         };
+        // Allowlist: subagents only for Solo; scheduling, notifications, plugins, worktrees... never.
+        let task = json!({"tool_name": "Task", "tool_input": {"prompt": "x"}});
+        assert_eq!(Claude.check(&task, &cx), Check::Deny(NO_SUBAGENTS.into()));
+        let solo = CheckCtx {
+            subagents: true,
+            ..cx
+        };
+        assert_eq!(Claude.check(&task, &solo), Check::Allow);
+        for name in [
+            "CronCreate",
+            "RemoteTrigger",
+            "PushNotification",
+            "PublishPlugin",
+            "EnterWorktree",
+            "Workflow",
+            "Skill",
+        ] {
+            let c = Claude.check(&json!({"tool_name": name, "tool_input": {}}), &solo);
+            assert!(matches!(c, Check::Deny(_)), "{name}: {c:?}");
+        }
         let call = |name: &str, input: Value| {
             Claude.check(&json!({"tool_name": name, "tool_input": input}), &cx)
         };
@@ -356,7 +417,11 @@ mod tests {
             call("WebFetch", json!({"url": "https://x"})),
             Check::Deny(_)
         ));
-        assert_eq!(call("TodoWrite", json!({"todos": []})), Check::Allow);
+        assert_eq!(call("Grep", json!({"pattern": "x"})), Check::Allow);
+        assert!(
+            matches!(call("TodoWrite", json!({"todos": []})), Check::Deny(_)),
+            "not in the allowlist"
+        );
         assert_eq!(
             Claude.hook_answer(false, "no")["hookSpecificOutput"]["permissionDecision"],
             "deny"
@@ -365,8 +430,16 @@ mod tests {
 
     #[test]
     fn args_point_at_the_per_run_home() {
-        let a = Claude.args("haiku", Path::new("/h"), None);
+        let a = Claude.args("haiku", Path::new("/h"), None, false);
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
+        let i = a.iter().position(|x| x == "--tools").unwrap();
+        assert_eq!(
+            a[i + 1],
+            "Bash,PowerShell,Read,Write,Edit,NotebookEdit,Glob,Grep,ToolSearch"
+        );
+        let s = Claude.args("haiku", Path::new("/h"), None, true);
+        let i = s.iter().position(|x| x == "--tools").unwrap();
+        assert!(s[i + 1].ends_with(",Task,SendMessage,ListAgents,TaskStop"));
         let i = a.iter().position(|x| x == "--setting-sources").unwrap();
         assert_eq!(a[i + 1], "user");
         let i = a.iter().position(|x| x == "--mcp-config").unwrap();

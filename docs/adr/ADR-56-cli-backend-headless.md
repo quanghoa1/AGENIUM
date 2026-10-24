@@ -124,3 +124,22 @@ decision 3c ("Opencode via API or CLI") to API only. The findings below are kept
   at startup.
 - Memory extraction is an API call: a CLI agent uses the `[cli] fallback_provider/fallback_model` for it; without
   one the pipeline is skipped with an info log (it used to fail with "provider claude not found").
+
+## Subagents and withheld tools (M4, 2026-10-24)
+
+- Owner's rule: **no subagents in team mode; only Solo agents may call agents** (a team delegates by tickets through
+  the Lead). `CliRun.subagents` = the team is Solo.
+- claude 2.1.310 announces many tools beyond code work (`CronCreate`, `RemoteTrigger`, `PushNotification`,
+  `PublishPlugin`, `ScheduleWakeup`, `EnterWorktree`, `Workflow`, `Skill`, ...). The hook used to allow every tool not
+  denied explicitly; it is now an **allowlist**: `Bash, PowerShell, Read, Write, Edit, NotebookEdit, Glob, Grep,
+  ToolSearch` (+ `Task, SendMessage, ListAgents, TaskStop` for Solo), and the same list is passed as `--tools` so the
+  model never sees the rest (verified: the init event lists exactly these).
+- agy 1.4.4 names some tools differently in its hook (`write_file`) and its init event (`write_to_file`), so it keeps
+  a deny rule set, extended to subagents (team), its own scheduling/messaging/inbox/marketplace/plugin/image/knowledge/
+  workflow tools, `notebook_execution` (code outside the command gate) and its interactive `ask_*`/permission tools
+  (pointed to Agenium's `ask_question`).
+- codex 0.163 has no hook here (sandbox control): the per-run `config.toml` sets `web_search = "disabled"`,
+  `[features] multi_agent = <solo>` and turns off `browser_use`, `browser_use_external`, `computer_use`,
+  `in_app_browser`, `apps`, `plugins`, `remote_plugin`, `plugin_sharing`, `image_generation` (keys verified with
+  `codex features list` and a config parse error listing the `web_search` variants).
+- Real runs after the change: `fix-config-key` PASS with claude haiku, codex gpt-6-luna and agy gemini-3.8-flash-low.

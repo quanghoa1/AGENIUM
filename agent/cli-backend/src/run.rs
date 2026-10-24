@@ -91,6 +91,8 @@ pub struct CliRun<'a> {
     pub chat: bool,
     /// Nudge for a turn that ends without a protocol tool outside chat mode (`None`: the work-run nudge).
     pub nudge: Option<String>,
+    /// Solo agents may start the CLI's own subagents; team members never do.
+    pub subagents: bool,
 }
 
 /// Why Agenium stopped the CLI.
@@ -353,6 +355,7 @@ impl CliRun<'_> {
             mcp_url: &url,
             mcp_authorization: &authorization,
             hook_url: &hook_url,
+            subagents: self.subagents,
         };
         let home_env = self
             .driver
@@ -383,6 +386,7 @@ impl CliRun<'_> {
             worktree: &self.cwd,
             home,
             mcp_name: MCP_SERVER,
+            subagents: self.subagents,
         };
         let turns = self.driver.turns();
         let first = self.driver.user_input(&render(
@@ -504,7 +508,7 @@ ask_question if you are blocked.",
         home: &std::path::Path,
         resume: Option<&str>,
     ) -> Result<Proc, Outcome> {
-        let args = self.driver.args(&self.model, home, resume);
+        let args = self.driver.args(&self.model, home, resume, self.subagents);
         let name = self.program.display().to_string();
         let (in_tx, in_rx) = mpsc::unbounded_channel::<String>();
         let (out_tx, lines) = mpsc::unbounded_channel::<Value>();

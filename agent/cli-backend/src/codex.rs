@@ -16,6 +16,20 @@ use serde_json::{json, Value};
 
 use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, Turns};
 
+/// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
+/// plugins, image generation. `multi_agent` (subagents) follows the run (Solo only); web search is disabled.
+const WITHHELD_FEATURES: [&str; 9] = [
+    "browser_use",
+    "browser_use_external",
+    "computer_use",
+    "in_app_browser",
+    "apps",
+    "plugins",
+    "remote_plugin",
+    "plugin_sharing",
+    "image_generation",
+];
+
 pub struct Codex;
 
 const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
@@ -43,7 +57,13 @@ impl Driver for Codex {
         Turns::ProcessPerTurn
     }
 
-    fn args(&self, model: &str, _home: &Path, resume: Option<&str>) -> Vec<String> {
+    fn args(
+        &self,
+        model: &str,
+        _home: &Path,
+        resume: Option<&str>,
+        _subagents: bool,
+    ) -> Vec<String> {
         let mut a = vec!["exec".to_owned()];
         if let Some(id) = resume {
             a.extend(["resume".to_owned(), id.to_owned()]);
@@ -71,7 +91,12 @@ impl Driver for Codex {
         std::fs::write(
             s.home.join("config.toml"),
             format!(
-                "[mcp_servers.{name}]\nurl = {url}\nbearer_token_env_var = {env}\n",
+                "web_search = \"disabled\"\n\n[features]\nmulti_agent = {sub}\n{off}\n[mcp_servers.{name}]\nurl = {url}\nbearer_token_env_var = {env}\n",
+                sub = s.subagents,
+                off = WITHHELD_FEATURES
+                    .iter()
+                    .map(|f| format!("{f} = false\n"))
+                    .collect::<String>(),
                 name = s.mcp_name,
                 url = toml_str(s.mcp_url),
                 env = toml_str(TOKEN_ENV),
@@ -259,11 +284,11 @@ mod tests {
 
     #[test]
     fn args_for_new_and_resumed_turns() {
-        let a = Codex.args("gpt-6-luna", Path::new("/h"), None);
+        let a = Codex.args("gpt-6-luna", Path::new("/h"), None, false);
         assert_eq!(a[0], "exec");
         assert!(a.contains(&"--dangerously-bypass-approvals-and-sandbox".to_owned()));
         assert_eq!(a.last().unwrap(), "-");
-        let r = Codex.args("gpt-6-luna", Path::new("/h"), Some("t1"));
+        let r = Codex.args("gpt-6-luna", Path::new("/h"), Some("t1"), false);
         assert_eq!(&r[..3], ["exec", "resume", "t1"]);
     }
 }

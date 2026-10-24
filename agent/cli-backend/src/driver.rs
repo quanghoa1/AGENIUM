@@ -20,6 +20,8 @@ pub struct Setup<'a> {
     pub mcp_authorization: &'a str,
     /// Agenium's permission endpoint for the CLI's pre-tool hook (same bearer token as the MCP server).
     pub hook_url: &'a str,
+    /// Solo agents may start the CLI's own subagents; team members never do (the team is the delegation).
+    pub subagents: bool,
 }
 
 /// Context of a permission check.
@@ -27,7 +29,13 @@ pub struct CheckCtx<'a> {
     pub worktree: &'a Path,
     pub home: &'a Path,
     pub mcp_name: &'a str,
+    /// See [`Setup::subagents`].
+    pub subagents: bool,
 }
+
+/// Refusal of a subagent tool in team mode.
+pub const NO_SUBAGENTS: &str =
+    "subagents are not used in team mode: the Lead splits the work into tickets; do this ticket yourself";
 
 /// What Agenium decides about one tool call of a `Control::Hook` CLI.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,8 +94,8 @@ pub trait Driver: Send + Sync {
     fn control(&self) -> Control;
     fn turns(&self) -> Turns;
     /// Arguments of a headless run; `home` = the per-run home, `resume` = the CLI's conversation id for a later
-    /// turn (`ProcessPerTurn`).
-    fn args(&self, model: &str, home: &Path, resume: Option<&str>) -> Vec<String>;
+    /// turn (`ProcessPerTurn`), `subagents` = whether the CLI may start its own subagents (Solo only).
+    fn args(&self, model: &str, home: &Path, resume: Option<&str>, subagents: bool) -> Vec<String>;
     /// Writes the per-run configuration into `setup.home` and returns the environment that makes the CLI use it.
     fn prepare(&self, setup: &Setup) -> std::io::Result<BTreeMap<String, String>>;
     /// Called after the run (the process has ended): e.g. hand a refreshed login back to the user's CLI.

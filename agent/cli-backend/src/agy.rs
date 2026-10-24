@@ -17,7 +17,21 @@ use std::path::Path;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns};
+use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS};
+
+/// Name fragments of agy 1.4 tools an Agenium run never uses (matched on the lowercase tool name, since the hook and
+/// the init event spell some tools differently).
+const WITHHELD: [&str; 9] = [
+    "schedule",
+    "send_message",
+    "inbox",
+    "marketplace",
+    "plugin",
+    "generate_image",
+    "knowledge",
+    "workflow",
+    "notebook_execution",
+];
 
 pub struct Agy;
 
@@ -89,7 +103,13 @@ impl Driver for Agy {
         Turns::Stdin
     }
 
-    fn args(&self, model: &str, _home: &Path, _resume: Option<&str>) -> Vec<String> {
+    fn args(
+        &self,
+        model: &str,
+        _home: &Path,
+        _resume: Option<&str>,
+        _subagents: bool,
+    ) -> Vec<String> {
         let mut a: Vec<String> = [
             "--input-format",
             "stream-json",
@@ -226,6 +246,19 @@ impl Driver for Agy {
         if ["browser", "url", "web"].iter().any(|w| lower.contains(w)) {
             return Check::Deny("web and browser tools are disabled in Agenium runs".into());
         }
+        if lower.contains("subagent") && !cx.subagents {
+            return Check::Deny(NO_SUBAGENTS.into());
+        }
+        // agy's own scheduling, messaging, marketplace, image, knowledge and workflow tools, and its interactive
+        // questions (nobody answers them in a headless run: Agenium's ask_question is the way).
+        if lower.starts_with("ask_") || lower.contains("permission") {
+            return Check::Deny(
+                "ask the Lead with the ask_question tool of the agenium MCP server instead".into(),
+            );
+        }
+        if WITHHELD.iter().any(|w| lower.contains(w)) {
+            return Check::Deny(format!("{name} is not available in Agenium runs"));
+        }
         if name == "call_mcp_tool" {
             return if args["ServerName"] == cx.mcp_name {
                 Check::Allow
@@ -316,7 +349,27 @@ mod tests {
             worktree: wt.path(),
             home: home.path(),
             mcp_name: "agenium",
+            subagents: false,
         };
+        let solo = CheckCtx {
+            subagents: true,
+            ..cx
+        };
+        // Team members never start agy's subagents; Solo agents may. agy's own scheduling, messaging and
+        // interactive questions are withheld in both.
+        let subagent = json!({"toolCall": {"name": "invoke_subagent", "args": {}}});
+        assert_eq!(Agy.check(&subagent, &cx), Check::Deny(NO_SUBAGENTS.into()));
+        assert_eq!(Agy.check(&subagent, &solo), Check::Allow);
+        for name in [
+            "schedule",
+            "send_message",
+            "generate_image",
+            "ask_question",
+            "search_marketplace",
+        ] {
+            let c = Agy.check(&json!({"toolCall": {"name": name, "args": {}}}), &solo);
+            assert!(matches!(c, Check::Deny(_)), "{name}: {c:?}");
+        }
         let call = |name: &str, args: Value| {
             Agy.check(&json!({"toolCall": {"name": name, "args": args}}), &cx)
         };
@@ -385,6 +438,7 @@ mod tests {
                 mcp_url: "http://127.0.0.1:1/mcp",
                 mcp_authorization: "Bearer t",
                 hook_url: "http://127.0.0.1:1/hook",
+                subagents: false,
             })
             .unwrap();
         assert_eq!(env["USERPROFILE"], home.path().display().to_string());
