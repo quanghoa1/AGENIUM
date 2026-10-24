@@ -2,7 +2,7 @@
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. Command: `.\devtools\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**196 tests** after M2.5 incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
+`cargo test --workspace` PASS (**202 tests** after M2.5 + API gaps incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
