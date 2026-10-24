@@ -2,5 +2,5 @@
 xtask = "run -q -p xtask --"
 
 [env]
-# mxc-sdk (Windows sandbox backend) needs an rc.exe at build time; see scripts/rc-windres.cmd.
-RC_PATH = { value = "scripts/rc-windres.cmd", relative = true }
+# mxc-sdk (Windows sandbox backend) needs an rc.exe at build time; see devtools/scripts/rc-windres.cmd.
+RC_PATH = { value = "devtools/scripts/rc-windres.cmd", relative = true }

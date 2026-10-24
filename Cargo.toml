@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "xtask"]
+members = ["apps/*", "foundation/*", "security/*", "agent/*", "orchestration/*", "quality/*", "devtools/xtask"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,20 +10,20 @@ rust-version = "1.89"
 publish = false
 
 [workspace.dependencies]
-agenium-core = { path = "crates/agenium-core" }
-agenium-config = { path = "crates/agenium-config" }
-agenium-store = { path = "crates/agenium-store" }
-agenium-bus = { path = "crates/agenium-bus" }
-agenium-secrets = { path = "crates/agenium-secrets" }
-agenium-vcs = { path = "crates/agenium-vcs" }
-agenium-sandbox = { path = "crates/agenium-sandbox" }
-agenium-llm = { path = "crates/agenium-llm" }
-agenium-tools = { path = "crates/agenium-tools" }
-agenium-backend = { path = "crates/agenium-backend" }
-agenium-memory = { path = "crates/agenium-memory" }
-agenium-orchestrator = { path = "crates/agenium-orchestrator" }
-agenium-skills = { path = "crates/agenium-skills" }
-agenium-mcp = { path = "crates/agenium-mcp" }
+agenium-core = { path = "foundation/core" }
+agenium-config = { path = "foundation/config" }
+agenium-store = { path = "foundation/store" }
+agenium-bus = { path = "foundation/bus" }
+agenium-secrets = { path = "security/secrets" }
+agenium-vcs = { path = "foundation/vcs" }
+agenium-sandbox = { path = "security/sandbox" }
+agenium-llm = { path = "agent/llm" }
+agenium-tools = { path = "agent/tools" }
+agenium-backend = { path = "agent/loop" }
+agenium-memory = { path = "agent/memory" }
+agenium-orchestrator = { path = "orchestration/orchestrator" }
+agenium-skills = { path = "agent/skills" }
+agenium-mcp = { path = "agent/mcp" }
 
 anyhow = "1"
 async-trait = "0.1"

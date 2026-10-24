@@ -1,7 +1,7 @@
 # PROGRESS — Agenium (fresh implementation)
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
-`x86_64-pc-windows-gnu`, git 2.45. Command: `.\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
+`x86_64-pc-windows-gnu`, git 2.45. Command: `.\devtools\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
 `cargo test --workspace` PASS (**172 tests** incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
@@ -11,7 +11,7 @@ The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 ### M0 — scaffolding (backend): DONE
 | Item | Status | Evidence |
 |---|---|---|
-| M0-1 workspace, LICENSE/NOTICE, local CI | DONE | `Cargo.toml`, `scripts/ci-local.{ps1,sh}`; cargo-deny not installed (not run) |
+| M0-1 workspace, LICENSE/NOTICE, local CI | DONE | `Cargo.toml`, `devtools/scripts/ci-local.{ps1,sh}`; cargo-deny not installed (not run) |
 | M0-2 config (`resolve_root`, layout, `config.toml`) | DONE | `agenium-config` tests (3 priority branches, layout, round trip) |
 | M0-3 setup wizard backend + system requirements | DONE (backend) | `setup.rs`, `sysreq.rs`; `agenium setup`, `agenium doctor` |
 | M0-4 core: ids, ticket, state machine, `dep_satisfied` | DONE | `agenium-core`: permission table test + property tests (no illegal transition, terminal states, dep rule) |
@@ -35,7 +35,7 @@ The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 | M1-7 approval mode before the sandbox (YOLO fail-closed) | DONE | `RunGate`, CLI terminal approver, denied-command runtime test |
 | M1-8 chat console / agent view | CLI only (UI later) | `agenium chat`, live text + tool calls on the terminal |
 | M1-9 tokens + estimated cost per run/ticket | DONE | runtime test (usage on ticket), price table test |
-| M1-10 eval: 5 golden tasks + runner + report | DONE | scripted 5/5; **real model 5/5** (DeepSeek v4.1 Flash via OpenCode Go, `eval/results/`) |
+| M1-10 eval: 5 golden tasks + runner + report | DONE | scripted 5/5; **real model 5/5** (DeepSeek v4.1 Flash via OpenCode Go, `quality/eval/results/`) |
 | M1-11 memory hook + `fact_usage` | DONE (hashing embedder stand-in) | `agenium-memory` test |
 | **Exit**: Solo agent: ticket -> worktree -> report -> self-review -> merge -> close | **MET** with a scripted model, and end-to-end through the CLI against a fake OpenAI-compatible HTTP server | `orchestrator/tests/runtime.rs`; CLI smoke (see below) |
 
@@ -58,7 +58,7 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | M15-10 benchmark | PARTLY: traversal latency at 100 k / 1 M edges RUN (targets met with the hub cap) | `docs/reference/STORE-SCALE.md` §8.1; QA golden set, concurrency, cold cache NOT RUN |
 | M15-11 golden scenarios GM-1..5, GM-7 | DONE (scripted model) | `agenium-memory/tests/graph_memory.rs`; "second ticket >= 20 % fewer steps" seen on the real model in the skill/MCP run (11 -> 5), not as a GM task |
 
-Embedding model measured here (release build, `crates/agenium-memory/tests/local_model.rs`, own 60-fact fixture
+Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5
 0.967** (S6 pass >= 0.85); Vietnamese query -> English fact recall@5 0.30 (S6 measured 0.167: memory stays English,
 ADR-40); **46 facts/s single, 77 facts/s batched** (S6 pass >= 20; fastembed/ONNX in S6 was ~5x faster), query

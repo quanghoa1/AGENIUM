@@ -7,8 +7,8 @@ Design references: OpenAI Codex (https://github.com/openai/codex, Apache-2.0) in
 format and exec design. Any code ported from Codex keeps its original header and is listed here.
 
 Code adapted from OpenAI Codex (Copyright OpenAI, Apache License 2.0):
-- crates/agenium-sandbox/src/codex_derived/mxc_probe.rs <- codex-rs/mxc-sandbox/src/availability.rs
-- crates/agenium-sandbox/src/codex_derived/mxc_policy.rs <- codex-rs/mxc-sandbox/src/policy.rs, src/windows.rs
+- security/sandbox/src/codex_derived/mxc_probe.rs <- codex-rs/mxc-sandbox/src/availability.rs
+- security/sandbox/src/codex_derived/mxc_policy.rs <- codex-rs/mxc-sandbox/src/policy.rs, src/windows.rs
   Changes are described at the top of each file. Upstream sources are vendored unmodified in
   vendor/codex-sandbox/upstream (with Codex's LICENSE and NOTICE); see vendor/codex-sandbox/VENDOR.md.
 

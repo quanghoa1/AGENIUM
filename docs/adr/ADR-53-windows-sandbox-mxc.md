@@ -21,7 +21,7 @@ internals and admin setup.
 
 1. `agenium-sandbox` gets a Windows backend `WindowsMxc` built on `mxc-sdk = "=1.0.0"` (plus `flatbuffers`,
    `tracelogging = "=1.2.3"` as Codex pins it for GNU linking). The availability probe and the container-policy shape
-   are adapted from Codex (Apache-2.0, attribution in `crates/agenium-sandbox/src/mxc.rs` and `NOTICE`). No Codex
+   are adapted from Codex (Apache-2.0, attribution in `security/sandbox/src/mxc.rs` and `NOTICE`). No Codex
    binary or Codex crate is required.
 2. `detect()` reports `WindowsMxc` only when the native process-security-environment API works (cached probe that
    creates and closes an environment without launching anything); otherwise `None` and the existing fail-closed rules
@@ -39,7 +39,7 @@ internals and admin setup.
    gets a sandbox-owned global gitconfig (`GIT_CONFIG_GLOBAL`, `GIT_CONFIG_NOSYSTEM=1`); `git commit` inside the
    container is blocked by design — Agenium commits outside it.
 5. Build: `mxc-sdk`'s build script embeds version info into its own helper binaries with `rc.exe`; on the GNU toolchain
-   `.cargo/config.toml` sets `RC_PATH` to `scripts/rc-windres.cmd` (MinGW `windres`, or an empty resource when absent —
+   `.cargo/config.toml` sets `RC_PATH` to `devtools/scripts/rc-windres.cmd` (MinGW `windres`, or an empty resource when absent —
    those binaries are never built by Agenium).
 6. Not yet: MCP stdio servers stay outside the container (user-configured, often need network; next step), network
    allowlists per domain (MXC needs a managed proxy for that), PTY, `elevated` backend.

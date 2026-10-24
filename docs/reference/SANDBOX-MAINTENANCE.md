@@ -14,8 +14,8 @@ vendor/codex-sandbox/
   FILES.txt                    which upstream paths are vendored (edit this to add/remove a file)
   FILES.lock                   sha256 of every vendored file (generated)
   VENDOR.md                    upstream commit + map: upstream file -> Agenium code that uses it
-scripts/sync-codex-sandbox.sh  compare / update the vendored files against any upstream ref
-crates/agenium-sandbox/src/
+devtools/scripts/sync-codex-sandbox.sh  compare / update the vendored files against any upstream ref
+security/sandbox/src/
   codex_derived/               the ONLY Agenium code adapted from Codex; every file names its upstream source
     mxc_probe.rs               <- codex-rs/mxc-sandbox/src/availability.rs
     mxc_policy.rs              <- codex-rs/mxc-sandbox/src/policy.rs, windows.rs
@@ -37,25 +37,25 @@ Rules:
 
 ## 2. When Codex changes its sandbox
 
-1. `scripts/sync-codex-sandbox.sh main --summary` — prints `same / changed / new / missing-upstream` per vendored file.
+1. `devtools/scripts/sync-codex-sandbox.sh main --summary` — prints `same / changed / new / missing-upstream` per vendored file.
    Without `--summary` it prints the full unified diff.
 2. For each **changed** file look up its row in `VENDOR.md`:
    * **derived** -> port the change into the matching `codex_derived/` file (update its commit line), rebuild, run the
      sandbox tests on Windows (and the S2 matrix in `docs/spike-reports/S2/evidence/` for policy changes);
    * **reference** -> read the diff for hardening worth adopting (new denied syscalls, bwrap flags, Seatbelt deny
      rules); adopt it in `unix.rs` if it applies to Agenium's allow-list model.
-3. `scripts/sync-codex-sandbox.sh <ref> --update` rewrites the vendored files, `FILES.lock` and the commit line of
+3. `devtools/scripts/sync-codex-sandbox.sh <ref> --update` rewrites the vendored files, `FILES.lock` and the commit line of
    `VENDOR.md`.
 4. Commit `vendor/` **alone** (`chore(vendor): codex-sandbox @ <short-hash>`), then the `codex_derived/` follow-ups in
    a separate commit, so the upstream diff and Agenium's port are reviewed separately.
-5. If Codex moves to a newer `mxc-sdk`, bump the pin in `crates/agenium-sandbox/Cargo.toml` only after the S2 matrix
+5. If Codex moves to a newer `mxc-sdk`, bump the pin in `security/sandbox/Cargo.toml` only after the S2 matrix
    passes again.
 
 ## 3. Platform notes
 
 | Platform | Backend | Needs | Notes |
 |---|---|---|---|
-| Windows | MXC process container (`mxc-sdk`) | a Windows build with the process security environment API (seen on 11 build 26300) | no admin, no extra users; shell = PowerShell (MSYS/Git Bash cannot start in the container); build needs `RC_PATH` (`scripts/rc-windres.cmd`) on the GNU toolchain |
+| Windows | MXC process container (`mxc-sdk`) | a Windows build with the process security environment API (seen on 11 build 26300) | no admin, no extra users; shell = PowerShell (MSYS/Git Bash cannot start in the container); build needs `RC_PATH` (`devtools/scripts/rc-windres.cmd`) on the GNU toolchain |
 | Linux | bubblewrap (`mxc-sdk` v1, allow-list binds) | `bwrap` + unprivileged user namespaces | verified on WSL2 Ubuntu 24.04; Ubuntu hosts may need `kernel.apparmor_restrict_unprivileged_userns=0` |
 | macOS | Seatbelt (`mxc-sdk` v1, ADR-55) | `sandbox-exec` | experimental: compiles for macOS, not yet run on a Mac |
 

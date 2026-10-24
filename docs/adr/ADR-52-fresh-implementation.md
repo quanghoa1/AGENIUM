@@ -42,7 +42,7 @@ Windows 11 (Rust GNU toolchain + MSYS2 gcc, no MSVC); the first release still ta
     `output_config.effort`, adaptive thinking on 4.6+ models (budget only on older ones), `tool_choice` left `auto`,
     thinking blocks replayed with signatures (append-only history), cache breakpoints after tools / stable system /
     last message, 1 h TTL first. OpenAI-compatible and Gemini adapters follow the architecture document.
-11. **Interim front-end:** a headless CLI (`crates/agenium-cli`, binary `agenium`) drives the same App/Runtime API the
+11. **Interim front-end:** a headless CLI (`apps/cli`, binary `agenium`) drives the same App/Runtime API the
     desktop UI will use. The UI is out of scope for now (owner instruction).
 12. **OpenCode relay flavor.** For `opencode.ai` base URLs the OpenAI-compatible adapter sends `x-opencode-session` =
     the conversation cache key (OpenCode Go rejects requests without it; same value per conversation keeps the upstream
@@ -107,11 +107,11 @@ Windows 11 (Rust GNU toolchain + MSYS2 gcc, no MSVC); the first release still ta
 
 | Earlier result (Linux) | Re-verified here | Evidence |
 |---|---|---|
-| S1/ADR-49: 20x `kill -9` -> 0 lost, 0 seq gaps | 20 hard kills (TerminateProcess) of a writer: integrity ok, gap-free log, every acknowledged intent present, no half-applied intent | `crates/agenium-store/tests/crash.rs` (`AGENIUM_CRASH_ROUNDS=20`) |
-| S4: 8 injection points self-heal, 0 lost commits | 8 points (before/after git for create-worktree, commit, merge, remove-worktree) heal on restart; merge applied exactly once | `crates/agenium-orchestrator/tests/reconcile.rs` |
-| S4: sequential merge queue without races | 20 tickets merged sequentially, linear history, no lost file | `crates/agenium-vcs/tests/vcs.rs` |
-| S5: secrets round-trip, no plaintext | 7 secret types through the vault; canaries absent from disk; Credential Manager limit 2560 B | `crates/agenium-secrets/tests/secrets.rs` |
-| S7: broadcast + log resync, 0 lost/dup | 300-event burst with a 2-slot channel: exactly once, in order, for 3 subscribers; restart resumes from cursor | `crates/agenium-bus/tests/bus.rs` |
-| S3: tree kill without orphans | Windows Job Object: timeout kills background grandchildren (30 s -> 1 s test) | `crates/agenium-sandbox` |
+| S1/ADR-49: 20x `kill -9` -> 0 lost, 0 seq gaps | 20 hard kills (TerminateProcess) of a writer: integrity ok, gap-free log, every acknowledged intent present, no half-applied intent | `foundation/store/tests/crash.rs` (`AGENIUM_CRASH_ROUNDS=20`) |
+| S4: 8 injection points self-heal, 0 lost commits | 8 points (before/after git for create-worktree, commit, merge, remove-worktree) heal on restart; merge applied exactly once | `orchestration/orchestrator/tests/reconcile.rs` |
+| S4: sequential merge queue without races | 20 tickets merged sequentially, linear history, no lost file | `foundation/vcs/tests/vcs.rs` |
+| S5: secrets round-trip, no plaintext | 7 secret types through the vault; canaries absent from disk; Credential Manager limit 2560 B | `security/secrets/tests/secrets.rs` |
+| S7: broadcast + log resync, 0 lost/dup | 300-event burst with a 2-slot channel: exactly once, in order, for 3 subscribers; restart resumes from cursor | `foundation/bus/tests/bus.rs` |
+| S3: tree kill without orphans | Windows Job Object: timeout kills background grandchildren (30 s -> 1 s test) | `security/sandbox` |
 
 Not re-verifiable here: Linux bubblewrap/Landlock and macOS Seatbelt (M2), embedding quality (S6), UI/FPS (S7).

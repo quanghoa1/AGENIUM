@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, scripted golden tasks.
-# Usage: scripts/ci-local.sh [--quick] [--fail-fast]     Logs: target/ci-local/<step>.log
+# Usage: devtools/scripts/ci-local.sh [--quick] [--fail-fast]     Logs: target/ci-local/<step>.log
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 export PATH="$HOME/.cargo/bin:$PATH"
 mkdir -p target/ci-local
 quick=0; failfast=0

@@ -1,8 +1,8 @@
 # Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, scripted golden tasks.
-# Usage: .\scripts\ci-local.ps1 [-Quick] [-FailFast]     Logs: target\ci-local\<step>.log
+# Usage: .\devtools\scripts\ci-local.ps1 [-Quick] [-FailFast]     Logs: target\ci-local\<step>.log
 param([switch]$Quick, [switch]$FailFast)
 $ErrorActionPreference = "Continue"
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $root
 $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 $logs = Join-Path $root "target\ci-local"

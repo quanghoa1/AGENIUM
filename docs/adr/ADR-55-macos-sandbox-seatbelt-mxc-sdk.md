@@ -7,7 +7,7 @@
 
 ## Decision
 
-macOS shares the Linux module (`crates/agenium-sandbox/src/unix.rs`, `mxc_sdk::v1::spawn`) with
+macOS shares the Linux module (`security/sandbox/src/unix.rs`, `mxc_sdk::v1::spawn`) with
 `Containment::Seatbelt(SeatbeltConfig::default())`: no GUI access, no keychain, no nested PTYs. Same allow-list policy as
 Linux: worktree + temp writable; `/usr`, `/bin`, `/sbin`, `/System`, the Command Line Tools, Xcode, Homebrew, `/etc`
 and the timezone database, PATH toolchains, the repository's git directory and skill folders read-only; network

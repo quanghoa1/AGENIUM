@@ -14,12 +14,12 @@ its own decisions are in [`docs/adr/ADR-52-fresh-implementation.md`](docs/adr/AD
 
 Requirements: Rust stable (>= 1.89), a C/C++ compiler (bundled SQLite, sqlite-vec, zstd), git >= 2.30.
 On Windows this repository is developed with the GNU toolchain and MSYS2 gcc; `mxc-sdk`'s build script needs an
-`rc.exe`, which `.cargo/config.toml` maps to MinGW `windres` (`scripts/rc-windres.cmd`).
+`rc.exe`, which `.cargo/config.toml` maps to MinGW `windres` (`devtools/scripts/rc-windres.cmd`).
 
 ```sh
 cargo build --workspace
-.\scripts\ci-local.ps1        # Windows: fmt, clippy -D warnings, tests, schema check, scripted golden tasks
-scripts/ci-local.sh           # Linux/macOS
+.\devtools\scripts\ci-local.ps1        # Windows: fmt, clippy -D warnings, tests, schema check, scripted golden tasks
+devtools/scripts/ci-local.sh           # Linux/macOS
 cargo xtask schemas           # regenerate schemas/ (tool argument schemas, SQL)
 cargo run -p agenium-eval     # golden tasks with the scripted model
 ```
@@ -52,25 +52,41 @@ agent wants to run is shown to you for approval** (`[y]es / [a]lways / [N]o`). L
 Secrets live in an encrypted vault whose master key is in the OS keyring; they never reach agent commands, the
 databases, git or logs. Language: talk to the Lead/Solo in any language; everything below the Lead is English (ADR-40).
 
-## Layout
+## Layout (grouped by function)
 
-| Crate | Role |
-|---|---|
-| `agenium-core` | Domain types, forms, protocol tool catalogue, state machine, dependency rule (pure) |
-| `agenium-config` | Root resolution, `config.toml`, setup wizard backend, system requirements |
-| `agenium-store` | SQLite: `core.db` (state + event log), per-agent memory DBs (vector + FTS5), migrations, backups |
-| `agenium-bus` | Realtime events with exactly-once resync from the log |
-| `agenium-secrets` | Vault + keyring, redaction, secret scanning |
-| `agenium-vcs` | git CLI: worktrees, commits, merge queue, remote test |
-| `agenium-sandbox` | Command execution: fail-closed sandbox detection, clean env, process-tree kill |
-| `agenium-llm` | Provider trait, Anthropic / Gemini / OpenAI-compatible adapters, retry, pricing |
-| `agenium-tools` | Work tools (files, patch, grep/glob, shell, fetch, todo) |
-| `agenium-memory` | Embedder trait + local model (candle), retrieval for work orders, memory pipeline |
-| `agenium-skills` | Skill folders (SKILL.md): validation, role/agent resolution, import |
-| `agenium-mcp` | MCP client hub (stdio, Streamable HTTP), credential binding, MCP tools |
-| `agenium-backend` | The agent loop (work order, model turns, tool execution, limits) |
-| `agenium-orchestrator` | App service, intent engine, git effects + reconcile, scheduler, agent runtime |
-| `agenium-eval` | Golden tasks and score table |
-| `agenium-cli` | The `agenium` command |
+```
+apps/            what users run
+  cli/             the `agenium` command (headless front-end; the desktop UI comes later)
+orchestration/   coordinating agents and work
+  orchestrator/    app service, intent engine, scheduler, agent runtime, git effects + reconcile, export/import
+agent/           what an agent is made of
+  loop/            the agent loop: work order, model turns, tool execution, limits   (package agenium-backend)
+  llm/             providers: Anthropic, Gemini, OpenAI-compatible (OpenCode, DeepSeek, ...), retry, pricing
+  tools/           work tools: files, patch, grep/glob, shell, fetch, todo
+  memory/          local embedding model, retrieval (vector + BM25 + graph), memory pipeline
+  skills/          SKILL.md folders: validation, role/agent resolution, import
+  mcp/             MCP client hub (stdio, Streamable HTTP), credential binding
+security/        keeping agents contained
+  sandbox/         OS sandbox backends (Windows MXC, Linux bubblewrap, macOS Seatbelt), clean env, tree kill
+    src/codex_derived/   the only code adapted from OpenAI Codex (see vendor/codex-sandbox)
+  secrets/         encrypted vault + OS keyring, redaction, secret scanning
+foundation/      shared building blocks
+  core/            domain types, forms, protocol tools, ticket state machine, dependency rule (pure)
+  config/          root resolution, config.toml, setup backend, system requirements
+  store/           SQLite: core.db (state + event log), per-agent memory + graph, migrations, backups
+  bus/             realtime events with exactly-once resync from the log
+  vcs/             git CLI: worktrees, commits, merge queue
+quality/         evaluation
+  eval/            golden tasks, runner, score table; results/ holds real-model runs
+devtools/        developer tooling
+  xtask/           `cargo xtask schemas | vendor-check | ci`
+  scripts/         local CI (ci-local.ps1/.sh), Codex sandbox sync, rc.exe shim
+vendor/          third-party sources kept byte-for-byte (Codex sandbox, for maintenance)
+schemas/         generated JSON Schemas of protocol tools + SQL migrations
+docs/            design pack, ADRs, progress, spike reports, references
+```
+
+Each folder with a `Cargo.toml` is one crate of the Cargo workspace; package names keep the `agenium-` prefix
+(`cargo test -p agenium-memory`).
 
 License: Apache-2.0 (`LICENSE`, `NOTICE`).

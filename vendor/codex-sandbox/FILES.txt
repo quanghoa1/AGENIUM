@@ -1,5 +1,5 @@
 # Upstream paths vendored from https://github.com/openai/codex (one per line). Edit this list, then run
-# scripts/sync-codex-sandbox.sh <ref> --update. Files are stored byte-for-byte under upstream/<path>.
+# devtools/scripts/sync-codex-sandbox.sh <ref> --update. Files are stored byte-for-byte under upstream/<path>.
 LICENSE
 NOTICE
 codex-rs/mxc-sandbox/README.md

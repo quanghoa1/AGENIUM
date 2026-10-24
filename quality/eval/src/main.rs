@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
         results.push(run_task(t, &mode).await?);
     }
     print!("{}", table(&results));
-    let out = PathBuf::from(arg(&args, "--out").unwrap_or_else(|| "eval/results".into()));
+    let out = PathBuf::from(arg(&args, "--out").unwrap_or_else(|| "quality/eval/results".into()));
     std::fs::create_dir_all(&out)?;
     let label = match &mode {
         Mode::Scripted => "scripted".to_owned(),

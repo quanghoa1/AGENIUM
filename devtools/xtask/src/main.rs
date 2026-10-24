@@ -6,8 +6,10 @@ use std::process::Command;
 use anyhow::{bail, Context, Result};
 
 fn root() -> PathBuf {
+    // devtools/xtask -> repository root
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
+        .ancestors()
+        .nth(2)
         .expect("workspace root")
         .to_path_buf()
 }
@@ -53,7 +55,7 @@ fn generated() -> Vec<(PathBuf, String)> {
         tools.join("index.json"),
         serde_json::to_string_pretty(&index).unwrap() + "\n",
     ));
-    let sql = root().join("crates/agenium-store/src/schema");
+    let sql = root().join("foundation/store/src/schema");
     for f in [
         "core_001.sql",
         "core_002.sql",
@@ -137,7 +139,7 @@ fn vendor_check() -> Result<()> {
     {
         if !lock.lines().any(|l| l.starts_with(&format!("{path} "))) {
             bad.push(format!(
-                "UNLOCKED {path} (run scripts/sync-codex-sandbox.sh <ref> --update)"
+                "UNLOCKED {path} (run devtools/scripts/sync-codex-sandbox.sh <ref> --update)"
             ));
         }
     }

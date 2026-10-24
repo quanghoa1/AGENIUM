@@ -9,8 +9,8 @@ publish.workspace = true
 
 [dependencies]
 agenium-core.workspace = true
-agenium-llm = { path = "../agenium-llm" }
-agenium-tools = { path = "../agenium-tools" }
+agenium-llm.workspace = true
+agenium-tools.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
