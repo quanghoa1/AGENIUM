@@ -62,7 +62,7 @@
 | codex 0.163.0 | `exec --json -` / `exec resume` | `CODEX_HOME` | sandbox | driven, golden 5/5 (gpt-6-luna) |
 | agy 1.4.4 | stream-json in/out | `USERPROFILE`/`HOME` | hook | driven, golden 5/5 (gemini-3.8-flash-low) |
 | claude 2.1.310 | `-p` stream-json in/out | `CLAUDE_CONFIG_DIR` | hook | driven, golden 5/5 (haiku) |
-| opencode 2.1.2 | `run --format json` | config/state/cache via `XDG_*` (login lives in the data folder) | — | not driven, see below |
+| opencode 2.1.2 | `run --format json` | config/state/cache via `XDG_*` (login lives in the data folder) | — | dropped (owner, 2026-10-24): the OpenCode subscription is used through the API backend |
 | devin | `-p` prints text only | none (always loads the user's MCP servers and hooks) | — | not drivable |
 
 ## Findings that shaped the design
@@ -73,7 +73,11 @@
 - agy inside an MXC container is not logged in (the credential store is out of reach); codex is, with its login file
   in the per-run home.
 
-## opencode 2.1.2 findings (not driven yet)
+## opencode 2.1.2 findings (CLI dropped)
+
+Decision (owner, 2026-10-24): the opencode CLI is not driven. The same subscription works through the API backend
+(OpenCode Go relay, ADR-52 §12-13), where Agenium runs the loop and holds every permission itself. This narrows
+decision 3c ("Opencode via API or CLI") to API only. The findings below are kept in case it is revisited.
 
 - Headless works (`opencode run --standalone --format json -m <provider/model>`, events `step_start`, `tool_use`,
   `text`, `step_finish` with tokens); the working directory comes from `PWD`; `--standalone` avoids the user's
@@ -89,7 +93,6 @@
 
 ## Open
 
-- opencode driver (see findings above).
 - Hook mode runs agy's own processes on the host: Agenium decides each tool call, but an allowed command runs
   uncontained (like an approved command without a sandbox backend).
 
