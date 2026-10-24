@@ -9,18 +9,20 @@ import {
   FileClock,
   FolderKanban,
   KanbanSquare,
-  LayoutDashboard,
   Layers,
+  LayoutDashboard,
   MessageSquare,
   Monitor,
   Moon,
   OctagonX,
   Play,
+  Radio,
   Search,
   Settings,
   Sun,
   Terminal,
   Users,
+  Wrench,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
@@ -47,11 +49,21 @@ export function Shell({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
   const current = app.projects.find((p) => p.id === app.project);
   const needs = app.projects.reduce((n, p) => n + p.needs_you, 0) + app.approvals.length;
+  // Runs streaming right now (the Live tab's badge).
+  const working = Object.values(app.live).filter((l) => !l.done && Date.now() - l.at < 120_000).length;
   useEffect(() => {
     const f = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPalette((v) => !v);
+      }
+      // F11: real fullscreen on and off (the window opens maximized).
+      if (e.key === "F11" && inTauri) {
+        e.preventDefault();
+        import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+          const w = getCurrentWindow();
+          await w.setFullscreen(!(await w.isFullscreen()));
+        });
       }
     };
     window.addEventListener("keydown", f);
@@ -63,6 +75,7 @@ export function Shell({ children }: { children: ReactNode }) {
       label: "nav.monitor",
       items: [
         { id: "overview", label: "nav.overview", icon: <LayoutDashboard className="h-4 w-4" /> },
+        { id: "live", label: "nav.live", icon: <Radio className="h-4 w-4" />, badge: working || undefined, tone: "blue" },
         { id: "needs", label: "nav.needs", icon: <Bell className="h-4 w-4" />, badge: needs || undefined, tone: "amber" },
         { id: "tickets", label: "nav.tickets", icon: <KanbanSquare className="h-4 w-4" />, badge: current?.tickets || undefined, tone: "cyan" },
         { id: "runs", label: "nav.runs", icon: <Terminal className="h-4 w-4" /> },
@@ -81,6 +94,7 @@ export function Shell({ children }: { children: ReactNode }) {
       label: "nav.capabilities",
       items: [
         { id: "providers", label: "nav.providers", icon: <Cpu className="h-4 w-4" /> },
+        { id: "library", label: "nav.library", icon: <Wrench className="h-4 w-4" /> },
         { id: "templates", label: "nav.templates", icon: <Layers className="h-4 w-4" /> },
       ],
     },

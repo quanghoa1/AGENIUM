@@ -6,6 +6,19 @@ import { demo } from "./demo";
 import type {
   AgentDetail,
   AgentEntry,
+  AgentRecord,
+  AgentTrace,
+  BusItem,
+  LeadSuggestion,
+  LibrarySkill,
+  LiveData,
+  LocalServer,
+  McpServerConfig,
+  McpServerRow,
+  ModelInfo,
+  RoleInfo,
+  TeamRecord,
+  TeamsData,
   AuditEntry,
   Capabilities,
   ChatLine,
@@ -60,7 +73,7 @@ export const api = {
   runs: (limit?: number) => call<RunRow[]>("runs", { limit }),
   runDetail: (run: string) => call<RunDetail>("run_detail", { run }),
   events: (since?: number, limit?: number) => call<EventRecord[]>("events", { since, limit }),
-  capabilities: () => call<Capabilities>("capabilities"),
+  capabilities: (refresh = false) => call<Capabilities>("capabilities", { refresh }),
   templates: () => call<TeamTemplate[]>("templates"),
   chat: (project: string, message: string) =>
     call<{ run: string; outcome: string; text: string }>("chat", { project, message }),
@@ -98,6 +111,46 @@ export const api = {
   runRound: (project: string) => call<unknown[]>("run_round", { project }),
   setAutopilot: (on: boolean) => call<boolean>("set_autopilot", { on }),
   stopAll: () => call<void>("stop_all"),
+
+  // Registry (ADR-61)
+  roles: () => call<RoleInfo[]>("roles"),
+  putRole: (role: { id: string; prompt: string; tags: string[]; allowed_paths: string[]; planner: boolean; lead: boolean }) =>
+    call<RoleInfo>("put_role", { role }),
+  removeRole: (id: string) => call<void>("remove_role", { id }),
+  createAgent: (form: { name: string; role: string; tags?: string[] | null; model: ModelArg; skills: string[]; mcp: string[] }) =>
+    call<AgentRecord>("create_agent", { form }),
+  setAgentRole: (agent: string, role: string, tags?: string[] | null) => call<void>("set_agent_role", { agent, role, tags }),
+  toggleAgentSkill: (agent: string, skill: string, on: boolean) => call<string[]>("toggle_agent_skill", { agent, skill, on }),
+  toggleAgentMcp: (agent: string, server: string, on: boolean) => call<void>("toggle_agent_mcp", { agent, server, on }),
+  deleteAgent: (agent: string, confirm: string) => call<{ name: string; pending: string[] }>("delete_agent", { agent, confirm }),
+  teams: () => call<TeamsData>("teams"),
+  composeTeam: (form: { name: string; project?: string | null; lead: string; members: string[]; solo: boolean }) =>
+    call<TeamRecord>("compose_team", { form }),
+  suggestLead: (agents: string[]) => call<LeadSuggestion | null>("suggest_lead", { agents }),
+  teamMember: (team: string, agent: string, add: boolean) => call<void>("team_member", { team, agent, add }),
+  setLeadOfTeam: (team: string, agent: string) => call<void>("set_lead_of_team", { team, agent }),
+  setTeamProject: (team: string, project: string | null) => call<void>("set_team_project", { team, project }),
+  dissolveTeam: (team: string) => call<void>("dissolve_team", { team }),
+  skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),
+  importSkill: (path: string, replace = false) => call<{ name: string }>("import_skill", { path, replace }),
+  removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),
+  skillText: (name: string) => call<{ name: string; body: string; files: string[] }>("skill_text", { name }),
+  mcpServers: () => call<McpServerRow[]>("mcp_servers"),
+  putMcp: (server: McpServerConfig) => call<void>("put_mcp", { server }),
+  importMcpJson: (text: string) => call<{ servers: string[]; secrets: string[] }>("import_mcp_json", { text }),
+  removeMcp: (id: string, force = false) => call<void>("remove_mcp", { id, force }),
+  testMcp: (id: string) =>
+    call<{ server: any; protocol: string; tools: { name: string; description?: string | null; read_only: boolean }[] }>("test_mcp", { id }),
+  putProvider: (form: { id: string; kind: string; base_url?: string | null; api_key?: string | null; clear_key?: boolean; max_concurrency?: number; models?: string[] }) =>
+    call<void>("put_provider", { form }),
+  removeProvider: (id: string) => call<void>("remove_provider", { id }),
+  providerModels: (id: string) => call<ModelInfo[]>("provider_models", { id }),
+  localServers: () => call<LocalServer[]>("local_servers"),
+
+  // Live tab
+  live: () => call<LiveData>("live"),
+  agentBus: (agent: string, limit?: number) => call<BusItem[]>("agent_bus", { agent, limit }),
+  agentTrace: (agent: string, run?: string) => call<AgentTrace>("agent_trace", { agent, run }),
 };
 
 /** Committed domain events (`agenium://event`), live run output (`agenium://run`), command approvals. */

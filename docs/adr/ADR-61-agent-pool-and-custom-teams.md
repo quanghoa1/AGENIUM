@@ -60,4 +60,13 @@ agent's skill binding *restricted* those folders. Providers could only be added 
   `provider remove|local`. Tests: `orchestrator/tests/registry.rs` (5), the v1 → v3 migration test, the rebuild
   migration test, `local_servers_are_discovered`.
 - `xtask schemas` publishes every SQL migration of the store (it listed them by name).
-- Open: the desktop forms for all of this (next), propose_role (Lead proposes a role, the user approves).
+- Desktop (same day): Providers & CLIs (presets for Anthropic, Gemini, OpenAI, OpenRouter, DeepSeek, OpenCode, any
+  OpenAI-compatible endpoint; "local model" finds Ollama / LM Studio; the model list of each provider with tool
+  calling / vision / context; CLIs detected, cached 5 minutes, "detect again"), Skills & MCP (library: import a folder
+  or zip by path or by dropping it on the window, read SKILL.md, delete with "switch off and delete"; MCP: stdio,
+  Streamable HTTP or pasted JSON, test (tools listed), delete), agents (create into the pool: role picker with presets
+  and a new-role editor, model with the provider's model list, skill and MCP switches; per agent: role, switches,
+  delete with the typed name), teams (compose from the pool with the suggested Lead and its reasons, crown to pick
+  another Lead, project now or later; per team: project, add from the pool, back to the pool, Make Lead, dissolve;
+  "team from a template" stays as a shortcut). IPC in `apps/desktop/src/manage.rs`.
+- Open: propose_role (Lead proposes a role, the user approves).

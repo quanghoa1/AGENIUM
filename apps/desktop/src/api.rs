@@ -16,15 +16,15 @@ use tauri::{AppHandle, State};
 
 use crate::state::{err, Desktop, Opened, R};
 
-fn key(s: &str) -> R<TicketKey> {
+pub(crate) fn key(s: &str) -> R<TicketKey> {
     s.parse().map_err(|e: IdParseError| e.to_string())
 }
 
-fn pid(s: &str) -> R<ProjectId> {
+pub(crate) fn pid(s: &str) -> R<ProjectId> {
     s.parse().map_err(|e: IdParseError| e.to_string())
 }
 
-fn names(o: &Opened) -> R<HashMap<AgentId, String>> {
+pub(crate) fn names(o: &Opened) -> R<HashMap<AgentId, String>> {
     Ok(o.app
         .agents()
         .map_err(err)?
@@ -154,7 +154,7 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
     }))
 }
 
-fn run_json(r: &runs::Run, names: &HashMap<AgentId, String>) -> Value {
+pub(crate) fn run_json(r: &runs::Run, names: &HashMap<AgentId, String>) -> Value {
     json!({ "id": r.id, "ticket": r.ticket, "agent": r.agent, "agent_name": names.get(&r.agent),
             "provider": r.provider, "model": r.model, "started_at": r.started_at, "ended_at": r.ended_at,
             "outcome": r.outcome, "steps": r.steps, "usage": r.usage })
@@ -301,17 +301,29 @@ pub fn audit(
 #[tauri::command]
 pub fn agents(d: State<'_, Desktop>) -> R<Vec<Value>> {
     let o = d.opened()?;
+    let projects = o.app.projects().map_err(err)?;
+    let teams = o.app.teams().map_err(err)?;
     let mut out = vec![];
-    for p in o.app.projects().map_err(err)? {
-        if let Some((team, members)) = o.app.team_of_project(p.id).map_err(err)? {
-            for a in members {
-                let planner = o.app.is_planner_role(&a.role);
-                out.push(json!({
-                    "agent": a, "project": p.id, "project_name": p.name, "team": team.name, "solo": team.solo,
-                    "is_lead": team.lead == Some(a.id), "is_planner": planner,
-                }));
-            }
-        }
+    for a in o.app.agents().map_err(err)? {
+        let planner = o.app.is_planner_role(&a.role);
+        let team = a.team.and_then(|t| {
+            teams
+                .iter()
+                .find(|(x, _)| x.id == t)
+                .map(|(x, _)| x.clone())
+        });
+        let project = team.as_ref().and_then(|t| t.project);
+        let project_name = project
+            .and_then(|p| projects.iter().find(|x| x.id == p))
+            .map(|p| p.name.clone());
+        out.push(json!({
+            "agent": a, "project": project, "project_name": project_name,
+            "team": team.as_ref().map(|t| t.name.clone()), "team_id": team.as_ref().map(|t| t.id),
+            "solo": team.as_ref().is_some_and(|t| t.solo),
+            "is_lead": team.as_ref().is_some_and(|t| t.lead == Some(a.id)),
+            "is_planner": planner && team.as_ref().is_some_and(|t| !t.solo),
+            "pool": team.is_none(),
+        }));
     }
     Ok(out)
 }
@@ -411,8 +423,9 @@ pub fn events(d: State<'_, Desktop>, since: Option<u64>, limit: Option<usize>) -
         .map_err(err)?))
 }
 
+/// Providers, agent CLIs (detected at most every 5 minutes, or now with `refresh`), templates, CLI fallback.
 #[tauri::command]
-pub fn capabilities(d: State<'_, Desktop>) -> R<Value> {
+pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Value> {
     let o = d.opened()?;
     let cfg = o.app.config();
     let providers: Vec<Value> = cfg
@@ -421,7 +434,25 @@ pub fn capabilities(d: State<'_, Desktop>) -> R<Value> {
         .map(|p| json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
                           "models": p.models, "max_concurrency": p.max_concurrency }))
         .collect();
-    let clis = tokio::task::block_in_place(agenium_cli_backend::detect::detect_all);
+    let cached = d
+        .clis
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_ref()
+        .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(300))
+        .map(|(_, v)| v.clone());
+    let clis = match cached.filter(|_| refresh != Some(true)) {
+        Some(v) => v,
+        None => {
+            let found = tokio::task::spawn_blocking(agenium_cli_backend::detect::detect_all)
+                .await
+                .map_err(|e| e.to_string())?;
+            let v = json!(found);
+            *d.clis.lock().unwrap_or_else(|p| p.into_inner()) =
+                Some((std::time::Instant::now(), v.clone()));
+            v
+        }
+    };
     Ok(json!({
         "providers": providers, "clis": clis,
         "templates": o.app.team_templates().map_err(err)?,
@@ -685,7 +716,7 @@ fn binding(provider: &str, model: &str, effort: &str) -> R<ModelBinding> {
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ModelArg {
     provider: String,
     model: String,
@@ -693,6 +724,19 @@ pub struct ModelArg {
     /// `api` or `cli` (the CLI program is `provider`).
     #[serde(default)]
     backend: Option<String>,
+}
+
+impl ModelArg {
+    /// The backend and model binding the form describes.
+    pub(crate) fn binding(&self) -> R<(BackendKind, ModelBinding)> {
+        let b = binding(&self.provider, &self.model, &self.effort)?;
+        let backend = if self.backend.as_deref() == Some("cli") {
+            BackendKind::Cli
+        } else {
+            BackendKind::Api
+        };
+        Ok((backend, b))
+    }
 }
 
 #[tauri::command]
@@ -757,12 +801,7 @@ pub fn create_solo(
 pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) -> R<()> {
     let o = d.opened()?;
     let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
-    let b = binding(&model.provider, &model.model, &model.effort)?;
-    let backend = if model.backend.as_deref() == Some("cli") {
-        BackendKind::Cli
-    } else {
-        BackendKind::Api
-    };
+    let (backend, b) = model.binding()?;
     o.app.set_agent_backend(id, backend, &b).map_err(err)
 }
 

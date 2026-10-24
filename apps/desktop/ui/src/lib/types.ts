@@ -244,7 +244,8 @@ export interface AgentEntry {
   agent: {
     id: string;
     name: string;
-    team: string;
+    /** `null`: in the pool (no team yet). */
+    team: string | null;
     role: string;
     role_kind: RoleKind;
     tags: string[];
@@ -254,12 +255,15 @@ export interface AgentEntry {
     skills: string[];
     created_at: string;
   };
-  project: string;
-  project_name: string;
-  team: string;
+  project: string | null;
+  project_name: string | null;
+  team: string | null;
+  team_id?: string | null;
   solo: boolean;
   is_lead: boolean;
   is_planner: boolean;
+  /** No team yet. */
+  pool?: boolean;
 }
 
 export interface LogEntry {
@@ -351,4 +355,132 @@ export interface AgentDetail {
 export interface ChatLine {
   role: "user" | "assistant" | "system";
   text: string;
+}
+
+// ---------------------------------------------------------------- registry (ADR-61)
+
+export interface RoleInfo {
+  id: string;
+  prompt: string;
+  tags: string[];
+  allowed_paths: string[];
+  planner: boolean;
+  lead: boolean;
+  /** `<template>@<version>`; empty for the user's own role. */
+  template: string;
+  exists: boolean;
+  agents: number;
+}
+
+export type AgentRecord = AgentEntry["agent"] & { mcp: any };
+
+export interface TeamRecord {
+  id: string;
+  name: string;
+  template: string;
+  project?: string | null;
+  lead?: string | null;
+  solo: boolean;
+  created_at: string;
+}
+
+export interface TeamsData {
+  teams: { team: TeamRecord; project_name?: string | null; members: AgentRecord[]; planner?: string | null }[];
+  pool: AgentRecord[];
+}
+
+export interface LeadSuggestion {
+  agent: string;
+  reasons: string[];
+}
+
+export interface LibrarySkill {
+  name: string;
+  description: string;
+  version?: string | null;
+  files: number;
+  users: string[];
+  dir: string;
+}
+
+export interface McpServerConfig {
+  id: string;
+  command?: string | null;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string | null;
+  headers?: Record<string, string>;
+  timeout_secs: number;
+}
+
+export interface McpServerRow {
+  config: McpServerConfig;
+  users: string[];
+}
+
+export interface ModelInfo {
+  id: string;
+  display_name?: string | null;
+  context_window?: number | null;
+  supports_tools?: boolean | null;
+  supports_vision?: boolean | null;
+}
+
+export interface LocalServer {
+  kind: string;
+  base_url: string;
+  models: string[];
+}
+
+// ---------------------------------------------------------------- live tab
+
+export interface LiveRun {
+  run: RunRow;
+  /** `work` (its own ticket), `review` (a ticket it reviews as Lead), `lead` (chat, inbox, plan). */
+  kind: "work" | "review" | "lead";
+  ticket_key?: string | null;
+  last_tool?: { tool: string; args: any; ok?: boolean | null; at: string; ms?: number | null } | null;
+  tools: number;
+}
+
+export interface LiveAgent {
+  agent: AgentRecord;
+  team?: string | null;
+  team_name?: string | null;
+  solo: boolean;
+  is_lead: boolean;
+  is_planner: boolean;
+  project?: string | null;
+  project_name?: string | null;
+  run?: LiveRun | null;
+  open_tickets: { key: string; title: string; status: TicketStatus; project: string }[];
+}
+
+export interface LiveTeam {
+  id: string;
+  name: string;
+  solo: boolean;
+  lead?: string | null;
+  project?: string | null;
+  project_name?: string | null;
+  members: string[];
+}
+
+export interface LiveData {
+  agents: LiveAgent[];
+  teams: LiveTeam[];
+  totals: { live_runs: number; tokens_today: number; working: number };
+}
+
+export type BusItem =
+  | { type: "assignment"; ticket: string; project: string; title: string; description: string; acceptance: Criterion[]; status: TicketStatus; scope_paths: string[]; at: string }
+  | { type: "comment"; ticket: string; project: string; id: string; kind: CommentKind; author: string; mine: boolean; body: { type: string; data: any }; resolved: boolean; at: string };
+
+export interface AgentTrace {
+  run: RunRow | null;
+  kind?: LiveRun["kind"];
+  ticket_key?: string | null;
+  live?: boolean;
+  steps: LogEntry[];
+  terminal: { n: number; command: string; ok?: boolean | null; output?: string | null; ms?: number | null; at: string }[];
 }

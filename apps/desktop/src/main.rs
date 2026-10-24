@@ -2,6 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod live;
+mod manage;
 mod state;
 
 use std::sync::atomic::Ordering;
@@ -72,6 +74,37 @@ fn main() {
             api::run_round,
             api::set_autopilot,
             api::stop_all,
+            manage::roles,
+            manage::put_role,
+            manage::remove_role,
+            manage::create_agent,
+            manage::set_agent_role,
+            manage::toggle_agent_skill,
+            manage::toggle_agent_mcp,
+            manage::delete_agent,
+            manage::teams,
+            manage::compose_team,
+            manage::suggest_lead,
+            manage::team_member,
+            manage::set_lead_of_team,
+            manage::set_team_project,
+            manage::dissolve_team,
+            manage::skill_library,
+            manage::import_skill,
+            manage::remove_skill,
+            manage::skill_text,
+            manage::mcp_servers,
+            manage::put_mcp,
+            manage::import_mcp_json,
+            manage::remove_mcp,
+            manage::test_mcp,
+            manage::put_provider,
+            manage::remove_provider,
+            manage::provider_models,
+            manage::local_servers,
+            live::live,
+            live::agent_bus,
+            live::agent_trace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Agenium desktop app");

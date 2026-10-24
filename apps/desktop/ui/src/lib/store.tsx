@@ -22,7 +22,9 @@ export type View =
   | "audit"
   | "usage"
   | "settings"
-  | "chat";
+  | "chat"
+  | "live"
+  | "library";
 
 export interface Route {
   view: View;
@@ -36,12 +38,20 @@ function parseHash(): Route {
 
 export type ThemeMode = "dark" | "light" | "system";
 
-/** Live output of one run (agent view): streamed text and tool calls. */
+/** Live output of one run: streamed text, the tail of its thinking, tool calls, and what it does right now. */
 export interface LiveRun {
   text: string;
+  thinking: string;
   tools: { name: string; args?: unknown }[];
+  /** What the model is doing now: reasoning, writing text, or calling a tool (`tool` names it). */
+  phase: "thinking" | "text" | "tool" | "idle";
+  tool?: string;
   done: boolean;
+  /** Last event (ms since epoch). */
+  at: number;
 }
+
+const TAIL = 20_000;
 
 interface Ctx {
   status: Status | null;
@@ -162,12 +172,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const un = onRun((run, ev) => {
       setLive((m) => {
-        const cur = m[run] ?? { text: "", tools: [], done: false };
-        const next = { ...cur };
-        if (ev.type === "text") next.text = cur.text + ev.text;
-        else if (ev.type === "restart") next.text = "";
-        else if (ev.type === "tool") next.tools = [...cur.tools, { name: ev.name, args: ev.args }];
-        else if (ev.type === "done") next.done = true;
+        const cur: LiveRun = m[run] ?? { text: "", thinking: "", tools: [], phase: "idle", done: false, at: 0 };
+        const next: LiveRun = { ...cur, at: Date.now() };
+        if (ev.type === "text") {
+          next.text = (cur.text + ev.text).slice(-TAIL);
+          next.phase = "text";
+        } else if (ev.type === "thinking") {
+          next.thinking = (cur.thinking + ev.text).slice(-2000);
+          next.phase = "thinking";
+        } else if (ev.type === "restart") {
+          next.text = "";
+          next.phase = "thinking";
+        } else if (ev.type === "tool_start") {
+          next.phase = "tool";
+          next.tool = ev.name;
+        } else if (ev.type === "tool") {
+          next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
+          next.phase = "tool";
+          next.tool = ev.name;
+        } else if (ev.type === "usage") {
+          // A step ended: the next one starts by thinking.
+          next.phase = "thinking";
+          next.thinking = "";
+        } else if (ev.type === "done") {
+          next.done = true;
+          next.phase = "idle";
+        }
         return { ...m, [run]: next };
       });
     });

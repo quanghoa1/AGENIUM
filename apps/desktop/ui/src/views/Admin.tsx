@@ -1,75 +1,9 @@
-import { CheckCircle2, Copy, XCircle } from "lucide-react";
+import { Copy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Empty, Mono, PageHeader, Section, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
-import type { AuditEntry, Capabilities, RunRow, TeamTemplate } from "../lib/types";
-
-export function ProvidersView() {
-  const app = useApp();
-  const [c, setC] = useState<Capabilities | null>(null);
-  useEffect(() => {
-    api.capabilities().then(setC);
-  }, []);
-  if (!c) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
-  return (
-    <div className="space-y-4">
-      <PageHeader title={app.t("nav.providers")} sub={app.t("providers.sub")} />
-      <Section title={app.t("providers.api")}>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="label border-b border-line text-left">
-              <th className="py-2">id</th>
-              <th>kind</th>
-              <th>base URL</th>
-              <th>key</th>
-              <th>concurrency</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {c.providers.map((p) => (
-              <tr key={p.id}>
-                <td className="py-2 font-medium">{p.id}</td>
-                <td className="text-muted">{p.kind}</td>
-                <td className="font-mono text-[11px] text-subtle">{p.base_url ?? "default"}</td>
-                <td>{p.has_key ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="text-subtle">none</span>}</td>
-                <td className="font-mono">{p.max_concurrency}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {c.providers.length === 0 && <Empty>{app.t("common.none")}</Empty>}
-      </Section>
-      <Section title={app.t("providers.cli")}>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="label border-b border-line text-left">
-              <th className="py-2">CLI</th>
-              <th>version</th>
-              <th>login</th>
-              <th>usable</th>
-              <th>note</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {c.clis.map((x) => (
-              <tr key={x.kind}>
-                <td className="py-2 font-medium">{x.kind.toLowerCase()}</td>
-                <td className="font-mono">{x.version ?? "–"}</td>
-                <td className="text-muted">{typeof x.login === "string" ? x.login : JSON.stringify(x.login)}</td>
-                <td>{x.compatible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-subtle" />}</td>
-                <td className="text-[11px] text-subtle">{x.note ?? (x.path ? "" : "not installed")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-3 text-[11px] text-subtle">
-          {app.t("providers.fallback")}: {c.cli_fallback.provider ? <Mono>{c.cli_fallback.provider}/{c.cli_fallback.model}</Mono> : app.t("providers.notSet")}
-        </div>
-      </Section>
-    </div>
-  );
-}
+import type { AuditEntry, RunRow, TeamTemplate } from "../lib/types";
 
 export function TemplatesView() {
   const app = useApp();

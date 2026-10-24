@@ -6,7 +6,9 @@ import { Shell } from "./components/Shell";
 import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
 import { AgentView, AgentsView, ProjectsView, TeamsView } from "./views/Organize";
-import { AuditView, ProvidersView, SettingsView, SetupView, TemplatesView, UsageView } from "./views/Admin";
+import { AuditView, SettingsView, SetupView, TemplatesView, UsageView } from "./views/Admin";
+import { LibraryView, ProvidersView } from "./views/Capabilities";
+import { LiveView } from "./views/Live";
 import { ChatView } from "./views/Chat";
 import { NeedsView } from "./views/Needs";
 import { OverviewView } from "./views/Overview";
@@ -51,6 +53,10 @@ function Router() {
         return <UsageView />;
       case "settings":
         return <SettingsView />;
+      case "live":
+        return <LiveView />;
+      case "library":
+        return <LibraryView />;
       case "chat":
         return <ChatView />;
       default:

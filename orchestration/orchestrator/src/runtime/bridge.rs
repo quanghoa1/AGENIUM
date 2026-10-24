@@ -268,10 +268,18 @@ pub struct RunObserver {
     pub memory: Option<Arc<AgentStore>>,
     pub live: Option<LiveFn>,
     pub steps: Mutex<u32>,
+    /// When each pending tool call (by name) was emitted, for its duration in the run log.
+    pub tool_started: Mutex<std::collections::HashMap<String, std::time::Instant>>,
 }
 
 impl Observer for RunObserver {
     fn event(&self, e: &ChatEvent) {
+        if let ChatEvent::ToolCall(c) = e {
+            self.tool_started
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .insert(c.name.clone(), std::time::Instant::now());
+        }
         if let Some(l) = &self.live {
             l(e);
         }
@@ -290,10 +298,16 @@ impl Observer for RunObserver {
             Ok(t) => (true, t.chars().take(2000).collect::<String>()),
             Err(e) => (false, e.to_string()),
         };
+        let ms = self
+            .tool_started
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(name)
+            .map(|t| t.elapsed().as_millis() as u64);
         let _ = self.app.run_log(
             self.run,
             "tool",
-            serde_json::json!({ "tool": name, "args": args, "ok": ok, "result": preview }),
+            serde_json::json!({ "tool": name, "args": args, "ok": ok, "result": preview, "ms": ms }),
         );
     }
 

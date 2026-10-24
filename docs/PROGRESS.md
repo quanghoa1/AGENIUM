@@ -117,7 +117,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | M4: the user puts another member in the Lead slot (`App::set_team_lead`; CLI `team lead`; UI "Make Lead") | DONE | `team.rs::the_user_puts_another_member_in_the_lead_slot` |
 | Monaco editor / xterm terminal (lightweight viewers instead), skills/MCP forms, installer, CI UI tests | NOT DONE | |
 
-### P5 — Agent pool and custom teams (owner's review of the app): BACKEND DONE ([ADR-61](adr/ADR-61-agent-pool-and-custom-teams.md))
+### P5 — Agent pool, custom teams, Live tab (owner's review of the app): DONE ([ADR-61](adr/ADR-61-agent-pool-and-custom-teams.md))
 | Item | Status | Evidence |
 |---|---|---|
 | Agents created on their own into the pool (role, own model API/CLI, library skills, MCP); `core_003` makes `agent.team` nullable (table rebuilt; migrations run with foreign keys off and must pass `foreign_key_check`) | DONE | `registry.rs::agents_start_in_the_pool_with_their_own_model`, `core.rs::v1_database_with_data_migrates_to_the_latest`, `migrate.rs::a_table_rebuild_keeps_references_and_broken_keys_are_refused` |
@@ -127,7 +127,9 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Providers added/edited/removed by the user (key in the vault), local servers discovered (Ollama, LM Studio) | DONE | `registry.rs::providers_keep_their_keys_in_the_vault`, `adapters.rs::local_servers_are_discovered` |
 | CLI parity (`agent create`, `role`, `team compose/...`, `skill library`, `provider remove/local`) | DONE (smoke-tested on a fresh root) | ADR-61 |
 | `setup` honours `AGENIUM_HOME` and does not remember it machine-wide | DONE | ADR-61 §8 |
-| Desktop forms (providers, skills & MCP, create agent, compose team), Live tab | NEXT | |
+| Desktop: providers & CLIs, skills & MCP library, create agent, compose/manage teams | DONE | ADR-61 Consequences; real app on a test root (pool agents created, suggestion "role meant to lead, tags, skill lead-team") |
+| Desktop: Live tab (rooms, pixel office, room log, inspector with thinking / tool-skill-MCP calls / role-based chat), window maximized + F11 | DONE | ADR-60 "Live tab"; watched a real team round on DeepSeek: Lead created and assigned tickets, a researcher worked, calls classified with args/output/ms |
+| Finding from that round: a plan item whose role is the Lead's (research-lead) cannot become a ticket (the Lead takes no tickets in team mode); the Lead cancelled it | OPEN | plan validation should refuse items for the Lead's role, or the Lead does such synthesis in its review |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI

@@ -69,3 +69,30 @@ progress, an inter-agent mailbox, config versioning, capability probes per effor
   above it, tab surface sliding while the panel comes out of its blur, palette fading and growing; under emulated
   reduced motion the route appears in place and the highlight jumps. No runtime errors on any view.
 - Cost: the UI bundle grows from ~114 kB to ~168 kB gzipped (one chunk; a desktop app loads it from disk).
+
+## Live tab and the pixel office (2026-10-24, owner's requests: "a tab to see the teams and what each agent is
+doing"; "the office like pixel-agents"; the owner's layout sketch: rooms, office left, inspector and chat right)
+
+- The window opens maximized (the owner designs on a 2560x1440 screen); F11 toggles real fullscreen
+  (`core:window:allow-set-fullscreen`).
+- `Trực tiếp` (Live): telemetry (agents running, tools being called, MCP servers enabled in the room, tokens today,
+  Pause all), room tabs (the shared Solo office with the pool, one office per team, all rooms at once as "CCTV").
+  Left (62 %): the room's pixel office (member chips, zoom fit/2x/3x/4x), and below it the room log (domain events
+  plus the tool / skill / MCP calls streamed from runs) or the room's plan. Right (38 %): the selected agent: role,
+  team and Lead, status (THINKING / CALLING TOOL / WRITING / WAITING / IDLE / OFFLINE), task; 1 live thinking (or a
+  note that the model does not stream its reasoning); 2 the calls of its current or last run, classified as MCP
+  (`mcp__<server>__<tool>`), Skill (`load_skill`), Agenium (protocol tools) or Tool, with arguments, output and
+  duration (`ms`, now recorded in the run log); 3 the conversation its role allows: chat with a Solo agent or a team's
+  Lead (the Lead's delegations inline, each with "watch"), a worker read-only (its message bus: the assignment from the
+  Lead, questions, answers, reports, reviews) with "message the Team Lead about @worker", which opens the Lead's chat
+  with `@worker (TICKET): ` typed and focused. IPC: `apps/desktop/src/live.rs` (`live`, `agent_bus`, `agent_trace`).
+- The office (`components/PixelOffice.tsx`): the rules learned from pixel-agents (top-down tile room, back wall with
+  shelves, clock and pictures, wooden floor, desks with CRT screens, characters that sit at their desk, walk on free
+  tiles and rest in the lounge, bubbles for their state); the sprites and furniture are our own (hand-made 12x18
+  character maps with three hair styles and seeded colours, furniture from rectangles), BFS paths on the tile grid,
+  integer zoom. Team rooms: the Lead's wider desk and crown, a whiteboard with the plan's progress, dashed delegation
+  lines to the workers holding tickets, a sign over each desk with the MCP / Skill / Tool being called; envelopes fly
+  for comments between the Lead and a worker. Under reduced motion nobody walks and nothing animates.
+- Found on the way: `scrollIntoView` in a nested list scrolls the page around it (the CCTV view jumped to the log):
+  lists now scroll their own container; CLI detection ran on the UI thread at every visit of the providers page (now
+  async, cached).

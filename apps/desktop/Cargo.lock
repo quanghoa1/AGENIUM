@@ -102,6 +102,7 @@ dependencies = [
  "agenium-config",
  "agenium-core",
  "agenium-llm",
+ "agenium-mcp",
  "agenium-orchestrator",
  "agenium-secrets",
  "agenium-store",

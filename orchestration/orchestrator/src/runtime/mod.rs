@@ -620,6 +620,7 @@ impl Runtime {
             memory: Some(mem),
             live,
             steps: Mutex::new(0),
+            tool_started: Default::default(),
         };
         // Persist the work order's messages so a continuation sees the whole conversation.
         for m in &order.messages {

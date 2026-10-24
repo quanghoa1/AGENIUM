@@ -318,6 +318,21 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
         mcp: [],
       };
     }
+    // Registry and Live tab: empty in the browser demo (the real app has the data).
+    case "live":
+      return { agents: [], teams: [], totals: { live_runs: 0, tokens_today: 0, working: 0 } };
+    case "teams":
+      return { teams: [], pool: [] };
+    case "skill_library":
+      return { skills: [], problems: [] };
+    case "agent_trace":
+      return { run: null, steps: [], terminal: [] };
+    case "roles":
+    case "mcp_servers":
+    case "local_servers":
+    case "provider_models":
+    case "agent_bus":
+      return [];
     default:
       return null;
   }
