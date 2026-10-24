@@ -253,8 +253,12 @@ mod tests {
             r.warnings()
                 .filter(|c| c.level == Level::BelowMinimum)
                 .count(),
-            5
+            4,
+            "cores, RAM, disk, git; Windows itself is below recommended (ADR-39/53)"
         );
+        assert!(r
+            .warnings()
+            .any(|c| c.name == "os" && c.level == Level::BelowRecommended));
     }
 
     #[test]
