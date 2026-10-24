@@ -8,11 +8,19 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+agenium-backend.workspace = true
+agenium-llm.workspace = true
+agenium-mcp.workspace = true
 agenium-sandbox.workspace = true
+agenium-tools.workspace = true
+async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["net"] }
 tracing.workspace = true
+ulid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }

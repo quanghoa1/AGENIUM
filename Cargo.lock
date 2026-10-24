@@ -85,12 +85,19 @@ dependencies = [
 name = "agenium-cli-backend"
 version = "0.1.0"
 dependencies = [
+ "agenium-backend",
+ "agenium-llm",
+ "agenium-mcp",
  "agenium-sandbox",
+ "agenium-tools",
+ "async-trait",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
  "tracing",
+ "ulid",
 ]
 
 [[package]]
@@ -161,6 +168,7 @@ dependencies = [
  "agenium-sandbox",
  "agenium-tools",
  "async-trait",
+ "rand 0.8.8",
  "reqwest",
  "serde",
  "serde_json",

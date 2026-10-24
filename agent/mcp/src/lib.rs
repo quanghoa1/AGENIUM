@@ -7,6 +7,7 @@
 //! Not built yet: the legacy HTTP+SSE transport (servers older than revision 2025-03-26) and OAuth.
 
 pub mod client;
+pub mod server;
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
