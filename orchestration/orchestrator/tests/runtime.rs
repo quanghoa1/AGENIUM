@@ -400,16 +400,45 @@ async fn quota_exhaustion_parks_the_agent_and_repeated_failures_escalate() {
     }
     assert!(
         rt.tick(project).await.unwrap().is_empty(),
-        "auto-restart stops after repeated failures"
+        "auto-restart stops after repeated failures (the stall-nudge waits stall_minutes)"
     );
-    let needs = app
-        .store()
-        .read(|c| events::recent_of_kind(c, "NeedsUser", 10))
-        .unwrap();
-    assert!(needs.iter().any(|e| e.payload["reason"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("runs keep stopping")));
+    let stopping = |app: &agenium_orchestrator::App| {
+        app.store()
+            .read(|c| events::recent_of_kind(c, "NeedsUser", 10))
+            .unwrap()
+            .iter()
+            .filter(|e| {
+                e.payload["reason"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("runs keep stopping")
+            })
+            .count()
+    };
+    assert_eq!(stopping(&app), 0, "not escalated before the nudges");
+
+    // Stall-nudge (decision 28): after stall_minutes one more run with a System nudge, then the user.
+    app.update_config(|c| {
+        c.runtime.stall_minutes = 0;
+        c.runtime.stall_nudges = 1;
+    })
+    .unwrap();
+    p.push(Box::new(|req| {
+        let all = serde_json::to_string(&req.messages).unwrap();
+        assert!(
+            all.contains("Stall nudge 1/1"),
+            "the nudge reaches the agent"
+        );
+        Ok(calls_response("still thinking", vec![]))
+    }));
+    p.push_text("thinking out loud");
+    p.push_text("thinking out loud");
+    let runs = rt.tick(project).await.unwrap();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].outcome, "Stopped:no_tool_call");
+    assert!(rt.tick(project).await.unwrap().is_empty(), "nudges used up");
+    assert!(rt.tick(project).await.unwrap().is_empty());
+    assert_eq!(stopping(&app), 1, "escalated to the user once");
     drop(f);
 }
 

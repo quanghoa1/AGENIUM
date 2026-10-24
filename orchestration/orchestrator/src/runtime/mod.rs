@@ -180,6 +180,10 @@ fn kind_of(p: &dyn Provider) -> &'static str {
 /// a deterministic failure; the stall-nudge of M4 builds on this).
 const MAX_FAILED_RUNS: usize = 2;
 
+/// Prefixes of the System comments of the stall-nudge.
+const STALL_NOTE: &str = "Stall nudge";
+const STALL_ESCALATED: &str = "Stall: escalated to the user.";
+
 fn failed(outcome: &str) -> bool {
     outcome.starts_with("Stopped") || outcome.starts_with("Error") || outcome == "Cancelled"
 }
@@ -409,6 +413,60 @@ impl Runtime {
             && tail
                 .iter()
                 .all(|r| r.outcome.as_deref().is_some_and(failed))))
+    }
+
+    /// Stall-nudge (decision 28) for a ticket whose runs keep stopping: once `stall_minutes` passed since its last
+    /// run, it gets another run with a System nudge, up to `stall_nudges` times since its last good run; then it
+    /// goes to the user (once). Returns whether to start a run now (the nudge comment is posted).
+    fn stall_nudge(&self, t: &Ticket) -> Result<bool> {
+        let rt = self.app.config().runtime;
+        let rs = self.app.store().read(|c| runs::for_ticket(c, t.id))?;
+        let Some(last) = rs.last() else {
+            return Ok(false);
+        };
+        let Some(ended) = last.ended_at.as_deref() else {
+            return Ok(false);
+        };
+        let since_good = rs
+            .iter()
+            .rev()
+            .find(|r| r.outcome.as_deref().is_some_and(|o| !failed(o)))
+            .and_then(|r| r.ended_at.clone())
+            .unwrap_or_default();
+        let idle = chrono::DateTime::parse_from_rfc3339(ended)
+            .map(|e| chrono::Utc::now().signed_duration_since(e))
+            .unwrap_or_default();
+        if idle < chrono::Duration::minutes(i64::from(rt.stall_minutes)) {
+            return Ok(false);
+        }
+        let cs = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
+        let system = |prefix: &str| {
+            cs.iter()
+                .filter(|c| c.created_at.as_str() > since_good.as_str())
+                .filter(
+                    |c| matches!(&c.body, CommentBody::System { text } if text.starts_with(prefix)),
+                )
+                .count() as u32
+        };
+        let given = system(STALL_NOTE);
+        let outcome = last.outcome.clone().unwrap_or_default();
+        if given >= rt.stall_nudges {
+            if system(STALL_ESCALATED) == 0 {
+                self.app.store().commit(None, "system", |w| -> Result<()> {
+                    let tk = tickets::get(w.tx, t.id)?;
+                    crate::engine::system_comment(w, &tk, format!("{STALL_ESCALATED} runs on {} keep stopping ({outcome}) after {given} nudge(s); it waits for you (look at the run log, change the model or the ticket).", t.key))?;
+                    w.emit(DomainEvent::NeedsUser { ticket: Some(t.id), reason: format!("{}: runs keep stopping ({outcome}); look at the run log", t.key) })?;
+                    Ok(())
+                })?;
+            }
+            return Ok(false);
+        }
+        self.app.store().commit(None, "system", |w| -> Result<()> {
+            let tk = tickets::get(w.tx, t.id)?;
+            crate::engine::system_comment(w, &tk, format!("{STALL_NOTE} {}/{}: your last runs on {} stopped ({outcome}). Resume the work from where it is, in small verified steps.", given + 1, rt.stall_nudges, t.key))?;
+            Ok(())
+        })?;
+        Ok(true)
     }
 
     fn cost(&self, provider: &dyn Provider, model: &str, u: &agenium_llm::Usage) -> f64 {
@@ -1488,18 +1546,6 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         }
         self.app.finish_run(run, &label, report.steps, &usage)?;
         self.agent_state_after(agent, Some(t.id), &report.outcome)?;
-        if failed(&label) && !self.ready_to_autostart(t.id)? {
-            self.app.store().commit(None, "system", |w| {
-                w.emit(DomainEvent::NeedsUser {
-                    ticket: Some(t.id),
-                    reason: format!(
-                        "{}: runs keep stopping ({label}); look at the run log",
-                        t.key
-                    ),
-                })
-                .map_err(OrchError::from)
-            })?;
-        }
         let _ = project;
         self.app
             .run_log(run, "run", serde_json::json!({ "kind": kind }))?;
@@ -1531,13 +1577,15 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             out.push(s);
         }
         let max = self.app.config().runtime.max_parallel_agents.max(1) as usize;
-        let ready: Vec<_> = self
-            .app
-            .ready_tickets(project)?
-            .into_iter()
-            .filter(|r| self.ready_to_autostart(r.ticket.id).unwrap_or(false))
-            .take(max)
-            .collect();
+        let mut ready = Vec::new();
+        for r in self.app.ready_tickets(project)? {
+            if ready.len() == max {
+                break;
+            }
+            if self.ready_to_autostart(r.ticket.id)? || self.stall_nudge(&r.ticket)? {
+                ready.push(r);
+            }
+        }
         let futs = ready
             .iter()
             .map(|r| self.run_ticket(project, &r.ticket.key));
@@ -1562,7 +1610,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             let needs_review =
                 t.status == TicketStatus::Resolved && (!t.approved || (t.merged || !t.has_code));
             let gated = t.status == TicketStatus::Resolved && t.approved && t.has_code && !t.merged;
-            if needs_review && !gated && self.ready_to_autostart(t.id)? {
+            if needs_review && !gated && (self.ready_to_autostart(t.id)? || self.stall_nudge(&t)?) {
                 match self.review(project, &t.key).await {
                     Ok(s) => out.push(s),
                     Err(e) => tracing::warn!(error = %e, "review run failed"),

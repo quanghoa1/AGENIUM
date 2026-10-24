@@ -99,6 +99,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | SLA of blocking questions -> System comment + NeedsUser (once); Lead escalation (`answer_question.escalate`) | DONE | same test |
 | Team templates: coding, pentest, research, content (TOML, user overrides in `<root>/templates`), create a team from a template (agents, ROLE.md, role scope, report template) | DONE ([ADR-58](adr/ADR-58-team-templates-and-write-scope.md)) | `team_templates.rs` tests; CLI `agenium team templates|template|import|create|show` (smoke-tested on a real root) |
 | Write scope: ticket `scope_paths` AND role allowed paths, widened by path grants; enforced by the file tools and at `submit_report` (covers shell and CLI backends) | DONE | `paths.rs::write_scope`, `team.rs::team_from_template_and_write_scope` |
+| Stall-nudge (decision 28): a ticket whose runs keep stopping gets, after `stall_minutes`, up to `stall_nudges` more runs with a System nudge, then goes to the user once (replaces the immediate NeedsUser) | DONE | `runtime.rs::quota_exhaustion_parks_the_agent_and_repeated_failures_escalate` |
 | Team end to end: approved plan -> Lead creates/assigns tickets -> worker question answered by the Lead -> dependent ticket starts after approve + merge -> both closed | DONE (scripted model) | `runtime.rs::team_lead_inbox_takes_a_plan_to_closed_tickets` |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
