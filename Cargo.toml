@@ -24,6 +24,7 @@ agenium-memory = { path = "agent/memory" }
 agenium-orchestrator = { path = "orchestration/orchestrator" }
 agenium-skills = { path = "agent/skills" }
 agenium-mcp = { path = "agent/mcp" }
+agenium-cli-backend = { path = "agent/cli-backend" }
 
 anyhow = "1"
 async-trait = "0.1"

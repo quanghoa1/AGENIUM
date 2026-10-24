@@ -920,6 +920,22 @@ async fn main() -> Result<()> {
             let sb = agenium_sandbox::detect();
             println!("sandbox: {:?} - {}", sb.backend, sb.reason);
             println!("shell: {}", agenium_sandbox::Shell::detect().describe());
+            println!("agent CLIs (CliBackend, M2.5; Agenium never logs in for you):");
+            for c in agenium_cli_backend::detect_all() {
+                let login = match c.login {
+                    agenium_cli_backend::Login::LoggedIn => "logged in",
+                    agenium_cli_backend::Login::NotLoggedIn => "not logged in",
+                    agenium_cli_backend::Login::Unknown => "login unknown",
+                };
+                match &c.version {
+                    Some(v) => println!(
+                        "  {:<9} {v:<12} {login}{}",
+                        c.kind.program(),
+                        c.note.as_deref().map(|n| format!(" ({n})")).unwrap_or_default()
+                    ),
+                    None => println!("  {:<9} {}", c.kind.program(), c.note.as_deref().unwrap_or("-")),
+                }
+            }
             let models = agenium_config::RootLayout::new(&r).models();
             if agenium_memory::local::installed(&agenium_memory::local::BGE_SMALL_EN, &models) {
                 println!("embedding model: bge-small-en-v1.5 (local)");

@@ -12,6 +12,7 @@ name = "agenium"
 path = "src/main.rs"
 
 [dependencies]
+agenium-cli-backend.workspace = true
 agenium-config.workspace = true
 agenium-core.workspace = true
 agenium-llm.workspace = true
