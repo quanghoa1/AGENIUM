@@ -1,9 +1,8 @@
 # PROGRESS — Agenium (fresh implementation)
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
-`x86_64-pc-windows-gnu`, git 2.45. Command: `.\devtools\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**210 tests** after M3 incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
-ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
+`x86_64-pc-windows-gnu`, git 2.45. After M3: fmt PASS, clippy `-D warnings` PASS, `cargo test --workspace` PASS (**210 passed**, 0 failed, 2
+helpers ignored; run without `AGENIUM_TEST_MODELS`, the local embedding-model tests were last run with it after M1.5), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
 ## Milestones
