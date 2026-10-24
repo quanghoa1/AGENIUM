@@ -1,9 +1,8 @@
 //! Windows backend: Microsoft MXC process containers through `mxc-sdk` (MIT), the native path Codex's
 //! `codex-mxc-sandbox` uses (S2, ADR-53). No Codex binary, no administrator rights, no extra users.
 //!
-//! Portions adapted from OpenAI Codex `codex-rs/mxc-sandbox` (Apache-2.0, https://github.com/openai/codex): the
-//! availability probe and the shape of the container policy (platform read roots, registry read capability,
-//! desktop UI isolation, deny-by-default network). See NOTICE.
+//! The parts adapted from OpenAI Codex (availability probe, container-policy shape, platform folders) live in
+//! `crate::codex_derived`; this file is Agenium's own glue (toolchain roots, paths, environment, run loop).
 //!
 //! Policy: the writable roots (ticket worktree, per-run temp dir) are read-write; the Windows platform folders,
 //! toolchain roots and explicit read roots (repository `.git`, skill folders) are read-only; everything else is
@@ -11,87 +10,21 @@
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use flatbuffers::FlatBufferBuilder;
-use mxc_sdk::mxc_common::cmdline::{cmdline_from_argv_for_context, CommandLineContext};
-use mxc_sdk::mxc_common::filesystem_object::normalize_object_conflicts;
 use mxc_sdk::mxc_common::logger::{Logger, Mode};
-use mxc_sdk::mxc_common::models::{
-    BaseProcessUiConfig, ContainerPolicy, ExecutionRequest, FallbackPolicy, NetworkAction,
-    NetworkEgressPolicy, NetworkIngressPolicy, UiPolicy,
-};
+use mxc_sdk::mxc_common::models::ExecutionRequest;
 use mxc_sdk::mxc_common::sandbox_process::{SandboxBackend, StdioMode};
-use mxc_sdk::mxc_common::ui_policy::resolve_ui_restrictions;
 use mxc_sdk::process_container_common::base_container_runner::BaseContainerRunner;
-use mxc_sdk::process_container_common::job_object::to_job_object_uilimit_mask;
-use mxc_sdk::process_container_common::{
-    ProcessSecurityEnvironmentApi, SecurityEnvironmentStartupInfo,
-    PROCESS_SECURITY_ENVIRONMENT_FLAG_NONE,
-};
-use mxc_sdk::process_security_environment_spec::process_security_environment_layout::{
-    finish_process_security_environment_buffer, EndpointPolicyT, FilterAction, NetworkPolicyT,
-    ProcessSecurityEnvironmentT, SchemaVersionT,
-};
 
+use crate::codex_derived;
+pub use crate::codex_derived::mxc_policy::platform_read_roots;
+pub use crate::codex_derived::mxc_probe::available;
 use crate::{ExecError, ExecOutput, SandboxMode, SandboxPolicy};
 
 // tracelogging (pulled in by mxc-sdk) leaves the ETW import library to the application on GNU targets.
 #[link(name = "advapi32")]
 unsafe extern "system" {}
-
-/// Whether a native MXC process security environment can be created here (probe without launching anything;
-/// cached). Older AppContainer fallbacks of MXC do not count.
-pub fn available() -> bool {
-    static USABLE: OnceLock<bool> = OnceLock::new();
-    *USABLE.get_or_init(|| {
-        let policy = ContainerPolicy::default();
-        let mut egress = EndpointPolicyT::default();
-        egress.default_action = FilterAction::deny;
-        let mut network = NetworkPolicyT::default();
-        network.egress = Some(Box::new(egress));
-        let mut spec = ProcessSecurityEnvironmentT::default();
-        spec.version = SchemaVersionT { major: 1, minor: 0 };
-        spec.disallow_win32k_system_calls = policy.ui.disable;
-        spec.ui_restrictions = u64::from(to_job_object_uilimit_mask(&resolve_ui_restrictions(
-            &policy.ui,
-            &policy.base_process_ui,
-        )));
-        spec.network_policy = Some(Box::new(network));
-        let mut builder = FlatBufferBuilder::with_capacity(1024);
-        let packed = spec.pack(&mut builder);
-        finish_process_security_environment_buffer(&mut builder, packed);
-        ProcessSecurityEnvironmentApi::load()
-            .and_then(|api| {
-                api.create(
-                    builder.finished_data(),
-                    PROCESS_SECURITY_ENVIRONMENT_FLAG_NONE,
-                )
-            })
-            .and_then(|env| {
-                let info = SecurityEnvironmentStartupInfo::new(Default::default(), env.raw(), &[]);
-                env.close();
-                info.map(drop)
-            })
-            .is_ok()
-    })
-}
-
-/// Windows folders every process needs to start (Windows, Program Files, ProgramData).
-pub fn platform_read_roots() -> Vec<PathBuf> {
-    [
-        "SystemRoot",
-        "ProgramFiles",
-        "ProgramFiles(x86)",
-        "ProgramData",
-    ]
-    .iter()
-    .filter_map(std::env::var_os)
-    .map(PathBuf::from)
-    .filter(|p| p.is_dir())
-    .collect()
-}
 
 fn is_unsafe_root(p: &Path, profile: Option<&Path>) -> bool {
     p.parent().is_none() || profile.is_some_and(|h| p == h) || p.components().count() <= 1
@@ -189,7 +122,7 @@ pub fn request(
     if policy.mode == SandboxMode::ReadOnly {
         write.clear();
     }
-    let mut read: Vec<PathBuf> = platform_read_roots();
+    let mut read: Vec<PathBuf> = codex_derived::mxc_policy::platform_read_roots();
     read.extend(
         policy
             .read_roots
@@ -201,57 +134,23 @@ pub fn request(
         read.extend(policy.writable_roots.iter().map(|p| long_path(p)));
     }
     read.retain(|r| !write.iter().any(|w| w == r));
-    let net = if policy.network {
-        NetworkAction::Allow
-    } else {
-        NetworkAction::Deny
-    };
     let mut req = ExecutionRequest {
-        script_code: cmdline_from_argv_for_context(argv, CommandLineContext::WindowsCreateProcess)
+        script_code: codex_derived::mxc_policy::command_line(argv)
             .map_err(|e| ExecError::Refused(format!("command line: {e}")))?,
         working_directory: cwd
             .to_str()
             .ok_or_else(|| ExecError::Refused("MXC needs a Unicode working directory".into()))?
             .to_owned(),
         env: Some(env.iter().map(|(k, v)| format!("{k}={v}")).collect()),
-        policy: ContainerPolicy {
-            capabilities: vec!["registryRead".to_owned()],
-            readwrite_paths: unicode(write)?,
-            readonly_paths: unicode(read)?,
-            denied_paths: vec![],
-            fallback: FallbackPolicy {
-                allow_dacl_mutation: false,
-            },
-            network_egress: Some(NetworkEgressPolicy {
-                default: net,
-                ..Default::default()
-            }),
-            network_ingress: Some(NetworkIngressPolicy {
-                default: net,
-                host_loopback: net,
-            }),
-            network_specified: true,
-            network_mode_specified: true,
-            // PowerShell and some toolchains need Win32k and desktop handles at startup; clipboard, input
-            // injection and system-control restrictions stay.
-            ui: UiPolicy {
-                disable: false,
-                ..Default::default()
-            },
-            base_process_ui: BaseProcessUiConfig {
-                isolation: "desktop".to_owned(),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
+        policy: codex_derived::mxc_policy::container_policy(
+            unicode(write)?,
+            unicode(read)?,
+            policy.network,
+        ),
         ..Default::default()
     };
-    let mut logger = Logger::new(Mode::Buffer);
-    if let Some(n) = normalize_object_conflicts(&req.policy, &mut logger)
-        .map_err(|e| ExecError::Refused(format!("MXC policy: {e}")))?
-    {
-        req.policy = n;
-    }
+    req.policy = codex_derived::mxc_policy::normalize(req.policy)
+        .map_err(|e| ExecError::Refused(format!("MXC policy: {e}")))?;
     Ok(req)
 }
 

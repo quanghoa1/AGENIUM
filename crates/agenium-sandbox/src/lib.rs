@@ -9,6 +9,7 @@
 //!
 //! Without a backend every agent command runs through [`Executor::run`] only after the user approved it (M1-7).
 
+pub mod codex_derived;
 #[cfg(target_os = "linux")]
 pub mod linux;
 #[cfg(windows)]

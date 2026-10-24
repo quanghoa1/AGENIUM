@@ -103,10 +103,63 @@ fn cargo(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// Vendored Codex sources must stay byte-for-byte upstream (`vendor/codex-sandbox/FILES.lock`).
+fn vendor_check() -> Result<()> {
+    use sha2::{Digest, Sha256};
+    let dir = root().join("vendor/codex-sandbox");
+    let lock = std::fs::read_to_string(dir.join("FILES.lock"))?;
+    let mut bad = Vec::new();
+    let mut n = 0;
+    for line in lock
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+    {
+        let (path, want) = line.trim().rsplit_once(' ').unwrap_or((line, ""));
+        n += 1;
+        match std::fs::read(dir.join("upstream").join(path)) {
+            Ok(bytes) => {
+                let got: String = Sha256::digest(&bytes)
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect();
+                if got != want {
+                    bad.push(format!("MODIFIED {path}"));
+                }
+            }
+            Err(_) => bad.push(format!("MISSING {path}")),
+        }
+    }
+    let listed = std::fs::read_to_string(dir.join("FILES.txt"))?;
+    for path in listed
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+    {
+        if !lock.lines().any(|l| l.starts_with(&format!("{path} "))) {
+            bad.push(format!(
+                "UNLOCKED {path} (run scripts/sync-codex-sandbox.sh <ref> --update)"
+            ));
+        }
+    }
+    if !bad.is_empty() {
+        bail!(
+            "vendor/codex-sandbox drifted from upstream:
+{}",
+            bad.join(
+                "
+"
+            )
+        );
+    }
+    println!("vendor/codex-sandbox: {n} files match FILES.lock");
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("schemas") => schemas(args.iter().any(|a| a == "--check")),
+        Some("vendor-check") => vendor_check(),
         Some("ci") => {
             cargo(&["fmt", "--all", "--check"])?;
             cargo(&[
@@ -118,8 +171,9 @@ fn main() -> Result<()> {
                 "warnings",
             ])?;
             cargo(&["test", "--workspace"])?;
-            schemas(true)
+            schemas(true)?;
+            vendor_check()
         }
-        _ => bail!("usage: cargo xtask <schemas [--check] | ci>"),
+        _ => bail!("usage: cargo xtask <schemas [--check] | vendor-check | ci>"),
     }
 }

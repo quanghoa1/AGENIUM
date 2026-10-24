@@ -11,7 +11,8 @@ $steps = @(
   @{ name = "fmt";     cmd = "cargo fmt --all --check" },
   @{ name = "clippy";  cmd = "cargo clippy --workspace --all-targets -- -D warnings" },
   @{ name = "test";    cmd = "cargo test --workspace" },
-  @{ name = "schemas"; cmd = "cargo xtask schemas --check" }
+  @{ name = "schemas"; cmd = "cargo xtask schemas --check" },
+  @{ name = "vendor";  cmd = "cargo xtask vendor-check" }
 )
 if (-not $Quick) { $steps += @{ name = "golden-scripted"; cmd = "cargo run -q -p agenium-eval -- --out target\ci-local\eval" } }
 $results = @()
