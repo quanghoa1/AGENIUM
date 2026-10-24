@@ -64,6 +64,15 @@ Embedding model measured here (release build, `crates/agenium-memory/tests/local
 ADR-40); **46 facts/s single, 77 facts/s batched** (S6 pass >= 20; fastembed/ONNX in S6 was ~5x faster), query
 embedding + ranking ~22 ms. Debug builds are ~2x slower.
 
+## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
+Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
+0.163 `codex sandbox` with the MXC backend and an Agenium permission profile: 0 escapes in the attack matrix (writes,
+reads, junction/symlink/UNC/long paths, TCP/UDP/DNS/localhost, persistence), 20/20 clean tree kills, valid work runs
+(git read, python, node with `--preserve-symlinks-main`, cargo), build overhead +1.7 % (+0.27 s per command), no admin.
+Codex default permissions (reads the whole disk) and the `unelevated` backend (network and detached processes escape)
+fail. Caveats: Windows build 26300 (Insider) only, external Codex binary. Proposed ADR (owner decision): Windows backend
+`codex-mxc`, fail-closed when unavailable. Not implemented yet.
+
 ## Real-model verification (2026-10-23, OpenCode Go subscription, `deepseek-v4.1-flash`, effort medium)
 - CLI end to end: Vietnamese chat -> English spec/plan/ticket, self-assignment -> work run (write, verify with read/grep;
   the one shell command was denied without an approver) -> submit_report -> self-review -> merge -> close.

@@ -1,0 +1,991 @@
+{
+ "codex": "codex-cli 0.163.0",
+ "os": "Microsoft Windows [Version 10.0.26300.9711]",
+ "token": "agenium-s2-041796e8",
+ "modes": {
+  "mxc-profile": {
+   "attack": {
+    "write.documents": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-write.txt'"
+    ],
+    "write.desktop": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Desktop\\\\agenium-s2-write.txt'"
+    ],
+    "write.agenium_root": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\agenium-root\\\\"
+    ],
+    "write.other_worktree": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\project\\\\.agen"
+    ],
+    "write.project_git_config": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\project\\\\.git\\"
+    ],
+    "write.profile_root": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\agenium-s2-write.txt'"
+    ],
+    "write.temp_dir": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\QUANGH~1\\\\AppData\\\\Local\\\\Temp\\\\agenium-s2-write.txt'"
+    ],
+    "write.dotdot": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\project\\\\.agen"
+    ],
+    "write.unc_localhost": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: '\\\\\\\\localhost\\\\C$\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-unc.txt'"
+    ],
+    "write.long_outside": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied: '\\\\\\\\?\\\\C:\\\\Users\\\\quanghoa1\\\\Documents\\\\ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    ],
+    "write.via_junction": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\project\\\\.agen"
+    ],
+    "write.via_new_junction": [
+     "blocked",
+     "PermissionError: Access is denied.\n"
+    ],
+    "write.via_new_symlink": [
+     "blocked",
+     "OSError: [WinError 1314] A required privilege is not held by the client: 'C:\\\\Users\\\\quanghoa1\\\\Documents' -> 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a"
+    ],
+    "read.ssh_dir": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied: 'C:\\\\Users\\\\quanghoa1\\\\.ssh'"
+    ],
+    "read.agenium_config": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\agenium-root\\\\"
+    ],
+    "read.agenium_db": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\agenium-root\\\\"
+    ],
+    "read.documents_canary": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-041796e8-canary.txt'"
+    ],
+    "read.other_worktree": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\6d556d56\\\\project\\\\.agen"
+    ],
+    "net.tcp_ip_1.1.1.1_443": [
+     "blocked",
+     "PermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+    ],
+    "net.tcp_ip_8.8.8.8_53": [
+     "blocked",
+     "PermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+    ],
+    "net.tcp_ipv6": [
+     "blocked",
+     "OSError: [WinError 10051] A socket operation was attempted to an unreachable network"
+    ],
+    "net.dns_resolver": [
+     "blocked",
+     "gaierror: [Errno 11001] getaddrinfo failed"
+    ],
+    "net.udp_dns_8.8.8.8": [
+     "blocked",
+     "TimeoutError: timed out"
+    ],
+    "net.localhost_service": [
+     "blocked",
+     "PermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+    ],
+    "net.listen_all_interfaces": [
+     "escaped",
+     "listening on 0.0.0.0:64083"
+    ],
+    "persist.detached_spawn_attempt": [
+     "ok",
+     "breakaway refused (5); spawned detached pid 12960"
+    ],
+    "persist.scheduled_task": [
+     "blocked",
+     "PermissionError: ERROR: Class not registered"
+    ],
+    "persist.registry_run_key": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied"
+    ],
+    "env.secrets_visible": [
+     "escaped",
+     "[\"AGENIUM_FAKE_TOKEN\", \"AGENIUM_S2_CANARY\"]"
+    ],
+    "work.write_inside": [
+     "ok",
+     "C:\\Users\\quanghoa1\\AppData\\Local\\Temp\\claude\\D--Work-AGENIUM\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\scratchpad\\s2\\run\\6d556d56\\project\\.agenium\\worktrees\\AGN-1\\in"
+    ],
+    "work.long_path_inside": [
+     "ok",
+     "\\\\?\\C:\\Users\\quanghoa1\\AppData\\Local\\Temp\\claude\\D--Work-AGENIUM\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\scratchpad\\s2\\run\\6d556d56\\project\\.agenium\\worktrees\\AGN-"
+    ],
+    "persist.detached_survives_run": [
+     "blocked",
+     "no marker after the run ended"
+    ],
+    "net.localhost_listener_hits": [
+     "blocked",
+     "0 connections reached the host listener"
+    ]
+   },
+   "attack_seconds": 5.8,
+   "leftovers_cleaned": [],
+   "valid_work": {
+    "git_status": {
+     "exit": 128,
+     "seconds": 0.28,
+     "tail": "warning: unable to access 'C:/Users/quanghoa1/.gitconfig': Permission denied\nfatal: not a git repository: C:/Users/quanghoa1/AppData/Local/Temp/claude/D--Work-AGENIUM/6045f105-94e8-4fc2-a46c-f7bdf02392e4/scratchpad/s2/run/6d556d56/project/.git/worktrees/AGN-1\n"
+    },
+    "git_log": {
+     "exit": 128,
+     "seconds": 0.3,
+     "tail": "warning: unable to access 'C:/Users/quanghoa1/.gitconfig': Permission denied\nfatal: not a git repository: C:/Users/quanghoa1/AppData/Local/Temp/claude/D--Work-AGENIUM/6045f105-94e8-4fc2-a46c-f7bdf02392e4/scratchpad/s2/run/6d556d56/project/.git/worktrees/AGN-1\n"
+    },
+    "python_unittest": {
+     "exit": 0,
+     "seconds": 0.38,
+     "tail": "----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    },
+    "node_script": {
+     "exit": 1,
+     "seconds": 0.34,
+     "tail": "er:803:22)\n    at resolveMainPath (node:internal/modules/run_main:35:21)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:146:20)\n    at node:internal/main/run_main_module:33:47 {\n  errno: -4048,\n  code: 'EPERM',\n  syscall: 'lstat',\n  path: 'C:\\\\'\n}\n\nNode.js v24.19.0\n"
+    },
+    "cargo_test": {
+     "exit": 0,
+     "seconds": 17.11,
+     "tail": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+    }
+   },
+   "overhead": {
+    "startup_inside_s": 0.319,
+    "startup_outside_s": 0.048,
+    "outside_s": [
+     15.5,
+     15.57,
+     15.57
+    ],
+    "inside_s": [
+     15.78,
+     15.88,
+     15.84
+    ],
+    "exit_codes": [
+     0,
+     0,
+     0
+    ],
+    "overhead_pct": 1.7
+   },
+   "kill": [
+    {
+     "round": 0,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 1,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 2,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 3,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 4,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 5,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 6,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 7,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 8,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 9,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 10,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 11,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 12,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 13,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 14,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 15,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 16,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 17,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 18,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 19,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    }
+   ],
+   "leftovers_after": []
+  },
+  "mxc": {
+   "attack": {
+    "write.documents": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-write.txt'"
+    ],
+    "write.desktop": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Desktop\\\\agenium-s2-write.txt'"
+    ],
+    "write.agenium_root": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\faafdf80\\\\agenium-root\\\\"
+    ],
+    "write.other_worktree": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\faafdf80\\\\project\\\\.agen"
+    ],
+    "write.project_git_config": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\faafdf80\\\\project\\\\.git\\"
+    ],
+    "write.profile_root": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\agenium-s2-write.txt'"
+    ],
+    "write.temp_dir": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\QUANGH~1\\\\AppData\\\\Local\\\\Temp\\\\agenium-s2-write.txt'"
+    ],
+    "write.dotdot": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\faafdf80\\\\project\\\\.agen"
+    ],
+    "write.unc_localhost": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: '\\\\\\\\localhost\\\\C$\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-unc.txt'"
+    ],
+    "write.long_outside": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied: '\\\\\\\\?\\\\C:\\\\Users\\\\quanghoa1\\\\Documents\\\\ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    ],
+    "write.via_junction": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\faafdf80\\\\project\\\\.agen"
+    ],
+    "write.via_new_junction": [
+     "blocked",
+     "PermissionError: Access is denied.\n"
+    ],
+    "write.via_new_symlink": [
+     "blocked",
+     "OSError: [WinError 1314] A required privilege is not held by the client: 'C:\\\\Users\\\\quanghoa1\\\\Documents' -> 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a"
+    ],
+    "read.ssh_dir": [
+     "escaped",
+     "<listing of ~/.ssh redacted>"
+    ],
+    "read.agenium_config": [
+     "escaped",
+     "read 20 bytes"
+    ],
+    "read.agenium_db": [
+     "escaped",
+     "read 116 bytes"
+    ],
+    "read.documents_canary": [
+     "escaped",
+     "read 15 bytes"
+    ],
+    "read.other_worktree": [
+     "escaped",
+     "read 14 bytes"
+    ],
+    "net.tcp_ip_1.1.1.1_443": [
+     "blocked",
+     "PermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+    ],
+    "net.tcp_ip_8.8.8.8_53": [
+     "blocked",
+     "PermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+    ],
+    "net.tcp_ipv6": [
+     "blocked",
+     "OSError: [WinError 10051] A socket operation was attempted to an unreachable network"
+    ],
+    "net.dns_resolver": [
+     "blocked",
+     "gaierror: [Errno 11001] getaddrinfo failed"
+    ],
+    "net.udp_dns_8.8.8.8": [
+     "blocked",
+     "TimeoutError: timed out"
+    ],
+    "net.localhost_service": [
+     "blocked",
+     "PermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+    ],
+    "net.listen_all_interfaces": [
+     "escaped",
+     "listening on 0.0.0.0:64261"
+    ],
+    "persist.detached_spawn_attempt": [
+     "ok",
+     "breakaway refused (5); spawned detached pid 13704"
+    ],
+    "persist.scheduled_task": [
+     "blocked",
+     "PermissionError: ERROR: The network address is invalid."
+    ],
+    "persist.registry_run_key": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied"
+    ],
+    "env.secrets_visible": [
+     "escaped",
+     "[\"AGENIUM_FAKE_TOKEN\", \"AGENIUM_S2_CANARY\"]"
+    ],
+    "work.write_inside": [
+     "ok",
+     "C:\\Users\\quanghoa1\\AppData\\Local\\Temp\\claude\\D--Work-AGENIUM\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\scratchpad\\s2\\run\\faafdf80\\project\\.agenium\\worktrees\\AGN-1\\in"
+    ],
+    "work.long_path_inside": [
+     "ok",
+     "\\\\?\\C:\\Users\\quanghoa1\\AppData\\Local\\Temp\\claude\\D--Work-AGENIUM\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\scratchpad\\s2\\run\\faafdf80\\project\\.agenium\\worktrees\\AGN-"
+    ],
+    "persist.detached_survives_run": [
+     "blocked",
+     "no marker after the run ended"
+    ],
+    "net.localhost_listener_hits": [
+     "blocked",
+     "0 connections reached the host listener"
+    ]
+   },
+   "attack_seconds": 6.0,
+   "leftovers_cleaned": [],
+   "valid_work": {
+    "git_status": {
+     "exit": 0,
+     "seconds": 0.31,
+     "tail": "?? demo.js\n?? demo/\n?? escape_junction/\n?? inside.txt\n?? s2_payload.py\n?? targets.json\n?? test_demo.py\n?? xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/\n"
+    },
+    "git_log": {
+     "exit": 0,
+     "seconds": 0.35,
+     "tail": "f1b9e6a init\n"
+    },
+    "python_unittest": {
+     "exit": 0,
+     "seconds": 0.41,
+     "tail": "----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    },
+    "node_script": {
+     "exit": 0,
+     "seconds": 0.33,
+     "tail": "win32 2,4,6\n"
+    },
+    "cargo_test": {
+     "exit": 0,
+     "seconds": 16.85,
+     "tail": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+    }
+   },
+   "overhead": {
+    "startup_inside_s": 0.332,
+    "startup_outside_s": 0.047,
+    "outside_s": [
+     15.39,
+     15.48,
+     15.45
+    ],
+    "inside_s": [
+     15.7,
+     15.65,
+     16.34
+    ],
+    "exit_codes": [
+     0,
+     0,
+     0
+    ],
+    "overhead_pct": 1.6
+   },
+   "kill": [
+    {
+     "round": 0,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 1,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 2,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 3,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 4,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 5,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 6,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 7,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 8,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 9,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 10,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 11,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 12,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 13,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 14,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 15,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 16,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 17,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 18,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 19,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    }
+   ],
+   "leftovers_after": []
+  },
+  "unelevated": {
+   "attack": {
+    "write.documents": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-write.txt'"
+    ],
+    "write.desktop": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\Desktop\\\\agenium-s2-write.txt'"
+    ],
+    "write.agenium_root": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\9aae528e\\\\agenium-root\\\\"
+    ],
+    "write.other_worktree": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\9aae528e\\\\project\\\\.agen"
+    ],
+    "write.project_git_config": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\9aae528e\\\\project\\\\.git\\"
+    ],
+    "write.profile_root": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\agenium-s2-write.txt'"
+    ],
+    "write.temp_dir": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\QUANGH~1\\\\AppData\\\\Local\\\\Temp\\\\agenium-s2-write.txt'"
+    ],
+    "write.dotdot": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\9aae528e\\\\project\\\\.agen"
+    ],
+    "write.unc_localhost": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: '\\\\\\\\localhost\\\\C$\\\\Users\\\\quanghoa1\\\\Documents\\\\agenium-s2-unc.txt'"
+    ],
+    "write.long_outside": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied: '\\\\\\\\?\\\\C:\\\\Users\\\\quanghoa1\\\\Documents\\\\ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    ],
+    "write.via_junction": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\9aae528e\\\\project\\\\.agen"
+    ],
+    "write.via_new_junction": [
+     "blocked",
+     "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\\\scratchpad\\\\s2\\\\run\\\\9aae528e\\\\project\\\\.agen"
+    ],
+    "write.via_new_symlink": [
+     "blocked",
+     "OSError: [WinError 1314] A required privilege is not held by the client: 'C:\\\\Users\\\\quanghoa1\\\\Documents' -> 'C:\\\\Users\\\\quanghoa1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-AGENIUM\\\\6045f105-94e8-4fc2-a"
+    ],
+    "read.ssh_dir": [
+     "escaped",
+     "<listing of ~/.ssh redacted>"
+    ],
+    "read.agenium_config": [
+     "escaped",
+     "read 20 bytes"
+    ],
+    "read.agenium_db": [
+     "escaped",
+     "read 116 bytes"
+    ],
+    "read.documents_canary": [
+     "escaped",
+     "read 15 bytes"
+    ],
+    "read.other_worktree": [
+     "escaped",
+     "read 14 bytes"
+    ],
+    "net.tcp_ip_1.1.1.1_443": [
+     "escaped",
+     "connected 1.1.1.1:443"
+    ],
+    "net.tcp_ip_8.8.8.8_53": [
+     "escaped",
+     "connected 8.8.8.8:53"
+    ],
+    "net.tcp_ipv6": [
+     "blocked",
+     "OSError: [WinError 10051] A socket operation was attempted to an unreachable network"
+    ],
+    "net.dns_resolver": [
+     "escaped",
+     "('104.20.23.154', 443)"
+    ],
+    "net.udp_dns_8.8.8.8": [
+     "escaped",
+     "udp dns answer 61 bytes"
+    ],
+    "net.localhost_service": [
+     "escaped",
+     "connected 127.0.0.1:60394"
+    ],
+    "net.listen_all_interfaces": [
+     "escaped",
+     "listening on 0.0.0.0:60399"
+    ],
+    "persist.detached_spawn_attempt": [
+     "ok",
+     "spawned breakaway pid 45336"
+    ],
+    "persist.scheduled_task": [
+     "blocked",
+     "PermissionError: ERROR: The system cannot find the path specified."
+    ],
+    "persist.registry_run_key": [
+     "blocked",
+     "PermissionError: [WinError 5] Access is denied"
+    ],
+    "env.secrets_visible": [
+     "escaped",
+     "[\"AGENIUM_FAKE_TOKEN\", \"AGENIUM_S2_CANARY\"]"
+    ],
+    "work.write_inside": [
+     "ok",
+     "C:\\Users\\quanghoa1\\AppData\\Local\\Temp\\claude\\D--Work-AGENIUM\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\scratchpad\\s2\\run\\9aae528e\\project\\.agenium\\worktrees\\AGN-1\\in"
+    ],
+    "work.long_path_inside": [
+     "ok",
+     "\\\\?\\C:\\Users\\quanghoa1\\AppData\\Local\\Temp\\claude\\D--Work-AGENIUM\\6045f105-94e8-4fc2-a46c-f7bdf02392e4\\scratchpad\\s2\\run\\9aae528e\\project\\.agenium\\worktrees\\AGN-"
+    ],
+    "persist.detached_survives_run": [
+     "escaped",
+     "marker written after the run ended"
+    ],
+    "net.localhost_listener_hits": [
+     "escaped",
+     "1 connections reached the host listener"
+    ]
+   },
+   "attack_seconds": 1.8,
+   "leftovers_cleaned": [],
+   "valid_work": {
+    "git_status": {
+     "exit": 0,
+     "seconds": 0.15,
+     "tail": "?? demo.js\n?? demo/\n?? detached_marker.txt\n?? escape_junction/\n?? inside.txt\n?? new_junction/\n?? s2_payload.py\n?? targets.json\n?? test_demo.py\n?? xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/\n"
+    },
+    "git_log": {
+     "exit": 0,
+     "seconds": 0.13,
+     "tail": "79a11e1 init\n"
+    },
+    "python_unittest": {
+     "exit": 0,
+     "seconds": 0.25,
+     "tail": "----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    },
+    "node_script": {
+     "exit": 0,
+     "seconds": 0.17,
+     "tail": "win32 2,4,6\n"
+    },
+    "cargo_test": {
+     "exit": 0,
+     "seconds": 16.45,
+     "tail": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+    }
+   },
+   "overhead": {
+    "startup_inside_s": 0.159,
+    "startup_outside_s": 0.046,
+    "outside_s": [
+     15.29,
+     15.14,
+     15.54
+    ],
+    "inside_s": [
+     15.26,
+     15.4,
+     15.39
+    ],
+    "exit_codes": [
+     0,
+     0,
+     0
+    ],
+    "overhead_pct": 0.7
+   },
+   "kill": [
+    {
+     "round": 0,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 1,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 2,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 3,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 4,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 5,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 6,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 7,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 8,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 9,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 10,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 11,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 12,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 13,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 14,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 15,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 16,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 17,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 18,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    },
+    {
+     "round": 19,
+     "job_assigned": true,
+     "processes_started": 7,
+     "orphans": [],
+     "heartbeats_after_kill": 0
+    }
+   ],
+   "leftovers_after": []
+  }
+ }
+}

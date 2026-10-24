@@ -1,0 +1,15 @@
+[permissions.agenium]
+description = "Agenium ticket worktree: write the worktree, read toolchains, no network"
+
+[permissions.agenium.filesystem]
+":minimal" = "read"
+":project_roots" = "write"
+'C:\Users\quanghoa1\miniconda3' = "read"
+'C:\Program Files\nodejs' = "read"
+'C:\Program Files\Git' = "read"
+'C:\Users\quanghoa1\.cargo' = "read"
+'C:\Users\quanghoa1\.rustup' = "read"
+'C:\msys64\mingw64' = "read"
+
+[permissions.agenium.network]
+enabled = false

@@ -1,0 +1,5 @@
+git status                               exit=0 d | warning: could not open directory 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/': Filename too long
+git diff                                 exit=0 README.md | 2 +- |  1 file changed, 1 insertion(+), 1 deletion(-)
+git commit (agent should not commit)     exit=128 ta/Local/Temp/claude/D--Work-AGENIUM/6045f105-94e8-4fc2-a46c-f7bdf02392e4/scratchpad/s2/run/9aae528e/project/.git/worktrees/AGN-1/index.lock': Permission denied
+node plain                               exit=1 46:20) |     at node:internal/main/run_main_module:33:47 { |   errno: -4048, |   code: 'EPERM', |   syscall: 'lstat', |   path: 'C:\\' | } |  | Node.js v24.19.0
+node --preserve-symlinks-main            exit=0 win32 2,4,6
