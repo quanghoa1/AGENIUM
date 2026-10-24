@@ -118,7 +118,6 @@ export function CommandRow({ a }: { a: CommandApproval }) {
           <Mono className="text-subtle">{ago(a.at)}</Mono>
         </div>
         <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.command}</pre>
-        <div className="mt-1 truncate font-mono text-[10px] text-subtle">{a.cwd}</div>
       </div>
       <div className="flex shrink-0 gap-1.5">
         <button className="btn-danger" onClick={() => decide("deny")}>

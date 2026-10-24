@@ -1,8 +1,10 @@
 // The pixel office of the Live tab: one room per team (Solo agents and the pool share one), seen from above like a
-// small RPG map. Agents sit at their desk (back turned, the CRT shows what they do: green text for a shell command,
-// blue for other tools and writing, violet while thinking, amber while waiting), walk the room along free tiles when
-// idle, sit on the lounge sofa now and then, sleep at the desk when offline. Bubbles: "..." thinking, "?" waiting,
-// a wrench/prompt while calling a tool, Zz. Messages between the Lead and a worker fly across as envelopes.
+// small RPG map. An agent with a task (an open ticket, a run, or for a Lead a team with open tickets) sits at its
+// desk, back turned, the CRT showing what it does (green text for a shell command, blue for other tools and
+// writing, violet while thinking, amber while waiting); an agent without a task walks to the lounge and sits on
+// the sofa or an armchair; offline agents sleep at the desk. Every character carries its name. Bubbles: "..."
+// thinking, "?" waiting, a wrench/prompt while calling a tool, Zz. Dashed lines from the Lead's desk to a worker's
+// desk are delegations (labelled with the ticket); messages between them fly across as envelopes.
 // The look follows pixel-agents (https://github.com/pixel-agents-hq/pixel-agents); the art and the code are our own:
 // every sprite below is a hand-made character map, every piece of furniture is drawn from rectangles.
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +16,8 @@ export interface OfficeAgent {
   agent: LiveAgent;
   activity: Activity;
   ticker: string;
+  /** Has a task (open ticket, run, or a team at work for a Lead): sits at the desk even while waiting. */
+  duty: boolean;
 }
 
 interface Props {
@@ -30,8 +34,8 @@ interface Props {
   zoom?: number;
   /** What each agent calls right now, shown as a sign over its desk. */
   signs?: Record<string, { kind: CallKind; text: string }>;
-  /** Delegations to draw as flow lines: Lead -> worker. */
-  flows?: [string, string][];
+  /** Delegations to draw as flow lines: Lead -> worker, with the ticket. */
+  flows?: [string, string, string?][];
   /** Whiteboard lines (the team's plan progress). */
   board?: string[];
   /** Smaller, calmer rendering for the all-rooms (CCTV) grid. */
@@ -421,6 +425,19 @@ function sign(g: CanvasRenderingContext2D, cx: number, y: number, kind: CallKind
   g.fillText(label, x + tw + 5, y + 1.5);
 }
 
+/** A small dark pill with text, centred on cx (names over heads, tickets on delegation lines). */
+function label(g: CanvasRenderingContext2D, cx: number, y: number, text: string, bg: string, fg: string) {
+  g.font = "bold 4px ui-sans-serif, system-ui";
+  // Long names keep both ends (teams name their agents "<team>-<role>-<n>"): "teamdemo…archer-1".
+  const t = text.length > 18 ? `${text.slice(0, 8)}…${text.slice(-9)}` : text;
+  const w = Math.ceil(g.measureText(t).width) + 4;
+  const x = Math.round(cx - w / 2);
+  R(g, x, y, w, 6, bg);
+  g.fillStyle = fg;
+  g.textBaseline = "top";
+  g.fillText(t, x + 2, y + 1);
+}
+
 function crown(g: CanvasRenderingContext2D, x: number, y: number) {
   R(g, x, y + 2, 7, 3, "#f5c518");
   R(g, x, y, 1, 2, "#f5c518");
@@ -522,7 +539,7 @@ function buildLayout(cols: number, ids: string[], lead: string | null | undefine
   workers.forEach((id, i) => {
     const sx = slots[i % slots.length];
     const sy = y + Math.floor(i / slots.length) * 3;
-    desks.set(id, { desk: { tx: sx, ty: sy }, chair: { tx: sx + (i % 2), ty: sy + 1 }, wide: false });
+    desks.set(id, { desk: { tx: sx, ty: sy }, chair: { tx: sx + 1, ty: sy + 1 }, wide: false });
     blocked.add(key(sx, sy));
     blocked.add(key(sx + 1, sy));
   });
@@ -565,6 +582,13 @@ function buildLayout(cols: number, ids: string[], lead: string | null | undefine
   ];
   for (let x = rx; x < rx + rugW; x++) {
     if (!blocked.has(key(x, ly + 1))) loungeSeats.push({ spot: { tx: x, ty: ly + 1 }, facing: "down", seat: false });
+  }
+  // More room to stand around the lounge when many agents are free.
+  for (let x = rx; x < rx + rugW; x++) {
+    if (!blocked.has(key(x, ly + 2))) loungeSeats.push({ spot: { tx: x, ty: ly + 2 }, facing: "up", seat: false });
+  }
+  for (let x = rx - 1; x >= 2; x--) {
+    if (!blocked.has(key(x, ly + 1))) loungeSeats.push({ spot: { tx: x, ty: ly + 1 }, facing: "right", seat: false });
   }
   return {
     cols,
@@ -616,22 +640,27 @@ function path(l: Layout, from: Spot, to: Spot): Spot[] {
 
 // ---------------------------------------------------------------- walkers
 
-type Plan = "desk" | "wander" | "sofa";
+type Plan = "desk" | "sofa";
 
 interface Walker {
   x: number; // feet centre, virtual px
   y: number;
   route: Spot[];
+  /** Exact place to end on after the route (the middle of a desk). */
+  goal: { x: number; y: number } | null;
   plan: Plan;
-  wait: number;
   facing: Facing;
   sitting: "desk" | "sofa" | null;
   /** Facing once seated in the lounge. */
   seatFacing: Facing;
+  /** The lounge place it is going to (changes when others come and go). */
+  seat: string;
   layoutKey: string;
 }
 
 const tileCentre = (s: Spot) => ({ x: s.tx * T + T / 2, y: s.ty * T + T - 2 });
+/** Where an agent sits at its desk: the middle of the desk. */
+const deskSeat = (d: { desk: Spot; chair: Spot; wide: boolean }) => ({ x: d.desk.tx * T + (d.wide ? 1.5 * T : T), y: tileCentre(d.chair).y });
 
 export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, flights, reduceMotion, zoom, signs, flows, board, compact }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -704,64 +733,41 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
       g.lineWidth = 2;
       g.strokeRect(1, 1, W - 2, H - 2);
 
-      // walkers follow their plan along the tile path
+      // Who works (sits at the desk) and who is free (goes to the lounge, one place each, sofa first).
       const byId = new Map(agents.map((a) => [a.agent.agent.id, a]));
-      const homeless = agents.filter((a) => !lay.desks.has(a.agent.agent.id)).map((a) => a.agent.agent.id);
+      const atDesk = (oa: OfficeAgent) => lay.desks.has(oa.agent.agent.id) && (oa.duty || oa.activity !== "idle");
+      const free = agents.filter((a) => !atDesk(a)).map((a) => a.agent.agent.id);
       for (const oa of agents) {
         const id = oa.agent.agent.id;
         const d = lay.desks.get(id);
-        const lounge = lay.loungeSeats[Math.max(0, homeless.indexOf(id)) % Math.max(1, lay.loungeSeats.length)];
-        const home = d ? d.chair : lounge.spot;
+        const lounge = lay.loungeSeats[Math.max(0, free.indexOf(id)) % Math.max(1, lay.loungeSeats.length)];
+        const working = atDesk(oa);
+        const seatKey = working ? "desk" : key(lounge.spot.tx, lounge.spot.ty);
         let w = walkers.current.get(id);
         if (!w || w.layoutKey !== layoutKey) {
-          const p = tileCentre(home);
-          w = { x: p.x, y: p.y, route: [], plan: d ? "desk" : "sofa", wait: 2000 + Math.random() * 6000, facing: d ? "up" : lounge.facing, sitting: d ? "desk" : lounge.seat ? "sofa" : null, seatFacing: lounge.facing, layoutKey };
+          const p = working ? deskSeat(d!) : tileCentre(lounge.spot);
+          w = { x: p.x, y: p.y, route: [], goal: null, plan: working ? "desk" : "sofa", facing: working ? "up" : lounge.facing, sitting: working ? "desk" : lounge.seat ? "sofa" : null, seatFacing: lounge.facing, seat: seatKey, layoutKey };
           walkers.current.set(id, w);
         }
-        const busy = oa.activity !== "idle";
-        const here = { tx: Math.floor(w.x / T), ty: Math.floor((w.y - 1) / T) };
-        const go = (to: Spot, plan: Plan) => {
-          w!.route = still ? [] : path(lay, here, to);
-          w!.plan = plan;
-          w!.sitting = null;
-          if (still || !w!.route.length) {
-            const p = tileCentre(to);
-            w!.x = p.x;
-            w!.y = p.y;
-            w!.sitting = plan === "desk" ? "desk" : plan === "sofa" ? "sofa" : null;
-            w!.facing = plan === "desk" ? "up" : plan === "sofa" ? w!.seatFacing : "down";
-          }
-        };
-        if (busy && d && w.plan !== "desk") {
-          // Work (and sleep) happen at the desk.
-          go(d.chair, "desk");
-        } else if (!busy && !w.route.length) {
-          w.wait -= dt;
-          if (w.wait <= 0 && !still) {
-            if (w.plan === "desk" || w.plan === "sofa") {
-              // Up for a short walk to a free tile.
-              let spot: Spot | null = null;
-              for (let i = 0; i < 20 && !spot; i++) {
-                const s = { tx: 1 + Math.floor(Math.random() * (lay.cols - 2)), ty: 2 + Math.floor(Math.random() * (lay.rows - 3)) };
-                if (!lay.blocked.has(key(s.tx, s.ty))) spot = s;
-              }
-              if (spot) go(spot, "wander");
-              w.wait = 1500 + Math.random() * 2500;
-            } else if (Math.random() < 0.35 || !d) {
-              // A seat in the lounge (the pool's own place, or a free one for a break).
-              const seats = lay.loungeSeats.filter((x) => x.seat);
-              const pick = d ? seats[Math.floor(Math.random() * seats.length)] : lounge;
-              w.seatFacing = pick.facing;
-              go(pick.spot, "sofa");
-              w.wait = 6000 + Math.random() * 8000;
-            } else {
-              go(home, "desk");
-              w.wait = 5000 + Math.random() * 9000;
-            }
+        if (w.seat !== seatKey) {
+          // Going to work, or to the lounge (or another lounge place).
+          w.seat = seatKey;
+          w.plan = working ? "desk" : "sofa";
+          w.seatFacing = lounge.facing;
+          const to = working ? d!.chair : lounge.spot;
+          const end = working ? deskSeat(d!) : tileCentre(lounge.spot);
+          const here = { tx: Math.floor(w.x / T), ty: Math.floor((w.y - 1) / T) };
+          w.route = still ? [] : path(lay, here, to);
+          w.goal = end;
+          w.sitting = null;
+          if (still || !w.route.length) {
+            w.x = end.x;
+            w.y = end.y;
+            w.route = [];
           }
         }
-        if (w.route.length) {
-          const next = tileCentre(w.route[0]);
+        const next = w.route.length ? tileCentre(w.route[0]) : w.goal && (Math.abs(w.goal.x - w.x) > 0.01 || Math.abs(w.goal.y - w.y) > 0.01) ? w.goal : null;
+        if (next) {
           const dx = next.x - w.x;
           const dy = next.y - w.y;
           const v = 0.045 * dt;
@@ -771,14 +777,14 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
           } else if (Math.abs(dy) > 0.01) {
             w.y += Math.sign(dy) * Math.min(v, Math.abs(dy));
             w.facing = dy > 0 ? "down" : "up";
-          } else {
+          } else if (w.route.length) {
             w.route.shift();
-            if (!w.route.length) {
-              w.sitting = w.plan === "desk" ? "desk" : w.plan === "sofa" ? "sofa" : null;
-              if (w.sitting === "desk") w.facing = "up";
-              if (w.sitting === "sofa") w.facing = w.seatFacing;
-            }
           }
+        } else if (!w.sitting && w.goal) {
+          // Arrived.
+          w.goal = null;
+          w.sitting = w.plan === "desk" ? "desk" : lounge.seat ? "sofa" : null;
+          w.facing = w.plan === "desk" ? "up" : w.seatFacing;
         }
       }
 
@@ -793,8 +799,8 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
           const a = lay.desks.get(from);
           const b = lay.desks.get(to);
           if (!a || !b) continue;
-          const p = tileCentre(a.chair);
-          const q = tileCentre(b.chair);
+          const p = deskSeat(a);
+          const q = deskSeat(b);
           const midY = Math.round((p.y + (q.y - 18)) / 2) + 4;
           g.beginPath();
           g.moveTo(p.x + 0.5, p.y + 0.5);
@@ -804,11 +810,20 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
           g.stroke();
         }
         g.restore();
+        for (const [from, to, ticket] of flows) {
+          const a = lay.desks.get(from);
+          const b = lay.desks.get(to);
+          if (!a || !b || !ticket) continue;
+          const p = deskSeat(a);
+          const q = deskSeat(b);
+          const midY = Math.round((p.y + (q.y - 18)) / 2) + 4;
+          label(g, Math.round((p.x + q.x) / 2), midY - 3, ticket, "#facc15", "#1b1726");
+        }
       }
       // desks and chairs, the sofa, then people by depth, bubbles on top
       for (const [id, d] of lay.desks) {
         const act = byId.get(id)?.activity ?? "idle";
-        chair(g, d.chair.tx * T, d.chair.ty * T, id === lead ? "#7a5bd6" : "#4f9a6a");
+        chair(g, deskSeat(d).x - T / 2, d.chair.ty * T, id === lead ? "#7a5bd6" : "#4f9a6a");
         desk(g, d.desk.tx * T, d.desk.ty * T, act, t, still, d.wide);
       }
       sofa(g, lay.sofaAt.tx * T, lay.sofaAt.ty * T);
@@ -819,7 +834,7 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
         const id = oa.agent.agent.id;
         const w = walkers.current.get(id)!;
         const l = look(id);
-        const walking = w.route.length > 0;
+        const walking = !w.sitting && (w.route.length > 0 || !!w.goal);
         const typing = w.sitting === "desk" && (oa.activity === "tool" || oa.activity === "shell" || oa.activity === "text") && !still;
         const sx = Math.round(w.x - 6);
         let sy = Math.round(w.y - 18);
@@ -836,16 +851,16 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
         if (oa.activity === "off" && w.sitting === "desk") sprite(g, map, sx, sy + 3, l, false, rows - 3);
         else sprite(g, map, sx, sy, l, w.facing === "left", rows);
         if (id === selected) R(g, sx - 1, sy + rows + 1, 14, 1, "#3b82f6");
-        if (id === lead) crown(g, sx + 2, sy - 7);
+        if (id === lead) crown(g, sx + 2, sy - 14);
         const bx = sx + 7;
-        const by = sy - (id === lead ? 19 : 12);
+        const by = sy - (id === lead ? 26 : 19);
         if (oa.activity === "thinking") bubble(g, bx, by, "dots", Math.floor(t / 350));
         else if (oa.activity === "waiting") bubble(g, bx, by, "q", 0);
         else if (oa.activity === "shell") bubble(g, bx, by, "shell", frame);
         else if (oa.activity === "tool") bubble(g, bx, by, "tool", frame);
         else if (oa.activity === "text") bubble(g, bx, by, "pen", frame);
         else if (oa.activity === "off") bubble(g, bx, by, "z", frame);
-        hit.push({ id, x: sx - 2, y: sy - 4, w: 16, h: rows + 6 });
+        hit.push({ id, x: sx - 2, y: sy - 8, w: 16, h: rows + 10 });
       }
       // what each agent calls now, over its desk
       if (signs) {
@@ -855,6 +870,13 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
           const w = d.wide ? 3 * T : 2 * T;
           sign(g, d.desk.tx * T + w / 2, d.desk.ty * T - 16, sgn.kind, sgn.text);
         }
+      }
+      // names over the heads (after the signs, so they stay readable)
+      for (const oa of agents) {
+        const id = oa.agent.agent.id;
+        const w = walkers.current.get(id)!;
+        const top = Math.round(w.y - 18) - (w.sitting === "desk" ? 3 : w.sitting === "sofa" ? 2 : 0);
+        label(g, Math.round(w.x), top - 7, oa.agent.agent.name, id === selected ? "#2563eb" : "#111827e6", "#ffffff");
       }
       // envelopes between a Lead and a worker
       const now = performance.now();

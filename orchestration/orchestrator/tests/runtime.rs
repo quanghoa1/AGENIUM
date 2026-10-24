@@ -42,6 +42,8 @@ fn solo(app: &agenium_orchestrator::App) -> (ProjectId, AgentId) {
             path: None,
             key_prefix: None,
             template: None,
+            folder: None,
+            repo: None,
         })
         .unwrap();
     let (_, a) = app
@@ -616,6 +618,8 @@ async fn vendor_switch_keeps_memory_skills_and_conversation() {
             path: None,
             key_prefix: None,
             template: None,
+            folder: None,
+            repo: None,
         })
         .unwrap();
     let mut spec_a = agent_spec("ada", "solo", RoleKind::Lead, &[]);
@@ -877,23 +881,24 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
         timeout_secs: 10,
     })
     .unwrap();
-    // A literal secret in config.toml is refused.
-    assert!(app
-        .put_mcp_server(agenium_config::McpServerConfig {
-            id: "bad".into(),
-            command: Some("x".into()),
-            args: vec![],
-            env: [("API_TOKEN".to_string(), "abc".to_string())].into(),
-            url: None,
-            headers: Default::default(),
-            timeout_secs: 10,
-        })
-        .is_err());
+    // A key written as a plain value is the server's system key (the owner's decision: shown in the app).
+    app.put_mcp_server(agenium_config::McpServerConfig {
+        id: "plain".into(),
+        command: Some("x".into()),
+        args: vec![],
+        env: [("API_TOKEN".to_string(), "abc".to_string())].into(),
+        url: None,
+        headers: Default::default(),
+        timeout_secs: 10,
+    })
+    .unwrap();
+    app.remove_mcp_server("plain").unwrap();
     app.set_agent_mcp(
         agent,
         &[agenium_mcp::Binding {
             server: "docs".into(),
             credentials: [("TOKEN".to_string(), "docs-dev".to_string())].into(),
+            keys: Default::default(),
             tools: None,
         }],
     )
@@ -1193,6 +1198,8 @@ async fn team_lead_inbox_takes_a_plan_to_closed_tickets() {
             path: None,
             key_prefix: None,
             template: None,
+            folder: None,
+            repo: None,
         })
         .unwrap()
         .id;
@@ -1405,6 +1412,8 @@ async fn planner_drafts_then_the_lead_creates_the_plan() {
             path: None,
             key_prefix: None,
             template: None,
+            folder: None,
+            repo: None,
         })
         .unwrap()
         .id;

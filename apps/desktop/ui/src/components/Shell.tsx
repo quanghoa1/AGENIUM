@@ -174,16 +174,6 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        {!collapsed && (
-          <div className="border-t border-line p-3">
-            <div className="rounded-lg border border-line bg-elevated p-2.5">
-              <div className="label">{t("settings.root")}</div>
-              <div className="mt-1 truncate font-mono text-[10px] text-muted" title={app.status?.root}>
-                {app.status?.root ?? "…"}
-              </div>
-            </div>
-          </div>
-        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -208,7 +198,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <button
             onClick={() => app.setAutopilot(!app.autopilot)}
             className={cn("btn", app.autopilot && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")}
-            title={t("top.autopilot")}
+            title={t("settings.autopilotNote")}
           >
             <Play className="h-3.5 w-3.5" />
             {t("top.autopilot")}: {app.autopilot ? "ON" : "OFF"}

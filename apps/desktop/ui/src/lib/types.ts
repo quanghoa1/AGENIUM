@@ -442,6 +442,14 @@ export interface LiveRun {
   tools: number;
 }
 
+/** One key of an MCP server an agent uses: the server's (system) value and the agent's own key. */
+export interface AgentMcpKey {
+  server: string;
+  name: string;
+  system?: string | null;
+  own?: string | null;
+}
+
 export interface LiveAgent {
   agent: AgentRecord;
   team?: string | null;

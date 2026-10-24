@@ -72,6 +72,7 @@ pub fn create_agent(d: State<'_, Desktop>, form: AgentForm) -> R<Value> {
                 .map(|server| agenium_mcp::Binding {
                     server,
                     credentials: Default::default(),
+                    keys: Default::default(),
                     tools: None,
                 })
                 .collect(),
@@ -112,6 +113,31 @@ pub fn toggle_agent_mcp(d: State<'_, Desktop>, agent: String, server: String, on
     d.opened()?
         .app
         .toggle_agent_mcp(aid(&agent)?, &server, on)
+        .map_err(err)
+}
+
+/// The keys of the MCP servers an agent uses: the system value and the agent's own key (shown as they are).
+#[tauri::command]
+pub fn agent_mcp_keys(d: State<'_, Desktop>, agent: String) -> R<Value> {
+    Ok(json!(d
+        .opened()?
+        .app
+        .agent_mcp_keys(aid(&agent)?)
+        .map_err(err)?))
+}
+
+/// Sets an agent's own key for one entry of a server (`value` null: back to the system key).
+#[tauri::command]
+pub fn set_agent_mcp_key(
+    d: State<'_, Desktop>,
+    agent: String,
+    server: String,
+    name: String,
+    value: Option<String>,
+) -> R<()> {
+    d.opened()?
+        .app
+        .set_agent_mcp_key(aid(&agent)?, &server, &name, value.as_deref(), "user")
         .map_err(err)
 }
 
@@ -317,11 +343,11 @@ pub fn put_mcp(d: State<'_, Desktop>, server: McpServerConfig) -> R<()> {
     d.opened()?.app.put_mcp_server(server).map_err(err)
 }
 
-/// Pasted `{"mcpServers": {...}}` JSON; literal secrets move to the vault.
+/// Pasted `{"mcpServers": {...}}` JSON; values are kept as written.
 #[tauri::command]
 pub fn import_mcp_json(d: State<'_, Desktop>, text: String) -> R<Value> {
     let r = d.opened()?.app.import_mcp_json(&text).map_err(err)?;
-    Ok(json!({ "servers": r.servers, "secrets": r.secrets }))
+    Ok(json!({ "servers": r.servers }))
 }
 
 #[tauri::command]
@@ -352,6 +378,7 @@ pub async fn test_mcp(d: State<'_, Desktop>, id: String) -> R<Value> {
     let binding = agenium_mcp::Binding {
         server: id,
         credentials: Default::default(),
+        keys: Default::default(),
         tools: None,
     };
     let (info, protocol, tools) = hub.test(&cfg, &binding).await.map_err(err)?;

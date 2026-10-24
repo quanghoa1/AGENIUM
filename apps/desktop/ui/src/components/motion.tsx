@@ -99,13 +99,14 @@ export function Segmented<T extends string>({
 }
 
 /** Panels taking turns: the leaving one fades into a blur, then the next comes in from it, sliding by direction. */
-export function PanelSwap({ id, dir = 1, children }: { id: string; dir?: number; children: ReactNode }) {
+export function PanelSwap({ id, dir = 1, children, className }: { id: string; dir?: number; children: ReactNode; className?: string }) {
   const reduce = useReducedMotion();
   const d = reduce ? 0 : tabShift * dir;
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={id}
+        className={className}
         initial={{ opacity: 0, x: d, filter: blur.panel }}
         animate={{ opacity: 1, x: 0, filter: "blur(0px)", transition: tx.panelIn }}
         exit={{ opacity: 0, x: -d, filter: blur.panel, transition: tx.panelOut }}

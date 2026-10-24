@@ -97,7 +97,9 @@ protocol_tools! {
     ProposeRole => "propose_role", Lead, ProposeRole,
         "Propose a new role for the team; an agent is created only if the user approves.";
     GetTeam => "get_team", Lead, NoArgs,
-        "Read the current team roster: members, roles, tags, model, status and current ticket.";
+        "Read the current team roster: members, roles, tags, model, status, current ticket and MCP servers with their key names.";
+    SetMemberMcpKey => "set_member_mcp_key", Lead, SetMemberMcpKey,
+        "Give a member its own key for an MCP server it uses (value null: back to the system key). Never put the key anywhere else.";
     ConfirmLink => "confirm_link", Lead, ConfirmLink,
         "Confirm a link between two tickets (usually one a worker proposed).";
     CreateAggregate => "create_aggregate", Lead, CreateAggregate,
@@ -191,6 +193,7 @@ pub enum Intent {
     ApprovePermission(ApprovePermission),
     ProposeRole(ProposeRole),
     GetTeam(NoArgs),
+    SetMemberMcpKey(SetMemberMcpKey),
     ConfirmLink(ConfirmLink),
     CreateAggregate(CreateAggregate),
     PostProgress(ProgressUpdate),
@@ -236,6 +239,7 @@ impl Intent {
             ApprovePermission(_) => ProtocolTool::ApprovePermission,
             ProposeRole(_) => ProtocolTool::ProposeRole,
             GetTeam(_) => ProtocolTool::GetTeam,
+            SetMemberMcpKey(_) => ProtocolTool::SetMemberMcpKey,
             ConfirmLink(_) => ProtocolTool::ConfirmLink,
             CreateAggregate(_) => ProtocolTool::CreateAggregate,
             PostProgress(_) => ProtocolTool::PostProgress,
@@ -308,6 +312,7 @@ impl Intent {
             | ApprovePermission(_)
             | ProposeRole(_)
             | GetTeam(_)
+            | SetMemberMcpKey(_)
             | ConfirmLink(_)
             | CreateAggregate(_)
             | LoadSkill(_)
@@ -325,6 +330,7 @@ mod tests {
     #[test]
     fn catalogue_matches_design_index() {
         // docs/design/SCHEMAS/tools/index.json: Lead 15, Worker 5, Shared 4 (24 tools); Solo = all. Agenium adds
+        // set_member_mcp_key (Lead group; per-agent MCP keys, 2026-10-25) and
         // submit_plan_draft (Worker group, planner role only; ADR-59).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
@@ -333,10 +339,10 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (15, 6, 4)
+            (16, 6, 4)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 25);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 19);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 26);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 20);
         assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 10);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);

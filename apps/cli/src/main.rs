@@ -844,9 +844,6 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
             };
             let r = app.import_mcp_json(&text)?;
             println!("imported: {}", r.servers.join(", "));
-            for s in r.secrets {
-                println!("moved a literal secret to the vault as {s}");
-            }
         }
         McpCmd::List => {
             for m in app.config().mcp {
@@ -876,6 +873,7 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
                 None => agenium_mcp::Binding {
                     server: id.clone(),
                     credentials: Default::default(),
+                    keys: Default::default(),
                     tools: None,
                 },
             };
@@ -1416,6 +1414,8 @@ async fn main() -> Result<()> {
                         path: path.clone(),
                         key_prefix: prefix.clone(),
                         template: template.clone(),
+                        folder: None,
+                        repo: None,
                     })?;
                     println!("project {} at {}", p.name, p.path);
                 }
@@ -1502,6 +1502,7 @@ async fn main() -> Result<()> {
                             .map(|s| agenium_mcp::Binding {
                                 server: s.clone(),
                                 credentials: Default::default(),
+                                keys: Default::default(),
                                 tools: None,
                             })
                             .collect(),
@@ -1604,6 +1605,7 @@ async fn main() -> Result<()> {
                         bindings.push(agenium_mcp::Binding {
                             server: s.clone(),
                             credentials: pairs(creds)?,
+                            keys: Default::default(),
                             tools: tools.clone(),
                         });
                     }

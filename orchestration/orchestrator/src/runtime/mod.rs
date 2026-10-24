@@ -571,6 +571,7 @@ impl Runtime {
         let bindings = agenium_mcp::parse_bindings(&agent.mcp)
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
         if !bindings.is_empty() {
+            self.app.mask_mcp_keys(&bindings);
             let m = self
                 .mcp
                 .tools_for(&agent.id.to_string(), &bindings, &self.app.config().mcp)

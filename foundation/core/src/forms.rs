@@ -569,6 +569,20 @@ pub struct ProposeRole {
     pub model_hint: Option<String>,
 }
 
+/// Give a member of your team (or yourself) its own key for an MCP server it uses, for example a key you
+/// obtained for them through that server; `value` null removes it, so the member uses the system key again.
+/// get_team lists each member's servers and key names.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SetMemberMcpKey {
+    pub agent: AgentId,
+    pub server: String,
+    /// The key name: an env variable or HTTP header of the server (from get_team).
+    pub key: String,
+    #[serde(default)]
+    pub value: Option<String>,
+}
+
 // ---------------------------------------------------------------- shared forms
 
 /// Load the full SKILL.md of a skill listed in your skills index.

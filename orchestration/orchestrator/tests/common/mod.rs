@@ -59,6 +59,8 @@ pub fn fixture_with(check: Option<(bool, String)>) -> Fixture {
             path: None,
             key_prefix: None,
             template: None,
+            folder: None,
+            repo: None,
         })
         .unwrap();
     Fixture {

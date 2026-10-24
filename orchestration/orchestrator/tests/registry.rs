@@ -189,6 +189,7 @@ fn agents_start_in_the_pool_with_their_own_model() {
             mcp: vec![agenium_mcp::Binding {
                 server: "nope".into(),
                 credentials: Default::default(),
+                keys: Default::default(),
                 tools: None
             }],
             ..spec_of(&ada)
@@ -579,4 +580,74 @@ fn providers_keep_their_keys_in_the_vault() {
     f.app.remove_provider("deepseek").unwrap();
     assert!(f.app.config().provider("deepseek").is_none());
     assert!(f.app.secret("provider/deepseek").unwrap().is_none());
+}
+
+/// A project is a folder name (the app decides where it lives) or a git repository cloned there.
+#[test]
+fn projects_from_a_folder_name_or_a_repository() {
+    let f = fixture();
+    let p = f
+        .app
+        .create_project(&agenium_orchestrator::app::CreateProject {
+            name: "shop".into(),
+            path: None,
+            key_prefix: Some("SHP".into()),
+            template: None,
+            folder: Some("shop-site".into()),
+            repo: None,
+        })
+        .unwrap();
+    assert!(p.path.ends_with("shop-site"), "{}", p.path);
+    let bad = agenium_orchestrator::app::CreateProject {
+        name: "x".into(),
+        path: None,
+        key_prefix: None,
+        template: None,
+        folder: Some("../outside".into()),
+        repo: None,
+    };
+    assert!(f.app.create_project(&bad).is_err());
+
+    // A repository with one commit on "trunk", cloned by the app.
+    let src = f.root.join("src-repo");
+    std::fs::create_dir_all(&src).unwrap();
+    let git = |args: &[&str]| {
+        let ok = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&src)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t")
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok, "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "trunk"]);
+    std::fs::write(src.join("README.md"), "hello").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    assert!(agenium_orchestrator::app::is_repo_url(
+        "https://github.com/o/r.git"
+    ));
+    assert!(!agenium_orchestrator::app::is_repo_url("my-folder"));
+    assert_eq!(
+        agenium_orchestrator::app::repo_folder("git@github.com:o/site.git"),
+        "site"
+    );
+    let p = f
+        .app
+        .create_project(&agenium_orchestrator::app::CreateProject {
+            name: "cloned".into(),
+            path: None,
+            key_prefix: Some("CLN".into()),
+            template: None,
+            folder: None,
+            repo: Some(src.to_string_lossy().into_owned()),
+        })
+        .unwrap();
+    assert!(std::path::Path::new(&p.path).join("README.md").is_file());
+    assert_eq!(p.main_branch, "trunk");
 }

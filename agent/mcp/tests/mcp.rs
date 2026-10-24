@@ -33,6 +33,7 @@ fn binding(secret: &str, tools: Option<Vec<&str>>) -> Binding {
     Binding {
         server: "fake".into(),
         credentials: [("TOKEN".to_string(), secret.to_string())].into(),
+        keys: Default::default(),
         tools: tools.map(|t| t.into_iter().map(str::to_owned).collect()),
     }
 }
@@ -150,6 +151,7 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
                 Binding {
                     server: "nope".into(),
                     credentials: BTreeMap::new(),
+                    keys: Default::default(),
                     tools: None,
                 },
                 binding("tok-missing", None),
@@ -159,7 +161,11 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
         .await;
     assert!(c.tools.is_empty());
     assert_eq!(c.problems.len(), 2, "{:?}", c.problems);
-    assert!(c.problems[1].contains("not in the vault"));
+    assert!(
+        c.problems[1].contains("no key \"TOKEN\""),
+        "{:?}",
+        c.problems
+    );
 
     // Test connection.
     let (info, protocol, tools) = hub
@@ -300,6 +306,7 @@ async fn streamable_http_server() {
     let b = Binding {
         server: "docs".into(),
         credentials: BTreeMap::new(),
+        keys: Default::default(),
         tools: None,
     };
     let t = hub

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
 import type {
+  AgentMcpKey,
   AgentDetail,
   AgentEntry,
   AgentRecord,
@@ -93,7 +94,7 @@ export const api = {
     action: "priority" | "assign" | "approve" | "reopen" | "close" | "cancel",
     extra: { reason?: string; agent?: string; priority?: number; feedback?: { ac_id: string; feedback: string }[] } = {},
   ) => call<unknown>("ticket_action", { project, ticket, action, ...extra }),
-  createProject: (name: string, path?: string) => call<{ id: string }>("create_project", { name, path }),
+  createProject: (name: string, source?: string) => call<{ id: string }>("create_project", { name, source }),
   createTeam: (project: string, template: string, model: ModelArg, leadModel?: ModelArg, plannerModel?: ModelArg, prefix?: string) =>
     call<{ agents: [string, string][]; missing_skills: string[] }>("create_team", {
       project,
@@ -121,6 +122,8 @@ export const api = {
   setAgentRole: (agent: string, role: string, tags?: string[] | null) => call<void>("set_agent_role", { agent, role, tags }),
   toggleAgentSkill: (agent: string, skill: string, on: boolean) => call<string[]>("toggle_agent_skill", { agent, skill, on }),
   toggleAgentMcp: (agent: string, server: string, on: boolean) => call<void>("toggle_agent_mcp", { agent, server, on }),
+  agentMcpKeys: (agent: string) => call<AgentMcpKey[]>("agent_mcp_keys", { agent }),
+  setAgentMcpKey: (agent: string, server: string, name: string, value: string | null) => call<void>("set_agent_mcp_key", { agent, server, name, value }),
   deleteAgent: (agent: string, confirm: string) => call<{ name: string; pending: string[] }>("delete_agent", { agent, confirm }),
   teams: () => call<TeamsData>("teams"),
   composeTeam: (form: { name: string; project?: string | null; lead: string; members: string[]; solo: boolean }) =>
@@ -136,7 +139,7 @@ export const api = {
   skillText: (name: string) => call<{ name: string; body: string; files: string[] }>("skill_text", { name }),
   mcpServers: () => call<McpServerRow[]>("mcp_servers"),
   putMcp: (server: McpServerConfig) => call<void>("put_mcp", { server }),
-  importMcpJson: (text: string) => call<{ servers: string[]; secrets: string[] }>("import_mcp_json", { text }),
+  importMcpJson: (text: string) => call<{ servers: string[] }>("import_mcp_json", { text }),
   removeMcp: (id: string, force = false) => call<void>("remove_mcp", { id, force }),
   testMcp: (id: string) =>
     call<{ server: any; protocol: string; tools: { name: string; description?: string | null; read_only: boolean }[] }>("test_mcp", { id }),

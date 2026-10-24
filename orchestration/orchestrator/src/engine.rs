@@ -298,6 +298,7 @@ impl App {
             Intent::CreateHandoff(h) => self.create_handoff(ctx, h),
             Intent::ApprovePermission(a) => self.approve_permission(ctx, &project, a),
             Intent::GetTeam(_) => self.get_team(ctx),
+            Intent::SetMemberMcpKey(k) => self.set_member_mcp_key(ctx, k),
             Intent::ConfirmLink(l) => self.confirm_link(ctx, l),
             Intent::CreateAggregate(a) => self.create_aggregate(ctx, &project, a),
             Intent::PostProgress(p) => self.post_progress(ctx, p),
@@ -1486,16 +1487,53 @@ impl App {
         let roster: Vec<serde_json::Value> = members
             .iter()
             .map(|m| {
+                // MCP servers with their key names and whether the member has its own key (values never).
+                let mut mcp: Vec<serde_json::Value> = Vec::new();
+                for k in self.agent_mcp_keys(m.id).unwrap_or_default() {
+                    let entry = serde_json::json!({ "key": k.name, "own_key": k.own.is_some() });
+                    match mcp.iter_mut().find(|s| s["server"] == k.server.as_str()) {
+                        Some(s) => s["keys"].as_array_mut().unwrap().push(entry),
+                        None => mcp.push(serde_json::json!({ "server": k.server, "keys": [entry] })),
+                    }
+                }
                 serde_json::json!({
                     "agent": m.id, "name": m.name, "role": m.role, "kind": m.role_kind, "tags": m.tags,
                     "model": format!("{}/{}", m.model.provider, m.model.model), "status": m.status,
-                    "current_ticket": open.get(&m.id), "planner": self.is_planner_role(&m.role),
+                    "current_ticket": open.get(&m.id), "planner": self.is_planner_role(&m.role), "mcp": mcp,
                 })
             })
             .collect();
         Ok(Outcome::ok(
             serde_json::json!({ "team": team.name, "solo": team.solo, "members": roster }),
         ))
+    }
+}
+
+impl App {
+    /// The Lead gives a member of its team (or itself) its own key for an MCP server the member uses.
+    fn set_member_mcp_key(&self, ctx: &CallCtx, k: SetMemberMcpKey) -> Result<Outcome> {
+        let (team, members) = self
+            .team_of_project(ctx.project)?
+            .ok_or_else(|| invalid("the project has no team"))?;
+        if !matches!(ctx.actor, Actor::Lead(a) if team.lead == Some(a)) && ctx.actor != Actor::User
+        {
+            return Err(denied("only the Lead sets the keys of its team"));
+        }
+        let m = members
+            .iter()
+            .find(|m| m.id == k.agent)
+            .ok_or_else(|| denied(format!("{} is not a member of your team", k.agent)))?;
+        self.set_agent_mcp_key(
+            m.id,
+            &k.server,
+            &k.key,
+            k.value.as_deref(),
+            &ctx.actor.label(),
+        )?;
+        Ok(Outcome::ok(serde_json::json!({
+            "agent": m.name, "server": k.server, "key": k.key,
+            "uses": if k.value.is_some() { "its own key" } else { "the system key" },
+        })))
     }
 }
 

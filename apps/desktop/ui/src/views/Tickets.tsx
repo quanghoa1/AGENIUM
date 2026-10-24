@@ -19,7 +19,7 @@ export function TicketsView() {
   if (!app.project || !p) return <Empty>{app.t("common.none")}</Empty>;
   return (
     <div>
-      <PageHeader title={`${p.key_prefix} — ${p.name}`} sub={p.path}>
+      <PageHeader title={`${p.key_prefix} — ${p.name}`}>
         <Segmented
           id="tickets-tab"
           value={tab}
@@ -124,7 +124,8 @@ function Board({ project }: { project: string }) {
             onDrop={() => onDrop(c.status)}
             className={cn(
               "flex flex-col rounded-xl border bg-surface/60 transition-all",
-              c.cards.length || drag ? "min-w-[220px] flex-1" : "w-[132px] shrink-0",
+              // Every column the same width, whether it has cards or not.
+              "min-w-[200px] flex-1 basis-0",
               over === c.status && drag ? (allowed(drag.from, c.status) ? "border-accent bg-blue-600/5" : "border-rose-500/50") : "border-line",
             )}
           >

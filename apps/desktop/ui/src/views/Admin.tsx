@@ -1,6 +1,6 @@
 import { Copy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Empty, Mono, PageHeader, Section, cn, tokens } from "../components/ui";
+import { Empty, PageHeader, Section, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { AuditEntry, RunRow, TeamTemplate } from "../lib/types";
@@ -175,10 +175,6 @@ export function SettingsView() {
           </div>
           <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
         </Section>
-        <Section title={app.t("settings.root")}>
-          <Mono>{app.status?.root}</Mono>
-          <div className="mt-2 text-[11px] text-subtle">{app.t("settings.rootNote")}</div>
-        </Section>
         <Section title={app.t("top.autopilot")}>
           <div className="text-xs text-muted">{app.t("settings.autopilotNote")}</div>
           <button className={cn("btn mt-2", app.autopilot && "border-emerald-500/40 text-emerald-600")} onClick={() => app.setAutopilot(!app.autopilot)}>
@@ -198,10 +194,7 @@ export function SetupView() {
       <div className="card w-[460px] p-6">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 font-mono font-bold text-white">AG</div>
-          <div>
-            <div className="text-base font-semibold">{app.t("setup.title")}</div>
-            <Mono className="text-subtle">{app.status?.root}</Mono>
-          </div>
+          <div className="text-base font-semibold">{app.t("setup.title")}</div>
         </div>
         <label className="block text-xs">
           <span className="label">{app.t("setup.ui")}</span>

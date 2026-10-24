@@ -4,7 +4,7 @@ import { Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, Empty, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
 import { useApp } from "../lib/store";
-import type { AgentDetail, AgentEntry, AgentRecord, Capabilities, LeadSuggestion, LibrarySkill, McpServerRow, ModelInfo, RoleInfo, TeamTemplate, TeamsData } from "../lib/types";
+import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, Capabilities, LeadSuggestion, LibrarySkill, McpServerRow, ModelInfo, RoleInfo, TeamTemplate, TeamsData } from "../lib/types";
 
 /** Provider (API) or CLI program, model and effort. The model list comes from the provider when it can list them. */
 export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChange: (m: ModelArg) => void; caps: Capabilities | null }) {
@@ -65,7 +65,7 @@ const emptyModel: ModelArg = { provider: "", model: "", effort: "high", backend:
 export function ProjectsView() {
   const app = useApp();
   const [name, setName] = useState("");
-  const [path, setPath] = useState("");
+  const [source, setSource] = useState("");
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.projects")} />
@@ -76,15 +76,15 @@ export function ProjectsView() {
         </label>
         <label className="min-w-[280px] flex-1">
           <span className="label">{app.t("projects.folder")}</span>
-          <input className="input mt-1" value={path} placeholder="<root>/projects/<name>" onChange={(e) => setPath(e.target.value)} />
+          <input className="input mt-1" value={source} placeholder={app.t("projects.folderHint")} onChange={(e) => setSource(e.target.value)} />
         </label>
         <button
           className="btn-primary"
           disabled={!name.trim()}
           onClick={() =>
             api
-              .createProject(name.trim(), path.trim() || undefined)
-              .then((p) => (app.setProject(p.id), setName(""), setPath(""), app.refresh(), app.go("teams")))
+              .createProject(name.trim(), source.trim() || undefined)
+              .then((p) => (app.setProject(p.id), setName(""), setSource(""), app.refresh(), app.go("teams")))
               .catch((e) => app.notify(String(e)))
           }
         >
@@ -100,7 +100,6 @@ export function ProjectsView() {
               </div>
               <span className="chip border-line-strong bg-elevated text-muted">{p.status}</span>
             </div>
-            <div className="mt-1 truncate font-mono text-[11px] text-subtle">{p.path}</div>
             <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
               {[
                 [app.t("nav.teams"), p.team ? (p.team.solo ? "solo" : p.team.members) : "–"],
@@ -309,6 +308,58 @@ function Switches({ skills, mcp, onSkills, onMcp, lib, servers }: { skills: stri
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The keys of the MCP servers an agent uses: the system key, and the agent's own key when it has one. */
+function McpKeys({ agent }: { agent: string }) {
+  const app = useApp();
+  const [rows, setRows] = useState<AgentMcpKey[]>([]);
+  const [edit, setEdit] = useState<Record<string, string>>({});
+  const load = () => api.agentMcpKeys(agent).then((r) => setRows(r ?? []));
+  useEffect(() => {
+    load();
+  }, [agent, app.tick]);
+  const id = (r: AgentMcpKey) => `${r.server}/${r.name}`;
+  const save = (r: AgentMcpKey, value: string | null) =>
+    api
+      .setAgentMcpKey(agent, r.server, r.name, value)
+      .then(() => (app.notify(app.t("common.done")), setEdit((e) => ({ ...e, [id(r)]: undefined as unknown as string })), load()))
+      .catch((e) => app.notify(String(e)));
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] text-subtle">{app.t("agents.mcpKeysNote")}</div>
+      {rows.length === 0 && <div className="text-[11px] text-muted">{app.t("agents.noMcpKeys")}</div>}
+      {rows.map((r) => {
+        const draft = edit[id(r)] ?? r.own ?? "";
+        return (
+          <div key={id(r)} className="grid items-center gap-2 rounded-lg border border-line p-2.5 text-xs md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <Plug className="h-3 w-3 text-purple-500" />
+                <b>{r.server}</b>
+                <Mono className="text-subtle">{r.name}</Mono>
+                <span className={cn("chip", r.own ? "border-accent/40 text-accent" : "border-line-strong text-muted")}>{r.own ? app.t("agents.ownKey") : app.t("agents.systemKey")}</span>
+              </div>
+              <div className="mt-1 truncate font-mono text-[10px] text-subtle" title={r.system ?? ""}>
+                {app.t("agents.systemKey")}: {r.system || "–"}
+              </div>
+            </div>
+            <input className="input font-mono text-[11px]" value={draft} placeholder={app.t("agents.ownKeyHint")} onChange={(e) => setEdit((x) => ({ ...x, [id(r)]: e.target.value }))} />
+            <div className="flex gap-1.5">
+              <button className="btn-primary" disabled={!draft.trim() || draft === (r.own ?? "")} onClick={() => save(r, draft)}>
+                {app.t("common.save")}
+              </button>
+              {r.own && (
+                <button className="btn" onClick={() => save(r, null)}>
+                  {app.t("agents.useSystem")}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -715,6 +766,11 @@ export function AgentView({ id }: { id: string }) {
                 onMcp={(s, on) => toggle(api.toggleAgentMcp(a.id, s, on))}
               />
             </Section>
+            {bound.length > 0 && (
+              <Section title={app.t("agents.mcpKeys")}>
+                <McpKeys agent={a.id} />
+              </Section>
+            )}
             <Section title={app.t("agents.alwaysOn")}>
               <div className="space-y-2">
                 {ownSkills.map((s) => (

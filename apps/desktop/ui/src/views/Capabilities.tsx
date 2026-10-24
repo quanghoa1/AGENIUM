@@ -531,7 +531,7 @@ function McpPanel() {
     if (mode === "json") {
       api
         .importMcpJson(form.json)
-        .then((r) => (app.notify(`${r.servers.join(", ")}${r.secrets.length ? ` · ${r.secrets.length} ${app.t("library.secretsMoved")}` : ""}`), done()))
+        .then((r) => (app.notify(r.servers.join(", ")), done()))
         .catch((e) => app.notify(String(e)));
       return;
     }
@@ -602,13 +602,13 @@ function McpPanel() {
                   </label>
                   <label>
                     <span className="label">env (KEY=value)</span>
-                    <textarea className="input mt-1 min-h-[70px] font-mono text-[11px]" value={form.env} placeholder={"GITHUB_PERSONAL_ACCESS_TOKEN=${secret:github-token}"} onChange={(e) => set({ env: e.target.value })} />
+                    <textarea className="input mt-1 min-h-[70px] font-mono text-[11px]" value={form.env} placeholder={"GITHUB_PERSONAL_ACCESS_TOKEN=ghp_…"} onChange={(e) => set({ env: e.target.value })} />
                   </label>
                 </>
               ) : (
                 <label className="md:col-span-2">
                   <span className="label">headers (Name: value)</span>
-                  <textarea className="input mt-1 min-h-[70px] font-mono text-[11px]" value={form.headers} placeholder={"Authorization: Bearer ${secret:docs-token}"} onChange={(e) => set({ headers: e.target.value })} />
+                  <textarea className="input mt-1 min-h-[70px] font-mono text-[11px]" value={form.headers} placeholder={"Authorization: Bearer sk-…"} onChange={(e) => set({ headers: e.target.value })} />
                 </label>
               )}
             </div>
@@ -638,6 +638,16 @@ function McpPanel() {
                   </button>
                 </div>
               </div>
+              {Object.keys({ ...r.config.env, ...r.config.headers }).length > 0 && (
+                <div className="mt-2 space-y-0.5">
+                  <span className="label">{app.t("agents.systemKey")}</span>
+                  {Object.entries({ ...r.config.env, ...r.config.headers }).map(([k, v]) => (
+                    <div key={k} className="truncate font-mono text-[11px]">
+                      <span className="text-subtle">{k}</span> = {v}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap items-center gap-1">
                 <span className="label mr-1">{app.t("library.enabledBy")}</span>
                 {r.users.length ? (

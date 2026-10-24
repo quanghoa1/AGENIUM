@@ -49,11 +49,7 @@ pub fn status(d: State<'_, Desktop>) -> Value {
 }
 
 #[tauri::command]
-pub fn setup(
-    d: State<'_, Desktop>,
-    handle: AppHandle,
-    ui_language: String,
-) -> R<Value> {
+pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R<Value> {
     let input = agenium_config::setup::SetupInput {
         root: Some(d.root.clone()),
         ui_language,
@@ -689,19 +685,35 @@ pub fn ticket_action(
     }
 }
 
+/// `source`: a folder name under the app's projects folder, or a git repository to clone there.
 #[tauri::command]
-pub fn create_project(d: State<'_, Desktop>, name: String, path: Option<String>) -> R<Value> {
+pub async fn create_project(
+    d: State<'_, Desktop>,
+    name: String,
+    source: Option<String>,
+) -> R<Value> {
     let o = d.opened()?;
-    let p = o
-        .app
-        .create_project(&CreateProject {
-            name,
-            path: path.filter(|s| !s.trim().is_empty()).map(Into::into),
-            key_prefix: None,
-            template: None,
-        })
+    let source = source
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty());
+    let (folder, repo) = match source {
+        Some(s) if agenium_orchestrator::app::is_repo_url(&s) => (None, Some(s)),
+        other => (other, None),
+    };
+    let req = CreateProject {
+        name,
+        path: None,
+        key_prefix: None,
+        template: None,
+        folder,
+        repo,
+    };
+    // A clone may take a while: off the UI thread.
+    let p = tokio::task::spawn_blocking(move || o.app.create_project(&req))
+        .await
+        .map_err(|e| e.to_string())?
         .map_err(err)?;
-    Ok(json!({ "id": p.id, "name": p.name, "path": p.path }))
+    Ok(json!({ "id": p.id, "name": p.name }))
 }
 
 fn binding(provider: &str, model: &str, effort: &str) -> R<ModelBinding> {

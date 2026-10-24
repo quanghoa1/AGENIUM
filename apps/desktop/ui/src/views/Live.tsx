@@ -2,12 +2,13 @@
 //   top     telemetry (agents running, MCP servers enabled in the room, tokens today) and Pause all;
 //           room tabs: the shared Solo office, one office per team, and all rooms at once (CCTV);
 //   left    the pixel office of the room (click someone to inspect them): the Lead's desk and whiteboard (plan
-//           progress), delegation lines to the workers, a sign over each desk with the MCP / Skill / Tool being
-//           called; below it the room's live log (assignments, skills loaded, MCP and tool calls, reports) or its
-//           plan;
-//   right   the selected agent: what it is doing (ticket), its live thinking, the tool / skill / MCP calls with
-//           arguments, output and duration, and the conversation its role allows: chat with a Solo agent or a
-//           team's Lead; a worker is read-only (its message bus) with a button that sends you to the Lead about it.
+//           progress), delegation lines to the workers (with the ticket), a sign over each desk with the MCP / Skill
+//           / Tool being called; below it the room's live log (assignments, skills loaded, MCP and tool calls,
+//           reports);
+//   right   two tabs: the selected agent (what it is doing, its model and effort, live thinking, the tool / skill /
+//           MCP calls with arguments, output and duration, and the conversation its role allows: chat with a Solo
+//           agent or a team's Lead; a worker is read-only with a button that sends you to the Lead about it), or the
+//           room's plan as a task list (playing = being worked on, tick = done).
 import { useReducedMotion } from "motion/react";
 import {
   BookOpen,
@@ -29,6 +30,7 @@ import {
   MessageSquareReply,
   MonitorPlay,
   OctagonPause,
+  Pause,
   Play,
   Plug,
   Radio,
@@ -38,7 +40,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChatPane, type Prefill } from "../components/ChatPane";
+import { ChatPane, LiveTurn, type Prefill } from "../components/ChatPane";
 import { Markdown } from "../components/Markdown";
 import { ListItem, PanelSwap, ProgressBar, Segmented } from "../components/motion";
 import { PixelOffice, type Activity, type CallKind, type OfficeAgent } from "../components/PixelOffice";
@@ -317,7 +319,7 @@ function body(b: { type: string; data: any }): string {
 }
 
 /** A worker's message bus (read-only): assignments from the Lead, questions, answers, reports, reviews. */
-function WorkerBus({ agent, lead }: { agent: LiveAgent; lead?: string | null }) {
+function WorkerBus({ agent, lead, stream }: { agent: LiveAgent; lead?: string | null; stream?: Stream }) {
   const app = useApp();
   const [items, setItems] = useState<BusItem[]>([]);
   const end = useRef<HTMLDivElement>(null);
@@ -328,7 +330,7 @@ function WorkerBus({ agent, lead }: { agent: LiveAgent; lead?: string | null }) 
     // Scroll this list only (scrollIntoView would scroll the page around it too).
     const el = end.current?.parentElement;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [items.length]);
+  }, [items.length, stream?.thinking.length, stream?.text.length]);
   const kindTone: Record<string, string> = {
     Question: "border-amber-500/40 bg-amber-500/5",
     Answer: "border-purple-500/40 bg-purple-500/5",
@@ -397,7 +399,8 @@ function WorkerBus({ agent, lead }: { agent: LiveAgent; lead?: string | null }) 
           </ListItem>
         ),
       )}
-      {items.length === 0 && <Empty>{app.t("live.busEmpty")}</Empty>}
+      {items.length === 0 && !agent.run && <Empty>{app.t("live.busEmpty")}</Empty>}
+      {agent.run && <LiveTurn name={agent.agent.name} stream={stream} />}
       <div ref={end} />
     </div>
   );
@@ -457,7 +460,6 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
   }, [a.agent.id, live, app.tick]);
   const calls = (trace?.steps ?? []).filter((e) => e.kind === "tool");
   const stream = act?.stream && !act.stream.done ? act.stream : undefined;
-  const thinking = stream ? (stream.thinking || (stream.phase === "text" ? stream.text : "")).slice(-2000) : "";
   const task = a.run?.ticket_key ? a.open_tickets.find((x) => x.key === a.run!.ticket_key) : a.open_tickets[0];
   const status: [string, string] =
     act?.activity === "tool" || act?.activity === "shell"
@@ -521,26 +523,24 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
           ) : (
             <span className="text-subtle">{a.run?.kind === "lead" ? app.t("live.leading") : "–"}</span>
           )}
-          <Mono className="ml-auto shrink-0 text-subtle">
-            {a.agent.backend === "Cli" ? `CLI:${a.agent.model.provider}` : a.agent.model.provider}/{a.agent.model.model}
-          </Mono>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span className="chip border-line-strong">
+            <span className="text-subtle">{app.t("common.model")}</span>
+            <b className="font-mono">
+              {a.agent.backend === "Cli" ? `CLI:${a.agent.model.provider}` : a.agent.model.provider}/{a.agent.model.model}
+            </b>
+          </span>
+          <span className="chip border-line-strong">
+            <span className="text-subtle">effort</span>
+            <b className="font-mono">{a.agent.model.effort || "–"}</b>
+          </span>
         </div>
       </div>
-      {/* 1. live thinking */}
-      <div className="border-b border-line px-4 py-2.5">
-        <div className="label mb-1.5 flex items-center gap-1.5">
-          <Radio className={cn("h-3 w-3", stream && "animate-pulse text-blue-500")} /> 1 · Live Thinking
-        </div>
-        {thinking ? (
-          <div className="max-h-28 overflow-y-auto whitespace-pre-wrap rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 font-mono text-[10.5px] text-muted">{thinking}</div>
-        ) : (
-          <div className="text-[11px] text-subtle">{a.run ? `${app.t("live.thinking")}… ${app.t("live.noReasoning")}` : app.t("live.noThinking")}</div>
-        )}
-      </div>
-      {/* 2. tool / skill / MCP */}
+      {/* 1. tool / skill / MCP */}
       <div className="flex min-h-0 flex-col border-b border-line px-4 py-2.5" style={{ maxHeight: comm ? "34%" : undefined, flex: comm ? undefined : 1 }}>
         <div className="label mb-1.5 flex items-center gap-1.5">
-          <Wrench className="h-3 w-3" /> 2 · Tool / Skill / MCP
+          <Wrench className="h-3 w-3" /> 1 · Tool / Skill / MCP
           {trace?.run && (
             <span className="ml-auto flex items-center gap-1.5 normal-case">
               <OutcomeBadge outcome={trace.run.outcome} />
@@ -564,18 +564,18 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
           {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
         </div>
       </div>
-      {/* 3. conversation, by role */}
+      {/* 2. conversation, by role, like a CLI chat (thinking folded in) */}
       <div className={cn("flex min-h-0 flex-col", comm ? "flex-1" : "")}>
         <button className="label flex items-center gap-1.5 px-4 py-2 text-left" onClick={() => setComm(!comm)}>
           {comm ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          <MessageSquareReply className="h-3 w-3" /> 3 · {app.t("live.comm")}
+          <MessageSquareReply className="h-3 w-3" /> 2 · {app.t("live.comm")}
         </button>
         {comm &&
           ((k === "lead" || k === "standalone") && a.project ? (
-            <ChatPane project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} after={k === "lead" ? <Delegations project={a.project} data={data} onWatch={onPick} /> : undefined} className="border-t border-line" />
+            <ChatPane project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} after={k === "lead" ? <Delegations project={a.project} data={data} onWatch={onPick} /> : undefined} className="border-t border-line" />
           ) : k === "worker" ? (
             <>
-              <WorkerBus agent={a} lead={lead?.agent.name} />
+              <WorkerBus agent={a} lead={lead?.agent.name} stream={stream} />
               <div className="border-t border-line p-3">
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
                   <div className="flex items-start gap-3">
@@ -614,7 +614,32 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
 
 // ---------------------------------------------------------------- plan of the room
 
-function PlanPanel({ project, data }: { project?: string | null; data: LiveData }) {
+type TaskState = "done" | "playing" | "paused" | "queued" | "todo";
+
+/** The state icon of a task: a "playing" button while someone works on it, a tick when done. */
+function TaskIcon({ s }: { s: TaskState }) {
+  if (s === "done") return <CircleCheck className="h-5 w-5 shrink-0 text-emerald-500" />;
+  if (s === "playing")
+    return (
+      <span className="relative inline-flex h-5 w-5 shrink-0">
+        <span className="absolute inset-0 animate-ping rounded-full bg-blue-500/40" />
+        <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white">
+          <Play className="ml-px h-2.5 w-2.5 fill-current" />
+        </span>
+      </span>
+    );
+  if (s === "paused")
+    return (
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+        <Pause className="h-2.5 w-2.5 fill-current" />
+      </span>
+    );
+  if (s === "queued") return <span className="h-5 w-5 shrink-0 rounded-full border-2 border-blue-500/50" />;
+  return <CircleDashed className="h-5 w-5 shrink-0 text-subtle" />;
+}
+
+/** The room's plan as a task list: each plan item with its tickets, who holds them and where they stand. */
+function PlanList({ project, data }: { project?: string | null; data: LiveData }) {
   const app = useApp();
   const [plan, setPlan] = useState<PlanView | null>(null);
   const [cols, setCols] = useState<Column[]>([]);
@@ -623,48 +648,79 @@ function PlanPanel({ project, data }: { project?: string | null; data: LiveData 
     api.plan(project).then(setPlan);
     api.board(project).then((c) => setCols(c ?? []));
   }, [project, app.tick]);
-  if (!project) return <div className="p-3 text-[11px] text-subtle">{app.t("live.noProject")}</div>;
+  if (!project) return <div className="p-4 text-[11px] text-subtle">{app.t("live.noProject")}</div>;
   const cards = new Map(cols.flatMap((c) => c.cards.map((card) => [card.key, { ...card, status: c.status }] as const)));
+  const running = new Set(data.agents.filter((a) => a.run?.ticket_key).map((a) => a.run!.ticket_key!));
   const milestones = plan?.plan?.body.milestones ?? [];
-  const names = new Set(data.agents.map((a) => a.agent.name));
+  const items = plan?.items ?? [];
+  const stateOf = (i: (typeof items)[number]): TaskState => {
+    if (i.done) return "done";
+    const sts = i.tickets.filter(([, st]) => st !== "Cancelled");
+    if (sts.some(([k, st]) => st === "InProgress" || running.has(k))) return "playing";
+    if (sts.some(([, st]) => st === "Pending")) return "paused";
+    return sts.length ? "queued" : "todo";
+  };
+  const done = items.filter((i) => i.done).length;
   return (
-    <div className="h-full space-y-2 overflow-y-auto px-3 py-2">
-      {!plan?.plan && <div className="text-[11px] text-subtle">{app.t("live.noPlan")}</div>}
-      {milestones.map((m) => (
-        <div key={m.id}>
-          <div className="label mb-1">
-            {m.id} · {m.title}
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      {!plan?.plan ? (
+        <Empty>{app.t("live.noPlan")}</Empty>
+      ) : (
+        <>
+          <div className="mb-3 flex items-center gap-3">
+            <ListChecks className="h-4 w-4 text-accent" />
+            <span className="text-sm font-semibold">Plan v{plan.plan.version}</span>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+              <ProgressBar value={items.length ? done / items.length : 0} className="bg-emerald-500" />
+            </div>
+            <Mono className="text-subtle">
+              {done}/{items.length} {app.t("live.tasksDone")}
+            </Mono>
           </div>
-          <div className="grid gap-1 xl:grid-cols-2">
-            {plan!.items
-              .filter((i) => i.milestone === m.id)
-              .map((i) => (
-                <div key={i.id} className="rounded-lg border border-line p-2">
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    {i.done ? <CircleCheck className="h-3.5 w-3.5 text-emerald-500" /> : i.tickets.length ? <Play className="h-3.5 w-3.5 text-blue-500" /> : <CircleDashed className="h-3.5 w-3.5 text-subtle" />}
-                    <Mono className="text-subtle">{i.id}</Mono>
-                    <span className="truncate">{i.title}</span>
-                  </div>
-                  {i.tickets.map(([key, st]) => {
-                    const c = cards.get(key);
-                    return (
-                      <div key={key} className="ml-5 mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
-                        <Mono className="text-cyan-600 dark:text-cyan-400">{key}</Mono>
-                        <TicketStatusBadge status={st} />
-                        {c?.assignee && <span className={cn("text-muted", names.has(c.assignee) && "font-medium")}>@{c.assignee}</span>}
-                        {c?.blocked_by.length ? (
-                          <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
-                            <Link2 className="h-3 w-3" /> {c.blocked_by.join(", ")}
-                          </span>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+          <div className="space-y-4">
+            {milestones.map((m) => (
+              <div key={m.id}>
+                <div className="label mb-1.5">
+                  {m.id} · {m.title}
                 </div>
-              ))}
+                <div className="space-y-1.5">
+                  {items
+                    .filter((i) => i.milestone === m.id)
+                    .map((i) => {
+                      const s = stateOf(i);
+                      return (
+                        <div key={i.id} className={cn("flex items-start gap-3 rounded-lg border p-2.5", s === "playing" ? "border-blue-500/50 bg-blue-500/5" : s === "paused" ? "border-amber-500/40 bg-amber-500/5" : "border-line")}>
+                          <TaskIcon s={s} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <Mono className="text-subtle">{i.id}</Mono>
+                              <span className={cn("truncate font-medium", s === "done" && "text-subtle line-through")}>{i.title}</span>
+                            </div>
+                            {i.tickets.map(([key, st]) => {
+                              const c = cards.get(key);
+                              return (
+                                <div key={key} className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                                  <Mono className="text-cyan-600 dark:text-cyan-400">{key}</Mono>
+                                  <TicketStatusBadge status={st} />
+                                  {c?.assignee && <span className="text-muted">@{c.assignee}</span>}
+                                  {c?.blocked_by.length ? (
+                                    <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+                                      <Link2 className="h-3 w-3" /> {c.blocked_by.join(", ")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      ))}
+        </>
+      )}
     </div>
   );
 }
@@ -691,7 +747,7 @@ export function LiveView() {
   const [focus, setFocus] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
-  const [below, setBelow] = useState<"log" | "plan">("log");
+  const [side, setSide] = useState<"agent" | "plan">("agent");
   const [flights, setFlights] = useState<{ id: number; from: string; to: string; kind: string }[]>([]);
   const [log, setLog] = useState<LogLine[]>([]);
   const [boards, setBoards] = useState<Record<string, string[]>>({});
@@ -829,7 +885,13 @@ export function LiveView() {
     r.members
       .map((id) => byId.get(id))
       .filter(Boolean)
-      .map((a) => ({ agent: a!, activity: acts.get(a!.agent.id)?.activity ?? "idle", ticker: acts.get(a!.agent.id)?.ticker ?? "" }));
+      .map((a) => ({
+        agent: a!,
+        activity: acts.get(a!.agent.id)?.activity ?? "idle",
+        ticker: acts.get(a!.agent.id)?.ticker ?? "",
+        // A task keeps someone at the desk: its open tickets, a run, or (a Lead) a team with open tickets.
+        duty: a!.open_tickets.length > 0 || !!a!.run || (a!.agent.id === r.lead && r.members.some((m) => (byId.get(m)?.open_tickets.length ?? 0) > 0)),
+      }));
   const signsOf = (r: Room) => {
     const out: Record<string, { kind: CallKind; text: string }> = {};
     for (const id of r.members) {
@@ -838,7 +900,17 @@ export function LiveView() {
     }
     return out;
   };
-  const flowsOf = (r: Room): [string, string][] => (r.lead ? r.members.filter((m) => m !== r.lead && (byId.get(m)?.open_tickets.length ?? 0) > 0).map((m) => [r.lead!, m]) : []);
+  // Delegation lines: the Lead's desk -> each worker holding a ticket, labelled with the ticket it works on.
+  const flowsOf = (r: Room): [string, string, string?][] =>
+    r.lead
+      ? r.members
+          .filter((m) => m !== r.lead && (byId.get(m)?.open_tickets.length ?? 0) > 0)
+          .map((m) => {
+            const a = byId.get(m)!;
+            const t = a.run?.ticket_key ?? a.open_tickets.find((x) => x.status === "InProgress")?.key ?? a.open_tickets[0]?.key;
+            return [r.lead!, m, t];
+          })
+      : [];
   const mcpIn = (r?: Room) => new Set((r?.members ?? []).flatMap((id) => (Array.isArray(byId.get(id)?.agent.mcp) ? byId.get(id)!.agent.mcp.map((b: { server: string }) => b.server) : []))).size;
   const busyIn = (r: Room) => r.members.filter((m) => {
     const x = acts.get(m)?.activity;
@@ -854,6 +926,7 @@ export function LiveView() {
     if (!team?.lead) return;
     const ticket = w.open_tickets[0]?.key;
     setFocus(team.lead);
+    setSide("agent");
     setPrefill({ text: `@${w.agent.name}${ticket ? ` (${ticket})` : ""}: `, nonce: Date.now() });
   };
   const roomLog = current ? log.filter((l) => (l.agent && current.members.includes(l.agent)) || (l.project && current.project === l.project)) : log;
@@ -962,26 +1035,39 @@ export function LiveView() {
               )
             )}
             <div className="flex h-[200px] shrink-0 flex-col border-t border-line bg-surface 2xl:h-[240px]">
-              <div className="flex items-center gap-2 border-b border-line px-3 py-1">
-                <Segmented
-                  id="live-below"
-                  value={below}
-                  onChange={setBelow}
-                  items={[
-                    { value: "log", label: <><ScrollText className="h-3 w-3" /> {app.t("live.roomLog")}</> },
-                    { value: "plan", label: <><ListChecks className="h-3 w-3" /> Plan / DAG</> },
-                  ]}
-                />
+              <div className="flex items-center gap-2 border-b border-line px-3 py-1.5 text-[11px]">
+                <ScrollText className="h-3 w-3 text-muted" />
+                <b>{app.t("live.roomLog")}</b>
                 <span className="text-[10px] text-subtle">{cctv ? app.t("live.allRooms") : current?.name}</span>
               </div>
               <div className="min-h-0 flex-1">
-                <PanelSwap id={below}>{below === "log" ? <RoomLog lines={roomLog} /> : <PlanPanel project={current?.project} data={data} />}</PanelSwap>
+                <RoomLog lines={roomLog} />
               </div>
             </div>
           </section>
-          {/* right: the selected agent */}
+          {/* right: the selected agent, or the room's plan */}
           <aside className="flex min-w-[420px] flex-[38] flex-col bg-surface">
-            {selected ? <Dock key={selected.agent.id} a={selected} data={data} act={acts.get(selected.agent.id)} prefill={prefill} onPick={pick} onAskLead={askLead} /> : <Empty>{app.t("live.pickAgent")}</Empty>}
+            <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
+              <Segmented
+                id="live-side"
+                value={side}
+                onChange={setSide}
+                items={[
+                  { value: "agent", label: <><Bot className="h-3 w-3" /> {app.t("live.agentTab")}</> },
+                  { value: "plan", label: <><ListChecks className="h-3 w-3" /> Plan</> },
+                ]}
+              />
+              <span className="truncate text-[10px] text-subtle">{side === "agent" ? selected?.agent.name : (current?.name ?? selected?.project_name)}</span>
+            </div>
+            <PanelSwap id={side} className="flex min-h-0 flex-1 flex-col">
+              {side === "plan" ? (
+                <PlanList project={current?.project ?? selected?.project} data={data} />
+              ) : selected ? (
+                <Dock key={selected.agent.id} a={selected} data={data} act={acts.get(selected.agent.id)} prefill={prefill} onPick={pick} onAskLead={askLead} />
+              ) : (
+                <Empty>{app.t("live.pickAgent")}</Empty>
+              )}
+            </PanelSwap>
           </aside>
         </div>
       )}

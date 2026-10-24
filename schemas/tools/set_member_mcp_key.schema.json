@@ -1,0 +1,34 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/set_member_mcp_key.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Give a member its own key for an MCP server it uses (value null: back to the system key). Never put the key anywhere else.",
+  "properties": {
+    "agent": {
+      "pattern": "^agent_[0-9A-HJKMNP-TV-Z]{26}$",
+      "type": "string"
+    },
+    "key": {
+      "description": "The key name: an env variable or HTTP header of the server (from get_team).",
+      "type": "string"
+    },
+    "server": {
+      "type": "string"
+    },
+    "value": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "agent",
+    "server",
+    "key"
+  ],
+  "title": "set_member_mcp_key",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

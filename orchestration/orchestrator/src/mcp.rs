@@ -1,4 +1,6 @@
-//! MCP settings (M15-3): servers in `config.toml`, agent bindings in the agent row, credentials in the vault.
+//! MCP settings (M15-3): servers in `config.toml`, agent bindings in the agent row. Keys (owner's decision,
+//! 2026-10-25): stored as they are, the server's value is the system key and an agent may have its own key per
+//! entry (`Binding::keys`); the app shows them, logs mask them. `${secret:<name>}` vault references still work.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -39,7 +41,7 @@ fn looks_secret(key: &str, value: &str) -> bool {
         || !agenium_secrets::scan_text(value).is_empty()
 }
 
-/// Plain values that look like secrets (refused in `config.toml`).
+/// Plain values that look like secrets (masked in logs).
 pub fn plaintext_secrets(cfg: &McpServerConfig) -> Vec<String> {
     cfg.env
         .iter()
@@ -53,8 +55,27 @@ pub fn plaintext_secrets(cfg: &McpServerConfig) -> Vec<String> {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct JsonImport {
     pub servers: Vec<String>,
-    /// Vault secrets created from literal values (`mcp-<server>-<key>`).
-    pub secrets: Vec<String>,
+}
+
+/// One key an agent can set for a server it uses.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AgentMcpKey {
+    pub server: String,
+    /// The `env` / `headers` entry (or `${cred:KEY}` placeholder).
+    pub name: String,
+    /// The server's value (the system key), as configured.
+    pub system: Option<String>,
+    /// The agent's own key; `None` = the agent uses the system key.
+    pub own: Option<String>,
+}
+
+/// A key value and, for `Scheme value` (`Bearer abc`), the value alone: what the log redactor must know.
+fn mask_forms(v: &str) -> Vec<&str> {
+    let mut out = vec![v];
+    if let Some((_, rest)) = v.split_once(' ') {
+        out.push(rest);
+    }
+    out
 }
 
 fn server_id(name: &str) -> String {
@@ -73,16 +94,8 @@ fn server_id(name: &str) -> String {
 }
 
 impl App {
-    /// Adds or replaces an MCP server. Secret-looking literal values are refused: store them with
-    /// `secret set` and reference them as `${secret:<name>}`.
+    /// Adds or replaces an MCP server. Keys are kept as written (the system key of the server).
     pub fn put_mcp_server(&self, cfg: McpServerConfig) -> Result<()> {
-        let bad = plaintext_secrets(&cfg);
-        if !bad.is_empty() {
-            return Err(OrchError::Invalid(format!(
-                "{} look like secrets; store them in the vault and use ${{secret:<name>}} instead",
-                bad.join(", ")
-            )));
-        }
         self.update_config(|c| {
             c.mcp.retain(|m| m.id != cfg.id);
             c.mcp.push(cfg);
@@ -117,7 +130,7 @@ impl App {
     }
 
     /// Imports `{"mcpServers": {name: {command, args, env} | {url, headers}}}` (the format most MCP docs show).
-    /// Literal secret values move to the vault and are referenced as `${secret:mcp-<server>-<key>}`.
+    /// Values are kept as written.
     pub fn import_mcp_json(&self, text: &str) -> Result<JsonImport> {
         let v: serde_json::Value = serde_json::from_str(text)
             .map_err(|e| OrchError::Invalid(format!("not valid JSON: {e}")))?;
@@ -145,7 +158,7 @@ impl App {
                     })
                     .unwrap_or_default()
             };
-            let mut cfg = McpServerConfig {
+            let cfg = McpServerConfig {
                 id: id.clone(),
                 command: s.get("command").and_then(|c| c.as_str()).map(str::to_owned),
                 args: s
@@ -166,22 +179,6 @@ impl App {
                 headers: strings("headers"),
                 timeout_secs: 120,
             };
-            for (k, v) in cfg.env.iter_mut().chain(cfg.headers.iter_mut()) {
-                if v.contains("${") || !looks_secret(k, v) {
-                    continue;
-                }
-                let secret = format!("mcp-{id}-{}", server_id(k));
-                // Keep an auth scheme such as "Bearer " in the config; only the credential goes to the vault.
-                let (scheme, value) = match v.split_once(' ') {
-                    Some((scheme, rest)) if k.eq_ignore_ascii_case("authorization") => {
-                        (format!("{scheme} "), rest.to_owned())
-                    }
-                    _ => (String::new(), v.clone()),
-                };
-                self.secrets().set(&secret, value.as_bytes())?;
-                *v = format!("{scheme}${{secret:{secret}}}");
-                out.secrets.push(secret);
-            }
             out.servers.push(id);
             configs.push(cfg);
         }
@@ -195,8 +192,107 @@ impl App {
         Ok(out)
     }
 
+    /// Tells the log redactor the key values an agent's MCP connections use (system keys written as plain values
+    /// and the agent's own keys): the app shows them, logs never do.
+    pub fn mask_mcp_keys(&self, bindings: &[Binding]) {
+        let cfg = self.config();
+        for b in bindings {
+            if let Some(s) = cfg.mcp_server(&b.server) {
+                for (k, v) in s.env.iter().chain(s.headers.iter()) {
+                    if !v.contains("${") && looks_secret(k, v) {
+                        for f in mask_forms(v) {
+                            self.redactor.register(&format!("mcp/{}/{k}", s.id), f);
+                        }
+                    }
+                }
+            }
+            for (k, v) in &b.keys {
+                for f in mask_forms(v) {
+                    self.redactor
+                        .register(&format!("mcp/{}/{}/own", b.server, k), f);
+                }
+            }
+        }
+    }
+
+    /// The keys of every MCP server an agent uses: the system value and the agent's own key.
+    pub fn agent_mcp_keys(&self, id: AgentId) -> Result<Vec<AgentMcpKey>> {
+        let a = self.agent(id)?;
+        let cfg = self.config();
+        let mut out = Vec::new();
+        for b in
+            agenium_mcp::parse_bindings(&a.mcp).map_err(|e| OrchError::Invalid(e.to_string()))?
+        {
+            let Some(s) = cfg.mcp_server(&b.server) else {
+                continue;
+            };
+            for name in agenium_mcp::key_names(s) {
+                out.push(AgentMcpKey {
+                    server: b.server.clone(),
+                    system: s.env.get(&name).or_else(|| s.headers.get(&name)).cloned(),
+                    own: b
+                        .keys
+                        .get(&name)
+                        .cloned()
+                        .or_else(|| b.credentials.get(&name).map(|n| format!("${{secret:{n}}}"))),
+                    name,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    /// Gives an agent its own key for one entry of a server it uses (`Some`), or removes it (`None`: back to
+    /// the system key). `actor` is who did it, for the event log (`user` or `agent:<id>`).
+    pub fn set_agent_mcp_key(
+        &self,
+        id: AgentId,
+        server: &str,
+        name: &str,
+        value: Option<&str>,
+        actor: &str,
+    ) -> Result<()> {
+        let a = self.agent(id)?;
+        let cfg = self.config();
+        let s = cfg
+            .mcp_server(server)
+            .ok_or_else(|| OrchError::NotFound(format!("MCP server {server}")))?;
+        let names = agenium_mcp::key_names(s);
+        if !names.iter().any(|n| n == name) {
+            return Err(OrchError::Invalid(format!(
+                "MCP server {server} has no key {name:?}; its keys: {}",
+                names.join(", ")
+            )));
+        }
+        let mut b =
+            agenium_mcp::parse_bindings(&a.mcp).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        let Some(bind) = b.iter_mut().find(|x| x.server == server) else {
+            return Err(OrchError::Conflict(format!(
+                "{} does not use MCP server {server}; the user enables it on the agent's page first",
+                a.name
+            )));
+        };
+        match value.map(str::trim) {
+            Some("") => return Err(OrchError::Invalid("the key is empty".into())),
+            Some(v) => {
+                bind.keys.insert(name.to_owned(), v.to_owned());
+                bind.credentials.remove(name);
+            }
+            None => {
+                bind.keys.remove(name);
+                bind.credentials.remove(name);
+            }
+        }
+        self.mask_mcp_keys(&b);
+        self.write_agent_mcp(id, &b, actor)
+    }
+
     /// Replaces the agent's MCP bindings (every server must be configured).
     pub fn set_agent_mcp(&self, id: AgentId, bindings: &[Binding]) -> Result<()> {
+        self.write_agent_mcp(id, bindings, "user")
+    }
+
+    fn write_agent_mcp(&self, id: AgentId, bindings: &[Binding], actor: &str) -> Result<()> {
         let cfg = self.config();
         for b in bindings {
             if cfg.mcp_server(&b.server).is_none() {
@@ -205,7 +301,7 @@ impl App {
         }
         let v = serde_json::to_value(bindings).map_err(|e| OrchError::Invalid(e.to_string()))?;
         self.store()
-            .commit(None, "user", |w| -> std::result::Result<_, StoreError> {
+            .commit(None, actor, |w| -> std::result::Result<_, StoreError> {
                 agents::set_agent_mcp(w.tx, id, &v)?;
                 w.emit(DomainEvent::AgentUpdated {
                     agent: id,

@@ -432,6 +432,7 @@ impl App {
             let new = agenium_mcp::Binding {
                 server: server.to_owned(),
                 credentials: Default::default(),
+                keys: Default::default(),
                 tools: None,
             };
             self.check_mcp(std::slice::from_ref(&new))?;

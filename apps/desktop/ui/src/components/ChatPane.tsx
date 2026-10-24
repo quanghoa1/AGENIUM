@@ -1,9 +1,10 @@
-// The conversation with a project's Lead (or Solo agent): history, live streaming of the turn, the input. Used by
-// the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
-import { Loader2, Send } from "lucide-react";
+// The conversation with a project's Lead (or Solo agent), like a CLI chat: history, the turn in progress (its
+// reasoning folded in an expandable "thinking" block, the tool being called, the text as it streams), the input.
+// Used by the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
+import { Brain, ChevronDown, ChevronRight, Loader2, Send, Wrench } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
-import { useApp } from "../lib/store";
+import { useApp, type LiveRun } from "../lib/store";
 import type { ChatLine } from "../lib/types";
 import { Markdown } from "./Markdown";
 import { ListItem } from "./motion";
@@ -15,12 +16,59 @@ export interface Prefill {
   nonce: number;
 }
 
+/** The turn in progress: thinking (expandable, open while the model reasons), the tool being called, the text. */
+export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
+  const app = useApp();
+  const [open, setOpen] = useState(true);
+  const writing = !!stream?.text;
+  useEffect(() => {
+    // Fold the reasoning once the answer starts.
+    if (writing) setOpen(false);
+  }, [writing]);
+  const thinking = stream?.thinking.trim() ?? "";
+  const reasoning = !stream || stream.phase === "thinking";
+  return (
+    <div className="flex gap-3">
+      <Avatar name={name} />
+      <div className="min-w-0 max-w-[85%] flex-1 space-y-1.5">
+        {thinking ? (
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5">
+            <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] text-blue-600 dark:text-blue-300" onClick={() => setOpen(!open)}>
+              {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <Brain className={cn("h-3.5 w-3.5", reasoning && "animate-pulse")} />
+              {reasoning ? `${app.t("live.thinking")}…` : app.t("chat.thought")}
+            </button>
+            {open && <div className="max-h-56 overflow-y-auto whitespace-pre-wrap px-3 pb-2 font-mono text-[10.5px] leading-relaxed text-muted">{thinking.slice(-6000)}</div>}
+          </div>
+        ) : (
+          reasoning && (
+            <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-elevated px-2.5 py-1.5 text-[11px] text-subtle">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {app.t("live.thinking")}… <span className="text-[10px]">{stream ? app.t("chat.noReasoning") : ""}</span>
+            </div>
+          )
+        )}
+        {stream?.phase === "tool" && stream.tool && (
+          <div className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1 font-mono text-[10.5px] text-purple-600 dark:text-purple-300">
+            <Wrench className="h-3 w-3" /> {stream.tool.replace(/^cli:/, "")}
+          </div>
+        )}
+        {writing && (
+          <div className="whitespace-pre-wrap rounded-xl border border-line bg-elevated px-3.5 py-2.5 text-xs">
+            <Markdown text={stream!.text} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ChatPane({
   project,
   agentName,
   enabled = true,
   prefill,
   after,
+  stream,
   className,
 }: {
   project: string;
@@ -29,6 +77,8 @@ export function ChatPane({
   prefill?: Prefill | null;
   /** Rendered after the conversation (the Lead's delegation cards in the Live tab). */
   after?: ReactNode;
+  /** The agent's run in progress (Live tab); shown as the turn in progress even when another window started it. */
+  stream?: LiveRun;
   className?: string;
 }) {
   const app = useApp();
@@ -58,15 +108,16 @@ export function ChatPane({
     el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [lines, busy, app.live]);
 
-  // While a turn runs, show the text of the newest live run that is still going.
-  const streaming = busy
-    ? Object.values(app.live)
-        .filter((l) => !l.done)
-        .sort((a, b) => a.at - b.at)
-        .map((l) => l.text)
-        .filter(Boolean)
-        .slice(-1)[0]
-    : undefined;
+  // The turn in progress: the agent's run when known, else (chat page) the newest live run while we wait.
+  const current =
+    stream && !stream.done
+      ? stream
+      : busy
+        ? Object.values(app.live)
+            .filter((l) => !l.done)
+            .sort((a, b) => a.at - b.at)
+            .slice(-1)[0]
+        : undefined;
 
   const send = () => {
     if (!text.trim() || !enabled) return;
@@ -101,18 +152,7 @@ export function ChatPane({
             </div>
           </ListItem>
         ))}
-        {busy && (
-          <div className="flex gap-3">
-            <Avatar name={agentName} />
-            <div className="max-w-[80%] whitespace-pre-wrap rounded-xl border border-line bg-elevated px-3.5 py-2.5 text-xs">
-              {(streaming && <Markdown text={streaming} />) || (
-                <span className="inline-flex items-center gap-2 text-subtle">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> {app.t("chat.thinking")}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        {(busy || current) && <LiveTurn name={agentName} stream={current} />}
         {lines.length === 0 && !busy && <Empty>{app.t("chat.placeholder")}</Empty>}
         {after}
         <div ref={end} />

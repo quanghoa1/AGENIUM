@@ -761,3 +761,74 @@ fn the_user_puts_another_member_in_the_lead_slot() {
     );
     assert!(e.is_err());
 }
+
+/// Per-agent MCP keys: the Lead gives a member its own key (the system key stays the server's value), get_team
+/// shows which members have one, other teams and workers cannot, logs mask the key.
+#[test]
+fn lead_sets_a_member_mcp_key() {
+    let t = team();
+    let f = &t.f;
+    f.app
+        .put_mcp_server(
+            serde_json::from_value(serde_json::json!({
+                "id": "crm", "url": "https://crm.example.com/mcp",
+                "headers": {"Authorization": "Bearer lead-system-key-0001"}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    f.app.toggle_agent_mcp(t.web, "crm", true).unwrap();
+    let set = |actor, agent, value: Option<&str>| {
+        f.app.apply(
+            &ctx(f, actor),
+            Intent::SetMemberMcpKey(SetMemberMcpKey {
+                agent,
+                server: "crm".into(),
+                key: "Authorization".into(),
+                value: value.map(str::to_owned),
+            }),
+        )
+    };
+    assert!(
+        set(Actor::Worker(t.web), t.web, Some("Bearer x")).is_err(),
+        "workers cannot"
+    );
+    assert!(
+        set(Actor::Lead(t.lead), t.api, Some("Bearer x")).is_err(),
+        "api-1 does not use crm"
+    );
+    let out = set(Actor::Lead(t.lead), t.web, Some("Bearer web-own-key-0002")).unwrap();
+    assert_eq!(out.result["uses"], "its own key");
+    let keys = f.app.agent_mcp_keys(t.web).unwrap();
+    assert_eq!(keys[0].own.as_deref(), Some("Bearer web-own-key-0002"));
+    assert_eq!(
+        keys[0].system.as_deref(),
+        Some("Bearer lead-system-key-0001")
+    );
+    let roster = f
+        .app
+        .apply(
+            &ctx(f, Actor::Lead(t.lead)),
+            Intent::GetTeam(Default::default()),
+        )
+        .unwrap();
+    let web = roster.result["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["name"] == "web-1")
+        .unwrap()
+        .clone();
+    assert_eq!(web["mcp"][0]["keys"][0]["own_key"], true);
+    assert!(
+        !roster.result.to_string().contains("web-own-key"),
+        "values never reach the Lead's roster"
+    );
+    assert!(!f
+        .app
+        .redactor()
+        .redact("web-own-key-0002")
+        .contains("web-own-key"));
+    set(Actor::Lead(t.lead), t.web, None).unwrap();
+    assert_eq!(f.app.agent_mcp_keys(t.web).unwrap()[0].own, None);
+}

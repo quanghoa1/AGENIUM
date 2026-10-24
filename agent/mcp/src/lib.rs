@@ -35,6 +35,11 @@ pub struct Binding {
     /// `${cred:KEY}` placeholders of the server config -> vault secret names for this agent.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub credentials: BTreeMap<String, String>,
+    /// The agent's own keys, stored as they are (the user sees them in the app; logs mask them). A name is an
+    /// `env` / `headers` entry of the server (the key replaces the placeholder there, or the whole value when it
+    /// has none) or a `${cred:KEY}` placeholder. Entries without an own key use the server's (system) value.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub keys: BTreeMap<String, String>,
     /// Only these tools (by MCP name); `None` = every tool of the server.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<String>>,
@@ -51,11 +56,21 @@ pub fn parse_bindings(v: &Value) -> Result<Vec<Binding>, McpError> {
 /// Looks up a vault secret by name (exposed value).
 pub type SecretFn = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
-/// Resolves `${secret:<name>}` and `${cred:<KEY>}` placeholders.
+impl Binding {
+    /// The agent's own value for a key name: its literal key, else the vault secret its credential names.
+    pub fn own(&self, name: &str, secret: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+        self.keys
+            .get(name)
+            .cloned()
+            .or_else(|| self.credentials.get(name).and_then(|n| secret(n)))
+    }
+}
+
+/// Resolves `${secret:<name>}` (vault) and `${cred:<KEY>}` (the agent's own key, see [`Binding::own`]).
 pub fn resolve(
     value: &str,
     secret: &dyn Fn(&str) -> Option<String>,
-    creds: &BTreeMap<String, String>,
+    own: &dyn Fn(&str) -> Option<String>,
 ) -> Result<String, McpError> {
     let mut out = String::new();
     let mut rest = value;
@@ -67,22 +82,76 @@ pub fn resolve(
             return Ok(out);
         };
         let token = &after[..end];
-        let name = if let Some(n) = token.strip_prefix("secret:") {
-            n.to_owned()
+        let v = if let Some(n) = token.strip_prefix("secret:") {
+            secret(n)
+                .ok_or_else(|| McpError::Config(format!("secret {n:?} is not in the vault")))?
         } else if let Some(k) = token.strip_prefix("cred:") {
-            creds.get(k).cloned().ok_or_else(|| {
-                McpError::Config(format!(
-                    "the agent's binding maps no secret to credential {k:?}"
-                ))
-            })?
+            own(k).ok_or_else(|| McpError::Config(format!("the agent has no key {k:?}")))?
         } else {
             out.push_str(&rest[i..i + 2 + end + 1]);
             rest = &after[end + 1..];
             continue;
         };
-        let v = secret(&name)
-            .ok_or_else(|| McpError::Config(format!("secret {name:?} is not in the vault")))?;
         out.push_str(&v);
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// The key names an agent can set for a server: its `env` and `headers` entries and its `${cred:KEY}` placeholders.
+pub fn key_names(cfg: &McpServerConfig) -> Vec<String> {
+    let mut out: Vec<String> = cfg.env.keys().chain(cfg.headers.keys()).cloned().collect();
+    for v in cfg
+        .env
+        .values()
+        .chain(cfg.headers.values())
+        .chain(cfg.args.iter())
+    {
+        let mut rest = v.as_str();
+        while let Some(i) = rest.find("${cred:") {
+            let after = &rest[i + 7..];
+            let Some(end) = after.find('}') else { break };
+            out.push(after[..end].to_owned());
+            rest = &after[end + 1..];
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// The value of one `env` / `headers` entry for an agent: with an own key for that entry, the key replaces the
+/// entry's placeholders (keeping a scheme such as `Bearer `), or the whole value when it has none; without one,
+/// the server's (system) value.
+fn entry_value(
+    name: &str,
+    template: &str,
+    secret: &dyn Fn(&str) -> Option<String>,
+    binding: &Binding,
+) -> Result<String, McpError> {
+    let own = |k: &str| binding.own(k, secret);
+    let Some(value) = own(name) else {
+        return resolve(template, secret, &own);
+    };
+    if !template.contains("${") {
+        return Ok(value);
+    }
+    let mut out = String::new();
+    let mut rest = template;
+    while let Some(i) = rest.find("${") {
+        out.push_str(&rest[..i]);
+        let after = &rest[i + 2..];
+        let Some(end) = after.find('}') else {
+            out.push_str(&rest[i..]);
+            return Ok(out);
+        };
+        let token = &after[..end];
+        if token.starts_with("secret:") || token.starts_with("cred:") {
+            out.push_str(&value);
+        } else {
+            out.push_str(&rest[i..i + 2 + end + 1]);
+        }
         rest = &after[end + 1..];
     }
     out.push_str(rest);
@@ -98,7 +167,7 @@ pub fn connect_spec(
 ) -> Result<ConnectSpec, McpError> {
     let map = |m: &BTreeMap<String, String>| -> Result<BTreeMap<String, String>, McpError> {
         m.iter()
-            .map(|(k, v)| Ok((k.clone(), resolve(v, secret, &binding.credentials)?)))
+            .map(|(k, v)| Ok((k.clone(), entry_value(k, v, secret, binding)?)))
             .collect()
     };
     match (&cfg.command, &cfg.url) {
@@ -107,7 +176,7 @@ pub fn connect_spec(
             args: cfg
                 .args
                 .iter()
-                .map(|a| resolve(a, secret, &binding.credentials))
+                .map(|a| resolve(a, secret, &|k| binding.own(k, secret)))
                 .collect::<Result<_, _>>()?,
             env: map(&cfg.env)?,
             cwd: work_dir,
@@ -263,7 +332,34 @@ pub struct AgentTools {
 
 /// (agent, server)
 type SessionKey = (String, String);
-type OpenSession = (Arc<Session>, Vec<ToolInfo>);
+/// The session, its tools and the fingerprint of the resolved connection (a changed key reconnects).
+type OpenSession = (Arc<Session>, Vec<ToolInfo>, u64);
+
+/// In-memory fingerprint of a resolved connection (values included, never stored or printed).
+fn fingerprint(spec: &ConnectSpec) -> u64 {
+    let mut s = String::new();
+    match spec {
+        ConnectSpec::Stdio {
+            command, args, env, ..
+        } => {
+            s.push_str(command);
+            for a in args {
+                s.push('\0');
+                s.push_str(a);
+            }
+            for (k, v) in env {
+                s.push_str(&format!("\0{k}={v}"));
+            }
+        }
+        ConnectSpec::Http { url, headers } => {
+            s.push_str(url);
+            for (k, v) in headers {
+                s.push_str(&format!("\0{k}={v}"));
+            }
+        }
+    }
+    fnv(&s)
+}
 
 pub struct McpHub {
     secret: SecretFn,
@@ -296,10 +392,30 @@ impl McpHub {
                 continue;
             };
             let key = (agent.to_owned(), cfg.id.clone());
-            let entry = { self.sessions.lock().await.get(&key).cloned() };
-            let (session, tools) = match entry {
+            let spec = match connect_spec(
+                cfg,
+                b,
+                self.secret.as_ref(),
+                self.work_dir.join(agent).join(&cfg.id),
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    out.problems.push(format!("{}: {e}", cfg.id));
+                    continue;
+                }
+            };
+            let print = fingerprint(&spec);
+            let entry = {
+                let mut sessions = self.sessions.lock().await;
+                // A key or the server's settings changed since the connection opened: open a new one.
+                if sessions.get(&key).is_some_and(|e| e.2 != print) {
+                    sessions.remove(&key);
+                }
+                sessions.get(&key).cloned()
+            };
+            let (session, tools, _) = match entry {
                 Some(e) => e,
-                None => match self.open(agent, cfg, b).await {
+                None => match self.open(cfg, spec, print).await {
                     Ok(e) => {
                         self.sessions.lock().await.insert(key, e.clone());
                         e
@@ -351,16 +467,10 @@ impl McpHub {
 
     async fn open(
         &self,
-        agent: &str,
         cfg: &McpServerConfig,
-        b: &Binding,
-    ) -> Result<(Arc<Session>, Vec<ToolInfo>), McpError> {
-        let spec = connect_spec(
-            cfg,
-            b,
-            self.secret.as_ref(),
-            self.work_dir.join(agent).join(&cfg.id),
-        )?;
+        spec: ConnectSpec,
+        print: u64,
+    ) -> Result<OpenSession, McpError> {
         let session = Arc::new(Session {
             server: cfg.id.clone(),
             spec,
@@ -369,7 +479,7 @@ impl McpHub {
         });
         let c = session.client().await?;
         let tools = c.list_tools(CONNECT_TIMEOUT).await?;
-        Ok((session, tools))
+        Ok((session, tools, print))
     }
 
     /// "Test connection": connect, list tools, disconnect.
@@ -411,6 +521,7 @@ mod tests {
             _ => None,
         };
         let creds: BTreeMap<String, String> = [("TOKEN".to_string(), "gh-dev".to_string())].into();
+        let creds = |k: &str| creds.get(k).and_then(|n| secret(n));
         assert_eq!(
             resolve("Bearer ${cred:TOKEN}", &secret, &creds).unwrap(),
             "Bearer ghp_dev"
@@ -429,6 +540,47 @@ mod tests {
             resolve("${unclosed", &secret, &creds).unwrap(),
             "${unclosed"
         );
+    }
+
+    #[test]
+    fn own_keys_replace_the_system_key_per_entry() {
+        let secret = |n: &str| (n == "mcp-docs-token").then(|| "system".to_string());
+        let mut b = Binding {
+            server: "docs".into(),
+            credentials: BTreeMap::new(),
+            keys: BTreeMap::new(),
+            tools: None,
+        };
+        let auth = "Bearer ${secret:mcp-docs-token}";
+        assert_eq!(
+            entry_value("Authorization", auth, &secret, &b).unwrap(),
+            "Bearer system"
+        );
+        assert_eq!(
+            entry_value("API_KEY", "shared", &secret, &b).unwrap(),
+            "shared"
+        );
+        b.keys.insert("Authorization".into(), "mine".into());
+        b.keys.insert("API_KEY".into(), "own".into());
+        b.keys.insert("PERSONAL".into(), "p".into());
+        assert_eq!(
+            entry_value("Authorization", auth, &secret, &b).unwrap(),
+            "Bearer mine"
+        );
+        assert_eq!(
+            entry_value("API_KEY", "shared", &secret, &b).unwrap(),
+            "own"
+        );
+        assert_eq!(
+            entry_value("X", "k=${cred:PERSONAL}", &secret, &b).unwrap(),
+            "k=p"
+        );
+        let cfg: McpServerConfig = serde_json::from_value(serde_json::json!({
+            "id": "docs", "url": "http://x", "headers": {"Authorization": "Bearer ${secret:t}"},
+            "env": {"API_KEY": "${cred:PERSONAL}"}
+        }))
+        .unwrap();
+        assert_eq!(key_names(&cfg), ["API_KEY", "Authorization", "PERSONAL"]);
     }
 
     #[test]

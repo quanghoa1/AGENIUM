@@ -130,6 +130,8 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Desktop: providers & CLIs, skills & MCP library, create agent, compose/manage teams | DONE | ADR-61 Consequences; real app on a test root (pool agents created, suggestion "role meant to lead, tags, skill lead-team") |
 | Desktop: Live tab (rooms, pixel office, room log, inspector with thinking / tool-skill-MCP calls / role-based chat), window maximized + F11 | DONE | ADR-60 "Live tab"; watched a real team round on DeepSeek: Lead created and assigned tickets, a researcher worked, calls classified with args/output/ms |
 | Finding from that round: a plan item whose role is the Lead's (research-lead) cannot become a ticket (the Lead takes no tickets in team mode); the Lead cancelled it | OPEN | plan validation should refuse items for the Lead's role, or the Lead does such synthesis in its review |
+| Language: no user-language setting; Lead/Solo answer in the language the user writes in | DONE | ADR-40 amendment |
+| Per-agent MCP keys + Lead tool set_member_mcp_key; projects by folder name or repo; no machine paths in the UI; Live: desks for agents with a task, lounge for free ones, names, plan tab, CLI-like chat with expandable thinking | DONE | ADR-62; real app on the test root |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI

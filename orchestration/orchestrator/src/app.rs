@@ -79,10 +79,37 @@ impl EventSource for StoreSource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateProject {
     pub name: String,
-    /// Folder of the project; default `<root>/projects/<name>`. May be an existing repository.
+    /// Folder of the project; default `<root>/projects/<folder>`. May be an existing repository (CLI).
     pub path: Option<PathBuf>,
     pub key_prefix: Option<String>,
     pub template: Option<String>,
+    /// Folder name under `<root>/projects` (default: the project name). The app decides where projects live.
+    #[serde(default)]
+    pub folder: Option<String>,
+    /// A git repository to clone into the project folder (URL or `git@host:owner/repo`).
+    #[serde(default)]
+    pub repo: Option<String>,
+}
+
+/// Whether a project's "folder or repo" text names a git repository rather than a folder.
+pub fn is_repo_url(s: &str) -> bool {
+    let s = s.trim();
+    s.starts_with("https://")
+        || s.starts_with("http://")
+        || s.starts_with("git@")
+        || s.starts_with("ssh://")
+        || s.ends_with(".git")
+}
+
+/// Folder name for a repository URL: its last segment without `.git`.
+pub fn repo_folder(url: &str) -> String {
+    let last = url
+        .trim()
+        .trim_end_matches('/')
+        .rsplit(['/', '\\', ':'])
+        .next()
+        .unwrap_or("");
+    last.trim_end_matches(".git").to_owned()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -215,10 +242,67 @@ impl App {
                 "project name {name:?} must be non-empty and contain no path separators"
             )));
         }
-        let path = req
-            .path
-            .clone()
-            .unwrap_or_else(|| self.projects_dir().join(name));
+        let path = match &req.path {
+            Some(p) => p.clone(),
+            None => {
+                let folder = req
+                    .folder
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|f| !f.is_empty())
+                    .map(str::to_owned)
+                    .or_else(|| {
+                        req.repo
+                            .as_deref()
+                            .map(repo_folder)
+                            .filter(|f| !f.is_empty())
+                    })
+                    .unwrap_or_else(|| name.to_owned());
+                if folder.contains(['/', '\\', ':']) || folder == "." || folder == ".." {
+                    return Err(OrchError::Invalid(format!(
+                        "folder {folder:?}: give a folder name, not a path (projects live in the app's projects folder)"
+                    )));
+                }
+                self.projects_dir().join(folder)
+            }
+        };
+        let mut cloned_branch = None;
+        if let Some(url) = req.repo.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+            if path.exists()
+                && std::fs::read_dir(&path)
+                    .map(|mut d| d.next().is_some())
+                    .unwrap_or(true)
+            {
+                return Err(OrchError::Conflict(format!(
+                    "the folder {} already exists; pick another folder name",
+                    path.file_name().unwrap_or_default().to_string_lossy()
+                )));
+            }
+            std::fs::create_dir_all(self.projects_dir())
+                .map_err(|e| OrchError::Invalid(e.to_string()))?;
+            let git = agenium_vcs::git::Git::default();
+            let out = git.run(
+                &self.projects_dir(),
+                [
+                    std::ffi::OsStr::new("clone"),
+                    "--".as_ref(),
+                    url.as_ref(),
+                    path.as_os_str(),
+                ],
+            )?;
+            if !out.ok() {
+                let _ = std::fs::remove_dir_all(&path);
+                return Err(OrchError::Invalid(format!(
+                    "git clone failed: {}",
+                    out.stderr.trim().lines().last().unwrap_or("unknown error")
+                )));
+            }
+            cloned_branch = git
+                .check(&path, ["symbolic-ref", "--short", "HEAD"])
+                .ok()
+                .map(|b| b.trim().to_owned())
+                .filter(|b| !b.is_empty());
+        }
         std::fs::create_dir_all(&path)
             .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))?;
         let path = canonical(&path);
@@ -230,7 +314,7 @@ impl App {
                         id: ProjectId::new().to_string(),
                         name: name.to_owned(),
                         key_prefix: req.key_prefix.clone().unwrap_or_else(|| "AGN".into()),
-                        main_branch: "main".into(),
+                        main_branch: cloned_branch.clone().unwrap_or_else(|| "main".into()),
                         template: req.template.clone().unwrap_or_else(|| "coding@1".into()),
                     },
                     worktree: Default::default(),

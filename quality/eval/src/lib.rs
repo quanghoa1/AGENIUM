@@ -246,6 +246,8 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         path: None,
         key_prefix: None,
         template: None,
+        folder: None,
+        repo: None,
     })?;
     let root = Path::new(&project.path).to_path_buf();
     for (rel, content) in task.fixture {

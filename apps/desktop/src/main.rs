@@ -81,6 +81,8 @@ fn main() {
             manage::set_agent_role,
             manage::toggle_agent_skill,
             manage::toggle_agent_mcp,
+            manage::agent_mcp_keys,
+            manage::set_agent_mcp_key,
             manage::delete_agent,
             manage::teams,
             manage::compose_team,
