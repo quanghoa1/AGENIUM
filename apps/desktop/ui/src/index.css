@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+html.light {
+  --bg-primary: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  color-scheme: light;
+}
+
+html.dark {
+  --bg-primary: #090b10;
+  --bg-surface: #11151e;
+  --bg-elevated: #171c28;
+  --border-subtle: #1e2536;
+  --border-strong: #2e374f;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .label {
+    @apply font-mono text-[10px] font-semibold uppercase tracking-wider text-subtle;
+  }
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-elevated px-2.5 py-1.5 text-xs font-medium text-fg transition-colors hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-500/20 dark:text-rose-300;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line-strong bg-background px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-subtle focus:border-accent;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium;
+  }
+}

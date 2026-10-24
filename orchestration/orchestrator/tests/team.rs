@@ -670,3 +670,58 @@ fn approved_spec_without_planner_asks_the_lead_for_a_plan() {
     );
     assert!(inbox[0].text.contains("create_plan"));
 }
+
+#[test]
+fn needs_you_lists_what_waits_for_the_user() {
+    use agenium_orchestrator::views::NeedKind as N;
+    let t = team();
+    let f = &t.f;
+    let kinds = || -> Vec<N> {
+        f.app
+            .needs_you(f.project.id)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.kind)
+            .collect()
+    };
+    assert_eq!(kinds(), [N::SpecApproval]);
+    f.app.approve_spec(f.project.id, 1).unwrap();
+    f.app
+        .apply(
+            &ctx(f, Actor::Lead(t.lead)),
+            Intent::CreatePlan(plan(&[("PI-1", &[])])),
+        )
+        .unwrap();
+    assert_eq!(kinds(), [N::PlanApproval]);
+    f.app.approve_plan(f.project.id, 1).unwrap();
+    let k = started(f, t.web, "PI-1", "Needs things", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wctx = || CallCtx {
+        run: Some(run.run),
+        ..ctx(f, Actor::Worker(t.web))
+    };
+    // Outside the allowlist: the user decides. Inside: the Lead (not listed).
+    for domain in ["github.com", "crates.io"] {
+        f.app
+            .apply(
+                &wctx(),
+                Intent::RequestPermission(PermissionRequest {
+                    ticket_id: k.clone(),
+                    kind: PermissionKind::Network,
+                    command: None,
+                    domains: vec![domain.into()],
+                    paths: vec![],
+                    reason: format!("fetch from {domain}"),
+                }),
+            )
+            .unwrap();
+    }
+    assert_eq!(kinds(), [N::Permission]);
+    f.app
+        .set_agent_status(t.api, AgentStatus::QuotaExhausted)
+        .unwrap();
+    let all = f.app.needs_you(f.project.id).unwrap();
+    assert_eq!(all[0].kind, N::AgentBlocked, "blocked agents come first");
+    assert_eq!(all[0].agent.as_deref(), Some("api-1"));
+    assert!(all[1].text.contains("github.com"));
+}

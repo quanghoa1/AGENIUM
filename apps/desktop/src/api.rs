@@ -1,0 +1,731 @@
+//! IPC commands of the desktop app. Read models come from the orchestrator (`views`, `inbox`, store queries); every
+//! action goes through the same App/Runtime methods as the CLI, so the rules are the orchestrator's, never the UI's.
+
+use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::Ordering;
+
+use agenium_core::forms::{self, PermissionDecision};
+use agenium_core::*;
+use agenium_orchestrator::app::{CreateAgent, CreateProject};
+use agenium_orchestrator::runtime::Approval;
+use agenium_orchestrator::CallCtx;
+use agenium_store::core::{comments, events, runs, workspaces};
+use serde::Deserialize;
+use serde_json::{json, Value};
+use tauri::{AppHandle, State};
+
+use crate::state::{err, Desktop, Opened, R};
+
+fn key(s: &str) -> R<TicketKey> {
+    s.parse().map_err(|e: IdParseError| e.to_string())
+}
+
+fn pid(s: &str) -> R<ProjectId> {
+    s.parse().map_err(|e: IdParseError| e.to_string())
+}
+
+fn names(o: &Opened) -> R<HashMap<AgentId, String>> {
+    Ok(o.app
+        .agents()
+        .map_err(err)?
+        .into_iter()
+        .map(|a| (a.id, a.name))
+        .collect())
+}
+
+// ---------------------------------------------------------------- setup / status
+
+#[tauri::command]
+pub fn status(d: State<'_, Desktop>) -> Value {
+    let opened = d.opened().ok();
+    let cfg = opened.as_ref().map(|o| o.app.config());
+    json!({
+        "root": d.root.display().to_string(),
+        "ready": opened.is_some(),
+        "version": env!("CARGO_PKG_VERSION"),
+        "ui_language": cfg.as_ref().map(|c| c.app.language.clone()),
+        "user_language": cfg.as_ref().map(|c| c.app.user_language.clone()),
+        "autopilot": d.autopilot.load(Ordering::SeqCst),
+    })
+}
+
+#[tauri::command]
+pub fn setup(
+    d: State<'_, Desktop>,
+    handle: AppHandle,
+    ui_language: String,
+    user_language: String,
+) -> R<Value> {
+    let input = agenium_config::setup::SetupInput {
+        root: Some(d.root.clone()),
+        ui_language,
+        user_language,
+    };
+    let home = dirs::home_dir().unwrap_or_default().join(".agenium");
+    agenium_config::setup::complete_setup(
+        &input,
+        &home,
+        agenium_config::Bootstrap::default_path().as_deref(),
+    )
+    .map_err(err)?;
+    d.open(&handle)?;
+    Ok(status(d))
+}
+
+// ---------------------------------------------------------------- overview
+
+#[tauri::command]
+pub fn projects(d: State<'_, Desktop>) -> R<Vec<Value>> {
+    let o = d.opened()?;
+    let mut out = vec![];
+    for p in o.app.projects().map_err(err)? {
+        let tickets = o.app.tickets(p.id).map_err(err)?;
+        let mut by_status: BTreeMap<String, usize> = BTreeMap::new();
+        for t in &tickets {
+            *by_status.entry(t.status.to_string()).or_default() += 1;
+        }
+        let team = o.app.team_of_project(p.id).map_err(err)?.map(|(t, m)| {
+            json!({ "id": t.id, "name": t.name, "solo": t.solo, "template": t.template, "lead": t.lead,
+                    "members": m.len() })
+        });
+        let pv = o.app.plan_view(p.id).map_err(err)?;
+        out.push(json!({
+            "id": p.id, "name": p.name, "path": p.path, "key_prefix": p.key_prefix, "status": p.status,
+            "main_branch": p.main_branch, "team": team, "tickets": tickets.len(), "by_status": by_status,
+            "plan_items": pv.items.len(), "plan_done": pv.items.iter().filter(|i| i.done).count(),
+            "plan_version": pv.plan.as_ref().map(|x| x.version), "spec_version": pv.spec.as_ref().map(|x| x.version),
+            "needs_you": o.app.needs_you(p.id).map_err(err)?.len(),
+            "inbox": o.app.lead_inbox(p.id).map_err(err)?.len(),
+        }));
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn overview(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let names = names(&o)?;
+    let mut needs = vec![];
+    let mut current: HashMap<AgentId, (String, TicketKey, String)> = HashMap::new();
+    let mut project_names = HashMap::new();
+    for p in o.app.projects().map_err(err)? {
+        project_names.insert(p.id, p.name.clone());
+        for n in o.app.needs_you(p.id).map_err(err)? {
+            needs.push(json!({ "project_name": p.name, "item": n }));
+        }
+        for t in o.app.tickets(p.id).map_err(err)? {
+            if let (Some(a), TicketStatus::InProgress | TicketStatus::Pending) =
+                (t.assignee, t.status)
+            {
+                current.insert(a, (p.name.clone(), t.key.clone(), t.title.clone()));
+            }
+        }
+    }
+    let agents: Vec<Value> = o
+        .app
+        .agents()
+        .map_err(err)?
+        .into_iter()
+        .map(|a| {
+            let cur = current.get(&a.id);
+            json!({ "id": a.id, "name": a.name, "role": a.role, "role_kind": a.role_kind, "status": a.status,
+                    "backend": a.backend, "model": a.model,
+                    "current": cur.map(|(p, k, t)| json!({ "project": p, "ticket": k, "title": t })) })
+        })
+        .collect();
+    let recent = o.app.store().read(|c| runs::recent(c, 400)).map_err(err)?;
+    let today = &now_iso()[..10];
+    let mut usage = UsageSummary::default();
+    for r in recent.iter().filter(|r| r.started_at.starts_with(today)) {
+        usage.add(&r.usage);
+    }
+    let live: Vec<Value> = recent
+        .iter()
+        .filter(|r| r.ended_at.is_none())
+        .map(|r| run_json(r, &names))
+        .collect();
+    let last: Vec<Value> = recent
+        .iter()
+        .take(12)
+        .map(|r| run_json(r, &names))
+        .collect();
+    Ok(json!({
+        "needs": needs, "agents": agents, "live_runs": live, "recent_runs": last, "usage_today": usage,
+        "runs_today": recent.iter().filter(|r| r.started_at.starts_with(today)).count(),
+        "command_approvals": d.approvals.pending(),
+    }))
+}
+
+fn run_json(r: &runs::Run, names: &HashMap<AgentId, String>) -> Value {
+    json!({ "id": r.id, "ticket": r.ticket, "agent": r.agent, "agent_name": names.get(&r.agent),
+            "provider": r.provider, "model": r.model, "started_at": r.started_at, "ended_at": r.ended_at,
+            "outcome": r.outcome, "steps": r.steps, "usage": r.usage })
+}
+
+#[tauri::command]
+pub fn needs_you(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    Ok(json!({
+        "needs": o.app.needs_you(pid(&project)?).map_err(err)?,
+        "command_approvals": d.approvals.pending(),
+    }))
+}
+
+#[tauri::command]
+pub fn inbox(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    Ok(json!(o.app.lead_inbox(pid(&project)?).map_err(err)?))
+}
+
+// ---------------------------------------------------------------- tickets
+
+#[tauri::command]
+pub fn board(d: State<'_, Desktop>, project: String) -> R<Value> {
+    Ok(json!(d.opened()?.app.board(pid(&project)?).map_err(err)?))
+}
+
+#[tauri::command]
+pub fn plan(d: State<'_, Desktop>, project: String) -> R<Value> {
+    Ok(json!(d
+        .opened()?
+        .app
+        .plan_view(pid(&project)?)
+        .map_err(err)?))
+}
+
+#[tauri::command]
+pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
+    let o = d.opened()?;
+    let p = pid(&project)?;
+    let k = self::key(&key)?;
+    let t = o.app.ticket(p, &k).map_err(err)?;
+    let names = names(&o)?;
+    let cs = o
+        .app
+        .store()
+        .read(|c| comments::for_ticket(c, t.id))
+        .map_err(err)?;
+    let rs: Vec<Value> = o
+        .app
+        .store()
+        .read(|c| runs::for_ticket(c, t.id))
+        .map_err(err)?
+        .iter()
+        .map(|r| run_json(r, &names))
+        .collect();
+    let ws = o
+        .app
+        .store()
+        .read(|c| workspaces::get(c, t.id))
+        .map_err(err)?;
+    let author = |a: &Author| match a {
+        Author::Agent(id) => names.get(id).cloned().unwrap_or_else(|| id.to_string()),
+        other => other.to_string(),
+    };
+    let comments: Vec<Value> = cs
+        .iter()
+        .map(|c| {
+            json!({ "id": c.id, "kind": c.kind, "author": author(&c.author), "reply_to": c.reply_to,
+                          "body": c.body, "resolved": c.resolved, "created_at": c.created_at })
+        })
+        .collect();
+    Ok(json!({
+        "ticket": t, "assignee_name": t.assignee.and_then(|a| names.get(&a).cloned()),
+        "comments": comments, "runs": rs, "workspace": ws,
+        "audit": o.app.audit(p, Some(&k)).map_err(err)?,
+    }))
+}
+
+#[tauri::command]
+pub fn audit(
+    d: State<'_, Desktop>,
+    project: String,
+    key: Option<String>,
+    format: Option<String>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let k = key.as_deref().map(self::key).transpose()?;
+    let entries = o.app.audit(pid(&project)?, k.as_ref()).map_err(err)?;
+    Ok(match format.as_deref() {
+        Some("md") => json!(agenium_orchestrator::views::audit_markdown(
+            &k.map(|k| k.to_string()).unwrap_or_else(|| project.clone()),
+            &entries
+        )),
+        _ => json!(entries),
+    })
+}
+
+// ---------------------------------------------------------------- agents, teams, runs, events
+
+#[tauri::command]
+pub fn agents(d: State<'_, Desktop>) -> R<Vec<Value>> {
+    let o = d.opened()?;
+    let mut out = vec![];
+    for p in o.app.projects().map_err(err)? {
+        if let Some((team, members)) = o.app.team_of_project(p.id).map_err(err)? {
+            for a in members {
+                let planner = o.app.is_planner_role(&a.role);
+                out.push(json!({
+                    "agent": a, "project": p.id, "project_name": p.name, "team": team.name, "solo": team.solo,
+                    "is_lead": team.lead == Some(a.id), "is_planner": planner,
+                }));
+            }
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn runs(d: State<'_, Desktop>, limit: Option<usize>) -> R<Vec<Value>> {
+    let o = d.opened()?;
+    let names = names(&o)?;
+    Ok(o.app
+        .store()
+        .read(|c| runs::recent(c, limit.unwrap_or(100)))
+        .map_err(err)?
+        .iter()
+        .map(|r| run_json(r, &names))
+        .collect())
+}
+
+#[tauri::command]
+pub fn run_detail(d: State<'_, Desktop>, run: String) -> R<Value> {
+    let o = d.opened()?;
+    let id: RunId = run.parse().map_err(|e: IdParseError| e.to_string())?;
+    let names = names(&o)?;
+    let (r, log) = o
+        .app
+        .store()
+        .read(|c| Ok((runs::get(c, id)?, runs::log_entries(c, id)?)))
+        .map_err(err)?;
+    let ticket = match r.ticket {
+        Some(t) => Some(
+            o.app
+                .store()
+                .read(|c| agenium_store::core::tickets::get(c, t))
+                .map_err(err)?
+                .key,
+        ),
+        None => None,
+    };
+    Ok(json!({ "run": run_json(&r, &names), "ticket_key": ticket, "log": log }))
+}
+
+#[tauri::command]
+pub fn events(d: State<'_, Desktop>, since: Option<u64>, limit: Option<usize>) -> R<Value> {
+    let o = d.opened()?;
+    let limit = limit.unwrap_or(200);
+    let since = match since {
+        Some(s) => s,
+        None => o
+            .app
+            .store()
+            .read(events::last_seq)
+            .map_err(err)?
+            .saturating_sub(limit as u64),
+    };
+    Ok(json!(o
+        .app
+        .store()
+        .read(|c| events::since(c, since, limit))
+        .map_err(err)?))
+}
+
+#[tauri::command]
+pub fn capabilities(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let cfg = o.app.config();
+    let providers: Vec<Value> = cfg
+        .providers
+        .iter()
+        .map(|p| json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
+                          "models": p.models, "max_concurrency": p.max_concurrency }))
+        .collect();
+    let clis = tokio::task::block_in_place(agenium_cli_backend::detect::detect_all);
+    Ok(json!({
+        "providers": providers, "clis": clis,
+        "templates": o.app.team_templates().map_err(err)?,
+        "cli_fallback": { "provider": cfg.cli.fallback_provider, "model": cfg.cli.fallback_model },
+    }))
+}
+
+#[tauri::command]
+pub fn templates(d: State<'_, Desktop>) -> R<Value> {
+    Ok(json!(d.opened()?.app.team_templates().map_err(err)?))
+}
+
+// ---------------------------------------------------------------- actions
+
+fn user(o: &Opened, project: ProjectId, intent: Intent) -> R<Value> {
+    intent
+        .validate()
+        .map_err(|e| format!("invalid: {}", serde_json::to_string(&e).unwrap_or_default()))?;
+    Ok(o.app
+        .apply(&CallCtx::user(project), intent)
+        .map_err(err)?
+        .result)
+}
+
+#[tauri::command]
+pub async fn chat(d: State<'_, Desktop>, project: String, message: String) -> R<Value> {
+    let o = d.opened()?;
+    let s = o.rt.chat(pid(&project)?, &message).await.map_err(err)?;
+    Ok(
+        json!({ "run": s.run, "outcome": s.outcome, "text": s.text, "steps": s.steps, "usage": s.usage }),
+    )
+}
+
+#[tauri::command]
+pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    let p = pid(&project)?;
+    let Some((team, _)) = o.app.team_of_project(p).map_err(err)? else {
+        return Ok(json!([]));
+    };
+    let Some(lead) = team.lead else {
+        return Ok(json!([]));
+    };
+    let mem = o
+        .app
+        .agent_store(lead, o.rt.embedder.dim(), o.rt.embedder.model_id())
+        .map_err(err)?;
+    let msgs = mem.load_messages(&format!("chat:{p}")).map_err(err)?;
+    // User turns carry the project state after the request: show only what the user wrote.
+    let out: Vec<Value> = msgs
+        .into_iter()
+        .filter_map(|m| serde_json::from_value::<agenium_llm::Message>(m).ok())
+        .filter_map(|m| {
+            let text = m.text();
+            let text = text
+                .split("\n\n<project_state>")
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_owned();
+            (!text.is_empty()).then(|| json!({ "role": m.role, "text": text }))
+        })
+        .collect();
+    Ok(json!(out))
+}
+
+#[tauri::command]
+pub fn approve(d: State<'_, Desktop>, project: String, what: String, target: String) -> R<()> {
+    let o = d.opened()?;
+    let p = pid(&project)?;
+    match what.as_str() {
+        "spec" => o
+            .app
+            .approve_spec(p, target.parse().map_err(err)?)
+            .map_err(err),
+        "plan" => o
+            .app
+            .approve_plan(p, target.parse().map_err(err)?)
+            .map_err(err),
+        "merge" => o
+            .app
+            .user_approve_merge(p, &key(&target)?)
+            .map(|_| ())
+            .map_err(err),
+        other => Err(format!("unknown approval {other}")),
+    }
+}
+
+#[tauri::command]
+pub fn answer(
+    d: State<'_, Desktop>,
+    project: String,
+    ticket: String,
+    question: String,
+    answer: String,
+    option: Option<usize>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let q: CommentId = question.parse().map_err(|e: IdParseError| e.to_string())?;
+    Ok(o.app
+        .user_answer(pid(&project)?, &key(&ticket)?, q, &answer, option)
+        .map_err(err)?
+        .result)
+}
+
+#[tauri::command]
+pub fn decide_permission(
+    d: State<'_, Desktop>,
+    project: String,
+    ticket: String,
+    request: String,
+    approve: bool,
+    always: bool,
+    note: Option<String>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let r: CommentId = request.parse().map_err(|e: IdParseError| e.to_string())?;
+    let decision = if approve {
+        PermissionDecision::Approve
+    } else {
+        PermissionDecision::Deny
+    };
+    Ok(o.app
+        .decide_permission(pid(&project)?, &key(&ticket)?, r, decision, always, note)
+        .map_err(err)?
+        .result)
+}
+
+#[tauri::command]
+pub fn decide_command(
+    d: State<'_, Desktop>,
+    id: u64,
+    decision: String,
+    reason: Option<String>,
+) -> R<bool> {
+    let a = match decision.as_str() {
+        "allow" => Approval::Allow,
+        "always" => Approval::AllowAlways,
+        _ => Approval::Deny(reason.unwrap_or_else(|| "declined in the app".into())),
+    };
+    Ok(d.approvals.decide(id, a))
+}
+
+#[tauri::command]
+pub fn comment(d: State<'_, Desktop>, project: String, ticket: String, text: String) -> R<()> {
+    let o = d.opened()?;
+    o.app
+        .user_comment(pid(&project)?, &key(&ticket)?, &text)
+        .map(|_| ())
+        .map_err(err)
+}
+
+#[derive(Deserialize)]
+pub struct Feedback {
+    ac_id: String,
+    feedback: String,
+}
+
+// The arguments are the IPC call's named fields.
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub fn ticket_action(
+    d: State<'_, Desktop>,
+    project: String,
+    ticket: String,
+    action: String,
+    reason: Option<String>,
+    agent: Option<String>,
+    priority: Option<u8>,
+    feedback: Option<Vec<Feedback>>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let p = pid(&project)?;
+    let k = key(&ticket)?;
+    let reason = reason.unwrap_or_default();
+    match action.as_str() {
+        "priority" => {
+            let t = o
+                .app
+                .user_set_priority(p, &k, priority.unwrap_or(2))
+                .map_err(err)?;
+            Ok(json!({ "priority": t.priority }))
+        }
+        "assign" => {
+            let id: AgentId = agent
+                .unwrap_or_default()
+                .parse()
+                .map_err(|e: IdParseError| e.to_string())?;
+            user(
+                &o,
+                p,
+                Intent::AssignTicket(forms::AssignTicket {
+                    ticket_id: k,
+                    worker: id,
+                    note: None,
+                }),
+            )
+        }
+        "approve" | "reopen" => user(
+            &o,
+            p,
+            Intent::ReviewTicket(forms::ReviewDecision {
+                ticket_id: k,
+                decision: if action == "approve" {
+                    forms::ReviewVerdict::Approve
+                } else {
+                    forms::ReviewVerdict::Reopen
+                },
+                ac_feedback: feedback
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|f| forms::AcFeedback {
+                        ac_id: f.ac_id,
+                        feedback: f.feedback,
+                    })
+                    .collect(),
+                required_changes: vec![],
+            }),
+        ),
+        "close" => user(
+            &o,
+            p,
+            Intent::CloseTicket(forms::CloseTicket {
+                ticket_id: k,
+                reason,
+            }),
+        ),
+        "cancel" => user(
+            &o,
+            p,
+            Intent::CancelTicket(forms::CancelTicket {
+                ticket_id: k,
+                reason,
+            }),
+        ),
+        other => Err(format!("unknown ticket action {other}")),
+    }
+}
+
+#[tauri::command]
+pub fn create_project(d: State<'_, Desktop>, name: String, path: Option<String>) -> R<Value> {
+    let o = d.opened()?;
+    let p = o
+        .app
+        .create_project(&CreateProject {
+            name,
+            path: path.filter(|s| !s.trim().is_empty()).map(Into::into),
+            key_prefix: None,
+            template: None,
+        })
+        .map_err(err)?;
+    Ok(json!({ "id": p.id, "name": p.name, "path": p.path }))
+}
+
+fn binding(provider: &str, model: &str, effort: &str) -> R<ModelBinding> {
+    Ok(ModelBinding {
+        provider: provider.to_owned(),
+        model: model.to_owned(),
+        effort: effort.parse()?,
+        max_tokens: None,
+    })
+}
+
+#[derive(Deserialize)]
+pub struct ModelArg {
+    provider: String,
+    model: String,
+    effort: String,
+    /// `api` or `cli` (the CLI program is `provider`).
+    #[serde(default)]
+    backend: Option<String>,
+}
+
+#[tauri::command]
+pub fn create_team(
+    d: State<'_, Desktop>,
+    project: String,
+    template: String,
+    model: ModelArg,
+    lead_model: Option<ModelArg>,
+    planner_model: Option<ModelArg>,
+    prefix: Option<String>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let p = pid(&project)?;
+    let name = o.app.project(p).map_err(err)?.name;
+    let b = |m: &ModelArg| binding(&m.provider, &m.model, &m.effort);
+    let out = o
+        .app
+        .create_team_from_template(
+            p,
+            &template,
+            &b(&model)?,
+            lead_model.as_ref().map(b).transpose()?.as_ref(),
+            planner_model.as_ref().map(b).transpose()?.as_ref(),
+            prefix.as_deref().unwrap_or(&name),
+        )
+        .map_err(err)?;
+    Ok(json!(out))
+}
+
+#[tauri::command]
+pub fn create_solo(
+    d: State<'_, Desktop>,
+    project: String,
+    name: String,
+    model: ModelArg,
+) -> R<Value> {
+    let o = d.opened()?;
+    let b = binding(&model.provider, &model.model, &model.effort)?;
+    let (_, a) = o
+        .app
+        .create_solo(
+            pid(&project)?,
+            &CreateAgent {
+                name,
+                role: "solo".into(),
+                role_kind: RoleKind::Lead,
+                tags: vec![],
+                model: b.clone(),
+            },
+        )
+        .map_err(err)?;
+    if model.backend.as_deref() == Some("cli") {
+        o.app
+            .set_agent_backend(a.id, BackendKind::Cli, &b)
+            .map_err(err)?;
+    }
+    Ok(json!(a))
+}
+
+#[tauri::command]
+pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) -> R<()> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let b = binding(&model.provider, &model.model, &model.effort)?;
+    let backend = if model.backend.as_deref() == Some("cli") {
+        BackendKind::Cli
+    } else {
+        BackendKind::Api
+    };
+    o.app.set_agent_backend(id, backend, &b).map_err(err)
+}
+
+#[tauri::command]
+pub fn set_agent_status(d: State<'_, Desktop>, agent: String, status: String) -> R<()> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    // The user can only bring an agent back (after a model change or new credit): Idle.
+    if status != "Idle" {
+        return Err("only Idle can be set by hand".into());
+    }
+    o.app.set_agent_status(id, AgentStatus::Idle).map_err(err)
+}
+
+/// One scheduler round for a project (work runs, Lead inbox, reviews).
+#[tauri::command]
+pub async fn run_round(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    let p = pid(&project)?;
+    if !d.busy.lock().unwrap_or_else(|e| e.into_inner()).insert(p) {
+        return Err("a round of this project is already running".into());
+    }
+    let r = o.rt.tick(p).await;
+    d.busy.lock().unwrap_or_else(|e| e.into_inner()).remove(&p);
+    let r = r.map_err(err)?;
+    Ok(json!(r.iter().map(|s| json!({ "run": s.run, "kind": s.kind, "agent": s.agent, "ticket": s.ticket, "outcome": s.outcome })).collect::<Vec<_>>()))
+}
+
+#[tauri::command]
+pub fn set_autopilot(d: State<'_, Desktop>, on: bool) -> bool {
+    d.autopilot.store(on, Ordering::SeqCst);
+    on
+}
+
+/// Stops every live run (kill switch) and the autopilot; new runs may start again a few seconds later.
+#[tauri::command]
+pub fn stop_all(d: State<'_, Desktop>) -> R<()> {
+    d.autopilot.store(false, Ordering::SeqCst);
+    let rt = d.opened()?.rt.clone();
+    rt.cancel.cancel();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        rt.cancel.reset();
+    });
+    Ok(())
+}

@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["apps/*", "foundation/*", "security/*", "agent/*", "orchestration/*", "quality/*", "devtools/xtask"]
+members = ["apps/cli", "foundation/*", "security/*", "agent/*", "orchestration/*", "quality/*", "devtools/xtask"]
+# The desktop app is its own workspace (WebView dependencies stay out of the core build and CI).
+exclude = ["apps/desktop"]
 
 [workspace.package]
 version = "0.1.0"

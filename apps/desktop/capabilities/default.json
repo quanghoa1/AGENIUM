@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window: Agenium's own commands plus core events (live updates).",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

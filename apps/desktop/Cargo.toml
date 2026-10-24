@@ -1,0 +1,37 @@
+[package]
+name = "agenium-desktop"
+description = "Agenium desktop app: Tauri 2 shell around the orchestrator (IPC commands + live events)."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.89"
+publish = false
+
+# Its own workspace: the WebView dependencies (WebView2, webkit2gtk) stay out of the core workspace's build and CI.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+agenium-cli-backend = { path = "../../agent/cli-backend" }
+agenium-config = { path = "../../foundation/config" }
+agenium-core = { path = "../../foundation/core" }
+agenium-llm = { path = "../../agent/llm" }
+agenium-orchestrator = { path = "../../orchestration/orchestrator" }
+agenium-secrets = { path = "../../security/secrets" }
+agenium-store = { path = "../../foundation/store" }
+async-trait = "0.1"
+dirs = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2

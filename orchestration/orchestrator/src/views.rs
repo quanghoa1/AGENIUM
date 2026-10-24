@@ -269,6 +269,179 @@ impl App {
     }
 }
 
+/// What waits for the user ("Needs you" on the dashboard), most urgent first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub enum NeedKind {
+    /// An agent's provider reports exhausted quota/credit, or it is offline: nothing runs until the user acts.
+    AgentBlocked,
+    /// Runs keep stopping (stall-nudges used up), or the ticket was reopened too often.
+    Escalation,
+    SpecApproval,
+    PlanApproval,
+    /// A permission request outside the project allowlist.
+    Permission,
+    /// A question for the user: a Solo agent's, one the Lead escalated, or one past its SLA.
+    Question,
+    /// "Review before merge": an approved code ticket waits for the user's merge.
+    MergeReview,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NeedItem {
+    pub kind: NeedKind,
+    pub project: ProjectId,
+    pub ticket: Option<TicketKey>,
+    /// The comment to act on (question, permission request).
+    pub comment: Option<CommentId>,
+    /// Spec or plan version to approve.
+    pub version: Option<u32>,
+    pub agent: Option<String>,
+    pub text: String,
+    pub at: String,
+}
+
+impl App {
+    /// Everything that waits for the user in `project` (derived from the database, nothing to acknowledge).
+    pub fn needs_you(&self, project: ProjectId) -> Result<Vec<NeedItem>> {
+        let mut out = Vec::new();
+        let need = |kind, ticket: Option<&Ticket>, text: String, at: &str| NeedItem {
+            kind,
+            project,
+            ticket: ticket.map(|t| t.key.clone()),
+            comment: None,
+            version: None,
+            agent: None,
+            text,
+            at: at.to_owned(),
+        };
+        let team = self.team_of_project(project)?;
+        if let Some((_, members)) = &team {
+            for a in members.iter().filter(|a| !a.status.assignable()) {
+                out.push(NeedItem {
+                    agent: Some(a.name.clone()),
+                    ..need(
+                        NeedKind::AgentBlocked,
+                        None,
+                        format!("{} is {}: change its model or add credit", a.name, a.status),
+                        "",
+                    )
+                });
+            }
+        }
+        let (spec, plan) = self.store.read(|c| {
+            Ok((
+                plans::latest_spec(c, project)?,
+                plans::latest_plan(c, project)?,
+            ))
+        })?;
+        if let Some(s) = spec.filter(|s| s.locked_at.is_none()) {
+            out.push(NeedItem {
+                version: Some(s.version),
+                ..need(
+                    NeedKind::SpecApproval,
+                    None,
+                    format!("Requirement spec v{} waits for your approval", s.version),
+                    "",
+                )
+            });
+        }
+        if let Some(p) = plan.filter(|p| p.approved_by.is_none()) {
+            out.push(NeedItem {
+                version: Some(p.version),
+                ..need(
+                    NeedKind::PlanApproval,
+                    None,
+                    format!(
+                        "Plan v{} waits for your approval{}",
+                        p.version,
+                        p.reason
+                            .as_deref()
+                            .map(|r| format!(": {r}"))
+                            .unwrap_or_default()
+                    ),
+                    "",
+                )
+            });
+        }
+        let lead_items: std::collections::HashSet<CommentId> = self
+            .lead_inbox(project)?
+            .into_iter()
+            .filter_map(|i| i.comment)
+            .collect();
+        let review_gate = self.project(project)?.review_before_merge();
+        for t in self
+            .tickets(project)?
+            .iter()
+            .filter(|t| !t.status.is_terminal())
+        {
+            let cs = self.store.read(|c| comments::for_ticket(c, t.id))?;
+            if t.escalated {
+                out.push(need(
+                    NeedKind::Escalation,
+                    Some(t),
+                    format!("{} was reopened {} times", t.key, t.reopen_count),
+                    &t.updated_at,
+                ));
+            }
+            if let Some(c) = cs.iter().rev().find(|c| matches!(&c.body, CommentBody::System { text } if text.starts_with("Stall: escalated"))) {
+                // Only while no run succeeded since (a later good run would have moved the ticket on).
+                if t.status != TicketStatus::Resolved || !t.approved {
+                    out.push(need(NeedKind::Escalation, Some(t), format!("{}: runs keep stopping; look at the run log", t.key), &c.created_at));
+                }
+            }
+            for c in &cs {
+                match &c.body {
+                    CommentBody::Permission {
+                        request,
+                        outcome: None,
+                        ..
+                    } if !lead_items.contains(&c.id) => out.push(NeedItem {
+                        comment: Some(c.id),
+                        ..need(
+                            NeedKind::Permission,
+                            Some(t),
+                            format!(
+                                "{}: {:?} permission requested: {}",
+                                t.key, request.kind, request.reason
+                            ),
+                            &c.created_at,
+                        )
+                    }),
+                    CommentBody::Question(q) if !c.resolved && !lead_items.contains(&c.id) => out
+                        .push(NeedItem {
+                            comment: Some(c.id),
+                            ..need(
+                                NeedKind::Question,
+                                Some(t),
+                                format!("{}: {}", t.key, q.question),
+                                &c.created_at,
+                            )
+                        }),
+                    _ => {}
+                }
+            }
+            if review_gate
+                && t.status == TicketStatus::Resolved
+                && t.approved
+                && t.has_code
+                && !t.merged
+            {
+                out.push(need(
+                    NeedKind::MergeReview,
+                    Some(t),
+                    format!(
+                        "{} is approved and waits for your review before merge",
+                        t.key
+                    ),
+                    &t.updated_at,
+                ));
+            }
+        }
+        out.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.at.cmp(&b.at)));
+        Ok(out)
+    }
+}
+
 /// Markdown rendering of an audit trail (export for people; JSON Lines is the machine form).
 pub fn audit_markdown(title: &str, entries: &[AuditEntry]) -> String {
     let mut s = format!("# Audit trail: {title}\n\n| When (UTC) | Who | Ticket | Action | Result | Detail |\n|---|---|---|---|---|---|\n");

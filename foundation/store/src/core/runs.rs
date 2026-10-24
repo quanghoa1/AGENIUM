@@ -158,6 +158,15 @@ pub fn for_agent(c: &Connection, agent: AgentId, limit: usize) -> Result<Vec<Run
     rows.map(|r| decode(r?)).collect()
 }
 
+/// The latest runs of every agent, newest first.
+pub fn recent(c: &Connection, limit: usize) -> Result<Vec<Run>, StoreError> {
+    let mut st = c.prepare_cached(&format!(
+        "SELECT {COLS} FROM run ORDER BY started_at DESC, id DESC LIMIT ?1"
+    ))?;
+    let rows = st.query_map(params![limit as i64], map)?;
+    rows.map(|r| decode(r?)).collect()
+}
+
 /// Runs without `ended_at` (live, or orphaned by a crash).
 pub fn unfinished(c: &Connection) -> Result<Vec<Run>, StoreError> {
     let mut st = c.prepare_cached(&format!(

@@ -3,7 +3,7 @@
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. After M3: fmt PASS, clippy `-D warnings` PASS, `cargo test --workspace` PASS (**210 passed**, 0 failed, 2
 helpers ignored; run without `AGENIUM_TEST_MODELS`, the local embedding-model tests were last run with it after M1.5), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
-The UI is out of scope for now; the headless CLI `agenium` is the front-end.
+Front-ends: the headless CLI `agenium` and the desktop app `apps/desktop` (Tauri 2, [ADR-60](adr/ADR-60-desktop-app.md)).
 
 ## Milestones
 
@@ -105,6 +105,15 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | **Team golden task with a real model** (DeepSeek v4.1 Flash): Vietnamese request -> Lead spec (user approves) -> planner draft -> Lead plan (user approves) -> tickets assigned to backend and frontend, frontend depends on backend -> work, reviews (1 reopen), merges -> both Closed | **PASS** (1 run, 16 agent runs, ~9 min; 12 command denials without an approver; the frontend asked/permission-parked 5 times) | `quality/eval/results/20261024T105841Z-team-deepseek-v4.1-flash.json`; `cargo run -p agenium-eval -- --team ...` |
 | Dependent tickets start from the main that holds their dependencies (worktree fast-forward before the first run, new base recorded) | DONE (found by the real team run) | `vcs.rs::a_dependent_worktree_catches_up_with_main_before_its_work` |
 | Team end to end: approved plan -> Lead creates/assigns tickets -> worker question answered by the Lead -> dependent ticket starts after approve + merge -> both closed | DONE (scripted model) | `runtime.rs::team_lead_inbox_takes_a_plan_to_closed_tickets` |
+
+### UI-1 — Desktop app (from the AGENIUM-UX mockup): FIRST CUT ([ADR-60](adr/ADR-60-desktop-app.md))
+| Item | Status | Evidence |
+|---|---|---|
+| Tauri 2 shell in its own workspace, builds with the GNU toolchain; IPC commands over App/Runtime; live events, run output and command approvals as Tauri events; autopilot; kill switch | DONE | `apps/desktop/src/{main,state,api}.rs` |
+| UI (Vite + React + Tailwind, mockup's look, light/dark, vi/en): overview, needs you (actionable), tickets (board, plan, Lead inbox), ticket view (AC, timeline, inline answers, runs, audit, overrides), runs (steps, live), activity, projects, agents (model switch), teams (from template / solo), providers & CLIs, templates, audit, usage, settings, setup, command palette | DONE | `apps/desktop/ui/src/` |
+| Real app checked through the WebView2 DevTools port: all read commands on a real root; Vietnamese request in the Lead console -> DeepSeek reply -> spec approval in Needs you via live events | DONE (manual, scripted CDP) | ADR-60 §5 |
+| `App::needs_you` (derived "Needs you" list), `runs::recent` | DONE | `team.rs::needs_you_lists_what_waits_for_the_user` |
+| Monaco/xterm, board drag-and-drop, markdown in chat, memory explorer, skills/MCP forms, notifications, installer, CI UI tests | NOT DONE | |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI

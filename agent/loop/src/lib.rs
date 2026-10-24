@@ -174,6 +174,10 @@ impl Cancel {
     pub fn is_cancelled(&self) -> bool {
         self.0.load(Ordering::SeqCst)
     }
+    /// Lets new runs start again after a kill switch (the stopped runs have seen the flag by then).
+    pub fn reset(&self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 
 const NUDGE: &str = "Text alone is not an action. Continue with a tool call: use the work tools, then submit_report \
