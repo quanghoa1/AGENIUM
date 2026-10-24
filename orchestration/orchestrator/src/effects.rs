@@ -142,6 +142,29 @@ impl App {
         Ok(done)
     }
 
+    /// Fast-forwards a ticket worktree without work of its own to the latest main and records the new base (the
+    /// review diff and the scope check compare against it).
+    pub fn catch_up_worktree(&self, project: ProjectId, key: &TicketKey) -> Result<bool> {
+        let p = self.project(project)?;
+        let Some(base) = self.repo(&p).catch_up(key.as_str())? else {
+            return Ok(false);
+        };
+        let t = self.ticket(project, key)?;
+        self.store.commit(None, "system", |w| -> Result<()> {
+            if let Some(ws) = workspaces::get(w.tx, t.id)? {
+                workspaces::upsert(
+                    w.tx,
+                    &workspaces::TicketWorkspace {
+                        base_sha: base.clone(),
+                        ..ws
+                    },
+                )?;
+            }
+            Ok(())
+        })?;
+        Ok(true)
+    }
+
     /// Executes one journaled operation if it is still pending. Idempotent.
     pub fn run_op(&self, seq: i64) -> Result<()> {
         let Some(row) = self.store.read(|c| ops::get(c, seq))? else {

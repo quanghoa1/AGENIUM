@@ -229,3 +229,25 @@ fn remote_test_against_local_bare_repository() {
         .unwrap();
     assert!(heads.contains("refs/heads/main"));
 }
+
+#[test]
+fn a_dependent_worktree_catches_up_with_main_before_its_work() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    let a = r.add_worktree("AGN-1", "main").unwrap();
+    let b = r.add_worktree("AGN-2", "main").unwrap();
+    assert_eq!(r.catch_up("AGN-2").unwrap(), None, "nothing new on main");
+    write(&a.path, "api/greeting.json", "{}");
+    r.commit_all(&a.path, "AGN-1: api", AUTHOR, &[]).unwrap();
+    assert!(matches!(
+        r.merge_ticket("AGN-1", &NoCheck).unwrap(),
+        MergeOutcome::Merged { .. }
+    ));
+    // AGN-2 was created before AGN-1 merged: it starts from the new main.
+    let base = r.catch_up("AGN-2").unwrap().expect("fast-forwarded");
+    assert_eq!(Some(base), r.head_sha("main").unwrap());
+    assert!(b.path.join("api/greeting.json").is_file());
+    // Work of its own (committed or not) is never moved here.
+    write(&b.path, "web/index.html", "x");
+    assert_eq!(r.catch_up("AGN-2").unwrap(), None);
+}

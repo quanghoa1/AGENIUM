@@ -339,6 +339,23 @@ impl Repo {
         })
     }
 
+    /// Brings the worktree of ticket `key` up to date with main when its branch has no commits of its own and no
+    /// uncommitted changes (a dependent ticket assigned before its dependencies merged). Returns the new base.
+    /// A branch with work of its own is left alone: the merge queue rebases it.
+    pub fn catch_up(&self, key: &str) -> Result<Option<String>, VcsError> {
+        let wt = self.worktree_path(key);
+        let branch = ticket_branch(key);
+        let (Some(head), Some(main)) = (self.head_sha(&branch)?, self.head_sha(&self.main)?) else {
+            return Ok(None);
+        };
+        if head == main || !self.is_ancestor(&head, &self.main)? || !self.status(&wt)?.is_empty() {
+            return Ok(None);
+        }
+        self.git
+            .check(&wt, ["merge", "-q", "--ff-only", &self.main])?;
+        Ok(Some(main))
+    }
+
     /// Removes the worktree directory and registration (keeps the branch). Idempotent.
     pub fn remove_worktree(&self, key: &str) -> Result<(), VcsError> {
         let path = self.worktree_path(key);

@@ -65,8 +65,14 @@ async fn main() -> Result<()> {
     };
     let only = arg(&args, "--task");
     let mut results = Vec::new();
+    // `--team`: the team task (M4 acceptance) instead of the single-agent tasks.
+    if args.iter().any(|a| a == "--team") {
+        eprintln!("running {} ...", agenium_eval::team::ID);
+        results.push(agenium_eval::team::run(&mode).await?);
+    }
     for t in tasks()
         .iter()
+        .filter(|_| !args.iter().any(|a| a == "--team"))
         .filter(|t| only.as_deref().is_none_or(|o| o == t.id))
     {
         eprintln!("running {} ...", t.id);

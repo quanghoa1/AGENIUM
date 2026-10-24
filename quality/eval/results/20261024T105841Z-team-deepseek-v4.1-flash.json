@@ -1,0 +1,59 @@
+[
+  {
+    "id": "team-greeting",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 16,
+    "steps": 70,
+    "tool_errors": 18,
+    "error_codes": {
+      "command_denied": 12,
+      "invalid_arguments": 5,
+      "not_found": 1
+    },
+    "errors": [
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 802) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 802)\"}]",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 864) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 864)\"}]",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "inbox/read_file: not_found: web/index.html does not exist",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/shell: command_denied: the user denied the command: no one is available to approve commands in this session. If you need it, explain why with ask_question or request_permission (kind=command).",
+      "work/submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 1093) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 1093)\"}]",
+      "work/submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 853) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 853)\"}]",
+      "review/close_ticket: invalid_arguments: invalid arguments for close_ticket: reason: must have at most 2000 characters (got 2775) | detail: [{\"field\":\"reason\",\"message\":\"must have at most 2000 characters (got 2775)\"}]"
+    ],
+    "outcomes": [
+      "chat:t-lead::Completed",
+      "plan:t-planner::Completed",
+      "inbox:t-lead::Completed",
+      "inbox:t-lead::Completed",
+      "work:t-backend:AGN-1:Completed",
+      "review:t-lead:AGN-1:Completed",
+      "work:t-frontend:AGN-2:Parked",
+      "work:t-frontend:AGN-2:Parked",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed",
+      "work:t-frontend:AGN-2:Parked",
+      "work:t-frontend:AGN-2:Parked",
+      "inbox:t-lead::Completed",
+      "work:t-frontend:AGN-2:Parked",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed"
+    ],
+    "reopened": 1,
+    "tokens_in": 880235,
+    "tokens_out": 71303,
+    "cost_usd": 0.0,
+    "elapsed_ms": 526394
+  }
+]

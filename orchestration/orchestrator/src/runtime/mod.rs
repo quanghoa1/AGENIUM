@@ -836,6 +836,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let start = self
             .app
             .start_run(project, key, &agent.model.provider, &agent.model.model)?;
+        if !start.continuation {
+            // A dependent ticket starts from the main that contains its dependencies' merged work.
+            if let Err(e) = self.app.catch_up_worktree(project, key) {
+                tracing::warn!(ticket = %key, error = %e, "worktree not brought up to date");
+            }
+        }
         let t = self.app.ticket(project, key)?;
         let ws = self
             .app
