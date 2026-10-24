@@ -2,7 +2,7 @@
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. Command: `.\devtools\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**202 tests** after M2.5 + API gaps incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
+`cargo test --workspace` PASS (**210 tests** after M3 incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
@@ -73,7 +73,6 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | API fallback when the CLI cannot run | DONE (`[cli] fallback_provider/fallback_model`) | `orchestrator/tests/runtime.rs::cli_agent_falls_back_to_the_api_when_configured` |
 | Contract per minimum version | DONE (stream parsing tested on lines captured from codex 0.163.0 / agy 1.4.4; older = not used) | `codex.rs`, `agy.rs` tests |
 | claude driver | DONE (hook control, per-run `CLAUDE_CONFIG_DIR`) | `agent/cli-backend/src/claude.rs`, `quality/eval/results/20261024T065834Z-cli-claude-haiku.json` |
-| Review in one run (approval reports the real merge result + next step; review runs nudged; failed git ops replayed every round) | DONE: claude haiku 5/5 with 2 runs per task (was 3) | `quality/eval/results/20261024T090226Z-cli-claude-haiku.json`, `runtime.rs` nudge regression, `reconcile.rs::failed_merge_is_retried_without_a_restart` |
 | opencode driver | DROPPED (owner): the OpenCode subscription runs through the API backend; opencode 2.1.2 has no usable permission hook in `run` (findings in ADR-56) | ADR-56 |
 
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
@@ -81,6 +80,18 @@ Embedding model measured here (release build, `agent/memory/tests/local_model.rs
 0.967** (S6 pass >= 0.85); Vietnamese query -> English fact recall@5 0.30 (S6 measured 0.167: memory stays English,
 ADR-40); **46 facts/s single, 77 facts/s batched** (S6 pass >= 20; fastembed/ONNX in S6 was ~5x faster), query
 embedding + ranking ~22 ms. Debug builds are ~2x slower.
+
+### M3 — Ticket system: DONE except the UI (Kanban drag and drop, S7 live path)
+Most of the ticket system was built with M1 (the Solo exit criterion needs it); M3 adds the user-side views,
+overrides and audit, and closes the gaps found with the CLI backends.
+| Item | Status | Evidence |
+|---|---|---|
+| M3-1 Discovery -> RequirementSpec (locked on approval) -> Plan with versions/approval, `revise_plan`; no ticket outside the plan | DONE | `lifecycle.rs`, `team.rs::team_spec_and_plan_wait_for_the_user`, `plan_revision_follows_the_newest_approved_spec`; CLI `agenium plan` (spec + plan versions, what waits for approval and the exact `approve` command, progress per plan item), `agenium approve spec|plan` |
+| M3-2 permission matrix of the state machine, user override | DONE | core table-driven permission test; overrides: `user_set_priority`, reassignment of an Assigned ticket by the user only (Lead cannot), user review/close/cancel/answer through the same intents (`Actor::User`, recorded as `user`) -> `views.rs` tests; CLI `ticket priority|assign|review|close|cancel` |
+| M3-3 every protocol tool + validation rules, structured forms, template per ticket kind | DONE | 24 tools, `schemas/tools/`; **every JSON example of the architecture page parses** (`protocol.rs::design_document_examples_parse`); report templates coding/pentest/research (`templates.rs`) |
+| M3-4 scheduler unlocks on `deps_satisfied` (Closed, or Resolved + approved (+ merged)) | DONE | `lifecycle.rs::dependencies_unlock_on_approve_and_merge_not_close`; priority then age (`sched.rs`) |
+| M3-5 Kanban, ticket view, audit trail | DONE headless: `App::board` (columns, blockers, open questions, flags), `ticket show`, `App::audit` = committed events (actor by name, originating intent) + refused protocol calls from the run logs; export `ticket audit --format md|jsonl --out`. **500 tickets: board in ~7 ms** (debug). UI = later | `orchestrator/tests/views.rs` |
+| Review in one run (approval reports the real merge result + next step; review runs nudged; failed git ops replayed every round) | DONE: claude haiku 5/5 with 2 runs per task (was 3) | `quality/eval/results/20261024T090226Z-cli-claude-haiku.json`, `runtime.rs` nudge regression, `reconcile.rs::failed_merge_is_retried_without_a_restart` |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
@@ -129,7 +140,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
-- Team templates, inbox/SLA/watchdog, Kanban/UI (M3–M4). CLI backend: codex, agy and claude driven; opencode CLI
+- Team templates, inbox/SLA/watchdog (M4); the UI (Kanban, ticket view, S7 live path). CLI backend: codex, agy and claude driven; opencode CLI
   dropped (OpenCode via API); devin not drivable (ADR-56).
 - Sandbox backends: Linux bubblewrap/Landlock, macOS Seatbelt (M2). Windows has none in v1 (ADR-39).
 - Context compaction beyond the checkpoint-and-continue approach.
@@ -139,8 +150,6 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order)
-1. M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
-   export).
+1. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.
 2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
-3. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.
-4. M2 on Linux/macOS machines (sandbox backends + attack suite) — needs those machines.
+3. M2 on Linux/macOS machines (sandbox backends + attack suite) — needs those machines.

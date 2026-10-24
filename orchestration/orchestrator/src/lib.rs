@@ -12,6 +12,7 @@ pub mod mcp;
 pub mod runtime;
 pub mod sched;
 pub mod templates;
+pub mod views;
 
 pub use app::{App, AppOptions, CheckFactory, CreateAgent, CreateProject, NoCheckFactory};
 pub use engine::{CallCtx, Outcome, RunEffect};

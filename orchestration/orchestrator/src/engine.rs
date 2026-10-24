@@ -640,6 +640,12 @@ impl App {
                     tickets::update(w.tx, &t)?;
                     w.emit(DomainEvent::TicketAssigned { ticket: t.id, key: t.key.clone(), agent: agent.id })?;
                 }
+                TicketStatus::Assigned if ctx.actor == Actor::User => {
+                    // User override: another assignee before the run starts; the worktree stays with the ticket.
+                    t.assignee = Some(agent.id);
+                    tickets::update(w.tx, &t)?;
+                    w.emit(DomainEvent::TicketAssigned { ticket: t.id, key: t.key.clone(), agent: agent.id })?;
+                }
                 s => return Err(invalid(format!("{} is {s}; only New or Reopened tickets can be assigned", t.key))),
             }
             if let Some(note) = a.note.filter(|n| !n.trim().is_empty()) {
@@ -849,6 +855,42 @@ impl App {
                 chosen_option,
             },
         )
+    }
+
+    /// User override of an open ticket's priority (0 = P0 ..= 3); recorded as an event and a System comment.
+    pub fn user_set_priority(
+        &self,
+        project: ProjectId,
+        key: &TicketKey,
+        priority: u8,
+    ) -> Result<Ticket> {
+        if priority > 3 {
+            return Err(invalid("priority is 0..=3 (P0 highest)"));
+        }
+        self.store
+            .commit(None, "user", |w| -> Result<Ticket> {
+                let mut t = ticket_by_key(w, project, key)?;
+                if t.status.is_terminal() {
+                    return Err(invalid(format!("{} is {}", t.key, t.status)));
+                }
+                if t.priority != priority {
+                    let from = t.priority;
+                    t.priority = priority;
+                    tickets::update(w.tx, &t)?;
+                    w.emit(DomainEvent::TicketUpdated {
+                        ticket: t.id,
+                        key: t.key.clone(),
+                        fields: vec!["priority".into()],
+                    })?;
+                    system_comment(
+                        w,
+                        &t,
+                        format!("The user changed the priority from P{from} to P{priority}."),
+                    )?;
+                }
+                Ok(t)
+            })
+            .map(|c| c.value)
     }
 
     /// A free-text `User` comment on a ticket (steering, decision 19).
@@ -1442,10 +1484,10 @@ impl RunOrDefault for Option<RunId> {
 /// What the reviewer does next, given the ticket after its review (and merge, if one ran).
 fn review_next(t: &Ticket) -> String {
     match t.status {
-        TicketStatus::Reopened if t.approved => {
-            "the merge failed and the ticket went back to its worker (see the System comment); stop here".into()
+        // Reopened clears `approved`: by the reviewer's feedback, or by a failed merge (System comment).
+        TicketStatus::Reopened => {
+            "the ticket went back to its worker (see the latest comment); stop here".into()
         }
-        TicketStatus::Reopened => "the ticket went back to its worker with your feedback; stop here".into(),
         TicketStatus::Resolved if t.approved && (t.merged || !t.has_code) => format!(
             "{}call close_ticket for {} with a reason",
             if t.merged { "merged into main: " } else { "no code to merge: " },

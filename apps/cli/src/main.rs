@@ -78,6 +78,16 @@ enum Cmd {
     },
     #[command(subcommand)]
     Ticket(TicketCmd),
+    /// Tickets by status (Kanban columns), with blockers, open questions and flags.
+    Board {
+        #[arg(long)]
+        project: String,
+    },
+    /// Requirement spec and plan (versions, approval) with progress per plan item.
+    Plan {
+        #[arg(long)]
+        project: String,
+    },
     /// Answer an open question on a ticket.
     Answer {
         #[arg(long)]
@@ -361,6 +371,58 @@ enum TicketCmd {
         project: String,
         key: String,
         text: String,
+    },
+    /// Audit trail of a ticket (or of the whole project without KEY): who did what, when, applied or refused.
+    Audit {
+        #[arg(long)]
+        project: String,
+        key: Option<String>,
+        #[arg(long, value_parser = ["table", "md", "jsonl"], default_value = "table")]
+        format: String,
+        /// Write to this file instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Change the priority (0 = P0 highest ..= 3).
+    Priority {
+        #[arg(long)]
+        project: String,
+        key: String,
+        priority: u8,
+    },
+    /// Assign a New ticket, or move a ticket that has not started (Assigned) or was Reopened, to an agent.
+    Assign {
+        #[arg(long)]
+        project: String,
+        key: String,
+        /// Agent name.
+        agent: String,
+        #[arg(long)]
+        note: Option<String>,
+    },
+    /// Review a Resolved ticket in place of the Lead. Reopen needs feedback per unmet criterion: --feedback AC-1="..."
+    Review {
+        #[arg(long)]
+        project: String,
+        key: String,
+        #[arg(value_parser = ["approve", "reopen"])]
+        decision: String,
+        #[arg(long)]
+        feedback: Vec<String>,
+    },
+    /// Close a Resolved ticket (code tickets must be merged).
+    Close {
+        #[arg(long)]
+        project: String,
+        key: String,
+        reason: String,
+    },
+    /// Cancel a ticket that has not ended (stops its run).
+    Cancel {
+        #[arg(long)]
+        project: String,
+        key: String,
+        reason: String,
     },
 }
 
@@ -807,6 +869,16 @@ async fn skill_cmd(cli: &Cli, sc: &SkillCmd) -> Result<()> {
         }
         SkillCmd::Validate { .. } => unreachable!(),
     }
+    Ok(())
+}
+
+/// Applies an intent as the user (override of the Lead, recorded as such) and prints the result.
+fn user_intent(app: &App, project: ProjectId, intent: Intent) -> Result<()> {
+    intent
+        .validate()
+        .map_err(|e| anyhow!("invalid: {}", serde_json::to_string(&e).unwrap_or_default()))?;
+    let out = app.apply(&agenium_orchestrator::CallCtx::user(project), intent)?;
+    println!("{}", out.result);
     Ok(())
 }
 
@@ -1473,6 +1545,264 @@ async fn main() -> Result<()> {
                         text,
                     )?;
                     println!("comment added");
+                }
+                TicketCmd::Audit {
+                    project: pname,
+                    key,
+                    format,
+                    out,
+                } => {
+                    let p = project(&app, pname)?;
+                    let k: Option<TicketKey> = key
+                        .as_deref()
+                        .map(|k| k.parse().map_err(|e: IdParseError| anyhow!(e)))
+                        .transpose()?;
+                    let entries = app.audit(p.id, k.as_ref())?;
+                    let text = match format.as_str() {
+                        "md" => agenium_orchestrator::views::audit_markdown(
+                            &k.as_ref().map(|k| k.to_string()).unwrap_or(p.name.clone()),
+                            &entries,
+                        ),
+                        "jsonl" => entries
+                            .iter()
+                            .map(|e| serde_json::to_string(e).map(|l| l + "\n"))
+                            .collect::<Result<String, _>>()?,
+                        _ => entries
+                            .iter()
+                            .map(|e| {
+                                format!(
+                                    "{}\t{}\t{}\t{}\t{}\t{}\n",
+                                    e.at,
+                                    e.actor,
+                                    e.ticket.as_ref().map(|k| k.to_string()).unwrap_or_default(),
+                                    e.action,
+                                    if e.accepted { "applied" } else { "REFUSED" },
+                                    e.detail.to_string().chars().take(200).collect::<String>()
+                                )
+                            })
+                            .collect(),
+                    };
+                    match out {
+                        Some(path) => {
+                            std::fs::write(path, text)?;
+                            println!("{} entries written to {}", entries.len(), path.display());
+                        }
+                        None => print!("{text}"),
+                    }
+                }
+                TicketCmd::Priority {
+                    project: pname,
+                    key,
+                    priority,
+                } => {
+                    let p = project(&app, pname)?;
+                    let t = app.user_set_priority(
+                        p.id,
+                        &key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                        *priority,
+                    )?;
+                    println!("{} is P{}", t.key, t.priority);
+                }
+                TicketCmd::Assign {
+                    project: pname,
+                    key,
+                    agent,
+                    note,
+                } => {
+                    let p = project(&app, pname)?;
+                    let a = app
+                        .agents()?
+                        .into_iter()
+                        .find(|a| &a.name == agent)
+                        .ok_or_else(|| anyhow!("no agent named {agent}"))?;
+                    user_intent(
+                        &app,
+                        p.id,
+                        Intent::AssignTicket(forms::AssignTicket {
+                            ticket_id: key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                            worker: a.id,
+                            note: note.clone(),
+                        }),
+                    )?;
+                }
+                TicketCmd::Review {
+                    project: pname,
+                    key,
+                    decision,
+                    feedback,
+                } => {
+                    let p = project(&app, pname)?;
+                    let ac_feedback = feedback
+                        .iter()
+                        .map(|f| {
+                            let (ac, text) = f
+                                .split_once('=')
+                                .ok_or_else(|| anyhow!("--feedback takes AC-n=\"text\""))?;
+                            Ok(forms::AcFeedback {
+                                ac_id: ac.trim().to_owned(),
+                                feedback: text.trim().to_owned(),
+                            })
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    user_intent(
+                        &app,
+                        p.id,
+                        Intent::ReviewTicket(forms::ReviewDecision {
+                            ticket_id: key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                            decision: if decision == "approve" {
+                                forms::ReviewVerdict::Approve
+                            } else {
+                                forms::ReviewVerdict::Reopen
+                            },
+                            ac_feedback,
+                            required_changes: vec![],
+                        }),
+                    )?;
+                }
+                TicketCmd::Close {
+                    project: pname,
+                    key,
+                    reason,
+                } => {
+                    let p = project(&app, pname)?;
+                    user_intent(
+                        &app,
+                        p.id,
+                        Intent::CloseTicket(forms::CloseTicket {
+                            ticket_id: key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                            reason: reason.clone(),
+                        }),
+                    )?;
+                }
+                TicketCmd::Cancel {
+                    project: pname,
+                    key,
+                    reason,
+                } => {
+                    let p = project(&app, pname)?;
+                    user_intent(
+                        &app,
+                        p.id,
+                        Intent::CancelTicket(forms::CancelTicket {
+                            ticket_id: key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                            reason: reason.clone(),
+                        }),
+                    )?;
+                }
+            }
+        }
+        Cmd::Board { project: pname } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            for col in app.board(p.id)? {
+                if col.cards.is_empty() {
+                    continue;
+                }
+                println!("== {} ({})", col.status, col.cards.len());
+                for c in &col.cards {
+                    let mut flags = vec![];
+                    if !c.blocked_by.is_empty() {
+                        flags.push(format!(
+                            "blocked by {}",
+                            c.blocked_by
+                                .iter()
+                                .map(|k| k.to_string())
+                                .collect::<Vec<_>>()
+                                .join(",")
+                        ));
+                    }
+                    if c.open_questions > 0 {
+                        flags.push(format!("{} open question(s)", c.open_questions));
+                    }
+                    for (on, name) in [
+                        (c.approved, "approved"),
+                        (c.merged, "merged"),
+                        (c.escalated, "ESCALATED"),
+                    ] {
+                        if on {
+                            flags.push(name.into());
+                        }
+                    }
+                    if c.reopen_count > 0 {
+                        flags.push(format!("reopened x{}", c.reopen_count));
+                    }
+                    println!(
+                        "  {}  P{}  {}  {}  [{}]{}",
+                        c.key,
+                        c.priority,
+                        c.plan_item,
+                        c.title,
+                        c.assignee.as_deref().unwrap_or("-"),
+                        if flags.is_empty() {
+                            String::new()
+                        } else {
+                            format!("  ({})", flags.join("; "))
+                        }
+                    );
+                }
+            }
+        }
+        Cmd::Plan { project: pname } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let v = app.plan_view(p.id)?;
+            let names: std::collections::HashMap<String, String> = app
+                .agents()?
+                .into_iter()
+                .map(|a| (format!("agent:{}", a.id), a.name))
+                .collect();
+            let who = |l: &str| names.get(l).cloned().unwrap_or_else(|| l.to_owned());
+            match &v.spec {
+                Some(s) => {
+                    println!(
+                        "Spec v{} ({})",
+                        s.version,
+                        match &s.approved_by {
+                            Some(by) => format!("approved by {}, locked", who(by)),
+                            None => format!(
+                                "waits for your approval: agenium approve --project {} spec {}",
+                                p.name, s.version
+                            ),
+                        }
+                    );
+                    for g in &s.body.goals {
+                        println!("  goal: {g}");
+                    }
+                    for r in &s.body.requirements {
+                        println!("  {}: {}", r.id, r.text);
+                    }
+                }
+                None => println!("No spec yet: tell the Lead what you need (agenium chat)."),
+            }
+            if let Some(pl) = &v.plan {
+                let state = match (&pl.approved_by, v.current_plan_version) {
+                    (Some(by), _) => format!("approved by {}", who(by)),
+                    (None, Some(cur)) => format!(
+                        "waits for your approval (v{cur} stays in force): agenium approve --project {} plan {}",
+                        p.name, pl.version
+                    ),
+                    (None, None) => format!("waits for your approval: agenium approve --project {} plan {}", p.name, pl.version),
+                };
+                println!(
+                    "Plan v{} for spec v{} ({state})",
+                    pl.version, pl.spec_version
+                );
+                if let Some(r) = &pl.reason {
+                    println!("  revision reason: {r}");
+                }
+                for i in &v.items {
+                    println!(
+                        "  [{}] {} {}  {}  {}",
+                        if i.done { "x" } else { " " },
+                        i.milestone,
+                        i.id,
+                        i.title,
+                        i.tickets
+                            .iter()
+                            .map(|(k, s)| format!("{k}:{s}"))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    );
                 }
             }
         }

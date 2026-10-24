@@ -398,4 +398,76 @@ mod tests {
             Err(IntentError::UnknownTool { .. })
         ));
     }
+
+    /// M3-3 acceptance: every JSON example of the architecture document ("Payload & ví dụ JSON") passes the tool
+    /// schema and the field rules, for the role the document gives it. `intent_id` is assigned by the harness
+    /// (not a model argument) and the elided worker id is a real agent id here.
+    #[test]
+    fn design_document_examples_parse() {
+        let worker = crate::ids::AgentId::new().to_string();
+        let examples = [
+            (
+                "create_plan",
+                RoleKind::Lead,
+                serde_json::json!({ "spec_version": 1,
+              "milestones": [{ "id": "M1", "title": "Google login" }],
+              "items": [
+                { "id": "PI-1", "milestone": "M1", "title": "OAuth backend", "trace_to": ["REQ-2"],
+                  "acceptance": [{ "id": "AC-1", "text": "Login via Google returns a session" }],
+                  "role": "backend", "depends_on": [], "estimate": "M" },
+                { "id": "PI-2", "milestone": "M1", "title": "Login button", "trace_to": ["REQ-2"],
+                  "acceptance": [{ "id": "AC-1", "text": "Button starts OAuth flow" }],
+                  "role": "frontend", "depends_on": ["PI-1"], "estimate": "S" } ] }),
+            ),
+            (
+                "create_ticket",
+                RoleKind::Lead,
+                serde_json::json!({ "kind": "Task", "plan_item": "PI-1", "parent": "AGN-10",
+              "title": "Implement Google OAuth callback", "description": "...",
+              "acceptance": [{ "id": "AC-1", "text": "..." }, { "id": "AC-2", "text": "..." }],
+              "priority": 1, "depends_on": [], "required_role": "backend", "required_tags": ["rust"],
+              "scope_paths": ["src/auth/**"], "report_template": "coding@1" }),
+            ),
+            (
+                "assign_ticket",
+                RoleKind::Lead,
+                serde_json::json!({ "ticket_id": "AGN-11", "worker": worker, "note": "Start with AC-1" }),
+            ),
+            (
+                "ask_question",
+                RoleKind::Worker,
+                serde_json::json!({ "ticket_id": "AGN-11", "category": "Requirement",
+              "question": "Which redirect URI should dev use?", "context": "No value in spec or .env.example",
+              "options": [{ "label": "http://localhost:3000/cb" }, { "label": "http://127.0.0.1:8080/cb" }],
+              "recommendation": 0, "blocking": true, "urgency": "High" }),
+            ),
+            (
+                "submit_report",
+                RoleKind::Worker,
+                serde_json::json!({ "ticket_id": "AGN-11", "summary": "Callback + session issuing done",
+              "acceptance": [{ "ac_id": "AC-1", "status": "Met", "evidence": "tests/auth.rs::callback_ok" },
+                             { "ac_id": "AC-2", "status": "Partial", "evidence": "refresh not tested" }],
+              "artifacts": [{ "kind": "diff", "ref": "agenium/AGN-11" }],
+              "extension": { "tests": { "ran": 12, "passed": 12 } },
+              "risks": [], "follow_ups": ["Add refresh token test"], "confidence": 0.8 }),
+            ),
+            (
+                "review_ticket",
+                RoleKind::Lead,
+                serde_json::json!({ "ticket_id": "AGN-11", "decision": "Reopen",
+              "ac_feedback": [{ "ac_id": "AC-2", "feedback": "Add a test for refresh token expiry" }],
+              "required_changes": ["tests/auth.rs: refresh expiry case"] }),
+            ),
+            (
+                "close_ticket",
+                RoleKind::Lead,
+                serde_json::json!({ "ticket_id": "AGN-11", "reason": "All AC met, merged into main" }),
+            ),
+        ];
+        for (tool, role, args) in examples {
+            let i =
+                Intent::parse(tool, args, role, false).unwrap_or_else(|e| panic!("{tool}: {e}"));
+            assert_eq!(i.tool().name(), tool);
+        }
+    }
 }
