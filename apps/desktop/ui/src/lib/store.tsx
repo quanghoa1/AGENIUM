@@ -15,6 +15,7 @@ export type View =
   | "needs"
   | "projects"
   | "agents"
+  | "agent"
   | "teams"
   | "providers"
   | "templates"

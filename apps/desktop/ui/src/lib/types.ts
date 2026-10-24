@@ -322,6 +322,32 @@ export interface Capabilities {
   cli_fallback: { provider: string; model: string };
 }
 
+export interface Fact {
+  id: number;
+  text: string;
+  kind: "fact" | "preference" | "lesson";
+  project?: string | null;
+  scope: any;
+  cue?: string | null;
+  evidence?: string | null;
+  source: string;
+  untrusted: boolean;
+  confidence: number;
+  weight: number;
+  created_at: string;
+  used_at?: string | null;
+}
+
+export interface AgentDetail {
+  agent: AgentEntry["agent"] & { mcp: any };
+  planner: boolean;
+  runs: RunRow[];
+  facts: Fact[];
+  facts_total: number;
+  skills: { name: string; description: string; version?: string | null; origin: string }[];
+  mcp: any;
+}
+
 export interface ChatLine {
   role: "user" | "assistant" | "system";
   text: string;

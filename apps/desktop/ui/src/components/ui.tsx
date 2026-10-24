@@ -187,3 +187,14 @@ export function Empty({ children }: { children: ReactNode }) {
 export function Mono({ children, className }: { children: ReactNode; className?: string }) {
   return <span className={cn("font-mono text-[11px]", className)}>{children}</span>;
 }
+
+export function Modal({ title, onClose, children }: { title: ReactNode; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-28" onClick={onClose}>
+      <div className="card w-[440px] max-w-[92vw] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()}>
+        <div className="mb-3 text-sm font-semibold">{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}

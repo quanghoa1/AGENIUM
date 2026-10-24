@@ -988,6 +988,66 @@ impl App {
             .collect())
     }
 
+    /// The user puts another member in the Lead slot (architecture page: "Người dùng gán agent khác vào slot Lead").
+    /// The new Lead must be a worker of the team (not the planner) without open tickets; the old Lead becomes a
+    /// worker. Everything else (inbox, plan, tickets) lives in the database and carries over; the chat history of the
+    /// old Lead stays in its own memory.
+    pub fn set_team_lead(&self, project: ProjectId, agent: AgentId) -> Result<()> {
+        let (team, members) = self
+            .team_of_project(project)?
+            .ok_or_else(|| invalid("the project has no team"))?;
+        if team.solo {
+            return Err(invalid("a Solo agent is its own Lead"));
+        }
+        let new = members
+            .iter()
+            .find(|m| m.id == agent)
+            .ok_or_else(|| invalid("the agent is not a member of this team"))?;
+        if team.lead == Some(agent) {
+            return Ok(());
+        }
+        if self.is_planner_role(&new.role) {
+            return Err(invalid(format!("{} is the team's planner", new.name)));
+        }
+        let open: Vec<String> = self
+            .tickets(project)?
+            .into_iter()
+            .filter(|t| t.assignee == Some(agent) && !t.status.is_terminal())
+            .map(|t| t.key.to_string())
+            .collect();
+        if !open.is_empty() {
+            return Err(invalid(format!(
+                "{} still has open tickets ({}): reassign them first",
+                new.name,
+                open.join(", ")
+            )));
+        }
+        if new.status == AgentStatus::Working {
+            return Err(invalid(format!(
+                "{} is working; wait until its run ends",
+                new.name
+            )));
+        }
+        self.store
+            .commit(None, "user", |w| -> Result<()> {
+                if let Some(old) = team.lead {
+                    agents::set_agent_role_kind(w.tx, old, RoleKind::Worker)?;
+                    w.emit(DomainEvent::AgentUpdated {
+                        agent: old,
+                        field: "role_kind".into(),
+                    })?;
+                }
+                agents::set_agent_role_kind(w.tx, agent, RoleKind::Lead)?;
+                agents::set_team_lead(w.tx, team.id, Some(agent))?;
+                w.emit(DomainEvent::AgentUpdated {
+                    agent,
+                    field: "role_kind".into(),
+                })?;
+                Ok(())
+            })
+            .map(|c| c.value)
+    }
+
     /// User override of an open ticket's priority (0 = P0 ..= 3); recorded as an event and a System comment.
     pub fn user_set_priority(
         &self,

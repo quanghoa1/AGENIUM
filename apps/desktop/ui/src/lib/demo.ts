@@ -276,6 +276,48 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
       return chat;
     case "audit":
       return ticket("SHOP-2").audit;
+    case "ticket_diff":
+      return {
+        branch: "agenium/" + String(args?.key ?? "SHOP-2"),
+        diff: [
+          "diff --git a/src/cart/mod.rs b/src/cart/mod.rs",
+          "index 4f2a9c1..9b1e0d4 100644",
+          "--- a/src/cart/mod.rs",
+          "+++ b/src/cart/mod.rs",
+          "@@ -10,7 +10,12 @@ pub struct Cart {",
+          "     items: Vec<Item>,",
+          " }",
+          "-pub fn total(c: &Cart) -> u64 { 0 }",
+          "+/// Sum of item prices times quantities, in cents.",
+          "+pub fn total(c: &Cart) -> u64 {",
+          "+    c.items.iter().map(|i| i.price * i.qty as u64).sum()",
+          "+}",
+          "diff --git a/tests/cart/total.rs b/tests/cart/total.rs",
+          "new file mode 100644",
+          "--- /dev/null",
+          "+++ b/tests/cart/total.rs",
+          "@@ -0,0 +1,4 @@",
+          "+#[test]",
+          "+fn total_sums_lines() {",
+          "+    assert_eq!(total(&cart(&[(250, 2), (100, 1)])), 600);",
+          "+}",
+        ].join("\n"),
+      };
+    case "agent_detail": {
+      const a = agents.find((x) => x.agent.id === args?.agent) ?? agents[2];
+      return {
+        agent: { ...a.agent, mcp: [] },
+        planner: a.is_planner,
+        runs: runs.filter((r) => r.agent === a.agent.id),
+        facts: [
+          { id: 3, text: "In this repository, cart totals are integers in cents; never use floats for money.", kind: "lesson", project: "shop", scope: { project: "shop" }, source: "ticket:SHOP-1", untrusted: false, confidence: 0.8, weight: 1, created_at: iso(300), used_at: iso(3) },
+          { id: 2, text: "The test command is `npm test -- <area>`; the user approves it per run.", kind: "fact", project: "shop", scope: { project: "shop" }, source: "ticket:SHOP-1", untrusted: false, confidence: 0.7, weight: 1, created_at: iso(320), used_at: null },
+        ],
+        facts_total: 2,
+        skills: [{ name: "rust-testing", description: "How this team writes and runs Rust tests", version: "1.0.0", origin: "Role" }],
+        mcp: [],
+      };
+    }
     default:
       return null;
   }

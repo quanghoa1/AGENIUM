@@ -1,9 +1,10 @@
 import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Markdown } from "../components/Markdown";
 import { Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
-import type { EventRecord, RunDetail, RunRow } from "../lib/types";
+import type { EventRecord, LogEntry, RunDetail, RunRow } from "../lib/types";
 
 export function RunsView() {
   const app = useApp();
@@ -13,18 +14,18 @@ export function RunsView() {
   }, [app.tick]);
   return (
     <div>
-      <PageHeader title={app.t("nav.runs")} sub={`${rows.filter((r) => !r.ended_at).length} live`} />
+      <PageHeader title={app.t("nav.runs")} sub={`${rows.filter((r) => !r.ended_at).length} ${app.t("runs.live")}`} />
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="label border-b border-line text-left">
-              <th className="px-4 py-2">outcome</th>
-              <th className="px-3">agent</th>
-              <th className="px-3">model</th>
-              <th className="px-3">steps</th>
-              <th className="px-3">tokens</th>
-              <th className="px-3">cost</th>
-              <th className="px-3 text-right">started</th>
+              <th className="px-4 py-2">{app.t("runs.outcome")}</th>
+              <th className="px-3">{app.t("runs.agent")}</th>
+              <th className="px-3">{app.t("common.model")}</th>
+              <th className="px-3">{app.t("runs.steps")}</th>
+              <th className="px-3">{app.t("ticket.tokens")}</th>
+              <th className="px-3">{app.t("runs.cost")}</th>
+              <th className="px-3 text-right">{app.t("runs.started")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -43,8 +44,52 @@ export function RunsView() {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <div className="p-4"><Empty>{app.t("common.none")}</Empty></div>}
+        {rows.length === 0 && (
+          <div className="p-4">
+            <Empty>{app.t("common.none")}</Empty>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+const SHELL = new Set(["shell", "cli:Bash", "cli:PowerShell", "cli:run_command", "cli:shell"]);
+
+function Step({ e }: { e: LogEntry }) {
+  if (e.kind !== "tool") {
+    return (
+      <div className="flex gap-3 rounded-lg border border-line p-2.5">
+        <Mono className="w-6 text-subtle">{e.n}</Mono>
+        <div className="min-w-0 flex-1">
+          <div className="label">{e.kind}</div>
+          {typeof e.data?.summary === "string" ? <Markdown className="mt-1 text-xs" text={e.data.summary} /> : <div className="mt-1 font-mono text-[11px] text-subtle">{JSON.stringify(e.data).slice(0, 400)}</div>}
+        </div>
+        <Mono className="text-subtle">{ago(e.at)}</Mono>
+      </div>
+    );
+  }
+  const shell = SHELL.has(e.data.tool);
+  const cmd = e.data.args?.command ?? e.data.args?.CommandLine;
+  return (
+    <div className="flex gap-3 rounded-lg border border-line p-2.5">
+      <Mono className="w-6 text-subtle">{e.n}</Mono>
+      {e.data.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" />}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium">{e.data.tool}</div>
+        {shell && cmd ? (
+          <div className="mt-1 overflow-hidden rounded-md border border-zinc-800 bg-[#0b0e14] font-mono text-[11px] text-zinc-200">
+            <div className="border-b border-zinc-800 px-2.5 py-1.5 text-emerald-400">$ {cmd}</div>
+            {e.data.result && <pre className={cn("max-h-64 overflow-auto whitespace-pre-wrap px-2.5 py-1.5", !e.data.ok && "text-rose-300")}>{String(e.data.result)}</pre>}
+          </div>
+        ) : (
+          <>
+            <div className="truncate font-mono text-[11px] text-muted">{JSON.stringify(e.data.args)}</div>
+            {e.data.result && <div className={cn("mt-1 line-clamp-4 whitespace-pre-wrap font-mono text-[11px]", e.data.ok ? "text-subtle" : "text-rose-600 dark:text-rose-400")}>{String(e.data.result)}</div>}
+          </>
+        )}
+      </div>
+      <Mono className="text-subtle">{ago(e.at)}</Mono>
     </div>
   );
 }
@@ -70,11 +115,11 @@ export function RunView({ id }: { id: string }) {
           <Mono>{r.id.slice(-10)}</Mono>
         </div>
         <div>
-          <div className="label">agent</div>
+          <div className="label">{app.t("runs.agent")}</div>
           {r.agent_name}
         </div>
         <div>
-          <div className="label">ticket</div>
+          <div className="label">{app.t("runs.ticket")}</div>
           {d.ticket_key ? (
             <button className="font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.go("ticket", d.ticket_key!)}>
               {d.ticket_key}
@@ -84,23 +129,25 @@ export function RunView({ id }: { id: string }) {
           )}
         </div>
         <div>
-          <div className="label">model</div>
+          <div className="label">{app.t("common.model")}</div>
           {r.model}
         </div>
         <div>
-          <div className="label">steps · tokens</div>
+          <div className="label">
+            {app.t("runs.steps")} · {app.t("ticket.tokens")}
+          </div>
           <Mono>
             {r.steps} · {tokens(r.usage.tokens_in)} in / {tokens(r.usage.tokens_out)} out
           </Mono>
         </div>
         <div>
-          <div className="label">outcome</div>
+          <div className="label">{app.t("runs.outcome")}</div>
           <OutcomeBadge outcome={r.outcome} />
         </div>
       </div>
       {live && !r.ended_at && (
-        <Section title="Live">
-          <div className="whitespace-pre-wrap text-xs">{live.text || "…"}</div>
+        <Section title={app.t("runs.liveOutput")}>
+          {live.text ? <Markdown className="text-xs" text={live.text} /> : <div className="text-xs text-subtle">…</div>}
           {live.tools.length > 0 && (
             <div className="mt-2 space-y-1">
               {live.tools.slice(-8).map((t, i) => (
@@ -113,10 +160,10 @@ export function RunView({ id }: { id: string }) {
         </Section>
       )}
       <Section
-        title="Steps"
+        title={app.t("runs.steps")}
         right={
           <button className="btn" onClick={() => setRaw(!raw)}>
-            {raw ? "Readable" : "JSON"}
+            {raw ? app.t("runs.readable") : "JSON"}
           </button>
         }
       >
@@ -127,17 +174,7 @@ export function RunView({ id }: { id: string }) {
                 {JSON.stringify(e, null, 2)}
               </pre>
             ) : (
-              <div key={e.n} className="flex gap-3 rounded-lg border border-line p-2.5">
-                <Mono className="w-6 text-subtle">{e.n}</Mono>
-                {e.kind === "tool" ? (e.data.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" />) : <span className="w-4" />}
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium">{e.kind === "tool" ? e.data.tool : e.kind}</div>
-                  {e.kind === "tool" && <div className="truncate font-mono text-[11px] text-muted">{JSON.stringify(e.data.args)}</div>}
-                  {e.kind === "tool" && e.data.result && <div className={cn("mt-1 line-clamp-3 whitespace-pre-wrap font-mono text-[11px]", e.data.ok ? "text-subtle" : "text-rose-600 dark:text-rose-400")}>{String(e.data.result)}</div>}
-                  {e.kind !== "tool" && <div className="font-mono text-[11px] text-subtle">{JSON.stringify(e.data).slice(0, 300)}</div>}
-                </div>
-                <Mono className="text-subtle">{ago(e.at)}</Mono>
-              </div>
+              <Step key={e.n} e={e} />
             ),
           )}
           {d.log.length === 0 && <Empty>{app.t("common.none")}</Empty>}
@@ -155,7 +192,7 @@ export function ActivityView() {
   }, [app.tick]);
   return (
     <div>
-      <PageHeader title={app.t("nav.activity")} sub="event log" />
+      <PageHeader title={app.t("nav.activity")} sub={app.t("activity.sub")} />
       <div className="card divide-y divide-line">
         {rows.map((e) => (
           <div key={e.seq} className="flex items-center gap-3 px-4 py-2 text-xs">
@@ -169,7 +206,11 @@ export function ActivityView() {
             <Mono className="text-subtle">{ago(e.at)}</Mono>
           </div>
         ))}
-        {rows.length === 0 && <div className="p-4"><Empty>{app.t("common.none")}</Empty></div>}
+        {rows.length === 0 && (
+          <div className="p-4">
+            <Empty>{app.t("common.none")}</Empty>
+          </div>
+        )}
       </div>
     </div>
   );

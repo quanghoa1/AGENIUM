@@ -2,6 +2,7 @@ import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, Key
 import { useEffect, useState, type ReactNode } from "react";
 import { Empty, Mono, PageHeader, Section, ago, cn } from "../components/ui";
 import { api } from "../lib/api";
+import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import type { CommandApproval, NeedItem, NeedKind } from "../lib/types";
 
@@ -31,15 +32,19 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
       <div className="mt-0.5">{icon[n.kind]}</div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="label">{n.kind}</span>
+          <span className="label">{app.t(`need.${n.kind}` as Key)}</span>
           {projectName && <Mono className="text-subtle">{projectName}</Mono>}
           {n.at && <Mono className="text-subtle">{ago(n.at)}</Mono>}
         </div>
-        <div className="mt-1 text-xs">{n.text}</div>
+        <div className="mt-1 text-xs">
+          {n.kind === "SpecApproval" || n.kind === "PlanApproval"
+            ? app.t(n.kind === "SpecApproval" ? "need.specText" : "need.planText").replace("{v}", String(n.version ?? ""))
+            : n.text}
+        </div>
         {!compact && n.kind === "Question" && n.ticket && n.comment && (
           <div className="mt-2 flex gap-2">
-            <input className="input" placeholder="…" value={answer} onChange={(e) => setAnswer(e.target.value)} />
-            <button disabled={busy || !answer.trim()} className="btn-primary" onClick={() => act(api.answer(n.project, n.ticket!, n.comment!, answer), "✓")}>
+            <input className="input" placeholder={app.t("needs.answer")} value={answer} onChange={(e) => setAnswer(e.target.value)} />
+            <button disabled={busy || !answer.trim()} className="btn-primary" onClick={() => act(api.answer(n.project, n.ticket!, n.comment!, answer), app.t("common.done"))}>
               {app.t("common.send")}
             </button>
           </div>
@@ -51,26 +56,26 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
             <button className="btn" onClick={() => app.go("tickets", "plan")}>
               {app.t("common.open")}
             </button>
-            <button disabled={busy} className="btn-primary" onClick={() => act(api.approve(n.project, n.kind === "SpecApproval" ? "spec" : "plan", String(n.version)), "✓")}>
+            <button disabled={busy} className="btn-primary" onClick={() => act(api.approve(n.project, n.kind === "SpecApproval" ? "spec" : "plan", String(n.version)), app.t("common.done"))}>
               <Check className="h-3.5 w-3.5" /> {app.t("common.approve")}
             </button>
           </>
         )}
         {n.kind === "Permission" && n.ticket && n.comment && (
           <>
-            <button disabled={busy} className="btn-danger" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, false), "✗")}>
+            <button disabled={busy} className="btn-danger" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, false), app.t("common.done"))}>
               <X className="h-3.5 w-3.5" />
             </button>
-            <button disabled={busy} className="btn" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, true, true), "✓")}>
+            <button disabled={busy} className="btn" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, true, true), app.t("common.done"))}>
               {app.t("needs.always")}
             </button>
-            <button disabled={busy} className="btn-primary" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, true), "✓")}>
+            <button disabled={busy} className="btn-primary" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, true), app.t("common.done"))}>
               <Check className="h-3.5 w-3.5" /> {app.t("common.approve")}
             </button>
           </>
         )}
         {n.kind === "MergeReview" && n.ticket && (
-          <button disabled={busy} className="btn-primary" onClick={() => act(api.approve(n.project, "merge", n.ticket!), "✓")}>
+          <button disabled={busy} className="btn-primary" onClick={() => act(api.approve(n.project, "merge", n.ticket!), app.t("common.done"))}>
             <GitMerge className="h-3.5 w-3.5" /> Merge
           </button>
         )}

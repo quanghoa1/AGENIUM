@@ -29,11 +29,11 @@ export function OverviewView() {
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Metric label={app.t("overview.agents")} value={o.agents.length} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} blocked` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
+        <Metric label={app.t("overview.agents")} value={o.agents.length} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} ${app.t("overview.blocked")}` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
         <Metric label={app.t("overview.live")} value={o.live_runs.length} tone="blue" onClick={() => app.go("runs")} />
         <Metric label={app.t("overview.needs")} value={needCount} tone={needCount ? "amber" : "emerald"} onClick={() => app.go("needs")} />
         <Metric label={app.t("overview.tokens")} value={tokens(o.usage_today.tokens_in + o.usage_today.tokens_out)} sub={`${o.runs_today} runs`} />
-        <Metric label={app.t("overview.cost")} value={`$${o.usage_today.estimated_cost_usd.toFixed(3)}`} sub="display only" />
+        <Metric label={app.t("overview.cost")} value={`$${o.usage_today.estimated_cost_usd.toFixed(3)}`} sub={app.t("overview.costNote")} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-5">
@@ -69,16 +69,19 @@ export function OverviewView() {
                   <span className="text-xs font-semibold">
                     <Mono className="text-cyan-600 dark:text-cyan-400">{p.key_prefix}</Mono> {p.name}
                   </span>
-                  <span className="text-[11px] text-subtle">{p.team ? `${p.team.name}${p.team.solo ? "" : ` · ${p.team.members}`}` : "no team"}</span>
+                  <span className="text-[11px] text-subtle">{p.team ? `${p.team.name}${p.team.solo ? "" : ` · ${p.team.members}`}` : app.t("overview.noTeam")}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background">
                   <div className="h-full bg-emerald-500" style={{ width: `${p.plan_items ? (100 * p.plan_done) / p.plan_items : 0}%` }} />
                 </div>
                 <div className="mt-1.5 flex justify-between text-[11px] text-subtle">
                   <span>
-                    plan {p.plan_done}/{p.plan_items} · {p.tickets} tickets
+                    plan {p.plan_done}/{p.plan_items} · {p.tickets} {app.t("nav.tickets").toLowerCase()}
                   </span>
-                  {p.needs_you > 0 && <span className="text-amber-600 dark:text-amber-400">{p.needs_you} need you</span>}
+                  <span className="flex gap-3">
+                    {p.inbox > 0 && <span className="text-cyan-600 dark:text-cyan-400">{p.inbox} {app.t("overview.inbox")}</span>}
+                    {p.needs_you > 0 && <span className="text-amber-600 dark:text-amber-400">{p.needs_you} {app.t("overview.needYou")}</span>}
+                  </span>
                 </div>
               </button>
             ))}

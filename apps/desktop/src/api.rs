@@ -236,6 +236,49 @@ pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
     }))
 }
 
+/// The ticket's changes: the live branch against its base, or what was merged (base..merged commit).
+#[tauri::command]
+pub fn ticket_diff(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
+    let o = d.opened()?;
+    let p = o.app.project(pid(&project)?).map_err(err)?;
+    let t = o.app.ticket(p.id, &self::key(&key)?).map_err(err)?;
+    let Some(ws) = o
+        .app
+        .store()
+        .read(|c| workspaces::get(c, t.id))
+        .map_err(err)?
+    else {
+        return Ok(json!({ "diff": "", "note": "no worktree yet" }));
+    };
+    let repo = o.app.repo(&p);
+    let diff = if !ws.removed {
+        repo.diff(std::path::Path::new(&ws.worktree), &ws.base_sha)
+            .map_err(err)?
+    } else if let Some(m) = &ws.merged_sha {
+        repo.git()
+            .check(
+                std::path::Path::new(&p.path),
+                [
+                    "diff",
+                    "--no-color",
+                    "--no-ext-diff",
+                    &format!("{}..{m}", ws.base_sha),
+                ],
+            )
+            .map_err(err)?
+    } else {
+        String::new()
+    };
+    const MAX: usize = 400_000;
+    let cut = diff.len() > MAX;
+    let diff: String = if cut {
+        diff.chars().take(MAX).collect()
+    } else {
+        diff
+    };
+    Ok(json!({ "diff": diff, "truncated": cut, "branch": ws.branch, "merged": ws.merged_sha }))
+}
+
 #[tauri::command]
 pub fn audit(
     d: State<'_, Desktop>,
@@ -273,6 +316,45 @@ pub fn agents(d: State<'_, Desktop>) -> R<Vec<Value>> {
         }
     }
     Ok(out)
+}
+
+/// One agent: profile, team role, runs, memory (live facts), skills and MCP bindings.
+#[tauri::command]
+pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let a = o.app.agent(id).map_err(err)?;
+    let names = names(&o)?;
+    let runs: Vec<Value> = o
+        .app
+        .store()
+        .read(|c| runs::for_agent(c, id, 50))
+        .map_err(err)?
+        .iter()
+        .map(|r| run_json(r, &names))
+        .collect();
+    let mem = o
+        .app
+        .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
+        .map_err(err)?;
+    let facts = mem.live(500).map_err(err)?;
+    let set = o.rt.skills(&a);
+    let skills: Vec<Value> = set
+        .skills
+        .iter()
+        .map(|s| json!({ "name": s.meta.name, "description": s.meta.description, "version": s.meta.version, "origin": s.meta.origin }))
+        .collect();
+    Ok(json!({
+        "agent": a, "planner": o.app.is_planner_role(&a.role), "runs": runs, "facts": facts,
+        "facts_total": mem.count_live().map_err(err)?, "skills": skills, "mcp": a.mcp,
+    }))
+}
+
+#[tauri::command]
+pub fn set_team_lead(d: State<'_, Desktop>, project: String, agent: String) -> R<()> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    o.app.set_team_lead(pid(&project)?, id).map_err(err)
 }
 
 #[tauri::command]

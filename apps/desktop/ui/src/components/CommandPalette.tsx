@@ -40,7 +40,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const out: Hit[] = [];
     for (const [v, label] of views) if (m(label, v)) out.push({ cat: "VIEW", title: label, sub: v, go: () => app.go(v) });
     for (const c of cards) if (m(c.key, c.title)) out.push({ cat: "TICKET", title: `${c.key} ${c.title}`, sub: c.assignee ?? "–", go: () => app.go("ticket", c.key) });
-    for (const a of agents) if (m(a.agent.name, a.agent.role)) out.push({ cat: "AGENT", title: a.agent.name, sub: `${a.agent.role} · ${a.project_name}`, go: () => app.go("agents", a.agent.id) });
+    for (const a of agents) if (m(a.agent.name, a.agent.role)) out.push({ cat: "AGENT", title: a.agent.name, sub: `${a.agent.role} · ${a.project_name}`, go: () => app.go("agent", a.agent.id) });
     for (const p of app.projects) if (m(p.name, p.key_prefix)) out.push({ cat: "PROJECT", title: `${p.key_prefix} — ${p.name}`, sub: p.path, go: () => (app.setProject(p.id), app.go("tickets")) });
     return out.slice(0, 14);
   }, [q, cards, agents, app]);

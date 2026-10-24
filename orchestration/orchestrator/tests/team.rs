@@ -725,3 +725,39 @@ fn needs_you_lists_what_waits_for_the_user() {
     assert_eq!(all[0].agent.as_deref(), Some("api-1"));
     assert!(all[1].text.contains("github.com"));
 }
+
+#[test]
+fn the_user_puts_another_member_in_the_lead_slot() {
+    let t = team();
+    planned(&t);
+    let f = &t.f;
+    let k = started(f, t.web, "PI-1", "Web page", &[], &[]);
+    let e = f
+        .app
+        .set_team_lead(f.project.id, t.web)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains(k.as_str()),
+        "open tickets must be reassigned first: {e}"
+    );
+    f.app.set_team_lead(f.project.id, t.api).unwrap();
+    let (team, members) = f.app.team_of_project(f.project.id).unwrap().unwrap();
+    assert_eq!(team.lead, Some(t.api));
+    let kind = |id| members.iter().find(|m| m.id == id).unwrap().role_kind;
+    assert_eq!(
+        (kind(t.api), kind(t.lead)),
+        (RoleKind::Lead, RoleKind::Worker)
+    );
+    // The new Lead acts as Lead; the old one is a worker now.
+    let out = f.app.apply(
+        &ctx(f, Actor::Lead(t.api)),
+        Intent::GetTeam(Default::default()),
+    );
+    assert!(out.is_ok());
+    let e = f.app.apply(
+        &ctx(f, Actor::Lead(t.lead)),
+        Intent::GetTeam(Default::default()),
+    );
+    assert!(e.is_err());
+}

@@ -91,7 +91,7 @@ export function Shell({ children }: { children: ReactNode }) {
     },
   ];
   const active = (id: View) =>
-    route.view === id || (id === "tickets" && route.view === "ticket") || (id === "runs" && route.view === "run");
+    route.view === id || (id === "tickets" && route.view === "ticket") || (id === "runs" && route.view === "run") || (id === "agents" && route.view === "agent");
   const badgeTone = { amber: "border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300", cyan: "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300", blue: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300" };
 
   return (
@@ -191,7 +191,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
           <button
             onClick={() => {
-              api.stopAll().then(() => app.notify(t("top.stop")));
+              api.stopAll().then(() => app.notify(t("top.stopped")));
               app.setAutopilot(false);
             }}
             className="btn-danger"

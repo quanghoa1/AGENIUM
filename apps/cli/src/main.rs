@@ -397,6 +397,13 @@ enum TeamCmd {
         #[arg(long)]
         project: String,
     },
+    /// Put another team member in the Lead slot (it must have no open tickets); the old Lead becomes a worker.
+    Lead {
+        #[arg(long)]
+        project: String,
+        /// Agent name.
+        agent: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1861,6 +1868,19 @@ async fn main() -> Result<()> {
                         println!("  note: skill not installed yet: {s}");
                     }
                     println!("Next: agenium chat --project {} \"<your request>\" (the Lead plans; you approve spec and plan)", p.name);
+                }
+                TeamCmd::Lead {
+                    project: pname,
+                    agent,
+                } => {
+                    let p = project(&app, pname)?;
+                    let a = app
+                        .agents()?
+                        .into_iter()
+                        .find(|a| &a.name == agent)
+                        .ok_or_else(|| anyhow!("no agent named {agent}"))?;
+                    app.set_team_lead(p.id, a.id)?;
+                    println!("{} is the Lead of {} now", a.name, p.name);
                 }
                 TeamCmd::Show { project: pname } => {
                     let p = project(&app, pname)?;

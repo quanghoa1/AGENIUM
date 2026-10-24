@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Shell } from "./components/Shell";
 import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
-import { AgentsView, ProjectsView, TeamsView } from "./views/Organize";
+import { AgentView, AgentsView, ProjectsView, TeamsView } from "./views/Organize";
 import { AuditView, ProvidersView, SettingsView, SetupView, TemplatesView, UsageView } from "./views/Admin";
 import { ChatView } from "./views/Chat";
 import { NeedsView } from "./views/Needs";
@@ -35,6 +35,8 @@ function Router() {
         return <ProjectsView />;
       case "agents":
         return <AgentsView />;
+      case "agent":
+        return id ? <AgentView id={id} /> : <AgentsView />;
       case "teams":
         return <TeamsView />;
       case "providers":

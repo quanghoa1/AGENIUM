@@ -14,8 +14,8 @@ export function ProvidersView() {
   if (!c) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.providers")} sub="API keys live in the vault; add providers with `agenium provider add`." />
-      <Section title="API providers">
+      <PageHeader title={app.t("nav.providers")} sub={app.t("providers.sub")} />
+      <Section title={app.t("providers.api")}>
         <table className="w-full text-xs">
           <thead>
             <tr className="label border-b border-line text-left">
@@ -40,7 +40,7 @@ export function ProvidersView() {
         </table>
         {c.providers.length === 0 && <Empty>{app.t("common.none")}</Empty>}
       </Section>
-      <Section title="Agent CLIs (YOLO inside Agenium; Agenium decides permissions)">
+      <Section title={app.t("providers.cli")}>
         <table className="w-full text-xs">
           <thead>
             <tr className="label border-b border-line text-left">
@@ -64,7 +64,7 @@ export function ProvidersView() {
           </tbody>
         </table>
         <div className="mt-3 text-[11px] text-subtle">
-          API fallback for CLI agents: {c.cli_fallback.provider ? <Mono>{c.cli_fallback.provider}/{c.cli_fallback.model}</Mono> : "not set ([cli] fallback_provider/model)"}
+          {app.t("providers.fallback")}: {c.cli_fallback.provider ? <Mono>{c.cli_fallback.provider}/{c.cli_fallback.model}</Mono> : app.t("providers.notSet")}
         </div>
       </Section>
     </div>
@@ -79,7 +79,7 @@ export function TemplatesView() {
   }, []);
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.templates")} sub="Built-in templates; user templates in <root>/templates/*.toml override by id." />
+      <PageHeader title={app.t("nav.templates")} sub={app.t("templates.sub")} />
       {ts.map((t) => (
         <Section key={t.id} title={`${t.name} · ${t.id}@${t.version} · report ${t.report_template}`}>
           <div className="mb-3 text-xs text-muted">{t.description}</div>
@@ -114,15 +114,15 @@ export function AuditView() {
   const shown = rows.filter((r) => !onlyRefused || !r.accepted);
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.audit")} sub="Who did what, from which intent, applied or refused.">
+      <PageHeader title={app.t("nav.audit")} sub={app.t("audit.sub")}>
         <label className="flex items-center gap-1.5 text-xs">
-          <input type="checkbox" checked={onlyRefused} onChange={(e) => setOnlyRefused(e.target.checked)} /> refused only
+          <input type="checkbox" checked={onlyRefused} onChange={(e) => setOnlyRefused(e.target.checked)} /> {app.t("audit.refusedOnly")}
         </label>
         <button
           className="btn"
           onClick={() =>
             app.project &&
-            api.audit(app.project, undefined, "md").then((md) => navigator.clipboard.writeText(String(md)).then(() => app.notify("Markdown copied")))
+            api.audit(app.project, undefined, "md").then((md) => navigator.clipboard.writeText(String(md)).then(() => app.notify(app.t("audit.copied"))))
           }
         >
           <Copy className="h-3.5 w-3.5" /> Markdown
@@ -145,7 +145,7 @@ export function AuditView() {
                   )}
                 </td>
                 <td className="px-3">{e.action}</td>
-                <td className="px-3">{e.accepted ? <span className="text-emerald-600 dark:text-emerald-400">applied</span> : <span className="text-rose-600 dark:text-rose-400">refused</span>}</td>
+                <td className="px-3">{e.accepted ? <span className="text-emerald-600 dark:text-emerald-400">{app.t("ticket.applied")}</span> : <span className="text-rose-600 dark:text-rose-400">{app.t("ticket.refused")}</span>}</td>
                 <td className="max-w-[420px] truncate px-3 font-mono text-[10px] text-subtle" title={JSON.stringify(e.detail)}>
                   {JSON.stringify(e.detail)}
                 </td>
@@ -182,7 +182,7 @@ export function UsageView() {
   const total = agg.reduce((s, [, x]) => s + x.cost, 0);
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.usage")} sub={`Display only (no budgets). Last ${rows.length} runs · est. $${total.toFixed(3)}`} />
+      <PageHeader title={app.t("nav.usage")} sub={`${app.t("usage.sub")} ${rows.length} runs · $${total.toFixed(3)}`} />
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -190,7 +190,7 @@ export function UsageView() {
               <th className="px-4 py-2">agent</th>
               <th className="px-3">model</th>
               <th className="px-3">runs</th>
-              <th className="px-3">completed</th>
+              <th className="px-3">{app.t("usage.completed")}</th>
               <th className="px-3">tokens in</th>
               <th className="px-3">tokens out</th>
               <th className="px-3">est. cost</th>
@@ -239,14 +239,14 @@ export function SettingsView() {
               </button>
             ))}
           </div>
-          <div className="mt-2 text-[11px] text-subtle">The Lead answers you in the language set at setup ({app.status?.user_language ?? "–"}); tickets and plans stay in English.</div>
+          <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")} ({app.status?.user_language ?? "–"})</div>
         </Section>
         <Section title={app.t("settings.root")}>
           <Mono>{app.status?.root}</Mono>
-          <div className="mt-2 text-[11px] text-subtle">Runtime limits, providers and the CLI fallback are in config.toml in this folder.</div>
+          <div className="mt-2 text-[11px] text-subtle">{app.t("settings.rootNote")}</div>
         </Section>
         <Section title={app.t("top.autopilot")}>
-          <div className="text-xs text-muted">While on, the scheduler runs rounds for every project: the Lead's inbox, work runs for ready tickets, reviews.</div>
+          <div className="text-xs text-muted">{app.t("settings.autopilotNote")}</div>
           <button className={cn("btn mt-2", app.autopilot && "border-emerald-500/40 text-emerald-600")} onClick={() => app.setAutopilot(!app.autopilot)}>
             {app.autopilot ? "ON" : "OFF"}
           </button>
@@ -271,14 +271,14 @@ export function SetupView() {
           </div>
         </div>
         <label className="block text-xs">
-          <span className="label">UI language</span>
+          <span className="label">{app.t("setup.ui")}</span>
           <select className="input mt-1" value={ui} onChange={(e) => (setUi(e.target.value as "vi" | "en"), app.setLang(e.target.value as "vi" | "en"))}>
             <option value="vi">Tiếng Việt</option>
             <option value="en">English</option>
           </select>
         </label>
         <label className="mt-3 block text-xs">
-          <span className="label">Language you talk to the Lead in</span>
+          <span className="label">{app.t("setup.user")}</span>
           <input className="input mt-1" value={user} onChange={(e) => setUser(e.target.value)} />
         </label>
         <button className="btn-primary mt-4 w-full justify-center" onClick={() => api.setup(ui, user).then(app.reloadStatus).catch((e) => app.notify(String(e)))}>

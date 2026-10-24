@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
 import type {
+  AgentDetail,
   AgentEntry,
   AuditEntry,
   Capabilities,
@@ -49,6 +50,10 @@ export const api = {
   board: (project: string) => call<Column[]>("board", { project }),
   plan: (project: string) => call<PlanView>("plan", { project }),
   ticket: (project: string, key: string) => call<TicketDetail>("ticket", { project, key }),
+  ticketDiff: (project: string, key: string) =>
+    call<{ diff: string; truncated?: boolean; branch?: string; merged?: string | null; note?: string }>("ticket_diff", { project, key }),
+  agentDetail: (agent: string) => call<AgentDetail>("agent_detail", { agent }),
+  setTeamLead: (project: string, agent: string) => call<void>("set_team_lead", { project, agent }),
   audit: (project: string, key?: string, format?: "md") =>
     call<AuditEntry[] | string>("audit", { project, key, format }),
   agents: () => call<AgentEntry[]>("agents"),

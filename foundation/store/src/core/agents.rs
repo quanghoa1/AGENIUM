@@ -278,6 +278,20 @@ pub fn set_agent_status(
     Ok(prev)
 }
 
+pub fn set_agent_role_kind(c: &Connection, id: AgentId, kind: RoleKind) -> Result<(), StoreError> {
+    c.execute(
+        "UPDATE agent SET role_kind = ?2 WHERE id = ?1",
+        params![
+            id.to_string(),
+            match kind {
+                RoleKind::Lead => "lead",
+                RoleKind::Worker => "worker",
+            }
+        ],
+    )?;
+    Ok(())
+}
+
 pub fn set_agent_model(
     c: &Connection,
     id: AgentId,

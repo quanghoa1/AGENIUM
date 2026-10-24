@@ -22,6 +22,7 @@ fn main() {
         .map(|(r, _)| r)
         .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".agenium"));
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(Desktop::new(root))
         .setup(|app| {
             let handle = app.handle().clone();
@@ -45,6 +46,9 @@ fn main() {
             api::board,
             api::plan,
             api::ticket,
+            api::ticket_diff,
+            api::agent_detail,
+            api::set_team_lead,
             api::audit,
             api::agents,
             api::runs,
@@ -90,6 +94,18 @@ fn spawn_event_forwarder(handle: tauri::AppHandle) {
                 .unwrap_or(0);
             let mut sub = o.app.subscribe(last);
             while let Ok(e) = sub.recv().await {
+                // Desktop notifications only for what needs the user (decision: selective notifications).
+                if e.kind == "NeedsUser" {
+                    if let Some(reason) = e.payload.get("reason").and_then(|r| r.as_str()) {
+                        use tauri_plugin_notification::NotificationExt;
+                        let _ = handle
+                            .notification()
+                            .builder()
+                            .title("Agenium needs you")
+                            .body(reason)
+                            .show();
+                    }
+                }
                 let _ = handle.emit("agenium://event", &e);
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
