@@ -281,6 +281,7 @@ impl Runtime {
             ticket,
             agent: agent.to_owned(),
             approver: self.approver.clone(),
+            contained: true,
         });
         let mut ctx = ToolCtx::new(root, &run.to_string(), gate);
         let rt = self.app.config().runtime;
@@ -487,15 +488,19 @@ impl Runtime {
                 .unwrap_or_else(|| "chat".into())
         );
         if cli {
-            // The CLI may run only the project allowlist's commands (it cannot ask mid-run; YOLO does not apply
-            // because its commands run outside Agenium's sandbox).
-            let allowed: Vec<String> = crate::engine::allowlist(&self.app, &p)
-                .into_iter()
-                .filter_map(|e| e.strip_prefix("cmd:").map(str::to_owned))
-                .collect();
+            // A CLI checked through its hook runs its commands on the host, outside Agenium's sandbox: YOLO does not
+            // approve them, only the allowlist or the user does.
+            let gate = Arc::new(RunGate {
+                app: self.app.clone(),
+                project,
+                ticket: ticket.map(|t| t.key.clone()),
+                agent: agent.name.clone(),
+                approver: self.approver.clone(),
+                contained: false,
+            });
             let report = self
                 .cli_run(
-                    agent, kind, &ctx, allowed, &protocol, pspecs, work, &observer, &order,
+                    agent, kind, &ctx, gate, &protocol, pspecs, work, &observer, &order,
                 )
                 .await?;
             // Subscription plans: tokens are recorded, no per-token price is known.
@@ -526,7 +531,7 @@ impl Runtime {
         agent: &agenium_store::core::agents::Agent,
         kind: RunKind,
         ctx: &ToolCtx,
-        allowed_commands: Vec<String>,
+        gate: Arc<RunGate>,
         protocol: &RunProtocol,
         protocol_specs: Vec<ToolSpec>,
         tools: Vec<Arc<dyn Tool>>,
@@ -571,7 +576,7 @@ impl Runtime {
             protocol_specs,
             tools,
             ctx,
-            allowed_commands,
+            gate,
             observer,
             cancel: self.cancel.clone(),
             limits: Limits {

@@ -12,6 +12,7 @@
 pub mod codex_derived;
 #[cfg(windows)]
 pub mod mxc;
+pub mod service;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod unix;
 
@@ -443,32 +444,7 @@ impl Executor {
         spec: &CommandSpec,
         policy: &SandboxPolicy,
     ) -> std::io::Result<Vec<(String, String)>> {
-        let mut env = clean_env(&spec.env);
-        for k in ["LOCALAPPDATA", "SystemDrive", "SystemRoot"] {
-            if let Ok(v) = std::env::var(k) {
-                env.retain(|name, _| !name.eq_ignore_ascii_case(k));
-                env.insert(k.to_owned(), v);
-            }
-        }
-        if let Some(t) = &policy.temp_dir {
-            std::fs::create_dir_all(t)?;
-            let gc = t.join("agent.gitconfig");
-            if !gc.is_file() {
-                std::fs::write(&gc, "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n[core]\n\tlongpaths = true\n")?;
-            }
-            env.insert("TEMP".into(), t.display().to_string());
-            env.insert("TMP".into(), t.display().to_string());
-            env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
-        }
-        env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
-        let node = env.get("NODE_OPTIONS").cloned().unwrap_or_default();
-        if !node.contains("--preserve-symlinks-main") {
-            env.insert(
-                "NODE_OPTIONS".into(),
-                format!("{node} --preserve-symlinks-main").trim().to_owned(),
-            );
-        }
-        Ok(env.into_iter().collect())
+        mxc_env(&spec.env, policy)
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -600,6 +576,41 @@ impl Executor {
             elapsed_ms: start.elapsed().as_millis() as u64,
         })
     }
+}
+
+/// Environment of a sandboxed process on Windows: the clean environment plus `extra` and what the container and the
+/// toolchains need (temp dir, a git config the agent may read, node without realpath of the drive root).
+#[cfg(windows)]
+pub(crate) fn mxc_env(
+    extra: &BTreeMap<String, String>,
+    policy: &SandboxPolicy,
+) -> std::io::Result<Vec<(String, String)>> {
+    let mut env = clean_env(extra);
+    for k in ["LOCALAPPDATA", "SystemDrive", "SystemRoot"] {
+        if let Ok(v) = std::env::var(k) {
+            env.retain(|name, _| !name.eq_ignore_ascii_case(k));
+            env.insert(k.to_owned(), v);
+        }
+    }
+    if let Some(t) = &policy.temp_dir {
+        std::fs::create_dir_all(t)?;
+        let gc = t.join("agent.gitconfig");
+        if !gc.is_file() {
+            std::fs::write(&gc, "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n[core]\n\tlongpaths = true\n")?;
+        }
+        env.insert("TEMP".into(), t.display().to_string());
+        env.insert("TMP".into(), t.display().to_string());
+        env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
+    }
+    env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
+    let node = env.get("NODE_OPTIONS").cloned().unwrap_or_default();
+    if !node.contains("--preserve-symlinks-main") {
+        env.insert(
+            "NODE_OPTIONS".into(),
+            format!("{node} --preserve-symlinks-main").trim().to_owned(),
+        );
+    }
+    Ok(env.into_iter().collect())
 }
 
 /// A long-running helper process (an MCP stdio server): program + arguments started directly (no shell), clean

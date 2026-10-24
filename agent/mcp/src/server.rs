@@ -18,6 +18,8 @@ use crate::client::{CallResult, ToolInfo, KNOWN_VERSIONS, PROTOCOL_VERSION};
 
 /// Endpoint path of the server.
 pub const PATH: &str = "/mcp";
+/// Endpoint of permission checks from a CLI's pre-tool hook (same token).
+pub const HOOK_PATH: &str = "/hook";
 const MAX_HEADER_BYTES: usize = 64 * 1024;
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 
@@ -26,6 +28,11 @@ const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 pub trait ToolHost: Send + Sync {
     fn tools(&self) -> Vec<ToolInfo>;
     async fn call(&self, name: &str, args: Value) -> CallResult;
+    /// `POST /hook`: a vendor CLI's pre-tool hook asks whether a tool call may run (CliBackend). The default
+    /// refuses everything.
+    async fn hook(&self, _payload: Value) -> Value {
+        json!({"decision": "deny", "reason": "no permission handler on this server"})
+    }
 }
 
 /// A running server; dropping it stops accepting connections.
@@ -62,6 +69,11 @@ impl Server {
 
     pub fn url(&self) -> String {
         format!("http://{}{PATH}", self.addr)
+    }
+
+    /// URL of the permission-check endpoint.
+    pub fn hook_url(&self) -> String {
+        format!("http://{}{HOOK_PATH}", self.addr)
     }
 
     /// Value of the `Authorization` header every request must carry.
@@ -202,12 +214,25 @@ async fn connection(stream: TcpStream, s: &Shared) -> std::io::Result<()> {
         let close = req
             .header("connection")
             .is_some_and(|v| v.eq_ignore_ascii_case("close"));
-        if req.path.split('?').next() != Some(PATH) {
+        let path = req.path.split('?').next().unwrap_or("");
+        if path != PATH && path != HOOK_PATH {
             respond(&mut w, "404 Not Found", None).await?;
         } else if !origin_ok(req.header("origin")) {
             respond(&mut w, "403 Forbidden", None).await?;
         } else if !token_ok(req.header("authorization"), &s.token) {
             respond(&mut w, "401 Unauthorized", None).await?;
+        } else if path == HOOK_PATH {
+            match (
+                req.method.as_str(),
+                serde_json::from_slice::<Value>(&req.body),
+            ) {
+                ("POST", Ok(payload)) => {
+                    let answer = s.host.hook(payload).await;
+                    respond(&mut w, "200 OK", Some(&answer)).await?
+                }
+                ("POST", Err(_)) => respond(&mut w, "400 Bad Request", None).await?,
+                _ => respond(&mut w, "405 Method Not Allowed", None).await?,
+            }
         } else {
             match req.method.as_str() {
                 "POST" => match serde_json::from_slice::<Value>(&req.body) {

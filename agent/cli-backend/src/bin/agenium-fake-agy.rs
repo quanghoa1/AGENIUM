@@ -1,10 +1,12 @@
 //! Scripted stand-in for `agy` in headless stream-json mode, used by agenium-cli-backend's tests (not shipped).
-//! It reads its MCP servers and allow-rules from `$USERPROFILE/.gemini` exactly where agy does, so the tests prove
-//! the per-run home is used. Like agy, a command without an allow-rule ends the turn with `denied_actions`.
-//! `FAKE_AGY_SCENARIO`: `report` (default), `chatty`, `loop`, `steps`. What it saw goes to `fake-agy.log` in its cwd.
+//! It reads its MCP servers and hooks from `$USERPROFILE/.gemini` exactly where agy does, so the tests prove the
+//! per-run home is used; like agy in YOLO mode it runs every `PreToolUse` hook before a tool and skips the tool when
+//! the hook denies it or fails. `FAKE_AGY_SCENARIO`: `report` (default), `chatty`, `loop`, `steps`.
+//! What it saw goes to `fake-agy.log` in its cwd.
 
 use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 
@@ -47,14 +49,66 @@ fn mcp_post(url: &str, auth: &str, body: &Value) -> Value {
 }
 
 struct Agy {
-    allow: Vec<String>,
+    config_dir: PathBuf,
+    hooks: Vec<String>,
     mcp: Option<(String, String)>,
     step: u64,
-    denied: Vec<&'static str>,
 }
 
 impl Agy {
-    fn tool(&mut self, name: &str, params: Value) {
+    /// Runs the PreToolUse hooks; `Err(reason)` = the tool must not run.
+    fn pre_tool(&self, name: &str, args: &Value) -> Result<(), String> {
+        let payload = json!({"toolCall": {"name": name, "args": args}, "stepIdx": self.step,
+            "conversationId": "fake-1", "workspacePaths": [std::env::current_dir().unwrap()]});
+        for cmd in &self.hooks {
+            #[cfg(windows)]
+            let mut c = {
+                use std::os::windows::process::CommandExt;
+                let mut c = Command::new("cmd");
+                c.arg("/C").raw_arg(cmd);
+                c
+            };
+            #[cfg(not(windows))]
+            let mut c = {
+                let mut c = Command::new("sh");
+                c.arg("-c").arg(cmd);
+                c
+            };
+            let mut child = c
+                .current_dir(&self.config_dir)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("hook failed to start: {e}"))?;
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(payload.to_string().as_bytes())
+                .unwrap();
+            let o = child.wait_with_output().unwrap();
+            if !o.status.success() {
+                return Err(format!(
+                    "hook failed: {}",
+                    String::from_utf8_lossy(&o.stdout)
+                ));
+            }
+            let answer: Value = serde_json::from_slice(&o.stdout).unwrap_or(Value::Null);
+            if answer["decision"] != "allow" {
+                return Err(answer["reason"].as_str().unwrap_or("denied").to_owned());
+            }
+        }
+        Ok(())
+    }
+
+    /// One tool step; `false` when the hook refused it.
+    fn tool(&mut self, name: &str, params: Value) -> bool {
+        if let Err(why) = self.pre_tool(name, &params) {
+            log(&format!("denied {name}: {why}"));
+            self.step += 1;
+            return false;
+        }
         for state in ["ACTIVE", "DONE"] {
             out(
                 json!({"event": "step_update", "step_update": {"step_index": self.step, "state": state,
@@ -62,6 +116,7 @@ impl Agy {
             );
         }
         self.step += 1;
+        true
     }
 
     fn say(&mut self, text: &str) {
@@ -72,23 +127,11 @@ impl Agy {
         self.step += 1;
     }
 
-    /// Runs a command if an allow-rule permits it; `false` = refused (the turn must end).
-    fn command(&mut self, cmd: &str) -> bool {
-        self.tool("run_command", json!({"CommandLine": cmd}));
-        let ok = self.allow.iter().any(|r| r == &format!("command({cmd})"));
-        if !ok {
-            self.denied.push("command");
-        }
-        ok
-    }
-
     fn call_mcp(&mut self, tool: &str, args: Value) -> String {
-        self.tool(
+        if !self.tool(
             "call_mcp_tool",
             json!({"ServerName": "agenium", "ToolName": tool, "Arguments": args}),
-        );
-        if !self.allow.iter().any(|r| r == "mcp(agenium/*)") {
-            self.denied.push("mcp");
+        ) {
             return "denied".into();
         }
         let (url, auth) = self.mcp.clone().expect("agenium MCP server configured");
@@ -105,15 +148,10 @@ impl Agy {
     }
 
     fn end(&mut self) {
-        let denied: Vec<Value> = self
-            .denied
-            .drain(..)
-            .map(|d| json!({"action": d, "display_name": d}))
-            .collect();
         out(
             json!({"event": "result", "result": {"status": "SUCCESS", "response": "",
             "usage": {"input_tokens": 100, "output_tokens": 10, "thinking_tokens": 0, "cache_read_tokens": 40},
-            "denied_actions": denied}}),
+            "denied_actions": []}}),
         );
     }
 }
@@ -121,20 +159,28 @@ impl Agy {
 fn main() {
     let home = PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default());
     log(&format!("home: {}", home.display()));
-    let mcp = read_json(&home.join(".gemini/config/mcp_config.json"));
-    let settings = read_json(&home.join(".gemini/antigravity-cli/settings.json"));
+    let config_dir = home.join(".gemini/config");
+    let mcp = read_json(&config_dir.join("mcp_config.json"));
+    let hooks_file = read_json(&config_dir.join("hooks.json"));
     let servers: Vec<String> = mcp["mcpServers"]
         .as_object()
         .map(|o| o.keys().cloned().collect())
         .unwrap_or_default();
     log(&format!("servers: {}", servers.join(",")));
+    let hooks: Vec<String> = hooks_file
+        .as_object()
+        .into_iter()
+        .flat_map(|o| o.values())
+        .flat_map(|h| h["PreToolUse"].as_array().cloned().unwrap_or_default())
+        .flat_map(|g| g["hooks"].as_array().cloned().unwrap_or_default())
+        .filter_map(|h| h["command"].as_str().map(str::to_owned))
+        .collect();
+    log(&format!("hooks: {}", hooks.len()));
+    let yolo = std::env::args().any(|a| a == "--dangerously-skip-permissions");
+    log(&format!("yolo: {yolo}"));
     let mut a = Agy {
-        allow: settings["permissions"]["allow"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|v| v.as_str().map(str::to_owned))
-            .collect(),
+        config_dir,
+        hooks,
         mcp: mcp["mcpServers"]["agenium"]["serverUrl"].as_str().map(|u| {
             (
                 u.to_owned(),
@@ -145,9 +191,7 @@ fn main() {
             )
         }),
         step: 0,
-        denied: vec![],
     };
-    log(&format!("allow: {}", a.allow.join(",")));
     out(
         json!({"event": "init", "conversation_id": "fake-1", "init": {"cwd": std::env::current_dir().unwrap()}}),
     );
@@ -166,19 +210,25 @@ fn main() {
             text.chars().take(60).collect::<String>()
         ));
         match scenario.as_str() {
-            "report" if turn == 1 => {
-                std::fs::write("a.txt", "hello").unwrap();
-                a.tool("write_file", json!({"Path": "a.txt"}));
-                if a.command("echo hi") {
-                    a.say("ran echo.");
-                }
-                if !a.command("curl https://example.com") {
-                    a.end();
-                    continue;
-                }
-                a.end();
-            }
             "report" => {
+                let target = std::env::current_dir().unwrap().join("a.txt");
+                if a.tool("write_file", json!({"Path": target, "Content": "hello"})) {
+                    std::fs::write(&target, "hello").unwrap();
+                }
+                let outside = std::env::current_dir().unwrap().join("../escape.txt");
+                if a.tool("write_file", json!({"Path": outside, "Content": "x"})) {
+                    std::fs::write(&outside, "x").unwrap();
+                }
+                if a.tool("run_command", json!({"CommandLine": "echo hi"})) {
+                    log("ran: echo hi");
+                }
+                if a.tool(
+                    "run_command",
+                    json!({"CommandLine": "curl https://example.com"}),
+                ) {
+                    log("ran: curl");
+                }
+                a.tool("read_url_content", json!({"Url": "https://example.com"}));
                 let r = a.call_mcp("submit_report", json!({"summary": "done"}));
                 log(&format!("report: {r}"));
                 // agy keeps talking after the tool; Agenium stops it once the turn ends.

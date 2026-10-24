@@ -211,7 +211,7 @@ enum AgentCmd {
     /// Run an agent through a vendor CLI you are logged in to (CliBackend, ADR-56); `agent model` switches back.
     Cli {
         name: String,
-        /// CLI program (the CLIs `doctor` lists as usable, e.g. agy).
+        /// CLI program (the CLIs `doctor` lists as usable: codex, agy).
         #[arg(long)]
         cli: String,
         /// The CLI's model (default: the CLI's own default).

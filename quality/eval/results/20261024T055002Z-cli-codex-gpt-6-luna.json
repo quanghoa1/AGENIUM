@@ -1,0 +1,112 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 196338,
+    "tokens_out": 1258,
+    "cost_usd": 0.0,
+    "elapsed_ms": 39110
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 227400,
+    "tokens_out": 1297,
+    "cost_usd": 0.0,
+    "elapsed_ms": 46064
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 218043,
+    "tokens_out": 1356,
+    "cost_usd": 0.0,
+    "elapsed_ms": 43792
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 9,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid": 1
+    },
+    "errors": [
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 236395,
+    "tokens_out": 1502,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41273
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 9,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid": 1
+    },
+    "errors": [
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 284433,
+    "tokens_out": 1429,
+    "cost_usd": 0.0,
+    "elapsed_ms": 46513
+  }
+]

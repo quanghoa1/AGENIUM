@@ -1,33 +1,95 @@
 //! Antigravity CLI (`agy`) driver, checked with agy 1.4.4 on 2026-10-24 (ADR-56).
 //!
-//! - Headless: `agy --input-format stream-json --output-format stream-json --mode accept-edits --model <m> -p=`;
-//!   each stdin line `{"event":"user","message":{"role":"user","content":"..."}}` runs one turn in the same session.
-//! - Isolation: agy keeps its configuration under `<home>/.gemini` and its login outside it, so `USERPROFILE`/`HOME`
-//!   pointing at the per-run home gives a clean agy (none of the user's MCP servers, hooks, rules or permissions) that
-//!   is still logged in. Agenium writes `.gemini/config/mcp_config.json` (its own MCP server only) and
-//!   `.gemini/antigravity-cli/settings.json` (workspace = the worktree, allow-rules = the project allowlist +
-//!   Agenium's MCP tools).
-//! - Headless agy cannot ask for permission: anything without an allow-rule is refused and the turn ends; the
-//!   `result` event lists `denied_actions`.
+//! - Headless: `agy --input-format stream-json --output-format stream-json --mode accept-edits
+//!   --dangerously-skip-permissions --model <m> -p=`; each stdin line
+//!   `{"event":"user","message":{"role":"user","content":"..."}}` runs one turn in the same session.
+//! - Isolation: agy keeps its configuration under `<home>/.gemini` and its login in the OS credential store, so
+//!   `USERPROFILE`/`HOME` pointing at the per-run home gives a clean agy (none of the user's MCP servers, hooks, rules
+//!   or permissions) that is still logged in. Agenium writes `.gemini/config/mcp_config.json` (its own MCP server
+//!   only), `.gemini/config/hooks.json` and `.gemini/antigravity-cli/settings.json` (workspace = the worktree).
+//! - Control: agy runs in its YOLO mode on the host (a sandboxed process cannot reach the credential store). Its
+//!   `PreToolUse` hook runs before every tool call and posts the call to Agenium (`curl`, token from the
+//!   environment); Agenium answers allow/deny. A hook that fails (Agenium unreachable) blocks the tool.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::{Driver, Event, Setup};
+use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns};
 
 pub struct Agy;
 
-fn write_json(path: &std::path::Path, v: &Value) -> std::io::Result<()> {
+const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
+const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
+
+fn write_json(path: &Path, v: &Value) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
     std::fs::write(path, serde_json::to_vec_pretty(v)?)
 }
 
+/// The hook: a script in the per-run config folder (the hook's working directory) that posts the hook payload
+/// (stdin) to Agenium and prints Agenium's answer; `--fail-with-body` makes a refused or failed request fail the
+/// hook, which blocks the tool. A script, because agy's own `cmd /c` call mangles quoted arguments. Returns the hook
+/// command and the script (file name, content).
+fn hook_script() -> (&'static str, &'static str, String) {
+    if cfg!(windows) {
+        (
+            "agenium-hook.cmd",
+            "agenium-hook.cmd",
+            format!(
+                "@curl.exe -s -S --fail-with-body -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer %{HOOK_TOKEN_ENV}%\" --data-binary @- \"%{HOOK_URL_ENV}%\"\r\n"
+            ),
+        )
+    } else {
+        (
+            "sh ./agenium-hook.sh",
+            "agenium-hook.sh",
+            format!(
+                "#!/bin/sh\nexec curl -s -S --fail-with-body -X POST -H 'Content-Type: application/json' -H \"Authorization: Bearer ${HOOK_TOKEN_ENV}\" --data-binary @- \"${HOOK_URL_ENV}\"\n"
+            ),
+        )
+    }
+}
+
+/// Argument names that hold file system paths.
+fn is_path_key(k: &str) -> bool {
+    let k = k.to_ascii_lowercase();
+    [
+        "path",
+        "paths",
+        "file",
+        "files",
+        "directory",
+        "dir",
+        "cwd",
+        "uri",
+    ]
+    .iter()
+    .any(|s| k.ends_with(s))
+}
+
+fn path_values(v: &Value) -> Vec<String> {
+    match v {
+        Value::String(s) => vec![s.strip_prefix("file:///").unwrap_or(s).to_owned()],
+        Value::Array(a) => a.iter().flat_map(path_values).collect(),
+        _ => vec![],
+    }
+}
+
 impl Driver for Agy {
-    fn args(&self, model: &str) -> Vec<String> {
+    fn control(&self) -> Control {
+        Control::Hook
+    }
+
+    fn turns(&self) -> Turns {
+        Turns::Stdin
+    }
+
+    fn args(&self, model: &str, _resume: Option<&str>) -> Vec<String> {
         let mut a: Vec<String> = [
             "--input-format",
             "stream-json",
@@ -35,6 +97,7 @@ impl Driver for Agy {
             "stream-json",
             "--mode",
             "accept-edits",
+            "--dangerously-skip-permissions",
         ]
         .map(str::to_owned)
         .to_vec();
@@ -56,29 +119,37 @@ impl Driver for Agy {
                 "headers": {"Authorization": s.mcp_authorization},
             }}}),
         )?;
-        let mut allow: Vec<String> = s
-            .allowed_commands
-            .iter()
-            .map(|c| format!("command({})", c.trim()))
-            .collect();
-        allow.push(format!("mcp({}/*)", s.mcp_name));
+        let (command, script, content) = hook_script();
+        std::fs::write(gemini.join("config").join(script), content)?;
+        write_json(
+            &gemini.join("config").join("hooks.json"),
+            &json!({"agenium-permissions": {"PreToolUse": [{
+                "matcher": "*",
+                "hooks": [{"type": "command", "command": command, "timeout": 900}],
+            }]}}),
+        )?;
         write_json(
             &gemini.join("antigravity-cli").join("settings.json"),
             &json!({
                 "allowNonWorkspaceAccess": false,
-                "permissions": {"allow": allow},
                 "trustedWorkspaces": [s.worktree],
             }),
         )?;
         let home = s.home.display().to_string();
+        let token = s
+            .mcp_authorization
+            .strip_prefix("Bearer ")
+            .unwrap_or(s.mcp_authorization);
         Ok([
             ("USERPROFILE".to_owned(), home.clone()),
             ("HOME".to_owned(), home),
+            (HOOK_URL_ENV.to_owned(), s.hook_url.to_owned()),
+            (HOOK_TOKEN_ENV.to_owned(), token.to_owned()),
         ]
         .into())
     }
 
-    fn user_line(&self, text: &str) -> String {
+    fn user_input(&self, text: &str) -> String {
         json!({"event": "user", "message": {"role": "user", "content": text}}).to_string()
     }
 
@@ -146,6 +217,44 @@ impl Driver for Agy {
     fn is_agenium_call(&self, tool: &str, input: &Value, server: &str) -> bool {
         tool == "call_mcp_tool" && input["ServerName"] == server
     }
+
+    fn check(&self, payload: &Value, cx: &CheckCtx) -> Check {
+        let call = &payload["toolCall"];
+        let name = call["name"].as_str().unwrap_or("");
+        let args = &call["args"];
+        let lower = name.to_ascii_lowercase();
+        if ["browser", "url", "web"].iter().any(|w| lower.contains(w)) {
+            return Check::Deny("web and browser tools are disabled in Agenium runs".into());
+        }
+        if name == "call_mcp_tool" {
+            return if args["ServerName"] == cx.mcp_name {
+                Check::Allow
+            } else {
+                Check::Deny(format!(
+                    "MCP server {} is not available in Agenium runs",
+                    args["ServerName"]
+                ))
+            };
+        }
+        for (k, v) in args.as_object().into_iter().flatten() {
+            if !is_path_key(k) {
+                continue;
+            }
+            for p in path_values(v) {
+                let p = Path::new(&p);
+                if !inside(p, cx.worktree, cx.worktree) && !inside(p, cx.worktree, cx.home) {
+                    return Check::Deny(format!("{} is outside the ticket worktree", p.display()));
+                }
+            }
+        }
+        match name {
+            "run_command" => match args["CommandLine"].as_str() {
+                Some(c) => Check::Command(c.to_owned()),
+                None => Check::Deny("the command text is missing".into()),
+            },
+            _ => Check::Allow,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -197,17 +306,72 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    #[test]
+    fn checks_tool_calls() {
+        let wt = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let cx = CheckCtx {
+            worktree: wt.path(),
+            home: home.path(),
+            mcp_name: "agenium",
+        };
+        let call = |name: &str, args: Value| {
+            Agy.check(&json!({"toolCall": {"name": name, "args": args}}), &cx)
+        };
         assert_eq!(
-            a.command("run_command", &json!({"CommandLine": "git status"}))
-                .as_deref(),
-            Some("git status")
+            call(
+                "write_file",
+                json!({"Path": wt.path().join("a.txt"), "Content": "x"})
+            ),
+            Check::Allow
         );
-        assert!(a.is_agenium_call(
-            "call_mcp_tool",
-            &json!({"ServerName": "agenium", "ToolName": "submit_report"}),
-            "agenium"
+        assert_eq!(
+            call("view_file", json!({"AbsolutePath": "src/lib.rs"})),
+            Check::Allow
+        );
+        assert!(matches!(
+            call(
+                "write_file",
+                json!({"Path": wt.path().join("../escape.txt")})
+            ),
+            Check::Deny(_)
         ));
-        assert!(!a.is_agenium_call("call_mcp_tool", &json!({"ServerName": "figma"}), "agenium"));
+        assert!(matches!(
+            call("list_dir", json!({"DirectoryPath": std::env::temp_dir()})),
+            Check::Deny(_)
+        ));
+        assert_eq!(
+            call("run_command", json!({"CommandLine": "cargo test"})),
+            Check::Command("cargo test".into())
+        );
+        assert!(matches!(
+            call(
+                "run_command",
+                json!({"CommandLine": "dir", "Cwd": std::env::temp_dir()})
+            ),
+            Check::Deny(_)
+        ));
+        assert_eq!(
+            call(
+                "call_mcp_tool",
+                json!({"ServerName": "agenium", "ToolName": "submit_report"})
+            ),
+            Check::Allow
+        );
+        assert!(matches!(
+            call("call_mcp_tool", json!({"ServerName": "figma"})),
+            Check::Deny(_)
+        ));
+        assert!(matches!(
+            call("read_url_content", json!({"Url": "https://example.com"})),
+            Check::Deny(_)
+        ));
+        assert!(matches!(
+            call("browser_click_element", json!({})),
+            Check::Deny(_)
+        ));
     }
 
     #[test]
@@ -216,31 +380,39 @@ mod tests {
         let env = Agy
             .prepare(&Setup {
                 home: home.path(),
-                worktree: std::path::Path::new("/wt"),
+                worktree: Path::new("/wt"),
                 mcp_name: "agenium",
                 mcp_url: "http://127.0.0.1:1/mcp",
                 mcp_authorization: "Bearer t",
-                allowed_commands: &["cargo test".to_owned()],
+                hook_url: "http://127.0.0.1:1/hook",
             })
             .unwrap();
         assert_eq!(env["USERPROFILE"], home.path().display().to_string());
-        let mcp: Value = serde_json::from_slice(
-            &std::fs::read(home.path().join(".gemini/config/mcp_config.json")).unwrap(),
-        )
-        .unwrap();
+        assert_eq!(env[HOOK_TOKEN_ENV], "t");
+        let read = |p: &str| -> Value {
+            serde_json::from_slice(&std::fs::read(home.path().join(p)).unwrap()).unwrap()
+        };
+        let mcp = read(".gemini/config/mcp_config.json");
         assert_eq!(mcp["mcpServers"].as_object().unwrap().len(), 1);
         assert_eq!(
             mcp["mcpServers"]["agenium"]["headers"]["Authorization"],
             "Bearer t"
         );
-        let s: Value = serde_json::from_slice(
-            &std::fs::read(home.path().join(".gemini/antigravity-cli/settings.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            s["permissions"]["allow"],
-            json!(["command(cargo test)", "mcp(agenium/*)"])
+        let hooks = read(".gemini/config/hooks.json");
+        let cmd = hooks["agenium-permissions"]["PreToolUse"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(cmd.contains("agenium-hook") && !cmd.contains('"'), "{cmd}");
+        let script =
+            std::fs::read_to_string(home.path().join(".gemini/config").join(hook_script().1))
+                .unwrap();
+        assert!(script.contains("--fail-with-body") && script.contains(HOOK_URL_ENV));
+        assert!(
+            !script.contains("Bearer t"),
+            "the token stays in the environment"
         );
+        let s = read(".gemini/antigravity-cli/settings.json");
         assert_eq!(s["allowNonWorkspaceAccess"], false);
+        assert!(s.get("permissions").is_none());
     }
 }

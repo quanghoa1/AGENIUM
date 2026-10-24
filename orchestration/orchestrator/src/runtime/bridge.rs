@@ -67,6 +67,9 @@ pub struct RunGate {
     pub ticket: Option<TicketKey>,
     pub agent: String,
     pub approver: Arc<dyn Approver>,
+    /// Commands run inside Agenium's sandbox. False for the commands of a vendor CLI that runs on the host (checked
+    /// through its hook): YOLO does not approve those, only the allowlist or the user.
+    pub contained: bool,
 }
 
 /// Exact entries match the whole command; `prefix*` entries match commands starting with the prefix that contain
@@ -87,7 +90,7 @@ impl CommandGate for RunGate {
     async fn check(&self, command: &str, cwd: &Path) -> GateDecision {
         let policy = self.app.config().sandbox.approval;
         let sandbox = agenium_sandbox::detect();
-        if policy == ApprovalPolicy::Never {
+        if policy == ApprovalPolicy::Never && self.contained {
             return match sandbox.backend {
                 Some(_) => GateDecision::Allow,
                 None => GateDecision::Deny(format!(

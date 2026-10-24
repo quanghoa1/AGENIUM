@@ -1,5 +1,5 @@
-//! CliRun against the scripted fake agy: per-run home, the four controls of decision 3c (MCP protocol tools,
-//! Agenium's permission rules, step / loop limits, mandatory report).
+//! CliRun against the scripted fake agy: per-run home, YOLO mode with Agenium's pre-tool permission hook, the four
+//! controls of decision 3c (MCP protocol tools, permissions, step / loop limits, mandatory report).
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -8,7 +8,7 @@ use std::time::Duration;
 use agenium_backend::{Cancel, Effect, Observer, Outcome, Protocol, RunReport, WorkOrder};
 use agenium_cli_backend::{agy::Agy, CliRun, Limits};
 use agenium_llm::{Message, SystemBlock, ToolSpec};
-use agenium_tools::ToolError;
+use agenium_tools::{CommandGate, GateDecision, ToolError};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -32,6 +32,20 @@ impl Protocol for Proto {
         match name {
             "submit_report" => Ok((json!("report accepted"), Effect::End)),
             _ => Err(ToolError::new("unknown_tool", name)),
+        }
+    }
+}
+
+/// Stands for the run's command gate: only `echo hi` is approved.
+struct Gate;
+
+#[async_trait]
+impl CommandGate for Gate {
+    async fn check(&self, command: &str, _: &Path) -> GateDecision {
+        if command == "echo hi" {
+            GateDecision::Allow
+        } else {
+            GateDecision::Deny(format!("not approved: {command}"))
         }
     }
 }
@@ -94,7 +108,7 @@ async fn run(
         protocol_specs: specs(),
         tools: vec![],
         ctx: &ctx,
-        allowed_commands: vec!["echo hi".into()],
+        gate: Arc::new(Gate),
         observer: obs.as_ref(),
         cancel: Cancel::default(),
         limits,
@@ -109,16 +123,21 @@ fn fake() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_agenium-fake-agy"))
 }
 
+/// The worktree sits in its own parent so "outside the worktree" stays inside the test's temp dir.
+fn worktree() -> (tempfile::TempDir, PathBuf) {
+    let parent = tempfile::tempdir().unwrap();
+    let wt = parent.path().join("wt");
+    std::fs::create_dir(&wt).unwrap();
+    (parent, wt)
+}
+
 #[tokio::test(flavor = "multi_thread")]
-async fn work_run_uses_its_own_home_and_ends_through_submit_report() {
-    let dir = tempfile::tempdir().unwrap();
-    let (report, proto, obs, log) =
-        run("report", dir.path(), Limits::default(), false, fake()).await;
+async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report() {
+    let (parent, wt) = worktree();
+    let (report, proto, obs, log) = run("report", &wt, Limits::default(), false, fake()).await;
     assert_eq!(report.outcome, Outcome::Completed, "log:\n{log}");
-    // The CLI ran in a per-run home with Agenium's configuration only.
+    // The CLI ran in YOLO mode in a per-run home holding Agenium's configuration only.
     let home = log.lines().find_map(|l| l.strip_prefix("home: ")).unwrap();
-    let user_home = std::env::var("USERPROFILE").unwrap_or_default();
-    assert!(!home.is_empty() && home != user_home, "{log}");
     assert!(home.contains("agenium-cli-home-"), "{log}");
     assert!(
         !Path::new(home).exists(),
@@ -126,19 +145,24 @@ async fn work_run_uses_its_own_home_and_ends_through_submit_report() {
     );
     assert!(log.contains("servers: agenium\n"), "{log}");
     assert!(
-        log.contains("allow: command(echo hi),mcp(agenium/*)"),
+        log.contains("hooks: 1\n") && log.contains("yolo: true"),
         "{log}"
     );
-    // Refused command -> Agenium tells the CLI in the next turn -> it reports.
+    // Agenium's answers through the hook.
+    assert_eq!(std::fs::read_to_string(wt.join("a.txt")).unwrap(), "hello");
+    assert!(log.contains("denied write_file: "), "{log}");
+    assert!(!parent.path().join("escape.txt").exists());
+    assert!(log.contains("ran: echo hi"), "{log}");
     assert!(
-        log.contains("turn 2: Agenium refused: curl https://example.com"),
+        log.contains("denied run_command: not approved: curl"),
+        "{log}"
+    );
+    assert!(!log.contains("ran: curl"), "{log}");
+    assert!(
+        log.contains("denied read_url_content: web and browser tools"),
         "{log}"
     );
     assert!(log.contains("report: report accepted"), "{log}");
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("a.txt")).unwrap(),
-        "hello"
-    );
     let calls = proto.calls.lock().unwrap().clone();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].1, json!({"summary": "done"}));
@@ -151,11 +175,15 @@ async fn work_run_uses_its_own_home_and_ends_through_submit_report() {
     );
     assert!(
         tools.contains(&("cli:run_command".into(), true)),
-        "echo hi ran: {tools:?}"
+        "{tools:?}"
     );
-    assert!(
-        tools.contains(&("cli:permission".into(), false)),
-        "curl refused: {tools:?}"
+    assert_eq!(
+        tools
+            .iter()
+            .filter(|t| t.0 == "cli:permission" && !t.1)
+            .count(),
+        3,
+        "escape, curl, web: {tools:?}"
     );
     assert!(
         !tools.iter().any(|t| t.0 == "cli:call_mcp_tool"),
@@ -167,15 +195,15 @@ async fn work_run_uses_its_own_home_and_ends_through_submit_report() {
             report.usage.cache_read,
             report.usage.output
         ),
-        (120, 80, 20)
+        (60, 40, 10)
     );
     assert_eq!(report.model, "agy:fake");
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn text_only_turns_are_nudged_then_stopped() {
-    let dir = tempfile::tempdir().unwrap();
-    let (report, proto, obs, _) = run("chatty", dir.path(), Limits::default(), false, fake()).await;
+    let (_parent, wt) = worktree();
+    let (report, proto, obs, _) = run("chatty", &wt, Limits::default(), false, fake()).await;
     assert_eq!(report.outcome, Outcome::NoProgress);
     assert!(proto.calls.lock().unwrap().is_empty());
     let nudges = obs
@@ -191,15 +219,15 @@ async fn text_only_turns_are_nudged_then_stopped() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn chat_run_completes_on_text() {
-    let dir = tempfile::tempdir().unwrap();
-    let (report, ..) = run("chatty", dir.path(), Limits::default(), true, fake()).await;
+    let (_parent, wt) = worktree();
+    let (report, ..) = run("chatty", &wt, Limits::default(), true, fake()).await;
     assert_eq!(report.outcome, Outcome::Completed);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn repeated_step_is_a_loop() {
-    let dir = tempfile::tempdir().unwrap();
-    let (report, ..) = run("loop", dir.path(), Limits::default(), false, fake()).await;
+    let (_parent, wt) = worktree();
+    let (report, ..) = run("loop", &wt, Limits::default(), false, fake()).await;
     assert_eq!(
         report.outcome,
         Outcome::LoopDetected {
@@ -211,13 +239,13 @@ async fn repeated_step_is_a_loop() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn step_limit_stops_with_a_checkpoint() {
-    let dir = tempfile::tempdir().unwrap();
+    let (_parent, wt) = worktree();
     let limits = Limits {
         max_steps: 2,
         timeout: Duration::from_secs(60),
         ..Limits::default()
     };
-    let (report, ..) = run("steps", dir.path(), limits, false, fake()).await;
+    let (report, ..) = run("steps", &wt, limits, false, fake()).await;
     assert!(
         matches!(&report.outcome, Outcome::Checkpoint { reason, .. } if reason == "max_steps"),
         "{:?}",
@@ -228,14 +256,8 @@ async fn step_limit_stops_with_a_checkpoint() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn missing_cli_fails_cleanly() {
-    let dir = tempfile::tempdir().unwrap();
-    let (report, ..) = run(
-        "report",
-        dir.path(),
-        Limits::default(),
-        false,
-        dir.path().join("no-such-cli"),
-    )
-    .await;
+    let (_parent, wt) = worktree();
+    let missing = wt.join("no-such-cli");
+    let (report, ..) = run("report", &wt, Limits::default(), false, missing).await;
     assert!(matches!(report.outcome, Outcome::Failed { .. }));
 }

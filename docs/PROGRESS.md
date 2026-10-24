@@ -2,7 +2,7 @@
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. Command: `.\devtools\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**189 tests** after M2.5 step 3 incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
+`cargo test --workspace` PASS (**196 tests** after M2.5 incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
@@ -58,17 +58,17 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | M15-10 benchmark | PARTLY: traversal latency at 100 k / 1 M edges RUN (targets met with the hub cap) | `docs/reference/STORE-SCALE.md` §8.1; QA golden set, concurrency, cold cache NOT RUN |
 | M15-11 golden scenarios GM-1..5, GM-7 | DONE (scripted model) | `agenium-memory/tests/graph_memory.rs`; "second ticket >= 20 % fewer steps" seen on the real model in the skill/MCP run (11 -> 5), not as a GM task |
 
-### M2.5 — CLI backend: IN PROGRESS ([ADR-56](adr/ADR-56-cli-backend-headless.md))
+### M2.5 — CLI backend: ACCEPTANCE MET with codex and agy ([ADR-56](adr/ADR-56-cli-backend-headless.md))
 | Item | Status | Evidence |
 |---|---|---|
 | Detect CLIs in PATH: version, login state, minimum version | DONE | `agent/cli-backend/src/detect.rs`, `agenium doctor` |
-| Headless JSON-stream driver + per-run home (user config not used) | DONE for agy | `agy.rs`, `run.rs`, `tests/stream_run.rs` |
-| Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs` |
+| Headless JSON-stream drivers | DONE: codex (`exec --json`, resume per turn), agy (stream-json in/out) | `codex.rs`, `agy.rs`, `run.rs` |
+| Per-run home, the user's CLI configuration not used | DONE (codex: `CODEX_HOME`; agy: `USERPROFILE`/`HOME`) | `tests/stream_run.rs`, unit tests |
+| YOLO mode, permissions decided by Agenium | DONE: codex inside Agenium's sandbox (MXC/bubblewrap/Seatbelt, live stdio); agy via its `PreToolUse` hook -> Agenium's gate (fail-closed) | `security/sandbox/src/service.rs`, `tests/contained.rs`, `tests/stream_run.rs` |
+| Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs`, `tests/server.rs` |
 | Limits / mandatory report from the event stream | DONE | `tests/stream_run.rs` |
-| YOLO mode + permissions handled by Agenium | OPEN (owner's rule, design pending) | ADR-56 "Open" |
-| codex driver (Luna 6 for tests) | NEXT | owner logged in 2026-10-24 |
-| CLI process inside the sandbox, API fallback, opencode/claude drivers | NOT DONE | ADR-56 |
-| Golden task through a CLI (acceptance) | to re-run with agy/codex (an earlier ACP/devin run passed 5/5; ACP dropped) | |
+| Golden tasks through a CLI | **codex gpt-6-luna 5/5**, **agy gemini-3.8-flash-low 5/5** | `quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`, `20261024T060626Z-cli-agy-gemini-3.8-flash-low.json` |
+| opencode / claude drivers, API fallback, contract tests in CI | NOT DONE | ADR-56 "Open" |
 
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5
@@ -123,8 +123,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
-- Team templates, inbox/SLA/watchdog, Kanban/UI (M3–M4). CLI backend: only `devin` is driven; the CLI process is not
-  sandboxed yet; no API fallback (ADR-56).
+- Team templates, inbox/SLA/watchdog, Kanban/UI (M3–M4). CLI backend: codex and agy driven; opencode/claude not; no
+  API fallback (ADR-56).
 - Sandbox backends: Linux bubblewrap/Landlock, macOS Seatbelt (M2). Windows has none in v1 (ADR-39).
 - Context compaction beyond the checkpoint-and-continue approach.
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
@@ -133,8 +133,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order)
-1. M2.5 rest: run the CLI process inside the sandbox (vendor egress, read-only login files), `opencode acp`, an agy
-   driver, API fallback; then M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
+1. M2.5 rest (opencode driver, API fallback, CLI contract tests), then M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
    export).
 2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
 3. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.

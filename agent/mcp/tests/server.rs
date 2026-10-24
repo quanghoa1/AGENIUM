@@ -174,3 +174,21 @@ async fn rejects_foreign_origins_paths_and_methods() {
         "HTTP/1.1 202 Accepted"
     );
 }
+
+#[tokio::test]
+async fn hook_route_needs_the_token_and_denies_by_default() {
+    let server = Server::start(Arc::new(Host::default()), "agenium")
+        .await
+        .unwrap();
+    let body = r#"{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /"}}}"#;
+    let post = |auth: &str| {
+        format!(
+            "POST /hook HTTP/1.1\r\nHost: x\r\n{auth}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    };
+    assert_eq!(raw(&server, post("")).await, "HTTP/1.1 401 Unauthorized");
+    let auth = format!("Authorization: {}\r\n", server.authorization());
+    assert_eq!(raw(&server, post(&auth)).await, "HTTP/1.1 200 OK");
+    assert!(server.hook_url().ends_with("/hook"));
+}
