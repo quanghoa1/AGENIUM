@@ -50,7 +50,7 @@ impl CliKind {
 
     /// Arguments of the CLI's own "am I logged in" command and how to read its output; `None` when the CLI has no
     /// such command (the state is then reported as unknown, never guessed).
-    fn login_probe(self) -> Option<(&'static [&'static str], fn(&str) -> Option<bool>)> {
+    fn login_probe(self) -> Option<LoginProbe> {
         fn codex(out: &str) -> Option<bool> {
             let o = out.to_ascii_lowercase();
             if o.contains("not logged in") {
@@ -69,6 +69,9 @@ impl CliKind {
         }
     }
 }
+
+/// Arguments of a login-status command and the reader of its output.
+type LoginProbe = (&'static [&'static str], fn(&str) -> Option<bool>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

@@ -931,9 +931,16 @@ async fn main() -> Result<()> {
                     Some(v) => println!(
                         "  {:<9} {v:<12} {login}{}",
                         c.kind.program(),
-                        c.note.as_deref().map(|n| format!(" ({n})")).unwrap_or_default()
+                        c.note
+                            .as_deref()
+                            .map(|n| format!(" ({n})"))
+                            .unwrap_or_default()
                     ),
-                    None => println!("  {:<9} {}", c.kind.program(), c.note.as_deref().unwrap_or("-")),
+                    None => println!(
+                        "  {:<9} {}",
+                        c.kind.program(),
+                        c.note.as_deref().unwrap_or("-")
+                    ),
                 }
             }
             let models = agenium_config::RootLayout::new(&r).models();
