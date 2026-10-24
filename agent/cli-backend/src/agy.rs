@@ -89,7 +89,7 @@ impl Driver for Agy {
         Turns::Stdin
     }
 
-    fn args(&self, model: &str, _resume: Option<&str>) -> Vec<String> {
+    fn args(&self, model: &str, _home: &Path, _resume: Option<&str>) -> Vec<String> {
         let mut a: Vec<String> = [
             "--input-format",
             "stream-json",

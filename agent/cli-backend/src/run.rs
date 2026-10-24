@@ -107,6 +107,8 @@ struct State {
     messages: Vec<Message>,
     text: String,
     recent: Vec<String>,
+    /// Tool steps by id (results of some CLIs only carry the id).
+    started: std::collections::HashMap<String, (String, Value)>,
     session: Option<String>,
     effect: Option<Effect>,
     ended_at: Option<Instant>,
@@ -500,7 +502,7 @@ ask_question if you are blocked.",
         home: &std::path::Path,
         resume: Option<&str>,
     ) -> Result<Proc, Outcome> {
-        let args = self.driver.args(&self.model, resume);
+        let args = self.driver.args(&self.model, home, resume);
         let name = self.program.display().to_string();
         let (in_tx, in_rx) = mpsc::unbounded_channel::<String>();
         let (out_tx, lines) = mpsc::unbounded_channel::<Value>();
@@ -683,9 +685,10 @@ ask_question if you are blocked.",
                 st.steps += 1;
                 self.observer.step(st.steps, &st.usage);
                 self.observer.event(&ChatEvent::ToolCallStarted {
-                    id,
+                    id: id.clone(),
                     name: name.clone(),
                 });
+                st.started.insert(id, (name.clone(), input.clone()));
                 let key = format!("{name}\u{1f}{input}");
                 st.recent.push(key.clone());
                 let n = st.recent.len();
@@ -700,11 +703,15 @@ ask_question if you are blocked.",
                 None
             }
             Event::Tool {
+                id,
                 name,
                 input,
                 done: true,
-                ..
             } => {
+                let (name, input) = match st.started.get(&id) {
+                    Some((n, i)) if name.is_empty() => (n.clone(), i.clone()),
+                    _ => (name, input),
+                };
                 if !self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
                     self.observer
                         .tool(&format!("cli:{name}"), &input, &Ok(String::new()));

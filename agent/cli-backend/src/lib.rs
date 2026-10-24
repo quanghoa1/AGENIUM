@@ -5,6 +5,7 @@
 //! the user's own CLI configuration (MCP servers, hooks, rules, skills) is neither used nor modified.
 
 pub mod agy;
+pub mod claude;
 pub mod codex;
 pub mod detect;
 pub mod driver;
@@ -20,6 +21,7 @@ pub fn driver(kind: CliKind) -> Option<&'static dyn Driver> {
     match kind {
         CliKind::Agy => Some(&agy::Agy),
         CliKind::Codex => Some(&codex::Codex),
-        CliKind::Devin | CliKind::Claude | CliKind::Opencode => None,
+        CliKind::Claude => Some(&claude::Claude),
+        CliKind::Devin | CliKind::Opencode => None,
     }
 }

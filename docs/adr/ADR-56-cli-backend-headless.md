@@ -1,6 +1,6 @@
 # ADR-56: CliBackend = headless CLI in its YOLO mode, per-run home, permissions decided by Agenium
 
-- **Status:** Accepted; implemented for `codex` and `agy` (golden tasks 5/5 through each, see Verification)
+- **Status:** Accepted; implemented for `codex`, `agy` and `claude` (golden tasks through each, see Verification)
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Implements:** decision 3c and ADR-30. An ACP-based attempt (`devin acp`) was dropped at the owner's request:
   only the API backend and the CLIs' own headless JSON-stream modes are used.
@@ -20,6 +20,11 @@
    own codex stays logged in.
    - codex: `CODEX_HOME` = per-run home with Agenium's `config.toml` (its MCP server; the token comes from an
      environment variable) and a copy of `auth.json`.
+   - claude: `CLAUDE_CONFIG_DIR` = per-run home with Agenium's `settings.json` (its hook only), MCP config file
+     (`--strict-mcp-config`) and a copy of `.credentials.json` (handed back when refreshed, like codex);
+     `--setting-sources user` loads only that folder's settings (not the repository's). Verified: none of the
+     user's MCP servers or plugins loaded, the user's `~/.claude.json` untouched. macOS keeps the login in the
+     Keychain: not verified there.
    - agy: `USERPROFILE`/`HOME` = per-run home (agy's configuration lives in `<home>/.gemini`, its login in the OS
      credential store) with Agenium's `mcp_config.json`, `hooks.json` + hook script and `settings.json`.
 3. **YOLO mode, Agenium decides** — two ways, chosen per CLI (`Driver::control`):
@@ -27,13 +32,15 @@
      (`agenium_sandbox::service::spawn_contained`: MXC on Windows, bubblewrap on Linux, Seatbelt on macOS), worktree
      + per-run home writable, toolchains and the CLI's installation readable, network on for the vendor API. No
      sandbox backend = the run is refused (fail-closed).
-   - **Hook** (agy, whose login in the OS credential store cannot be reached from a container): the CLI runs with
+   - **Hook** (agy and claude; agy's login is in the OS credential store, which a container cannot reach;
+     Claude Code's Bash tool needs Git Bash, which does not start in an MXC container): the CLI runs with
      `--dangerously-skip-permissions` on the host; its `PreToolUse` hook (in the per-run home) posts every tool call
      to Agenium's loopback server (`POST /hook`, same per-run bearer token as MCP) and Agenium answers allow/deny:
      shell commands go to the run's command gate (allowlist or the user's approval; YOLO does not approve them because
      they run outside the sandbox — `RunGate.contained = false`), file arguments must stay inside the worktree (or
      the per-run home), only Agenium's MCP server may be called, web and browser tools are refused. A hook that fails
-     (Agenium unreachable, bad answer) blocks the tool.
+     (Agenium unreachable, bad answer) blocks the tool. claude runs hooks in a POSIX shell and blocks only on exit
+     code 2: its hook script exits 2 on any failure; agy's is a `.cmd` (its `cmd /c` mangles quoted arguments).
 4. **Agenium's MCP server** (`agent/mcp/src/server.rs`: loopback, per-run bearer token, `Origin` must be loopback)
    offers the protocol tools and the agent's own MCP bindings; it is the only MCP server the CLI sees.
 5. **Limits and mandatory report** from the event stream: tool steps, repeated steps, wall-clock timeout (the process
@@ -54,8 +61,8 @@
 |---|---|---|---|---|
 | codex 0.163.0 | `exec --json -` / `exec resume` | `CODEX_HOME` | sandbox | driven, golden 5/5 (gpt-6-luna) |
 | agy 1.4.4 | stream-json in/out | `USERPROFILE`/`HOME` | hook | driven, golden 5/5 (gemini-3.8-flash-low) |
-| opencode 2.1.2 | `run --format json` | `XDG_*`, `OPENCODE_CONFIG_CONTENT` | — | not checked (login unknown) |
-| claude | `-p --output-format stream-json` | `CLAUDE_CONFIG_DIR`, `--strict-mcp-config` | — | not run (owner's rule) |
+| claude 2.1.310 | `-p` stream-json in/out | `CLAUDE_CONFIG_DIR` | hook | driven, golden 5/5 (haiku) |
+| opencode 2.1.2 | `run --format json` | config/state/cache via `XDG_*` (login lives in the data folder) | — | not driven, see below |
 | devin | `-p` prints text only | none (always loads the user's MCP servers and hooks) | — | not drivable |
 
 ## Findings that shaped the design
@@ -66,9 +73,23 @@
 - agy inside an MXC container is not logged in (the credential store is out of reach); codex is, with its login file
   in the per-run home.
 
+## opencode 2.1.2 findings (not driven yet)
+
+- Headless works (`opencode run --standalone --format json -m <provider/model>`, events `step_start`, `tool_use`,
+  `text`, `step_finish` with tokens); the working directory comes from `PWD`; `--standalone` avoids the user's
+  background service.
+- Isolation: `XDG_CONFIG_HOME`/`XDG_STATE_HOME`/`XDG_CACHE_HOME` per run drop the user's config, plugins and skills;
+  the login is in the data folder (`opencode.db`), so the data folder (and the session history) stays the user's.
+- Control: no server-side plugin hook was found in this version (`tool.execute.before` is gone; a plugin registered
+  in `opencode.json` was not loaded). `--auto` + `permission` deny rules work (`bash`, `external_directory`), but the
+  code-mode `execute` tool runs JavaScript with network access (it fetched a page despite `webfetch: deny`); denying
+  `execute` closes that, but Agenium's MCP tools are then not reachable even with `codemode: false`; the `bash`
+  rule `echo hi` also let `echo hi ;` through (prefix-like matching), so exact allowlist entries are not exact.
+- Next option: drive `opencode serve` (v2 API) and answer `permission.asked` events per call instead of `run`.
+
 ## Open
 
-- opencode and claude drivers.
+- opencode driver (see findings above).
 - Hook mode runs agy's own processes on the host: Agenium decides each tool call, but an allowed command runs
   uncontained (like an approved command without a sandbox backend).
 
@@ -81,4 +102,6 @@
 - `security/sandbox/tests/contained.rs`: live stdio in the sandbox (Windows MXC and Linux bubblewrap); opt-in codex
   run inside MXC.
 - Golden tasks: codex `gpt-6-luna` 5/5 (`quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`), agy
-  `gemini-3.8-flash-low` 5/5 (see `quality/eval/results/*-cli-agy-gemini-3.8-flash-low.json`).
+  `gemini-3.8-flash-low` 5/5 (`20261024T060626Z-cli-agy-gemini-3.8-flash-low.json`), claude `haiku` 5/5
+  (`20261024T065834Z-cli-claude-haiku.json`). With every CLI the review takes two runs (the first approves and
+  ends, the second closes; it logs "already approved") — to tidy up in M3.

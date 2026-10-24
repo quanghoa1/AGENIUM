@@ -43,7 +43,7 @@ impl CliKind {
             CliKind::Codex => [0, 163, 0],
             CliKind::Agy => [1, 4, 4],
             CliKind::Devin => [3000, 11, 3],
-            CliKind::Claude => [2, 1, 0],
+            CliKind::Claude => [2, 1, 310],
             CliKind::Opencode => [2, 1, 0],
         }
     }

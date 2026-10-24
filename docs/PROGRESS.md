@@ -69,10 +69,11 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | YOLO mode, permissions decided by Agenium | DONE: codex inside Agenium's sandbox (MXC/bubblewrap/Seatbelt, live stdio); agy via its `PreToolUse` hook -> Agenium's gate (fail-closed) | `security/sandbox/src/service.rs`, `tests/contained.rs`, `tests/stream_run.rs` |
 | Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs`, `tests/server.rs` |
 | Limits / mandatory report from the event stream | DONE | `tests/stream_run.rs` |
-| Golden tasks through a CLI | **codex gpt-6-luna 5/5**, **agy gemini-3.8-flash-low 5/5** | `quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`, `20261024T060626Z-cli-agy-gemini-3.8-flash-low.json` |
+| Golden tasks through a CLI | **codex gpt-6-luna 5/5**, **agy gemini-3.8-flash-low 5/5**, **claude haiku 5/5** | `quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`, `20261024T060626Z-cli-agy-gemini-3.8-flash-low.json` |
 | API fallback when the CLI cannot run | DONE (`[cli] fallback_provider/fallback_model`) | `orchestrator/tests/runtime.rs::cli_agent_falls_back_to_the_api_when_configured` |
 | Contract per minimum version | DONE (stream parsing tested on lines captured from codex 0.163.0 / agy 1.4.4; older = not used) | `codex.rs`, `agy.rs` tests |
-| opencode / claude drivers | NOT DONE | ADR-56 "Open" |
+| claude driver | DONE (hook control, per-run `CLAUDE_CONFIG_DIR`) | `agent/cli-backend/src/claude.rs`, `quality/eval/results/20261024T065834Z-cli-claude-haiku.json` |
+| opencode driver | NOT DONE: opencode 2.1.2 has no usable permission hook in `run` (findings in ADR-56) | ADR-56 |
 
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5

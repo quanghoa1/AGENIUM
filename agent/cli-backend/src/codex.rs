@@ -14,12 +14,11 @@ use std::path::{Path, PathBuf};
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::{Control, Driver, Event, Setup, Turns};
+use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, Turns};
 
 pub struct Codex;
 
 const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
-const ORIGINAL_LOGIN: &str = "auth.json.agenium-original";
 
 /// The user's own codex home (`CODEX_HOME` or `~/.codex`).
 pub fn user_codex_home() -> Option<PathBuf> {
@@ -35,30 +34,6 @@ fn toml_str(s: &str) -> String {
     serde_json::to_string(s).unwrap_or_default()
 }
 
-impl Codex {
-    fn finish_login(&self, home: &Path, user: &Path) -> std::io::Result<()> {
-        let (Ok(now), Ok(before)) = (
-            std::fs::read(home.join("auth.json")),
-            std::fs::read(home.join(ORIGINAL_LOGIN)),
-        ) else {
-            return Ok(());
-        };
-        if now == before || now.is_empty() {
-            return Ok(());
-        }
-        let target = user.join("auth.json");
-        if std::fs::read(&target)? != before {
-            tracing::warn!(
-                "codex login changed both inside and outside the run; keeping the user's"
-            );
-            return Ok(());
-        }
-        let tmp = user.join("auth.json.agenium-tmp");
-        std::fs::write(&tmp, &now)?;
-        std::fs::rename(&tmp, &target)
-    }
-}
-
 impl Driver for Codex {
     fn control(&self) -> Control {
         Control::Sandbox
@@ -68,7 +43,7 @@ impl Driver for Codex {
         Turns::ProcessPerTurn
     }
 
-    fn args(&self, model: &str, resume: Option<&str>) -> Vec<String> {
+    fn args(&self, model: &str, _home: &Path, resume: Option<&str>) -> Vec<String> {
         let mut a = vec!["exec".to_owned()];
         if let Some(id) = resume {
             a.extend(["resume".to_owned(), id.to_owned()]);
@@ -92,11 +67,7 @@ impl Driver for Codex {
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
         let user = user_codex_home()
             .ok_or_else(|| std::io::Error::other("cannot find the user's codex home"))?;
-        let login = std::fs::read(user.join("auth.json")).map_err(|e| {
-            std::io::Error::other(format!("codex is not logged in ({}): {e}", user.display()))
-        })?;
-        std::fs::write(s.home.join("auth.json"), &login)?;
-        std::fs::write(s.home.join(ORIGINAL_LOGIN), &login)?;
+        copy_login(&user.join("auth.json"), &s.home.join("auth.json"))?;
         std::fs::write(
             s.home.join("config.toml"),
             format!(
@@ -119,7 +90,7 @@ impl Driver for Codex {
 
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_codex_home() {
-            Some(user) => self.finish_login(s.home, &user),
+            Some(user) => hand_back_login(&user.join("auth.json"), &s.home.join("auth.json")),
             None => Ok(()),
         }
     }
@@ -288,34 +259,11 @@ mod tests {
 
     #[test]
     fn args_for_new_and_resumed_turns() {
-        let a = Codex.args("gpt-6-luna", None);
+        let a = Codex.args("gpt-6-luna", Path::new("/h"), None);
         assert_eq!(a[0], "exec");
         assert!(a.contains(&"--dangerously-bypass-approvals-and-sandbox".to_owned()));
         assert_eq!(a.last().unwrap(), "-");
-        let r = Codex.args("gpt-6-luna", Some("t1"));
+        let r = Codex.args("gpt-6-luna", Path::new("/h"), Some("t1"));
         assert_eq!(&r[..3], ["exec", "resume", "t1"]);
-    }
-
-    #[test]
-    fn refreshed_login_goes_back_only_when_the_user_file_is_unchanged() {
-        let home = tempfile::tempdir().unwrap();
-        let user = tempfile::tempdir().unwrap();
-        std::fs::write(user.path().join("auth.json"), "old").unwrap();
-        std::fs::write(home.path().join(ORIGINAL_LOGIN), "old").unwrap();
-        std::fs::write(home.path().join("auth.json"), "new").unwrap();
-        Codex.finish_login(home.path(), user.path()).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(user.path().join("auth.json")).unwrap(),
-            "new"
-        );
-        // The user logged in again meanwhile: theirs wins.
-        std::fs::write(user.path().join("auth.json"), "other").unwrap();
-        std::fs::write(home.path().join(ORIGINAL_LOGIN), "new").unwrap();
-        std::fs::write(home.path().join("auth.json"), "newer").unwrap();
-        Codex.finish_login(home.path(), user.path()).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(user.path().join("auth.json")).unwrap(),
-            "other"
-        );
     }
 }

@@ -1,0 +1,146 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 13,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 2,
+      "invalid": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 433632,
+    "tokens_out": 3916,
+    "cost_usd": 0.0,
+    "elapsed_ms": 44919
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 14,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 2,
+      "invalid": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 405389,
+    "tokens_out": 4025,
+    "cost_usd": 0.0,
+    "elapsed_ms": 44109
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 25,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 2,
+      "invalid": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 476615,
+    "tokens_out": 5868,
+    "cost_usd": 0.0,
+    "elapsed_ms": 52714
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 17,
+    "tool_errors": 7,
+    "error_codes": {
+      "denied": 2,
+      "invalid": 1,
+      "invalid_arguments": 4
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `criterion`, expected one of `ac_id`, `status`, `evidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"README.md\", expected struct ArtifactRef",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"high\", expected f64",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 525450,
+    "tokens_out": 5537,
+    "cost_usd": 0.0,
+    "elapsed_ms": 52963
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 14,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 1,
+      "invalid": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid: AGN-1 is already approved"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 432855,
+    "tokens_out": 3642,
+    "cost_usd": 0.0,
+    "elapsed_ms": 43737
+  }
+]

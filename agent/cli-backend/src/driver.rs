@@ -85,8 +85,9 @@ pub enum Event {
 pub trait Driver: Send + Sync {
     fn control(&self) -> Control;
     fn turns(&self) -> Turns;
-    /// Arguments of a headless run; `resume` = the CLI's conversation id for a later turn (`ProcessPerTurn`).
-    fn args(&self, model: &str, resume: Option<&str>) -> Vec<String>;
+    /// Arguments of a headless run; `home` = the per-run home, `resume` = the CLI's conversation id for a later
+    /// turn (`ProcessPerTurn`).
+    fn args(&self, model: &str, home: &Path, resume: Option<&str>) -> Vec<String>;
     /// Writes the per-run configuration into `setup.home` and returns the environment that makes the CLI use it.
     fn prepare(&self, setup: &Setup) -> std::io::Result<BTreeMap<String, String>>;
     /// Called after the run (the process has ended): e.g. hand a refreshed login back to the user's CLI.
@@ -113,6 +114,44 @@ pub trait Driver: Send + Sync {
     fn hook_answer(&self, allow: bool, reason: &str) -> Value {
         serde_json::json!({"decision": if allow { "allow" } else { "deny" }, "reason": reason})
     }
+}
+
+/// Copies the user's login file into the per-run home, with a pristine copy to compare against afterwards.
+pub fn copy_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
+    let login = std::fs::read(user_file).map_err(|e| {
+        std::io::Error::other(format!("not logged in ({}): {e}", user_file.display()))
+    })?;
+    std::fs::write(home_file, &login)?;
+    std::fs::write(original(home_file), &login)
+}
+
+fn original(home_file: &Path) -> PathBuf {
+    let mut name = home_file.file_name().unwrap_or_default().to_os_string();
+    name.push(".agenium-original");
+    home_file.with_file_name(name)
+}
+
+/// After the run: when the CLI refreshed its login inside the per-run home, the new login goes back to the user's
+/// file so their own CLI stays logged in (refresh tokens are single-use) — only when the user's file did not change
+/// meanwhile (then theirs wins).
+pub fn hand_back_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
+    let (Ok(now), Ok(before)) = (std::fs::read(home_file), std::fs::read(original(home_file)))
+    else {
+        return Ok(());
+    };
+    if now == before || now.is_empty() {
+        return Ok(());
+    }
+    if std::fs::read(user_file)? != before {
+        tracing::warn!(
+            file = %user_file.display(),
+            "login changed both inside and outside the run; keeping the user's"
+        );
+        return Ok(());
+    }
+    let tmp = original(user_file).with_extension("agenium-tmp");
+    std::fs::write(&tmp, &now)?;
+    std::fs::rename(&tmp, user_file)
 }
 
 /// Lexically normalised absolute path (no `.`/`..`), relative paths taken from `base`.
@@ -178,6 +217,30 @@ mod tests {
             assert!(inside(Path::new(r"c:\WT\sub\f"), root, root));
             assert!(!inside(Path::new(r"C:\wt2\f"), root, root));
         }
+    }
+
+    #[test]
+    fn refreshed_login_goes_back_only_when_the_user_file_is_unchanged() {
+        let home = tempfile::tempdir().unwrap();
+        let user = tempfile::tempdir().unwrap();
+        let (u, h) = (user.path().join("auth.json"), home.path().join("auth.json"));
+        std::fs::write(&u, "old").unwrap();
+        copy_login(&u, &h).unwrap();
+        hand_back_login(&u, &h).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&u).unwrap(),
+            "old",
+            "nothing refreshed"
+        );
+        std::fs::write(&h, "new").unwrap();
+        hand_back_login(&u, &h).unwrap();
+        assert_eq!(std::fs::read_to_string(&u).unwrap(), "new");
+        // The user logged in again meanwhile: theirs wins.
+        copy_login(&u, &h).unwrap();
+        std::fs::write(&u, "other").unwrap();
+        std::fs::write(&h, "newer").unwrap();
+        hand_back_login(&u, &h).unwrap();
+        assert_eq!(std::fs::read_to_string(&u).unwrap(), "other");
     }
 
     #[test]
