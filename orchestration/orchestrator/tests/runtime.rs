@@ -1070,3 +1070,43 @@ async fn closing_a_ticket_teaches_the_assignee() {
     assert_eq!(p.remaining(), 0);
     drop(f);
 }
+
+/// ADR-30 / ADR-56: a CLI agent whose CLI cannot run fails with the reason, or uses the configured API fallback.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cli_agent_falls_back_to_the_api_when_configured() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    // opencode is detected but not driven by Agenium.
+    let cli_model = ModelBinding {
+        provider: "opencode".into(),
+        model: "some-model".into(),
+        effort: Effort::Low,
+        max_tokens: None,
+    };
+    app.set_agent_backend(agent, BackendKind::Cli, &cli_model)
+        .unwrap();
+    let err = rt.chat(project, "hello").await.unwrap_err().to_string();
+    assert!(err.contains("does not drive opencode"), "{err}");
+    assert_eq!(p.requests().len(), 0);
+
+    app.update_config(|c| {
+        c.cli.fallback_provider = "mock".into();
+        c.cli.fallback_model = "fallback-model".into();
+    })
+    .unwrap();
+    p.push_text("hi from the API");
+    let r = rt.chat(project, "hello").await.unwrap();
+    assert!(r.text.contains("hi from the API"), "{}", r.text);
+    let req = &p.requests()[0];
+    assert_eq!(req.model, "fallback-model");
+    let system: String = req.system.iter().map(|b| b.text.clone()).collect();
+    assert!(
+        system.contains("this run uses the API fallback mock/fallback-model"),
+        "the run states why it is not on the CLI"
+    );
+    // The agent stays a CLI agent.
+    assert_eq!(app.agent(agent).unwrap().backend, BackendKind::Cli);
+    drop(f);
+}

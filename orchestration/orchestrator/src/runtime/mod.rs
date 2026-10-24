@@ -399,6 +399,38 @@ impl Runtime {
         work: Vec<Arc<dyn Tool>>,
         exclude: &[ProtocolTool],
     ) -> Result<(RunReport, f64)> {
+        // A CLI agent whose CLI cannot be used runs through the configured API fallback, or not at all (ADR-30).
+        let mut fallback_note = None;
+        let mut cli_ready = None;
+        let fallback_agent;
+        let agent = if agent.backend == BackendKind::Cli {
+            match self.cli_ready(agent) {
+                Ok(r) => {
+                    cli_ready = Some(r);
+                    agent
+                }
+                Err(why) => {
+                    let cfg = self.app.config().cli;
+                    if cfg.fallback_provider.is_empty() || cfg.fallback_model.is_empty() {
+                        return Err(OrchError::Invalid(why));
+                    }
+                    let note = format!(
+                        "{why}; this run uses the API fallback {}/{}",
+                        cfg.fallback_provider, cfg.fallback_model
+                    );
+                    tracing::warn!(agent = %agent.name, "{note}");
+                    let mut a = agent.clone();
+                    a.backend = BackendKind::Api;
+                    a.model.provider = cfg.fallback_provider;
+                    a.model.model = cfg.fallback_model;
+                    fallback_note = Some(note);
+                    fallback_agent = a;
+                    &fallback_agent
+                }
+            }
+        } else {
+            agent
+        };
         let p = self.app.project(project)?;
         let allow = crate::engine::allowlist(&self.app, &p);
         let ctx = self.tool_ctx(
@@ -411,6 +443,9 @@ impl Runtime {
         );
         let skills = Arc::new(self.skills(agent));
         let mut ctx = ctx;
+        if let Some(n) = fallback_note {
+            ctx.capabilities.push(format!("Backend: {n}"));
+        }
         ctx.read_roots = skills.dirs();
         // Skill scripts run through the shell: their folders are readable inside the sandbox too.
         ctx.policy.read_roots.extend(skills.dirs());
@@ -441,7 +476,7 @@ impl Runtime {
             );
         }
         // A vendor CLI brings its own file and shell tools: it only gets the agent's MCP tools from Agenium.
-        let cli = agent.backend == BackendKind::Cli;
+        let cli = cli_ready.is_some();
         let mut work = if cli { Vec::new() } else { work };
         work.extend(mcp_tools);
         let mut exclude = exclude.to_vec();
@@ -487,7 +522,7 @@ impl Runtime {
                 .map(|t| t.key.to_string())
                 .unwrap_or_else(|| "chat".into())
         );
-        if cli {
+        if let Some((driver, program)) = cli_ready {
             // A CLI checked through its hook runs its commands on the host, outside Agenium's sandbox: YOLO does not
             // approve them, only the allowlist or the user does.
             let gate = Arc::new(RunGate {
@@ -500,7 +535,8 @@ impl Runtime {
             });
             let report = self
                 .cli_run(
-                    agent, kind, &ctx, gate, &protocol, pspecs, work, &observer, &order,
+                    agent, driver, program, kind, &ctx, gate, &protocol, pspecs, work, &observer,
+                    &order,
                 )
                 .await?;
             // Subscription plans: tokens are recorded, no per-token price is known.
@@ -524,11 +560,51 @@ impl Runtime {
         Ok((report, cost))
     }
 
+    /// Whether the agent's CLI can run now: known, driven by Agenium, installed, at least the checked version, not
+    /// logged out, and (for a CLI that must run contained) a sandbox backend works. `Err` = why not.
+    fn cli_ready(
+        &self,
+        agent: &agenium_store::core::agents::Agent,
+    ) -> std::result::Result<(&'static dyn agenium_cli_backend::Driver, PathBuf), String> {
+        use agenium_cli_backend::{CliKind, Control, Login};
+        let name = agent.model.provider.as_str();
+        let cli = CliKind::ALL
+            .into_iter()
+            .find(|k| k.program() == name)
+            .ok_or_else(|| format!("{name:?} is not a known agent CLI"))?;
+        let driver = agenium_cli_backend::driver(cli)
+            .ok_or_else(|| format!("Agenium does not drive {name} yet (ADR-56)"))?;
+        let info = agenium_cli_backend::detect::detect(cli);
+        let program = info
+            .path
+            .clone()
+            .ok_or_else(|| format!("{name} is not installed (not on PATH)"))?;
+        if !info.compatible {
+            return Err(format!(
+                "{name} cannot be used: {}",
+                info.note.unwrap_or_default()
+            ));
+        }
+        if info.login == Login::NotLoggedIn {
+            return Err(format!(
+                "{name} is not logged in; log in with the {name} CLI first"
+            ));
+        }
+        if driver.control() == Control::Sandbox && agenium_sandbox::detect().backend.is_none() {
+            return Err(format!(
+                "{name} runs only inside Agenium's sandbox and no sandbox backend works here"
+            ));
+        }
+        Ok((driver, program))
+    }
+
     /// CliBackend run (M2.5, ADR-56): the agent's `model.provider` names the CLI, `model.model` the CLI's model.
     #[allow(clippy::too_many_arguments)]
     async fn cli_run(
         &self,
         agent: &agenium_store::core::agents::Agent,
+        driver: &'static dyn agenium_cli_backend::Driver,
+        program: PathBuf,
         kind: RunKind,
         ctx: &ToolCtx,
         gate: Arc<RunGate>,
@@ -538,31 +614,8 @@ impl Runtime {
         observer: &RunObserver,
         order: &WorkOrder,
     ) -> Result<RunReport> {
-        use agenium_cli_backend::{CliKind, CliRun, Limits, Login};
+        use agenium_cli_backend::{CliRun, Limits};
         let name = agent.model.provider.as_str();
-        let cli = CliKind::ALL
-            .into_iter()
-            .find(|k| k.program() == name)
-            .ok_or_else(|| OrchError::Invalid(format!("{name:?} is not a known agent CLI")))?;
-        let info = agenium_cli_backend::detect::detect(cli);
-        let program = info
-            .path
-            .clone()
-            .ok_or_else(|| OrchError::Invalid(format!("{name} is not installed (not on PATH)")))?;
-        if !info.compatible {
-            return Err(OrchError::Invalid(format!(
-                "{name} cannot be used: {}",
-                info.note.unwrap_or_default()
-            )));
-        }
-        if info.login == Login::NotLoggedIn {
-            return Err(OrchError::Invalid(format!(
-                "{name} is not logged in; log in with the {name} CLI first"
-            )));
-        }
-        let driver = agenium_cli_backend::driver(cli).ok_or_else(|| {
-            OrchError::Invalid(format!("Agenium does not drive {name} yet (ADR-56)"))
-        })?;
         let cfg = self.app.config();
         let rt = cfg.runtime;
         let r = CliRun {

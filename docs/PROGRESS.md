@@ -68,7 +68,9 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs`, `tests/server.rs` |
 | Limits / mandatory report from the event stream | DONE | `tests/stream_run.rs` |
 | Golden tasks through a CLI | **codex gpt-6-luna 5/5**, **agy gemini-3.8-flash-low 5/5** | `quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`, `20261024T060626Z-cli-agy-gemini-3.8-flash-low.json` |
-| opencode / claude drivers, API fallback, contract tests in CI | NOT DONE | ADR-56 "Open" |
+| API fallback when the CLI cannot run | DONE (`[cli] fallback_provider/fallback_model`) | `orchestrator/tests/runtime.rs::cli_agent_falls_back_to_the_api_when_configured` |
+| Contract per minimum version | DONE (stream parsing tested on lines captured from codex 0.163.0 / agy 1.4.4; older = not used) | `codex.rs`, `agy.rs` tests |
+| opencode / claude drivers | NOT DONE | ADR-56 "Open" |
 
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5
@@ -133,7 +135,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order)
-1. M2.5 rest (opencode driver, API fallback, CLI contract tests), then M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
+1. API gaps (Local endpoint capability flags, ADR-31), then M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
    export).
 2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
 3. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.

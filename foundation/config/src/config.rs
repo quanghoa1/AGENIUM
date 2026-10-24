@@ -256,12 +256,18 @@ pub struct SandboxSection {
 pub struct CliSection {
     /// Wall-clock limit of one CLI run, in minutes.
     pub run_timeout_mins: u32,
+    /// API provider id (`[[providers]] id`) and model a CLI agent uses when its CLI cannot run (missing, too old,
+    /// logged out, no sandbox). Empty: such a run fails with the reason.
+    pub fallback_provider: String,
+    pub fallback_model: String,
 }
 
 impl Default for CliSection {
     fn default() -> Self {
         Self {
             run_timeout_mins: 45,
+            fallback_provider: String::new(),
+            fallback_model: String::new(),
         }
     }
 }

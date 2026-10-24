@@ -39,7 +39,13 @@
 5. **Limits and mandatory report** from the event stream: tool steps, repeated steps, wall-clock timeout (the process
    is stopped -> `Checkpoint` / `LoopDetected`); a work turn that ends without a protocol tool gets a nudge (2 at
    most) -> `NoProgress`; after `submit_report` / `ask_question` / ... the CLI gets 30 s to finish its turn.
-6. **Agent setting:** `backend = Cli`, `model.provider` = CLI program, `model.model` = the CLI's model
+6. **API fallback (ADR-30):** when the agent's CLI cannot run (unknown, not driven, not installed, older than the
+   checked version, logged out, or no sandbox backend for a sandbox-only CLI), the run uses `[cli] fallback_provider`
+   / `fallback_model` through the API backend and its work order says why; without a fallback the run fails with the
+   reason. The agent stays a CLI agent.
+7. **Contract per version:** each driver's stream parsing is unit-tested against lines captured from the minimum
+   version in `CliKind::min_version` (codex 0.163.0, agy 1.4.4); an older CLI is not used.
+8. **Agent setting:** `backend = Cli`, `model.provider` = CLI program, `model.model` = the CLI's model
    (`agenium agent cli <name> --cli codex --model gpt-6-luna`). Cost 0 (subscription), tokens recorded.
 
 ## Per-CLI status (2026-10-24)
@@ -62,8 +68,7 @@
 
 ## Open
 
-- opencode and claude drivers; API fallback when the CLI is missing or incompatible; contract tests per minimum
-  version in CI.
+- opencode and claude drivers.
 - Hook mode runs agy's own processes on the host: Agenium decides each tool call, but an allowed command runs
   uncontained (like an approved command without a sandbox backend).
 
