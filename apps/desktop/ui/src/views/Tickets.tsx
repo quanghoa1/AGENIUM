@@ -1,4 +1,4 @@
-import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion, Play } from "lucide-react";
+import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
 import { ListItem, Modal, ProgressBar, Segmented } from "../components/motion";
@@ -15,7 +15,6 @@ export function TicketsView() {
   const app = useApp();
   const tab: Tab = (["board", "plan", "inbox"].includes(app.route.id ?? "") ? app.route.id : "board") as Tab;
   const p = app.projects.find((x) => x.id === app.project);
-  const [busy, setBusy] = useState(false);
   if (!app.project || !p) return <Empty>{app.t("common.none")}</Empty>;
   return (
     <div>
@@ -34,21 +33,6 @@ export function TicketsView() {
             ),
           }))}
         />
-        <button
-          className="btn"
-          disabled={busy}
-          title={app.t("tickets.roundHint")}
-          onClick={() => {
-            setBusy(true);
-            api
-              .runRound(app.project!)
-              .then((r) => app.notify(`${r.length} ${app.t("tickets.roundDone")}`))
-              .catch((e) => app.notify(String(e)))
-              .finally(() => (setBusy(false), app.refresh()));
-          }}
-        >
-          <Play className="h-3.5 w-3.5" /> {app.t("tickets.round")}
-        </button>
       </PageHeader>
       {tab === "board" && <Board project={app.project} />}
       {tab === "plan" && <Plan project={app.project} />}

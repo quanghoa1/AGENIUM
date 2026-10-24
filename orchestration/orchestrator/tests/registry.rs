@@ -336,7 +336,6 @@ fn teams_are_composed_from_pool_agents_and_the_lead_is_only_suggested() {
             Intent::CreatePlan(plan(&[("PI-1", &[])])),
         )
         .unwrap();
-    f.app.approve_plan(f.project.id, 1).unwrap();
     let out = f
         .app
         .apply(

@@ -197,8 +197,19 @@ enum ProjectCmd {
         prefix: Option<String>,
         #[arg(long)]
         template: Option<String>,
+        /// A git repository to clone into the projects folder.
+        #[arg(long, conflicts_with = "path")]
+        repo: Option<String>,
     },
     List,
+    /// Stop a project's team (otherwise it runs from the agreed spec to the end).
+    Pause {
+        project: String,
+    },
+    /// Let a stopped project's team go on.
+    Resume {
+        project: String,
+    },
     /// Project setting `review_before_merge` (Solo agents wait for you before merging).
     ReviewBeforeMerge {
         project: String,
@@ -1408,6 +1419,7 @@ async fn main() -> Result<()> {
                     path,
                     prefix,
                     template,
+                    repo,
                 } => {
                     let p = app.create_project(&CreateProject {
                         name: name.clone(),
@@ -1415,14 +1427,37 @@ async fn main() -> Result<()> {
                         key_prefix: prefix.clone(),
                         template: template.clone(),
                         folder: None,
-                        repo: None,
+                        repo: repo.clone(),
                     })?;
                     println!("project {} at {}", p.name, p.path);
                 }
                 ProjectCmd::List => {
                     for p in app.projects()? {
-                        println!("{}\t{}\t{}\t{}", p.name, p.status, p.key_prefix, p.path);
+                        let state = app.run_state(p.id)?;
+                        println!(
+                            "{}\t{}\t{state:?}\t{}\t{}",
+                            p.name, p.status, p.key_prefix, p.path
+                        );
                     }
+                }
+                ProjectCmd::Pause { project: name } => {
+                    let p = project(&app, name)?;
+                    app.set_project_status(
+                        p.id,
+                        agenium_store::core::projects::ProjectStatus::Paused,
+                    )?;
+                    println!(
+                        "{} paused (runs in progress stop at their next step in the app)",
+                        p.name
+                    );
+                }
+                ProjectCmd::Resume { project: name } => {
+                    let p = project(&app, name)?;
+                    app.set_project_status(
+                        p.id,
+                        agenium_store::core::projects::ProjectStatus::Active,
+                    )?;
+                    println!("{} goes on", p.name);
                 }
                 ProjectCmd::ReviewBeforeMerge {
                     project: name,

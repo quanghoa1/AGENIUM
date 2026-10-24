@@ -73,8 +73,6 @@ interface Ctx {
   setApprovals: (a: CommandApproval[]) => void;
   toast: string | null;
   notify: (m: string) => void;
-  autopilot: boolean;
-  setAutopilot: (on: boolean) => void;
   reloadStatus: () => void;
 }
 
@@ -113,14 +111,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [live, setLive] = useState<Record<string, LiveRun>>({});
   const [approvals, setApprovals] = useState<CommandApproval[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const [autopilot, setAutopilotState] = useState(false);
   const toastTimer = useRef<number | undefined>(undefined);
 
   const reloadStatus = useCallback(() => {
-    api.status().then((s) => {
-      setStatus(s);
-      setAutopilotState(s.autopilot);
-    });
+    api.status().then(setStatus);
   }, []);
   useEffect(reloadStatus, [reloadStatus]);
 
@@ -253,13 +247,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setApprovals,
       toast,
       notify,
-      autopilot,
-      setAutopilot: (on) => {
-        api.setAutopilot(on).then(setAutopilotState);
-      },
       reloadStatus,
     }),
-    [status, route, lang, themeMode, projects, project, tick, refresh, live, approvals, toast, notify, autopilot, reloadStatus],
+    [status, route, lang, themeMode, projects, project, tick, refresh, live, approvals, toast, notify, reloadStatus],
   );
   return <C.Provider value={value}>{children}</C.Provider>;
 }

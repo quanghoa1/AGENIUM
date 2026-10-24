@@ -40,12 +40,13 @@ pub struct InboxItem {
 const SLA_NOTE: &str = "SLA exceeded:";
 
 impl App {
-    /// The inbox of the project's Lead; empty for a Solo agent (its questions go to the user) or without a team.
+    /// The inbox of the project's Lead; empty without a team. A Solo agent's inbox has only the items that move the
+    /// work on (plan, tickets to create or assign: ADR-63); its questions go to the user.
     pub fn lead_inbox(&self, project: ProjectId) -> Result<Vec<InboxItem>> {
         let Some((team, members)) = self.team_of_project(project)? else {
             return Ok(vec![]);
         };
-        let Some(lead) = team.lead.filter(|_| !team.solo) else {
+        let Some(lead) = team.lead else {
             return Ok(vec![]);
         };
         let p = self.project(project)?;
@@ -173,7 +174,7 @@ impl App {
         if let Some(spec) = spec.filter(|s| s.locked_at.is_some() && !any_plan) {
             let text = match (self.planner(project)?, self.plan_draft(project, spec.version)?) {
                 (Some(p), Some(d)) => Some(format!(
-                    "Spec v{v} is approved and your planner {} drafted plan v1. Review the draft against the spec and the team, adjust what you disagree with, then create_plan (it goes to the user for approval).\nPlanner's rationale: {}\nDraft: {}",
+                    "Spec v{v} is approved and your planner {} drafted plan v1. Review the draft against the spec and the team, adjust what you disagree with, then create_plan (you approve it: the user agreed on the spec).\nPlanner's rationale: {}\nDraft: {}",
                     p.name,
                     d.rationale,
                     serde_json::to_string(&d.plan()).unwrap_or_default(),
@@ -181,7 +182,7 @@ impl App {
                 )),
                 // The planner has not drafted yet: its run comes first.
                 (Some(_), None) => None,
-                (None, _) => Some(format!("Spec v{} is approved and has no plan yet: create_plan (it goes to the user for approval).", spec.version)),
+                (None, _) => Some(format!("Spec v{} is approved and has no plan yet: create_plan (you approve it: the user agreed on the spec).", spec.version)),
             };
             if let Some(text) = text {
                 out.push(InboxItem {
@@ -215,6 +216,14 @@ impl App {
                     ),
                 });
             }
+        }
+        if team.solo {
+            out.retain(|i| {
+                matches!(
+                    i.kind,
+                    InboxKind::Planning | InboxKind::Plan | InboxKind::Assign
+                )
+            });
         }
         out.sort_by(|a, b| {
             a.kind

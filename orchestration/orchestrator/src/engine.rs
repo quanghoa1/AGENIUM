@@ -433,7 +433,8 @@ impl App {
             if plans::latest_plan(w.tx, project)?.is_some() {
                 return Err(invalid("a plan already exists; use revise_plan"));
             }
-            let solo = team.as_ref().is_some_and(|t| t.solo) || ctx.actor == Actor::User;
+            // The user agreed on the spec: the plan built from it is the team's work, approved by the Lead (ADR-63).
+            let _ = team;
             let row = PlanRow {
                 id: ulid::Ulid::new().to_string(),
                 project,
@@ -443,28 +444,21 @@ impl App {
                 diff: None,
                 body: plan,
                 proposed_by: ctx.actor.label(),
-                approved_by: solo.then(|| ctx.actor.label()),
+                approved_by: Some(ctx.actor.label()),
             };
             plans::insert_plan(w.tx, &row)?;
             w.emit(DomainEvent::PlanProposed {
                 project,
                 version: 1,
-                needs_user: !solo,
+                needs_user: false,
             })?;
-            if solo {
-                w.emit(DomainEvent::PlanApproved {
-                    project,
-                    version: 1,
-                    by: ctx.actor.label(),
-                })?;
-            } else {
-                w.emit(DomainEvent::NeedsUser {
-                    ticket: None,
-                    reason: "plan v1 waits for your approval".into(),
-                })?;
-            }
+            w.emit(DomainEvent::PlanApproved {
+                project,
+                version: 1,
+                by: ctx.actor.label(),
+            })?;
             Ok(Outcome::ok(
-                serde_json::json!({ "plan_version": 1, "approved": solo }),
+                serde_json::json!({ "plan_version": 1, "approved": true }),
             ))
         })
     }
@@ -539,9 +533,10 @@ impl App {
                 }
             }
             let (diff, scope_change) = plan_diff(&base.body.items, &rev.items);
-            let solo = team.as_ref().is_some_and(|t| t.solo) || ctx.actor == Actor::User;
-            // Minor revisions: the Lead approves itself and the user is informed; scope changes need the user.
-            let self_approve = ctx.actor == Actor::User || !scope_change;
+            // Every item traces to the agreed spec, so a revision stays inside what the user agreed (ADR-63): the
+            // Lead approves it and the user is informed. New requirements need a new spec, which the user approves.
+            let _ = team;
+            let self_approve = true;
             let version = base.version + 1;
             let row = PlanRow {
                 id: ulid::Ulid::new().to_string(),
@@ -561,7 +556,6 @@ impl App {
             } else {
                 w.emit(DomainEvent::NeedsUser { ticket: None, reason: format!("plan v{version} changes scope and waits for your approval: {}", rev.reason) })?;
             }
-            let _ = solo;
             Ok(Outcome::ok(serde_json::json!({ "plan_version": version, "approved": self_approve, "scope_change": scope_change, "diff": diff })))
         })
     }

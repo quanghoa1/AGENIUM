@@ -173,6 +173,8 @@ pub struct Runtime {
     pub mcp: Arc<agenium_mcp::McpHub>,
     /// What each (provider, model) can do, looked up once (ADR-31).
     model_infos: Mutex<std::collections::HashMap<(String, String), Option<agenium_llm::ModelInfo>>>,
+    /// Per project: the stop flag of its work (child of `cancel`); pausing a project stops its runs, not others.
+    project_cancels: Mutex<std::collections::HashMap<ProjectId, Cancel>>,
     /// Per project: the inbox the Lead last failed on and how many times in a row (stops re-running a Lead that
     /// cannot handle the same inbox).
     inbox_failures: Mutex<std::collections::HashMap<ProjectId, (String, usize)>>,
@@ -227,6 +229,7 @@ impl Runtime {
             app.layout().mcp_work(),
         ));
         Self {
+            project_cancels: Mutex::default(),
             model_infos: Mutex::default(),
             inbox_failures: Mutex::default(),
             planner_failures: Mutex::default(),
@@ -505,6 +508,12 @@ impl Runtime {
         work: Vec<Arc<dyn Tool>>,
         exclude: &[ProtocolTool],
     ) -> Result<(RunReport, f64)> {
+        // The user's own chat stops only with the kill switch; work of a paused project stops with the project.
+        let cancel = if kind == RunKind::Chat {
+            self.cancel.clone()
+        } else {
+            self.project_cancel(project)
+        };
         // A CLI agent whose CLI cannot be used runs through the configured API fallback, or not at all (ADR-30).
         let mut fallback_note = None;
         let mut cli_ready = None;
@@ -659,7 +668,7 @@ impl Runtime {
             let report = self
                 .cli_run(
                     agent, driver, program, kind, &ctx, gate, &protocol, pspecs, work, &observer,
-                    &order,
+                    &order, cancel,
                 )
                 .await?;
             // Subscription plans: tokens are recorded, no per-token price is known.
@@ -689,7 +698,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             protocol_names: pnames,
             cfg,
             observer: &observer,
-            cancel: self.cancel.clone(),
+            cancel,
             chat: kind == RunKind::Chat,
             nudge: nudge_for(kind),
         };
@@ -797,6 +806,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         tools: Vec<Arc<dyn Tool>>,
         observer: &RunObserver,
         order: &WorkOrder,
+        cancel: Cancel,
     ) -> Result<RunReport> {
         use agenium_cli_backend::{CliRun, Limits};
         let name = agent.model.provider.as_str();
@@ -815,7 +825,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             ctx,
             gate,
             observer,
-            cancel: self.cancel.clone(),
+            cancel,
             limits: Limits {
                 max_steps: rt.max_steps_per_run,
                 same_call_limit: rt.loop_detect_same_call,
@@ -1919,6 +1929,57 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     }
 
     /// Repeats [`tick`](Self::tick) until nothing runs (or `max_rounds`).
+    /// The stop flag of a project's work.
+    pub fn project_cancel(&self, project: ProjectId) -> Cancel {
+        self.project_cancels
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .entry(project)
+            .or_insert_with(|| self.cancel.child())
+            .clone()
+    }
+
+    /// The user stops a project: its runs stop after the current step and no new one starts (ADR-63).
+    pub fn pause_project(&self, project: ProjectId) -> Result<()> {
+        self.app.set_project_status(
+            project,
+            agenium_store::core::projects::ProjectStatus::Paused,
+        )?;
+        self.project_cancel(project).cancel();
+        Ok(())
+    }
+
+    /// The user lets a paused project go on.
+    pub fn resume_project(&self, project: ProjectId) -> Result<()> {
+        self.project_cancel(project).reset();
+        self.app.set_project_status(
+            project,
+            agenium_store::core::projects::ProjectStatus::Active,
+        )?;
+        Ok(())
+    }
+
+    /// One pass of the continuous team loop for a project (ADR-63): a round when the project runs, then its status
+    /// follows its work (Completed once everything is done, Active again when new work appears).
+    pub async fn work(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
+        use agenium_store::core::projects::ProjectStatus;
+        let state = self.app.run_state(project)?;
+        let out = match state {
+            crate::views::RunState::Running => self.tick(project).await?,
+            _ => Vec::new(),
+        };
+        let status = self.app.project(project)?.status;
+        let done = self.app.run_state(project)? == crate::views::RunState::Done;
+        if done && status == ProjectStatus::Active {
+            self.app
+                .set_project_status(project, ProjectStatus::Completed)?;
+        } else if !done && status == ProjectStatus::Completed {
+            self.app
+                .set_project_status(project, ProjectStatus::Active)?;
+        }
+        Ok(out)
+    }
+
     pub async fn drive(&self, project: ProjectId, max_rounds: usize) -> Result<Vec<RunSummary>> {
         let mut all = Vec::new();
         for _ in 0..max_rounds {

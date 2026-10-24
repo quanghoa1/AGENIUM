@@ -1,9 +1,9 @@
 //! The desktop process state: the Agenium root (opened once set up), the runtime, the command approvals that wait
-//! for the user, and the autopilot (scheduler loop).
+//! for the user, and the projects whose team round is running.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use agenium_core::{RunId, TicketKey};
@@ -117,8 +117,6 @@ pub struct Desktop {
     pub root: PathBuf,
     pub opened: RwLock<Option<Arc<Opened>>>,
     pub approvals: Arc<Approvals>,
-    /// The scheduler loop runs rounds for every active project while this is on.
-    pub autopilot: Arc<AtomicBool>,
     /// The project rounds currently running (no second round of the same project in parallel).
     pub busy: Arc<Mutex<std::collections::HashSet<agenium_core::ProjectId>>>,
     /// Agent CLIs found on this machine and when (detection runs each CLI: cached, refreshed on demand).
@@ -131,7 +129,6 @@ impl Desktop {
             root,
             opened: RwLock::new(None),
             approvals: Arc::default(),
-            autopilot: Arc::new(AtomicBool::new(false)),
             busy: Arc::default(),
             clis: Mutex::new(None),
         }

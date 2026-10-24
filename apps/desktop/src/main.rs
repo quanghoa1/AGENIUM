@@ -6,7 +6,6 @@ mod live;
 mod manage;
 mod state;
 
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use tauri::{Emitter, Manager};
@@ -35,7 +34,7 @@ fn main() {
                 }
             }
             spawn_event_forwarder(handle.clone());
-            spawn_autopilot(handle);
+            spawn_team_loop(handle);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,8 +70,8 @@ fn main() {
             api::create_solo,
             api::set_agent_model,
             api::set_agent_status,
-            api::run_round,
-            api::set_autopilot,
+            api::pause_project,
+            api::resume_project,
             api::stop_all,
             manage::roles,
             manage::put_role,
@@ -148,15 +147,14 @@ fn spawn_event_forwarder(handle: tauri::AppHandle) {
     });
 }
 
-/// While the autopilot is on, scheduler rounds run for every active project (one round per project at a time).
-fn spawn_autopilot(handle: tauri::AppHandle) {
+/// The team loop (ADR-63): from the agreed requirements to the end, every project's team works on its own, round
+/// after round (one round per project at a time, projects side by side), until it is done, waits for the user or
+/// the user stops it.
+fn spawn_team_loop(handle: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_secs(3)).await;
             let d = handle.state::<Desktop>();
-            if !d.autopilot.load(Ordering::SeqCst) {
-                continue;
-            }
             let Ok(o) = d.opened() else { continue };
             let Ok(projects) = o.app.projects() else {
                 continue;
@@ -170,13 +168,17 @@ fn spawn_autopilot(handle: tauri::AppHandle) {
                 {
                     continue;
                 }
-                if let Err(e) = o.rt.tick(p.id).await {
-                    tracing::warn!(project = %p.name, error = %e, "autopilot round failed");
-                }
-                d.busy
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .remove(&p.id);
+                let (o, h) = (o.clone(), handle.clone());
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = o.rt.work(p.id).await {
+                        tracing::warn!(project = %p.name, error = %e, "team round failed");
+                    }
+                    h.state::<Desktop>()
+                        .busy
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .remove(&p.id);
+                });
             }
         }
     });

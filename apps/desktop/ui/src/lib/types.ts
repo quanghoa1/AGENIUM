@@ -37,7 +37,6 @@ export interface Status {
   ready: boolean;
   version: string;
   ui_language?: string | null;
-  autopilot: boolean;
 }
 
 export interface ProjectSummary {
@@ -56,6 +55,8 @@ export interface ProjectSummary {
   spec_version?: number | null;
   needs_you: number;
   inbox: number;
+  /** Agreeing: Lead and user settle the requirements; Running: the team works on its own; Paused by the user; Done. */
+  run_state?: "Agreeing" | "Running" | "Paused" | "Done";
 }
 
 export type NeedKind =

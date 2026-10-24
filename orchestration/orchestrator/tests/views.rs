@@ -155,7 +155,6 @@ fn user_reassigns_an_assigned_ticket_before_its_run() {
     f.app
         .apply(&ctx(&f, lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
         .unwrap();
-    f.app.approve_plan(f.project.id, 1).unwrap();
     let k = started(&f, w1, "PI-1", "Task", &[], &[]);
     let reassign = |actor: Actor| {
         f.app.apply(

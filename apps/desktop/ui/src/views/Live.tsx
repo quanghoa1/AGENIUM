@@ -880,7 +880,7 @@ export function LiveView() {
   const byId = new Map(data.agents.map((a) => [a.agent.id, a]));
   const selected = focus ? byId.get(focus) : undefined;
   const toolsNow = [...acts.values()].filter((x) => x.activity === "tool" || x.activity === "shell").length;
-  const stopped = !app.autopilot && data.totals.live_runs === 0;
+  const stopped = !app.projects.some((p) => p.run_state === "Running") && data.totals.live_runs === 0;
   const officeOf = (r: Room): OfficeAgent[] =>
     r.members
       .map((id) => byId.get(id))
@@ -946,8 +946,8 @@ export function LiveView() {
           disabled={stopped}
           onClick={() =>
             api.stopAll().then(() => {
-              app.setAutopilot(false);
               app.notify(app.t("top.stopped"));
+              app.refresh();
             })
           }
         >

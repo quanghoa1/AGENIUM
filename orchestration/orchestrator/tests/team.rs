@@ -39,7 +39,8 @@ fn team() -> Team {
 }
 
 #[test]
-fn team_spec_and_plan_wait_for_the_user() {
+/// ADR-63: the team's spec waits for the user (the agreement); the plan built from it is the Lead's.
+fn team_spec_waits_for_the_user_and_the_plan_is_the_leads() {
     let t = team();
     let f = &t.f;
     let lead = Actor::Lead(t.lead);
@@ -53,16 +54,7 @@ fn team_spec_and_plan_wait_for_the_user() {
         .app
         .apply(&ctx(f, lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
         .unwrap();
-    assert_eq!(out.result["approved"], false);
-    let e = f
-        .app
-        .apply(
-            &ctx(f, lead),
-            Intent::CreateTicket(new_ticket("PI-1", "x", &[], &[])),
-        )
-        .unwrap_err();
-    assert!(e.to_string().contains("no approved plan"), "{e}");
-    f.app.approve_plan(f.project.id, 1).unwrap();
+    assert_eq!(out.result["approved"], true);
     f.app
         .apply(
             &ctx(f, lead),
@@ -85,7 +77,7 @@ fn team_spec_and_plan_wait_for_the_user() {
         ),
         (serde_json::json!(true), serde_json::json!(false))
     );
-    // Changing acceptance criteria is a scope change: the user must approve.
+    // Changing acceptance criteria is a scope change, but inside the agreed spec: the Lead approves it (ADR-63).
     p2.items[0].acceptance[0].text = "different".into();
     let rev = agenium_core::plan::PlanRevision {
         base_version: 2,
@@ -94,7 +86,13 @@ fn team_spec_and_plan_wait_for_the_user() {
         items: p2.items,
     };
     let out = f.app.apply(&ctx(f, lead), Intent::RevisePlan(rev)).unwrap();
-    assert_eq!(out.result["approved"], false);
+    assert_eq!(
+        (
+            out.result["approved"].clone(),
+            out.result["scope_change"].clone()
+        ),
+        (serde_json::json!(true), serde_json::json!(true))
+    );
 }
 
 fn planned(t: &Team) {
@@ -105,7 +103,6 @@ fn planned(t: &Team) {
             Intent::CreatePlan(plan(&[("PI-1", &[]), ("PI-2", &[])])),
         )
         .unwrap();
-    t.f.app.approve_plan(t.f.project.id, 1).unwrap();
 }
 
 #[test]
@@ -486,7 +483,6 @@ fn team_from_template_and_write_scope() {
     f.app
         .apply(&ctx(&f, lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
         .unwrap();
-    f.app.approve_plan(f.project.id, 1).unwrap();
     let k = started(&f, web, "PI-1", "Test the login page", &[], &[]);
     let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
     let wt = worktree(&f, k.as_str());
@@ -608,12 +604,15 @@ fn planner_drafts_and_the_lead_creates_the_plan() {
     f.app
         .apply(&ctx(&f, lead), Intent::CreatePlan(p.clone()))
         .unwrap();
-    assert!(kinds().is_empty(), "plan v1 waits for the user");
+    assert_eq!(
+        kinds(),
+        [K::Plan],
+        "the Lead's plan is approved: its tickets come next"
+    );
     assert!(
         submit(Actor::Worker(planner), draft(1)).is_err(),
         "no drafts once a plan exists"
     );
-    f.app.approve_plan(f.project.id, 1).unwrap();
     assert_eq!(kinds(), [K::Plan]);
 
     let out = f
@@ -692,8 +691,10 @@ fn needs_you_lists_what_waits_for_the_user() {
             Intent::CreatePlan(plan(&[("PI-1", &[])])),
         )
         .unwrap();
-    assert_eq!(kinds(), [N::PlanApproval]);
-    f.app.approve_plan(f.project.id, 1).unwrap();
+    assert!(
+        kinds().is_empty(),
+        "the plan of an agreed spec waits for nobody (ADR-63)"
+    );
     let k = started(f, t.web, "PI-1", "Needs things", &[], &[]);
     let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
     let wctx = || CallCtx {
@@ -831,4 +832,18 @@ fn lead_sets_a_member_mcp_key() {
         .contains("web-own-key"));
     set(Actor::Lead(t.lead), t.web, None).unwrap();
     assert_eq!(f.app.agent_mcp_keys(t.web).unwrap()[0].own, None);
+}
+
+/// ADR-63: a Solo agent's inbox carries what moves the work on (plan items without tickets), so the team loop
+/// takes a Solo project to the end too; its questions still go to the user.
+#[test]
+fn a_solo_inbox_has_the_work_left_to_plan() {
+    let f = fixture();
+    solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let inbox = f.app.lead_inbox(f.project.id).unwrap();
+    assert_eq!(
+        inbox.iter().map(|i| i.kind).collect::<Vec<_>>(),
+        [agenium_orchestrator::inbox::InboxKind::Plan]
+    );
+    assert!(inbox[0].text.contains("PI-1") && inbox[0].text.contains("PI-2"));
 }

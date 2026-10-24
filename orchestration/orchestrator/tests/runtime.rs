@@ -173,6 +173,15 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         .join(".agenium/worktrees/AGN-1")
         .exists());
     assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    // ADR-63: every plan item done, nothing open: the project is done and its status follows.
+    use agenium_orchestrator::views::RunState;
+    use agenium_store::core::projects::ProjectStatus;
+    assert_eq!(app.run_state(project).unwrap(), RunState::Done);
+    assert!(rt.work(project).await.unwrap().is_empty());
+    assert_eq!(
+        app.project(project).unwrap().status,
+        ProjectStatus::Completed
+    );
 
     // Work order structure: cache-stable order, protocol + work tools, no sampling knobs.
     let reqs = p.requests();
@@ -214,6 +223,49 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         .iter()
         .any(|e| e.kind == "tool" && e.data["tool"] == "shell"));
     drop(f);
+}
+
+/// ADR-63: a project's team runs once the spec is agreed and until the user stops it; stopping one project stops
+/// its work only.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_project_runs_from_the_agreed_spec_and_the_user_stops_it() {
+    use agenium_orchestrator::views::RunState;
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, ada) = solo(&app);
+    assert_eq!(app.run_state(project).unwrap(), RunState::Agreeing);
+    assert!(
+        rt.work(project).await.unwrap().is_empty(),
+        "nothing runs before the agreement"
+    );
+    let lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(ada),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&lead, Intent::ProposeSpec(spec())).unwrap();
+    assert_eq!(app.run_state(project).unwrap(), RunState::Running);
+    rt.pause_project(project).unwrap();
+    assert_eq!(app.run_state(project).unwrap(), RunState::Paused);
+    assert!(rt.project_cancel(project).is_cancelled());
+    assert!(
+        !rt.project_cancel(f.project.id).is_cancelled(),
+        "other projects go on"
+    );
+    assert!(
+        rt.work(project).await.unwrap().is_empty(),
+        "a stopped project runs nothing"
+    );
+    rt.resume_project(project).unwrap();
+    assert_eq!(app.run_state(project).unwrap(), RunState::Running);
+    assert!(!rt.project_cancel(project).is_cancelled());
+    // The kill switch stops every project's work.
+    rt.cancel.cancel();
+    assert!(rt.project_cancel(project).is_cancelled());
+    rt.cancel.reset();
+    assert_eq!(p.remaining(), 0);
 }
 
 struct Denier;
@@ -1228,12 +1280,6 @@ async fn team_lead_inbox_takes_a_plan_to_closed_tickets() {
         Intent::CreatePlan(plan(&[("PI-1", &[]), ("PI-2", &["PI-1"])])),
     )
     .unwrap();
-    assert_eq!(
-        app.lead_inbox(project).unwrap().len(),
-        0,
-        "the plan waits for the user"
-    );
-    app.approve_plan(project, 1).unwrap();
     let inbox = app.lead_inbox(project).unwrap();
     assert_eq!(inbox.len(), 1);
     assert!(inbox[0].text.contains("PI-1") && inbox[0].text.contains("PI-2"));
@@ -1461,7 +1507,9 @@ async fn planner_drafts_then_the_lead_creates_the_plan() {
         );
         Ok(calls_response("", vec![("create_plan", plan_json.clone())]))
     }));
-    let runs = rt.drive(project, 4).await.unwrap();
+    // One round: the planner's draft, then the Lead's plan (approved by the Lead, ADR-63; the next round would
+    // have the Lead create tickets).
+    let runs = rt.drive(project, 1).await.unwrap();
     let kinds: Vec<(String, String)> = runs
         .iter()
         .map(|r| (r.kind.clone(), r.agent.clone()))
@@ -1477,9 +1525,9 @@ async fn planner_drafts_then_the_lead_creates_the_plan() {
     let pv = app.plan_view(project).unwrap();
     let plan = pv.plan.unwrap();
     assert_eq!(
-        (plan.version, plan.approved_by.is_none()),
+        (plan.version, plan.approved_by.is_some()),
         (1, true),
-        "plan v1 waits for the user"
+        "the agreed spec's plan is the Lead's"
     );
     assert!(
         plan.proposed_by.starts_with("agent:"),

@@ -15,7 +15,10 @@ import {
   Monitor,
   Moon,
   OctagonX,
+  Pause,
   Play,
+  CheckCheck,
+  MessagesSquare,
   Radio,
   Search,
   Settings,
@@ -195,18 +198,10 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="truncate">{t("top.search")}</span>
             <kbd className="ml-auto rounded border border-line-strong px-1 font-mono text-[10px]">Ctrl K</kbd>
           </button>
-          <button
-            onClick={() => app.setAutopilot(!app.autopilot)}
-            className={cn("btn", app.autopilot && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")}
-            title={t("settings.autopilotNote")}
-          >
-            <Play className="h-3.5 w-3.5" />
-            {t("top.autopilot")}: {app.autopilot ? "ON" : "OFF"}
-          </button>
+          <RunControl />
           <button
             onClick={() => {
-              api.stopAll().then(() => app.notify(t("top.stopped")));
-              app.setAutopilot(false);
+              api.stopAll().then(() => (app.notify(t("top.stopped")), app.refresh()));
             }}
             className="btn-danger"
             title={t("top.stop")}
@@ -234,6 +229,53 @@ export function Shell({ children }: { children: ReactNode }) {
         <CommandPalette onClose={() => setPalette(false)} />
       </Overlay>
       <Toast message={app.toast} />
+    </div>
+  );
+}
+
+/** The selected project's team: talking about the requirements, working on its own, stopped by you, or done
+ *  (ADR-63). Stop and go on are yours; everything in between the team does by itself. */
+function RunControl() {
+  const app = useApp();
+  const p = app.projects.find((x) => x.id === app.project);
+  if (!p?.run_state) return null;
+  const s = p.run_state;
+  const act = (f: (id: string) => Promise<void>) => f(p.id).then(() => app.refresh()).catch((e) => app.notify(String(e)));
+  const tone =
+    s === "Running"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+      : s === "Paused"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300"
+        : s === "Done"
+          ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-300"
+          : "border-line-strong text-muted";
+  return (
+    <div className="flex shrink-0 items-center gap-1" title={app.t(`run.${s}.hint`)}>
+      <span className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium", tone)}>
+        {s === "Running" ? (
+          <span className="relative inline-flex h-2 w-2">
+            <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/60" />
+            <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+          </span>
+        ) : s === "Paused" ? (
+          <Pause className="h-3.5 w-3.5" />
+        ) : s === "Done" ? (
+          <CheckCheck className="h-3.5 w-3.5" />
+        ) : (
+          <MessagesSquare className="h-3.5 w-3.5" />
+        )}
+        {app.t(`run.${s}`)}
+      </span>
+      {s === "Running" && (
+        <button className="btn" onClick={() => act(api.pauseProject)}>
+          <Pause className="h-3.5 w-3.5" /> {app.t("run.pause")}
+        </button>
+      )}
+      {s === "Paused" && (
+        <button className="btn-primary" onClick={() => act(api.resumeProject)}>
+          <Play className="h-3.5 w-3.5" /> {app.t("run.resume")}
+        </button>
+      )}
     </div>
   );
 }

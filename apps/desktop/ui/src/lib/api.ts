@@ -108,8 +108,8 @@ export const api = {
     call<unknown>("create_solo", { project, name, model }),
   setAgentModel: (agent: string, model: ModelArg) => call<void>("set_agent_model", { agent, model }),
   setAgentIdle: (agent: string) => call<void>("set_agent_status", { agent, status: "Idle" }),
-  runRound: (project: string) => call<unknown[]>("run_round", { project }),
-  setAutopilot: (on: boolean) => call<boolean>("set_autopilot", { on }),
+  pauseProject: (project: string) => call<void>("pause_project", { project }),
+  resumeProject: (project: string) => call<void>("resume_project", { project }),
   stopAll: () => call<void>("stop_all"),
 
   // Registry (ADR-61)

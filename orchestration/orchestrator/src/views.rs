@@ -80,7 +80,45 @@ pub struct ItemProgress {
     pub tickets: Vec<(TicketKey, TicketStatus)>,
 }
 
+/// Where a project's team stands (ADR-63): it works on its own from the agreed requirements to the end.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum RunState {
+    /// No agreed (locked) requirement spec yet: the Lead and the user are still talking.
+    Agreeing,
+    /// The team works: plan, tickets, reviews, round after round.
+    Running,
+    /// Stopped by the user.
+    Paused,
+    /// Every plan item is done and no ticket is open.
+    Done,
+}
+
 impl App {
+    /// The project's run state, from its status, its spec and its plan.
+    pub fn run_state(&self, project: ProjectId) -> Result<RunState> {
+        use agenium_store::core::projects::ProjectStatus;
+        let p = self.project(project)?;
+        if matches!(p.status, ProjectStatus::Paused | ProjectStatus::Cancelled) {
+            return Ok(RunState::Paused);
+        }
+        let v = self.plan_view(project)?;
+        let agreed = v.spec.as_ref().is_some_and(|s| s.locked_at.is_some());
+        if !agreed && v.plan.is_none() {
+            return Ok(RunState::Agreeing);
+        }
+        let spec_open = v.spec.as_ref().is_some_and(|s| s.locked_at.is_none());
+        let plan_open = v.plan.as_ref().is_some_and(|p| p.approved_by.is_none());
+        let open_tickets = self
+            .tickets(project)?
+            .iter()
+            .any(|t| !t.status.is_terminal());
+        let all_done = !v.items.is_empty() && v.items.iter().all(|i| i.done);
+        if all_done && !open_tickets && !spec_open && !plan_open {
+            return Ok(RunState::Done);
+        }
+        Ok(RunState::Running)
+    }
+
     pub fn plan_view(&self, project: ProjectId) -> Result<PlanView> {
         let (spec, plan, current) = self.store.read(|c| {
             Ok((

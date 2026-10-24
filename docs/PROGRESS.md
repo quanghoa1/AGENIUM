@@ -132,6 +132,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Finding from that round: a plan item whose role is the Lead's (research-lead) cannot become a ticket (the Lead takes no tickets in team mode); the Lead cancelled it | OPEN | plan validation should refuse items for the Lead's role, or the Lead does such synthesis in its review |
 | Language: no user-language setting; Lead/Solo answer in the language the user writes in | DONE | ADR-40 amendment |
 | Per-agent MCP keys + Lead tool set_member_mcp_key; projects by folder name or repo; no machine paths in the UI; Live: desks for agents with a task, lounge for free ones, names, plan tab, CLI-like chat with expandable thinking | DONE | ADR-62; real app on the test root |
+| Team runs from the agreed spec to the end (no autopilot switch, no "run a round"), stop/resume per project, Lead approves plans of an agreed spec | DONE | ADR-63 |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
@@ -180,8 +181,11 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
-- Team templates, inbox/SLA/watchdog (M4); the UI (Kanban, ticket view, S7 live path). CLI backend: codex, agy and claude driven; opencode CLI
-  dropped (OpenCode via API); devin not drivable (ADR-56).
+- M4 rest: `propose_role` (Lead proposes a role, the user approves; today it only lands in Needs you), the template
+  wizard, the scheduler's priority aging and idle pool, the Lead "interrupt" (ADR-57: rounds instead), locking a
+  worktree while the user edits it; the finding that a plan item for the Lead's own role cannot become a ticket.
+- UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
+  tests. CLI backend: codex, agy and claude driven; opencode CLI dropped (OpenCode via API); devin not drivable (ADR-56).
 - Sandbox backends: Linux bubblewrap/Landlock, macOS Seatbelt (M2). Windows has none in v1 (ADR-39).
 - Context compaction beyond the checkpoint-and-continue approach.
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
@@ -189,7 +193,10 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   run after approval as designed). Since then a bubblewrap backend through `mxc-sdk` (ADR-54) is active on that distro;
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
-## Next steps (proposed order)
-1. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.
-2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
-3. M2 on Linux/macOS machines (sandbox backends + attack suite) — needs those machines.
+## Next steps (proposed order, 2026-10-25)
+1. M4 rest (see above), starting with the Lead-role plan items and `propose_role`.
+2. M4.5 learning: lessons with scope/cue/decay from reviews and reopens, `propose_skill_update` with copy-on-write
+   overlays (view/revert), consolidation and forgetting; golden task GM-6.
+3. M5 beta: export/import `.agenium`, pre-merge checks per template, Markdown reports, run-log compression after 90
+   days, push the branch on Closed, egress proxy, change the root, installer and signed updater, support bundle.
+4. M2 on Linux/macOS machines (sandbox attack suite, macOS backend) — needs those machines; graph benchmark rest.

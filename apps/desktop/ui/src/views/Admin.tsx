@@ -175,12 +175,6 @@ export function SettingsView() {
           </div>
           <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
         </Section>
-        <Section title={app.t("top.autopilot")}>
-          <div className="text-xs text-muted">{app.t("settings.autopilotNote")}</div>
-          <button className={cn("btn mt-2", app.autopilot && "border-emerald-500/40 text-emerald-600")} onClick={() => app.setAutopilot(!app.autopilot)}>
-            {app.autopilot ? "ON" : "OFF"}
-          </button>
-        </Section>
       </div>
     </div>
   );

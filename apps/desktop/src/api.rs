@@ -2,7 +2,6 @@
 //! action goes through the same App/Runtime methods as the CLI, so the rules are the orchestrator's, never the UI's.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::Ordering;
 
 use agenium_core::forms::{self, PermissionDecision};
 use agenium_core::*;
@@ -44,7 +43,6 @@ pub fn status(d: State<'_, Desktop>) -> Value {
         "ready": opened.is_some(),
         "version": env!("CARGO_PKG_VERSION"),
         "ui_language": cfg.as_ref().map(|c| c.app.language.clone()),
-        "autopilot": d.autopilot.load(Ordering::SeqCst),
     })
 }
 
@@ -86,6 +84,7 @@ pub fn projects(d: State<'_, Desktop>) -> R<Vec<Value>> {
             "plan_items": pv.items.len(), "plan_done": pv.items.iter().filter(|i| i.done).count(),
             "plan_version": pv.plan.as_ref().map(|x| x.version), "spec_version": pv.spec.as_ref().map(|x| x.version),
             "needs_you": o.app.needs_you(p.id).map_err(err)?.len(),
+            "run_state": o.app.run_state(p.id).map_err(err)?,
             "inbox": o.app.lead_inbox(p.id).map_err(err)?.len(),
         }));
     }
@@ -825,31 +824,28 @@ pub fn set_agent_status(d: State<'_, Desktop>, agent: String, status: String) ->
     o.app.set_agent_status(id, AgentStatus::Idle).map_err(err)
 }
 
-/// One scheduler round for a project (work runs, Lead inbox, reviews).
+/// The user stops a project's team (its runs stop after the current step).
 #[tauri::command]
-pub async fn run_round(d: State<'_, Desktop>, project: String) -> R<Value> {
-    let o = d.opened()?;
-    let p = pid(&project)?;
-    if !d.busy.lock().unwrap_or_else(|e| e.into_inner()).insert(p) {
-        return Err("a round of this project is already running".into());
-    }
-    let r = o.rt.tick(p).await;
-    d.busy.lock().unwrap_or_else(|e| e.into_inner()).remove(&p);
-    let r = r.map_err(err)?;
-    Ok(json!(r.iter().map(|s| json!({ "run": s.run, "kind": s.kind, "agent": s.agent, "ticket": s.ticket, "outcome": s.outcome })).collect::<Vec<_>>()))
+pub fn pause_project(d: State<'_, Desktop>, project: String) -> R<()> {
+    d.opened()?.rt.pause_project(pid(&project)?).map_err(err)
 }
 
+/// The user lets a stopped project's team go on.
 #[tauri::command]
-pub fn set_autopilot(d: State<'_, Desktop>, on: bool) -> bool {
-    d.autopilot.store(on, Ordering::SeqCst);
-    on
+pub fn resume_project(d: State<'_, Desktop>, project: String) -> R<()> {
+    d.opened()?.rt.resume_project(pid(&project)?).map_err(err)
 }
 
-/// Stops every live run (kill switch) and the autopilot; new runs may start again a few seconds later.
+/// Kill switch: every live run stops and every working project is paused (resume them one by one).
 #[tauri::command]
 pub fn stop_all(d: State<'_, Desktop>) -> R<()> {
-    d.autopilot.store(false, Ordering::SeqCst);
-    let rt = d.opened()?.rt.clone();
+    let o = d.opened()?;
+    for p in o.app.projects().map_err(err)? {
+        if o.app.run_state(p.id).map_err(err)? == agenium_orchestrator::views::RunState::Running {
+            o.rt.pause_project(p.id).map_err(err)?;
+        }
+    }
+    let rt = o.rt.clone();
     rt.cancel.cancel();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
