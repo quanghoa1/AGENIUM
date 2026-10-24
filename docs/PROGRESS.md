@@ -115,7 +115,9 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   for the CLI backend tests).
 - Sandbox backends: Linux bubblewrap/Landlock, macOS Seatbelt (M2). Windows has none in v1 (ADR-39).
 - Context compaction beyond the checkpoint-and-continue approach.
-- cargo-deny, GitHub workflows, Linux/macOS runs of this codebase.
+- cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
+  6.18, cargo 1.98.1): `cargo build --workspace` and `cargo test --workspace` PASS (no sandbox backend yet, so commands
+  run after approval as designed); the Linux sandbox spike S3 is next.
 
 ## Next steps (proposed order)
 1. M2.5 CLI backend (`agy`, `devin`, `codex` are installed here) and M3 completion (Discovery flow with approvals in
