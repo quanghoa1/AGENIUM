@@ -789,3 +789,27 @@ async fn local_lm_studio_capabilities_are_detected() {
         (Some(true), Some(true), Some(32768))
     );
 }
+
+/// Local servers are found by asking `<base>/models`; a port nobody listens on is skipped.
+#[tokio::test]
+async fn local_servers_are_discovered() {
+    let (url, seen) = server(vec![json_reply(
+        200,
+        json!({"object": "list", "data": [{"id": "qwen3:8b"}, {"id": "llama3.2"}]}),
+        &[],
+    )])
+    .await;
+    let closed = {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        format!("http://{}/v1", l.local_addr().unwrap())
+    };
+    let base = format!("{url}/v1");
+    let http = agenium_llm::http::Http::default_client().unwrap();
+    let found =
+        agenium_llm::local::discover_at(&http, &[("lmstudio", &closed), ("ollama", &base)]).await;
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].kind, "ollama");
+    assert_eq!(found[0].base_url, base);
+    assert_eq!(found[0].models, vec!["qwen3:8b", "llama3.2"]);
+    assert_eq!(seen.lock().unwrap()[0].path, "/v1/models");
+}

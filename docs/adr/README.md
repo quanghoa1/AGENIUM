@@ -28,3 +28,4 @@ ADR-52 records this fresh implementation.
 | [58](ADR-58-team-templates-and-write-scope.md) | Team templates in TOML (4 built-in + user overrides); write scope = ticket scope AND role paths, checked at write and at submit |
 | [59](ADR-59-planner-role.md) | Planner role: drafts plan v1 (submit_plan_draft), the Lead reviews and creates the plan; no subagents in team mode |
 | [60](ADR-60-desktop-app.md) | Desktop app: Tauri 2 in its own workspace, thin IPC over the orchestrator, UI adapted from the AGENIUM-UX mockup |
+| [61](ADR-61-agent-pool-and-custom-teams.md) | Agent pool (agents before teams), custom teams with a suggested Lead, system skill library with per-agent switches, providers from the UI |

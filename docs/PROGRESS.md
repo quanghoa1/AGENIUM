@@ -117,6 +117,18 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | M4: the user puts another member in the Lead slot (`App::set_team_lead`; CLI `team lead`; UI "Make Lead") | DONE | `team.rs::the_user_puts_another_member_in_the_lead_slot` |
 | Monaco editor / xterm terminal (lightweight viewers instead), skills/MCP forms, installer, CI UI tests | NOT DONE | |
 
+### P5 — Agent pool and custom teams (owner's review of the app): BACKEND DONE ([ADR-61](adr/ADR-61-agent-pool-and-custom-teams.md))
+| Item | Status | Evidence |
+|---|---|---|
+| Agents created on their own into the pool (role, own model API/CLI, library skills, MCP); `core_003` makes `agent.team` nullable (table rebuilt; migrations run with foreign keys off and must pass `foreign_key_check`) | DONE | `registry.rs::agents_start_in_the_pool_with_their_own_model`, `core.rs::v1_database_with_data_migrates_to_the_latest`, `migrate.rs::a_table_rebuild_keeps_references_and_broken_keys_are_refused` |
+| Roles: template presets + the user's own (ROLE.md, scope, planner, lead hint, tags) | DONE | `registry.rs::roles_are_template_presets_or_the_users_own` |
+| Custom teams from pool agents, Lead suggested with reasons (user decides), membership, Lead swap, project assignment, dissolve | DONE | `registry.rs::teams_are_composed_from_pool_agents_and_the_lead_is_only_suggested` |
+| System skill library (`<root>/skills`) with per-agent switches; MCP switches; forced removal unbinds | DONE | `registry.rs::library_skills_and_mcp_servers_are_switched_per_agent`, `skills.rs` |
+| Providers added/edited/removed by the user (key in the vault), local servers discovered (Ollama, LM Studio) | DONE | `registry.rs::providers_keep_their_keys_in_the_vault`, `adapters.rs::local_servers_are_discovered` |
+| CLI parity (`agent create`, `role`, `team compose/...`, `skill library`, `provider remove/local`) | DONE (smoke-tested on a fresh root) | ADR-61 |
+| `setup` honours `AGENIUM_HOME` and does not remember it machine-wide | DONE | ADR-61 §8 |
+| Desktop forms (providers, skills & MCP, create agent, compose team), Live tab | NEXT | |
+
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
 0.163 `codex sandbox` with the MXC backend and an Agenium permission profile: 0 escapes in the attack matrix (writes,

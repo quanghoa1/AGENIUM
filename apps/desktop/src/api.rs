@@ -62,12 +62,10 @@ pub fn setup(
         user_language,
     };
     let home = dirs::home_dir().unwrap_or_default().join(".agenium");
-    agenium_config::setup::complete_setup(
-        &input,
-        &home,
-        agenium_config::Bootstrap::default_path().as_deref(),
-    )
-    .map_err(err)?;
+    // A root given by AGENIUM_HOME is this process's override: nothing is remembered machine-wide.
+    let by_env = std::env::var_os(agenium_config::root::ENV_HOME).is_some_and(|v| !v.is_empty());
+    let bootstrap = agenium_config::Bootstrap::default_path().filter(|_| !by_env);
+    agenium_config::setup::complete_setup(&input, &home, bootstrap.as_deref()).map_err(err)?;
     d.open(&handle)?;
     Ok(status(d))
 }

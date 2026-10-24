@@ -52,9 +52,12 @@ enum Cmd {
     Project(ProjectCmd),
     #[command(subcommand)]
     Agent(AgentCmd),
-    /// Teams: built-in and user templates, create a project's team from a template, show the roster.
+    /// Teams: compose from pool agents or create from a template, membership, Lead, roster.
     #[command(subcommand)]
     Team(TeamCmd),
+    /// Roles agents can take (your own and template presets).
+    #[command(subcommand)]
+    Role(RoleCmd),
     /// Skills (SKILL.md folders) of agents and roles.
     #[command(subcommand)]
     Skill(SkillCmd),
@@ -165,6 +168,12 @@ enum ProviderCmd {
     Models {
         id: String,
     },
+    /// Remove a provider no agent uses (its key leaves the vault too).
+    Remove {
+        id: String,
+    },
+    /// Local model servers answering on this machine (Ollama, LM Studio) and their models.
+    Local,
 }
 
 #[derive(Subcommand)]
@@ -202,6 +211,33 @@ enum ProjectCmd {
 
 #[derive(Subcommand)]
 enum AgentCmd {
+    /// Create an agent in the pool (no team yet, ADR-61): role, its own model, library skills, MCP servers.
+    Create {
+        #[arg(long)]
+        name: String,
+        /// Role id (`agenium role list`: your roles and the template presets).
+        #[arg(long)]
+        role: String,
+        /// API provider id, or the CLI program with --cli.
+        #[arg(long)]
+        provider: String,
+        #[arg(long, default_value = "")]
+        model: String,
+        #[arg(long, default_value = "high")]
+        effort: String,
+        /// Run through a vendor CLI (--provider names it: codex, claude, agy).
+        #[arg(long)]
+        cli: bool,
+        /// Capability tag (repeatable; default: the role's tags).
+        #[arg(long = "tag")]
+        tags: Vec<String>,
+        /// Library skill to enable (repeatable).
+        #[arg(long = "skill")]
+        skills: Vec<String>,
+        /// MCP server to enable (repeatable).
+        #[arg(long = "mcp")]
+        mcp: Vec<String>,
+    },
     /// Create a Solo agent (Lead + Worker in one) for a project.
     Solo {
         #[arg(long)]
@@ -240,7 +276,8 @@ enum AgentCmd {
     Resume {
         name: String,
     },
-    /// Restrict the agent to these skills (no names = every skill of its role and its own).
+    /// Library skills the agent enables (replaces the list; no names = none). Its role's and its own skills are
+    /// always on.
     Skills {
         name: String,
         skills: Vec<String>,
@@ -338,25 +375,35 @@ enum SkillCmd {
         agent: String,
         name: String,
     },
+    /// The system's skill library (agents enable these one by one).
+    Library,
     /// Import a skill from a folder, a .zip or an https URL of a .zip.
     Import {
         source: String,
         /// Install for one agent.
-        #[arg(long, conflicts_with = "role", required_unless_present = "role")]
+        #[arg(long, conflicts_with_all = ["role", "library"], required_unless_present_any = ["role", "library"])]
         agent: Option<String>,
         /// Install for every agent of a role.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "library")]
         role: Option<String>,
+        /// Install into the system library.
+        #[arg(long)]
+        library: bool,
         #[arg(long)]
         replace: bool,
     },
     /// Delete a skill folder.
     Remove {
         name: String,
-        #[arg(long, conflicts_with = "role", required_unless_present = "role")]
+        #[arg(long, conflicts_with_all = ["role", "library"], required_unless_present_any = ["role", "library"])]
         agent: Option<String>,
-        #[arg(long)]
+        #[arg(long, conflicts_with = "library")]
         role: Option<String>,
+        #[arg(long)]
+        library: bool,
+        /// Library skill still enabled by agents: switch it off for them.
+        #[arg(long)]
+        force: bool,
     },
     /// Check a skill folder without installing it.
     Validate { dir: PathBuf },
@@ -403,6 +450,65 @@ enum TeamCmd {
         project: String,
         /// Agent name.
         agent: String,
+    },
+    /// Every team and the agents in the pool.
+    List,
+    /// Compose a team from pool agents (ADR-61). `suggest` shows the Lead the system would pick.
+    Compose {
+        #[arg(long)]
+        name: String,
+        /// The Lead (agent name); omitted = the suggested one.
+        #[arg(long)]
+        lead: Option<String>,
+        /// Worker (repeatable; the planner too, its role says so).
+        #[arg(long = "member")]
+        members: Vec<String>,
+        /// Project to work on now.
+        #[arg(long)]
+        project: Option<String>,
+        /// One agent as Lead and worker.
+        #[arg(long)]
+        solo: bool,
+    },
+    /// Add a pool agent to a team as a worker.
+    Add { team: String, agent: String },
+    /// Send a worker back to the pool.
+    Remove { team: String, agent: String },
+    /// Point a team at a project (`--none` frees it).
+    Assign {
+        team: String,
+        #[arg(long, required_unless_present = "none")]
+        project: Option<String>,
+        #[arg(long)]
+        none: bool,
+    },
+    /// Dissolve a team: its members go back to the pool.
+    Dissolve { team: String },
+}
+
+#[derive(Subcommand)]
+enum RoleCmd {
+    /// Your roles and the template presets.
+    List,
+    /// Write a role (ROLE.md and role.toml).
+    Put {
+        id: String,
+        /// File with the role's description (ROLE.md).
+        #[arg(long)]
+        prompt_file: PathBuf,
+        #[arg(long = "tag")]
+        tags: Vec<String>,
+        /// Write scope (worktree-relative glob, repeatable).
+        #[arg(long = "path")]
+        allowed_paths: Vec<String>,
+        #[arg(long)]
+        planner: bool,
+        /// Meant to lead a team (suggestion only).
+        #[arg(long)]
+        lead: bool,
+    },
+    Remove {
+        id: String,
     },
 }
 
@@ -811,7 +917,7 @@ fn skill_owner(
             }
             agenium_skills::Owner::Role(r.clone())
         }
-        (None, None) => bail!("pass --agent or --role"),
+        (None, None) => agenium_skills::Owner::Library,
     })
 }
 
@@ -877,7 +983,7 @@ async fn skill_cmd(cli: &Cli, sc: &SkillCmd) -> Result<()> {
                 println!("INVALID	{}	{}", p.dir.display(), p.error);
             }
             if !a.skills.is_empty() {
-                println!("(binding: {})", a.skills.join(", "));
+                println!("(library skills enabled: {})", a.skills.join(", "));
             }
         }
         SkillCmd::Show { agent, name } => {
@@ -888,10 +994,39 @@ async fn skill_cmd(cli: &Cli, sc: &SkillCmd) -> Result<()> {
                 .ok_or_else(|| anyhow!("{agent} has no skill {name:?}"))?;
             println!("{}", s.instructions());
         }
+        SkillCmd::Library => {
+            let set = reg.library();
+            if set.is_empty() {
+                println!("(the library is empty: agenium skill import <folder|zip> --library)");
+            }
+            let agents = app.agents()?;
+            for s in &set.skills {
+                let users: Vec<&str> = agents
+                    .iter()
+                    .filter(|a| a.skills.contains(&s.meta.name))
+                    .map(|a| a.name.as_str())
+                    .collect();
+                println!(
+                    "{}\t{}\t{}\t{}",
+                    s.meta.name,
+                    s.meta.version.as_deref().unwrap_or("-"),
+                    s.meta.description,
+                    if users.is_empty() {
+                        "-".to_owned()
+                    } else {
+                        users.join(",")
+                    }
+                );
+            }
+            for p in &set.problems {
+                println!("INVALID\t{}\t{}", p.dir.display(), p.error);
+            }
+        }
         SkillCmd::Import {
             source,
             agent,
             role,
+            library: _,
             replace,
         } => {
             let owner = skill_owner(&app, agent, role)?;
@@ -914,9 +1049,17 @@ async fn skill_cmd(cli: &Cli, sc: &SkillCmd) -> Result<()> {
             let m = r?;
             println!("imported {} into {}", m.name, m.dir.display());
         }
-        SkillCmd::Remove { name, agent, role } => {
-            let owner = skill_owner(&app, agent, role)?;
-            reg.remove(&owner, name)?;
+        SkillCmd::Remove {
+            name,
+            agent,
+            role,
+            library: _,
+            force,
+        } => {
+            match skill_owner(&app, agent, role)? {
+                agenium_skills::Owner::Library => app.remove_library_skill(name, *force)?,
+                owner => reg.remove(&owner, name)?,
+            }
             println!("removed {name}");
         }
         SkillCmd::Validate { .. } => unreachable!(),
@@ -932,6 +1075,19 @@ fn user_intent(app: &App, project: ProjectId, intent: Intent) -> Result<()> {
     let out = app.apply(&agenium_orchestrator::CallCtx::user(project), intent)?;
     println!("{}", out.result);
     Ok(())
+}
+
+fn team_named(app: &App, name: &str) -> Result<agenium_core::TeamId> {
+    let found: Vec<_> = app
+        .teams()?
+        .into_iter()
+        .filter(|(t, _)| t.name == name || t.id.to_string() == name)
+        .collect();
+    match found.as_slice() {
+        [(t, _)] => Ok(t.id),
+        [] => bail!("no team named {name:?} (see `agenium team list`)"),
+        _ => bail!("several teams are named {name:?}: use the team id"),
+    }
 }
 
 fn project(app: &App, name: &str) -> Result<Project> {
@@ -1025,16 +1181,20 @@ async fn main() -> Result<()> {
             user_language,
         } => {
             let default_root = dirs_home().join(".agenium");
+            // --root is the root chosen in the wizard (remembered in the bootstrap file); AGENIUM_HOME is a
+            // per-process override: set up there, but remember nothing machine-wide.
+            let env_root = std::env::var_os(agenium_config::root::ENV_HOME)
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from);
+            let remember = cli.root.is_some() || env_root.is_none();
             let input = agenium_config::setup::SetupInput {
-                root: cli.root.clone(),
+                root: cli.root.clone().or(env_root),
                 ui_language: ui_language.clone(),
                 user_language: user_language.clone(),
             };
-            let out = agenium_config::setup::complete_setup(
-                &input,
-                &default_root,
-                agenium_config::Bootstrap::default_path().as_deref(),
-            )?;
+            let bootstrap = agenium_config::Bootstrap::default_path().filter(|_| remember);
+            let out =
+                agenium_config::setup::complete_setup(&input, &default_root, bootstrap.as_deref())?;
             println!("Agenium root: {}", out.root.display());
             for c in out.report.warnings() {
                 println!("  warning: {} = {} ({})", c.name, c.value, c.message);
@@ -1166,6 +1326,27 @@ async fn main() -> Result<()> {
                         }
                     );
                 }
+                ProviderCmd::Remove { id } => {
+                    app.remove_provider(id)?;
+                    println!("provider {id} removed");
+                }
+                ProviderCmd::Local => {
+                    let http =
+                        agenium_llm::http::Http::default_client().map_err(|e| anyhow!("{e}"))?;
+                    let found = agenium_llm::local::discover(&http).await;
+                    if found.is_empty() {
+                        println!(
+                            "no local model server answers (Ollama on 11434, LM Studio on 1234)"
+                        );
+                    }
+                    for s in found {
+                        println!("{}\t{}\t{}", s.kind, s.base_url, s.models.join(", "));
+                        println!(
+                            "  add: agenium provider add {} --kind openai_compat --base-url {}",
+                            s.kind, s.base_url
+                        );
+                    }
+                }
                 ProviderCmd::List => {
                     for p in app.config().providers {
                         println!(
@@ -1295,6 +1476,47 @@ async fn main() -> Result<()> {
                     )?;
                     println!("solo agent {} ({}) on {}", a.name, a.id, p.name);
                 }
+                AgentCmd::Create {
+                    name,
+                    role,
+                    provider,
+                    model,
+                    effort,
+                    cli: via_cli,
+                    tags,
+                    skills,
+                    mcp,
+                } => {
+                    let a = app.create_agent(&agenium_orchestrator::registry::NewAgent {
+                        name: name.clone(),
+                        role: role.clone(),
+                        tags: (!tags.is_empty()).then(|| tags.clone()),
+                        model: ModelBinding {
+                            provider: provider.clone(),
+                            model: model.clone(),
+                            effort: effort.parse().map_err(|e: String| anyhow!(e))?,
+                            max_tokens: None,
+                        },
+                        backend: if *via_cli {
+                            agenium_core::BackendKind::Cli
+                        } else {
+                            agenium_core::BackendKind::Api
+                        },
+                        skills: skills.clone(),
+                        mcp: mcp
+                            .iter()
+                            .map(|s| agenium_mcp::Binding {
+                                server: s.clone(),
+                                credentials: Default::default(),
+                                tools: None,
+                            })
+                            .collect(),
+                    })?;
+                    println!(
+                        "agent {} ({}) created in the pool, role {}; next: agenium team compose ...",
+                        a.name, a.id, a.role
+                    );
+                }
                 AgentCmd::List => {
                     for a in app.agents()? {
                         println!(
@@ -1366,9 +1588,9 @@ async fn main() -> Result<()> {
                     let a = app.agent_named(name)?;
                     app.set_agent_skills(a.id, skills)?;
                     if skills.is_empty() {
-                        println!("{name} uses every skill of role {} and its own", a.role);
+                        println!("{name} uses only the skills of role {} and its own", a.role);
                     } else {
-                        println!("{name} is restricted to: {}", skills.join(", "));
+                        println!("{name} enables the library skills: {}", skills.join(", "));
                     }
                 }
                 AgentCmd::Mcp {
@@ -1882,6 +2104,106 @@ async fn main() -> Result<()> {
                     app.set_team_lead(p.id, a.id)?;
                     println!("{} is the Lead of {} now", a.name, p.name);
                 }
+                TeamCmd::List => {
+                    for (t, members) in app.teams()? {
+                        let project = match t.project {
+                            Some(p) => app.project(p)?.name,
+                            None => "-".into(),
+                        };
+                        println!(
+                            "{}{}\tproject {project}",
+                            t.name,
+                            if t.solo { " (solo)" } else { "" }
+                        );
+                        for a in members {
+                            let lead = if t.lead == Some(a.id) { " (Lead)" } else { "" };
+                            println!(
+                                "  {}{lead}\t{}\t{}/{}",
+                                a.name, a.role, a.model.provider, a.model.model
+                            );
+                        }
+                    }
+                    let pool: Vec<_> = app
+                        .agents()?
+                        .into_iter()
+                        .filter(|a| a.team.is_none())
+                        .collect();
+                    println!(
+                        "pool: {}",
+                        if pool.is_empty() {
+                            "-".to_owned()
+                        } else {
+                            pool.iter()
+                                .map(|a| format!("{} ({})", a.name, a.role))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        }
+                    );
+                }
+                TeamCmd::Compose {
+                    name,
+                    lead,
+                    members,
+                    project: pname,
+                    solo,
+                } => {
+                    let members: Vec<_> = members
+                        .iter()
+                        .map(|m| app.agent_named(m).map(|a| a.id))
+                        .collect::<std::result::Result<_, _>>()?;
+                    let lead = match lead {
+                        Some(l) => app.agent_named(l)?.id,
+                        None => {
+                            let s = app.suggest_lead(&members)?.ok_or_else(|| {
+                                anyhow!("no agent stands out as Lead: pass --lead")
+                            })?;
+                            println!(
+                                "suggested Lead: {} ({})",
+                                app.agent(s.agent)?.name,
+                                s.reasons.join(", ")
+                            );
+                            s.agent
+                        }
+                    };
+                    let members: Vec<_> = members.into_iter().filter(|m| *m != lead).collect();
+                    let project = pname.as_deref().map(|n| project(&app, n)).transpose()?;
+                    let t = app.compose_team(&agenium_orchestrator::registry::NewTeam {
+                        name: name.clone(),
+                        project: project.map(|p| p.id),
+                        lead,
+                        members,
+                        solo: *solo,
+                    })?;
+                    println!("team {} composed ({})", t.name, t.id);
+                }
+                TeamCmd::Add { team, agent } => {
+                    let t = team_named(&app, team)?;
+                    app.add_team_member(t, app.agent_named(agent)?.id)?;
+                    println!("{agent} joined {team}");
+                }
+                TeamCmd::Remove { team, agent } => {
+                    let t = team_named(&app, team)?;
+                    app.remove_team_member(t, app.agent_named(agent)?.id)?;
+                    println!("{agent} is back in the pool");
+                }
+                TeamCmd::Assign {
+                    team,
+                    project: pname,
+                    none: _,
+                } => {
+                    let t = team_named(&app, team)?;
+                    let p = pname.as_deref().map(|n| project(&app, n)).transpose()?;
+                    app.set_team_project(t, p.as_ref().map(|p| p.id))?;
+                    println!(
+                        "{team} now works on {}",
+                        p.map(|p| p.name).unwrap_or_else(|| "no project".into())
+                    );
+                }
+                TeamCmd::Dissolve { team } => {
+                    let t = team_named(&app, team)?;
+                    app.dissolve_team(t)?;
+                    println!("{team} dissolved; its members are in the pool");
+                }
                 TeamCmd::Show { project: pname } => {
                     let p = project(&app, pname)?;
                     let (team, members) = app
@@ -1911,6 +2233,60 @@ async fn main() -> Result<()> {
                             a.model.model
                         );
                     }
+                }
+            }
+        }
+        Cmd::Role(rc) => {
+            let app = open(&root(&cli)?)?;
+            match rc {
+                RoleCmd::List => {
+                    for r in app.roles()? {
+                        let flags = [
+                            r.lead.then_some("lead"),
+                            r.planner.then_some("planner"),
+                            (!r.exists).then_some("preset"),
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<_>>()
+                        .join(",");
+                        println!(
+                            "{}	{}	[{}]	{} agent(s)	{}",
+                            r.id,
+                            if r.template.is_empty() {
+                                "yours"
+                            } else {
+                                &r.template
+                            },
+                            r.tags.join(","),
+                            r.agents,
+                            flags
+                        );
+                    }
+                }
+                RoleCmd::Put {
+                    id,
+                    prompt_file,
+                    tags,
+                    allowed_paths,
+                    planner,
+                    lead,
+                } => {
+                    let prompt = std::fs::read_to_string(prompt_file)
+                        .with_context(|| prompt_file.display().to_string())?;
+                    let r = app.put_role(&agenium_orchestrator::registry::RoleDef {
+                        id: id.clone(),
+                        prompt,
+                        tags: tags.clone(),
+                        allowed_paths: allowed_paths.clone(),
+                        planner: *planner,
+                        lead: *lead,
+                    })?;
+                    println!("role {} saved", r.id);
+                }
+                RoleCmd::Remove { id } => {
+                    app.remove_role(id)?;
+                    println!("role {id} removed");
                 }
             }
         }

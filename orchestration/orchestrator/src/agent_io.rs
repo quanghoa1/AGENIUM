@@ -404,9 +404,15 @@ impl App {
                 a.name
             )));
         }
-        let team = self.store().read(|c| agents::get_team(c, a.team))?;
-        let members = self.store().read(|c| agents::agents_of_team(c, a.team))?;
-        if team.lead == Some(id) && members.iter().any(|m| m.id != id) {
+        let (team, members) = match a.team {
+            Some(t) => (
+                Some(self.store().read(|c| agents::get_team(c, t))?),
+                self.store().read(|c| agents::agents_of_team(c, t))?,
+            ),
+            None => (None, vec![]),
+        };
+        let leads = team.as_ref().is_some_and(|t| t.lead == Some(id));
+        if leads && members.iter().any(|m| m.id != id) {
             return Err(OrchError::Conflict(format!(
                 "{} leads a team with other members; replace the Lead first",
                 a.name
@@ -415,7 +421,7 @@ impl App {
         let mut open = Vec::new();
         for p in self.projects()? {
             for t in self.tickets(p.id)? {
-                let leads_it = team.lead == Some(id) && team.project == Some(p.id);
+                let leads_it = leads && team.as_ref().is_some_and(|t| t.project == Some(p.id));
                 if !t.status.is_terminal() && (t.assignee == Some(id) || leads_it) {
                     open.push(t.key.to_string());
                 }
@@ -442,8 +448,10 @@ impl App {
         self.store()
             .commit(None, "user", |w| -> std::result::Result<_, StoreError> {
                 agents::tombstone_agent(w.tx, id)?;
-                if agents::agents_of_team(w.tx, a.team)?.is_empty() {
-                    agents::set_team_project(w.tx, a.team, None)?;
+                if let Some(t) = a.team {
+                    if agents::agents_of_team(w.tx, t)?.is_empty() {
+                        agents::set_team_project(w.tx, t, None)?;
+                    }
                 }
                 w.emit(DomainEvent::AgentDeleted {
                     agent: id,

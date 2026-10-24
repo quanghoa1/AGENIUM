@@ -26,11 +26,28 @@ pub enum DomainEvent {
         name: String,
         solo: bool,
     },
+    /// `team` is `None` for an agent created into the pool (ADR-61).
     AgentCreated {
         agent: AgentId,
         name: String,
-        team: TeamId,
+        #[serde(default)]
+        team: Option<TeamId>,
         role: String,
+    },
+    /// The agent joined a team (`Some`) or went back to the pool (`None`).
+    AgentTeamChanged {
+        agent: AgentId,
+        team: Option<TeamId>,
+    },
+    /// The team was pointed at a project (`Some`) or freed (`None`).
+    TeamProjectChanged {
+        team: TeamId,
+        project: Option<ProjectId>,
+    },
+    /// A team was dissolved: its members went back to the pool.
+    TeamDissolved {
+        team: TeamId,
+        name: String,
     },
     AgentUpdated {
         agent: AgentId,

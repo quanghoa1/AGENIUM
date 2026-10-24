@@ -55,14 +55,17 @@ fn generated() -> Vec<(PathBuf, String)> {
         tools.join("index.json"),
         serde_json::to_string_pretty(&index).unwrap() + "\n",
     ));
+    // Every migration of the store, so a new one is published without touching this list.
     let sql = root().join("foundation/store/src/schema");
-    for f in [
-        "core_001.sql",
-        "core_002.sql",
-        "agent_001.sql",
-        "agent_002.sql",
-    ] {
-        let text = std::fs::read_to_string(sql.join(f)).unwrap();
+    let mut files: Vec<_> = std::fs::read_dir(&sql)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|f| f.ends_with(".sql"))
+        .collect();
+    files.sort();
+    for f in files {
+        let text = std::fs::read_to_string(sql.join(&f)).unwrap();
         out.push((root().join("schemas/sql").join(f), text));
     }
     out

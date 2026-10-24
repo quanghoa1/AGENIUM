@@ -95,6 +95,60 @@ pub async fn enrich(http: &Http, base_url: &str, models: &mut [ModelInfo]) {
     }
 }
 
+/// A local model server found on this machine.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct LocalServer {
+    /// `ollama` or `lmstudio`.
+    pub kind: String,
+    /// OpenAI-compatible base URL to configure (`http://127.0.0.1:11434/v1`).
+    pub base_url: String,
+    pub models: Vec<String>,
+}
+
+/// Well-known local servers and their OpenAI-compatible base URLs.
+pub const KNOWN_LOCAL: [(&str, &str); 2] = [
+    ("ollama", "http://127.0.0.1:11434/v1"),
+    ("lmstudio", "http://127.0.0.1:1234/v1"),
+];
+
+/// Finds the well-known local servers that answer `GET <base>/models` (short timeout; nothing found = empty).
+pub async fn discover(http: &Http) -> Vec<LocalServer> {
+    discover_at(http, &KNOWN_LOCAL).await
+}
+
+pub async fn discover_at(http: &Http, candidates: &[(&str, &str)]) -> Vec<LocalServer> {
+    let mut out = Vec::new();
+    for (kind, base) in candidates {
+        let r = http
+            .client()
+            .get(format!("{}/models", base.trim_end_matches('/')))
+            .timeout(Duration::from_millis(1500))
+            .send()
+            .await;
+        let Ok(r) = r else { continue };
+        if !r.status().is_success() {
+            continue;
+        }
+        let Ok(v) = r.json::<Value>().await else {
+            continue;
+        };
+        let models = v["data"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|m| m["id"].as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.push(LocalServer {
+            kind: (*kind).to_owned(),
+            base_url: (*base).to_owned(),
+            models,
+        });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

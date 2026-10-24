@@ -10,6 +10,7 @@ pub mod inbox;
 pub mod maintenance;
 pub mod manifest;
 pub mod mcp;
+pub mod registry;
 pub mod runtime;
 pub mod sched;
 pub mod team_templates;

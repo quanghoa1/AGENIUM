@@ -22,7 +22,8 @@ pub struct Team {
 pub struct Agent {
     pub id: AgentId,
     pub name: String,
-    pub team: TeamId,
+    /// `None`: the agent is in the pool (created, not in a team yet; ADR-61).
+    pub team: Option<TeamId>,
     pub role: String,
     pub role_kind: RoleKind,
     pub tags: Vec<String>,
@@ -149,7 +150,7 @@ pub fn insert_agent(c: &Connection, a: &Agent) -> Result<(), StoreError> {
         params![
             a.id.to_string(),
             a.name,
-            a.team.to_string(),
+            a.team.map(|t| t.to_string()),
             a.role,
             role_kind_str(a.role_kind),
             to_json(&a.tags)?,
@@ -190,7 +191,8 @@ const AGENT_COLS: &str =
 fn map_agent(r: &Row<'_>) -> rusqlite::Result<[String; 12]> {
     let mut v: [String; 12] = Default::default();
     for (i, s) in v.iter_mut().enumerate() {
-        *s = r.get(i)?;
+        // `team` (column 2) is NULL for an agent in the pool.
+        *s = r.get::<_, Option<String>>(i)?.unwrap_or_default();
     }
     Ok(v)
 }
@@ -201,7 +203,11 @@ fn decode_agent(v: [String; 12]) -> Result<Agent, StoreError> {
     Ok(Agent {
         id: parse(&id, "agent id")?,
         name,
-        team: parse(&team, "team id")?,
+        team: if team.is_empty() {
+            None
+        } else {
+            Some(parse(&team, "team id")?)
+        },
         role,
         role_kind: match role_kind.as_str() {
             "lead" => RoleKind::Lead,
@@ -276,6 +282,39 @@ pub fn set_agent_status(
         params![id.to_string(), to.as_str()],
     )?;
     Ok(prev)
+}
+
+/// Moves an agent into a team (`Some`) or back to the pool (`None`).
+pub fn set_agent_team(c: &Connection, id: AgentId, team: Option<TeamId>) -> Result<(), StoreError> {
+    let n = c.execute(
+        "UPDATE agent SET team = ?2 WHERE id = ?1 AND deleted_at IS NULL",
+        params![id.to_string(), team.map(|t| t.to_string())],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("agent {id}")));
+    }
+    Ok(())
+}
+
+pub fn set_agent_role(
+    c: &Connection,
+    id: AgentId,
+    role: &str,
+    tags: &[String],
+) -> Result<(), StoreError> {
+    let n = c.execute(
+        "UPDATE agent SET role = ?2, tags = ?3 WHERE id = ?1 AND deleted_at IS NULL",
+        params![id.to_string(), role, to_json(&tags)?],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("agent {id}")));
+    }
+    Ok(())
+}
+
+pub fn delete_team(c: &Connection, id: TeamId) -> Result<(), StoreError> {
+    c.execute("DELETE FROM team WHERE id = ?1", [id.to_string()])?;
+    Ok(())
 }
 
 pub fn set_agent_role_kind(c: &Connection, id: AgentId, kind: RoleKind) -> Result<(), StoreError> {

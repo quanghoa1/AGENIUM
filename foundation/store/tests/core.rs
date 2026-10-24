@@ -53,7 +53,7 @@ fn solo_agent(s: &CoreStore) -> agents::Agent {
     let a = agents::Agent {
         id: AgentId::new(),
         name: "ada".into(),
-        team: team.id,
+        team: Some(team.id),
         role: "lead".into(),
         role_kind: RoleKind::Lead,
         tags: vec!["rust".into()],
@@ -373,9 +373,10 @@ fn comments_blocking_inbox_and_grants() {
     .unwrap();
 }
 
-/// core_002 (agent tombstones) upgrades a populated v1 database after a pre-migrate snapshot.
+/// core_002 (agent tombstones) and core_003 (agent pool: the agent table rebuilt with a nullable team) upgrade a
+/// populated v1 database after a pre-migrate snapshot; references to the rebuilt table still hold.
 #[test]
-fn v1_database_with_data_migrates_to_v2() {
+fn v1_database_with_data_migrates_to_the_latest() {
     let tmp = tempfile::tempdir().unwrap();
     let db = tmp.path().join("db/core.db");
     std::fs::create_dir_all(db.parent().unwrap()).unwrap();
@@ -387,13 +388,37 @@ fn v1_database_with_data_migrates_to_v2() {
             "PRAGMA user_version = 1;
              INSERT INTO team(id, name, template) VALUES ('T1', 'solo', 'coding@1');
              INSERT INTO agent(id, name, team, role, role_kind, status, backend, model)
-               VALUES ('agent_01', 'ada', 'T1', 'solo', 'lead', 'Idle', 'Api', '{}');",
+               VALUES ('agent_01', 'ada', 'T1', 'solo', 'lead', 'Idle', 'Api', '{}');
+             INSERT INTO run(id, agent, provider, model, started_at)
+               VALUES ('run_01', 'agent_01', 'p', 'm', '2026-10-24T00:00:00Z');",
         )
         .unwrap();
     }
     let s = open(tmp.path());
     assert_eq!(s.migration().from, 1);
-    assert_eq!(s.migration().to, 2);
+    assert_eq!(s.migration().to, 3);
+    s.commit(None, "user", |w| -> Result<(), StoreError> {
+        let c = w.tx;
+        let team: Option<String> = c.query_row("SELECT team FROM agent WHERE id = 'agent_01'", [], |r| r.get(0))?;
+        assert_eq!(team.as_deref(), Some("T1"));
+        let runs: i64 = c.query_row("SELECT count(*) FROM run WHERE agent = 'agent_01'", [], |r| r.get(0))?;
+        assert_eq!(runs, 1);
+        // In the pool: no team.
+        c.execute(
+            "INSERT INTO agent(id, name, role, role_kind, status, backend, model)
+               VALUES ('agent_02', 'bea', 'r', 'worker', 'Idle', 'Api', '{}')",
+            [],
+        )?;
+        // The run table still references the rebuilt agent table.
+        assert!(c
+            .execute(
+                "INSERT INTO run(id, agent, provider, model, started_at) VALUES ('run_02', 'nobody', 'p', 'm', 'x')",
+                [],
+            )
+            .is_err());
+        Ok(())
+    })
+    .unwrap();
     let names: Vec<String> = s
         .read(|c| -> Result<Vec<String>, StoreError> {
             let mut st = c.prepare("SELECT name FROM agent WHERE deleted_at IS NULL")?;
@@ -401,7 +426,7 @@ fn v1_database_with_data_migrates_to_v2() {
             Ok(v)
         })
         .unwrap();
-    assert_eq!(names, vec!["ada"]);
+    assert_eq!(names, vec!["ada", "bea"]);
     let snaps: Vec<_> = std::fs::read_dir(tmp.path().join("backups"))
         .unwrap()
         .filter_map(|e| e.ok())

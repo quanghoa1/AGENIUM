@@ -661,7 +661,7 @@ impl App {
             if self.is_planner_role(&agent.role) {
                 return Err(invalid(format!("{} is the team's planner: it drafts plans and takes no tickets", agent.name)));
             }
-            let in_team = agent.team == team.id && (agent.role_kind == RoleKind::Worker || team.solo);
+            let in_team = agent.team == Some(team.id) && (agent.role_kind == RoleKind::Worker || team.solo);
             if !in_team {
                 return Err(invalid(format!("{} is not a worker of this team", agent.name)));
             }
@@ -728,7 +728,7 @@ impl App {
             }
             let blocking = q.blocking;
             let c = add_comment(w, &t, Author::Agent(agent), None, CommentBody::Question(q))?;
-            let solo = agents::get_team(w.tx, agents::get_agent(w.tx, agent)?.team)?.solo;
+            let solo = solo_agent(w.tx, agent)?;
             if blocking {
                 if t.status == TicketStatus::InProgress {
                     transition(w, &mut t, &ctx.actor, TicketStatus::Pending, &Guards { open_blocking: true, ..Default::default() })?;
@@ -817,7 +817,7 @@ impl App {
                 transition(w, &mut t, &ctx.actor, TicketStatus::Pending, &Guards { open_blocking: true, ..Default::default() })?;
             }
             set_agent_status(w, agent, AgentStatus::Waiting)?;
-            let solo = agents::get_team(w.tx, agents::get_agent(w.tx, agent)?.team)?.solo;
+            let solo = solo_agent(w.tx, agent)?;
             let decider = if inside && !solo { "lead" } else { "user" };
             if decider == "user" {
                 w.emit_as("system", DomainEvent::NeedsUser { ticket: Some(t.id), reason: format!("{} requests a permission outside the allowlist", t.key) })?;
@@ -1718,4 +1718,15 @@ fn plan_item_done(w: &mut WriteCtx<'_, '_>, t: &Ticket) -> Result<()> {
         )?;
     }
     Ok(())
+}
+
+/// Whether the agent works as a Solo (its team is a Solo team).
+fn solo_agent(
+    c: &rusqlite::Connection,
+    agent: AgentId,
+) -> std::result::Result<bool, agenium_store::StoreError> {
+    Ok(match agents::get_agent(c, agent)?.team {
+        Some(t) => agents::get_team(c, t)?.solo,
+        None => false,
+    })
 }

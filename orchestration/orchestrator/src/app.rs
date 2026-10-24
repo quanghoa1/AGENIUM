@@ -393,7 +393,7 @@ impl App {
             w.emit(DomainEvent::AgentCreated {
                 agent: agent.id,
                 name: agent.name.clone(),
-                team: team.id,
+                team: Some(team.id),
                 role: agent.role.clone(),
             })?;
             Ok(())
@@ -441,7 +441,7 @@ impl App {
                 w.emit(DomainEvent::AgentCreated {
                     agent: a.id,
                     name: a.name.clone(),
-                    team: team.id,
+                    team: Some(team.id),
                     role: a.role.clone(),
                 })?;
             }
@@ -457,7 +457,7 @@ impl App {
         agents::Agent {
             id: AgentId::new(),
             name: a.name.trim().to_owned(),
-            team,
+            team: Some(team),
             role: a.role.clone(),
             role_kind: kind,
             tags: a.tags.clone(),
@@ -523,7 +523,8 @@ impl App {
         Ok(())
     }
 
-    /// Sets the agent's skill binding (empty = every skill of its role and its own).
+    /// Sets the agent's skill binding: the library skills it enables (its role's and its own skills are always
+    /// on; ADR-61).
     pub fn set_agent_skills(&self, id: AgentId, skills: &[String]) -> Result<()> {
         if let Some(bad) = skills.iter().find(|s| !agenium_skills::valid_name(s)) {
             return Err(OrchError::Invalid(format!("invalid skill name {bad:?}")));

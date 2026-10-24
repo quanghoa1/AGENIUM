@@ -140,9 +140,26 @@ fn registry_resolution_and_binding() {
     );
     assert_eq!(other.get("rust-style").unwrap().meta.origin, Origin::Role);
 
-    // A binding restricts the set.
-    let bound = reg.for_agent("A1", "coder", &["git-flow".into()]);
-    assert_eq!(bound.names(), vec!["git-flow"]);
+    // Library skills reach only the agents that enable them; a role skill of the same name wins.
+    let lib = reg.dir_of(&Owner::Library);
+    assert_eq!(lib, tmp.path().join("skills"));
+    skill(&lib, "pdf-reading", "Read PDFs.", "Library pdf.");
+    skill(&lib, "git-flow", "Branch rules (library).", "Library git.");
+    assert_eq!(reg.library().names(), vec!["git-flow", "pdf-reading"]);
+    assert_eq!(
+        reg.for_agent("A2", "coder", &[]).names(),
+        vec!["git-flow", "rust-style"]
+    );
+    let enabled = reg.for_agent("A2", "coder", &["pdf-reading".into(), "git-flow".into()]);
+    assert_eq!(
+        enabled.names(),
+        vec!["git-flow", "pdf-reading", "rust-style"]
+    );
+    assert_eq!(
+        enabled.get("pdf-reading").unwrap().meta.origin,
+        Origin::Library
+    );
+    assert_eq!(enabled.get("git-flow").unwrap().body.trim(), "Role git.");
     assert_eq!(
         SkillSet::default().index(),
         "(no skills are installed for you)"

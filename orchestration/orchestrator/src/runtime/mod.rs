@@ -56,6 +56,8 @@ fn nudge_for(kind: RunKind) -> Option<String> {
 /// Supplies providers by id (from `config.toml` + the secret store, or injected in tests/evals).
 pub trait ProviderSource: Send + Sync {
     fn provider(&self, id: &str) -> Result<Arc<dyn Provider>>;
+    /// Drops what was built for `id` (its configuration or key changed).
+    fn forget(&self, _id: &str) {}
 }
 
 /// Providers built from configuration; API keys are read from the secret store at first use.
@@ -117,6 +119,13 @@ impl ProviderSource for ConfiguredProviders {
             .unwrap_or_else(|e| e.into_inner())
             .insert(id.to_owned(), p.clone());
         Ok(p)
+    }
+
+    fn forget(&self, id: &str) {
+        self.cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(id);
     }
 }
 
@@ -829,10 +838,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .assignee
             .ok_or_else(|| OrchError::Invalid(format!("{key} has no assignee")))?;
         let agent = self.app.agent(agent_id)?;
+        let team_id = agent
+            .team
+            .ok_or_else(|| OrchError::Invalid(format!("{} is in no team", agent.name)))?;
         let team = self
             .app
             .store()
-            .read(|c| agenium_store::core::agents::get_team(c, agent.team))?;
+            .read(|c| agenium_store::core::agents::get_team(c, team_id))?;
         let start = self
             .app
             .start_run(project, key, &agent.model.provider, &agent.model.model)?;

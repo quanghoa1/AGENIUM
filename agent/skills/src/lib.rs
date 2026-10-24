@@ -42,11 +42,13 @@ fn invalid(m: impl Into<String>) -> SkillError {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
+    /// The system's skill library (`<root>/skills`), used by the agents that enable it (ADR-61).
+    Library,
     /// Shared by every agent of the role.
     Role,
     /// The agent's own skill.
     Agent,
-    /// The agent's own copy of a role skill (it replaces the role's version for this agent only).
+    /// The agent's own copy of a role or library skill (it replaces that version for this agent only).
     Overlay,
 }
 
@@ -448,7 +450,7 @@ fn scan(
                 if origin == Origin::Agent
                     && set
                         .get(&s.meta.name)
-                        .is_some_and(|r| r.meta.origin == Origin::Role)
+                        .is_some_and(|r| matches!(r.meta.origin, Origin::Role | Origin::Library))
                 {
                     s.meta.origin = Origin::Overlay;
                 }
@@ -474,6 +476,8 @@ pub struct Registry {
 pub enum Owner {
     Agent(String),
     Role(String),
+    /// The system's library, next to the agents folder (`<root>/skills`).
+    Library,
 }
 
 impl Registry {
@@ -488,15 +492,40 @@ impl Registry {
         match owner {
             Owner::Agent(a) => self.agents_dir.join(a).join("skills"),
             Owner::Role(r) => self.roles_dir.join(r).join("skills"),
+            Owner::Library => self.agents_dir.with_file_name("skills"),
         }
     }
 
-    /// Skills of an agent: the role's skills, then the agent's own (an own skill with a role skill's name is the
-    /// agent's overlay of it). `bound` is the agent's skill binding: empty means every skill found, otherwise only
-    /// the named ones.
-    pub fn for_agent(&self, agent: &str, role: &str, bound: &[String]) -> SkillSet {
+    /// Every skill of the system's library (what agents can enable).
+    pub fn library(&self) -> SkillSet {
         let mut map = BTreeMap::new();
         let mut problems = Vec::new();
+        scan(
+            &self.dir_of(&Owner::Library),
+            Origin::Library,
+            &mut map,
+            &mut problems,
+        );
+        SkillSet {
+            skills: map.into_values().collect(),
+            problems,
+        }
+    }
+
+    /// Skills of an agent: the library skills it enables (`enabled`, the agent's skill binding), the role's
+    /// skills, then the agent's own (an own skill with the name of a role or library skill is the agent's overlay
+    /// of it; a role skill wins over a library skill of the same name).
+    pub fn for_agent(&self, agent: &str, role: &str, enabled: &[String]) -> SkillSet {
+        let mut map = BTreeMap::new();
+        let mut problems = Vec::new();
+        if !enabled.is_empty() {
+            let lib = self.library();
+            for s in lib.skills {
+                if enabled.contains(&s.meta.name) {
+                    map.insert(s.meta.name.clone(), s);
+                }
+            }
+        }
         scan(
             &self.dir_of(&Owner::Role(role.into())),
             Origin::Role,
@@ -509,9 +538,6 @@ impl Registry {
             &mut map,
             &mut problems,
         );
-        if !bound.is_empty() {
-            map.retain(|k, _| bound.iter().any(|b| b == k));
-        }
         SkillSet {
             skills: map.into_values().collect(),
             problems,
@@ -565,6 +591,7 @@ impl Registry {
             let origin = match owner {
                 Owner::Agent(_) => Origin::Agent,
                 Owner::Role(_) => Origin::Role,
+                Owner::Library => Origin::Library,
             };
             Ok(validate(&dest, origin)?.meta)
         })();

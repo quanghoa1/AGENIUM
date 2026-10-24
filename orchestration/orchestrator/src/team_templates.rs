@@ -286,23 +286,7 @@ impl App {
         let (team, agents) = self.create_team(project, &t.name, &lead, &workers)?;
         // Role folders: written once, then owned by the user (ROLE.md is edited there).
         for r in &t.roles {
-            let dir = self.layout().roles().join(t.role_dir(&r.id));
-            std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
-            let role_md = dir.join("ROLE.md");
-            if !role_md.exists() && !r.prompt.trim().is_empty() {
-                std::fs::write(&role_md, format!("{}\n", r.prompt.trim()))
-                    .map_err(|e| OrchError::Invalid(e.to_string()))?;
-            }
-            let scope = dir.join("role.toml");
-            if !scope.exists() {
-                let body = toml::to_string(&RoleFile {
-                    template: format!("{}@{}", t.id, t.version),
-                    allowed_paths: r.allowed_paths.clone(),
-                    planner: r.planner,
-                })
-                .unwrap_or_default();
-                std::fs::write(&scope, body).map_err(|e| OrchError::Invalid(e.to_string()))?;
-            }
+            self.materialize_role(&t, r)?;
         }
         Ok(TeamFromTemplate {
             team: team.id,
@@ -311,7 +295,31 @@ impl App {
         })
     }
 
-    fn role_file(&self, role: &str) -> RoleFile {
+    /// Writes a template role's folder (`ROLE.md`, `role.toml`) when the files do not exist yet.
+    pub(crate) fn materialize_role(&self, t: &TeamTemplate, r: &RoleSpec) -> Result<()> {
+        let dir = self.layout().roles().join(t.role_dir(&r.id));
+        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        let role_md = dir.join("ROLE.md");
+        if !role_md.exists() && !r.prompt.trim().is_empty() {
+            std::fs::write(&role_md, format!("{}\n", r.prompt.trim()))
+                .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        }
+        let scope = dir.join("role.toml");
+        if !scope.exists() {
+            let body = toml::to_string(&RoleFile {
+                template: format!("{}@{}", t.id, t.version),
+                allowed_paths: r.allowed_paths.clone(),
+                planner: r.planner,
+                lead: r.kind == RoleKind::Lead,
+                tags: r.tags.clone(),
+            })
+            .unwrap_or_default();
+            std::fs::write(&scope, body).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn role_file(&self, role: &str) -> RoleFile {
         std::fs::read_to_string(self.layout().roles().join(role).join("role.toml"))
             .ok()
             .and_then(|s| toml::from_str::<RoleFile>(&s).ok())
@@ -346,13 +354,20 @@ impl App {
 
 /// `<root>/roles/<role>/role.toml`: settings of a role that are not prose.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct RoleFile {
+pub(crate) struct RoleFile {
+    /// `<template>@<version>` the role came from; empty for a role the user wrote.
     #[serde(default)]
-    template: String,
+    pub template: String,
     #[serde(default)]
-    allowed_paths: Vec<String>,
+    pub allowed_paths: Vec<String>,
     #[serde(default)]
-    planner: bool,
+    pub planner: bool,
+    /// The role is meant to lead a team (a hint for the Lead suggestion; the user decides, ADR-61).
+    #[serde(default)]
+    pub lead: bool,
+    /// Default capability tags of the role's agents.
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[cfg(test)]
