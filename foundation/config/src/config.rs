@@ -23,6 +23,7 @@ pub struct Config {
     pub memory: MemorySection,
     pub secrets: SecretsSection,
     pub sandbox: SandboxSection,
+    pub cli: CliSection,
     pub providers: Vec<ProviderConfig>,
     /// MCP servers (`[[mcp]]`); agents use them through their bindings.
     pub mcp: Vec<McpServerConfig>,
@@ -41,6 +42,7 @@ impl Default for Config {
             memory: MemorySection::default(),
             secrets: SecretsSection::default(),
             sandbox: SandboxSection::default(),
+            cli: CliSection::default(),
             providers: Vec::new(),
             mcp: Vec::new(),
         }
@@ -246,6 +248,29 @@ pub enum ApprovalPolicy {
 #[serde(default)]
 pub struct SandboxSection {
     pub approval: ApprovalPolicy,
+}
+
+/// Agent CLIs driven by the CliBackend (ADR-30, ADR-56).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CliSection {
+    /// CLIs the user accepts although Agenium cannot fully isolate them from the user's own setup (e.g. `devin`
+    /// always loads the user's MCP servers and hooks). Empty: such CLIs are refused.
+    pub allow_partial_isolation: Vec<String>,
+    /// ACP session mode selected for every run when the CLI offers it.
+    pub mode: String,
+    /// Wall-clock limit of one CLI run, in minutes.
+    pub run_timeout_mins: u32,
+}
+
+impl Default for CliSection {
+    fn default() -> Self {
+        Self {
+            allow_partial_isolation: Vec::new(),
+            mode: "accept-edits".into(),
+            run_timeout_mins: 45,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

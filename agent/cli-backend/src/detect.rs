@@ -48,6 +48,18 @@ impl CliKind {
         }
     }
 
+    /// Why Agenium cannot fully isolate a run of this CLI from the user's own setup (ADR-30, ADR-56); `None` when
+    /// nothing is known to leak. Such a CLI runs only when the user accepts it in `[cli] allow_partial_isolation`.
+    pub fn partial_isolation(self) -> Option<&'static str> {
+        match self {
+            CliKind::Devin => Some(
+                "devin always loads your own MCP servers (devin/mcp_config.json in your config folder) and hooks; \
+                 no flag or environment variable turns them off",
+            ),
+            CliKind::Codex | CliKind::Agy | CliKind::Claude | CliKind::Opencode => None,
+        }
+    }
+
     /// Arguments of the CLI's own "am I logged in" command and how to read its output; `None` when the CLI has no
     /// such command (the state is then reported as unknown, never guessed).
     fn login_probe(self) -> Option<LoginProbe> {

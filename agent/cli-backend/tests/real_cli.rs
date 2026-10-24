@@ -66,6 +66,11 @@ async fn real_cli_writes_a_file_and_reports() {
     let args = acp_args(kind, &model).expect("CLI speaks ACP");
     let dir = tempfile::tempdir().unwrap();
     let proto = Proto::default();
+    let ctx = agenium_tools::ToolCtx::new(
+        dir.path(),
+        "run-1",
+        Arc::new(agenium_tools::DenyAll("no commands".into())),
+    );
     let r = CliRun {
         program,
         args,
@@ -74,6 +79,8 @@ async fn real_cli_writes_a_file_and_reports() {
         label: format!("{name}:{model}"),
         mode: Some("accept-edits".into()),
         protocol: &proto,
+        tools: vec![],
+        ctx: &ctx,
         protocol_specs: vec![ToolSpec {
             name: "submit_report".into(),
             description: "Report the result of the ticket. Ends the run.".into(),

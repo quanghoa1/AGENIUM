@@ -1,0 +1,172 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 20,
+    "tool_errors": 15,
+    "error_codes": {
+      "cli_tool_failed": 6,
+      "denied": 3,
+      "invalid_arguments": 6
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `ticket_id`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"p",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `path`, expected `kind` or `ref`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: unknown field `path`, expected `kind` or `ref`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `summary`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"pro",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `confidence`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `feedback`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `feedback`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_cha",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `status`, expected `ac_id` or `feedback`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `status`, expected `ac_id` or `feedback`\\\"}}\"\n  }\n]\n\nAvailable tools on server `a"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 59342,
+    "tokens_out": 386,
+    "cost_usd": 0.0,
+    "elapsed_ms": 88483
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 1,
+    "error_codes": {
+      "denied": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 46256,
+    "tokens_out": 369,
+    "cost_usd": 0.0,
+    "elapsed_ms": 52056
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 20,
+    "tool_errors": 8,
+    "error_codes": {
+      "cli_tool_failed": 3,
+      "denied": 2,
+      "invalid_arguments": 3
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: unknown field `results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `ex",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `feedback`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `feedback`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_cha",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `id`, expected `ac_id` or `feedback`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `id`, expected `ac_id` or `feedback`\\\"}}\"\n  }\n]\n\nAvailable tools on server `ageni"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 51351,
+    "tokens_out": 418,
+    "cost_usd": 0.0,
+    "elapsed_ms": 66988
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 18,
+    "tool_errors": 8,
+    "error_codes": {
+      "cli_tool_failed": 3,
+      "denied": 2,
+      "invalid_arguments": 3
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `ticket_id`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"p",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `summary`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"pro",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `confidence`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 53449,
+    "tokens_out": 459,
+    "cost_usd": 0.0,
+    "elapsed_ms": 71224
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 17,
+    "tool_errors": 15,
+    "error_codes": {
+      "cli_tool_failed": 7,
+      "denied": 1,
+      "invalid_arguments": 7
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `ticket_id`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"p",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `summary`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"pro",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: missing field `confidence`\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`:\n[\n  {\n    \"name\": \"",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"high\", expected f64",
+      "cli:other: cli_tool_failed: MCP tool 'submit_report' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for submit_report: invalid type: string \\\\\\\"high\\\\\\\", expected f64\\\"}}\"\n  }\n]\n\nAvailable tools on server `agenium`",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `feedback`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `feedback`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_cha",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `ac`, expected `ac_id` or `feedback`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `ac`, expected `ac_id` or `feedback`\\\"}}\"\n  }\n]\n\nAvailable tools on server `ageni",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `status`, expected `ac_id` or `feedback`",
+      "cli:other: cli_tool_failed: MCP tool 'review_ticket' returned an error: [\n  {\n    \"type\": \"text\",\n    \"text\": \"{\\\"error\\\":{\\\"code\\\":\\\"invalid_arguments\\\",\\\"message\\\":\\\"invalid arguments for review_ticket: unknown field `status`, expected `ac_id` or `feedback`\\\"}}\"\n  }\n]\n\nAvailable tools on server `a"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 58646,
+    "tokens_out": 447,
+    "cost_usd": 0.0,
+    "elapsed_ms": 78401
+  }
+]

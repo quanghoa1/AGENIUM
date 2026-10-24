@@ -208,6 +208,16 @@ enum AgentCmd {
         #[arg(long, default_value = "high")]
         effort: String,
     },
+    /// Run an agent through a vendor CLI you are logged in to (CliBackend, ADR-56); `agent model` switches back.
+    Cli {
+        name: String,
+        /// CLI program: devin (the CLIs `doctor` lists as usable).
+        #[arg(long)]
+        cli: String,
+        /// The CLI's model (default: the CLI's own default).
+        #[arg(long, default_value = "")]
+        model: String,
+    },
     /// Put an agent back to Idle after you fixed its quota/connectivity.
     Resume {
         name: String,
@@ -927,9 +937,17 @@ async fn main() -> Result<()> {
                     agenium_cli_backend::Login::NotLoggedIn => "not logged in",
                     agenium_cli_backend::Login::Unknown => "login unknown",
                 };
+                let driven = if agenium_cli_backend::acp_args(c.kind, "").is_some() {
+                    match c.kind.partial_isolation() {
+                        Some(_) => ", usable (ACP; partial isolation, opt-in)",
+                        None => ", usable (ACP)",
+                    }
+                } else {
+                    ", not driven yet"
+                };
                 match &c.version {
                     Some(v) => println!(
-                        "  {:<9} {v:<12} {login}{}",
+                        "  {:<9} {v:<12} {login}{driven}{}",
                         c.kind.program(),
                         c.note
                             .as_deref()
@@ -1142,10 +1160,15 @@ async fn main() -> Result<()> {
                 AgentCmd::List => {
                     for a in app.agents()? {
                         println!(
-                            "{}\t{}\t{}\t{}/{} ({})",
+                            "{}\t{}\t{}\t{}{}/{} ({})",
                             a.name,
                             a.id,
                             a.status,
+                            if a.backend == BackendKind::Cli {
+                                "cli:"
+                            } else {
+                                ""
+                            },
                             a.model.provider,
                             a.model.model,
                             a.model.effort.as_str()
@@ -1163,8 +1186,9 @@ async fn main() -> Result<()> {
                         .into_iter()
                         .find(|a| &a.name == name)
                         .ok_or_else(|| anyhow!("no agent {name}"))?;
-                    app.set_agent_model(
+                    app.set_agent_backend(
                         a.id,
+                        BackendKind::Api,
                         &ModelBinding {
                             provider: provider.clone(),
                             model: model.clone(),
@@ -1173,6 +1197,34 @@ async fn main() -> Result<()> {
                         },
                     )?;
                     println!("{name} now uses {provider}/{model}");
+                }
+                AgentCmd::Cli { name, cli, model } => {
+                    let a = app
+                        .agents()?
+                        .into_iter()
+                        .find(|a| &a.name == name)
+                        .ok_or_else(|| anyhow!("no agent {name}"))?;
+                    app.set_agent_backend(
+                        a.id,
+                        BackendKind::Cli,
+                        &ModelBinding {
+                            provider: cli.clone(),
+                            model: model.clone(),
+                            effort: a.model.effort,
+                            max_tokens: None,
+                        },
+                    )?;
+                    println!("{name} now runs through the {cli} CLI");
+                    let kind = agenium_cli_backend::CliKind::ALL
+                        .into_iter()
+                        .find(|k| k.program() == cli);
+                    if let Some(why) = kind.and_then(|k| k.partial_isolation()) {
+                        if !app.config().cli.allow_partial_isolation.contains(cli) {
+                            println!(
+                                "note: runs are refused until you accept this: {why}. Add \"{cli}\" to [cli] allow_partial_isolation in config.toml"
+                            );
+                        }
+                    }
                 }
                 AgentCmd::Skills { name, skills } => {
                     let a = app.agent_named(name)?;

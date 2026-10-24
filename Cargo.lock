@@ -204,6 +204,7 @@ version = "0.1.0"
 dependencies = [
  "agenium-backend",
  "agenium-bus",
+ "agenium-cli-backend",
  "agenium-config",
  "agenium-core",
  "agenium-llm",

@@ -1,6 +1,8 @@
 //! `cargo run -p agenium-eval -- [--task ID] [--out DIR]` runs the golden tasks with the scripted model.
 //! With a real model: `--root <agenium root> --provider <id> --model <model> [--effort high] [--approve-commands]`
 //! (uses the provider and API key configured in that root; costs tokens).
+//! With a vendor CLI (CliBackend): `--cli devin [--model swe-2-medium] [--allow-partial-isolation] [--approve-commands]`
+//! (uses the CLI's own login and quota).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -19,6 +21,12 @@ fn arg(args: &[String], name: &str) -> Option<String> {
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mode = match arg(&args, "--provider") {
+        None if arg(&args, "--cli").is_some() => Mode::Cli {
+            cli: arg(&args, "--cli").unwrap_or_default(),
+            model: arg(&args, "--model").unwrap_or_default(),
+            approve_commands: args.iter().any(|a| a == "--approve-commands"),
+            allow_partial_isolation: args.iter().any(|a| a == "--allow-partial-isolation"),
+        },
         None => Mode::Scripted,
         Some(provider_id) => {
             let root = PathBuf::from(
@@ -64,6 +72,7 @@ async fn main() -> Result<()> {
     let label = match &mode {
         Mode::Scripted => "scripted".to_owned(),
         Mode::Model { model, .. } => model.replace(['/', ':'], "_"),
+        Mode::Cli { cli, model, .. } => format!("cli-{cli}-{model}").replace(['/', ':'], "_"),
     };
     let file = out.join(format!(
         "{}-{label}.json",

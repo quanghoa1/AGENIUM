@@ -2,7 +2,7 @@
 
 Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. Command: `.\devtools\scripts\ci-local.ps1` -> fmt PASS, clippy `-D warnings` PASS,
-`cargo test --workspace` PASS (**172 tests** incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
+`cargo test --workspace` PASS (**189 tests** after M2.5 step 3 incl. the local-model tests with `AGENIUM_TEST_MODELS` set, 2 helpers
 ignored), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 
@@ -58,6 +58,20 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | M15-10 benchmark | PARTLY: traversal latency at 100 k / 1 M edges RUN (targets met with the hub cap) | `docs/reference/STORE-SCALE.md` §8.1; QA golden set, concurrency, cold cache NOT RUN |
 | M15-11 golden scenarios GM-1..5, GM-7 | DONE (scripted model) | `agenium-memory/tests/graph_memory.rs`; "second ticket >= 20 % fewer steps" seen on the real model in the skill/MCP run (11 -> 5), not as a GM task |
 
+### M2.5 — CLI backend: ACCEPTANCE MET with `devin` ([ADR-56](adr/ADR-56-cli-backend-acp.md))
+| Item | Status | Evidence |
+|---|---|---|
+| Detect CLIs in PATH: version, login state, minimum version | DONE | `agent/cli-backend/src/detect.rs`; `agenium doctor` lists codex, agy, devin, claude, opencode and whether Agenium drives them |
+| Run protocol | ACP (Agent Client Protocol) instead of per-CLI JSON streams; driven: `devin acp` | `acp.rs`, `run.rs` |
+| Control 1: protocol tools through Agenium's MCP | DONE: loopback Streamable HTTP server, per-run bearer token, also offers the agent's own MCP bindings | `agent/mcp/src/server.rs`, `tests/server.rs` |
+| Control 2: Agenium decides permissions | DONE: commands via the command gate (YOLO never applies), edits/reads only in the worktree, fetch refused, never "always" | `run.rs::decide`, `tests/acp_run.rs` |
+| Control 3: step / loop / time limits from the event stream | DONE (checkpoint note at the limit) | `tests/acp_run.rs` |
+| Control 4: mandatory report | DONE (nudge x2 -> NoProgress; Agenium cancels the turn after the protocol tool) | `tests/acp_run.rs` |
+| CLI process inside Agenium's sandbox | NOT DONE (needs vendor egress + read-only login files in the policy) | ADR-56 "Deviations" |
+| Isolation from the user's CLI setup | devin: partial (always loads the user's MCP servers and hooks) -> refused unless `[cli] allow_partial_isolation` lists it | ADR-56 |
+| Golden task through a CLI | **5/5 PASS** with devin swe-2-medium, commands not approved | `quality/eval/results/20261024T041856Z-cli-devin-swe-2-medium.json` |
+| agy, codex, opencode, claude drivers; API fallback; contract tests in CI | NOT DONE | agy headless cannot ask for permission (ADR-56); codex not logged in here; claude excluded from tests by the owner |
+
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5
 0.967** (S6 pass >= 0.85); Vietnamese query -> English fact recall@5 0.30 (S6 measured 0.167: memory stays English,
@@ -111,8 +125,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
-- Team templates, inbox/SLA/watchdog, Kanban/UI, CLI backend (M2.5–M4; `agy`, `devin`, `codex` are installed here
-  for the CLI backend tests).
+- Team templates, inbox/SLA/watchdog, Kanban/UI (M3–M4). CLI backend: only `devin` is driven; the CLI process is not
+  sandboxed yet; no API fallback (ADR-56).
 - Sandbox backends: Linux bubblewrap/Landlock, macOS Seatbelt (M2). Windows has none in v1 (ADR-39).
 - Context compaction beyond the checkpoint-and-continue approach.
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
@@ -121,8 +135,9 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order)
-1. M2.5 CLI backend (`agy`, `devin`, `codex` are installed here) and M3 completion (Discovery flow with approvals in
-   the CLI, Kanban-equivalent views, audit export).
+1. M2.5 rest: run the CLI process inside the sandbox (vendor egress, read-only login files), `opencode acp`, an agy
+   driver, API fallback; then M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
+   export).
 2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
 3. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.
 4. M2 on Linux/macOS machines (sandbox backends + attack suite) — needs those machines.

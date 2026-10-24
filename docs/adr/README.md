@@ -23,3 +23,4 @@ ADR-52 records this fresh implementation.
 | [53](ADR-53-windows-sandbox-mxc.md) | Windows sandbox backend: MXC process containers via `mxc-sdk` (amends ADR-39) |
 | [54](ADR-54-linux-sandbox-bubblewrap-mxc-sdk.md) | Linux sandbox backend: bubblewrap via `mxc-sdk` (S3 matrix not run yet) |
 | [55](ADR-55-macos-sandbox-seatbelt-mxc-sdk.md) | macOS sandbox backend: Seatbelt via `mxc-sdk` (experimental, not run on a Mac yet) |
+| [56](ADR-56-cli-backend-acp.md) | CliBackend over ACP; Agenium MCP server for protocol tools; devin partial isolation is opt-in |

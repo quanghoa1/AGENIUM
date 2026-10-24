@@ -49,6 +49,37 @@ impl CommandGate for Gate {
     }
 }
 
+/// Stands for an MCP tool of the agent's own bindings.
+struct Echo;
+
+#[async_trait]
+impl agenium_tools::Tool for Echo {
+    fn name(&self) -> &str {
+        "mcp__fake__echo"
+    }
+    fn description(&self) -> &str {
+        "Echo text."
+    }
+    fn parameters(&self) -> Value {
+        json!({"type": "object", "properties": {"text": {"type": "string"}}})
+    }
+    fn read_only(&self) -> bool {
+        true
+    }
+    async fn call(
+        &self,
+        _: &agenium_tools::ToolCtx,
+        args: Value,
+    ) -> Result<agenium_tools::ToolOutput, ToolError> {
+        let mut o = agenium_tools::ToolOutput::text(format!(
+            "echo {}",
+            args["text"].as_str().unwrap_or("")
+        ));
+        o.untrusted = true;
+        Ok(o)
+    }
+}
+
 #[derive(Default)]
 struct Obs {
     tools: Mutex<Vec<(String, bool)>>,
@@ -90,6 +121,11 @@ async fn run(
 ) -> (agenium_backend::RunReport, Arc<Proto>, Arc<Obs>, String) {
     let proto = Arc::new(Proto::default());
     let obs = Arc::new(Obs::default());
+    let ctx = agenium_tools::ToolCtx::new(
+        dir,
+        "run-1",
+        Arc::new(agenium_tools::DenyAll("no commands".into())),
+    );
     let r = CliRun {
         program: PathBuf::from(env!("CARGO_BIN_EXE_agenium-acp-test-agent")),
         args: vec![],
@@ -98,6 +134,8 @@ async fn run(
         label: "fake:model".into(),
         mode: Some("accept-edits".into()),
         protocol: proto.as_ref(),
+        tools: vec![Arc::new(Echo)],
+        ctx: &ctx,
         protocol_specs: vec![spec()],
         gate: Arc::new(Gate),
         observer: obs.as_ref(),
@@ -123,7 +161,14 @@ async fn work_run_ends_through_submit_report() {
     assert!(log.contains("perm echo: allow-once"), "{log}");
     assert!(log.contains("perm curl: reject-once"), "{log}");
     assert!(log.contains("perm outside: reject-once"), "{log}");
-    assert!(log.contains("tools: submit_report"), "{log}");
+    assert!(
+        log.contains("tools: submit_report,mcp__fake__echo"),
+        "{log}"
+    );
+    assert!(
+        log.contains(r#"echo: "echo hi\n(Untrusted content"#),
+        "agent MCP tools run through Agenium, output marked untrusted: {log}"
+    );
     assert!(log.contains("report: report accepted"), "{log}");
     assert!(
         log.contains("cancel"),
@@ -225,6 +270,11 @@ async fn missing_cli_fails_cleanly() {
     let dir = tempfile::tempdir().unwrap();
     let proto = Proto::default();
     let obs = Obs::default();
+    let ctx = agenium_tools::ToolCtx::new(
+        dir.path(),
+        "run-1",
+        Arc::new(agenium_tools::DenyAll("no commands".into())),
+    );
     let r = CliRun {
         program: dir.path().join("no-such-cli"),
         args: vec![],
@@ -233,6 +283,8 @@ async fn missing_cli_fails_cleanly() {
         label: "x".into(),
         mode: None,
         protocol: &proto,
+        tools: vec![],
+        ctx: &ctx,
         protocol_specs: vec![spec()],
         gate: Arc::new(Gate),
         observer: &obs,

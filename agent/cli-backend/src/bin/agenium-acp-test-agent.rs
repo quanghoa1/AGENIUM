@@ -146,6 +146,21 @@ impl Agent {
                     .filter_map(|t| t["name"].as_str())
                     .collect();
                 log(&self.cwd, &format!("tools: {}", names.join(",")));
+                if names.contains(&"mcp__fake__echo") {
+                    let e = mcp_post(
+                        &url,
+                        &auth,
+                        &json!({"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+                        "params": {"name": "mcp__fake__echo", "arguments": {"text": "hi"}}}),
+                    );
+                    log(
+                        &self.cwd,
+                        &format!(
+                            "echo: {:?}",
+                            e["result"]["content"][0]["text"].as_str().unwrap_or("?")
+                        ),
+                    );
+                }
                 let r = mcp_post(
                     &url,
                     &auth,

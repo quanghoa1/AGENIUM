@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 agenium-backend.workspace = true
 agenium-llm.workspace = true
+agenium-cli-backend.workspace = true
 agenium-mcp.workspace = true
 agenium-memory.workspace = true
 agenium-sandbox.workspace = true

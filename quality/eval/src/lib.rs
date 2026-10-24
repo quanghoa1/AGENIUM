@@ -192,6 +192,14 @@ pub enum Mode {
         effort: Effort,
         approve_commands: bool,
     },
+    /// A vendor agent CLI through the CliBackend (M2.5): `cli` is its program name, `model` its model.
+    Cli {
+        cli: String,
+        model: String,
+        approve_commands: bool,
+        /// The user accepts a CLI Agenium cannot fully isolate (`[cli] allow_partial_isolation`).
+        allow_partial_isolation: bool,
+    },
 }
 
 fn scripted(task: &Task) -> Arc<ScriptedProvider> {
@@ -256,6 +264,16 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             effort,
             approve_commands,
         } => (provider.clone(), model.clone(), *effort, *approve_commands),
+        Mode::Cli {
+            model,
+            approve_commands,
+            ..
+        } => (
+            Arc::new(ScriptedProvider::new("unused")) as Arc<dyn Provider>,
+            model.clone(),
+            Effort::High,
+            *approve_commands,
+        ),
     };
     let (_, agent) = app.create_solo(
         project.id,
@@ -272,6 +290,28 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             },
         },
     )?;
+    if let Mode::Cli {
+        cli,
+        model,
+        allow_partial_isolation,
+        ..
+    } = mode
+    {
+        app.set_agent_backend(
+            agent.id,
+            BackendKind::Cli,
+            &ModelBinding {
+                provider: cli.clone(),
+                model: model.clone(),
+                effort,
+                max_tokens: None,
+            },
+        )?;
+        if *allow_partial_isolation {
+            let cli = cli.clone();
+            app.update_config(move |c| c.cli.allow_partial_isolation = vec![cli])?;
+        }
+    }
     let user = CallCtx::user(project.id);
     let acceptance: Vec<AcceptanceCriterion> = task
         .acceptance

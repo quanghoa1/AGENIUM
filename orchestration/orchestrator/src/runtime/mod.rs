@@ -281,6 +281,7 @@ impl Runtime {
             ticket,
             agent: agent.to_owned(),
             approver: self.approver.clone(),
+            contained: true,
         });
         let mut ctx = ToolCtx::new(root, &run.to_string(), gate);
         let rt = self.app.config().runtime;
@@ -397,8 +398,7 @@ impl Runtime {
         order_builder: impl FnOnce(&ToolCtx, &[ToolSpec]) -> Result<WorkOrder>,
         work: Vec<Arc<dyn Tool>>,
         exclude: &[ProtocolTool],
-    ) -> Result<(RunReport, f64, Arc<dyn Provider>)> {
-        let provider = self.providers.provider(&agent.model.provider)?;
+    ) -> Result<(RunReport, f64)> {
         let p = self.app.project(project)?;
         let allow = crate::engine::allowlist(&self.app, &p);
         let ctx = self.tool_ctx(
@@ -414,7 +414,7 @@ impl Runtime {
         ctx.read_roots = skills.dirs();
         // Skill scripts run through the shell: their folders are readable inside the sandbox too.
         ctx.policy.read_roots.extend(skills.dirs());
-        let mut work = work;
+        let mut mcp_tools: Vec<Arc<dyn Tool>> = Vec::new();
         let bindings = agenium_mcp::parse_bindings(&agent.mcp)
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
         if !bindings.is_empty() {
@@ -433,20 +433,24 @@ impl Runtime {
                     .push(format!("MCP server unavailable: {p}"));
             }
             // Review and chat runs only get tools without side effects.
-            work.extend(
+            mcp_tools.extend(
                 m.tools
                     .into_iter()
                     .filter(|t| kind == RunKind::Work || agenium_tools::Tool::read_only(t.as_ref()))
                     .map(|t| t as Arc<dyn Tool>),
             );
         }
+        // A vendor CLI brings its own file and shell tools: it only gets the agent's MCP tools from Agenium.
+        let cli = agent.backend == BackendKind::Cli;
+        let mut work = if cli { Vec::new() } else { work };
+        work.extend(mcp_tools);
         let mut exclude = exclude.to_vec();
         if skills.is_empty() {
             exclude.push(ProtocolTool::LoadSkill);
         }
         let (pspecs, pnames) = Self::protocol_specs(agent.role_kind, solo, &exclude);
         let mut specs = work_specs(&work);
-        specs.extend(pspecs);
+        specs.extend(pspecs.clone());
         let specs = sorted_specs(specs);
         let order = order_builder(&ctx, &specs)?;
         let mem = self.agent_memory(agent.id)?;
@@ -483,6 +487,24 @@ impl Runtime {
                 .map(|t| t.key.to_string())
                 .unwrap_or_else(|| "chat".into())
         );
+        if cli {
+            let gate = Arc::new(RunGate {
+                app: self.app.clone(),
+                project,
+                ticket: ticket.map(|t| t.key.clone()),
+                agent: agent.name.clone(),
+                approver: self.approver.clone(),
+                contained: false,
+            });
+            let report = self
+                .cli_run(
+                    agent, kind, &ctx, gate, &protocol, pspecs, work, &observer, &order,
+                )
+                .await?;
+            // Subscription plans: tokens are recorded, no per-token price is known.
+            return Ok((report, 0.0));
+        }
+        let provider = self.providers.provider(&agent.model.provider)?;
         let r = Run {
             provider: provider.as_ref(),
             tools: &work,
@@ -497,7 +519,82 @@ impl Runtime {
         };
         let report = r.run(&order).await;
         let cost = self.cost(provider.as_ref(), &report.model, &report.usage);
-        Ok((report, cost, provider))
+        Ok((report, cost))
+    }
+
+    /// CliBackend run (M2.5, ADR-56): the agent's `model.provider` names the CLI, `model.model` the CLI's model.
+    #[allow(clippy::too_many_arguments)]
+    async fn cli_run(
+        &self,
+        agent: &agenium_store::core::agents::Agent,
+        kind: RunKind,
+        ctx: &ToolCtx,
+        gate: Arc<RunGate>,
+        protocol: &RunProtocol,
+        protocol_specs: Vec<ToolSpec>,
+        tools: Vec<Arc<dyn Tool>>,
+        observer: &RunObserver,
+        order: &WorkOrder,
+    ) -> Result<RunReport> {
+        use agenium_cli_backend::{acp_args, CliKind, CliRun, Limits, Login};
+        let name = agent.model.provider.as_str();
+        let cli = CliKind::ALL
+            .into_iter()
+            .find(|k| k.program() == name)
+            .ok_or_else(|| OrchError::Invalid(format!("{name:?} is not a known agent CLI")))?;
+        let info = agenium_cli_backend::detect::detect(cli);
+        let program = info
+            .path
+            .clone()
+            .ok_or_else(|| OrchError::Invalid(format!("{name} is not installed (not on PATH)")))?;
+        if !info.compatible {
+            return Err(OrchError::Invalid(format!(
+                "{name} cannot be used: {}",
+                info.note.unwrap_or_default()
+            )));
+        }
+        if info.login == Login::NotLoggedIn {
+            return Err(OrchError::Invalid(format!(
+                "{name} is not logged in; log in with the {name} CLI first"
+            )));
+        }
+        let args = acp_args(cli, &agent.model.model).ok_or_else(|| {
+            OrchError::Invalid(format!("Agenium does not drive {name} yet (ADR-56)"))
+        })?;
+        let cfg = self.app.config();
+        if let Some(why) = cli.partial_isolation() {
+            if !cfg.cli.allow_partial_isolation.iter().any(|c| c == name) {
+                return Err(OrchError::Invalid(format!(
+                    "{name} cannot be fully isolated: {why}. To accept this, add \"{name}\" to [cli] allow_partial_isolation in config.toml"
+                )));
+            }
+        }
+        let rt = cfg.runtime;
+        let r = CliRun {
+            program,
+            args,
+            env: ctx.env.clone(),
+            cwd: ctx.root.clone(),
+            label: format!("{name}:{}", agent.model.model),
+            mode: (!cfg.cli.mode.is_empty()).then(|| cfg.cli.mode.clone()),
+            protocol,
+            protocol_specs,
+            tools,
+            ctx,
+            gate,
+            observer,
+            cancel: self.cancel.clone(),
+            limits: Limits {
+                max_steps: rt.max_steps_per_run,
+                same_call_limit: rt.loop_detect_same_call,
+                nudge_limit: 2,
+                timeout: std::time::Duration::from_secs(
+                    u64::from(cfg.cli.run_timeout_mins.max(1)) * 60,
+                ),
+            },
+            chat: kind != RunKind::Work,
+        };
+        Ok(r.run(order).await)
     }
 
     /// Runs the assignee on a ready ticket (start -> loop -> outcome handling).
@@ -623,7 +720,7 @@ impl Runtime {
                 &[ProtocolTool::ProposeSkillUpdate],
             )
             .await;
-        let (report, cost, _p) = match res {
+        let (report, cost) = match res {
             Ok(x) => x,
             Err(e) => {
                 self.app.finish_run(
@@ -748,7 +845,7 @@ impl Runtime {
                 &[ProtocolTool::ProposeSkillUpdate],
             )
             .await;
-        let (report, cost, _p) = match res {
+        let (report, cost) = match res {
             Ok(x) => x,
             Err(e) => {
                 self.app
@@ -879,7 +976,7 @@ impl Runtime {
                 ],
             )
             .await;
-        let (report, cost, _) = match res {
+        let (report, cost) = match res {
             Ok(x) => x,
             Err(e) => {
                 self.app

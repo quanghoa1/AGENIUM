@@ -492,6 +492,37 @@ impl App {
         Ok(())
     }
 
+    /// Switches an agent between the API and a vendor CLI (decision 3c). With `Cli`, `model.provider` names the CLI
+    /// (`devin`, ...) and `model.model` the CLI's model (empty = the CLI's default).
+    pub fn set_agent_backend(
+        &self,
+        id: AgentId,
+        backend: BackendKind,
+        model: &ModelBinding,
+    ) -> Result<()> {
+        if backend == BackendKind::Cli
+            && !agenium_cli_backend::CliKind::ALL
+                .iter()
+                .any(|k| k.program() == model.provider)
+        {
+            return Err(OrchError::Invalid(format!(
+                "{:?} is not a known agent CLI",
+                model.provider
+            )));
+        }
+        self.store
+            .commit(None, "user", |w| -> std::result::Result<_, StoreError> {
+                agents::set_agent_backend(w.tx, id, backend)?;
+                agents::set_agent_model(w.tx, id, model)?;
+                w.emit(DomainEvent::AgentUpdated {
+                    agent: id,
+                    field: "backend".into(),
+                })?;
+                Ok(())
+            })?;
+        Ok(())
+    }
+
     /// Sets the agent's skill binding (empty = every skill of its role and its own).
     pub fn set_agent_skills(&self, id: AgentId, skills: &[String]) -> Result<()> {
         if let Some(bad) = skills.iter().find(|s| !agenium_skills::valid_name(s)) {
