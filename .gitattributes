@@ -3,3 +3,5 @@
 *.pdf binary
 *.zip binary
 *.zst binary
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

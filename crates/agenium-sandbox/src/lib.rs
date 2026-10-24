@@ -1,12 +1,16 @@
-//! Command execution for agent-generated commands (decision 9, ADR-39/41/42).
+//! Command execution for agent-generated commands (decision 9, ADR-39/41/42/53).
 //!
 //! The sandbox applies only to commands an agent runs (shell, MCP stdio), never to the harness. This crate:
 //! * detects which isolation backend works on this machine and **fails closed**: YOLO (no approval) is only
-//!   allowed with a working backend; Windows has none in v1, Linux needs bubblewrap or Landlock ABI >= 3, macOS
-//!   Seatbelt (experimental). The backends themselves are milestone M2;
-//! * runs commands with a cleared environment (no API keys), a timeout and a process-tree kill.
+//!   allowed with a working backend. Windows: Microsoft MXC process containers through `mxc-sdk` (ADR-53,
+//!   spike S2), when the native API is usable; Linux (bubblewrap / Landlock) and macOS (Seatbelt) are M2;
+//! * runs commands with a cleared environment (no API keys), a timeout and a process-tree kill; with a backend
+//!   the command runs inside the container whatever the approval policy.
 //!
-//! Before M2 every agent command runs through [`Executor::run`] only after the user approved it (M1-7).
+//! Without a backend every agent command runs through [`Executor::run`] only after the user approved it (M1-7).
+
+#[cfg(windows)]
+pub mod mxc;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -29,6 +33,86 @@ pub struct SandboxPolicy {
     pub mode: SandboxMode,
     pub writable_roots: Vec<PathBuf>,
     pub network: bool,
+    /// Read-only roots beyond the platform folders (toolchains, the repository's `.git`, skill folders).
+    #[serde(default)]
+    pub read_roots: Vec<PathBuf>,
+    /// Writable temporary directory outside the worktree (TEMP/TMP of the command); created on demand.
+    #[serde(default)]
+    pub temp_dir: Option<PathBuf>,
+}
+
+impl SandboxPolicy {
+    /// Workspace-write policy for a ticket worktree: the worktree is writable, the toolchains and the
+    /// repository's git directory (a worktree's git dir lives outside it) are readable, network off.
+    pub fn workspace(root: &Path) -> SandboxPolicy {
+        let mut read_roots = toolchain_read_roots();
+        read_roots.extend(git_read_roots(root));
+        SandboxPolicy {
+            mode: SandboxMode::WorkspaceWrite,
+            writable_roots: vec![root.to_path_buf()],
+            network: false,
+            read_roots,
+            temp_dir: Some(run_temp_dir(root)),
+        }
+    }
+}
+
+/// Toolchain folders a sandboxed command may read (Windows: see `mxc::toolchain_read_roots`).
+pub fn toolchain_read_roots() -> Vec<PathBuf> {
+    #[cfg(windows)]
+    {
+        mxc::toolchain_read_roots()
+    }
+    #[cfg(not(windows))]
+    {
+        Vec::new()
+    }
+}
+
+/// The git directories a worktree needs: `.git` is a file `gitdir: <repo>/.git/worktrees/<name>` whose
+/// `commondir` is the repository's `.git`.
+pub fn git_read_roots(root: &Path) -> Vec<PathBuf> {
+    let dotgit = root.join(".git");
+    let Ok(text) = std::fs::read_to_string(&dotgit) else {
+        return Vec::new(); // a normal repository: .git is inside the writable root
+    };
+    let Some(gitdir) = text
+        .trim()
+        .strip_prefix("gitdir:")
+        .map(|g| PathBuf::from(g.trim()))
+    else {
+        return Vec::new();
+    };
+    let gitdir = if gitdir.is_absolute() {
+        gitdir
+    } else {
+        root.join(gitdir)
+    };
+    let common = std::fs::read_to_string(gitdir.join("commondir"))
+        .map(|c| {
+            let c = PathBuf::from(c.trim());
+            if c.is_absolute() {
+                c
+            } else {
+                gitdir.join(c)
+            }
+        })
+        .unwrap_or_else(|_| gitdir.clone());
+    let common = std::fs::canonicalize(&common)
+        .map(|p| PathBuf::from(p.to_string_lossy().trim_start_matches(r"\\?\").to_owned()))
+        .unwrap_or(common);
+    vec![common]
+}
+
+/// Per-worktree temporary directory outside the worktree (so auto-commit never sees it).
+pub fn run_temp_dir(root: &Path) -> PathBuf {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in root.to_string_lossy().bytes() {
+        h = (h ^ b as u64).wrapping_mul(0x0100_0000_01b3);
+    }
+    std::env::temp_dir()
+        .join("agenium")
+        .join(format!("{h:016x}"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,6 +120,8 @@ pub enum Backend {
     Bubblewrap,
     LandlockSeccomp,
     Seatbelt,
+    /// Windows: Microsoft MXC process container (`mxc-sdk`, ADR-53).
+    WindowsMxc,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -48,18 +134,29 @@ pub struct Availability {
 /// Which isolation backend is usable here. Backends ship in M2: until then the answer is `None` on every OS,
 /// which forces the approval policy (fail-closed, never a silent unsandboxed YOLO).
 pub fn detect() -> Availability {
-    if cfg!(windows) {
-        return Availability {
-            backend: None,
-            reason:
-                "Windows has no sandbox backend in v1 (ADR-39); every command needs your approval"
+    #[cfg(windows)]
+    {
+        if mxc::available() {
+            Availability {
+                backend: Some(Backend::WindowsMxc),
+                reason: "MXC process container: writes only in the worktree, reads limited to toolchains, no network"
                     .into(),
-        };
+            }
+        } else {
+            Availability {
+                backend: None,
+                reason: "this Windows build cannot create MXC process containers (ADR-53); every command needs your approval"
+                    .into(),
+            }
+        }
     }
-    if cfg!(target_os = "macos") {
-        return Availability { backend: None, reason: "the macOS Seatbelt backend arrives with milestone M2; every command needs your approval".into() };
+    #[cfg(not(windows))]
+    {
+        if cfg!(target_os = "macos") {
+            return Availability { backend: None, reason: "the macOS Seatbelt backend arrives with milestone M2; every command needs your approval".into() };
+        }
+        Availability { backend: None, reason: "the Linux bubblewrap/Landlock backend arrives with milestone M2; every command needs your approval".into() }
     }
-    Availability { backend: None, reason: "the Linux bubblewrap/Landlock backend arrives with milestone M2; every command needs your approval".into() }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -82,10 +179,22 @@ pub enum Shell {
     Bash(PathBuf),
     /// `cmd /C` on Windows when no bash is found.
     Cmd,
+    /// PowerShell on Windows when commands run in the MXC container: Git Bash (MSYS runtime) cannot start there,
+    /// it needs a global named-object directory the container denies (S2).
+    PowerShell(PathBuf),
 }
+
+/// Prelude of sandboxed PowerShell commands: UTF-8 output, no progress noise; the epilogue passes native exit
+/// codes through.
+const PS_PRELUDE: &str = "$ProgressPreference='SilentlyContinue'; $OutputEncoding=[Console]::OutputEncoding=New-Object System.Text.UTF8Encoding $false;\n";
+const PS_EPILOGUE: &str = "\n$__agenium_ok = $?; if ($LASTEXITCODE) { exit $LASTEXITCODE } elseif (-not $__agenium_ok) { exit 1 }";
 
 impl Shell {
     pub fn detect() -> Shell {
+        #[cfg(windows)]
+        if mxc::available() {
+            return Shell::powershell();
+        }
         if cfg!(windows) {
             for cand in [
                 r"C:\Program Files\Git\bin\bash.exe",
@@ -111,10 +220,28 @@ impl Shell {
         }
     }
 
+    /// PowerShell 7 (`pwsh`) when installed, otherwise Windows PowerShell 5.1.
+    pub fn powershell() -> Shell {
+        if let Some(p) = find_program("pwsh") {
+            return Shell::PowerShell(p);
+        }
+        let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+        Shell::PowerShell(
+            PathBuf::from(root)
+                .join("System32")
+                .join("WindowsPowerShell")
+                .join("v1.0")
+                .join("powershell.exe"),
+        )
+    }
+
     pub fn describe(&self) -> String {
         match self {
             Shell::Bash(p) => format!("bash ({})", p.display()),
             Shell::Cmd => "cmd.exe".into(),
+            Shell::PowerShell(p) => {
+                format!("PowerShell ({}); write PowerShell, not bash", p.display())
+            }
         }
     }
 }
@@ -223,18 +350,9 @@ impl Executor {
     }
 
     fn command(&self, spec: &CommandSpec) -> tokio::process::Command {
-        let mut c = match &self.shell {
-            Shell::Bash(p) => {
-                let mut c = tokio::process::Command::new(p);
-                c.arg("-c").arg(&spec.command);
-                c
-            }
-            Shell::Cmd => {
-                let mut c = tokio::process::Command::new("cmd");
-                c.arg("/D").arg("/S").arg("/C").arg(&spec.command);
-                c
-            }
-        };
+        let argv = self.argv(&spec.command);
+        let mut c = tokio::process::Command::new(&argv[0]);
+        c.args(&argv[1..]);
         c.current_dir(&spec.cwd)
             .env_clear()
             .envs(clean_env(&spec.env))
@@ -256,6 +374,79 @@ impl Executor {
         c
     }
 
+    /// Shell argv of a command line.
+    pub fn argv(&self, command: &str) -> Vec<String> {
+        match &self.shell {
+            Shell::Bash(p) => vec![p.display().to_string(), "-c".into(), command.into()],
+            Shell::Cmd => vec![
+                "cmd".into(),
+                "/D".into(),
+                "/S".into(),
+                "/C".into(),
+                command.into(),
+            ],
+            Shell::PowerShell(p) => vec![
+                p.display().to_string(),
+                "-NoLogo".into(),
+                "-NoProfile".into(),
+                "-NonInteractive".into(),
+                "-ExecutionPolicy".into(),
+                "Bypass".into(),
+                "-Command".into(),
+                format!("{PS_PRELUDE}{command}{PS_EPILOGUE}"),
+            ],
+        }
+    }
+
+    /// Environment of a sandboxed command: the clean environment plus what the container and the toolchains need
+    /// (temp dir, a git config the agent may read, node without realpath of the drive root).
+    #[cfg(windows)]
+    fn mxc_env(
+        spec: &CommandSpec,
+        policy: &SandboxPolicy,
+    ) -> std::io::Result<Vec<(String, String)>> {
+        let mut env = clean_env(&spec.env);
+        for k in ["LOCALAPPDATA", "SystemDrive", "SystemRoot"] {
+            if let Ok(v) = std::env::var(k) {
+                env.retain(|name, _| !name.eq_ignore_ascii_case(k));
+                env.insert(k.to_owned(), v);
+            }
+        }
+        if let Some(t) = &policy.temp_dir {
+            std::fs::create_dir_all(t)?;
+            let gc = t.join("agent.gitconfig");
+            if !gc.is_file() {
+                std::fs::write(&gc, "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n[core]\n\tlongpaths = true\n")?;
+            }
+            env.insert("TEMP".into(), t.display().to_string());
+            env.insert("TMP".into(), t.display().to_string());
+            env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
+        }
+        env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
+        let node = env.get("NODE_OPTIONS").cloned().unwrap_or_default();
+        if !node.contains("--preserve-symlinks-main") {
+            env.insert(
+                "NODE_OPTIONS".into(),
+                format!("{node} --preserve-symlinks-main").trim().to_owned(),
+            );
+        }
+        Ok(env.into_iter().collect())
+    }
+
+    #[cfg(windows)]
+    async fn run_mxc(
+        &self,
+        spec: &CommandSpec,
+        policy: &SandboxPolicy,
+    ) -> Result<ExecOutput, ExecError> {
+        let argv = self.argv(&spec.command);
+        let env = Self::mxc_env(spec, policy)?;
+        let (cwd, policy, timeout) = (spec.cwd.clone(), policy.clone(), spec.timeout);
+        tokio::task::spawn_blocking(move || mxc::run(&argv, &cwd, &env, &policy, timeout))
+            .await
+            .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
+    }
+
     /// Runs the command (the caller has already obtained approval or verified the sandbox). On timeout the
     /// whole process tree is killed.
     pub async fn run(
@@ -272,6 +463,10 @@ impl Executor {
                 "working directory {} does not exist",
                 spec.cwd.display()
             )));
+        }
+        #[cfg(windows)]
+        if policy.mode != SandboxMode::FullAccess && detect().backend == Some(Backend::WindowsMxc) {
+            return self.run_mxc(spec, policy).await;
         }
         let start = Instant::now();
         let mut child = self.command(spec).spawn().map_err(|e| ExecError::Spawn {
@@ -500,17 +695,18 @@ mod tests {
     use super::*;
 
     fn policy(dir: &Path) -> SandboxPolicy {
-        SandboxPolicy {
-            mode: SandboxMode::WorkspaceWrite,
-            writable_roots: vec![dir.into()],
-            network: false,
-        }
+        SandboxPolicy::workspace(dir)
     }
 
     #[test]
     fn fail_closed_detection() {
         let a = detect();
-        assert!(a.backend.is_none(), "no backend before M2 on any OS");
+        // Windows: MXC when the native API works (ADR-53); Linux/macOS backends are M2.
+        if cfg!(windows) {
+            assert!(matches!(a.backend, None | Some(Backend::WindowsMxc)));
+        } else {
+            assert!(a.backend.is_none(), "no backend before M2 on Linux/macOS");
+        }
         assert!(!a.reason.is_empty());
     }
 
@@ -522,6 +718,7 @@ mod tests {
         let cmd = match ex.shell() {
             Shell::Bash(_) => "echo hello; echo oops >&2; env; exit 3",
             Shell::Cmd => "echo hello& echo oops 1>&2& set& exit /b 3",
+            Shell::PowerShell(_) => "Write-Output hello; [Console]::Error.WriteLine('oops'); Get-ChildItem env: | ForEach-Object { \"$($_.Name)=$($_.Value)\" }; exit 3",
         };
         let mut extra = BTreeMap::new();
         extra.insert("AGENIUM_RUN_ID".to_string(), "run-1".to_string());
@@ -554,6 +751,7 @@ mod tests {
         let cmd = match ex.shell() {
             Shell::Bash(_) => "sleep 30 & sleep 30; echo never",
             Shell::Cmd => "ping -n 30 127.0.0.1 > nul & echo never",
+            Shell::PowerShell(_) => "Start-Sleep -Seconds 30; Write-Output never",
         };
         let out = ex
             .run(

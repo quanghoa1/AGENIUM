@@ -20,3 +20,4 @@ ADR-52 records this fresh implementation.
 | [50](ADR-50-vector-index-scale-and-retention.md) | Vector index, 100k ANN threshold, retention |
 | [51](ADR-51-graph-memory-on-sqlite.md) | Graph memory on SQLite (Proposed) |
 | [52](ADR-52-fresh-implementation.md) | Fresh implementation; Windows verification; deviations |
+| [53](ADR-53-windows-sandbox-mxc.md) | Windows sandbox backend: MXC process containers via `mxc-sdk` (amends ADR-39) |

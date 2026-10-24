@@ -150,11 +150,7 @@ pub struct ToolCtx {
 
 impl ToolCtx {
     pub fn new(root: &Path, run: &str, gate: Arc<dyn CommandGate>) -> Self {
-        let policy = agenium_sandbox::SandboxPolicy {
-            mode: agenium_sandbox::SandboxMode::WorkspaceWrite,
-            writable_roots: vec![root.to_path_buf()],
-            network: false,
-        };
+        let policy = agenium_sandbox::SandboxPolicy::workspace(root);
         let mut env = std::collections::BTreeMap::new();
         env.insert("AGENIUM_RUN_ID".to_owned(), run.to_owned());
         Self {

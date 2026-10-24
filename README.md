@@ -13,7 +13,8 @@ its own decisions are in [`docs/adr/ADR-52-fresh-implementation.md`](docs/adr/AD
 ## Build and test
 
 Requirements: Rust stable (>= 1.89), a C/C++ compiler (bundled SQLite, sqlite-vec, zstd), git >= 2.30.
-On Windows this repository is developed with the GNU toolchain and MSYS2 gcc.
+On Windows this repository is developed with the GNU toolchain and MSYS2 gcc; `mxc-sdk`'s build script needs an
+`rc.exe`, which `.cargo/config.toml` maps to MinGW `windres` (`scripts/rc-windres.cmd`).
 
 ```sh
 cargo build --workspace
@@ -44,8 +45,10 @@ agenium agent mcp ada --server github --cred TOKEN=gh-dev --tools create_issue
 agenium agent export ada ada.agent.jsonl.zst         # import: agenium agent import <file> --project <p>
 ```
 
-Safety model in this phase: there is no OS sandbox on Windows (v1 targets Linux + macOS, ADR-39), so YOLO mode is
-refused and **every shell command an agent wants to run is shown to you for approval** (`[y]es / [a]lways / [N]o`).
+Safety model in this phase: on Windows builds where Microsoft's MXC process containers work, every agent command runs
+in a container (writes only in the ticket worktree, reads limited to toolchains, no network; PowerShell as the shell —
+ADR-53, `agenium doctor` shows it). Without a working sandbox backend YOLO mode is refused and **every shell command an
+agent wants to run is shown to you for approval** (`[y]es / [a]lways / [N]o`). Linux/macOS backends are milestone M2.
 Secrets live in an encrypted vault whose master key is in the OS keyring; they never reach agent commands, the
 databases, git or logs. Language: talk to the Lead/Solo in any language; everything below the Lead is English (ADR-40).
 

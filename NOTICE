@@ -5,4 +5,11 @@ Licensed under the Apache License, Version 2.0 (see LICENSE).
 
 Design references: OpenAI Codex (https://github.com/openai/codex, Apache-2.0) informs the sandbox, apply_patch
 format and exec design. Any code ported from Codex keeps its original header and is listed here.
-No Codex source is included at this time.
+
+Code adapted from OpenAI Codex (Copyright OpenAI, Apache License 2.0):
+- crates/agenium-sandbox/src/mxc.rs: the MXC availability probe and the shape of the container policy, adapted from
+  codex-rs/mxc-sandbox (src/availability.rs, src/policy.rs, src/windows.rs). Changes: Agenium's own policy inputs
+  (worktree, toolchain and git read roots), piped stdio with timeout instead of a re-executed helper.
+
+Third-party library: mxc-sdk (Microsoft Corporation, MIT License, https://github.com/microsoft/mxc) provides the MXC
+process containers on Windows.

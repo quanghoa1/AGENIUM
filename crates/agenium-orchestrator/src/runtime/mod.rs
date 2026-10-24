@@ -412,6 +412,8 @@ impl Runtime {
         let skills = Arc::new(self.skills(agent));
         let mut ctx = ctx;
         ctx.read_roots = skills.dirs();
+        // Skill scripts run through the shell: their folders are readable inside the sandbox too.
+        ctx.policy.read_roots.extend(skills.dirs());
         let mut work = work;
         let bindings = agenium_mcp::parse_bindings(&agent.mcp)
             .map_err(|e| OrchError::Invalid(e.to_string()))?;

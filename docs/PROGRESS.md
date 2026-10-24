@@ -70,8 +70,13 @@ Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in 
 reads, junction/symlink/UNC/long paths, TCP/UDP/DNS/localhost, persistence), 20/20 clean tree kills, valid work runs
 (git read, python, node with `--preserve-symlinks-main`, cargo), build overhead +1.7 % (+0.27 s per command), no admin.
 Codex default permissions (reads the whole disk) and the `unelevated` backend (network and detached processes escape)
-fail. Caveats: Windows build 26300 (Insider) only, external Codex binary. Proposed ADR (owner decision): Windows backend
-`codex-mxc`, fail-closed when unavailable. Not implemented yet.
+fail. Caveats: Windows build 26300 (Insider) only.
+**Implemented (ADR-53):** the owner chose to use Codex's sandbox natively, not through the Codex CLI. `agenium-sandbox`
+now has a `WindowsMxc` backend on Microsoft's `mxc-sdk` (MIT) with the probe and policy shape adapted from Codex
+(Apache-2.0, see NOTICE): every agent command runs in a container (worktree writable; platform, toolchain, git and
+skill folders readable; network denied; clean environment), shell = PowerShell (Git Bash's MSYS runtime cannot start in
+the container). All 172 workspace tests pass with commands inside MXC; the suite takes ~575 s instead of ~290 s
+(PowerShell start ~0.8 s per command). MCP stdio servers are not containerized yet.
 
 ## Real-model verification (2026-10-23, OpenCode Go subscription, `deepseek-v4.1-flash`, effort medium)
 - CLI end to end: Vietnamese chat -> English spec/plan/ticket, self-assignment -> work run (write, verify with read/grep;

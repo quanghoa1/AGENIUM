@@ -438,11 +438,7 @@ impl agenium_vcs::CheckRunner for ApprovedCheck {
             timeout: std::time::Duration::from_secs(1800),
             env: Default::default(),
         };
-        let policy = agenium_sandbox::SandboxPolicy {
-            mode: agenium_sandbox::SandboxMode::WorkspaceWrite,
-            writable_roots: vec![worktree.into()],
-            network: false,
-        };
+        let policy = agenium_sandbox::SandboxPolicy::workspace(std::path::Path::new(worktree));
         let r = match tokio::runtime::Handle::try_current() {
             Ok(h) => h.block_on(ex.run(&spec, &policy)),
             Err(_) => tokio::runtime::Runtime::new()

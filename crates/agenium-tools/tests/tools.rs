@@ -305,6 +305,7 @@ async fn shell_gate_timeout_and_truncation_with_artifact() {
     let long = match c.executor.shell() {
         agenium_sandbox::Shell::Bash(_) => "for i in $(seq 1 1000); do echo line $i; done",
         agenium_sandbox::Shell::Cmd => "for /L %i in (1,1,1000) do @echo line %i",
+        agenium_sandbox::Shell::PowerShell(_) => "1..1000 | ForEach-Object { \"line $_\" }",
     };
     let out = call(&c, "shell", json!({"command": long})).await.unwrap();
     assert!(
