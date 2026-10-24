@@ -16,8 +16,8 @@ tokio.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-# Bubblewrap through the same SDK as the Windows backend (MIT).
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+# Bubblewrap (Linux) and Seatbelt (macOS) through the same SDK as the Windows backend (MIT).
 mxc-sdk = "=1.0.0"
 
 [target.'cfg(windows)'.dependencies]

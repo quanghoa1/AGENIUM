@@ -20,7 +20,7 @@ crates/agenium-sandbox/src/
     mxc_probe.rs               <- codex-rs/mxc-sandbox/src/availability.rs
     mxc_policy.rs              <- codex-rs/mxc-sandbox/src/policy.rs, windows.rs
   mxc.rs                       Windows backend glue (toolchain roots, long paths, run loop) — Agenium's own
-  linux.rs                     Linux backend (bubblewrap through mxc-sdk) — Agenium's own
+  unix.rs                      Linux (bubblewrap) and macOS (Seatbelt) backend through mxc-sdk v1 — Agenium's own
   lib.rs                       detect() (fail-closed), SandboxPolicy, Executor, clean environment, process-tree kill
 ```
 
@@ -43,7 +43,7 @@ Rules:
    * **derived** -> port the change into the matching `codex_derived/` file (update its commit line), rebuild, run the
      sandbox tests on Windows (and the S2 matrix in `docs/spike-reports/S2/evidence/` for policy changes);
    * **reference** -> read the diff for hardening worth adopting (new denied syscalls, bwrap flags, Seatbelt deny
-     rules); adopt it in `linux.rs` / the macOS backend if it applies to Agenium's allow-list model.
+     rules); adopt it in `unix.rs` if it applies to Agenium's allow-list model.
 3. `scripts/sync-codex-sandbox.sh <ref> --update` rewrites the vendored files, `FILES.lock` and the commit line of
    `VENDOR.md`.
 4. Commit `vendor/` **alone** (`chore(vendor): codex-sandbox @ <short-hash>`), then the `codex_derived/` follow-ups in
@@ -57,7 +57,7 @@ Rules:
 |---|---|---|---|
 | Windows | MXC process container (`mxc-sdk`) | a Windows build with the process security environment API (seen on 11 build 26300) | no admin, no extra users; shell = PowerShell (MSYS/Git Bash cannot start in the container); build needs `RC_PATH` (`scripts/rc-windres.cmd`) on the GNU toolchain |
 | Linux | bubblewrap (`mxc-sdk` v1, allow-list binds) | `bwrap` + unprivileged user namespaces | verified on WSL2 Ubuntu 24.04; Ubuntu hosts may need `kernel.apparmor_restrict_unprivileged_userns=0` |
-| macOS | Seatbelt (planned, ADR-55) | `sandbox-exec` | to be verified on a macOS host |
+| macOS | Seatbelt (`mxc-sdk` v1, ADR-55) | `sandbox-exec` | experimental: compiles for macOS, not yet run on a Mac |
 
 ## 4. Design invariants (do not break)
 

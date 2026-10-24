@@ -10,10 +10,10 @@
 //! Without a backend every agent command runs through [`Executor::run`] only after the user approved it (M1-7).
 
 pub mod codex_derived;
-#[cfg(target_os = "linux")]
-pub mod linux;
 #[cfg(windows)]
 pub mod mxc;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod unix;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -66,11 +66,11 @@ pub fn toolchain_read_roots() -> Vec<PathBuf> {
     {
         mxc::toolchain_read_roots()
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
-        linux::toolchain_read_roots()
+        unix::toolchain_read_roots()
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         Vec::new()
     }
@@ -159,7 +159,7 @@ pub fn detect() -> Availability {
     }
     #[cfg(target_os = "linux")]
     {
-        if linux::available() {
+        if unix::available() {
             Availability {
                 backend: Some(Backend::Bubblewrap),
                 reason: "bubblewrap: writes only in the worktree, reads limited to system and toolchain folders, no network"
@@ -173,9 +173,27 @@ pub fn detect() -> Availability {
             }
         }
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(target_os = "macos")]
     {
-        Availability { backend: None, reason: "the macOS Seatbelt backend arrives with milestone M2; every command needs your approval".into() }
+        if unix::available() {
+            Availability {
+                backend: Some(Backend::Seatbelt),
+                reason: "Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, no network"
+                    .into(),
+            }
+        } else {
+            Availability {
+                backend: None,
+                reason: "sandbox-exec is not usable here; every command needs your approval".into(),
+            }
+        }
+    }
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    {
+        Availability {
+            backend: None,
+            reason: "no sandbox backend for this OS; every command needs your approval".into(),
+        }
     }
 }
 
@@ -453,11 +471,8 @@ impl Executor {
         Ok(env.into_iter().collect())
     }
 
-    #[cfg(target_os = "linux")]
-    async fn run_bwrap(
-        spec: &CommandSpec,
-        policy: &SandboxPolicy,
-    ) -> Result<ExecOutput, ExecError> {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    async fn run_unix(spec: &CommandSpec, policy: &SandboxPolicy) -> Result<ExecOutput, ExecError> {
         let mut env = clean_env(&spec.env);
         if let Some(t) = &policy.temp_dir {
             std::fs::create_dir_all(t)?;
@@ -470,7 +485,7 @@ impl Executor {
             policy.clone(),
             spec.timeout,
         );
-        tokio::task::spawn_blocking(move || linux::run(&command, &cwd, &env, &policy, timeout))
+        tokio::task::spawn_blocking(move || unix::run(&command, &cwd, &env, &policy, timeout))
             .await
             .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
     }
@@ -510,9 +525,14 @@ impl Executor {
         if policy.mode != SandboxMode::FullAccess && detect().backend == Some(Backend::WindowsMxc) {
             return self.run_mxc(spec, policy).await;
         }
-        #[cfg(target_os = "linux")]
-        if policy.mode != SandboxMode::FullAccess && detect().backend == Some(Backend::Bubblewrap) {
-            return Self::run_bwrap(spec, policy).await;
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if policy.mode != SandboxMode::FullAccess
+            && matches!(
+                detect().backend,
+                Some(Backend::Bubblewrap | Backend::Seatbelt)
+            )
+        {
+            return Self::run_unix(spec, policy).await;
         }
         let start = Instant::now();
         let mut child = self.command(spec).spawn().map_err(|e| ExecError::Spawn {
@@ -752,8 +772,8 @@ mod tests {
             assert!(matches!(a.backend, None | Some(Backend::WindowsMxc)));
         } else if cfg!(target_os = "linux") {
             assert!(matches!(a.backend, None | Some(Backend::Bubblewrap)));
-        } else {
-            assert!(a.backend.is_none(), "no backend before M2 on macOS");
+        } else if cfg!(target_os = "macos") {
+            assert!(matches!(a.backend, None | Some(Backend::Seatbelt)));
         }
         assert!(!a.reason.is_empty());
     }

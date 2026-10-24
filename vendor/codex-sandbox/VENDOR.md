@@ -18,6 +18,6 @@ code is written independently. Process for an upstream change: `docs/reference/S
 | `codex-rs/mxc-sandbox/src/windows.rs` (`platform_read_roots`) | `codex_derived/mxc_policy.rs` | **derived**: Windows platform folders granted read-only |
 | `codex-rs/mxc-sandbox/src/native.rs` | `crates/agenium-sandbox/src/mxc.rs` | reference: Agenium launches with piped stdio and its own timeout instead of an inherited-stdio helper |
 | `codex-rs/mxc-sandbox/src/lib.rs`, `transport.rs`, `README.md`, `Cargo.toml` | — | reference: helper re-exec transport (not used), dependency pins (`tracelogging = "=1.2.3"` for GNU linking is mirrored) |
-| `codex-rs/linux-sandbox/README.md`, `src/bwrap.rs`, `src/seccomp.rs`, `src/linux_run_main.rs` | `crates/agenium-sandbox/src/linux.rs` | reference only: Codex runs `bwrap --ro-bind / /` (whole disk readable) + seccomp; Agenium uses mxc-sdk's allow-list bubblewrap backend (ADR-54). Watch the diff for new hardening (blocked syscalls such as `io_uring`, bwrap flags) |
-| `codex-rs/sandboxing/src/seatbelt.rs`, `seatbelt_*.sbpl` | macOS backend (ADR-55, in progress) | reference: Codex's Seatbelt profiles; read the diff for new deny rules |
+| `codex-rs/linux-sandbox/README.md`, `src/bwrap.rs`, `src/seccomp.rs`, `src/linux_run_main.rs` | `crates/agenium-sandbox/src/unix.rs` | reference only: Codex runs `bwrap --ro-bind / /` (whole disk readable) + seccomp; Agenium uses mxc-sdk's allow-list bubblewrap backend (ADR-54). Watch the diff for new hardening (blocked syscalls such as `io_uring`, bwrap flags) |
+| `codex-rs/sandboxing/src/seatbelt.rs`, `seatbelt_*.sbpl` | `crates/agenium-sandbox/src/unix.rs` (macOS, ADR-55) | reference: Codex's Seatbelt profiles; read the diff for new deny rules |
 | `LICENSE`, `NOTICE` | `NOTICE` | attribution |

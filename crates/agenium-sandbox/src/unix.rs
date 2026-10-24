@@ -1,10 +1,11 @@
-//! Linux backend: bubblewrap through Microsoft's `mxc-sdk` (MIT) public `v1` API (ADR-54, spike S3).
+//! Linux and macOS backends through Microsoft's `mxc-sdk` (MIT) public `v1` API: bubblewrap on Linux (ADR-54),
+//! Seatbelt on macOS (ADR-55).
 //!
-//! Allow-list model: the writable roots are bind-mounted read-write, the system directories, toolchain roots and
-//! explicit read roots (repository `.git`, skill folders) read-only, nothing else is visible; fresh `/dev`, `/proc`
-//! and `/tmp`; a new network namespace (`--unshare-net`, loopback only) unless the policy allows the network;
-//! cleared environment; the sandbox dies with its parent. Codex's own Linux sandbox (`--ro-bind / /`, i.e. the
-//! whole disk readable) stays a reference: Agenium's policy forbids reading outside the worktree.
+//! Allow-list model: the writable roots are read-write, the system directories, toolchain roots and explicit read
+//! roots (repository `.git`, skill folders) read-only, nothing else is visible; network denied unless the policy
+//! allows it (Linux: a new network namespace; macOS: the Seatbelt profile); cleared environment; the sandbox dies
+//! with its parent. Codex's own helpers (`bwrap --ro-bind / /`, a Seatbelt profile reading everything) stay a
+//! reference (vendor/codex-sandbox): Agenium's policy forbids reading outside the worktree.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -18,25 +19,59 @@ use mxc_sdk::v1::{self, ContainerRequest, Containment, FilesystemPolicy};
 
 use crate::{ExecError, ExecOutput, SandboxMode, SandboxPolicy};
 
-/// Whether bubblewrap can create a sandbox here (user namespaces available; cached).
+#[cfg(target_os = "linux")]
+const BACKEND: &str = "bubblewrap";
+#[cfg(target_os = "macos")]
+const BACKEND: &str = "seatbelt";
+
+/// Whether the OS sandbox works here (Linux: bwrap + user namespaces; macOS: `sandbox-exec`); cached.
 pub fn available() -> bool {
     static USABLE: OnceLock<bool> = OnceLock::new();
     *USABLE.get_or_init(|| {
         v1::available_backends()
             .iter()
-            .any(|b| b.backend == "bubblewrap")
+            .any(|b| b.backend == BACKEND)
     })
 }
 
-/// System directories every process needs (loader, libraries, certificates, locale data).
+fn containment() -> Containment {
+    #[cfg(target_os = "linux")]
+    {
+        Containment::Bubblewrap
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // No GUI, no keychain, no nested PTYs.
+        Containment::Seatbelt(mxc_sdk::v1::configs::SeatbeltConfig::default())
+    }
+}
+
+/// System directories every process needs (loader, libraries, certificates, locale data; on macOS the system
+/// frameworks, the command line tools and Homebrew).
 pub fn platform_read_roots() -> Vec<PathBuf> {
-    [
+    #[cfg(target_os = "linux")]
+    let roots: &[&str] = &[
         "/usr", "/bin", "/sbin", "/lib", "/lib64", "/lib32", "/etc", "/opt",
-    ]
-    .iter()
-    .map(PathBuf::from)
-    .filter(|p| p.exists())
-    .collect()
+    ];
+    #[cfg(target_os = "macos")]
+    let roots: &[&str] = &[
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/System",
+        "/Library/Developer/CommandLineTools",
+        "/Applications/Xcode.app",
+        "/opt/homebrew",
+        "/usr/local",
+        "/private/etc",
+        "/etc",
+        "/private/var/db/timezone",
+    ];
+    roots
+        .iter()
+        .map(PathBuf::from)
+        .filter(|p| p.exists())
+        .collect()
 }
 
 /// Toolchains on PATH outside the system directories (e.g. `~/.cargo/bin` -> Cargo's `bin`, `registry`, `git`;
@@ -139,7 +174,7 @@ pub fn request(
             }),
             ..Default::default()
         }),
-        containment: Containment::Bubblewrap,
+        containment: containment(),
         working_directory: Some(
             std::fs::canonicalize(cwd)
                 .unwrap_or(cwd.to_path_buf())
@@ -172,7 +207,7 @@ pub fn run(
     let mut child =
         v1::spawn(request(command, cwd, env, policy), Default::default()).map_err(|e| {
             ExecError::Spawn {
-                program: "bwrap".into(),
+                program: BACKEND.into(),
                 source: std::io::Error::other(e.to_string()),
             }
         })?;
