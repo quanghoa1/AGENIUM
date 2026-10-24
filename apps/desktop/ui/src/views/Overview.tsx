@@ -4,9 +4,8 @@ import { AgentStatusBadge, Avatar, Empty, Metric, Mono, OutcomeBadge, PageHeader
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { Overview } from "../lib/types";
-import { CountingNumber } from "@animate-ui/react/primitives/texts/counting-number";
 import { AnimatePresence } from "motion/react";
-import { ListItem, ProgressBar } from "../components/motion";
+import { CountUp, ListItem, ProgressBar } from "../components/motion";
 import { CommandRow, NeedRow, needKey } from "./Needs";
 
 export function OverviewView() {
@@ -32,9 +31,9 @@ export function OverviewView() {
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Metric label={app.t("overview.agents")} value={<CountingNumber number={o.agents.length} />} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} ${app.t("overview.blocked")}` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
-        <Metric label={app.t("overview.live")} value={<CountingNumber number={o.live_runs.length} />} tone="blue" onClick={() => app.go("runs")} />
-        <Metric label={app.t("overview.needs")} value={<CountingNumber number={needCount} />} tone={needCount ? "amber" : "emerald"} onClick={() => app.go("needs")} />
+        <Metric label={app.t("overview.agents")} value={<CountUp value={o.agents.length} />} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} ${app.t("overview.blocked")}` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
+        <Metric label={app.t("overview.live")} value={<CountUp value={o.live_runs.length} />} tone="blue" onClick={() => app.go("runs")} />
+        <Metric label={app.t("overview.needs")} value={<CountUp value={needCount} />} tone={needCount ? "amber" : "emerald"} onClick={() => app.go("needs")} />
         <Metric label={app.t("overview.tokens")} value={tokens(o.usage_today.tokens_in + o.usage_today.tokens_out)} sub={`${o.runs_today} runs`} />
         <Metric label={app.t("overview.cost")} value={`$${o.usage_today.estimated_cost_usd.toFixed(3)}`} sub={app.t("overview.costNote")} />
       </div>

@@ -2,8 +2,8 @@ import { ArrowRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, type View } from "../lib/store";
-import { spring, useTempoTransition } from "@animate-ui/react/utils/motion";
 import { motion } from "motion/react";
+import { spring } from "./motion";
 import type { AgentEntry, Card } from "../lib/types";
 import { cn } from "./ui";
 
@@ -17,8 +17,8 @@ interface Hit {
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const app = useApp();
   const [q, setQ] = useState("");
-  // The selected result's background glides with the arrow keys (palette recipe, spring.highlight).
-  const highlight = useTempoTransition(spring.highlight);
+  // The selected result's background glides with the arrow keys.
+  const highlight = spring.highlight;
   const [sel, setSel] = useState(0);
   const [cards, setCards] = useState<Card[]>([]);
   const [agents, setAgents] = useState<AgentEntry[]>([]);

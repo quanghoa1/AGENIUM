@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ReducedMotionConfig } from "@animate-ui/react/utils/motion";
+import { MotionConfig } from "motion/react";
 import { PageEnter } from "./components/motion";
 import { Shell } from "./components/Shell";
 import "./index.css";
@@ -67,10 +67,10 @@ function Router() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppProvider>
-      {/* Under the OS "reduce motion" setting, fades and blurs stay and movement goes (animate-ui rules). */}
-      <ReducedMotionConfig>
+      {/* Under the OS "reduce motion" setting, fades and blurs stay and movement goes. */}
+      <MotionConfig reducedMotion="user">
         <Router />
-      </ReducedMotionConfig>
+      </MotionConfig>
     </AppProvider>
   </StrictMode>,
 );

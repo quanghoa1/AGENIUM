@@ -26,10 +26,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
 import { inTauri, useApp, type View } from "../lib/store";
-import { spring, useTempoTransition } from "@animate-ui/react/utils/motion";
 import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
-import { CountBadge, Overlay, Segmented, Toast } from "./motion";
+import { CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
 import { cn } from "./ui";
 
 interface NavItem {
@@ -44,7 +43,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const app = useApp();
   const { t, route, go } = app;
   const [collapsed, setCollapsed] = useState(false);
-  const glide = useTempoTransition(spring.selection);
+  const glide = spring.selection;
   const [palette, setPalette] = useState(false);
   const current = app.projects.find((p) => p.id === app.project);
   const needs = app.projects.reduce((n, p) => n + p.needs_you, 0) + app.approvals.length;
@@ -142,7 +141,7 @@ export function Shell({ children }: { children: ReactNode }) {
                     )}
                   >
                     {active(it.id) && (
-                      // The selection glides from item to item (animate-ui indicator recipe).
+                      // The selection glides from item to item.
                       <motion.span layoutId="nav-active" transition={glide} className="absolute inset-0 rounded-lg border border-blue-500/30 bg-blue-600/15" />
                     )}
                     <span className="relative z-10 flex items-center gap-2.5">

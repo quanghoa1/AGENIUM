@@ -40,7 +40,7 @@ body {
   font-size: 13px;
 }
 
-/* Press feedback (animate-ui press/card recipes): 0.97 for controls, 0.985 for cards and rows, on ease.out; hover
+/* Press feedback: 0.97 for controls, 0.985 for cards and rows, on ease.out; hover
    changes colour, border or shadow only. Under reduced motion nothing scales. */
 .press,
 .btn,

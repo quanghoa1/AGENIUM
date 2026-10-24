@@ -19,6 +19,6 @@ the UI answers from demo data (`ui/src/lib/demo.ts`).
 
 ## Motion
 
-Animations follow the animate-ui skill (https://github.com/imskyleen/animate-ui, `skills/animate-ui`): values from
-`@animate-ui/react`'s motion tokens, `motion` for the animations, subtle level, everything inside
-`ReducedMotionConfig`. Shared pieces live in `ui/src/components/motion.tsx`.
+`motion` for the animations, a subtle level, everything inside `MotionConfig reducedMotion="user"`. The rules were
+learned from the animate-ui skill (https://github.com/imskyleen/animate-ui); no code or package from it is used. Our
+tokens (springs, timings) and shared pieces live in `ui/src/components/motion.tsx`.

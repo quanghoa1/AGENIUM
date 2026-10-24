@@ -1,29 +1,58 @@
-// Motion for the app, following the animate-ui skill (subtle level, an "alive" feel): every value comes from
-// @animate-ui/react's tokens, paced by AnimateUIProvider's tempo, and everything sits inside ReducedMotionConfig
-// (under reduced motion fades and blurs stay, movement goes).
-import { SlidingNumber } from "@animate-ui/react/primitives/texts/sliding-number";
-import {
-  blur,
-  shift,
-  spring,
-  transition as motionTransition,
-  useShouldReduceMotion,
-  useTempoTransition,
-} from "@animate-ui/react/utils/motion";
-import { AnimatePresence, motion, useAnimate } from "motion/react";
+// Motion for the app: a subtle level with an "alive" feel. The rules (learned from the animate-ui skill, no code taken
+// from it): one set of tokens below for every animation; transforms and opacity only; selections glide, lists close
+// their gaps, numbers roll; the whole app sits inside MotionConfig reducedMotion="user" (under the OS "reduce motion"
+// setting fades and blurs stay, movement goes).
+import { AnimatePresence, animate, motion, useAnimate, useMotionValue, useReducedMotion, useTransform, type Transition } from "motion/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "./ui";
 
-/** A route's content arriving (page recipe by hand): fade on `transition.reveal`, a few pixels up on
- *  `spring.entrance`, out of `blur.icon`. Keyed by the route so each navigation plays it. */
+/** Springs, by job. Higher stiffness = quicker; damping close to critical = no visible overshoot. */
+export const spring = {
+  /** A route's content settling. */
+  entrance: { type: "spring", stiffness: 260, damping: 30, mass: 1 },
+  /** A selection surface gliding between items (sidebar, tabs). */
+  selection: { type: "spring", stiffness: 420, damping: 36 },
+  /** A highlight following the keyboard (palette results). */
+  highlight: { type: "spring", stiffness: 560, damping: 40 },
+  /** List items moving into a closed gap. */
+  reflow: { type: "spring", stiffness: 380, damping: 34 },
+  /** A small bump when a count grows. */
+  bump: { type: "spring", stiffness: 600, damping: 14 },
+  /** A toast arriving. */
+  toast: { type: "spring", stiffness: 340, damping: 28 },
+  /** A dialog tipping up into place. */
+  dialog: { type: "spring", stiffness: 300, damping: 26 },
+  /** A progress bar growing (no overshoot). */
+  progress: { type: "spring", stiffness: 140, damping: 26, bounce: 0 },
+} satisfies Record<string, Transition>;
+
+const easeOut = [0.22, 1, 0.36, 1] as const;
+const easeIn = [0.55, 0, 1, 0.45] as const;
+
+/** Timed transitions: short leaves, slightly longer arrivals. */
+export const tx = {
+  reveal: { duration: 0.32, ease: easeOut },
+  fade: { duration: 0.18, ease: easeOut },
+  panelOut: { duration: 0.12, ease: easeIn },
+  panelIn: { duration: 0.24, ease: easeOut },
+  menu: { duration: 0.16, ease: easeOut },
+  dialogFade: { duration: 0.2, ease: easeOut },
+  dismiss: { duration: 0.14, ease: easeIn },
+  count: { duration: 0.9, ease: easeOut },
+} satisfies Record<string, Transition>;
+
+const blur = { soft: "blur(2px)", surface: "blur(4px)", panel: "blur(5px)" };
+/** Pixels a tab panel slides by, in the direction of the tab change. */
+const tabShift = 12;
+
+/** A route's content arriving: fades in, rises a few pixels, out of a slight blur. Keyed by the route so each
+ *  navigation plays it. */
 export function PageEnter({ id, children }: { id: string; children: ReactNode }) {
-  const reveal = useTempoTransition(motionTransition.reveal);
-  const rise = useTempoTransition(spring.entrance);
   return (
     <motion.div
       key={id}
-      initial={{ opacity: 0, y: 8, filter: blur.icon }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { ...rise, opacity: reveal, filter: reveal } }}
+      initial={{ opacity: 0, y: 8, filter: blur.soft }}
+      animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { ...spring.entrance, opacity: tx.reveal, filter: tx.reveal } }}
       className="h-full"
     >
       {children}
@@ -31,8 +60,7 @@ export function PageEnter({ id, children }: { id: string; children: ReactNode })
   );
 }
 
-/** Segmented control / tabs with one surface gliding between items (indicator recipe: `layoutId` on
- *  `spring.selection`, labels above it). */
+/** Segmented control / tabs with one surface gliding between items (`layoutId`, labels above it). */
 export function Segmented<T extends string>({
   id,
   value,
@@ -48,7 +76,6 @@ export function Segmented<T extends string>({
   className?: string;
   itemClassName?: string;
 }) {
-  const glide = useTempoTransition(spring.selection);
   return (
     <div className={cn("flex rounded-lg border border-line-strong bg-elevated p-0.5 text-xs", className)} role="tablist">
       {items.map((it) => {
@@ -62,7 +89,7 @@ export function Segmented<T extends string>({
             className={cn("relative rounded-md px-3 py-1 transition-colors duration-200", on ? "font-medium text-fg" : "text-subtle hover:text-fg", itemClassName)}
             style={{ transitionTimingFunction: "ease" }}
           >
-            {on && <motion.span layoutId={`seg-${id}`} className="absolute inset-0 rounded-md bg-surface shadow-sm" transition={glide} />}
+            {on && <motion.span layoutId={`seg-${id}`} className="absolute inset-0 rounded-md bg-surface shadow-sm" transition={spring.selection} />}
             <span className="relative z-10 inline-flex items-center gap-1">{it.label}</span>
           </button>
         );
@@ -71,20 +98,17 @@ export function Segmented<T extends string>({
   );
 }
 
-/** Panels taking turns (tabs recipe, simplified): the leaving one fades into `blur.panel` on `transition.panelOut`,
- *  then the next comes in from it on `transition.panelIn`, sliding `shift.tabs` by direction. */
+/** Panels taking turns: the leaving one fades into a blur, then the next comes in from it, sliding by direction. */
 export function PanelSwap({ id, dir = 1, children }: { id: string; dir?: number; children: ReactNode }) {
-  const out = useTempoTransition(motionTransition.panelOut);
-  const inn = useTempoTransition(motionTransition.panelIn);
-  const reduce = useShouldReduceMotion();
-  const d = reduce ? 0 : shift.tabs * dir;
+  const reduce = useReducedMotion();
+  const d = reduce ? 0 : tabShift * dir;
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={id}
         initial={{ opacity: 0, x: d, filter: blur.panel }}
-        animate={{ opacity: 1, x: 0, filter: "blur(0px)", transition: inn }}
-        exit={{ opacity: 0, x: -d, filter: blur.panel, transition: out }}
+        animate={{ opacity: 1, x: 0, filter: "blur(0px)", transition: tx.panelIn }}
+        exit={{ opacity: 0, x: -d, filter: blur.panel, transition: tx.panelOut }}
       >
         {children}
       </motion.div>
@@ -92,20 +116,18 @@ export function PanelSwap({ id, dir = 1, children }: { id: string; dir?: number;
   );
 }
 
-/** Items of a list arriving, leaving and the gap closing (list interaction): `layout="position"` on
- *  `spring.reflow`, in from 8px below, out at once on `transition.fade`. */
+/** Items of a list arriving, leaving and the gap closing: `layout="position"` on the reflow spring, in from 8px
+ *  below, out at once with a fade. */
 export function ListItem({ id, children, className, as = "div" }: { id: string; children: ReactNode; className?: string; as?: "div" | "li" }) {
-  const move = useTempoTransition(spring.reflow);
-  const fade = useTempoTransition(motionTransition.fade);
   const M = as === "li" ? motion.li : motion.div;
   return (
     <M
       key={id}
       layout="position"
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0, transition: { ...move, opacity: fade } }}
-      exit={{ opacity: 0, scale: 0.96, transition: fade }}
-      transition={move}
+      animate={{ opacity: 1, y: 0, transition: { ...spring.reflow, opacity: tx.fade } }}
+      exit={{ opacity: 0, scale: 0.96, transition: tx.fade }}
+      transition={spring.reflow}
       className={className}
     >
       {children}
@@ -113,30 +135,68 @@ export function ListItem({ id, children, className, as = "div" }: { id: string; 
   );
 }
 
-/** A count in a badge: the digits roll (Sliding Number) and the badge bumps when it grows (count-badge
- *  interaction, `spring.bounce`). */
-export function CountBadge({ count, className }: { count: number; className?: string }) {
-  const [scope, animate] = useAnimate<HTMLSpanElement>();
-  const reduce = useShouldReduceMotion();
-  const bump = useTempoTransition(spring.bounce);
-  const previous = useRef(count);
-  useEffect(() => {
-    const grew = count > previous.current;
-    previous.current = count;
-    if (grew && !reduce && scope.current) animate(scope.current, { scale: [1.15, 1] }, bump);
-  }, [count, reduce, animate, scope, bump]);
+/** One digit as a column 0–9 that rolls to its value. */
+function Digit({ d }: { d: number }) {
   return (
-    <span ref={scope} aria-label={String(count)} className={cn("inline-flex justify-center tabular-nums", className)}>
-      <SlidingNumber number={count} />
+    <span className="relative inline-block h-[1em] overflow-hidden leading-none" style={{ width: "1ch" }}>
+      <motion.span className="absolute inset-x-0 top-0 flex flex-col" initial={false} animate={{ y: `${-d}em` }} transition={spring.reflow}>
+        {Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className="h-[1em] leading-none">
+            {i}
+          </span>
+        ))}
+      </motion.span>
     </span>
   );
 }
 
-/** Toast rising from the bottom edge (toast recipe): `spring.toast` from `scale.toast` out of `blur.surface`,
- *  leaving on `transition.dismiss`. */
+/** A whole number whose digits roll to the new value (keyed from the right so the units column stays put). */
+export function RollingNumber({ value }: { value: number }) {
+  const digits = String(Math.max(0, Math.round(value))).split("").map(Number);
+  return (
+    <span className="inline-flex tabular-nums" aria-hidden>
+      {digits.map((d, i) => (
+        <Digit key={digits.length - i} d={d} />
+      ))}
+    </span>
+  );
+}
+
+/** A count in a badge: the digits roll and the badge bumps when it grows. */
+export function CountBadge({ count, className }: { count: number; className?: string }) {
+  const [scope, run] = useAnimate<HTMLSpanElement>();
+  const reduce = useReducedMotion();
+  const previous = useRef(count);
+  useEffect(() => {
+    const grew = count > previous.current;
+    previous.current = count;
+    if (grew && !reduce && scope.current) run(scope.current, { scale: [1.15, 1] }, spring.bump);
+  }, [count, reduce, run, scope]);
+  return (
+    <span ref={scope} aria-label={String(count)} className={cn("inline-flex justify-center tabular-nums", className)}>
+      <RollingNumber value={count} />
+    </span>
+  );
+}
+
+/** A number counting from its previous value (0 at first) up or down to the new one. */
+export function CountUp({ value }: { value: number }) {
+  const reduce = useReducedMotion();
+  const mv = useMotionValue(reduce ? value : 0);
+  const text = useTransform(mv, (v) => String(Math.round(v)));
+  useEffect(() => {
+    if (reduce) {
+      mv.set(value);
+      return;
+    }
+    const c = animate(mv, value, tx.count);
+    return () => c.stop();
+  }, [value, reduce, mv]);
+  return <motion.span className="tabular-nums">{text}</motion.span>;
+}
+
+/** Toast rising from the bottom edge, out of a blur; leaving with a short fade. */
 export function Toast({ message }: { message: string | null }) {
-  const enter = useTempoTransition(spring.toast);
-  const leave = useTempoTransition(motionTransition.dismiss);
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-50" aria-live="polite">
       <AnimatePresence initial={false}>
@@ -144,8 +204,8 @@ export function Toast({ message }: { message: string | null }) {
           <motion.div
             key={message}
             initial={{ opacity: 0, y: "100%", scale: 0.96, filter: blur.surface }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transition: enter }}
-            exit={{ opacity: 0, scale: 0.96, filter: blur.surface, transition: leave }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transition: spring.toast }}
+            exit={{ opacity: 0, scale: 0.96, filter: blur.surface, transition: tx.dismiss }}
             style={{ originY: 1 }}
             className="pointer-events-auto max-w-sm rounded-xl border border-line-strong bg-surface px-4 py-3 text-xs shadow-xl"
           >
@@ -157,8 +217,7 @@ export function Toast({ message }: { message: string | null }) {
   );
 }
 
-/** Centered overlays (palette recipe for the command palette, modal recipe's calm spring for dialogs): the
- *  backdrop fades, the panel grows from `scale.menu` (palette) or tips up on `spring.dialog` (modal). */
+/** Centered overlays: the backdrop fades; the command palette grows from 0.9, a dialog tips up into place. */
 export function Overlay({
   open,
   onClose,
@@ -172,11 +231,7 @@ export function Overlay({
   children: ReactNode;
   top?: string;
 }) {
-  const menu = useTempoTransition(motionTransition.menu);
-  const dialog = useTempoTransition(spring.dialog);
-  const fade = useTempoTransition(motionTransition.dialogFade);
-  const dismiss = useTempoTransition(motionTransition.dismiss);
-  const reduce = useShouldReduceMotion();
+  const reduce = useReducedMotion();
   const tipped = reduce ? "perspective(500px) rotateX(0deg) scale(1)" : "perspective(500px) rotateX(-20deg) scale(0.8)";
   return (
     <AnimatePresence>
@@ -185,15 +240,15 @@ export function Overlay({
           key="backdrop"
           className={cn("fixed inset-0 z-50 flex items-start justify-center bg-black/40", top)}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: kind === "palette" ? menu : fade }}
-          exit={{ opacity: 0, transition: kind === "palette" ? menu : dismiss }}
+          animate={{ opacity: 1, transition: kind === "palette" ? tx.menu : tx.dialogFade }}
+          exit={{ opacity: 0, transition: kind === "palette" ? tx.menu : tx.dismiss }}
           onClick={onClose}
         >
           {kind === "palette" ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1, transition: menu }}
-              exit={{ opacity: 0, scale: 0.9, transition: menu }}
+              animate={{ opacity: 1, scale: 1, transition: tx.menu }}
+              exit={{ opacity: 0, scale: 0.9, transition: tx.menu }}
               onClick={(e) => e.stopPropagation()}
             >
               {children}
@@ -201,8 +256,13 @@ export function Overlay({
           ) : (
             <motion.div
               initial={{ opacity: 0, filter: blur.surface, transform: tipped }}
-              animate={{ opacity: 1, filter: "blur(0px)", transform: "perspective(500px) rotateX(0deg) scale(1)", transition: { ...dialog, opacity: fade, filter: fade } }}
-              exit={{ opacity: 0, filter: blur.surface, transform: tipped, transition: dismiss }}
+              animate={{
+                opacity: 1,
+                filter: "blur(0px)",
+                transform: "perspective(500px) rotateX(0deg) scale(1)",
+                transition: { ...spring.dialog, opacity: tx.dialogFade, filter: tx.dialogFade },
+              }}
+              exit={{ opacity: 0, filter: blur.surface, transform: tipped, transition: tx.dismiss }}
               onClick={(e) => e.stopPropagation()}
             >
               {children}
@@ -214,7 +274,7 @@ export function Overlay({
   );
 }
 
-/** A confirm dialog on the modal recipe. Keeps showing its last content while it leaves. */
+/** A confirm dialog. Keeps showing its last content while it leaves. */
 export function Modal({ open, title, onClose, children }: { open: boolean; title: ReactNode; onClose: () => void; children: ReactNode }) {
   return (
     <Overlay open={open} onClose={onClose} kind="dialog">
@@ -226,15 +286,14 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
   );
 }
 
-/** A progress bar growing to its value on `spring.progress` (no overshoot). Transform only: scaleX from the left. */
+/** A progress bar growing to its value (no overshoot). Transform only: scaleX from the left. */
 export function ProgressBar({ value, className }: { value: number; className?: string }) {
-  const grow = useTempoTransition(spring.progress);
   return (
     <motion.div
       className={cn("h-full origin-left bg-emerald-500", className)}
       initial={{ scaleX: 0 }}
       animate={{ scaleX: Math.max(0, Math.min(1, value)) }}
-      transition={grow}
+      transition={spring.progress}
     />
   );
 }

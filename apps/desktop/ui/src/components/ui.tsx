@@ -172,7 +172,7 @@ export function Metric({ label, value, sub, tone = "neutral", onClick }: { label
     emerald: "text-emerald-600 dark:text-emerald-400",
   }[tone];
   return (
-    <button onClick={onClick} disabled={!onClick} className="card p-4 text-left transition-colors enabled:hover:border-accent/40">
+    <button onClick={onClick} disabled={!onClick} className="card flex flex-col justify-start p-4 text-left transition-colors enabled:hover:border-accent/40">
       <div className="label">{label}</div>
       <div className={cn("mt-2 font-mono text-2xl font-semibold", toneCls)}>{value}</div>
       {sub && <div className="mt-1 text-[11px] text-muted">{sub}</div>}
