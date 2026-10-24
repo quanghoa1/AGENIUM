@@ -329,3 +329,114 @@ fn permissions_lead_inside_allowlist_user_outside_and_always_allow() {
         "run-scoped grants revoked"
     );
 }
+
+#[test]
+fn lead_inbox_order_sla_and_escalation() {
+    let t = team();
+    planned(&t);
+    let f = &t.f;
+    let (lead, web) = (Actor::Lead(t.lead), Actor::Worker(t.web));
+    let k = started(f, t.web, "PI-1", "Needs answers", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    // A fresh intent id per call (the same id would replay the first result).
+    let wctx = || CallCtx {
+        run: Some(run.run),
+        ..ctx(f, web)
+    };
+    let ask = |blocking: bool, text: &str| -> CommentId {
+        let out = f
+            .app
+            .apply(
+                &wctx(),
+                Intent::AskQuestion(Question {
+                    ticket_id: k.clone(),
+                    category: QuestionCategory::Requirement,
+                    question: text.into(),
+                    context: String::new(),
+                    options: vec![],
+                    recommendation: None,
+                    blocking,
+                    urgency: Urgency::High,
+                }),
+            )
+            .unwrap();
+        serde_json::from_value(out.result["comment_id"].clone()).unwrap()
+    };
+    ask(false, "Should the page be dark by default?");
+    let blocking = ask(true, "Which port does the dev server use?");
+    f.app
+        .apply(
+            &wctx(),
+            Intent::RequestPermission(PermissionRequest {
+                ticket_id: k.clone(),
+                kind: PermissionKind::Network,
+                command: Some("cargo add oauth2".into()),
+                domains: vec!["crates.io".into()],
+                paths: vec![],
+                reason: "cargo add oauth2".into(),
+            }),
+        )
+        .unwrap();
+    // Most urgent first; PI-2 of the approved plan has no ticket yet.
+    let kinds: Vec<_> = f
+        .app
+        .lead_inbox(f.project.id)
+        .unwrap()
+        .into_iter()
+        .map(|i| i.kind)
+        .collect();
+    use agenium_orchestrator::inbox::InboxKind as K;
+    assert_eq!(
+        kinds,
+        [K::BlockingQuestion, K::Permission, K::Plan, K::Question]
+    );
+
+    // SLA: once, only for blocking questions, only after the configured minutes (default 10).
+    let now = chrono::Utc::now();
+    assert_eq!(f.app.check_sla(f.project.id, now).unwrap(), 0);
+    let later = now + chrono::Duration::minutes(11);
+    assert_eq!(f.app.check_sla(f.project.id, later).unwrap(), 1);
+    assert_eq!(
+        f.app.check_sla(f.project.id, later).unwrap(),
+        0,
+        "noted once"
+    );
+    let cs = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::comments::for_ticket(c, ticket(f, k.as_str()).id))
+        .unwrap();
+    assert!(cs
+        .iter()
+        .any(|c| c.reply_to == Some(blocking) && c.kind == CommentKind::System));
+
+    // The Lead escalates: the question stays open for the user and leaves the inbox; the user answers it.
+    let esc = |actor: Actor| {
+        f.app.apply(
+            &ctx(f, actor),
+            Intent::AnswerQuestion(AnswerQuestion {
+                ticket_id: k.clone(),
+                reply_to: blocking,
+                answer: "Only you know the deployment port.".into(),
+                chosen_option: None,
+                escalate: true,
+            }),
+        )
+    };
+    assert!(esc(Actor::User).is_err(), "the user answers, not escalates");
+    assert_eq!(esc(lead).unwrap().result["escalated"], true);
+    let kinds: Vec<_> = f
+        .app
+        .lead_inbox(f.project.id)
+        .unwrap()
+        .into_iter()
+        .map(|i| i.kind)
+        .collect();
+    assert_eq!(kinds, [K::Permission, K::Plan, K::Question]);
+    assert_eq!(ticket(f, k.as_str()).status, TicketStatus::Pending);
+    f.app
+        .user_answer(f.project.id, &k, blocking, "8080", None)
+        .unwrap();
+    // Still Pending: the permission request is blocking too.
+    assert_eq!(ticket(f, k.as_str()).status, TicketStatus::Pending);
+}

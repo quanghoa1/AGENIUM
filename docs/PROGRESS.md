@@ -92,6 +92,13 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | M3-5 Kanban, ticket view, audit trail | DONE headless: `App::board` (columns, blockers, open questions, flags), `ticket show`, `App::audit` = committed events (actor by name, originating intent) + refused protocol calls from the run logs; export `ticket audit --format md|jsonl --out`. **500 tickets: board in ~7 ms** (debug). UI = later | `orchestrator/tests/views.rs` |
 | Review in one run (approval reports the real merge result + next step; review runs nudged; failed git ops replayed every round) | DONE: claude haiku 5/5 with 2 runs per task (was 3) | `quality/eval/results/20261024T090226Z-cli-claude-haiku.json`, `runtime.rs` nudge regression, `reconcile.rs::failed_merge_is_retried_without_a_restart` |
 
+### M4 — Team mode: IN PROGRESS ([ADR-57](adr/ADR-57-team-mode-lead-inbox.md))
+| Item | Status | Evidence |
+|---|---|---|
+| Lead inbox (blocking questions, permissions inside the allowlist, plan items without tickets, tickets without a usable worker, non-blocking questions) + Lead inbox run each round | DONE | `orchestrator/src/inbox.rs`, `team.rs::lead_inbox_order_sla_and_escalation`; CLI `agenium inbox` |
+| SLA of blocking questions -> System comment + NeedsUser (once); Lead escalation (`answer_question.escalate`) | DONE | same test |
+| Team end to end: approved plan -> Lead creates/assigns tickets -> worker question answered by the Lead -> dependent ticket starts after approve + merge -> both closed | DONE (scripted model) | `runtime.rs::team_lead_inbox_takes_a_plan_to_closed_tickets` |
+
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
 0.163 `codex sandbox` with the MXC backend and an Agenium permission profile: 0 escapes in the attack matrix (writes,

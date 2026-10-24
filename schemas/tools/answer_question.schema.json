@@ -17,6 +17,11 @@
         "null"
       ]
     },
+    "escalate": {
+      "default": false,
+      "description": "true: do not answer; the question goes to the user with `answer` as your note.",
+      "type": "boolean"
+    },
     "reply_to": {
       "description": "Id of the Question comment.",
       "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",

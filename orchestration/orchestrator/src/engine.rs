@@ -261,7 +261,7 @@ fn domain_allowed(domain: &str, list: &[String]) -> bool {
 }
 
 /// Whether a permission request is inside the project allowlist (then the Lead may approve it for the run).
-pub fn in_allowlist(req: &PermissionRequest, list: &[String]) -> bool {
+pub(crate) fn in_allowlist(req: &PermissionRequest, list: &[String]) -> bool {
     match req.kind {
         PermissionKind::Network => {
             !req.domains.is_empty() && req.domains.iter().all(|d| domain_allowed(d, list))
@@ -714,6 +714,15 @@ impl App {
                     ));
                 }
             }
+            if a.escalate {
+                // The Lead hands the question to the user; it stays open (the user answers it) and leaves the inbox.
+                let Actor::Lead(lead) = ctx.actor else {
+                    return Err(invalid("only the Lead escalates a question; answer it instead"));
+                };
+                let note = add_comment(w, &t, Author::Agent(lead), Some(q.id), CommentBody::Text { text: format!("Escalated to the user: {}", a.answer.trim()) })?;
+                w.emit(DomainEvent::NeedsUser { ticket: Some(t.id), reason: format!("{}: the Lead escalated a question to you", t.key) })?;
+                return Ok(Outcome::ok(serde_json::json!({ "comment_id": note.id, "escalated": true, "ticket_status": t.status })));
+            }
             let ans = add_comment(
                 w,
                 &t,
@@ -853,6 +862,7 @@ impl App {
                 reply_to: question,
                 answer: answer.to_owned(),
                 chosen_option,
+                escalate: false,
             },
         )
     }

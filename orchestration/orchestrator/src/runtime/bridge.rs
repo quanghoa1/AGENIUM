@@ -136,6 +136,8 @@ pub enum RunKind {
     Work,
     Review,
     Chat,
+    /// Lead run on its inbox (team mode): ends once the inbox is empty.
+    Inbox,
 }
 
 /// Routes protocol tool calls of one run to the intent engine.
@@ -229,6 +231,15 @@ impl Protocol for RunProtocol {
             RunEffect::End => Effect::End,
             RunEffect::Park => Effect::Park,
         };
+        if self.kind == RunKind::Inbox
+            && effect == Effect::Continue
+            && self
+                .app
+                .lead_inbox(self.project)
+                .is_ok_and(|i| i.is_empty())
+        {
+            effect = Effect::End;
+        }
         if self.kind == RunKind::Review && effect == Effect::Continue {
             if let Some(k) = &self.ticket {
                 if let Ok(t) = self.app.ticket(self.project, k) {

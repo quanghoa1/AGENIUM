@@ -36,6 +36,17 @@ use bridge::{RunGate, RunObserver, RunProtocol};
 /// Text-only answers in a review run: the review ends with a decision, then the close.
 const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_ticket (Approve, or Reopen with feedback per unmet acceptance criterion). Once an approved ticket is merged, or has no code, call close_ticket with a reason. Stop only when a tool result tells you to.";
 
+/// Text-only answers in a Lead inbox run.
+const INBOX_NUDGE: &str = "Text alone does not handle the inbox. Use answer_question (or escalate it), approve_permission, create_ticket and assign_ticket until every item is handled; the run ends when the inbox is empty.";
+
+fn nudge_for(kind: RunKind) -> Option<String> {
+    match kind {
+        RunKind::Review => Some(REVIEW_NUDGE.to_owned()),
+        RunKind::Inbox => Some(INBOX_NUDGE.to_owned()),
+        RunKind::Work | RunKind::Chat => None,
+    }
+}
+
 /// Supplies providers by id (from `config.toml` + the secret store, or injected in tests/evals).
 pub trait ProviderSource: Send + Sync {
     fn provider(&self, id: &str) -> Result<Arc<dyn Provider>>;
@@ -147,6 +158,9 @@ pub struct Runtime {
     pub mcp: Arc<agenium_mcp::McpHub>,
     /// What each (provider, model) can do, looked up once (ADR-31).
     model_infos: Mutex<std::collections::HashMap<(String, String), Option<agenium_llm::ModelInfo>>>,
+    /// Per project: the inbox the Lead last failed on and how many times in a row (stops re-running a Lead that
+    /// cannot handle the same inbox).
+    inbox_failures: Mutex<std::collections::HashMap<ProjectId, (String, usize)>>,
 }
 
 /// `info` with the hand-set capabilities of the provider's configuration applied (they win, ADR-31).
@@ -193,6 +207,7 @@ impl Runtime {
         ));
         Self {
             model_infos: Mutex::default(),
+            inbox_failures: Mutex::default(),
             mcp,
             app,
             providers,
@@ -583,7 +598,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             observer: &observer,
             cancel: self.cancel.clone(),
             chat: kind == RunKind::Chat,
-            nudge: (kind == RunKind::Review).then(|| REVIEW_NUDGE.to_owned()),
+            nudge: nudge_for(kind),
         };
         let report = r.run(&order).await;
         let cost = self.cost(provider.as_ref(), &report.model, &report.usage);
@@ -718,7 +733,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 ),
             },
             chat: kind == RunKind::Chat,
-            nudge: (kind == RunKind::Review).then(|| REVIEW_NUDGE.to_owned()),
+            nudge: nudge_for(kind),
         };
         Ok(r.run(order).await)
     }
@@ -1148,6 +1163,174 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         })
     }
 
+    /// Lead run on its inbox (team mode): answer or escalate worker questions, decide permission requests inside the
+    /// allowlist, turn approved plan items into tickets and assign them. `None` when the inbox is empty.
+    pub async fn inbox(&self, project: ProjectId) -> Result<Option<RunSummary>> {
+        let items = self.app.lead_inbox(project)?;
+        if items.is_empty() {
+            return Ok(None);
+        }
+        let (team, _) = self
+            .app
+            .team_of_project(project)?
+            .ok_or_else(|| OrchError::Invalid("the project has no team".into()))?;
+        let lead = self.app.agent(
+            team.lead
+                .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
+        )?;
+        let p = self.app.project(project)?;
+        let root = PathBuf::from(&p.path);
+        let run = self
+            .app
+            .store()
+            .commit(None, "system", |w| -> Result<RunId> {
+                let id = RunId::new();
+                runs::insert(
+                    w.tx,
+                    &runs::Run {
+                        id,
+                        ticket: None,
+                        agent: lead.id,
+                        provider: lead.model.provider.clone(),
+                        model: lead.model.model.clone(),
+                        started_at: now_iso(),
+                        ended_at: None,
+                        outcome: None,
+                        steps: 0,
+                        usage: UsageSummary::default(),
+                        heartbeat: Some(now_iso()),
+                    },
+                )?;
+                w.emit(DomainEvent::RunStarted {
+                    run: id,
+                    agent: lead.id,
+                    ticket: None,
+                })?;
+                Ok(id)
+            })?
+            .value;
+        // The tickets the items are about, with their comments (questions need the ticket's context).
+        let mut seen = std::collections::HashSet::new();
+        let mut tickets_text = String::new();
+        for k in items.iter().filter_map(|i| i.ticket.as_ref()) {
+            if seen.insert(k.clone()) {
+                let t = self.app.ticket(project, k)?;
+                let cs = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
+                tickets_text.push_str(&format!(
+                    "{}\n{}\n",
+                    prompt::ticket_text(&t, None),
+                    prompt::comments_text(&cs)
+                ));
+            }
+        }
+        let task = format!(
+            "Lead inbox, {} item(s), most urgent first:\n{}\n\nHandle every item with your tools: answer_question \
+             (or escalate = true when only the user can decide: scope, acceptance criteria, facts you do not have), \
+             approve_permission, create_ticket for plan items (one ticket per item unless it is too large; keep \
+             depends_on in line with the plan) and assign_ticket to a team member whose role and tags match (see \
+             get_team). The run ends by itself once the inbox is empty.\n\n<project_state>\n{}\n</project_state>\n\n{}",
+            items.len(),
+            items
+                .iter()
+                .enumerate()
+                .map(|(i, it)| format!("{}. {}", i + 1, it.text))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            self.project_state_text(project)?,
+            tickets_text
+        );
+        let user_language = self.app.config().app.user_language;
+        let soul = self.soul_and_role(&lead);
+        let started = Instant::now();
+        let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
+            let roster = self
+                .app
+                .apply(
+                    &crate::engine::CallCtx {
+                        project,
+                        actor: Actor::User,
+                        intent_id: None,
+                        run: None,
+                    },
+                    Intent::GetTeam(Default::default()),
+                )
+                .map(|o| o.result)
+                .ok();
+            Ok(WorkOrder {
+                system: vec![
+                    SystemBlock {
+                        text: prompt::system_rules(true, &user_language),
+                        cache: false,
+                    },
+                    SystemBlock {
+                        text: soul.clone(),
+                        cache: true,
+                    },
+                    SystemBlock {
+                        text: self.manifest(&lead, false, ctx, specs, roster, &ctx.fetch_allow),
+                        cache: false,
+                    },
+                ],
+                messages: vec![Message::user_text(task.clone())],
+            })
+        };
+        let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
+            .into_iter()
+            .filter(|t| t.read_only() && t.name() != "fetch")
+            .collect();
+        let res = self
+            .execute(
+                RunKind::Inbox,
+                project,
+                &lead,
+                false,
+                run,
+                None,
+                &root,
+                builder,
+                read_only,
+                &[
+                    ProtocolTool::ProposeSkillUpdate,
+                    ProtocolTool::ProposeSpec,
+                    ProtocolTool::CreatePlan,
+                    ProtocolTool::ReviewTicket,
+                    ProtocolTool::CloseTicket,
+                ],
+            )
+            .await;
+        let (report, cost) = match res {
+            Ok(x) => x,
+            Err(e) => {
+                self.app
+                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())?;
+                return Err(e);
+            }
+        };
+        let usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
+        let label = report.outcome.label();
+        self.app.finish_run(run, &label, report.steps, &usage)?;
+        self.agent_state_after(&lead, None, &report.outcome)?;
+        self.app
+            .run_log(run, "run", serde_json::json!({ "kind": "inbox" }))?;
+        let text = report
+            .messages
+            .iter()
+            .rev()
+            .find(|m| m.role == agenium_llm::Role::Assistant && !m.text().is_empty())
+            .map(|m| m.text())
+            .unwrap_or_default();
+        Ok(Some(RunSummary {
+            run,
+            kind: "inbox".into(),
+            ticket: None,
+            agent: lead.name.clone(),
+            outcome: label,
+            steps: report.steps,
+            usage,
+            text,
+        }))
+    }
+
     /// Agent states that outlive a run (decision 3j / 15): QuotaExhausted (and "Needs you"), Offline.
     fn agent_state_after(
         &self,
@@ -1329,6 +1512,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         tokio::task::spawn_blocking(move || app.replay_pending_ops(project))
             .await
             .map_err(|e| OrchError::Invalid(e.to_string()))??;
+        // Team mode: the SLA of blocking questions, then the Lead's inbox (before work, so answers and new
+        // assignments are picked up by this round's work runs).
+        self.app.check_sla(project, chrono::Utc::now())?;
+        if let Some(s) = self.inbox_round(project).await? {
+            out.push(s);
+        }
         let max = self.app.config().runtime.max_parallel_agents.max(1) as usize;
         let ready: Vec<_> = self
             .app
@@ -1369,6 +1558,75 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             }
         }
         Ok(out)
+    }
+
+    /// Runs the Lead on its inbox when the Lead is Idle and the same inbox did not fail twice in a row.
+    async fn inbox_round(&self, project: ProjectId) -> Result<Option<RunSummary>> {
+        let items = self.app.lead_inbox(project)?;
+        if items.is_empty() {
+            return Ok(None);
+        }
+        let Some((team, _)) = self.app.team_of_project(project)? else {
+            return Ok(None);
+        };
+        let Some(lead) = team.lead else {
+            return Ok(None);
+        };
+        if self.app.agent(lead)?.status != AgentStatus::Idle {
+            return Ok(None);
+        }
+        let signature = items
+            .iter()
+            .map(|i| format!("{:?}:{:?}:{:?}", i.kind, i.ticket, i.comment))
+            .collect::<Vec<_>>()
+            .join("|");
+        let failures = |m: &Mutex<std::collections::HashMap<ProjectId, (String, usize)>>| {
+            m.lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .get(&project)
+                .filter(|(s, _)| *s == signature)
+                .map_or(0, |(_, n)| *n)
+        };
+        if failures(&self.inbox_failures) >= MAX_FAILED_RUNS {
+            return Ok(None);
+        }
+        let s = match self.inbox(project).await {
+            Ok(Some(s)) => s,
+            Ok(None) => return Ok(None),
+            Err(e) => {
+                tracing::warn!(error = %e, "Lead inbox run failed");
+                return Ok(None);
+            }
+        };
+        let mut m = self
+            .inbox_failures
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        if s.outcome == "Completed" {
+            m.remove(&project);
+        } else {
+            let n = m
+                .get(&project)
+                .filter(|(sig, _)| *sig == signature)
+                .map_or(0, |(_, n)| *n)
+                + 1;
+            m.insert(project, (signature, n));
+            if n >= MAX_FAILED_RUNS {
+                drop(m);
+                self.app.store().commit(None, "system", |w| {
+                    w.emit(DomainEvent::NeedsUser {
+                        ticket: None,
+                        reason: format!(
+                            "the Lead could not handle its inbox ({} item(s)) in {n} runs ({}); look at the run log",
+                            items.len(),
+                            s.outcome
+                        ),
+                    })
+                    .map_err(OrchError::from)
+                })?;
+            }
+        }
+        Ok(Some(s))
     }
 
     /// Repeats [`tick`](Self::tick) until nothing runs (or `max_rounds`).

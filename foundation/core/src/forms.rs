@@ -366,7 +366,8 @@ pub struct AssignTicket {
     pub note: Option<String>,
 }
 
-/// Answer an open Question on a ticket.
+/// Answer an open Question on a ticket, or (escalate = true) hand it to the user when you cannot decide it
+/// (scope or acceptance changes, missing facts): `answer` then says what the user must decide.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AnswerQuestion {
@@ -377,6 +378,9 @@ pub struct AnswerQuestion {
     pub answer: String,
     #[serde(default)]
     pub chosen_option: Option<usize>,
+    /// true: do not answer; the question goes to the user with `answer` as your note.
+    #[serde(default)]
+    pub escalate: bool,
 }
 
 impl Validate for AnswerQuestion {

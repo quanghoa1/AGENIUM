@@ -88,6 +88,11 @@ enum Cmd {
         #[arg(long)]
         project: String,
     },
+    /// The Lead's inbox (team mode), most urgent first; `agenium run` lets the Lead handle it.
+    Inbox {
+        #[arg(long)]
+        project: String,
+    },
     /// Answer an open question on a ticket.
     Answer {
         #[arg(long)]
@@ -1740,6 +1745,17 @@ async fn main() -> Result<()> {
                         }
                     );
                 }
+            }
+        }
+        Cmd::Inbox { project: pname } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let items = app.lead_inbox(p.id)?;
+            if items.is_empty() {
+                println!("The Lead's inbox is empty (Solo agents send their questions to you).");
+            }
+            for (i, it) in items.iter().enumerate() {
+                println!("{}. [{:?}] {}", i + 1, it.kind, it.text);
             }
         }
         Cmd::Plan { project: pname } => {
