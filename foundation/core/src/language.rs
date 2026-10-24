@@ -6,18 +6,10 @@ pub const ENGLISH_BELOW_LEAD: &str =
     "Language: write every ticket, plan, comment, report, handoff, memory and \
 tool-call argument in English, whatever language the user writes in.";
 
-/// Extra rule for agents that talk to the user directly (Lead and Solo).
-pub fn user_facing_rule(user_language: &str) -> String {
-    let lang = user_language.trim();
-    if lang.is_empty() || lang.eq_ignore_ascii_case("en") {
-        "Talk to the user in English.".to_owned()
-    } else {
-        format!(
-            "Talk to the user in their language ({lang}); translate their requests into English before writing \
-             tickets or plans, and translate results back when you reply to them."
-        )
-    }
-}
+/// Extra rule for agents that talk to the user directly (Lead and Solo). The user's language is not configured:
+/// the agent answers in the language the user writes in.
+pub const USER_FACING: &str = "Talk to the user in the language they write in. Translate their requests into \
+English before writing tickets, plans or anything other agents read, and reply to them in their language.";
 
 /// Very rough check used by evals and diagnostics: share of ASCII letters among letters. Vietnamese text with
 /// diacritics scores well below 1.0; English scores ~1.0.
@@ -42,8 +34,7 @@ mod tests {
 
     #[test]
     fn rules() {
-        assert!(user_facing_rule("vi").contains("(vi)"));
-        assert_eq!(user_facing_rule(""), "Talk to the user in English.");
+        assert!(USER_FACING.contains("language they write in"));
         assert!(ascii_letter_ratio("Thêm đăng nhập bằng Google") < 0.9);
         assert!(ascii_letter_ratio("Add Google login") > 0.99);
     }

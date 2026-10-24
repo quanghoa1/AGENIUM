@@ -19,10 +19,8 @@ pub fn needs_setup(root: &Path) -> bool {
 pub struct SetupInput {
     /// `None` = default root (`~/.agenium`), no bootstrap file is written.
     pub root: Option<PathBuf>,
-    /// UI language: "en" | "vi".
+    /// UI language: "en" | "vi". The Lead/Solo answers in the language the user writes in (ADR-40).
     pub ui_language: String,
-    /// Language used with the Lead/Solo (ADR-40).
-    pub user_language: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -32,17 +30,12 @@ pub struct SetupOutcome {
     pub report: SysReport,
 }
 
-/// Runs the wizard's final step. Idempotent: an existing `config.toml` is kept (only languages are updated).
+/// Runs the wizard's final step. Idempotent: an existing `config.toml` is kept (only the UI language is updated).
 pub fn complete_setup(
     input: &SetupInput,
     default_root: &Path,
     bootstrap_file: Option<&Path>,
 ) -> Result<SetupOutcome, ConfigError> {
-    if input.user_language.trim().is_empty() {
-        return Err(ConfigError::Invalid(
-            "user_language must not be empty".into(),
-        ));
-    }
     let root = input
         .root
         .clone()
@@ -57,7 +50,6 @@ pub fn complete_setup(
         Config::default()
     };
     cfg.app.language = input.ui_language.clone();
-    cfg.app.user_language = input.user_language.trim().to_owned();
     cfg.runtime.max_parallel_agents = cfg
         .runtime
         .max_parallel_agents
@@ -98,16 +90,12 @@ mod tests {
         let input = SetupInput {
             root: Some(chosen.clone()),
             ui_language: "vi".into(),
-            user_language: "vi".into(),
         };
         let out = complete_setup(&input, &default_root, Some(&boot)).unwrap();
         assert_eq!(out.root, chosen);
         assert!(!needs_setup(&chosen));
         let cfg = Config::load(&out.config).unwrap();
-        assert_eq!(
-            (cfg.app.language.as_str(), cfg.app.user_language.as_str()),
-            ("vi", "vi")
-        );
+        assert_eq!(cfg.app.language, "vi");
         assert!(cfg.runtime.max_parallel_agents <= out.report.suggested_parallel);
 
         let inputs = RootInputs {
@@ -122,18 +110,17 @@ mod tests {
     }
 
     #[test]
-    fn default_root_writes_no_bootstrap_and_rejects_empty_language() {
+    fn default_root_writes_no_bootstrap_and_rejects_unknown_ui_language() {
         let tmp = tempfile::tempdir().unwrap();
         let default_root = tmp.path().join(".agenium");
         let boot = tmp.path().join("bootstrap.toml");
         let input = SetupInput {
             root: None,
-            ui_language: "en".into(),
-            user_language: " ".into(),
+            ui_language: "fr".into(),
         };
         assert!(complete_setup(&input, &default_root, Some(&boot)).is_err());
         let input = SetupInput {
-            user_language: "en".into(),
+            ui_language: "en".into(),
             ..input
         };
         complete_setup(&input, &default_root, Some(&boot)).unwrap();

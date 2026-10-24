@@ -37,7 +37,6 @@ export interface Status {
   ready: boolean;
   version: string;
   ui_language?: string | null;
-  user_language?: string | null;
   autopilot: boolean;
 }
 

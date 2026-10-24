@@ -34,11 +34,9 @@ struct Cli {
 enum Cmd {
     /// First-run setup: create the root, config.toml and (for a custom root) the bootstrap file.
     Setup {
+        /// UI language: en | vi. Agents answer in the language you write in; tickets and plans are English.
         #[arg(long, default_value = "en")]
         ui_language: String,
-        /// Language you talk to the Lead/Solo agent in (everything below the Lead is English).
-        #[arg(long, default_value = "en")]
-        user_language: String,
     },
     /// System requirements, sandbox, keyring and reconcile report.
     Doctor,
@@ -1176,10 +1174,7 @@ async fn main() -> Result<()> {
         .init();
     let cli = Cli::parse();
     match &cli.cmd {
-        Cmd::Setup {
-            ui_language,
-            user_language,
-        } => {
+        Cmd::Setup { ui_language } => {
             let default_root = dirs_home().join(".agenium");
             // --root is the root chosen in the wizard (remembered in the bootstrap file); AGENIUM_HOME is a
             // per-process override: set up there, but remember nothing machine-wide.
@@ -1190,7 +1185,6 @@ async fn main() -> Result<()> {
             let input = agenium_config::setup::SetupInput {
                 root: cli.root.clone().or(env_root),
                 ui_language: ui_language.clone(),
-                user_language: user_language.clone(),
             };
             let bootstrap = agenium_config::Bootstrap::default_path().filter(|_| remember);
             let out =

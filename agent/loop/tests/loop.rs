@@ -72,7 +72,7 @@ fn cfg() -> LoopConfig {
 fn order() -> WorkOrder {
     WorkOrder {
         system: vec![SystemBlock {
-            text: prompt::system_rules(false, "en"),
+            text: prompt::system_rules(false),
             cache: true,
         }],
         messages: vec![Message::user_text("# Ticket AGN-1 ...")],

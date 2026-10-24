@@ -173,7 +173,7 @@ export function SettingsView() {
               </button>
             ))}
           </div>
-          <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")} ({app.status?.user_language ?? "–"})</div>
+          <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
         </Section>
         <Section title={app.t("settings.root")}>
           <Mono>{app.status?.root}</Mono>
@@ -193,7 +193,6 @@ export function SettingsView() {
 export function SetupView() {
   const app = useApp();
   const [ui, setUi] = useState(app.lang);
-  const [user, setUser] = useState("vi");
   return (
     <div className="flex h-full items-center justify-center bg-background p-6">
       <div className="card w-[460px] p-6">
@@ -211,11 +210,8 @@ export function SetupView() {
             <option value="en">English</option>
           </select>
         </label>
-        <label className="mt-3 block text-xs">
-          <span className="label">{app.t("setup.user")}</span>
-          <input className="input mt-1" value={user} onChange={(e) => setUser(e.target.value)} />
-        </label>
-        <button className="btn-primary mt-4 w-full justify-center" onClick={() => api.setup(ui, user).then(app.reloadStatus).catch((e) => app.notify(String(e)))}>
+        <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
+        <button className="btn-primary mt-4 w-full justify-center" onClick={() => api.setup(ui).then(app.reloadStatus).catch((e) => app.notify(String(e)))}>
           {app.t("setup.go")}
         </button>
       </div>

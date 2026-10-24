@@ -869,7 +869,6 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         } else {
             (vec![], None, None)
         };
-        let user_language = self.app.config().app.user_language;
         let solo = team.solo;
         let retriever = MemoryRetriever::new(mem.clone(), self.embedder.clone());
         let query = format!(
@@ -902,7 +901,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             let manifest = self.manifest(&agent, solo, ctx, specs, None, &ctx.fetch_allow);
             let system = vec![
                 SystemBlock {
-                    text: prompt::system_rules(solo, &user_language),
+                    text: prompt::system_rules(solo),
                     cache: false,
                 },
                 SystemBlock {
@@ -1039,14 +1038,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             })?
             .value;
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
-        let user_language = self.app.config().app.user_language;
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let system = vec![
                 SystemBlock {
-                    text: prompt::system_rules(true, &user_language),
+                    text: prompt::system_rules(true),
                     cache: false,
                 },
                 SystemBlock {
@@ -1164,7 +1162,6 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             })?
             .value;
         let state = self.project_state_text(project)?;
-        let user_language = self.app.config().app.user_language;
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
@@ -1186,7 +1183,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 .map(|o| o.result)
                 .ok();
             let system = vec![
-                SystemBlock { text: prompt::system_rules(true, &user_language), cache: false },
+                SystemBlock { text: prompt::system_rules(true), cache: false },
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
                 SystemBlock { text: self.manifest(&lead, solo, ctx, specs, roster, &ctx.fetch_allow), cache: false },
             ];
@@ -1342,7 +1339,6 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             self.project_state_text(project)?,
             tickets_text
         );
-        let user_language = self.app.config().app.user_language;
         let soul = self.soul_and_role(&lead);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
@@ -1362,7 +1358,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             Ok(WorkOrder {
                 system: vec![
                     SystemBlock {
-                        text: prompt::system_rules(true, &user_language),
+                        text: prompt::system_rules(true),
                         cache: false,
                     },
                     SystemBlock {
@@ -1782,14 +1778,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             spec = serde_json::to_string_pretty(&spec.body).unwrap_or_default(),
             roles = roles.join("\n"),
         );
-        let user_language = self.app.config().app.user_language;
         let soul = self.soul_and_role(planner);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             Ok(WorkOrder {
                 system: vec![
                     SystemBlock {
-                        text: prompt::system_rules(false, &user_language),
+                        text: prompt::system_rules(false),
                         cache: false,
                     },
                     SystemBlock {

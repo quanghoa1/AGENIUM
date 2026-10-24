@@ -100,7 +100,6 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
         },
     )?;
     let app = Arc::new(app);
-    app.update_config(|c| c.app.user_language = "vi".into())?;
     let project = app.create_project(&CreateProject {
         name: ID.into(),
         path: None,

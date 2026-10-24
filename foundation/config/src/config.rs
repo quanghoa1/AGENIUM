@@ -54,8 +54,6 @@ impl Default for Config {
 pub struct AppSection {
     /// UI language: "en" | "vi".
     pub language: String,
-    /// Language the user talks to the Lead/Solo in (free-form BCP-47). Everything below the Lead is English.
-    pub user_language: String,
     pub theme: String,
     /// Decision 26: off, never sends anything.
     pub telemetry: bool,
@@ -66,7 +64,6 @@ impl Default for AppSection {
     fn default() -> Self {
         Self {
             language: "en".into(),
-            user_language: "en".into(),
             theme: "system".into(),
             telemetry: false,
             crash_report: false,
@@ -469,6 +466,7 @@ mod tests {
 schema_version = 1
 [app]
 language = "vi"
+# Removed setting (ADR-40 amendment): old files still load.
 user_language = "vi"
 [runtime]
 max_parallel_agents = 2
@@ -490,7 +488,7 @@ context_window = 32768
     #[test]
     fn partial_file_gets_defaults() {
         let c = Config::parse(EXAMPLE).unwrap();
-        assert_eq!(c.app.user_language, "vi");
+        assert_eq!(c.app.language, "vi");
         assert_eq!(c.runtime.max_parallel_agents, 2);
         assert_eq!(c.runtime.max_steps_per_run, 200);
         assert_eq!(c.retry, RetrySection::default());

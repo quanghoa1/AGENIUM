@@ -53,8 +53,7 @@ export interface ModelArg {
 
 export const api = {
   status: () => call<Status>("status"),
-  setup: (uiLanguage: string, userLanguage: string) =>
-    call<Status>("setup", { uiLanguage, userLanguage }),
+  setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
   overview: () => call<Overview>("overview"),
   needsYou: (project: string) =>

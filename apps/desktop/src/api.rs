@@ -44,7 +44,6 @@ pub fn status(d: State<'_, Desktop>) -> Value {
         "ready": opened.is_some(),
         "version": env!("CARGO_PKG_VERSION"),
         "ui_language": cfg.as_ref().map(|c| c.app.language.clone()),
-        "user_language": cfg.as_ref().map(|c| c.app.user_language.clone()),
         "autopilot": d.autopilot.load(Ordering::SeqCst),
     })
 }
@@ -54,12 +53,10 @@ pub fn setup(
     d: State<'_, Desktop>,
     handle: AppHandle,
     ui_language: String,
-    user_language: String,
 ) -> R<Value> {
     let input = agenium_config::setup::SetupInput {
         root: Some(d.root.clone()),
         ui_language,
-        user_language,
     };
     let home = dirs::home_dir().unwrap_or_default().join(".agenium");
     // A root given by AGENIUM_HOME is this process's override: nothing is remembered machine-wide.

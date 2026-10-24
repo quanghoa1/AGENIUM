@@ -239,7 +239,7 @@ const chat: ChatLine[] = [
   { role: "assistant", text: "Tôi đã đề xuất spec v1 (3 yêu cầu). Bạn duyệt spec, planner sẽ phác plan để tôi xem lại và tạo plan." },
 ];
 
-const status: Status = { root: "C:\\Users\\you\\.agenium", ready: true, version: "0.1.0", ui_language: "vi", user_language: "vi", autopilot: false };
+const status: Status = { root: "C:\\Users\\you\\.agenium", ready: true, version: "0.1.0", ui_language: "vi", autopilot: false };
 
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 60));

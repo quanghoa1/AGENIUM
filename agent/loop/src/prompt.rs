@@ -33,13 +33,13 @@ pub const LEAD_RULES: &str = "Lead duties
 - If you are unsure about scope or requirements, ask the user instead of guessing.";
 
 /// Rules block for a role.
-pub fn system_rules(lead: bool, user_language: &str) -> String {
+pub fn system_rules(lead: bool) -> String {
     let mut s = String::from(RULES);
     s.push_str("\n\nLanguage\n- ");
     s.push_str(language::ENGLISH_BELOW_LEAD);
     if lead {
         s.push_str("\n- ");
-        s.push_str(&language::user_facing_rule(user_language));
+        s.push_str(language::USER_FACING);
         s.push_str("\n\n");
         s.push_str(LEAD_RULES);
     }
@@ -240,10 +240,11 @@ mod tests {
 
     #[test]
     fn rules_are_ascii_english_and_stable() {
-        let a = system_rules(true, "vi");
-        assert_eq!(a, system_rules(true, "vi"), "deterministic");
-        assert!(a.contains("(vi)") && a.contains("Lead duties"));
-        assert!(!system_rules(false, "vi").contains("Lead duties"));
+        let a = system_rules(true);
+        assert_eq!(a, system_rules(true), "deterministic");
+        assert!(a.contains("language they write in") && a.contains("Lead duties"));
+        assert!(!system_rules(false).contains("language they write in"));
+        assert!(!system_rules(false).contains("Lead duties"));
         assert!(RULES.is_ascii() && LEAD_RULES.is_ascii());
     }
 }
