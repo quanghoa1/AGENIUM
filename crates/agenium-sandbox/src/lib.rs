@@ -9,6 +9,8 @@
 //!
 //! Without a backend every agent command runs through [`Executor::run`] only after the user approved it (M1-7).
 
+#[cfg(target_os = "linux")]
+pub mod linux;
 #[cfg(windows)]
 pub mod mxc;
 
@@ -63,7 +65,11 @@ pub fn toolchain_read_roots() -> Vec<PathBuf> {
     {
         mxc::toolchain_read_roots()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        linux::toolchain_read_roots()
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         Vec::new()
     }
@@ -150,12 +156,25 @@ pub fn detect() -> Availability {
             }
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
     {
-        if cfg!(target_os = "macos") {
-            return Availability { backend: None, reason: "the macOS Seatbelt backend arrives with milestone M2; every command needs your approval".into() };
+        if linux::available() {
+            Availability {
+                backend: Some(Backend::Bubblewrap),
+                reason: "bubblewrap: writes only in the worktree, reads limited to system and toolchain folders, no network"
+                    .into(),
+            }
+        } else {
+            Availability {
+                backend: None,
+                reason: "bubblewrap is missing or cannot create user namespaces (install bubblewrap); every command needs your approval"
+                    .into(),
+            }
         }
-        Availability { backend: None, reason: "the Linux bubblewrap/Landlock backend arrives with milestone M2; every command needs your approval".into() }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        Availability { backend: None, reason: "the macOS Seatbelt backend arrives with milestone M2; every command needs your approval".into() }
     }
 }
 
@@ -433,6 +452,28 @@ impl Executor {
         Ok(env.into_iter().collect())
     }
 
+    #[cfg(target_os = "linux")]
+    async fn run_bwrap(
+        spec: &CommandSpec,
+        policy: &SandboxPolicy,
+    ) -> Result<ExecOutput, ExecError> {
+        let mut env = clean_env(&spec.env);
+        if let Some(t) = &policy.temp_dir {
+            std::fs::create_dir_all(t)?;
+            env.insert("TMPDIR".into(), t.display().to_string());
+        }
+        let env: Vec<(String, String)> = env.into_iter().collect();
+        let (command, cwd, policy, timeout) = (
+            spec.command.clone(),
+            spec.cwd.clone(),
+            policy.clone(),
+            spec.timeout,
+        );
+        tokio::task::spawn_blocking(move || linux::run(&command, &cwd, &env, &policy, timeout))
+            .await
+            .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
+    }
+
     #[cfg(windows)]
     async fn run_mxc(
         &self,
@@ -467,6 +508,10 @@ impl Executor {
         #[cfg(windows)]
         if policy.mode != SandboxMode::FullAccess && detect().backend == Some(Backend::WindowsMxc) {
             return self.run_mxc(spec, policy).await;
+        }
+        #[cfg(target_os = "linux")]
+        if policy.mode != SandboxMode::FullAccess && detect().backend == Some(Backend::Bubblewrap) {
+            return Self::run_bwrap(spec, policy).await;
         }
         let start = Instant::now();
         let mut child = self.command(spec).spawn().map_err(|e| ExecError::Spawn {
@@ -701,11 +746,13 @@ mod tests {
     #[test]
     fn fail_closed_detection() {
         let a = detect();
-        // Windows: MXC when the native API works (ADR-53); Linux/macOS backends are M2.
+        // Windows: MXC when the native API works (ADR-53); Linux: bubblewrap (ADR-54); macOS is M2.
         if cfg!(windows) {
             assert!(matches!(a.backend, None | Some(Backend::WindowsMxc)));
+        } else if cfg!(target_os = "linux") {
+            assert!(matches!(a.backend, None | Some(Backend::Bubblewrap)));
         } else {
-            assert!(a.backend.is_none(), "no backend before M2 on Linux/macOS");
+            assert!(a.backend.is_none(), "no backend before M2 on macOS");
         }
         assert!(!a.reason.is_empty());
     }

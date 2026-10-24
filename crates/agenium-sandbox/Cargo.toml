@@ -16,6 +16,10 @@ tokio.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Bubblewrap through the same SDK as the Windows backend (MIT).
+mxc-sdk = "=1.0.0"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
 # Microsoft MXC process containers (MIT). Its build script needs an rc.exe; on the GNU toolchain

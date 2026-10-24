@@ -117,7 +117,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - Context compaction beyond the checkpoint-and-continue approach.
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
   6.18, cargo 1.98.1): `cargo build --workspace` and `cargo test --workspace` PASS (no sandbox backend yet, so commands
-  run after approval as designed); the Linux sandbox spike S3 is next.
+  run after approval as designed). Since then a bubblewrap backend through `mxc-sdk` (ADR-54) is active on that distro;
+  the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order)
 1. M2.5 CLI backend (`agy`, `devin`, `codex` are installed here) and M3 completion (Discovery flow with approvals in
