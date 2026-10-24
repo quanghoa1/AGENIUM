@@ -39,10 +39,16 @@ const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_t
 /// Text-only answers in a Lead inbox run.
 const INBOX_NUDGE: &str = "Text alone does not handle the inbox. Use answer_question (or escalate it), approve_permission, create_ticket and assign_ticket until every item is handled; the run ends when the inbox is empty.";
 
+/// Text-only answers in a planner run.
+const PLAN_NUDGE: &str =
+    "Text alone does not hand in the plan. Call submit_plan_draft with milestones, items and \
+your rationale; that ends your run.";
+
 fn nudge_for(kind: RunKind) -> Option<String> {
     match kind {
         RunKind::Review => Some(REVIEW_NUDGE.to_owned()),
         RunKind::Inbox => Some(INBOX_NUDGE.to_owned()),
+        RunKind::Plan => Some(PLAN_NUDGE.to_owned()),
         RunKind::Work | RunKind::Chat => None,
     }
 }
@@ -161,6 +167,8 @@ pub struct Runtime {
     /// Per project: the inbox the Lead last failed on and how many times in a row (stops re-running a Lead that
     /// cannot handle the same inbox).
     inbox_failures: Mutex<std::collections::HashMap<ProjectId, (String, usize)>>,
+    /// Failed planner runs per (project, spec version).
+    planner_failures: Mutex<std::collections::HashMap<(ProjectId, u32), usize>>,
 }
 
 /// `info` with the hand-set capabilities of the provider's configuration applied (they win, ADR-31).
@@ -212,6 +220,7 @@ impl Runtime {
         Self {
             model_infos: Mutex::default(),
             inbox_failures: Mutex::default(),
+            planner_failures: Mutex::default(),
             mcp,
             app,
             providers,
@@ -580,6 +589,9 @@ impl Runtime {
         let mut work = if cli { Vec::new() } else { work };
         work.extend(mcp_tools);
         let mut exclude = exclude.to_vec();
+        if kind != RunKind::Plan {
+            exclude.push(ProtocolTool::SubmitPlanDraft);
+        }
         if skills.is_empty() {
             exclude.push(ProtocolTool::LoadSkill);
         }
@@ -1364,7 +1376,6 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 &[
                     ProtocolTool::ProposeSkillUpdate,
                     ProtocolTool::ProposeSpec,
-                    ProtocolTool::CreatePlan,
                     ProtocolTool::ReviewTicket,
                     ProtocolTool::CloseTicket,
                 ],
@@ -1473,6 +1484,14 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             }
             None => s.push_str("No plan yet.\n"),
         }
+        if let Some(p) = self.app.store().read(|c| plans::current_plan(c, project))? {
+            if let Some(d) = self.app.plan_draft(project, p.body.spec_version)? {
+                s.push_str(&format!(
+                    "Planner's rationale for the initial plan: {}\n",
+                    d.rationale
+                ));
+            }
+        }
         let ts = self.app.tickets(project)?;
         if ts.is_empty() {
             s.push_str("No tickets yet.");
@@ -1575,6 +1594,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         // Team mode: the SLA of blocking questions, then the Lead's inbox (before work, so answers and new
         // assignments are picked up by this round's work runs).
         self.app.check_sla(project, chrono::Utc::now())?;
+        if let Some(s) = self.planner_round(project).await? {
+            out.push(s);
+        }
         if let Some(s) = self.inbox_round(project).await? {
             out.push(s);
         }
@@ -1620,6 +1642,196 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             }
         }
         Ok(out)
+    }
+
+    /// Runs the team's planner when the latest spec is approved, there is no plan and no draft for that spec yet
+    /// (ADR-59). Two failed runs for the same spec stop it and go to the user.
+    async fn planner_round(&self, project: ProjectId) -> Result<Option<RunSummary>> {
+        let Some(planner) = self.app.planner(project)? else {
+            return Ok(None);
+        };
+        use agenium_store::core::plans;
+        let (spec, any_plan) = self.app.store().read(|c| {
+            Ok((
+                plans::latest_spec(c, project)?,
+                plans::latest_plan(c, project)?.is_some(),
+            ))
+        })?;
+        let Some(spec) = spec.filter(|s| s.locked_at.is_some()) else {
+            return Ok(None);
+        };
+        if any_plan
+            || planner.status != AgentStatus::Idle
+            || self.app.plan_draft(project, spec.version)?.is_some()
+        {
+            return Ok(None);
+        }
+        let key = (project, spec.version);
+        let failures = *self
+            .planner_failures
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .get(&key)
+            .unwrap_or(&0);
+        if failures >= MAX_FAILED_RUNS {
+            return Ok(None);
+        }
+        let s = match self.plan_draft_run(project, &planner, &spec).await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(error = %e, "planner run failed");
+                return Ok(None);
+            }
+        };
+        if self.app.plan_draft(project, spec.version)?.is_none() {
+            let n = failures + 1;
+            self.planner_failures
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .insert(key, n);
+            if n >= MAX_FAILED_RUNS {
+                self.app.store().commit(None, "system", |w| {
+                    w.emit(DomainEvent::NeedsUser {
+                        ticket: None,
+                        reason: format!(
+                            "the planner {} could not draft plan v1 for spec v{} ({}); the Lead can create the plan in chat",
+                            planner.name, spec.version, s.outcome
+                        ),
+                    })
+                    .map_err(OrchError::from)
+                })?;
+            }
+        }
+        Ok(Some(s))
+    }
+
+    /// The planner's run: read the locked spec and the repository, submit a plan draft with its rationale.
+    async fn plan_draft_run(
+        &self,
+        project: ProjectId,
+        planner: &agenium_store::core::agents::Agent,
+        spec: &agenium_store::core::plans::SpecRow,
+    ) -> Result<RunSummary> {
+        let p = self.app.project(project)?;
+        let root = PathBuf::from(&p.path);
+        let run = self
+            .app
+            .store()
+            .commit(None, "system", |w| -> Result<RunId> {
+                let id = RunId::new();
+                runs::insert(
+                    w.tx,
+                    &runs::Run {
+                        id,
+                        ticket: None,
+                        agent: planner.id,
+                        provider: planner.model.provider.clone(),
+                        model: planner.model.model.clone(),
+                        started_at: now_iso(),
+                        ended_at: None,
+                        outcome: None,
+                        steps: 0,
+                        usage: UsageSummary::default(),
+                        heartbeat: Some(now_iso()),
+                    },
+                )?;
+                w.emit(DomainEvent::RunStarted {
+                    run: id,
+                    agent: planner.id,
+                    ticket: None,
+                })?;
+                Ok(id)
+            })?
+            .value;
+        // The roles the plan can use: the team's workers except the planner.
+        let roles: Vec<String> = self
+            .app
+            .team_of_project(project)?
+            .map(|(_, m)| m)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|m| m.role_kind == RoleKind::Worker && m.id != planner.id)
+            .map(|m| format!("- {} (role {}, tags {})", m.name, m.role, m.tags.join(", ")))
+            .collect();
+        let task = format!(
+            "Draft plan v1 for the approved requirement spec v{v}.\n\n## Spec v{v}\n{spec}\n\n## Team members who will do the work\n{roles}\n\n\
+             Read the repository with your read-only tools first. Then call submit_plan_draft once: milestones; items with \
+             acceptance criteria (ids AC-n), trace_to (requirement ids of this spec), role (one of the roles above), \
+             depends_on (item ids), estimate and scope_paths (items touching the same paths must depend on each other); \
+             and the rationale of the split. You do not create tickets; the Lead reviews your draft.",
+            v = spec.version,
+            spec = serde_json::to_string_pretty(&spec.body).unwrap_or_default(),
+            roles = roles.join("\n"),
+        );
+        let user_language = self.app.config().app.user_language;
+        let soul = self.soul_and_role(planner);
+        let started = Instant::now();
+        let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
+            Ok(WorkOrder {
+                system: vec![
+                    SystemBlock {
+                        text: prompt::system_rules(false, &user_language),
+                        cache: false,
+                    },
+                    SystemBlock {
+                        text: soul.clone(),
+                        cache: true,
+                    },
+                    SystemBlock {
+                        text: self.manifest(planner, false, ctx, specs, None, &ctx.fetch_allow),
+                        cache: false,
+                    },
+                ],
+                messages: vec![Message::user_text(task.clone())],
+            })
+        };
+        let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
+            .into_iter()
+            .filter(|t| t.read_only() && t.name() != "fetch")
+            .collect();
+        let others: Vec<ProtocolTool> = ProtocolTool::ALL
+            .iter()
+            .copied()
+            .filter(|t| !matches!(t, ProtocolTool::SubmitPlanDraft | ProtocolTool::LoadSkill))
+            .collect();
+        let res = self
+            .execute(
+                RunKind::Plan,
+                project,
+                planner,
+                false,
+                run,
+                None,
+                &root,
+                builder,
+                read_only,
+                &others,
+            )
+            .await;
+        let (report, cost) = match res {
+            Ok(x) => x,
+            Err(e) => {
+                self.app
+                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())?;
+                return Err(e);
+            }
+        };
+        let usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
+        let label = report.outcome.label();
+        self.app.finish_run(run, &label, report.steps, &usage)?;
+        self.agent_state_after(planner, None, &report.outcome)?;
+        self.app
+            .run_log(run, "run", serde_json::json!({ "kind": "plan" }))?;
+        Ok(RunSummary {
+            run,
+            kind: "plan".into(),
+            ticket: None,
+            agent: planner.name.clone(),
+            outcome: label,
+            steps: report.steps,
+            usage,
+            text: String::new(),
+        })
     }
 
     /// Runs the Lead on its inbox when the Lead is Idle and the same inbox did not fail twice in a row.

@@ -16,6 +16,20 @@ You do not write code in the workers' worktrees. When a question changes scope o
 """
 
 [[roles]]
+id = "planner"
+kind = "worker"
+planner = true
+tags = ["planning"]
+prompt = """
+You are the team's planner. When a requirement spec is approved you draft plan v1 for the Lead: milestones and items,
+each with acceptance criteria, the requirement ids it traces to, the role that should do it (one of the team's
+roles), dependencies between items, an estimate and the paths it will touch (items that touch the same paths must
+depend on each other). Read the repository first so the split follows its real structure. Explain the rationale
+of the split (order, risks, what to watch when the plan has to change). You never take tickets; the Lead owns the
+plan once you hand in the draft.
+"""
+
+[[roles]]
 id = "backend"
 kind = "worker"
 tags = ["backend", "api", "db"]

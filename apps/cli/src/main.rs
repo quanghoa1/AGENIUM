@@ -382,6 +382,10 @@ enum TeamCmd {
         /// Model of the Lead (provider/model), when it differs.
         #[arg(long)]
         lead_model: Option<String>,
+        /// Model of the planner (provider/model), when the template has one and it should differ (a strong model:
+        /// it only drafts plan v1).
+        #[arg(long)]
+        planner_model: Option<String>,
         #[arg(long, default_value = "high")]
         effort: String,
         /// Agent name prefix (default: the project name).
@@ -1819,6 +1823,7 @@ async fn main() -> Result<()> {
                     template,
                     model,
                     lead_model,
+                    planner_model,
                     effort,
                     prefix,
                 } => {
@@ -1839,11 +1844,13 @@ async fn main() -> Result<()> {
                     };
                     let m = binding(model)?;
                     let lm = lead_model.as_deref().map(binding).transpose()?;
+                    let pm = planner_model.as_deref().map(binding).transpose()?;
                     let out = app.create_team_from_template(
                         p.id,
                         template,
                         &m,
                         lm.as_ref(),
+                        pm.as_ref(),
                         prefix.as_deref().unwrap_or(&p.name),
                     )?;
                     println!("team created on {} from {template}:", p.name);
@@ -1872,6 +1879,8 @@ async fn main() -> Result<()> {
                             a.name,
                             if team.lead == Some(a.id) {
                                 " (Lead)"
+                            } else if app.is_planner_role(&a.role) {
+                                " (planner)"
                             } else {
                                 ""
                             },

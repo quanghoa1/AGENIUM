@@ -28,6 +28,7 @@
     "ask_question",
     "request_permission",
     "submit_report",
-    "suggest_link"
+    "suggest_link",
+    "submit_plan_draft"
   ]
 }

@@ -148,6 +148,13 @@ pub enum DomainEvent {
         version: u32,
         by: String,
     },
+    /// The planner's draft of plan v1 (ADR-59); kept in the log, read by the Lead's inbox.
+    PlanDrafted {
+        project: ProjectId,
+        spec_version: u32,
+        by: AgentId,
+        draft: crate::plan::PlanDraft,
+    },
     PlanItemDone {
         project: ProjectId,
         item: String,

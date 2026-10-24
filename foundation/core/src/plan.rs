@@ -151,6 +151,43 @@ pub struct PlanRevision {
     pub items: Vec<PlanItem>,
 }
 
+/// The planner's draft of plan v1 (ADR-59): the Lead reviews it, adjusts it and calls create_plan; the rationale
+/// stays visible to the Lead for later revisions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PlanDraft {
+    /// The locked spec version the draft is for.
+    #[schemars(range(min = 1))]
+    pub spec_version: u32,
+    #[schemars(length(min = 1))]
+    pub milestones: Vec<Milestone>,
+    #[schemars(length(min = 1))]
+    pub items: Vec<PlanItem>,
+    /// Why the work is split this way: order, dependencies, scopes, risks, what to watch when revising.
+    #[schemars(length(min = 20))]
+    pub rationale: String,
+}
+
+impl PlanDraft {
+    pub fn plan(&self) -> TicketPlan {
+        TicketPlan {
+            spec_version: self.spec_version,
+            milestones: self.milestones.clone(),
+            items: self.items.clone(),
+        }
+    }
+}
+
+impl Validate for PlanDraft {
+    fn validate(&self) -> Result<(), FormErrors> {
+        let mut c = Checker::new();
+        c.check(self.spec_version >= 1, "spec_version", "must be >= 1");
+        check_plan(&mut c, &self.milestones, &self.items);
+        c.len("rationale", self.rationale.trim(), 20, 8000);
+        c.finish()
+    }
+}
+
 fn check_plan(c: &mut Checker, milestones: &[Milestone], items: &[PlanItem]) {
     c.items("milestones", milestones, 1, 100);
     c.items("items", items, 1, 1000);

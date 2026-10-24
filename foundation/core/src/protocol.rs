@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::agent::RoleKind;
 use crate::forms::*;
-use crate::plan::{PlanRevision, RequirementSpec, TicketPlan};
+use crate::plan::{PlanDraft, PlanRevision, RequirementSpec, TicketPlan};
 use crate::validate::{FormErrors, Validate};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,6 +112,8 @@ protocol_tools! {
         "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run.";
     SuggestLink => "suggest_link", Worker, SuggestLink,
         "Suggest that your ticket is related to another ticket; the Lead decides.";
+    SubmitPlanDraft => "submit_plan_draft", Worker, PlanDraft,
+        "Planner only: submit your draft of plan v1 for the locked spec, with the rationale of the split. The Lead reviews it and creates the plan. This ends your run.";
     LoadSkill => "load_skill", Shared, LoadSkill,
         "Load the full instructions of a skill listed in your skills index.";
     ProposeSkillUpdate => "propose_skill_update", Shared, ProposeSkillUpdate,
@@ -196,6 +198,7 @@ pub enum Intent {
     RequestPermission(PermissionRequest),
     SubmitReport(WorkReport),
     SuggestLink(SuggestLink),
+    SubmitPlanDraft(PlanDraft),
     LoadSkill(LoadSkill),
     ProposeSkillUpdate(ProposeSkillUpdate),
     ProposeSoulChange(ProposeChange),
@@ -240,6 +243,7 @@ impl Intent {
             RequestPermission(_) => ProtocolTool::RequestPermission,
             SubmitReport(_) => ProtocolTool::SubmitReport,
             SuggestLink(_) => ProtocolTool::SuggestLink,
+            SubmitPlanDraft(_) => ProtocolTool::SubmitPlanDraft,
             LoadSkill(_) => ProtocolTool::LoadSkill,
             ProposeSkillUpdate(_) => ProtocolTool::ProposeSkillUpdate,
             ProposeSoulChange(_) => ProtocolTool::ProposeSoulChange,
@@ -299,6 +303,7 @@ impl Intent {
             RequestPermission(x) => x.validate(),
             SubmitReport(x) => x.validate(),
             SuggestLink(x) => x.validate(),
+            SubmitPlanDraft(x) => x.validate(),
             AssignTicket(_)
             | ApprovePermission(_)
             | ProposeRole(_)
@@ -319,7 +324,8 @@ mod tests {
 
     #[test]
     fn catalogue_matches_design_index() {
-        // docs/design/SCHEMAS/tools/index.json: Lead 15, Worker 5, Shared 4 (24 tools); Solo = all.
+        // docs/design/SCHEMAS/tools/index.json: Lead 15, Worker 5, Shared 4 (24 tools); Solo = all. Agenium adds
+        // submit_plan_draft (Worker group, planner role only; ADR-59).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -327,11 +333,11 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (15, 5, 4)
+            (15, 6, 4)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 24);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 25);
         assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 19);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 9);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 10);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);
         }

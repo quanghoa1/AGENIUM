@@ -1,0 +1,136 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/submit_plan_draft.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Planner only: submit your draft of plan v1 for the locked spec, with the rationale of the split. The Lead reviews it and creates the plan. This ends your run.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance": {
+            "items": {
+              "additionalProperties": false,
+              "description": "One acceptance criterion; ids look like `AC-1` and are referenced by reports and reviews.",
+              "properties": {
+                "id": {
+                  "pattern": "^AC-[0-9]+$",
+                  "type": "string"
+                },
+                "text": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "text"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "depends_on": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "estimate": {
+            "enum": [
+              "S",
+              "M",
+              "L"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "description": "Plan item id, e.g. PI-1.",
+            "pattern": "^PI-[0-9]+$",
+            "type": "string"
+          },
+          "milestone": {
+            "type": "string"
+          },
+          "role": {
+            "description": "Role expected to do the work.",
+            "type": "string"
+          },
+          "scope_paths": {
+            "default": [],
+            "description": "Files/areas the item touches (glob patterns).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "trace_to": {
+            "description": "Requirement ids this item implements, e.g. REQ-2.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "milestone",
+          "title",
+          "trace_to",
+          "acceptance",
+          "role",
+          "estimate"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "milestones": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "rationale": {
+      "description": "Why the work is split this way: order, dependencies, scopes, risks, what to watch when revising.",
+      "minLength": 20,
+      "type": "string"
+    },
+    "spec_version": {
+      "description": "The locked spec version the draft is for.",
+      "format": "uint32",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "spec_version",
+    "milestones",
+    "items",
+    "rationale"
+  ],
+  "title": "submit_plan_draft",
+  "type": "object",
+  "x-agenium-role": "Worker"
+}

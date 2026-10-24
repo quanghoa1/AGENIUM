@@ -1391,3 +1391,89 @@ async fn team_lead_inbox_takes_a_plan_to_closed_tickets() {
     assert!(pv.items.iter().all(|i| i.done), "both plan items ticked");
     assert!(app.lead_inbox(project).unwrap().is_empty());
 }
+
+/// ADR-59 through the scheduler: approved spec -> planner run (draft) -> Lead inbox run (create_plan from the
+/// draft) -> plan waits for the user; the planner does nothing more.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn planner_drafts_then_the_lead_creates_the_plan() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let project = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "planned".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+        })
+        .unwrap()
+        .id;
+    app.create_team_from_template(project, "coding", &model(), None, None, "pl")
+        .unwrap();
+    let (team, _) = app.team_of_project(project).unwrap().unwrap();
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(team.lead.unwrap()),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+
+    let plan_json = serde_json::to_value(plan(&[("PI-1", &[]), ("PI-2", &["PI-1"])])).unwrap();
+    let draft = {
+        let mut d = plan_json.clone();
+        d["rationale"] = json!("Backend first, the frontend item depends on its API.");
+        d
+    };
+    p.push(Box::new(move |req| {
+        let task = req.messages[0].text();
+        assert!(
+            task.contains("Draft plan v1")
+                && task.contains("coding-backend")
+                && !task.contains("pl-planner")
+        );
+        let tools: Vec<&str> = req.tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(
+            tools.contains(&"submit_plan_draft")
+                && !tools.contains(&"submit_report")
+                && !tools.contains(&"write_file")
+        );
+        Ok(calls_response(
+            "",
+            vec![("submit_plan_draft", draft.clone())],
+        ))
+    }));
+    p.push(Box::new(move |req| {
+        let task = req.messages[0].text();
+        assert!(
+            task.contains("Backend first"),
+            "the Lead sees the planner's rationale"
+        );
+        Ok(calls_response("", vec![("create_plan", plan_json.clone())]))
+    }));
+    let runs = rt.drive(project, 4).await.unwrap();
+    let kinds: Vec<(String, String)> = runs
+        .iter()
+        .map(|r| (r.kind.clone(), r.agent.clone()))
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            ("plan".to_string(), "pl-planner".to_string()),
+            ("inbox".to_string(), "pl-lead".to_string())
+        ]
+    );
+    assert_eq!(p.remaining(), 0);
+    let pv = app.plan_view(project).unwrap();
+    let plan = pv.plan.unwrap();
+    assert_eq!(
+        (plan.version, plan.approved_by.is_none()),
+        (1, true),
+        "plan v1 waits for the user"
+    );
+    assert!(
+        plan.proposed_by.starts_with("agent:"),
+        "proposed by the Lead"
+    );
+}

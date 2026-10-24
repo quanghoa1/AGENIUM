@@ -52,6 +52,9 @@ pub struct RoleSpec {
     pub default_model: Option<String>,
     #[serde(default = "one")]
     pub count: u32,
+    /// The team's planner (ADR-59): a worker that only drafts plan v1 for the Lead and never takes tickets.
+    #[serde(default)]
+    pub planner: bool,
 }
 
 fn one() -> u32 {
@@ -112,6 +115,14 @@ impl TeamTemplate {
         }
         if !self.roles.iter().any(|r| r.kind == RoleKind::Worker) {
             return bad("needs at least one worker role".into());
+        }
+        let planners: Vec<_> = self.roles.iter().filter(|r| r.planner).collect();
+        if planners.len() > 1
+            || planners
+                .iter()
+                .any(|r| r.kind != RoleKind::Worker || r.count != 1)
+        {
+            return bad("at most one planner role, of kind worker with count 1".into());
         }
         let mut seen = std::collections::HashSet::new();
         for r in &self.roles {
@@ -224,6 +235,7 @@ impl App {
         template: &str,
         model: &ModelBinding,
         lead_model: Option<&ModelBinding>,
+        planner_model: Option<&ModelBinding>,
         prefix: &str,
     ) -> Result<TeamFromTemplate> {
         let t = self.team_template(template)?;
@@ -241,8 +253,9 @@ impl App {
                     missing_skills.push(format!("{}: {s}", t.role_dir(&r.id)));
                 }
             }
-            let binding = match (r.kind, lead_model) {
-                (RoleKind::Lead, Some(m)) => m.clone(),
+            let binding = match (r.kind, lead_model, planner_model) {
+                (RoleKind::Lead, Some(m), _) => m.clone(),
+                (RoleKind::Worker, _, Some(m)) if r.planner => m.clone(),
                 _ => model.clone(),
             };
             for n in 1..=r.count {
@@ -285,6 +298,7 @@ impl App {
                 let body = toml::to_string(&RoleFile {
                     template: format!("{}@{}", t.id, t.version),
                     allowed_paths: r.allowed_paths.clone(),
+                    planner: r.planner,
                 })
                 .unwrap_or_default();
                 std::fs::write(&scope, body).map_err(|e| OrchError::Invalid(e.to_string()))?;
@@ -297,23 +311,48 @@ impl App {
         })
     }
 
-    /// Write scope of a role (`<root>/roles/<role>/role.toml`; empty = whole worktree).
-    pub fn role_allowed_paths(&self, role: &str) -> Vec<String> {
+    fn role_file(&self, role: &str) -> RoleFile {
         std::fs::read_to_string(self.layout().roles().join(role).join("role.toml"))
             .ok()
             .and_then(|s| toml::from_str::<RoleFile>(&s).ok())
-            .map(|r| r.allowed_paths)
             .unwrap_or_default()
+    }
+
+    /// Write scope of a role (`<root>/roles/<role>/role.toml`; empty = whole worktree).
+    pub fn role_allowed_paths(&self, role: &str) -> Vec<String> {
+        self.role_file(role).allowed_paths
+    }
+
+    /// Whether agents of `role` are the team's planner (ADR-59).
+    pub fn is_planner_role(&self, role: &str) -> bool {
+        self.role_file(role).planner
+    }
+
+    /// The planner of the project's team, if it has one.
+    pub fn planner(
+        &self,
+        project: ProjectId,
+    ) -> Result<Option<agenium_store::core::agents::Agent>> {
+        Ok(self
+            .team_of_project(project)?
+            .filter(|(t, _)| !t.solo)
+            .and_then(|(_, members)| {
+                members
+                    .into_iter()
+                    .find(|m| m.role_kind == RoleKind::Worker && self.is_planner_role(&m.role))
+            }))
     }
 }
 
 /// `<root>/roles/<role>/role.toml`: settings of a role that are not prose.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct RoleFile {
     #[serde(default)]
     template: String,
     #[serde(default)]
     allowed_paths: Vec<String>,
+    #[serde(default)]
+    planner: bool,
 }
 
 #[cfg(test)]
@@ -347,6 +386,9 @@ mod tests {
         let mut bad_model = base.clone();
         bad_model.roles[1].default_model = Some("gpt".into());
         assert!(bad_model.validate().is_err());
+        let mut lead_planner = base.clone();
+        lead_planner.roles[0].planner = true;
+        assert!(lead_planner.validate().is_err(), "the planner is a worker");
         let mut bad_id = base;
         bad_id.id = "Coding Team".into();
         assert!(bad_id.validate().is_err());

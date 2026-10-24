@@ -305,6 +305,7 @@ impl App {
             Intent::RequestPermission(r) => self.request_permission(ctx, &project, r),
             Intent::SubmitReport(r) => self.submit_report(ctx, &project, r),
             Intent::SuggestLink(l) => self.suggest_link(ctx, l),
+            Intent::SubmitPlanDraft(d) => self.submit_plan_draft(ctx, d),
             Intent::ProposeSpec(s) => self.propose_spec(ctx, s),
             Intent::CreatePlan(p) => self.create_plan(ctx, p),
             Intent::RevisePlan(p) => self.revise_plan(ctx, p),
@@ -467,6 +468,55 @@ impl App {
         })
     }
 
+    /// The planner's draft of plan v1 (ADR-59): only the team's planner, only for the latest locked spec and only
+    /// while there is no plan. Stored as a `PlanDrafted` event; the Lead's inbox shows it.
+    fn submit_plan_draft(
+        &self,
+        ctx: &CallCtx,
+        d: agenium_core::plan::PlanDraft,
+    ) -> Result<Outcome> {
+        let project = ctx.project;
+        let Actor::Worker(agent) = ctx.actor else {
+            return Err(denied("only the team's planner submits a plan draft"));
+        };
+        if !self.is_planner_role(&self.agent(agent)?.role) {
+            return Err(denied("only the team's planner submits a plan draft"));
+        }
+        self.commit(ctx, |w| {
+            let spec = plans::latest_spec(w.tx, project)?.ok_or_else(|| invalid("there is no spec yet"))?;
+            if spec.locked_at.is_none() || spec.version != d.spec_version {
+                return Err(invalid(format!("draft for spec v{} only (the latest approved spec)", spec.version)));
+            }
+            if plans::latest_plan(w.tx, project)?.is_some() {
+                return Err(invalid("a plan already exists; the Lead owns it now"));
+            }
+            check_trace(&spec, &d.items)?;
+            w.emit(DomainEvent::PlanDrafted { project, spec_version: d.spec_version, by: agent, draft: d })?;
+            Ok(Outcome {
+                result: serde_json::json!({ "draft_for_spec": spec.version, "next": "the Lead reviews your draft and creates the plan; your work is done" }),
+                run: RunEffect::End,
+                ops: vec![],
+            })
+        })
+    }
+
+    /// The planner's latest draft for `spec_version`.
+    pub fn plan_draft(
+        &self,
+        project: ProjectId,
+        spec_version: u32,
+    ) -> Result<Option<agenium_core::plan::PlanDraft>> {
+        let pid = project.to_string();
+        Ok(self
+            .store
+            .read(|c| agenium_store::core::events::recent_of_kind(c, "PlanDrafted", 50))?
+            .into_iter()
+            .filter(|e| {
+                e.payload["project"] == pid.as_str() && e.payload["spec_version"] == spec_version
+            })
+            .find_map(|e| serde_json::from_value(e.payload["draft"].clone()).ok()))
+    }
+
     fn revise_plan(&self, ctx: &CallCtx, rev: PlanRevision) -> Result<Outcome> {
         let project = ctx.project;
         self.commit(ctx, |w| {
@@ -608,6 +658,9 @@ impl App {
             let team = require_lead(w, pid, &ctx.actor)?.ok_or_else(|| invalid("the project has no team"))?;
             let mut t = ticket_by_key(w, pid, &a.ticket_id)?;
             let agent = agents::find_agent(w.tx, a.worker)?.ok_or_else(|| invalid(format!("unknown agent {}", a.worker)))?;
+            if self.is_planner_role(&agent.role) {
+                return Err(invalid(format!("{} is the team's planner: it drafts plans and takes no tickets", agent.name)));
+            }
             let in_team = agent.team == team.id && (agent.role_kind == RoleKind::Worker || team.solo);
             if !in_team {
                 return Err(invalid(format!("{} is not a worker of this team", agent.name)));
@@ -1376,7 +1429,7 @@ impl App {
                 serde_json::json!({
                     "agent": m.id, "name": m.name, "role": m.role, "kind": m.role_kind, "tags": m.tags,
                     "model": format!("{}/{}", m.model.provider, m.model.model), "status": m.status,
-                    "current_ticket": open.get(&m.id),
+                    "current_ticket": open.get(&m.id), "planner": self.is_planner_role(&m.role),
                 })
             })
             .collect();

@@ -446,12 +446,18 @@ fn team_from_template_and_write_scope() {
     let f = fixture();
     let out = f
         .app
-        .create_team_from_template(f.project.id, "pentest", &model(), None, "acme")
+        .create_team_from_template(f.project.id, "pentest", &model(), None, None, "acme")
         .unwrap();
     let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
         names,
-        ["acme-lead", "acme-web", "acme-mobile", "acme-recon"]
+        [
+            "acme-lead",
+            "acme-planner",
+            "acme-web",
+            "acme-mobile",
+            "acme-recon"
+        ]
     );
     assert_eq!(
         f.app.manifest(&f.project).unwrap().project.template,
@@ -465,7 +471,7 @@ fn team_from_template_and_write_scope() {
     );
     assert!(
         f.app
-            .create_team_from_template(f.project.id, "coding", &model(), None, "again")
+            .create_team_from_template(f.project.id, "coding", &model(), None, None, "again")
             .is_err(),
         "one team per project"
     );
@@ -536,4 +542,131 @@ fn team_from_template_and_write_scope() {
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::InProgress);
     submit(&r).unwrap();
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Resolved);
+}
+
+/// ADR-59: the planner drafts plan v1 once the spec is approved; the Lead reviews the draft and creates the plan;
+/// the planner never takes tickets.
+#[test]
+fn planner_drafts_and_the_lead_creates_the_plan() {
+    use agenium_core::plan::PlanDraft;
+    use agenium_orchestrator::inbox::InboxKind as K;
+    let f = fixture();
+    f.app
+        .create_team_from_template(f.project.id, "coding", &model(), None, None, "acme")
+        .unwrap();
+    let (team, members) = f.app.team_of_project(f.project.id).unwrap().unwrap();
+    let lead = Actor::Lead(team.lead.unwrap());
+    let id = |n: &str| members.iter().find(|a| a.name == n).unwrap().id;
+    let (planner, backend) = (id("acme-planner"), id("acme-backend"));
+    assert_eq!(f.app.planner(f.project.id).unwrap().unwrap().id, planner);
+    let kinds = || -> Vec<K> {
+        f.app
+            .lead_inbox(f.project.id)
+            .unwrap()
+            .into_iter()
+            .map(|i| i.kind)
+            .collect()
+    };
+
+    f.app
+        .apply(&ctx(&f, lead), Intent::ProposeSpec(spec()))
+        .unwrap();
+    assert!(kinds().is_empty(), "the spec waits for the user");
+    f.app.approve_spec(f.project.id, 1).unwrap();
+    assert!(kinds().is_empty(), "the planner drafts first");
+
+    let p = plan(&[("PI-1", &[]), ("PI-2", &["PI-1"])]);
+    let draft = |v: u32| PlanDraft {
+        spec_version: v,
+        milestones: p.milestones.clone(),
+        items: p.items.clone(),
+        rationale: "Backend first: the page needs its API; PI-2 depends on PI-1 for that reason."
+            .into(),
+    };
+    let submit =
+        |actor: Actor, d: PlanDraft| f.app.apply(&ctx(&f, actor), Intent::SubmitPlanDraft(d));
+    assert!(
+        submit(Actor::Worker(backend), draft(1)).is_err(),
+        "only the planner drafts"
+    );
+    assert!(
+        submit(Actor::Worker(planner), draft(2)).is_err(),
+        "only for the approved spec"
+    );
+    assert_eq!(
+        submit(Actor::Worker(planner), draft(1)).unwrap().run,
+        RunEffect::End
+    );
+
+    let inbox = f.app.lead_inbox(f.project.id).unwrap();
+    assert_eq!(
+        inbox.iter().map(|i| i.kind).collect::<Vec<_>>(),
+        [K::Planning]
+    );
+    assert!(inbox[0].text.contains("Backend first") && inbox[0].text.contains("create_plan"));
+    // The Lead owns the plan: it creates it (here unchanged); the planner is done.
+    f.app
+        .apply(&ctx(&f, lead), Intent::CreatePlan(p.clone()))
+        .unwrap();
+    assert!(kinds().is_empty(), "plan v1 waits for the user");
+    assert!(
+        submit(Actor::Worker(planner), draft(1)).is_err(),
+        "no drafts once a plan exists"
+    );
+    f.app.approve_plan(f.project.id, 1).unwrap();
+    assert_eq!(kinds(), [K::Plan]);
+
+    let out = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket("PI-1", "API", &[], &[])),
+        )
+        .unwrap();
+    let k: TicketKey = serde_json::from_value(out.result["ticket_id"].clone()).unwrap();
+    let assign = |w: AgentId| {
+        f.app.apply(
+            &ctx(&f, lead),
+            Intent::AssignTicket(AssignTicket {
+                ticket_id: k.clone(),
+                worker: w,
+                note: None,
+            }),
+        )
+    };
+    assert!(assign(planner).unwrap_err().to_string().contains("planner"));
+    assign(backend).unwrap();
+    let roster = f
+        .app
+        .apply(&ctx(&f, lead), Intent::GetTeam(Default::default()))
+        .unwrap()
+        .result;
+    let flag = |n: &str| {
+        roster["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["name"] == n)
+            .unwrap()["planner"]
+            .clone()
+    };
+    assert_eq!(
+        (flag("acme-planner"), flag("acme-backend")),
+        (serde_json::json!(true), serde_json::json!(false))
+    );
+}
+
+/// Without a planner, an approved spec without a plan is an inbox item for the Lead.
+#[test]
+fn approved_spec_without_planner_asks_the_lead_for_a_plan() {
+    let t = team();
+    let f = &t.f;
+    f.app.approve_spec(f.project.id, 1).unwrap();
+    let inbox = f.app.lead_inbox(f.project.id).unwrap();
+    assert_eq!(inbox.len(), 1);
+    assert_eq!(
+        inbox[0].kind,
+        agenium_orchestrator::inbox::InboxKind::Planning
+    );
+    assert!(inbox[0].text.contains("create_plan"));
 }

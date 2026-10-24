@@ -138,6 +138,8 @@ pub enum RunKind {
     Chat,
     /// Lead run on its inbox (team mode): ends once the inbox is empty.
     Inbox,
+    /// The planner drafting plan v1 (ends with submit_plan_draft).
+    Plan,
 }
 
 /// Routes protocol tool calls of one run to the intent engine.

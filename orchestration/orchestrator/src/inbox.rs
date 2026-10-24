@@ -16,6 +16,8 @@ use crate::Result;
 pub enum InboxKind {
     BlockingQuestion,
     Permission,
+    /// The spec is approved and there is no plan: create plan v1 (from the planner's draft when the team has one).
+    Planning,
     /// Approved plan items that have no ticket yet.
     Plan,
     /// New tickets without a worker, or Reopened tickets whose worker cannot take work.
@@ -159,6 +161,35 @@ impl App {
                     } else {
                         format!("{} ({}) was reopened but its worker cannot take work: assign it to another member", t.key, t.title)
                     },
+                });
+            }
+        }
+        let (spec, any_plan) = self.store.read(|c| {
+            Ok((
+                plans::latest_spec(c, project)?,
+                plans::latest_plan(c, project)?.is_some(),
+            ))
+        })?;
+        if let Some(spec) = spec.filter(|s| s.locked_at.is_some() && !any_plan) {
+            let text = match (self.planner(project)?, self.plan_draft(project, spec.version)?) {
+                (Some(p), Some(d)) => Some(format!(
+                    "Spec v{v} is approved and your planner {} drafted plan v1. Review the draft against the spec and the team, adjust what you disagree with, then create_plan (it goes to the user for approval).\nPlanner's rationale: {}\nDraft: {}",
+                    p.name,
+                    d.rationale,
+                    serde_json::to_string(&d.plan()).unwrap_or_default(),
+                    v = spec.version
+                )),
+                // The planner has not drafted yet: its run comes first.
+                (Some(_), None) => None,
+                (None, _) => Some(format!("Spec v{} is approved and has no plan yet: create_plan (it goes to the user for approval).", spec.version)),
+            };
+            if let Some(text) = text {
+                out.push(InboxItem {
+                    kind: InboxKind::Planning,
+                    ticket: None,
+                    comment: None,
+                    created_at: spec.locked_at.clone().unwrap_or_default(),
+                    text,
                 });
             }
         }
