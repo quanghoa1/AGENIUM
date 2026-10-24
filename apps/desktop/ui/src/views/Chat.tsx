@@ -1,6 +1,7 @@
 import { Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "../components/Markdown";
+import { ListItem } from "../components/motion";
 import { Avatar, Empty, PageHeader, cn } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
@@ -52,7 +53,7 @@ export function ChatView() {
       <div className="card flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
           {lines.map((l, i) => (
-            <div key={i} className={cn("flex gap-3", l.role === "user" && "flex-row-reverse")}>
+            <ListItem key={i} id={String(i)} className={cn("flex gap-3", l.role === "user" && "flex-row-reverse")}>
               {l.role === "user" ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-elevated font-mono text-[10px] font-bold">{app.t("chat.you")}</div> : <Avatar name={p.team?.name ?? "lead"} />}
               <div
                 className={cn(
@@ -62,7 +63,7 @@ export function ChatView() {
               >
                 {l.role === "assistant" ? <Markdown text={l.text} /> : l.text}
               </div>
-            </div>
+            </ListItem>
           ))}
           {busy && (
             <div className="flex gap-3">

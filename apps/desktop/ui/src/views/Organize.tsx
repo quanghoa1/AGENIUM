@@ -1,5 +1,6 @@
 import { ArrowLeft, Crown, FolderPlus, RotateCcw, Settings2, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import { PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, Empty, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
 import { useApp } from "../lib/store";
@@ -211,6 +212,8 @@ export function AgentView({ id }: { id: string }) {
   const [d, setD] = useState<AgentDetail | null>(null);
   const [entry, setEntry] = useState<AgentEntry | null>(null);
   const [tab, setTab] = useState<"overview" | "runs" | "memory" | "skills">("overview");
+  const [dir, setDir] = useState(1);
+  const order = ["overview", "runs", "memory", "skills"];
   useEffect(() => {
     api.agentDetail(id).then(setD).catch((e) => app.notify(String(e)));
     api.agents().then((xs) => setEntry(xs.find((x) => x.agent.id === id) ?? null));
@@ -251,20 +254,19 @@ export function AgentView({ id }: { id: string }) {
           </button>
         )}
       </div>
-      <div className="flex rounded-lg border border-line-strong bg-elevated p-0.5 text-xs">
-        {(
-          [
-            ["overview", app.t("agents.overview")],
-            ["runs", app.t("nav.runs")],
-            ["memory", `${app.t("agents.memory")} (${d.facts_total})`],
-            ["skills", app.t("agents.skills")],
-          ] as const
-        ).map(([x, label]) => (
-          <button key={x} onClick={() => setTab(x)} className={cn("flex-1 rounded-md px-3 py-1", tab === x ? "bg-surface font-medium shadow-sm" : "text-subtle")}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        id="agent-tab"
+        value={tab}
+        onChange={(x) => (setDir(order.indexOf(x) >= order.indexOf(tab) ? 1 : -1), setTab(x))}
+        itemClassName="flex-1 justify-center"
+        items={[
+          { value: "overview" as const, label: app.t("agents.overview") },
+          { value: "runs" as const, label: app.t("nav.runs") },
+          { value: "memory" as const, label: `${app.t("agents.memory")} (${d.facts_total})` },
+          { value: "skills" as const, label: app.t("agents.skills") },
+        ]}
+      />
+      <PanelSwap id={tab} dir={dir}>
       {tab === "overview" && (
         <div className="grid gap-4 md:grid-cols-2">
           <Section title={app.t("common.model")}>
@@ -348,6 +350,7 @@ export function AgentView({ id }: { id: string }) {
           </Section>
         </div>
       )}
+      </PanelSwap>
     </div>
   );
 }
@@ -383,18 +386,20 @@ export function TeamsView() {
       {p && !p.team && (
         <Section title={`${app.t("teams.newFor")} ${p.key_prefix} — ${p.name}`}>
           <div className="space-y-3">
-            <div className="flex rounded-lg border border-line-strong bg-elevated p-0.5 text-xs">
-              <button className={cn("flex-1 rounded-md py-1", !solo && "bg-surface font-medium shadow-sm")} onClick={() => setSolo(false)}>
-                {app.t("teams.fromTemplate")}
-              </button>
-              <button className={cn("flex-1 rounded-md py-1", solo && "bg-surface font-medium shadow-sm")} onClick={() => setSolo(true)}>
-                {app.t("teams.solo")}
-              </button>
-            </div>
+            <Segmented
+              id="team-kind"
+              value={solo ? "solo" : "team"}
+              onChange={(v) => setSolo(v === "solo")}
+              itemClassName="flex-1 justify-center"
+              items={[
+                { value: "team", label: app.t("teams.fromTemplate") },
+                { value: "solo", label: app.t("teams.solo") },
+              ]}
+            />
             {!solo && (
               <div className="grid gap-2 md:grid-cols-4">
                 {templates.map((x) => (
-                  <button key={x.id} onClick={() => setTpl(x.id)} className={cn("rounded-lg border p-3 text-left", tpl === x.id ? "border-accent bg-blue-600/10" : "border-line hover:border-line-strong")}>
+                  <button key={x.id} onClick={() => setTpl(x.id)} className={cn("press rounded-lg border p-3 text-left hover:shadow-md", tpl === x.id ? "border-accent bg-blue-600/10" : "border-line hover:border-line-strong")}>
                     <div className="text-xs font-semibold">{x.name}</div>
                     <div className="mt-1 text-[11px] text-subtle">{x.description}</div>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -448,7 +453,7 @@ export function TeamsView() {
             {[...members]
               .sort((a, b) => Number(b.is_lead) - Number(a.is_lead) || Number(b.is_planner) - Number(a.is_planner))
               .map((m) => (
-                <button key={m.agent.id} onClick={() => app.go("agent", m.agent.id)} className="flex items-center gap-3 rounded-lg border border-line bg-elevated/40 p-3 text-left hover:border-accent/40">
+                <button key={m.agent.id} onClick={() => app.go("agent", m.agent.id)} className="press flex items-center gap-3 rounded-lg border border-line bg-elevated/40 p-3 text-left hover:border-accent/40 hover:shadow-md">
                   <Avatar name={m.agent.name} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">

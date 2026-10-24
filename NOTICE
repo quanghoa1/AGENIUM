@@ -14,3 +14,8 @@ Code adapted from OpenAI Codex (Copyright OpenAI, Apache License 2.0):
 
 Third-party library: mxc-sdk (Microsoft Corporation, MIT License, https://github.com/microsoft/mxc) provides the MXC
 process containers on Windows.
+
+Desktop UI libraries (apps/desktop/ui): motion (MIT, https://motion.dev) for animations; @animate-ui/react
+(Copyright Elliot Sutton, MIT + Commons Clause, https://github.com/imskyleen/animate-ui) for motion tokens and the
+counting/sliding number primitives, used as part of this application only (the Commons Clause forbids selling or
+redistributing its components in their original form). The UI's motion rules follow the animate-ui skill.

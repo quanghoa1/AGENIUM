@@ -4,7 +4,10 @@ import { AgentStatusBadge, Avatar, Empty, Metric, Mono, OutcomeBadge, PageHeader
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { Overview } from "../lib/types";
-import { CommandRow, NeedRow } from "./Needs";
+import { CountingNumber } from "@animate-ui/react/primitives/texts/counting-number";
+import { AnimatePresence } from "motion/react";
+import { ListItem, ProgressBar } from "../components/motion";
+import { CommandRow, NeedRow, needKey } from "./Needs";
 
 export function OverviewView() {
   const app = useApp();
@@ -29,9 +32,9 @@ export function OverviewView() {
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Metric label={app.t("overview.agents")} value={o.agents.length} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} ${app.t("overview.blocked")}` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
-        <Metric label={app.t("overview.live")} value={o.live_runs.length} tone="blue" onClick={() => app.go("runs")} />
-        <Metric label={app.t("overview.needs")} value={needCount} tone={needCount ? "amber" : "emerald"} onClick={() => app.go("needs")} />
+        <Metric label={app.t("overview.agents")} value={<CountingNumber number={o.agents.length} />} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} ${app.t("overview.blocked")}` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
+        <Metric label={app.t("overview.live")} value={<CountingNumber number={o.live_runs.length} />} tone="blue" onClick={() => app.go("runs")} />
+        <Metric label={app.t("overview.needs")} value={<CountingNumber number={needCount} />} tone={needCount ? "amber" : "emerald"} onClick={() => app.go("needs")} />
         <Metric label={app.t("overview.tokens")} value={tokens(o.usage_today.tokens_in + o.usage_today.tokens_out)} sub={`${o.runs_today} runs`} />
         <Metric label={app.t("overview.cost")} value={`$${o.usage_today.estimated_cost_usd.toFixed(3)}`} sub={app.t("overview.costNote")} />
       </div>
@@ -50,9 +53,13 @@ export function OverviewView() {
             {app.approvals.slice(0, 2).map((a) => (
               <CommandRow key={a.id} a={a} />
             ))}
-            {o.needs.slice(0, 5).map((n, i) => (
-              <NeedRow key={i} n={n.item} projectName={n.project_name} compact />
-            ))}
+            <AnimatePresence initial={false} mode="popLayout">
+              {o.needs.slice(0, 5).map((n) => (
+                <ListItem key={needKey(n.item)} id={needKey(n.item)}>
+                  <NeedRow n={n.item} projectName={n.project_name} compact />
+                </ListItem>
+              ))}
+            </AnimatePresence>
             {needCount === 0 && (
               <div className="flex items-center gap-2 text-xs text-muted">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {app.t("needs.empty")}
@@ -64,7 +71,7 @@ export function OverviewView() {
         <Section className="xl:col-span-2" title={app.t("overview.projects")}>
           <div className="space-y-2">
             {app.projects.map((p) => (
-              <button key={p.id} onClick={() => (app.setProject(p.id), app.go("tickets"))} className="w-full rounded-lg border border-line bg-elevated/50 p-3 text-left hover:border-accent/40">
+              <button key={p.id} onClick={() => (app.setProject(p.id), app.go("tickets"))} className="press w-full rounded-lg border border-line bg-elevated/50 p-3 text-left hover:border-accent/40 hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold">
                     <Mono className="text-cyan-600 dark:text-cyan-400">{p.key_prefix}</Mono> {p.name}
@@ -72,7 +79,7 @@ export function OverviewView() {
                   <span className="text-[11px] text-subtle">{p.team ? `${p.team.name}${p.team.solo ? "" : ` · ${p.team.members}`}` : app.t("overview.noTeam")}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background">
-                  <div className="h-full bg-emerald-500" style={{ width: `${p.plan_items ? (100 * p.plan_done) / p.plan_items : 0}%` }} />
+                  <ProgressBar value={p.plan_items ? p.plan_done / p.plan_items : 0} />
                 </div>
                 <div className="mt-1.5 flex justify-between text-[11px] text-subtle">
                   <span>

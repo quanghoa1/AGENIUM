@@ -1,5 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ReducedMotionConfig } from "@animate-ui/react/utils/motion";
+import { PageEnter } from "./components/motion";
 import { Shell } from "./components/Shell";
 import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
@@ -55,13 +57,20 @@ function Router() {
         return <OverviewView />;
     }
   })();
-  return <Shell>{page}</Shell>;
+  return (
+    <Shell>
+      <PageEnter id={`${view}/${id ?? ""}`}>{page}</PageEnter>
+    </Shell>
+  );
 }
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppProvider>
-      <Router />
+      {/* Under the OS "reduce motion" setting, fades and blurs stay and movement goes (animate-ui rules). */}
+      <ReducedMotionConfig>
+        <Router />
+      </ReducedMotionConfig>
     </AppProvider>
   </StrictMode>,
 );

@@ -46,3 +46,25 @@ progress, an inter-agent mailbox, config versioning, capability probes per effor
 - Open: Monaco diff and xterm terminal, drag-and-drop on the board, markdown rendering in chat, the agent memory
   explorer, skills/MCP forms, notifications, installer/updater, a scripted UI test suite in CI, full i18n of
   secondary strings.
+
+## Motion (2026-10-24, owner's request: "animate-ui, smooth and alive")
+
+- Followed the animate-ui skill (`skills/animate-ui/SKILL.md`), path C (custom markup), subtle level with an "alive"
+  feel: every value from `@animate-ui/react`'s tokens through `useTempoTransition`, `motion` 14 for the animations,
+  the whole app inside `ReducedMotionConfig` (fades and blurs stay, movement goes).
+- Applied: route entrance (reveal + `spring.entrance`, out of `blur.icon`); one gliding selection for the sidebar,
+  every segmented control and tab bar (`layoutId`, `spring.selection`, labels above it); tab panels taking turns
+  (`transition.panelOut/panelIn`, `blur.panel`, `shift.tabs` by direction); lists that add, remove and close gaps
+  (needs, board cards, ticket timeline, chat: `layout="position"`, `spring.reflow`, `transition.fade`); counting
+  numbers on the dashboard and rolling, bumping badges in the sidebar (`CountingNumber`, `SlidingNumber`,
+  `spring.bounce`); progress bars on `spring.progress` (scaleX); the command palette (`scale.menu`,
+  `transition.menu`, the selected result's background gliding on `spring.highlight`); the confirm dialog (modal
+  recipe: tipped from `perspective(500px) rotateX(-20deg) scale(0.8)` on `spring.dialog`, dismissed on
+  `transition.dismiss`); toasts (toast recipe); press feedback in CSS (0.97 controls, 0.985 cards and rows,
+  `ease.out` 150 ms, none under reduced motion), hover = colour/border/shadow only.
+- HTML5 drag-and-drop stays on plain elements inside the animated wrappers (Motion's own drag props would take the
+  native drag events).
+- Verified on the real app through the DevTools port, frames mid-animation: sidebar highlight mid-glide with labels
+  above it, tab surface sliding while the panel comes out of its blur, palette fading and growing; under emulated
+  reduced motion the route appears in place and the highlight jumps. No runtime errors on any view.
+- Cost: the UI bundle grows from ~114 kB to ~172 kB gzipped (one chunk; a desktop app loads it from disk).

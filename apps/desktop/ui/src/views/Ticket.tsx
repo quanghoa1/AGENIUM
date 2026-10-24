@@ -1,6 +1,8 @@
 import { ArrowLeft, Check, GitBranch, Send, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
 import { DiffView } from "../components/DiffView";
+import { ListItem, PanelSwap, Segmented } from "../components/motion";
 import { Markdown } from "../components/Markdown";
 import { Empty, Mono, OutcomeBadge, PriorityBadge, Section, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
@@ -13,6 +15,8 @@ export function TicketView({ id }: { id: string }) {
   const app = useApp();
   const [d, setD] = useState<TicketDetail | null>(null);
   const [tab, setTab] = useState<Tab>("timeline");
+  const [dir, setDir] = useState(1);
+  const order: Tab[] = ["timeline", "changes", "runs", "audit"];
   const [diff, setDiff] = useState<{ diff: string; truncated?: boolean; note?: string } | null>(null);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [text, setText] = useState("");
@@ -87,19 +91,31 @@ export function TicketView({ id }: { id: string }) {
 
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="min-w-0 space-y-4 xl:col-span-2">
-          <div className="flex rounded-lg border border-line-strong bg-elevated p-0.5 text-xs">
-            {tabs.map(([x, label, n]) => (
-              <button key={x} onClick={() => setTab(x)} className={cn("flex-1 rounded-md px-3 py-1", tab === x ? "bg-surface font-medium shadow-sm" : "text-subtle")}>
-                {label}
-                {n !== undefined && <Mono className="ml-1 text-subtle">{n}</Mono>}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            id="ticket-tab"
+            value={tab}
+            onChange={(x) => (setDir(order.indexOf(x) >= order.indexOf(tab) ? 1 : -1), setTab(x))}
+            itemClassName="flex-1 justify-center"
+            items={tabs.map(([x, label, n]) => ({
+              value: x,
+              label: (
+                <>
+                  {label}
+                  {n !== undefined && <Mono className="text-subtle">{n}</Mono>}
+                </>
+              ),
+            }))}
+          />
+          <PanelSwap id={tab} dir={dir}>
           {tab === "timeline" && (
             <div className="space-y-2">
-              {d.comments.map((c) => (
-                <CommentCard key={c.id} c={c} project={project} ticket={t.key} />
-              ))}
+              <AnimatePresence initial={false} mode="popLayout">
+                {d.comments.map((c) => (
+                  <ListItem key={c.id} id={c.id}>
+                    <CommentCard c={c} project={project} ticket={t.key} />
+                  </ListItem>
+                ))}
+              </AnimatePresence>
               {d.comments.length === 0 && <Empty>{app.t("common.none")}</Empty>}
               <div className="card flex gap-2 p-3">
                 <input className="input" placeholder={app.t("ticket.comment")} value={text} onChange={(e) => setText(e.target.value)} />
@@ -148,6 +164,7 @@ export function TicketView({ id }: { id: string }) {
               </table>
             </div>
           )}
+          </PanelSwap>
         </div>
 
         <div className="space-y-4">

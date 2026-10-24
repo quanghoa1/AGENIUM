@@ -1,5 +1,7 @@
 import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, ShieldAlert, Terminal, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
+import { ListItem } from "../components/motion";
 import { Empty, Mono, PageHeader, Section, ago, cn } from "../components/ui";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
@@ -15,6 +17,11 @@ const icon: Record<NeedKind, ReactNode> = {
   Question: <HelpCircle className="h-4 w-4 text-blue-500" />,
   MergeReview: <GitMerge className="h-4 w-4 text-purple-500" />,
 };
+
+/** Stable identity of a "needs you" item across refreshes (for list animations). */
+export function needKey(n: NeedItem): string {
+  return [n.project, n.kind, n.ticket ?? "", n.comment ?? "", n.version ?? "", n.agent ?? ""].join("|");
+}
 
 /** One "needs you" item with the action that resolves it. */
 export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?: string; compact?: boolean }) {
@@ -146,9 +153,13 @@ export function NeedsView() {
       {app.approvals.length > 0 && (
         <Section title={app.t("needs.commands")}>
           <div className="space-y-2">
-            {app.approvals.map((a) => (
-              <CommandRow key={a.id} a={a} />
-            ))}
+            <AnimatePresence initial={false} mode="popLayout">
+              {app.approvals.map((a) => (
+                <ListItem key={String(a.id)} id={String(a.id)}>
+                  <CommandRow a={a} />
+                </ListItem>
+              ))}
+            </AnimatePresence>
           </div>
         </Section>
       )}
@@ -157,9 +168,13 @@ export function NeedsView() {
         .map((r) => (
           <Section key={r.project} title={r.project}>
             <div className="space-y-2">
-              {r.items.map((n, i) => (
-                <NeedRow key={i} n={n} />
-              ))}
+              <AnimatePresence initial={false} mode="popLayout">
+                {r.items.map((n) => (
+                  <ListItem key={needKey(n)} id={needKey(n)}>
+                    <NeedRow n={n} />
+                  </ListItem>
+                ))}
+              </AnimatePresence>
             </div>
           </Section>
         ))}

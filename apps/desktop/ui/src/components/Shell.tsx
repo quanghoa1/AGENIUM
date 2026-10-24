@@ -26,7 +26,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
 import { inTauri, useApp, type View } from "../lib/store";
+import { spring, useTempoTransition } from "@animate-ui/react/utils/motion";
+import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
+import { CountBadge, Overlay, Segmented, Toast } from "./motion";
 import { cn } from "./ui";
 
 interface NavItem {
@@ -41,6 +44,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const app = useApp();
   const { t, route, go } = app;
   const [collapsed, setCollapsed] = useState(false);
+  const glide = useTempoTransition(spring.selection);
   const [palette, setPalette] = useState(false);
   const current = app.projects.find((p) => p.id === app.project);
   const needs = app.projects.reduce((n, p) => n + p.needs_you, 0) + app.approvals.length;
@@ -133,16 +137,23 @@ export function Shell({ children }: { children: ReactNode }) {
                     onClick={() => go(it.id)}
                     title={collapsed ? t(it.label) : undefined}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors",
-                      active(it.id) ? "border-blue-500/30 bg-blue-600/15 text-blue-600 dark:text-blue-400" : "border-transparent text-muted hover:bg-elevated hover:text-fg",
+                      "press relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium",
+                      active(it.id) ? "text-blue-600 dark:text-blue-400" : "text-muted hover:bg-elevated hover:text-fg",
                     )}
                   >
-                    <span className="flex items-center gap-2.5">
+                    {active(it.id) && (
+                      // The selection glides from item to item (animate-ui indicator recipe).
+                      <motion.span layoutId="nav-active" transition={glide} className="absolute inset-0 rounded-lg border border-blue-500/30 bg-blue-600/15" />
+                    )}
+                    <span className="relative z-10 flex items-center gap-2.5">
                       {it.icon}
                       {!collapsed && t(it.label)}
                     </span>
                     {!collapsed && it.badge !== undefined && (
-                      <span className={cn("rounded border px-1.5 font-mono text-[10px]", it.tone ? badgeTone[it.tone] : "border-line-strong bg-elevated text-subtle")}>{it.badge}</span>
+                      <CountBadge
+                        count={it.badge}
+                        className={cn("relative z-10 min-w-[1.5rem] rounded border px-1.5 font-mono text-[10px]", it.tone ? badgeTone[it.tone] : "border-line-strong bg-elevated text-subtle")}
+                      />
                     )}
                   </button>
                 ))}
@@ -202,21 +213,24 @@ export function Shell({ children }: { children: ReactNode }) {
           <button onClick={() => app.setLang(app.lang === "vi" ? "en" : "vi")} className="btn font-mono" title={t("settings.language")}>
             {app.lang.toUpperCase()}
           </button>
-          <div className="flex rounded-lg border border-line-strong bg-elevated p-0.5">
-            {(["light", "dark", "system"] as const).map((m) => (
-              <button key={m} onClick={() => app.setThemeMode(m)} className={cn("rounded-md p-1.5 text-subtle", app.themeMode === m && "bg-surface text-fg shadow-sm")} title={m}>
-                {m === "light" ? <Sun className="h-3.5 w-3.5" /> : m === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Monitor className="h-3.5 w-3.5" />}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            id="theme"
+            value={app.themeMode}
+            onChange={app.setThemeMode}
+            itemClassName="px-1.5 py-1.5"
+            items={(["light", "dark", "system"] as const).map((m) => ({
+              value: m,
+              label: m === "light" ? <Sun className="h-3.5 w-3.5" /> : m === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Monitor className="h-3.5 w-3.5" />,
+            }))}
+          />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto p-5">{children}</main>
       </div>
 
-      {palette && <CommandPalette onClose={() => setPalette(false)} />}
-      {app.toast && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-line-strong bg-surface px-4 py-3 text-xs shadow-xl">{app.toast}</div>
-      )}
+      <Overlay open={palette} onClose={() => setPalette(false)} kind="palette" top="pt-24">
+        <CommandPalette onClose={() => setPalette(false)} />
+      </Overlay>
+      <Toast message={app.toast} />
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { ArrowRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, type View } from "../lib/store";
+import { spring, useTempoTransition } from "@animate-ui/react/utils/motion";
+import { motion } from "motion/react";
 import type { AgentEntry, Card } from "../lib/types";
 import { cn } from "./ui";
 
@@ -15,6 +17,8 @@ interface Hit {
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const app = useApp();
   const [q, setQ] = useState("");
+  // The selected result's background glides with the arrow keys (palette recipe, spring.highlight).
+  const highlight = useTempoTransition(spring.highlight);
   const [sel, setSel] = useState(0);
   const [cards, setCards] = useState<Card[]>([]);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
@@ -54,8 +58,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={onClose}>
-      <div className="card w-[640px] max-w-[92vw] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div>
+      <div className="card w-[640px] max-w-[92vw] overflow-hidden shadow-2xl">
         <div className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Search className="h-4 w-4 text-subtle" />
           <input
@@ -78,14 +82,15 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               key={h.cat + h.title}
               onMouseEnter={() => setSel(i)}
               onClick={() => run(h)}
-              className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left", i === sel ? "bg-blue-600/15" : "hover:bg-elevated")}
+              className={cn("relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left", i !== sel && "hover:bg-elevated")}
             >
-              <span className="chip w-16 justify-center border-line-strong bg-elevated text-subtle">{h.cat}</span>
-              <span className="min-w-0 flex-1">
+              {i === sel && <motion.span layoutId="palette-sel" transition={highlight} className="absolute inset-0 rounded-lg bg-blue-600/15" />}
+              <span className="chip relative z-10 w-16 justify-center border-line-strong bg-elevated text-subtle">{h.cat}</span>
+              <span className="relative z-10 min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{h.title}</span>
                 <span className="block truncate text-[11px] text-subtle">{h.sub}</span>
               </span>
-              <ArrowRight className="h-3.5 w-3.5 text-subtle" />
+              <ArrowRight className="relative z-10 h-3.5 w-3.5 text-subtle" />
             </button>
           ))}
           {hits.length === 0 && <div className="p-6 text-center text-xs text-subtle">{app.t("common.none")}</div>}

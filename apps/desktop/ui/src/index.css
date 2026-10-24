@@ -40,6 +40,33 @@ body {
   font-size: 13px;
 }
 
+/* Press feedback (animate-ui press/card recipes): 0.97 for controls, 0.985 for cards and rows, on ease.out; hover
+   changes colour, border or shadow only. Under reduced motion nothing scales. */
+.press,
+.btn,
+.btn-primary,
+.btn-danger {
+  transition-property: transform, background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+.btn:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.press:active {
+  transform: scale(0.985);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled),
+  .btn-primary:active:not(:disabled),
+  .btn-danger:active:not(:disabled),
+  .press:active {
+    transform: none;
+  }
+}
+
 @layer components {
   .card {
     @apply rounded-xl border border-line bg-surface;
@@ -48,13 +75,13 @@ body {
     @apply font-mono text-[10px] font-semibold uppercase tracking-wider text-subtle;
   }
   .btn {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-elevated px-2.5 py-1.5 text-xs font-medium text-fg transition-colors hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-elevated px-2.5 py-1.5 text-xs font-medium text-fg hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-500/20 dark:text-rose-300;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-500/20 dark:text-rose-300;
   }
   .input {
     @apply w-full rounded-lg border border-line-strong bg-background px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-subtle focus:border-accent;

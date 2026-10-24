@@ -1,7 +1,10 @@
 import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
-import { Empty, Modal, Mono, PageHeader, PriorityBadge, Section, TicketStatusBadge, cn } from "../components/ui";
+import { ListItem, Modal, ProgressBar, Segmented } from "../components/motion";
+import { Empty, Mono, PageHeader, PriorityBadge, Section, TicketStatusBadge, cn } from "../components/ui";
+import { AnimatePresence } from "motion/react";
+import { useRef } from "react";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { AgentEntry, Card, Column, InboxItem, PlanView, TicketStatus } from "../lib/types";
@@ -17,14 +20,20 @@ export function TicketsView() {
   return (
     <div>
       <PageHeader title={`${p.key_prefix} — ${p.name}`} sub={p.path}>
-        <div className="flex rounded-lg border border-line-strong bg-elevated p-0.5">
-          {(["board", "plan", "inbox"] as Tab[]).map((x) => (
-            <button key={x} onClick={() => app.go("tickets", x)} className={cn("rounded-md px-3 py-1 text-xs", tab === x ? "bg-surface font-medium shadow-sm" : "text-subtle")}>
-              {app.t(x === "board" ? "tickets.board" : x === "plan" ? "tickets.plan" : "tickets.inbox")}
-              {x === "inbox" && p.inbox > 0 && <span className="ml-1.5 font-mono text-amber-500">{p.inbox}</span>}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          id="tickets-tab"
+          value={tab}
+          onChange={(x) => app.go("tickets", x)}
+          items={(["board", "plan", "inbox"] as Tab[]).map((x) => ({
+            value: x,
+            label: (
+              <>
+                {app.t(x === "board" ? "tickets.board" : x === "plan" ? "tickets.plan" : "tickets.inbox")}
+                {x === "inbox" && p.inbox > 0 && <span className="ml-1 font-mono text-amber-500">{p.inbox}</span>}
+              </>
+            ),
+          }))}
+        />
         <button
           className="btn"
           disabled={busy}
@@ -59,6 +68,10 @@ function Board({ project }: { project: string }) {
   const [drop, setDrop] = useState<Drop>(null);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [value, setValue] = useState("");
+  // The dialog keeps its last content while it leaves.
+  const last = useRef<Drop>(null);
+  if (drop) last.current = drop;
+  const dlg = drop ?? last.current;
   useEffect(() => {
     api.board(project).then(setCols);
   }, [project, app.tick]);
@@ -120,14 +133,15 @@ function Board({ project }: { project: string }) {
               <Mono className="text-subtle">{c.cards.length}</Mono>
             </div>
             <div className="min-h-[80px] space-y-2 p-2">
+              <AnimatePresence initial={false} mode="popLayout">
               {c.cards.map((k) => (
+                <ListItem key={k.key} id={k.key}>
                 <div
-                  key={k.key}
                   draggable
                   onDragStart={() => setDrag({ card: k, from: c.status })}
                   onDragEnd={() => (setDrag(null), setOver(null))}
                   onClick={() => app.go("ticket", k.key)}
-                  className={cn("cursor-grab rounded-lg border border-line bg-surface p-2.5 shadow-sm transition-colors hover:border-accent/50 active:cursor-grabbing", drag?.card.key === k.key && "opacity-40")}
+                  className={cn("press cursor-grab rounded-lg border border-line bg-surface p-2.5 shadow-sm hover:border-accent/50 hover:shadow-md active:cursor-grabbing", drag?.card.key === k.key && "opacity-40")}
                 >
                   <div className="flex items-center justify-between">
                     <Mono className="font-semibold text-cyan-600 dark:text-cyan-400">{k.key}</Mono>
@@ -157,18 +171,22 @@ function Board({ project }: { project: string }) {
                     </div>
                   )}
                 </div>
+                </ListItem>
               ))}
+              </AnimatePresence>
             </div>
           </div>
         ))}
       </div>
-      {drop && (
-        <Modal
-          title={`${drop.card.key} → ${drop.kind === "assign" ? app.t("tickets.assignTo") : drop.kind === "close" ? app.t("ticket.close") : app.t("ticket.cancel")}`}
-          onClose={() => setDrop(null)}
-        >
-          <div className="mb-3 text-xs text-muted">{drop.card.title}</div>
-          {drop.kind === "assign" ? (
+      <Modal
+        open={!!drop}
+        title={dlg ? `${dlg.card.key} → ${dlg.kind === "assign" ? app.t("tickets.assignTo") : dlg.kind === "close" ? app.t("ticket.close") : app.t("ticket.cancel")}` : ""}
+        onClose={() => setDrop(null)}
+      >
+        {dlg && (
+        <>
+          <div className="mb-3 text-xs text-muted">{dlg.card.title}</div>
+          {dlg.kind === "assign" ? (
             <select className="input" value={value} onChange={(e) => setValue(e.target.value)} autoFocus>
               <option value="">–</option>
               {agents.map((a) => (
@@ -184,12 +202,13 @@ function Board({ project }: { project: string }) {
             <button className="btn" onClick={() => setDrop(null)}>
               {app.t("common.cancel")}
             </button>
-            <button className={drop.kind === "cancel" ? "btn-danger" : "btn-primary"} disabled={drop.kind === "assign" ? !value : value.trim().length < 5} onClick={confirm}>
+            <button className={dlg.kind === "cancel" ? "btn-danger" : "btn-primary"} disabled={dlg.kind === "assign" ? !value : value.trim().length < 5} onClick={confirm}>
               <Check className="h-3.5 w-3.5" /> OK
             </button>
           </div>
-        </Modal>
-      )}
+        </>
+        )}
+      </Modal>
     </>
   );
 }
@@ -276,7 +295,7 @@ function Plan({ project }: { project: string }) {
                     </Mono>
                   </div>
                   <div className="mb-2 h-1 overflow-hidden rounded-full bg-background">
-                    <div className="h-full bg-emerald-500" style={{ width: `${items.length ? (100 * done) / items.length : 0}%` }} />
+                    <ProgressBar value={items.length ? done / items.length : 0} />
                   </div>
                   <div className="space-y-1">
                     {items.map((i) => (
