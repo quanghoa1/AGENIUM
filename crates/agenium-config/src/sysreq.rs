@@ -121,6 +121,8 @@ pub fn evaluate(f: &Facts) -> SysReport {
     });
     let os_level = match f.family {
         "linux" | "macos" => Level::Ok,
+        // Not a v1 release target (ADR-39); the sandbox depends on MXC availability (ADR-53).
+        "windows" => Level::BelowRecommended,
         _ => Level::BelowMinimum,
     };
     checks.push(Check {
@@ -130,7 +132,8 @@ pub fn evaluate(f: &Facts) -> SysReport {
         message: match f.family {
             "linux" => "Linux: the sandbox needs bubblewrap or Landlock ABI >= 3 (kernel 6.2+), otherwise agents only run with per-command approval".into(),
             "macos" => "macOS 12+ (Seatbelt sandbox is experimental)".into(),
-            _ => "This OS has no sandbox backend in v1 (ADR-39): YOLO mode is refused; commands need your approval".into(),
+            "windows" => "Windows is not a v1 release target (ADR-39); agent commands are sandboxed only where MXC process containers work (ADR-53, see the sandbox line), otherwise they need your approval".into(),
+            _ => "This OS has no sandbox backend: YOLO mode is refused; commands need your approval".into(),
         },
     });
 
