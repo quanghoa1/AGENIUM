@@ -197,8 +197,6 @@ pub enum Mode {
         cli: String,
         model: String,
         approve_commands: bool,
-        /// The user accepts a CLI Agenium cannot fully isolate (`[cli] allow_partial_isolation`).
-        allow_partial_isolation: bool,
     },
 }
 
@@ -290,13 +288,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             },
         },
     )?;
-    if let Mode::Cli {
-        cli,
-        model,
-        allow_partial_isolation,
-        ..
-    } = mode
-    {
+    if let Mode::Cli { cli, model, .. } = mode {
         app.set_agent_backend(
             agent.id,
             BackendKind::Cli,
@@ -307,10 +299,6 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
                 max_tokens: None,
             },
         )?;
-        if *allow_partial_isolation {
-            let cli = cli.clone();
-            app.update_config(move |c| c.cli.allow_partial_isolation = vec![cli])?;
-        }
     }
     let user = CallCtx::user(project.id);
     let acceptance: Vec<AcceptanceCriterion> = task

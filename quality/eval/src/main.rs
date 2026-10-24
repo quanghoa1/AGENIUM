@@ -1,8 +1,8 @@
 //! `cargo run -p agenium-eval -- [--task ID] [--out DIR]` runs the golden tasks with the scripted model.
 //! With a real model: `--root <agenium root> --provider <id> --model <model> [--effort high] [--approve-commands]`
 //! (uses the provider and API key configured in that root; costs tokens).
-//! With a vendor CLI (CliBackend): `--cli devin [--model swe-2-medium] [--allow-partial-isolation] [--approve-commands]`
-//! (uses the CLI's own login and quota).
+//! With a vendor CLI (CliBackend): `--cli agy [--model gemini-3.8-flash-low]` (uses the CLI's own login and quota;
+//! the CLI may run only the project allowlist's commands).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -25,7 +25,6 @@ async fn main() -> Result<()> {
             cli: arg(&args, "--cli").unwrap_or_default(),
             model: arg(&args, "--model").unwrap_or_default(),
             approve_commands: args.iter().any(|a| a == "--approve-commands"),
-            allow_partial_isolation: args.iter().any(|a| a == "--allow-partial-isolation"),
         },
         None => Mode::Scripted,
         Some(provider_id) => {

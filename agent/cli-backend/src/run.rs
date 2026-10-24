@@ -1,11 +1,14 @@
-//! One CliBackend run over ACP (ADR-56): the vendor CLI runs its own agent loop; Agenium keeps the four controls of
-//! decision 3c: (1) protocol tools only through Agenium's MCP server, (2) every permission request of the CLI is
-//! decided by Agenium (commands through the run's command gate, edits only inside the worktree, no network tools),
-//! (3) step / loop / time limits counted from the event stream, (4) a work run only ends through a protocol tool
-//! (`submit_report`, `ask_question`, ...), otherwise the CLI is nudged and finally stopped.
+//! One CliBackend run (ADR-56): the vendor CLI runs headless with JSON-stream input and output in an Agenium-owned
+//! per-run home, and runs its own agent loop. Agenium keeps the four controls of decision 3c:
+//! (1) protocol tools (and the agent's own MCP bindings) only through Agenium's MCP server for this run;
+//! (2) permissions are Agenium's: the per-run configuration allows only the project allowlist and Agenium's MCP
+//!     tools, the workspace is the worktree; refused commands are reported back to the CLI;
+//! (3) step / loop / time limits counted from the event stream (the process is stopped at a limit);
+//! (4) a work run only ends through a protocol tool (`submit_report`, `ask_question`, ...); a turn that ends
+//!     without one gets a nudge, then the run stops.
 
-use std::collections::{BTreeMap, HashMap};
-use std::path::{Component, Path, PathBuf};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -13,33 +16,34 @@ use agenium_backend::{Cancel, Effect, Observer, Outcome, Protocol, RunReport, Wo
 use agenium_llm::{ChatEvent, Message, Part, Role, ToolSpec, Usage};
 use agenium_mcp::server::{Server, ToolHost};
 use agenium_mcp::{CallResult, ToolInfo};
-use agenium_tools::{CommandGate, GateDecision, Tool, ToolCtx, ToolError};
+use agenium_sandbox::TreeGuard;
+use agenium_tools::{Tool, ToolCtx, ToolError};
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::acp::{AcpError, Conn, Incoming, PROTOCOL_VERSION};
+use crate::driver::{permitted, Driver, Event, Setup};
 
 /// Name of Agenium's MCP server as the CLI sees it.
 pub const MCP_SERVER: &str = "agenium";
-const SHORT: Duration = Duration::from_secs(90);
-/// After `session/cancel`, how long the CLI gets to end the turn before it is killed.
-const CANCEL_GRACE: Duration = Duration::from_secs(30);
+/// After a protocol tool ended the run, how long the CLI may take to finish its turn before it is stopped.
+const END_GRACE: Duration = Duration::from_secs(30);
+const STDERR_TAIL: usize = 16 * 1024;
 
 const NUDGE: &str = "Text alone does not finish the ticket. Continue with your tools; when you are done call \
 submit_report (MCP server \"agenium\") with one result per acceptance criterion, or ask_question if you are blocked.";
-const CHECKPOINT: &str =
-    "Checkpoint: this run is stopping (step or time limit). Write a short progress note for the \
-next run: what is done, what remains, and the next concrete step. Do not call tools.";
 
 #[derive(Debug, Clone)]
 pub struct Limits {
-    /// Tool calls of the CLI counted as steps.
+    /// Tool steps of the CLI.
     pub max_steps: u32,
-    /// The same tool call (kind, title, input) this many times in a row stops the run.
+    /// The same tool step (name + input) this many times in a row stops the run.
     pub same_call_limit: u32,
     /// Turns ended without a protocol tool tolerated (each gets a nudge) in a work run.
     pub nudge_limit: u32,
+    /// Turns ended by refused commands tolerated (each gets the list of refusals).
+    pub refusal_limit: u32,
     /// Wall-clock limit of the whole run.
     pub timeout: Duration,
 }
@@ -50,31 +54,31 @@ impl Default for Limits {
             max_steps: 200,
             same_call_limit: 3,
             nudge_limit: 2,
+            refusal_limit: 3,
             timeout: Duration::from_secs(45 * 60),
         }
     }
 }
 
 pub struct CliRun<'a> {
-    /// Executable of the CLI and the arguments that start its ACP server.
+    pub driver: &'a dyn Driver,
     pub program: PathBuf,
-    pub args: Vec<String>,
-    /// Added to the clean environment.
+    /// The CLI's model (empty = its default).
+    pub model: String,
+    /// Added to the clean environment (the driver's home variables win).
     pub env: BTreeMap<String, String>,
-    /// The ticket worktree: the session's working directory and the only place edits are allowed.
+    /// The ticket worktree.
     pub cwd: PathBuf,
-    /// Shown as the run's model (`devin:swe-2-medium`).
+    /// Shown as the run's model (`agy:gemini-3.8-flash-low`).
     pub label: String,
-    /// ACP session mode to select, when the CLI offers it (e.g. `accept-edits`).
-    pub mode: Option<String>,
     pub protocol: &'a dyn Protocol,
     /// Protocol tools offered through the MCP server.
     pub protocol_specs: Vec<ToolSpec>,
-    /// Other tools Agenium executes for the CLI (the agent's own MCP bindings, decision 34: output untrusted).
+    /// Other tools Agenium executes for the CLI (the agent's own MCP bindings; output marked untrusted).
     pub tools: Vec<Arc<dyn Tool>>,
     pub ctx: &'a ToolCtx,
-    /// Decides the CLI's shell commands (user approval / allowlist / sandbox policy).
-    pub gate: Arc<dyn CommandGate>,
+    /// Commands the CLI may run (the project allowlist); everything else is refused.
+    pub allowed_commands: Vec<String>,
     pub observer: &'a dyn Observer,
     pub cancel: Cancel,
     pub limits: Limits,
@@ -82,7 +86,7 @@ pub struct CliRun<'a> {
     pub chat: bool,
 }
 
-/// Why Agenium stopped a turn itself.
+/// Why Agenium stopped the CLI.
 #[derive(Debug, Clone)]
 enum Stop {
     Steps,
@@ -91,36 +95,23 @@ enum Stop {
     Cancelled,
 }
 
-/// One tool call of the CLI as reported in `session/update`.
-#[derive(Debug, Clone, Default)]
-struct CliCall {
-    title: String,
-    kind: String,
-    input: Value,
-    /// Command text when the call runs a command.
-    command: Option<String>,
-    paths: Vec<PathBuf>,
-    /// Agenium refused its permission request (already logged as `cli:permission`).
-    rejected: bool,
-}
-
 #[derive(Default)]
 struct State {
     steps: u32,
     usage: Usage,
     messages: Vec<Message>,
     text: String,
-    calls: HashMap<String, CliCall>,
     recent: Vec<String>,
+    /// Commands the CLI tried in the current turn.
+    tried: Vec<String>,
     effect: Option<Effect>,
+    ended_at: Option<Instant>,
     stop: Option<Stop>,
-    /// Arguments of the calls Agenium executed for the CLI (their echo in the CLI's stream is not logged twice).
-    served: Vec<Value>,
 }
 
 type Call = (String, Value, oneshot::Sender<CallResult>);
 
-/// MCP side of the protocol tools: forwards each call to the run loop, which owns the protocol handle.
+/// MCP side: forwards each call to the run loop, which owns the protocol handle.
 struct Bridge {
     tools: Vec<ToolInfo>,
     tx: mpsc::Sender<Call>,
@@ -145,197 +136,6 @@ impl ToolHost for Bridge {
     }
 }
 
-/// What Agenium answers to one permission request.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Verdict {
-    Allow,
-    Reject(String),
-}
-
-/// Lexically normalised absolute path (no `..`), for the inside-the-worktree check.
-fn normalize(p: &Path, cwd: &Path) -> PathBuf {
-    let joined = if p.is_absolute() {
-        p.to_path_buf()
-    } else {
-        cwd.join(p)
-    };
-    let mut out = PathBuf::new();
-    for c in joined.components() {
-        match c {
-            Component::ParentDir => {
-                out.pop();
-            }
-            Component::CurDir => {}
-            other => out.push(other.as_os_str()),
-        }
-    }
-    out
-}
-
-fn inside(p: &Path, cwd: &Path) -> bool {
-    let root = normalize(cwd, cwd);
-    let p = normalize(p, cwd);
-    if cfg!(windows) {
-        let (a, b) = (
-            p.to_string_lossy().to_lowercase().replace('/', "\\"),
-            root.to_string_lossy().to_lowercase().replace('/', "\\"),
-        );
-        a == b || a.starts_with(&format!("{}\\", b.trim_end_matches('\\')))
-    } else {
-        p.starts_with(&root)
-    }
-}
-
-/// Whether a permission title names Agenium's own MCP tool `name`. Exact forms only, so a tool of another MCP
-/// server cannot pass by containing the words (devin: "Calling <tool> from <server>").
-fn is_protocol_title(title: &str, name: &str) -> bool {
-    let t = title.trim();
-    [
-        format!("Calling {name} from {MCP_SERVER}"),
-        format!("mcp__{MCP_SERVER}__{name}"),
-        format!("{MCP_SERVER}: {name}"),
-        format!("{MCP_SERVER}/{name}"),
-    ]
-    .iter()
-    .any(|f| f == t)
-}
-
-/// Policy for every kind except `execute` (which goes to the command gate). ACP tool kinds: read, edit, delete,
-/// move, search, execute, think, fetch, switch_mode, other.
-pub fn decide(
-    kind: &str,
-    title: &str,
-    paths: &[PathBuf],
-    cwd: &Path,
-    protocol: &[String],
-) -> Verdict {
-    let outside: Vec<String> = paths
-        .iter()
-        .filter(|p| !inside(p, cwd))
-        .map(|p| p.display().to_string())
-        .collect();
-    match kind {
-        "think" | "switch_mode" => Verdict::Allow,
-        "read" | "search" | "edit" | "delete" | "move" if outside.is_empty() => Verdict::Allow,
-        "read" | "search" | "edit" | "delete" | "move" => Verdict::Reject(format!(
-            "outside the ticket worktree: {}",
-            outside.join(", ")
-        )),
-        "fetch" => Verdict::Reject("network tools are disabled in Agenium runs".into()),
-        _ if protocol.iter().any(|n| is_protocol_title(title, n)) => Verdict::Allow,
-        _ => Verdict::Reject(format!(
-            "tool {title:?} ({kind}) is not allowed in Agenium runs"
-        )),
-    }
-}
-
-/// The option to select for a verdict: never an "always" option (decision 4: only the user grants those).
-fn choose(options: &[Value], verdict: &Verdict) -> Value {
-    let pick = |k: &str| {
-        options
-            .iter()
-            .find(|o| o["kind"] == k)
-            .and_then(|o| o["optionId"].as_str())
-    };
-    let id = match verdict {
-        Verdict::Allow => pick("allow_once"),
-        Verdict::Reject(_) => pick("reject_once").or_else(|| pick("reject_always")),
-    };
-    match id {
-        Some(id) => json!({"outcome": {"outcome": "selected", "optionId": id}}),
-        None => json!({"outcome": {"outcome": "cancelled"}}),
-    }
-}
-
-/// Text of a content block list (`content` of a tool call or a chunk).
-fn content_text(v: &Value) -> String {
-    let one = |c: &Value| -> Option<String> {
-        let inner = if c["type"] == "content" {
-            &c["content"]
-        } else {
-            c
-        };
-        match inner["type"].as_str() {
-            Some("text") => inner["text"].as_str().map(str::to_owned),
-            Some("resource") => inner["resource"]["text"].as_str().map(str::to_owned),
-            _ => None,
-        }
-    };
-    match v {
-        Value::Array(a) => a.iter().filter_map(one).collect::<Vec<_>>().join("\n"),
-        Value::Object(_) => one(v).unwrap_or_default(),
-        _ => String::new(),
-    }
-}
-
-impl CliCall {
-    fn merge(&mut self, u: &Value) {
-        if let Some(t) = u["title"].as_str() {
-            self.title = t.to_owned();
-        }
-        if let Some(k) = u["kind"].as_str() {
-            self.kind = k.to_owned();
-        }
-        if !u["rawInput"].is_null() {
-            self.input = u["rawInput"].clone();
-        }
-        for l in u["locations"].as_array().into_iter().flatten() {
-            if let Some(p) = l["path"].as_str() {
-                self.paths.push(PathBuf::from(p));
-            }
-        }
-        for c in u["content"].as_array().into_iter().flatten() {
-            if c["type"] == "diff" {
-                if let Some(p) = c["path"].as_str() {
-                    self.paths.push(PathBuf::from(p));
-                }
-            }
-        }
-        let cmd = self.input["command"]
-            .as_str()
-            .or(self.input["cmd"].as_str())
-            .map(str::to_owned)
-            .or_else(|| {
-                u["_meta"]
-                    .as_object()
-                    .and_then(|m| m.iter().find(|(k, _)| k.ends_with("editableCommand")))
-                    .and_then(|(_, v)| v.as_str().map(str::to_owned))
-            })
-            .or_else(|| {
-                (self.kind == "execute")
-                    .then(|| content_text(&u["content"]))
-                    .filter(|t| !t.is_empty())
-            });
-        if cmd.is_some() {
-            self.command = cmd;
-        }
-    }
-
-    fn name(&self) -> String {
-        format!(
-            "cli:{}",
-            if self.kind.is_empty() {
-                "other"
-            } else {
-                &self.kind
-            }
-        )
-    }
-}
-
-fn usage_of(u: &Value) -> Usage {
-    let n = |k: &str| u[k].as_u64().unwrap_or(0);
-    let cached = n("cachedReadTokens");
-    let written = n("cachedWriteTokens");
-    Usage {
-        input: n("inputTokens").saturating_sub(cached + written),
-        output: n("outputTokens"),
-        cache_read: cached,
-        cache_write: written,
-        reasoning: n("thoughtTokens"),
-    }
-}
-
 /// The work order as one prompt: the CLI keeps its own system prompt, so Agenium's goes first as instructions.
 pub fn render(order: &WorkOrder, protocol: &[String]) -> String {
     let mut s = String::from("<agenium_instructions>\n");
@@ -347,7 +147,7 @@ pub fn render(order: &WorkOrder, protocol: &[String]) -> String {
         "How this run works: you are an Agenium agent running in your own harness. Do the work with your own file, \
 search and shell tools inside the current directory (the ticket worktree); tools named above that you do not have \
 map to your own equivalents. Agenium's protocol tools ({}) come from the MCP server \"{MCP_SERVER}\": call them \
-there. Shell commands need Agenium's approval and may be refused; web and network tools are disabled.\n",
+there. Only allowlisted shell commands run; others are refused. Web and network tools are not available.\n",
         protocol.join(", ")
     ));
     s.push_str("</agenium_instructions>\n");
@@ -384,21 +184,59 @@ fn failed(e: impl std::fmt::Display) -> Outcome {
     }
 }
 
+/// The running CLI process.
+struct Proc {
+    child: tokio::process::Child,
+    stdin: Option<tokio::process::ChildStdin>,
+    lines: mpsc::UnboundedReceiver<Value>,
+    stderr: Arc<std::sync::Mutex<Vec<u8>>>,
+    _tree: TreeGuard,
+}
+
+impl Proc {
+    async fn send(&mut self, line: &str) -> Result<(), String> {
+        let w = self
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "the CLI's input is closed".to_owned())?;
+        let mut l = line.to_owned();
+        l.push('\n');
+        w.write_all(l.as_bytes())
+            .await
+            .map_err(|e| format!("cannot write to the CLI: {e}"))?;
+        w.flush()
+            .await
+            .map_err(|e| format!("cannot write to the CLI: {e}"))
+    }
+
+    fn stderr_tail(&self) -> String {
+        let b = self.stderr.lock().unwrap();
+        let s = String::from_utf8_lossy(&b);
+        let mut last: Vec<&str> = s
+            .lines()
+            .rev()
+            .filter(|l| !l.trim().is_empty())
+            .take(3)
+            .collect();
+        last.reverse();
+        last.join(" | ")
+    }
+
+    async fn stop(&mut self) {
+        self.stdin = None;
+        let _ = self.child.kill().await;
+    }
+}
+
 impl CliRun<'_> {
-    /// Every tool offered through Agenium's MCP server.
-    fn offered(&self) -> Vec<String> {
-        self.protocol_specs
-            .iter()
-            .map(|s| s.name.clone())
-            .chain(self.tools.iter().map(|t| t.name().to_owned()))
-            .collect()
+    fn protocol_names(&self) -> Vec<String> {
+        self.protocol_specs.iter().map(|s| s.name.clone()).collect()
     }
 
     pub async fn run(&self, order: &WorkOrder) -> RunReport {
         let mut st = State::default();
         let outcome = match self.drive(order, &mut st).await {
-            Ok(o) => o,
-            Err(o) => o,
+            Ok(o) | Err(o) => o,
         };
         RunReport {
             outcome,
@@ -430,98 +268,46 @@ impl CliRun<'_> {
         let server = Server::start(Arc::new(Bridge { tools, tx }), MCP_SERVER)
             .await
             .map_err(|e| failed(format!("cannot start the Agenium MCP server: {e}")))?;
-        let (conn, mut incoming) =
-            Conn::spawn(&self.program, &self.args, &self.env, &self.cwd).map_err(failed)?;
-        let init = conn
-            .request(
-                "initialize",
-                json!({
-                    "protocolVersion": PROTOCOL_VERSION,
-                    "clientCapabilities": {"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false},
-                    "clientInfo": {"name": "agenium", "version": env!("CARGO_PKG_VERSION")},
-                }),
-                SHORT,
-            )
-            .await
-            .map_err(failed)?;
-        if init["protocolVersion"].as_u64() != Some(PROTOCOL_VERSION) {
-            return Err(failed(format!(
-                "the CLI speaks ACP version {}, Agenium needs {PROTOCOL_VERSION}",
-                init["protocolVersion"]
-            )));
-        }
-        if init["agentCapabilities"]["mcpCapabilities"]["http"] != true {
-            return Err(failed(
-                "the CLI cannot connect to MCP servers over HTTP (needed for Agenium's protocol tools)",
-            ));
-        }
-        let session = conn
-            .request(
-                "session/new",
-                json!({
-                    "cwd": self.cwd,
-                    "mcpServers": [{
-                        "type": "http",
-                        "name": MCP_SERVER,
-                        "url": server.url(),
-                        "headers": [{"name": "Authorization", "value": server.authorization()}],
-                    }],
-                }),
-                SHORT,
-            )
-            .await
-            .map_err(failed)?;
-        let sid = session["sessionId"]
-            .as_str()
-            .ok_or_else(|| failed("session/new returned no sessionId"))?
-            .to_owned();
-        if let Some(mode) = &self.mode {
-            let offered = session["modes"]["availableModes"]
-                .as_array()
-                .is_some_and(|a| a.iter().any(|m| m["id"] == mode.as_str()));
-            if offered {
-                conn.request(
-                    "session/set_mode",
-                    json!({"sessionId": sid, "modeId": mode}),
-                    SHORT,
-                )
-                .await
-                .map_err(failed)?;
-            }
-        }
+        let home = tempfile::Builder::new()
+            .prefix("agenium-cli-home-")
+            .tempdir()
+            .map_err(|e| failed(format!("cannot create the CLI home: {e}")))?;
+        let home_env = self
+            .driver
+            .prepare(&Setup {
+                home: home.path(),
+                worktree: &self.cwd,
+                mcp_name: MCP_SERVER,
+                mcp_url: &server.url(),
+                mcp_authorization: &server.authorization(),
+                allowed_commands: &self.allowed_commands,
+            })
+            .map_err(|e| failed(format!("cannot write the CLI configuration: {e}")))?;
+        let mut env = self.env.clone();
+        env.extend(home_env);
+        let mut p = self.spawn(&env)?;
 
         let deadline = Instant::now() + self.limits.timeout;
-        let mut prompt = render(
-            order,
-            &self
-                .protocol_specs
-                .iter()
-                .map(|s| s.name.clone())
-                .collect::<Vec<_>>(),
-        );
-        let mut nudges = 0;
+        if let Err(e) = p
+            .send(
+                &self
+                    .driver
+                    .user_line(&render(order, &self.protocol_names())),
+            )
+            .await
+        {
+            p.stop().await;
+            return Err(failed(e));
+        }
+        let (mut nudges, mut refusals) = (0, 0);
         let outcome = loop {
-            let reason = self
-                .turn(
-                    &conn,
-                    &mut incoming,
-                    &mut calls,
-                    &sid,
-                    &prompt,
-                    deadline,
-                    st,
-                )
-                .await;
+            let end = self.turn(&mut p, &mut calls, deadline, st).await;
             let text = std::mem::take(&mut st.text);
             if !text.trim().is_empty() {
-                let m = Message::assistant_text(text);
+                let m = Message::assistant_text(text.clone());
                 self.observer.message(&m);
                 st.messages.push(m);
             }
-            let reason = match reason {
-                Ok(r) => r,
-                Err(e) => break failed(e),
-            };
             match st.effect {
                 Some(Effect::End) => break Outcome::Completed,
                 Some(Effect::Park) => break Outcome::Parked,
@@ -531,123 +317,151 @@ impl CliRun<'_> {
                 Some(Stop::Cancelled) => break Outcome::Cancelled,
                 Some(Stop::Loop(tool)) => break Outcome::LoopDetected { tool },
                 Some(Stop::Steps) => {
-                    break self
-                        .checkpoint(&conn, &mut incoming, &mut calls, &sid, st, "max_steps")
-                        .await
+                    break Outcome::Checkpoint {
+                        summary: text,
+                        reason: "max_steps".into(),
+                    }
                 }
                 Some(Stop::Timeout) => {
-                    break self
-                        .checkpoint(&conn, &mut incoming, &mut calls, &sid, st, "timeout")
-                        .await
+                    break Outcome::Checkpoint {
+                        summary: text,
+                        reason: "timeout".into(),
+                    }
                 }
                 None => {}
             }
-            match reason.as_str() {
-                "end_turn" if self.chat => break Outcome::Completed,
-                "end_turn" | "max_tokens" => {}
-                "max_turn_requests" => {
-                    break self
-                        .checkpoint(&conn, &mut incoming, &mut calls, &sid, st, "max_steps")
-                        .await
+            let (denied, error) = match end {
+                Ok(d) => d,
+                Err(e) => break failed(e),
+            };
+            if let Some(e) = error {
+                break failed(e);
+            }
+            let refused: Vec<String> = std::mem::take(&mut st.tried)
+                .into_iter()
+                .filter(|c| !permitted(c, &self.allowed_commands))
+                .collect();
+            let next = if !denied.is_empty() {
+                refusals += 1;
+                if refusals > self.limits.refusal_limit {
+                    break Outcome::TooManyErrors {
+                        last: format!("refused by Agenium: {}", denied.join(", ")),
+                    };
                 }
-                "refusal" => break Outcome::Refused,
-                "cancelled" => break failed("the CLI cancelled the turn"),
-                other => break failed(format!("unknown stop reason {other:?}")),
-            }
-            nudges += 1;
-            if nudges > self.limits.nudge_limit {
-                break Outcome::NoProgress;
-            }
-            prompt = NUDGE.to_owned();
-            let m = Message::user_text(NUDGE);
+                for c in &refused {
+                    self.observer.tool(
+                        "cli:permission",
+                        &json!({"command": c}),
+                        &Err(ToolError::new("denied", "not on the project allowlist")),
+                    );
+                }
+                let what = if refused.is_empty() {
+                    denied.join(", ")
+                } else {
+                    refused.join("; ")
+                };
+                format!(
+                    "Agenium refused: {what}. Only allowlisted commands run in this run and web access is disabled. \
+Continue without them (use your file tools), then call submit_report, or ask_question if you are blocked."
+                )
+            } else if self.chat {
+                break Outcome::Completed;
+            } else {
+                nudges += 1;
+                if nudges > self.limits.nudge_limit {
+                    break Outcome::NoProgress;
+                }
+                NUDGE.to_owned()
+            };
+            let m = Message::user_text(next.clone());
             self.observer.message(&m);
             st.messages.push(m);
+            if let Err(e) = p.send(&self.driver.user_line(&next)).await {
+                break failed(e);
+            }
         };
-        conn.kill().await;
+        p.stop().await;
+        drop(server);
         Ok(outcome)
     }
 
-    /// Asks for a progress note after Agenium stopped the run.
-    async fn checkpoint(
-        &self,
-        conn: &Conn,
-        incoming: &mut mpsc::UnboundedReceiver<Incoming>,
-        calls: &mut mpsc::Receiver<Call>,
-        sid: &str,
-        st: &mut State,
-        reason: &str,
-    ) -> Outcome {
-        st.stop = None;
-        let m = Message::user_text(CHECKPOINT);
-        self.observer.message(&m);
-        st.messages.push(m);
-        let deadline = Instant::now() + SHORT;
-        let summary = match self
-            .turn(conn, incoming, calls, sid, CHECKPOINT, deadline, st)
-            .await
-        {
-            Ok(_) => std::mem::take(&mut st.text),
-            Err(_) => String::new(),
+    fn spawn(&self, env: &BTreeMap<String, String>) -> Result<Proc, Outcome> {
+        let name = self.program.display().to_string();
+        let mut child =
+            agenium_sandbox::service_command(&name, &self.driver.args(&self.model), env, &self.cwd)
+                .spawn()
+                .map_err(|e| failed(format!("cannot start {name}: {e}")))?;
+        let tree = TreeGuard::attach(&child);
+        let (Some(stdin), Some(stdout), Some(mut stderr)) =
+            (child.stdin.take(), child.stdout.take(), child.stderr.take())
+        else {
+            return Err(failed("stdio pipes missing"));
         };
-        if !summary.trim().is_empty() {
-            let m = Message::assistant_text(summary.clone());
-            self.observer.message(&m);
-            st.messages.push(m);
+        let (tx, lines) = mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            let mut r = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = r.next_line().await {
+                if let Ok(v) = serde_json::from_str::<Value>(line.trim()) {
+                    if tx.send(v).is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+        let tail: Arc<std::sync::Mutex<Vec<u8>>> = Arc::default();
+        {
+            let tail = tail.clone();
+            tokio::spawn(async move {
+                let mut buf = [0u8; 4096];
+                while let Ok(n) = stderr.read(&mut buf).await {
+                    if n == 0 {
+                        break;
+                    }
+                    let mut t = tail.lock().unwrap();
+                    t.extend_from_slice(&buf[..n]);
+                    let excess = t.len().saturating_sub(STDERR_TAIL);
+                    t.drain(..excess);
+                }
+            });
         }
-        Outcome::Checkpoint {
-            summary,
-            reason: reason.into(),
-        }
+        Ok(Proc {
+            child,
+            stdin: Some(stdin),
+            lines,
+            stderr: tail,
+            _tree: tree,
+        })
     }
 
-    /// One `session/prompt`: serves the CLI's messages and Agenium tool calls until the turn ends. Returns the
-    /// stop reason.
-    #[allow(clippy::too_many_arguments)]
+    /// Serves one turn until the CLI reports its end (`Ok((denied, error))`) or Agenium stops it (`st.stop`).
     async fn turn(
         &self,
-        conn: &Conn,
-        incoming: &mut mpsc::UnboundedReceiver<Incoming>,
+        p: &mut Proc,
         calls: &mut mpsc::Receiver<Call>,
-        sid: &str,
-        prompt: &str,
         deadline: Instant,
         st: &mut State,
-    ) -> Result<String, AcpError> {
-        let mut answer = conn
-            .start_request(
-                "session/prompt",
-                json!({"sessionId": sid, "prompt": [{"type": "text", "text": prompt}]}),
-            )
-            .await?;
-        let mut cancelled_at: Option<Instant> = None;
+    ) -> Result<(Vec<String>, Option<String>), String> {
         let mut tick = tokio::time::interval(Duration::from_millis(250));
         loop {
-            if cancelled_at.is_none()
-                && (st.stop.is_some() || st.effect.is_some_and(|e| e != Effect::Continue))
-            {
-                conn.notify("session/cancel", json!({"sessionId": sid}))
-                    .await?;
-                cancelled_at = Some(Instant::now());
+            if st.stop.is_some() || st.ended_at.is_some_and(|t| t.elapsed() > END_GRACE) {
+                p.stop().await;
+                return Ok((vec![], None));
             }
             tokio::select! {
-                r = &mut answer => {
-                    let v = conn.result(r)?;
-                    st.usage.add(&usage_of(&v["usage"]));
-                    self.observer.event(&ChatEvent::Usage(st.usage));
-                    return Ok(v["stopReason"].as_str().unwrap_or("end_turn").to_owned());
-                }
-                m = incoming.recv() => match m {
-                    None => return Err(AcpError::Closed(String::new())),
-                    Some(Incoming::Notification { method, params }) if method == "session/update" => {
-                        self.on_update(&params["update"], st);
+                line = p.lines.recv() => match line {
+                    None => {
+                        if st.effect.is_some_and(|e| e != Effect::Continue) {
+                            return Ok((vec![], None));
+                        }
+                        let _ = p.child.wait().await;
+                        return Err(format!("the CLI exited before the turn ended ({})", p.stderr_tail()));
                     }
-                    Some(Incoming::Notification { .. }) => {}
-                    Some(Incoming::Request { id, method, params }) if method == "session/request_permission" => {
-                        let answer = self.permission(&params, st).await;
-                        conn.respond(id, answer).await?;
-                    }
-                    Some(Incoming::Request { id, method, .. }) => {
-                        conn.respond_error(id, -32601, &format!("{method} is not offered by Agenium")).await?;
+                    Some(v) => {
+                        for ev in self.driver.parse(&v) {
+                            if let Some(end) = self.on_event(ev, st) {
+                                return Ok(end);
+                            }
+                        }
                     }
                 },
                 c = calls.recv() => if let Some((name, args, reply)) = c {
@@ -660,10 +474,76 @@ impl CliRun<'_> {
                     if Instant::now() > deadline && st.stop.is_none() {
                         st.stop = Some(Stop::Timeout);
                     }
-                    if cancelled_at.is_some_and(|t| t.elapsed() > CANCEL_GRACE) {
-                        return Err(AcpError::Closed(" (did not end the turn after session/cancel)".into()));
+                }
+            }
+        }
+    }
+
+    /// Handles one event; returns the turn's end.
+    fn on_event(&self, ev: Event, st: &mut State) -> Option<(Vec<String>, Option<String>)> {
+        match ev {
+            Event::Session(_) => None,
+            Event::Text(t) => {
+                self.observer.event(&ChatEvent::TextDelta(t.clone()));
+                st.text.push_str(&t);
+                None
+            }
+            Event::Tool {
+                id,
+                name,
+                input,
+                done: false,
+            } => {
+                st.steps += 1;
+                self.observer.step(st.steps, &st.usage);
+                self.observer.event(&ChatEvent::ToolCallStarted {
+                    id,
+                    name: name.clone(),
+                });
+                if let Some(c) = self.driver.command(&name, &input) {
+                    st.tried.push(c);
+                }
+                let key = format!("{name}\u{1f}{input}");
+                st.recent.push(key.clone());
+                let n = st.recent.len();
+                let limit = self.limits.same_call_limit.max(1) as usize;
+                if st.stop.is_none() && st.effect.is_none() {
+                    if n >= limit && st.recent[n - limit..].iter().all(|k| *k == key) {
+                        st.stop = Some(Stop::Loop(format!("cli:{name}")));
+                    } else if st.steps > self.limits.max_steps {
+                        st.stop = Some(Stop::Steps);
                     }
                 }
+                None
+            }
+            Event::Tool {
+                name,
+                input,
+                done: true,
+                ..
+            } => {
+                let refused = self
+                    .driver
+                    .command(&name, &input)
+                    .is_some_and(|c| !permitted(&c, &self.allowed_commands));
+                if !refused && !self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
+                    self.observer
+                        .tool(&format!("cli:{name}"), &input, &Ok(String::new()));
+                }
+                None
+            }
+            Event::TurnEnd {
+                usage,
+                response,
+                denied,
+                error,
+            } => {
+                st.usage.add(&usage);
+                self.observer.event(&ChatEvent::Usage(st.usage));
+                if st.text.trim().is_empty() {
+                    st.text = response;
+                }
+                Some((denied, error))
             }
         }
     }
@@ -675,7 +555,6 @@ impl CliRun<'_> {
                 is_error: true,
             };
         }
-        st.served.push(args.clone());
         if let Some(t) = self.tools.iter().find(|t| t.name() == name) {
             let r = t.call(self.ctx, args.clone()).await;
             let shown = r.as_ref().map(|o| o.text.clone()).map_err(Clone::clone);
@@ -698,7 +577,7 @@ impl CliRun<'_> {
                 },
             };
         }
-        let call_id = format!("acp-{}", ulid::Ulid::new());
+        let call_id = format!("cli-{}", ulid::Ulid::new());
         let r = self.protocol.call(name, args.clone(), &call_id).await;
         let shown: Result<String, ToolError> = match &r {
             Ok((Value::String(t), _)) => Ok(t.clone()),
@@ -710,6 +589,7 @@ impl CliRun<'_> {
             Ok((_, eff)) => {
                 if eff != Effect::Continue {
                     st.effect = Some(eff);
+                    st.ended_at = Some(Instant::now());
                 }
                 CallResult {
                     text: shown.unwrap_or_default(),
@@ -721,239 +601,5 @@ impl CliRun<'_> {
                 is_error: true,
             },
         }
-    }
-
-    fn on_update(&self, u: &Value, st: &mut State) {
-        match u["sessionUpdate"].as_str().unwrap_or("") {
-            "agent_message_chunk" => {
-                let t = content_text(&u["content"]);
-                self.observer.event(&ChatEvent::TextDelta(t.clone()));
-                st.text.push_str(&t);
-            }
-            "agent_thought_chunk" => {
-                self.observer
-                    .event(&ChatEvent::ThinkingDelta(content_text(&u["content"])));
-            }
-            "tool_call" => {
-                let id = u["toolCallId"].as_str().unwrap_or_default().to_owned();
-                let mut call = CliCall::default();
-                call.merge(u);
-                st.steps += 1;
-                self.observer.step(st.steps, &st.usage);
-                self.observer.event(&ChatEvent::ToolCallStarted {
-                    id: id.clone(),
-                    name: call.title.clone(),
-                });
-                let key = format!("{}\u{1f}{}\u{1f}{}", call.kind, call.title, call.input);
-                st.recent.push(key.clone());
-                let n = st.recent.len();
-                let limit = self.limits.same_call_limit.max(1) as usize;
-                if st.stop.is_none() {
-                    if n >= limit && st.recent[n - limit..].iter().all(|k| *k == key) {
-                        st.stop = Some(Stop::Loop(call.name()));
-                    } else if st.steps > self.limits.max_steps {
-                        st.stop = Some(Stop::Steps);
-                    }
-                }
-                self.finished(&call, u, &st.served);
-                st.calls.insert(id, call);
-            }
-            "tool_call_update" => {
-                let id = u["toolCallId"].as_str().unwrap_or_default();
-                let call = st.calls.entry(id.to_owned()).or_default();
-                call.merge(u);
-                self.finished(call, u, &st.served);
-            }
-            _ => {}
-        }
-    }
-
-    /// A call of Agenium's own MCP server: it is logged when Agenium executes it.
-    fn is_agenium(&self, call: &CliCall, served: &[Value]) -> bool {
-        call.input["server_name"] == MCP_SERVER
-            || (!call.input.is_null() && served.contains(&call.input))
-            || self
-                .offered()
-                .iter()
-                .any(|n| is_protocol_title(&call.title, n))
-    }
-
-    /// Reports a CLI tool call to the observer once the update says it ended.
-    fn finished(&self, call: &CliCall, u: &Value, served: &[Value]) {
-        let status = u["status"].as_str().unwrap_or("");
-        if (status != "completed" && status != "failed")
-            || call.rejected
-            || self.is_agenium(call, served)
-        {
-            return;
-        }
-        let text: String = content_text(&u["content"]).chars().take(2000).collect();
-        let result = if status == "completed" {
-            Ok(text)
-        } else {
-            Err(ToolError::new("cli_tool_failed", text))
-        };
-        let args = if call.input.is_null() {
-            json!({"title": call.title})
-        } else {
-            call.input.clone()
-        };
-        self.observer.tool(&call.name(), &args, &result);
-    }
-
-    async fn permission(&self, params: &Value, st: &mut State) -> Value {
-        let tc = &params["toolCall"];
-        let id = tc["toolCallId"].as_str().unwrap_or_default();
-        let call = st.calls.entry(id.to_owned()).or_default();
-        call.merge(tc);
-        let call = call.clone();
-        let options = params["options"].as_array().cloned().unwrap_or_default();
-        let verdict = if st.stop.is_some() || st.effect.is_some_and(|e| e != Effect::Continue) {
-            Verdict::Reject("the run is ending".into())
-        } else if call.kind == "execute" {
-            match &call.command {
-                Some(cmd) => match self.gate.check(cmd, &self.cwd).await {
-                    GateDecision::Allow => Verdict::Allow,
-                    GateDecision::Deny(why) => Verdict::Reject(why),
-                },
-                None => Verdict::Reject("command text unknown".into()),
-            }
-        } else {
-            decide(
-                &call.kind,
-                &call.title,
-                &call.paths,
-                &self.cwd,
-                &self.offered(),
-            )
-        };
-        if let (Verdict::Reject(_), Some(c)) = (&verdict, st.calls.get_mut(id)) {
-            c.rejected = true;
-        }
-        if !self.is_agenium(&call, &st.served) {
-            let shown = match &verdict {
-                Verdict::Allow => Ok("allowed".to_owned()),
-                Verdict::Reject(why) => Err(ToolError::new("denied", why.clone())),
-            };
-            self.observer.tool(
-                "cli:permission",
-                &json!({"kind": call.kind, "title": call.title, "command": call.command}),
-                &shown,
-            );
-        }
-        choose(&options, &verdict)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn cwd() -> PathBuf {
-        if cfg!(windows) {
-            PathBuf::from(r"C:\work\wt")
-        } else {
-            PathBuf::from("/work/wt")
-        }
-    }
-
-    #[test]
-    fn edits_only_inside_the_worktree() {
-        let c = cwd();
-        let p = |s: &str| vec![c.join(s)];
-        assert_eq!(
-            decide("edit", "Wrote a.txt", &p("a.txt"), &c, &[]),
-            Verdict::Allow
-        );
-        assert_eq!(
-            decide("read", "", &[PathBuf::from("src/x.rs")], &c, &[]),
-            Verdict::Allow
-        );
-        assert!(matches!(
-            decide("edit", "", &p("../other/a.txt"), &c, &[]),
-            Verdict::Reject(_)
-        ));
-        assert!(matches!(
-            decide(
-                "read",
-                "",
-                &[c.parent().unwrap().join("wt2").join("x")],
-                &c,
-                &[]
-            ),
-            Verdict::Reject(_)
-        ));
-        assert!(matches!(
-            decide("fetch", "GET", &[], &c, &[]),
-            Verdict::Reject(_)
-        ));
-        let proto = vec!["submit_report".to_owned()];
-        for ok in [
-            "agenium: submit_report",
-            "Calling submit_report from agenium",
-            "mcp__agenium__submit_report",
-        ] {
-            assert_eq!(decide("", ok, &[], &c, &proto), Verdict::Allow, "{ok}");
-        }
-        for bad in [
-            "tradingview: place_order",
-            "Calling submit_report_x from agenium",
-            "Calling submit_report from agenium2",
-            "agenium: submit_report; tradingview: place_order",
-        ] {
-            assert!(
-                matches!(decide("other", bad, &[], &c, &proto), Verdict::Reject(_)),
-                "{bad}"
-            );
-        }
-    }
-
-    #[test]
-    fn never_selects_always() {
-        let opts = vec![
-            json!({"optionId": "aa", "kind": "allow_always"}),
-            json!({"optionId": "ao", "kind": "allow_once"}),
-            json!({"optionId": "ro", "kind": "reject_once"}),
-        ];
-        assert_eq!(choose(&opts, &Verdict::Allow)["outcome"]["optionId"], "ao");
-        assert_eq!(
-            choose(&opts, &Verdict::Reject("x".into()))["outcome"]["optionId"],
-            "ro"
-        );
-        let only_always = vec![json!({"optionId": "aa", "kind": "allow_always"})];
-        assert_eq!(
-            choose(&only_always, &Verdict::Allow)["outcome"]["outcome"],
-            "cancelled"
-        );
-    }
-
-    #[test]
-    fn reads_commands_and_paths_from_updates() {
-        let mut c = CliCall::default();
-        c.merge(&json!({
-            "toolCallId": "exec:0", "title": "Ran printf", "kind": "execute",
-            "content": [{"type": "content", "content": {"type": "resource", "resource": {"text": "printf hi > a.txt"}}}]
-        }));
-        assert_eq!(c.command.as_deref(), Some("printf hi > a.txt"));
-        let mut c = CliCall::default();
-        c.merge(
-            &json!({"toolCallId": "e", "kind": "execute", "rawInput": {"command": "cargo test"},
-            "_meta": {"cognition.ai/editableCommand": "ignored"}}),
-        );
-        assert_eq!(c.command.as_deref(), Some("cargo test"));
-        let mut c = CliCall::default();
-        c.merge(&json!({"kind": "edit", "content": [{"type": "diff", "path": "/x/y.txt", "newText": "a"}],
-            "locations": [{"path": "/x/z.txt"}]}));
-        assert_eq!(
-            c.paths,
-            vec![PathBuf::from("/x/z.txt"), PathBuf::from("/x/y.txt")]
-        );
-    }
-
-    #[test]
-    fn usage_counts_cached_input_once() {
-        let u =
-            usage_of(&json!({"inputTokens": 18367, "outputTokens": 14, "cachedReadTokens": 18176}));
-        assert_eq!((u.input, u.cache_read, u.output), (191, 18176, 14));
     }
 }

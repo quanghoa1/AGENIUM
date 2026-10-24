@@ -1,6 +1,6 @@
 [package]
 name = "agenium-cli-backend"
-description = "CliBackend (M2.5): vendor agent CLIs (codex, agy, devin, claude, opencode) driven headless under Agenium's control."
+description = "CliBackend (M2.5): vendor agent CLIs driven headless (JSON stream) in an Agenium-owned per-run home."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -18,9 +18,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["net"] }
+tempfile.workspace = true
 tracing.workspace = true
 ulid.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }

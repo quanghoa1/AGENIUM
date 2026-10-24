@@ -254,11 +254,6 @@ pub struct SandboxSection {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CliSection {
-    /// CLIs the user accepts although Agenium cannot fully isolate them from the user's own setup (e.g. `devin`
-    /// always loads the user's MCP servers and hooks). Empty: such CLIs are refused.
-    pub allow_partial_isolation: Vec<String>,
-    /// ACP session mode selected for every run when the CLI offers it.
-    pub mode: String,
     /// Wall-clock limit of one CLI run, in minutes.
     pub run_timeout_mins: u32,
 }
@@ -266,8 +261,6 @@ pub struct CliSection {
 impl Default for CliSection {
     fn default() -> Self {
         Self {
-            allow_partial_isolation: Vec::new(),
-            mode: "accept-edits".into(),
             run_timeout_mins: 45,
         }
     }

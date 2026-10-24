@@ -211,7 +211,7 @@ enum AgentCmd {
     /// Run an agent through a vendor CLI you are logged in to (CliBackend, ADR-56); `agent model` switches back.
     Cli {
         name: String,
-        /// CLI program: devin (the CLIs `doctor` lists as usable).
+        /// CLI program (the CLIs `doctor` lists as usable, e.g. agy).
         #[arg(long)]
         cli: String,
         /// The CLI's model (default: the CLI's own default).
@@ -937,11 +937,8 @@ async fn main() -> Result<()> {
                     agenium_cli_backend::Login::NotLoggedIn => "not logged in",
                     agenium_cli_backend::Login::Unknown => "login unknown",
                 };
-                let driven = if agenium_cli_backend::acp_args(c.kind, "").is_some() {
-                    match c.kind.partial_isolation() {
-                        Some(_) => ", usable (ACP; partial isolation, opt-in)",
-                        None => ", usable (ACP)",
-                    }
+                let driven = if agenium_cli_backend::driver(c.kind).is_some() {
+                    ", usable"
                 } else {
                     ", not driven yet"
                 };
@@ -1215,15 +1212,13 @@ async fn main() -> Result<()> {
                         },
                     )?;
                     println!("{name} now runs through the {cli} CLI");
-                    let kind = agenium_cli_backend::CliKind::ALL
+                    let driven = agenium_cli_backend::CliKind::ALL
                         .into_iter()
-                        .find(|k| k.program() == cli);
-                    if let Some(why) = kind.and_then(|k| k.partial_isolation()) {
-                        if !app.config().cli.allow_partial_isolation.contains(cli) {
-                            println!(
-                                "note: runs are refused until you accept this: {why}. Add \"{cli}\" to [cli] allow_partial_isolation in config.toml"
-                            );
-                        }
+                        .find(|k| k.program() == cli)
+                        .and_then(agenium_cli_backend::driver)
+                        .is_some();
+                    if !driven {
+                        println!("note: Agenium does not drive {cli} yet; its runs will fail (see `agenium doctor`)");
                     }
                 }
                 AgentCmd::Skills { name, skills } => {

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-/// The CLIs Agenium knows how to drive (decision 3c). `devin` was added for the owner's setup.
+/// The CLIs Agenium detects (decision 3c; `devin` added for the owner's setup). Which ones it drives: `crate::driver`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CliKind {
@@ -45,18 +45,6 @@ impl CliKind {
             CliKind::Devin => [3000, 11, 3],
             CliKind::Claude => [2, 1, 0],
             CliKind::Opencode => [2, 1, 0],
-        }
-    }
-
-    /// Why Agenium cannot fully isolate a run of this CLI from the user's own setup (ADR-30, ADR-56); `None` when
-    /// nothing is known to leak. Such a CLI runs only when the user accepts it in `[cli] allow_partial_isolation`.
-    pub fn partial_isolation(self) -> Option<&'static str> {
-        match self {
-            CliKind::Devin => Some(
-                "devin always loads your own MCP servers (devin/mcp_config.json in your config folder) and hooks; \
-                 no flag or environment variable turns them off",
-            ),
-            CliKind::Codex | CliKind::Agy | CliKind::Claude | CliKind::Opencode => None,
         }
     }
 

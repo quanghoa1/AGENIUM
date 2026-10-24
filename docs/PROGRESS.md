@@ -58,19 +58,17 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | M15-10 benchmark | PARTLY: traversal latency at 100 k / 1 M edges RUN (targets met with the hub cap) | `docs/reference/STORE-SCALE.md` §8.1; QA golden set, concurrency, cold cache NOT RUN |
 | M15-11 golden scenarios GM-1..5, GM-7 | DONE (scripted model) | `agenium-memory/tests/graph_memory.rs`; "second ticket >= 20 % fewer steps" seen on the real model in the skill/MCP run (11 -> 5), not as a GM task |
 
-### M2.5 — CLI backend: ACCEPTANCE MET with `devin` ([ADR-56](adr/ADR-56-cli-backend-acp.md))
+### M2.5 — CLI backend: IN PROGRESS ([ADR-56](adr/ADR-56-cli-backend-headless.md))
 | Item | Status | Evidence |
 |---|---|---|
-| Detect CLIs in PATH: version, login state, minimum version | DONE | `agent/cli-backend/src/detect.rs`; `agenium doctor` lists codex, agy, devin, claude, opencode and whether Agenium drives them |
-| Run protocol | ACP (Agent Client Protocol) instead of per-CLI JSON streams; driven: `devin acp` | `acp.rs`, `run.rs` |
-| Control 1: protocol tools through Agenium's MCP | DONE: loopback Streamable HTTP server, per-run bearer token, also offers the agent's own MCP bindings | `agent/mcp/src/server.rs`, `tests/server.rs` |
-| Control 2: Agenium decides permissions | DONE: commands via the command gate (YOLO never applies), edits/reads only in the worktree, fetch refused, never "always" | `run.rs::decide`, `tests/acp_run.rs` |
-| Control 3: step / loop / time limits from the event stream | DONE (checkpoint note at the limit) | `tests/acp_run.rs` |
-| Control 4: mandatory report | DONE (nudge x2 -> NoProgress; Agenium cancels the turn after the protocol tool) | `tests/acp_run.rs` |
-| CLI process inside Agenium's sandbox | NOT DONE (needs vendor egress + read-only login files in the policy) | ADR-56 "Deviations" |
-| Isolation from the user's CLI setup | devin: partial (always loads the user's MCP servers and hooks) -> refused unless `[cli] allow_partial_isolation` lists it | ADR-56 |
-| Golden task through a CLI | **5/5 PASS** with devin swe-2-medium, commands not approved | `quality/eval/results/20261024T041856Z-cli-devin-swe-2-medium.json` |
-| agy, codex, opencode, claude drivers; API fallback; contract tests in CI | NOT DONE | agy headless cannot ask for permission (ADR-56); codex not logged in here; claude excluded from tests by the owner |
+| Detect CLIs in PATH: version, login state, minimum version | DONE | `agent/cli-backend/src/detect.rs`, `agenium doctor` |
+| Headless JSON-stream driver + per-run home (user config not used) | DONE for agy | `agy.rs`, `run.rs`, `tests/stream_run.rs` |
+| Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs` |
+| Limits / mandatory report from the event stream | DONE | `tests/stream_run.rs` |
+| YOLO mode + permissions handled by Agenium | OPEN (owner's rule, design pending) | ADR-56 "Open" |
+| codex driver (Luna 6 for tests) | NEXT | owner logged in 2026-10-24 |
+| CLI process inside the sandbox, API fallback, opencode/claude drivers | NOT DONE | ADR-56 |
+| Golden task through a CLI (acceptance) | to re-run with agy/codex (an earlier ACP/devin run passed 5/5; ACP dropped) | |
 
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5

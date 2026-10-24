@@ -281,7 +281,6 @@ impl Runtime {
             ticket,
             agent: agent.to_owned(),
             approver: self.approver.clone(),
-            contained: true,
         });
         let mut ctx = ToolCtx::new(root, &run.to_string(), gate);
         let rt = self.app.config().runtime;
@@ -488,17 +487,15 @@ impl Runtime {
                 .unwrap_or_else(|| "chat".into())
         );
         if cli {
-            let gate = Arc::new(RunGate {
-                app: self.app.clone(),
-                project,
-                ticket: ticket.map(|t| t.key.clone()),
-                agent: agent.name.clone(),
-                approver: self.approver.clone(),
-                contained: false,
-            });
+            // The CLI may run only the project allowlist's commands (it cannot ask mid-run; YOLO does not apply
+            // because its commands run outside Agenium's sandbox).
+            let allowed: Vec<String> = crate::engine::allowlist(&self.app, &p)
+                .into_iter()
+                .filter_map(|e| e.strip_prefix("cmd:").map(str::to_owned))
+                .collect();
             let report = self
                 .cli_run(
-                    agent, kind, &ctx, gate, &protocol, pspecs, work, &observer, &order,
+                    agent, kind, &ctx, allowed, &protocol, pspecs, work, &observer, &order,
                 )
                 .await?;
             // Subscription plans: tokens are recorded, no per-token price is known.
@@ -529,14 +526,14 @@ impl Runtime {
         agent: &agenium_store::core::agents::Agent,
         kind: RunKind,
         ctx: &ToolCtx,
-        gate: Arc<RunGate>,
+        allowed_commands: Vec<String>,
         protocol: &RunProtocol,
         protocol_specs: Vec<ToolSpec>,
         tools: Vec<Arc<dyn Tool>>,
         observer: &RunObserver,
         order: &WorkOrder,
     ) -> Result<RunReport> {
-        use agenium_cli_backend::{acp_args, CliKind, CliRun, Limits, Login};
+        use agenium_cli_backend::{CliKind, CliRun, Limits, Login};
         let name = agent.model.provider.as_str();
         let cli = CliKind::ALL
             .into_iter()
@@ -558,36 +555,30 @@ impl Runtime {
                 "{name} is not logged in; log in with the {name} CLI first"
             )));
         }
-        let args = acp_args(cli, &agent.model.model).ok_or_else(|| {
+        let driver = agenium_cli_backend::driver(cli).ok_or_else(|| {
             OrchError::Invalid(format!("Agenium does not drive {name} yet (ADR-56)"))
         })?;
         let cfg = self.app.config();
-        if let Some(why) = cli.partial_isolation() {
-            if !cfg.cli.allow_partial_isolation.iter().any(|c| c == name) {
-                return Err(OrchError::Invalid(format!(
-                    "{name} cannot be fully isolated: {why}. To accept this, add \"{name}\" to [cli] allow_partial_isolation in config.toml"
-                )));
-            }
-        }
         let rt = cfg.runtime;
         let r = CliRun {
+            driver,
             program,
-            args,
+            model: agent.model.model.clone(),
             env: ctx.env.clone(),
             cwd: ctx.root.clone(),
             label: format!("{name}:{}", agent.model.model),
-            mode: (!cfg.cli.mode.is_empty()).then(|| cfg.cli.mode.clone()),
             protocol,
             protocol_specs,
             tools,
             ctx,
-            gate,
+            allowed_commands,
             observer,
             cancel: self.cancel.clone(),
             limits: Limits {
                 max_steps: rt.max_steps_per_run,
                 same_call_limit: rt.loop_detect_same_call,
                 nudge_limit: 2,
+                refusal_limit: rt.tool_error_stop,
                 timeout: std::time::Duration::from_secs(
                     u64::from(cfg.cli.run_timeout_mins.max(1)) * 60,
                 ),

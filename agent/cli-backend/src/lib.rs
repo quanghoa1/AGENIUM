@@ -1,28 +1,23 @@
-//! CliBackend (decision 3c / ADR-30, milestone M2.5, ADR-56): run a vendor agent CLI as an Agenium agent. Agenium
-//! only *detects* installed CLIs — version and login state — and never logs in, never writes the user's global CLI
-//! configuration and reuses the user's own authentication read-only.
-//!
-//! Runs use the Agent Client Protocol (`acp`): the CLI is an ACP server on stdio, Agenium is the client and offers
-//! its protocol tools through its own MCP server (`agenium_mcp::server`) given to the session (`run`).
+//! CliBackend (decision 3c / ADR-30, milestone M2.5, ADR-56): run a vendor agent CLI headless (JSON-stream input
+//! and output) as an Agenium agent. Agenium only *detects* installed CLIs — version and login state — and never logs
+//! in. Each run gets an Agenium-owned per-run home with Agenium's configuration (its MCP server, its permission
+//! rules), so the user's own CLI configuration (MCP servers, hooks, rules, skills) is neither used nor written; the
+//! user's login is reused read-only.
 
-pub mod acp;
+pub mod agy;
 pub mod detect;
+pub mod driver;
 pub mod run;
 
 pub use detect::{detect_all, CliInfo, CliKind, Login};
+pub use driver::{Driver, Event, Setup};
 pub use run::{CliRun, Limits};
 
-/// Arguments that start `kind` as an ACP server with `model` (empty = the CLI's default); `None` when Agenium does
-/// not drive that CLI over ACP. Only verified CLIs are listed (ADR-56).
-pub fn acp_args(kind: CliKind, model: &str) -> Option<Vec<String>> {
+/// The driver of `kind`; `None` when Agenium does not drive that CLI (yet). Only CLIs whose headless contract and
+/// per-run isolation were verified are listed (ADR-56).
+pub fn driver(kind: CliKind) -> Option<&'static dyn Driver> {
     match kind {
-        CliKind::Devin => {
-            let mut a = vec!["acp".to_owned()];
-            if !model.is_empty() {
-                a.extend(["--model".to_owned(), model.to_owned()]);
-            }
-            Some(a)
-        }
-        CliKind::Codex | CliKind::Agy | CliKind::Claude | CliKind::Opencode => None,
+        CliKind::Agy => Some(&agy::Agy),
+        CliKind::Codex | CliKind::Devin | CliKind::Claude | CliKind::Opencode => None,
     }
 }
