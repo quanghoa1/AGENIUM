@@ -19,6 +19,13 @@ fn arg(args: &[String], name: &str) -> Option<String> {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_env("AGENIUM_LOG")
+                .unwrap_or_else(|_| "warn".into()),
+        )
+        .with_writer(std::io::stderr)
+        .init();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mode = match arg(&args, "--provider") {
         None if arg(&args, "--cli").is_some() => Mode::Cli {

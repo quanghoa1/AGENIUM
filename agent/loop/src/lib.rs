@@ -212,6 +212,8 @@ pub struct Run<'a> {
     pub cancel: Cancel,
     /// Chat mode: a text-only answer ends the turn instead of being nudged.
     pub chat: bool,
+    /// Nudge for a text-only answer outside chat mode (`None`: the work-run nudge).
+    pub nudge: Option<String>,
 }
 
 impl Run<'_> {
@@ -341,7 +343,7 @@ impl Run<'_> {
                 } else if self.chat {
                     NUDGE_CHAT.to_owned()
                 } else {
-                    NUDGE.to_owned()
+                    self.nudge.clone().unwrap_or_else(|| NUDGE.to_owned())
                 };
                 push(&mut messages, Message::user_text(text));
                 continue;

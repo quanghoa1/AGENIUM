@@ -389,8 +389,27 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     let mut tool_errors = 0;
     let mut error_codes = std::collections::BTreeMap::new();
     let mut errors = Vec::new();
+    let trace = std::env::var_os("AGENIUM_EVAL_TRACE").is_some();
+    if trace {
+        for op in app
+            .store()
+            .read(|c| agenium_store::core::ops::for_ticket(c, t.id))?
+        {
+            eprintln!("-- vcs op {op:?}");
+        }
+    }
     for r in &all_runs {
+        if trace {
+            eprintln!("-- run {} {:?} steps {}", r.id, r.outcome, r.steps);
+        }
         for e in app.store().read(|c| runs::log_entries(c, r.id))? {
+            if trace {
+                let line: String = format!("   {} {}", e.kind, e.data)
+                    .chars()
+                    .take(400)
+                    .collect();
+                eprintln!("{line}");
+            }
             if e.kind == "tool" && e.data["ok"] == false {
                 tool_errors += 1;
                 let code = e.data["result"]

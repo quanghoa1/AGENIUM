@@ -141,6 +141,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing-subscriber",
 ]
 
 [[package]]

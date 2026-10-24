@@ -1,0 +1,115 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 1,
+    "error_codes": {
+      "denied": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 258789,
+    "tokens_out": 2208,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29260
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 2
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session",
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 318008,
+    "tokens_out": 2660,
+    "cost_usd": 0.0,
+    "elapsed_ms": 31521
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 19,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 356745,
+    "tokens_out": 3972,
+    "cost_usd": 0.0,
+    "elapsed_ms": 37794
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 260609,
+    "tokens_out": 2001,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29336
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 1,
+    "error_codes": {
+      "denied": 1
+    },
+    "errors": [
+      "cli:permission: denied: the user denied the command: no one is available to approve commands in this session"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 317800,
+    "tokens_out": 2721,
+    "cost_usd": 0.0,
+    "elapsed_ms": 32065
+  }
+]

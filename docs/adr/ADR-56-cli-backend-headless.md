@@ -106,5 +106,21 @@ decision 3c ("Opencode via API or CLI") to API only. The findings below are kept
   run inside MXC.
 - Golden tasks: codex `gpt-6-luna` 5/5 (`quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`), agy
   `gemini-3.8-flash-low` 5/5 (`20261024T060626Z-cli-agy-gemini-3.8-flash-low.json`), claude `haiku` 5/5
-  (`20261024T065834Z-cli-claude-haiku.json`). With every CLI the review takes two runs (the first approves and
-  ends, the second closes; it logs "already approved") — to tidy up in M3.
+  (`20261024T065834Z-cli-claude-haiku.json`). Those runs often needed two review runs; fixed in M3 (below): claude
+  `haiku` 5/5 again with one work run and one review run per task, ~25 % fewer tokens
+  (`20261024T090226Z-cli-claude-haiku.json`).
+
+## Review in one run (M3, 2026-10-24)
+
+- Cause (traced with `AGENIUM_EVAL_TRACE=1`): review runs ran in chat mode, so a text-only turn ended them, and the
+  `review_ticket` result said `merge_queued: true, status: Resolved` (computed before the merge ran). Haiku read that
+  as "wait for the merge" and stopped; the next round started a second review that closed the ticket.
+- Fix: the approval result carries the real merge outcome (`merged`) and the next step (`next`: close, wait for the
+  user's merge review, or the merge failed/is retried); review runs are nudged like work runs (review-specific
+  text) instead of ending on text. A review run still ends by itself once the ticket leaves Resolved or waits for a
+  merge.
+- Journaled git operations that fail during a run (on Windows `remove_worktree` while the CLI process still has
+  its working directory in the worktree, os error 32) are replayed at the start of every scheduler round, not only
+  at startup.
+- Memory extraction is an API call: a CLI agent uses the `[cli] fallback_provider/fallback_model` for it; without
+  one the pipeline is skipped with an info log (it used to fail with "provider claude not found").

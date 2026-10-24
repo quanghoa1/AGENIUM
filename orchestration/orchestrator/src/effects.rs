@@ -123,6 +123,25 @@ fn prepare_worktree(app: &App, p: &projects::Project, wt: &Path) -> Result<()> {
 }
 
 impl App {
+    /// Re-runs the pending journaled operations of `project` (a merge or worktree removal that failed for a
+    /// transient reason, e.g. a Windows file lock held by a CLI process that has exited since). Returns how many
+    /// completed.
+    pub fn replay_pending_ops(&self, project: ProjectId) -> Result<usize> {
+        let mut done = 0;
+        for row in self.store.read(ops::pending)? {
+            if self.store.read(|c| tickets::get(c, row.ticket))?.project != project {
+                continue;
+            }
+            match self.run_op(row.seq) {
+                Ok(()) => done += 1,
+                Err(e) => {
+                    tracing::warn!(op = row.seq, error = %e, "journaled git operation still failing")
+                }
+            }
+        }
+        Ok(done)
+    }
+
     /// Executes one journaled operation if it is still pending. Idempotent.
     pub fn run_op(&self, seq: i64) -> Result<()> {
         let Some(row) = self.store.read(|c| ops::get(c, seq))? else {

@@ -128,8 +128,15 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
     );
     p.push(Box::new(|req| {
         let last = req.messages.last().unwrap();
-        let merged = matches!(&last.parts[0], agenium_llm::Part::ToolResult { content, .. } if content.contains("\"merge_queued\":true"));
+        let merged = matches!(&last.parts[0], agenium_llm::Part::ToolResult { content, .. } if content.contains("\"merged\":true") && content.contains("call close_ticket"));
         assert!(merged, "approval result says the merge ran");
+        // A model that stops talking after the approval is nudged, not ended (CLI eval regression).
+        Ok(calls_response("Approved; the merge is queued.", vec![]))
+    }));
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap();
+        let nudged = matches!(&last.parts[0], agenium_llm::Part::Text { text } if text.contains("does not finish the review"));
+        assert!(nudged, "review nudge");
         Ok(calls_response("", vec![("close_ticket", json!({"ticket_id": "AGN-1", "reason": "All AC met, merged into main"}))]))
     }));
 

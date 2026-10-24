@@ -113,6 +113,7 @@ async fn run(
         cancel: Cancel::default(),
         limits,
         chat,
+        nudge: None,
     };
     let report = r.run(&order()).await;
     let log = std::fs::read_to_string(dir.join("fake-agy.log")).unwrap_or_default();

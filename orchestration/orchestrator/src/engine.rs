@@ -284,7 +284,11 @@ impl App {
     /// Applies a protocol intent. Errors are structured (see [`OrchError::to_tool_error`]) and change nothing.
     pub fn apply(&self, ctx: &CallCtx, intent: Intent) -> Result<Outcome> {
         let project = self.project(ctx.project)?;
-        let out = match intent {
+        let reviewed = match &intent {
+            Intent::ReviewTicket(r) => Some(r.ticket_id.clone()),
+            _ => None,
+        };
+        let mut out = match intent {
             Intent::CreateTicket(nt) => self.create_ticket(ctx, &project, nt),
             Intent::AssignTicket(a) => self.assign_ticket(ctx, a),
             Intent::AnswerQuestion(a) => self.answer_question(ctx, a),
@@ -314,8 +318,15 @@ impl App {
         for op in &out.ops {
             // Failures here are journaled and retried by reconcile; the intent itself is committed.
             if let Err(e) = self.run_op(*op) {
-                tracing::warn!(op, error = %e, "journaled git operation failed; reconcile will retry");
+                tracing::warn!(op, error = %e, "journaled git operation failed; it is retried later");
             }
+        }
+        // An approval runs the merge right here: report its real result and the next step, not just "queued".
+        if let (Some(key), false) = (reviewed, out.ops.is_empty()) {
+            let t = self.ticket(ctx.project, &key)?;
+            out.result["status"] = serde_json::json!(t.status);
+            out.result["merged"] = serde_json::json!(t.merged);
+            out.result["next"] = serde_json::json!(review_next(&t));
         }
         Ok(out)
     }
@@ -946,7 +957,12 @@ impl App {
                     transition(w, &mut t, &ctx.actor, TicketStatus::Reopened, &Guards { per_ac_feedback: true, ..Default::default() })?;
                 }
             }
-            Ok(Outcome { result: serde_json::json!({ "ticket_id": t.key, "status": t.status, "approved": t.approved, "merge_queued": !ops.is_empty() }), run: RunEffect::Continue, ops })
+            let next = if t.status == TicketStatus::Resolved && t.approved && t.has_code && !t.merged && ops.is_empty() {
+                "the merge waits for the user's review (project option review before merge); stop here".to_owned()
+            } else {
+                review_next(&t)
+            };
+            Ok(Outcome { result: serde_json::json!({ "ticket_id": t.key, "status": t.status, "approved": t.approved, "merged": t.merged, "next": next }), run: RunEffect::Continue, ops })
         })
     }
 
@@ -1423,6 +1439,25 @@ impl RunOrDefault for Option<RunId> {
 
 /// Emits `PlanItemDone` when every ticket of the item is Closed (Cancelled ones do not count as done work but do
 /// not block the item either).
+/// What the reviewer does next, given the ticket after its review (and merge, if one ran).
+fn review_next(t: &Ticket) -> String {
+    match t.status {
+        TicketStatus::Reopened if t.approved => {
+            "the merge failed and the ticket went back to its worker (see the System comment); stop here".into()
+        }
+        TicketStatus::Reopened => "the ticket went back to its worker with your feedback; stop here".into(),
+        TicketStatus::Resolved if t.approved && (t.merged || !t.has_code) => format!(
+            "{}call close_ticket for {} with a reason",
+            if t.merged { "merged into main: " } else { "no code to merge: " },
+            t.key
+        ),
+        TicketStatus::Resolved if t.approved => {
+            "the merge did not complete yet; Agenium retries it and the ticket stays Resolved; stop here".into()
+        }
+        _ => format!("{} is {}", t.key, t.status),
+    }
+}
+
 fn plan_item_done(w: &mut WriteCtx<'_, '_>, t: &Ticket) -> Result<()> {
     let f = tickets::TicketFilter {
         plan_item: Some(t.plan_item.clone()),

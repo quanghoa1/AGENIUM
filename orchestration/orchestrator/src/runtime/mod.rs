@@ -33,6 +33,9 @@ use crate::{OrchError, Result};
 pub use bridge::{Approval, Approver, AutoApprove, DenyApprover, RunKind};
 use bridge::{RunGate, RunObserver, RunProtocol};
 
+/// Text-only answers in a review run: the review ends with a decision, then the close.
+const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_ticket (Approve, or Reopen with feedback per unmet acceptance criterion). Once an approved ticket is merged, or has no code, call close_ticket with a reason. Stop only when a tool result tells you to.";
+
 /// Supplies providers by id (from `config.toml` + the secret store, or injected in tests/evals).
 pub trait ProviderSource: Send + Sync {
     fn provider(&self, id: &str) -> Result<Arc<dyn Provider>>;
@@ -579,7 +582,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             cfg,
             observer: &observer,
             cancel: self.cancel.clone(),
-            chat: kind != RunKind::Work,
+            chat: kind == RunKind::Chat,
+            nudge: (kind == RunKind::Review).then(|| REVIEW_NUDGE.to_owned()),
         };
         let report = r.run(&order).await;
         let cost = self.cost(provider.as_ref(), &report.model, &report.usage);
@@ -713,7 +717,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     u64::from(cfg.cli.run_timeout_mins.max(1)) * 60,
                 ),
             },
-            chat: kind != RunKind::Work,
+            chat: kind == RunKind::Chat,
+            nudge: (kind == RunKind::Review).then(|| REVIEW_NUDGE.to_owned()),
         };
         Ok(r.run(order).await)
     }
@@ -1319,6 +1324,11 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     /// tickets awaiting the Lead. Returns the runs executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
         let mut out = Vec::new();
+        // No run of this project is active between rounds: retry git operations that failed during one.
+        let app = self.app.clone();
+        tokio::task::spawn_blocking(move || app.replay_pending_ops(project))
+            .await
+            .map_err(|e| OrchError::Invalid(e.to_string()))??;
         let max = self.app.config().runtime.max_parallel_agents.max(1) as usize;
         let ready: Vec<_> = self
             .app

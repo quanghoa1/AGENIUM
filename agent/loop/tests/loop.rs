@@ -108,6 +108,7 @@ fn run<'a>(
         observer: &NoopObserver,
         cancel: Cancel::default(),
         chat: false,
+        nudge: None,
     }
 }
 

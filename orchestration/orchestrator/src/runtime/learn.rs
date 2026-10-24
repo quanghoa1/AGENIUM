@@ -113,9 +113,23 @@ impl Runtime {
                 transcript(&conversation)
             ),
         };
-        let provider = self.providers.provider(&agent.model.provider)?;
+        // Extraction is an API call: a CLI agent uses the `[cli]` API fallback model for it (ADR-56).
+        let (provider_id, model_id) = if agent.backend == BackendKind::Cli {
+            let cfg = self.app.config().cli;
+            if cfg.fallback_provider.is_empty() || cfg.fallback_model.is_empty() {
+                tracing::info!(
+                    agent = %agent.name,
+                    "memory pipeline skipped: a CLI agent needs [cli] fallback_provider/fallback_model for extraction"
+                );
+                return Ok(None);
+            }
+            (cfg.fallback_provider, cfg.fallback_model)
+        } else {
+            (agent.model.provider.clone(), agent.model.model.clone())
+        };
+        let provider = self.providers.provider(&provider_id)?;
         let model = PipelineModel {
-            model: agent.model.model.clone(),
+            model: model_id,
             effort: Effort::Low,
             max_tokens: 4000,
             retry: self.retry,

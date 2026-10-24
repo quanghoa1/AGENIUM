@@ -82,7 +82,11 @@ fn solo_ticket_full_lifecycle() {
             }),
         )
         .unwrap();
-    assert_eq!(rev.result["merge_queued"], true);
+    assert_eq!(rev.result["merged"], true);
+    assert!(rev.result["next"]
+        .as_str()
+        .unwrap()
+        .contains("close_ticket"));
     let t = ticket(&f, "AGN-1");
     assert!(t.approved && t.merged);
     assert_eq!(t.status, TicketStatus::Resolved);
@@ -204,7 +208,11 @@ fn research_ticket_without_code_closes_after_review() {
             }),
         )
         .unwrap();
-    assert_eq!(r.result["merge_queued"], false);
+    assert_eq!(r.result["merged"], false);
+    assert!(r.result["next"]
+        .as_str()
+        .unwrap()
+        .starts_with("no code to merge"));
     close(&f).unwrap();
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Closed);
 }

@@ -244,3 +244,40 @@ fn missing_and_orphan_worktrees_are_repaired() {
     let (_f, actions) = restart(f);
     assert!(actions.is_empty(), "{actions:?}");
 }
+
+#[test]
+fn failed_merge_is_retried_without_a_restart() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "t", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-1"), "deliverables/a.txt", "work");
+    f.app
+        .apply(
+            &ctx(&f, Actor::Worker(a.id)),
+            Intent::SubmitReport(report("AGN-1")),
+        )
+        .unwrap();
+    // A transient failure (e.g. a Windows file lock held by a CLI process that is still running).
+    inject(&f, "before:merge");
+    let out = f
+        .app
+        .apply(
+            &ctx(&f, Actor::Lead(a.id)),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    assert_eq!(out.result["merged"], false);
+    assert!(out.result["next"].as_str().unwrap().contains("retries it"));
+    assert_eq!(pending(&f), 1);
+    // The scheduler replays it at its next round.
+    assert_eq!(f.app.replay_pending_ops(f.project.id).unwrap(), 1);
+    assert_eq!(pending(&f), 0);
+    let t = ticket(&f, "AGN-1");
+    assert!(t.merged && t.approved && t.status == TicketStatus::Resolved);
+}

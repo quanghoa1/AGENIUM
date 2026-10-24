@@ -87,8 +87,10 @@ pub struct CliRun<'a> {
     pub observer: &'a dyn Observer,
     pub cancel: Cancel,
     pub limits: Limits,
-    /// Chat or review run: a turn that ends without a protocol tool completes the run.
+    /// Chat run: a turn that ends without a protocol tool completes the run.
     pub chat: bool,
+    /// Nudge for a turn that ends without a protocol tool outside chat mode (`None`: the work-run nudge).
+    pub nudge: Option<String>,
 }
 
 /// Why Agenium stopped the CLI.
@@ -450,7 +452,7 @@ ask_question if you are blocked.",
                 if nudges > self.limits.nudge_limit {
                     break Outcome::NoProgress;
                 }
-                NUDGE.to_owned()
+                self.nudge.clone().unwrap_or_else(|| NUDGE.to_owned())
             };
             let m = Message::user_text(next.clone());
             self.observer.message(&m);
