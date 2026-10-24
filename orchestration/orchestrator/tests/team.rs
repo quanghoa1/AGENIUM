@@ -440,3 +440,100 @@ fn lead_inbox_order_sla_and_escalation() {
     // Still Pending: the permission request is blocking too.
     assert_eq!(ticket(f, k.as_str()).status, TicketStatus::Pending);
 }
+
+#[test]
+fn team_from_template_and_write_scope() {
+    let f = fixture();
+    let out = f
+        .app
+        .create_team_from_template(f.project.id, "pentest", &model(), None, "acme")
+        .unwrap();
+    let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(
+        names,
+        ["acme-lead", "acme-web", "acme-mobile", "acme-recon"]
+    );
+    assert_eq!(
+        f.app.manifest(&f.project).unwrap().project.template,
+        "pentest@1"
+    );
+    let roles = f.app.layout().roles();
+    assert!(roles.join("pentest-web").join("ROLE.md").is_file());
+    assert_eq!(
+        f.app.role_allowed_paths("pentest-web"),
+        ["deliverables/web/**", "artifacts/web/**"]
+    );
+    assert!(
+        f.app
+            .create_team_from_template(f.project.id, "coding", &model(), None, "again")
+            .is_err(),
+        "one team per project"
+    );
+
+    let (team, members) = f.app.team_of_project(f.project.id).unwrap().unwrap();
+    let lead = Actor::Lead(team.lead.unwrap());
+    let web = members.iter().find(|a| a.name == "acme-web").unwrap().id;
+    f.app
+        .apply(&ctx(&f, lead), Intent::ProposeSpec(spec()))
+        .unwrap();
+    f.app.approve_spec(f.project.id, 1).unwrap();
+    f.app
+        .apply(&ctx(&f, lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    f.app.approve_plan(f.project.id, 1).unwrap();
+    let k = started(&f, web, "PI-1", "Test the login page", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wt = worktree(&f, k.as_str());
+    write(&wt, "deliverables/web/login.md", "finding");
+    // A write outside the role's scope (e.g. by a shell command) blocks the report.
+    write(&wt, "deliverables/mobile/app.md", "not mine");
+    let mut r = report(k.as_str());
+    r.extension = serde_json::json!({"findings": []});
+    let submit = |r: &WorkReport| {
+        f.app.apply(
+            &CallCtx {
+                run: Some(run.run),
+                ..ctx(&f, Actor::Worker(web))
+            },
+            Intent::SubmitReport(r.clone()),
+        )
+    };
+    let e = submit(&r).unwrap_err().to_string();
+    assert!(
+        e.contains("deliverables/mobile/app.md") && !e.contains("login.md"),
+        "{e}"
+    );
+    // The user grants the path; the report goes through.
+    let req = f
+        .app
+        .apply(
+            &CallCtx {
+                run: Some(run.run),
+                ..ctx(&f, Actor::Worker(web))
+            },
+            Intent::RequestPermission(PermissionRequest {
+                ticket_id: k.clone(),
+                kind: PermissionKind::Path,
+                command: None,
+                domains: vec![],
+                paths: vec!["deliverables/mobile/app.md".into()],
+                reason: "the login finding also affects the mobile client".into(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(req.result["decided_by"], "user");
+    let rid: CommentId = serde_json::from_value(req.result["request_id"].clone()).unwrap();
+    f.app
+        .decide_permission(
+            f.project.id,
+            &k,
+            rid,
+            PermissionDecision::Approve,
+            false,
+            None,
+        )
+        .unwrap();
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::InProgress);
+    submit(&r).unwrap();
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Resolved);
+}

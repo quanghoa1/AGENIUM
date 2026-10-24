@@ -97,6 +97,8 @@ overrides and audit, and closes the gaps found with the CLI backends.
 |---|---|---|
 | Lead inbox (blocking questions, permissions inside the allowlist, plan items without tickets, tickets without a usable worker, non-blocking questions) + Lead inbox run each round | DONE | `orchestrator/src/inbox.rs`, `team.rs::lead_inbox_order_sla_and_escalation`; CLI `agenium inbox` |
 | SLA of blocking questions -> System comment + NeedsUser (once); Lead escalation (`answer_question.escalate`) | DONE | same test |
+| Team templates: coding, pentest, research, content (TOML, user overrides in `<root>/templates`), create a team from a template (agents, ROLE.md, role scope, report template) | DONE ([ADR-58](adr/ADR-58-team-templates-and-write-scope.md)) | `team_templates.rs` tests; CLI `agenium team templates|template|import|create|show` (smoke-tested on a real root) |
+| Write scope: ticket `scope_paths` AND role allowed paths, widened by path grants; enforced by the file tools and at `submit_report` (covers shell and CLI backends) | DONE | `paths.rs::write_scope`, `team.rs::team_from_template_and_write_scope` |
 | Team end to end: approved plan -> Lead creates/assigns tickets -> worker question answered by the Lead -> dependent ticket starts after approve + merge -> both closed | DONE (scripted model) | `runtime.rs::team_lead_inbox_takes_a_plan_to_closed_tickets` |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)

@@ -867,6 +867,74 @@ impl App {
         )
     }
 
+    /// Write scope of the assignee on `t` (architecture page "Ép phạm vi"): the ticket's `scope_paths` and the
+    /// role's allowed paths must both match; approved path permissions of the ticket and always-allowed project
+    /// paths widen it. Returns (lists that must all match, granted patterns).
+    pub fn write_scope(&self, t: &Ticket, role: &str) -> Result<(Vec<Vec<String>>, Vec<String>)> {
+        let p = self.project(t.project)?;
+        let mut granted: Vec<String> = allowlist(self, &p)
+            .into_iter()
+            .filter_map(|e| e.strip_prefix("path:").map(str::to_owned))
+            .collect();
+        for g in self
+            .store
+            .read(|c| runs::active_grants(c, t.project, Some(t.id)))?
+        {
+            if let Ok(r) = serde_json::from_value::<PermissionRequest>(g.request) {
+                if r.kind == PermissionKind::Path {
+                    granted.extend(r.paths);
+                }
+            }
+        }
+        Ok((
+            vec![t.scope_paths.clone(), self.role_allowed_paths(role)],
+            granted,
+        ))
+    }
+
+    /// Files changed on the ticket's branch (committed since its base, and uncommitted) that fall outside the write
+    /// scope of the assignee. Covers shell commands and CLI backends, whose writes the file tools never see.
+    fn out_of_scope_changes(
+        &self,
+        project: &projects::Project,
+        t: &Ticket,
+        role: &str,
+    ) -> Result<Vec<String>> {
+        let (all_of, granted) = self.write_scope(t, role)?;
+        let scope =
+            agenium_tools::paths::WriteScope::new(all_of, granted).map_err(OrchError::Invalid)?;
+        if scope.is_open() {
+            return Ok(vec![]);
+        }
+        let Some(ws) = self
+            .store
+            .read(|c| workspaces::get(c, t.id))?
+            .filter(|w| !w.removed)
+        else {
+            return Ok(vec![]);
+        };
+        let repo = self.repo(project);
+        let wt = std::path::Path::new(&ws.worktree);
+        let mut files = repo.changed_files(wt, &ws.base_sha, "HEAD")?;
+        for line in repo.status(wt)? {
+            // Porcelain v1: "XY path" or "XY from -> to".
+            let path = line.get(3..).unwrap_or_default();
+            files.push(
+                path.rsplit(" -> ")
+                    .next()
+                    .unwrap_or(path)
+                    .trim_matches('"')
+                    .to_owned(),
+            );
+        }
+        files.sort();
+        files.dedup();
+        Ok(files
+            .into_iter()
+            .filter(|f| !f.starts_with("artifacts/tool-output/") && !scope.allows(f))
+            .collect())
+    }
+
     /// User override of an open ticket's priority (0 = P0 ..= 3); recorded as an event and a System comment.
     pub fn user_set_priority(
         &self,
@@ -940,6 +1008,15 @@ impl App {
             )));
         }
         check_report_covers_acceptance(&t0, &r)?;
+        let role = self.agent(agent)?.role;
+        let outside = self.out_of_scope_changes(project, &t0, &role)?;
+        if !outside.is_empty() {
+            return Err(invalid(format!(
+                "{} changes files outside the write scope of the ticket and your role: {}. Restore them, or                  request_permission (kind=path) for them, then submit again",
+                t0.key,
+                outside.join(", ")
+            )));
+        }
         crate::templates::validate_extension(&t0.report_template, &r.extension)?;
         // Auto-commit the worktree (journal-first) and learn whether the ticket carries code.
         let commit = self.auto_commit(project, &t0, agent, ctx.intent_id.as_deref())?;

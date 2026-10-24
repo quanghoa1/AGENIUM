@@ -142,6 +142,8 @@ pub struct ToolCtx {
     pub fetch_allow: Vec<String>,
     /// Extra lines for the capability manifest (connected MCP servers and their problems).
     pub capabilities: Vec<String>,
+    /// Write scope inside the worktree (open by default).
+    pub write_scope: paths::WriteScope,
     pub http: reqwest::Client,
     ledger: Mutex<HashMap<PathBuf, [u8; 32]>>,
     todo: Mutex<Vec<TodoItem>>,
@@ -164,6 +166,7 @@ impl ToolCtx {
             env,
             fetch_allow: vec![],
             capabilities: vec![],
+            write_scope: paths::WriteScope::default(),
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
                 .build()
@@ -175,7 +178,20 @@ impl ToolCtx {
     }
 
     pub fn resolve(&self, raw: &str, write: bool) -> Result<PathBuf, ToolError> {
-        paths::resolve(&self.root, &self.read_roots, raw, write)
+        let p = paths::resolve(&self.root, &self.read_roots, raw, write)?;
+        if write && !self.write_scope.is_open() {
+            let rel = paths::display(&self.root, &p);
+            if !self.write_scope.allows(&rel) {
+                return Err(ToolError::new(
+                    "out_of_scope",
+                    format!(
+                        "{rel} is outside the write scope of your ticket and role {}; if the work needs it,                          request_permission (kind=path, paths=[\"{rel}\"]) or ask_question",
+                        self.write_scope.describe()
+                    ),
+                ));
+            }
+        }
+        Ok(p)
     }
 
     pub(crate) fn record_read(&self, p: &Path, bytes: &[u8]) {

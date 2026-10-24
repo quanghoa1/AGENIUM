@@ -1,0 +1,354 @@
+//! Team templates (architecture page "Template team & Role", ADR-58): a versioned TOML file with the team's roles
+//! (Lead + workers: tags, ROLE.md text, skills, allowed paths, count, default model) and its report template.
+//! Built-in: coding, pentest, research, content; user templates in `<root>/templates/<id>.toml` (same id = override).
+
+use std::path::Path;
+
+use agenium_core::*;
+use serde::{Deserialize, Serialize};
+
+use crate::app::{App, CreateAgent};
+use crate::{OrchError, Result};
+
+const BUILTIN: [&str; 4] = [
+    include_str!("../templates/coding.toml"),
+    include_str!("../templates/pentest.toml"),
+    include_str!("../templates/research.toml"),
+    include_str!("../templates/content.toml"),
+];
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TeamTemplate {
+    pub id: String,
+    pub version: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Default WorkReport template of the project's tickets (e.g. `coding@1`).
+    pub report_template: String,
+    pub roles: Vec<RoleSpec>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoleSpec {
+    pub id: String,
+    pub kind: RoleKind,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// ROLE.md text (written to `<root>/roles/<template>-<role>/ROLE.md` when the team is created and the file does
+    /// not exist yet; the user edits it there).
+    #[serde(default)]
+    pub prompt: String,
+    /// Skill names expected in the role's skill folder (`<root>/roles/<template>-<role>/skills/`).
+    #[serde(default)]
+    pub skills: Vec<String>,
+    /// Write scope of the role's agents (worktree-relative globs; empty = the whole worktree).
+    #[serde(default)]
+    pub allowed_paths: Vec<String>,
+    /// `provider/model`; the model given at creation wins.
+    #[serde(default)]
+    pub default_model: Option<String>,
+    #[serde(default = "one")]
+    pub count: u32,
+}
+
+fn one() -> u32 {
+    1
+}
+
+fn slug_ok(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 40
+        && s.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+impl TeamTemplate {
+    pub fn parse(text: &str) -> Result<Self> {
+        let t: TeamTemplate =
+            toml::from_str(text).map_err(|e| OrchError::Invalid(format!("team template: {e}")))?;
+        t.validate()?;
+        Ok(t)
+    }
+
+    pub fn to_toml(&self) -> String {
+        toml::to_string_pretty(self).unwrap_or_default()
+    }
+
+    /// Exactly one Lead (count 1), at least one worker, unique slug ids, 1..=10 agents per role.
+    pub fn validate(&self) -> Result<()> {
+        let bad = |m: String| {
+            Err(OrchError::Invalid(format!(
+                "team template {:?}: {m}",
+                self.id
+            )))
+        };
+        if !slug_ok(&self.id) {
+            return bad("id must be lowercase letters, digits or '-'".into());
+        }
+        if self.version.split('.').count() != 3
+            || self.version.split('.').any(|p| p.parse::<u32>().is_err())
+        {
+            return bad(format!(
+                "version {:?} is not MAJOR.MINOR.PATCH",
+                self.version
+            ));
+        }
+        if !agenium_core::ticket::is_template_ref(&self.report_template) {
+            return bad(format!(
+                "report_template {:?} is not name@version",
+                self.report_template
+            ));
+        }
+        let leads: Vec<_> = self
+            .roles
+            .iter()
+            .filter(|r| r.kind == RoleKind::Lead)
+            .collect();
+        if leads.len() != 1 || leads[0].count != 1 {
+            return bad("needs exactly one lead role with count 1".into());
+        }
+        if !self.roles.iter().any(|r| r.kind == RoleKind::Worker) {
+            return bad("needs at least one worker role".into());
+        }
+        let mut seen = std::collections::HashSet::new();
+        for r in &self.roles {
+            if !slug_ok(&r.id) || !seen.insert(r.id.as_str()) {
+                return bad(format!("role id {:?} is invalid or repeated", r.id));
+            }
+            if !(1..=10).contains(&r.count) {
+                return bad(format!("role {}: count must be 1..=10", r.id));
+            }
+            if let Some(m) = &r.default_model {
+                if m.split_once('/')
+                    .is_none_or(|(p, m)| p.is_empty() || m.is_empty())
+                {
+                    return bad(format!(
+                        "role {}: default_model must be provider/model",
+                        r.id
+                    ));
+                }
+            }
+            for p in &r.allowed_paths {
+                if p.starts_with('/') || p.split('/').any(|s| s == "..") {
+                    return bad(format!(
+                        "role {}: allowed path {p:?} must stay inside the worktree",
+                        r.id
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Role directory name (global under `<root>/roles/`).
+    pub fn role_dir(&self, role: &str) -> String {
+        format!("{}-{}", self.id, role)
+    }
+}
+
+pub fn builtin() -> Vec<TeamTemplate> {
+    BUILTIN
+        .iter()
+        .map(|t| TeamTemplate::parse(t).expect("built-in team templates are valid"))
+        .collect()
+}
+
+/// Agents created for a team from a template.
+#[derive(Debug, Clone, Serialize)]
+pub struct TeamFromTemplate {
+    pub team: TeamId,
+    pub agents: Vec<(String, String)>,
+    /// Skills the template expects but the role folders do not have yet.
+    pub missing_skills: Vec<String>,
+}
+
+impl App {
+    /// Built-in templates, overridden or extended by `<root>/templates/*.toml`. Unreadable user files are skipped
+    /// with a warning.
+    pub fn team_templates(&self) -> Result<Vec<TeamTemplate>> {
+        let mut all = builtin();
+        let dir = self.layout().templates();
+        if let Ok(rd) = std::fs::read_dir(&dir) {
+            let mut files: Vec<_> = rd
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+                .collect();
+            files.sort();
+            for f in files {
+                match std::fs::read_to_string(&f)
+                    .map_err(|e| OrchError::Invalid(e.to_string()))
+                    .and_then(|s| TeamTemplate::parse(&s))
+                {
+                    Ok(t) => {
+                        all.retain(|b| b.id != t.id);
+                        all.push(t);
+                    }
+                    Err(e) => {
+                        tracing::warn!(file = %f.display(), error = %e, "team template skipped")
+                    }
+                }
+            }
+        }
+        Ok(all)
+    }
+
+    pub fn team_template(&self, id: &str) -> Result<TeamTemplate> {
+        self.team_templates()?
+            .into_iter()
+            .find(|t| t.id == id)
+            .ok_or_else(|| OrchError::NotFound(format!("no team template {id:?}")))
+    }
+
+    /// Validates a template file and stores it as `<root>/templates/<id>.toml` (a user template; same id as a
+    /// built-in overrides it).
+    pub fn import_team_template(&self, file: &Path) -> Result<TeamTemplate> {
+        let text = std::fs::read_to_string(file)
+            .map_err(|e| OrchError::Invalid(format!("{}: {e}", file.display())))?;
+        let t = TeamTemplate::parse(&text)?;
+        let dir = self.layout().templates();
+        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        std::fs::write(dir.join(format!("{}.toml", t.id)), t.to_toml())
+            .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        Ok(t)
+    }
+
+    /// Creates the project's team from a template: one agent per role slot named `<prefix>-<role>[-n]`, the role
+    /// folders (ROLE.md and the write scope) when missing, and the project's default report template.
+    pub fn create_team_from_template(
+        &self,
+        project: ProjectId,
+        template: &str,
+        model: &ModelBinding,
+        lead_model: Option<&ModelBinding>,
+        prefix: &str,
+    ) -> Result<TeamFromTemplate> {
+        let t = self.team_template(template)?;
+        let prefix = prefix.trim();
+        if prefix.is_empty() {
+            return Err(OrchError::Invalid("the agent name prefix is empty".into()));
+        }
+        let mut lead = None;
+        let mut workers = Vec::new();
+        let mut missing_skills = Vec::new();
+        for r in &t.roles {
+            let dir = self.layout().roles().join(t.role_dir(&r.id));
+            for s in &r.skills {
+                if !dir.join("skills").join(s).join("SKILL.md").is_file() {
+                    missing_skills.push(format!("{}: {s}", t.role_dir(&r.id)));
+                }
+            }
+            let binding = match (r.kind, lead_model) {
+                (RoleKind::Lead, Some(m)) => m.clone(),
+                _ => model.clone(),
+            };
+            for n in 1..=r.count {
+                let name = if r.count == 1 {
+                    format!("{prefix}-{}", r.id)
+                } else {
+                    format!("{prefix}-{}-{n}", r.id)
+                };
+                let spec = CreateAgent {
+                    name,
+                    role: t.role_dir(&r.id),
+                    role_kind: r.kind,
+                    tags: r.tags.clone(),
+                    model: binding.clone(),
+                };
+                match r.kind {
+                    RoleKind::Lead => lead = Some(spec),
+                    RoleKind::Worker => workers.push(spec),
+                }
+            }
+        }
+        let lead = lead.ok_or_else(|| OrchError::Invalid("the template has no lead".into()))?;
+        let p = self.project(project)?;
+        let mut m = self.manifest(&p)?;
+        m.project.template = t.report_template.clone();
+        m.save(Path::new(&p.path))
+            .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        let (team, agents) = self.create_team(project, &t.name, &lead, &workers)?;
+        // Role folders: written once, then owned by the user (ROLE.md is edited there).
+        for r in &t.roles {
+            let dir = self.layout().roles().join(t.role_dir(&r.id));
+            std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
+            let role_md = dir.join("ROLE.md");
+            if !role_md.exists() && !r.prompt.trim().is_empty() {
+                std::fs::write(&role_md, format!("{}\n", r.prompt.trim()))
+                    .map_err(|e| OrchError::Invalid(e.to_string()))?;
+            }
+            let scope = dir.join("role.toml");
+            if !scope.exists() {
+                let body = toml::to_string(&RoleFile {
+                    template: format!("{}@{}", t.id, t.version),
+                    allowed_paths: r.allowed_paths.clone(),
+                })
+                .unwrap_or_default();
+                std::fs::write(&scope, body).map_err(|e| OrchError::Invalid(e.to_string()))?;
+            }
+        }
+        Ok(TeamFromTemplate {
+            team: team.id,
+            agents: agents.into_iter().map(|a| (a.name, a.role)).collect(),
+            missing_skills,
+        })
+    }
+
+    /// Write scope of a role (`<root>/roles/<role>/role.toml`; empty = whole worktree).
+    pub fn role_allowed_paths(&self, role: &str) -> Vec<String> {
+        std::fs::read_to_string(self.layout().roles().join(role).join("role.toml"))
+            .ok()
+            .and_then(|s| toml::from_str::<RoleFile>(&s).ok())
+            .map(|r| r.allowed_paths)
+            .unwrap_or_default()
+    }
+}
+
+/// `<root>/roles/<role>/role.toml`: settings of a role that are not prose.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RoleFile {
+    #[serde(default)]
+    template: String,
+    #[serde(default)]
+    allowed_paths: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtins_are_valid_and_round_trip() {
+        let all = builtin();
+        assert_eq!(
+            all.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+            ["coding", "pentest", "research", "content"]
+        );
+        for t in &all {
+            assert_eq!(&TeamTemplate::parse(&t.to_toml()).unwrap(), t);
+        }
+    }
+
+    #[test]
+    fn validation_rejects_bad_templates() {
+        let base = builtin().remove(0);
+        let mut two_leads = base.clone();
+        two_leads.roles[1].kind = RoleKind::Lead;
+        assert!(two_leads.validate().is_err());
+        let mut no_workers = base.clone();
+        no_workers.roles.retain(|r| r.kind == RoleKind::Lead);
+        assert!(no_workers.validate().is_err());
+        let mut escape = base.clone();
+        escape.roles[1].allowed_paths = vec!["../x/**".into()];
+        assert!(escape.validate().is_err());
+        let mut bad_model = base.clone();
+        bad_model.roles[1].default_model = Some("gpt".into());
+        assert!(bad_model.validate().is_err());
+        let mut bad_id = base;
+        bad_id.id = "Coding Team".into();
+        assert!(bad_id.validate().is_err());
+    }
+}

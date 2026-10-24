@@ -52,6 +52,9 @@ enum Cmd {
     Project(ProjectCmd),
     #[command(subcommand)]
     Agent(AgentCmd),
+    /// Teams: built-in and user templates, create a project's team from a template, show the roster.
+    #[command(subcommand)]
+    Team(TeamCmd),
     /// Skills (SKILL.md folders) of agents and roles.
     #[command(subcommand)]
     Skill(SkillCmd),
@@ -357,6 +360,39 @@ enum SkillCmd {
     },
     /// Check a skill folder without installing it.
     Validate { dir: PathBuf },
+}
+
+#[derive(Subcommand)]
+enum TeamCmd {
+    /// List team templates (built-in and <root>/templates).
+    Templates,
+    /// Print a template as TOML (start of a custom template).
+    Template { id: String },
+    /// Validate a template file and store it in <root>/templates (same id as a built-in overrides it).
+    Import { file: PathBuf },
+    /// Create the project's team from a template: one agent per role slot, named <prefix>-<role>[-n].
+    Create {
+        #[arg(long)]
+        project: String,
+        #[arg(long)]
+        template: String,
+        /// Model of every agent as provider/model (an API provider id from config.toml).
+        #[arg(long)]
+        model: String,
+        /// Model of the Lead (provider/model), when it differs.
+        #[arg(long)]
+        lead_model: Option<String>,
+        #[arg(long, default_value = "high")]
+        effort: String,
+        /// Agent name prefix (default: the project name).
+        #[arg(long)]
+        prefix: Option<String>,
+    },
+    /// The project's team: Lead and workers with role, tags, status, model.
+    Show {
+        #[arg(long)]
+        project: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1744,6 +1780,108 @@ async fn main() -> Result<()> {
                             format!("  ({})", flags.join("; "))
                         }
                     );
+                }
+            }
+        }
+        Cmd::Team(tc) => {
+            let app = open(&root(&cli)?)?;
+            match tc {
+                TeamCmd::Templates => {
+                    for t in app.team_templates()? {
+                        let roles: Vec<String> = t
+                            .roles
+                            .iter()
+                            .map(|r| {
+                                if r.count > 1 {
+                                    format!("{} x{}", r.id, r.count)
+                                } else {
+                                    r.id.clone()
+                                }
+                            })
+                            .collect();
+                        println!(
+                            "{}@{}	{}	[{}]	{}",
+                            t.id,
+                            t.version,
+                            t.name,
+                            roles.join(", "),
+                            t.description
+                        );
+                    }
+                }
+                TeamCmd::Template { id } => print!("{}", app.team_template(id)?.to_toml()),
+                TeamCmd::Import { file } => {
+                    let t = app.import_team_template(file)?;
+                    println!("team template {}@{} stored", t.id, t.version);
+                }
+                TeamCmd::Create {
+                    project: pname,
+                    template,
+                    model,
+                    lead_model,
+                    effort,
+                    prefix,
+                } => {
+                    let p = project(&app, pname)?;
+                    let binding = |pm: &str| -> Result<ModelBinding> {
+                        let (provider, model) = pm
+                            .split_once('/')
+                            .ok_or_else(|| anyhow!("{pm:?}: use provider/model"))?;
+                        if app.config().provider(provider).is_none() {
+                            bail!("provider {provider:?} is not configured (agenium provider add ...)");
+                        }
+                        Ok(ModelBinding {
+                            provider: provider.into(),
+                            model: model.into(),
+                            effort: effort.parse().map_err(|e: String| anyhow!(e))?,
+                            max_tokens: None,
+                        })
+                    };
+                    let m = binding(model)?;
+                    let lm = lead_model.as_deref().map(binding).transpose()?;
+                    let out = app.create_team_from_template(
+                        p.id,
+                        template,
+                        &m,
+                        lm.as_ref(),
+                        prefix.as_deref().unwrap_or(&p.name),
+                    )?;
+                    println!("team created on {} from {template}:", p.name);
+                    for (name, role) in &out.agents {
+                        println!("  {name}	{role}");
+                    }
+                    for s in &out.missing_skills {
+                        println!("  note: skill not installed yet: {s}");
+                    }
+                    println!("Next: agenium chat --project {} \"<your request>\" (the Lead plans; you approve spec and plan)", p.name);
+                }
+                TeamCmd::Show { project: pname } => {
+                    let p = project(&app, pname)?;
+                    let (team, members) = app
+                        .team_of_project(p.id)?
+                        .ok_or_else(|| anyhow!("{} has no team", p.name))?;
+                    println!(
+                        "{} ({}{})",
+                        team.name,
+                        if team.solo { "solo, " } else { "" },
+                        team.template
+                    );
+                    for a in members {
+                        println!(
+                            "  {}{}	{}	[{}]	{}	{}/{}",
+                            a.name,
+                            if team.lead == Some(a.id) {
+                                " (Lead)"
+                            } else {
+                                ""
+                            },
+                            a.role,
+                            a.tags.join(","),
+                            a.status,
+                            a.model.provider,
+                            a.model.model
+                        );
+                    }
                 }
             }
         }

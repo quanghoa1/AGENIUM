@@ -107,6 +107,78 @@ pub fn resolve(
     Ok(norm)
 }
 
+/// Where an agent may write inside its worktree (team mode, architecture page "Ép phạm vi"): every list in
+/// `all_of` must match (an empty list matches everything), e.g. the ticket's `scope_paths` and the role's allowed
+/// paths; approved path permissions match on their own. Patterns are worktree-relative globs; a pattern without
+/// glob characters also covers everything below it.
+#[derive(Debug, Clone, Default)]
+pub struct WriteScope {
+    all_of: Vec<(Vec<String>, globset::GlobSet)>,
+    granted: (Vec<String>, globset::GlobSet),
+}
+
+fn glob_set(patterns: &[String]) -> Result<globset::GlobSet, String> {
+    let mut b = globset::GlobSetBuilder::new();
+    for p in patterns {
+        let p = p.trim().trim_start_matches("./").trim_end_matches('/');
+        let mut add = |g: &str| -> Result<(), String> {
+            b.add(
+                globset::GlobBuilder::new(g)
+                    .literal_separator(true)
+                    .build()
+                    .map_err(|e| format!("scope pattern {g:?}: {e}"))?,
+            );
+            Ok(())
+        };
+        add(p)?;
+        if !p.contains(['*', '?', '[', '{']) {
+            add(&format!("{p}/**"))?;
+        }
+    }
+    b.build().map_err(|e| e.to_string())
+}
+
+impl WriteScope {
+    pub fn new(all_of: Vec<Vec<String>>, granted: Vec<String>) -> Result<Self, String> {
+        let all_of = all_of
+            .into_iter()
+            .filter(|l| !l.is_empty())
+            .map(|l| glob_set(&l).map(|g| (l, g)))
+            .collect::<Result<_, _>>()?;
+        let g = glob_set(&granted)?;
+        Ok(Self {
+            all_of,
+            granted: (granted, g),
+        })
+    }
+
+    /// No restriction (solo work, tickets without scope).
+    pub fn is_open(&self) -> bool {
+        self.all_of.is_empty()
+    }
+
+    /// `rel`: worktree-relative path with forward slashes.
+    pub fn allows(&self, rel: &str) -> bool {
+        self.is_open()
+            || self.granted.1.is_match(rel)
+            || self.all_of.iter().all(|(_, g)| g.is_match(rel))
+    }
+
+    pub fn describe(&self) -> String {
+        let mut s = self
+            .all_of
+            .iter()
+            .map(|(l, _)| l.join(", "))
+            .collect::<Vec<_>>()
+            .join("] and [");
+        s = format!("[{s}]");
+        if !self.granted.0.is_empty() {
+            s.push_str(&format!(" or granted [{}]", self.granted.0.join(", ")));
+        }
+        s
+    }
+}
+
 /// Path relative to the worktree for display (forward slashes).
 pub fn display(root: &Path, p: &Path) -> String {
     p.strip_prefix(root)
@@ -118,6 +190,36 @@ pub fn display(root: &Path, p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn write_scope() {
+        let open = WriteScope::default();
+        assert!(open.is_open() && open.allows("anything.rs"));
+        let s = WriteScope::new(
+            vec![
+                vec!["src/auth/**".into(), "tests".into()],
+                vec!["src/**".into(), "tests/**".into()],
+                vec![],
+            ],
+            vec!["docs/AUTH.md".into()],
+        )
+        .unwrap();
+        assert!(s.allows("src/auth/login.rs"));
+        assert!(
+            s.allows("tests/auth.rs"),
+            "a plain directory covers its files"
+        );
+        assert!(!s.allows("src/billing/x.rs"), "outside the ticket scope");
+        assert!(s.allows("docs/AUTH.md"), "granted");
+        assert!(!s.allows("docs/OTHER.md"));
+        let role_only =
+            WriteScope::new(vec![vec![], vec!["deliverables/web/**".into()]], vec![]).unwrap();
+        assert!(
+            role_only.allows("deliverables/web/f.md")
+                && !role_only.allows("deliverables/mobile/f.md")
+        );
+        assert!(WriteScope::new(vec![vec!["a/[".into()]], vec![]).is_err());
+    }
 
     #[test]
     fn confinement() {

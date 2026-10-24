@@ -477,6 +477,18 @@ impl Runtime {
             ctx.capabilities.push(format!("Backend: {n}"));
         }
         ctx.read_roots = skills.dirs();
+        if let (RunKind::Work, Some(t)) = (kind, ticket) {
+            let (all_of, granted) = self.app.write_scope(t, &agent.role)?;
+            ctx.write_scope = agenium_tools::paths::WriteScope::new(all_of, granted)
+                .map_err(OrchError::Invalid)?;
+            if !ctx.write_scope.is_open() {
+                ctx.capabilities.push(format!(
+                    "Write scope: you may change only {} (checked again at submit_report; anything else needs \
+                     request_permission kind=path)",
+                    ctx.write_scope.describe()
+                ));
+            }
+        }
         // Skill scripts run through the shell: their folders are readable inside the sandbox too.
         ctx.policy.read_roots.extend(skills.dirs());
         let mut mcp_tools: Vec<Arc<dyn Tool>> = Vec::new();

@@ -1,0 +1,24 @@
+id = "research"
+version = "1.0.0"
+name = "Research team"
+description = "A Lead that frames questions and checks sources, two researchers."
+report_template = "research@1"
+
+[[roles]]
+id = "lead"
+kind = "lead"
+tags = ["planning", "synthesis"]
+prompt = """
+You lead a research effort. Turn the user's question into precise sub-questions with acceptance criteria (what a good
+answer must contain), assign them, and review each report for sources, accuracy and gaps before approving it.
+"""
+
+[[roles]]
+id = "researcher"
+kind = "worker"
+count = 2
+tags = ["research", "sources"]
+prompt = """
+You research one question at a time. Cite every claim with its source, separate facts from your inferences, and say
+what you could not verify. Write your findings to deliverables/ as Markdown.
+"""

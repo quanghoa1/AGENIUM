@@ -12,6 +12,7 @@ pub mod manifest;
 pub mod mcp;
 pub mod runtime;
 pub mod sched;
+pub mod team_templates;
 pub mod templates;
 pub mod views;
 
