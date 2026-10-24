@@ -28,6 +28,7 @@ The UI is out of scope for now; the headless CLI `agenium` is the front-end.
 |---|---|---|
 | M1-1 Provider trait + Anthropic, Gemini, OpenAI-compatible adapters | DONE | contract tests on a local HTTP server; **real run on OpenCode Go** (OpenAI-compatible, DeepSeek v4.1 Flash); Anthropic and Gemini real APIs NOT RUN (no keys) |
 | M1-1b Local / custom endpoint capability flags (ADR-31) | DONE: tools / vision / context length detected from LM Studio (`/api/v0/models`) and Ollama (`/api/show`), hand-set `[[providers.model_caps]]` win; `provider models` shows them; a run on a model without tool calling is refused with the reason; the known context window drives the checkpoint. (No "network allowlist" entry needed: Agenium does not filter its own provider traffic; agent commands have no network.) | `agent/llm/src/local.rs`, `adapters.rs` local tests, `runtime.rs::model_without_tool_calling_is_refused` |
+| M1-1c OpenAI Responses wire (OpenCode `gpt-*`, `grok-*`, `muse-spark*`) | DONE (contract tests on a local server; not run against the real relay: the owner's key is for DeepSeek models only) | `agent/llm/src/responses.rs`, `adapters.rs::opencode_router_picks_the_wire_per_model`, `responses_failure_is_a_stream_error` |
 | M1-2 retry / Offline / QuotaExhausted | DONE | retry unit tests, 529/429/drop/402 contract tests, runtime test |
 | M1-3 prompt caching order, effort mapping, prices | DONE | breakpoints asserted in contract tests; built-in Anthropic prices + `pricing.toml` |
 | M1-4 work tools | DONE | `agenium-tools/tests/tools.rs` |
@@ -118,8 +119,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   app (403 FreeTierError); unfunded Zen accounts return 402 (-> QuotaExhausted, verified).
 
 ## Not done / not run (honest list)
-- Real Anthropic, Gemini, OpenAI, OpenRouter, DeepSeek-direct and local endpoints (only OpenCode Go was run). OpenCode
-  models that are Responses-only (gpt-*, grok-*) or Anthropic-wire (claude-*, minimax-*, qwen*) are not routed yet.
+- Real Anthropic, Gemini, OpenAI, OpenRouter, DeepSeek-direct and local endpoints (only OpenCode Go was run; the
+  owner allows DeepSeek models only). The OpenCode Anthropic and Responses wires are contract-tested, not run.
 - Graph memory: consolidation/forgetting, sharing between agents (ADR-51 §10 needs the owner), adjacency cache, the
   labelled resolution set and the multi-hop QA set; lessons with cue/decay and skill overlay updates (M4.5); memory
   extraction after chat sessions (only Closed/Reopened tickets trigger it now).
@@ -136,7 +137,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order)
-1. API gap left: OpenCode models that speak only the Responses API (`gpt-*`, `grok-*`); then M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
+1. M3 completion (Discovery flow with approvals in the CLI, Kanban-equivalent views, audit
    export).
 2. Graph benchmark rest (QA set, concurrency, cold cache) and calibration of the resolution bands.
 3. M4: team templates, Lead inbox + SLA, watchdog/stall-nudge, handoffs in runs.

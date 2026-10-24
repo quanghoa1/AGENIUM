@@ -1,6 +1,6 @@
 //! OpenCode Zen / Go relay (opencode.ai): one key, several wire protocols. The model id decides the transport, as
 //! the relay documents and Hermes agent implements: Anthropic Messages for `claude-*`, `minimax-*`, `qwen*`;
-//! OpenAI Responses for `gpt-*`, `grok-*`, `muse-spark*` (not supported here yet); chat/completions otherwise.
+//! OpenAI Responses for `gpt-*`, `grok-*`, `muse-spark*`; chat/completions otherwise.
 //! Every request carries `x-opencode-session` (Go rejects requests without it).
 
 use async_trait::async_trait;
@@ -9,6 +9,7 @@ use crate::anthropic::Anthropic;
 use crate::error::LlmError;
 use crate::http::Http;
 use crate::openai::OpenAiCompat;
+use crate::responses::Responses;
 use crate::types::*;
 use crate::Provider;
 
@@ -44,6 +45,7 @@ pub struct OpenCode {
     id: String,
     anthropic: Anthropic,
     chat: OpenAiCompat,
+    responses: Responses,
 }
 
 impl OpenCode {
@@ -54,6 +56,7 @@ impl OpenCode {
         Self {
             id: id.to_owned(),
             anthropic: Anthropic::new(id, Some(messages_base), api_key, http.clone()),
+            responses: Responses::new(id, chat_base, Some(api_key), http.clone(), true),
             chat: OpenAiCompat::new(id, chat_base, Some(api_key), http),
         }
     }
@@ -81,10 +84,7 @@ impl Provider for OpenCode {
         match wire_for(&req.model) {
             Wire::Anthropic => self.anthropic.chat(req, emit).await,
             Wire::ChatCompletions => self.chat.chat(req, emit).await,
-            Wire::Responses => Err(LlmError::Unsupported(format!(
-                "{} on OpenCode only speaks the OpenAI Responses API, which Agenium does not support yet; pick a deepseek-, glm-, kimi-, claude-, qwen- or minimax- model",
-                req.model
-            ))),
+            Wire::Responses => self.responses.chat(req, emit).await,
         }
     }
 }

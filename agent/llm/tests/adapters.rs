@@ -632,9 +632,26 @@ async fn opencode_relay_sends_session_affinity_and_deepseek_effort() {
     assert!(s[1].body.get("reasoning_effort").is_none());
 }
 
+const RESPONSES_STREAM: &str = concat!(
+    "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"r1\",\"model\":\"gpt-6-luna\"}}\n\n",
+    "event: response.reasoning_summary_text.delta\ndata: {\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"thinking\"}\n\n",
+    "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"Hel\"}\n\n",
+    "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"lo\"}\n\n",
+    "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_9\",\"name\":\"read_file\",\"arguments\":\"\"}}\n\n",
+    "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":1,\"delta\":\"{\\\"path\\\":\"}\n\n",
+    "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":1,\"delta\":\"\\\"a.txt\\\"}\"}\n\n",
+    "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_9\",\"name\":\"read_file\",\"arguments\":\"{\\\"path\\\":\\\"a.txt\\\"}\"}}\n\n",
+    "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"model\":\"gpt-6-luna\",\"status\":\"completed\",\"usage\":{\"input_tokens\":120,\"input_tokens_details\":{\"cached_tokens\":100},\"output_tokens\":30,\"output_tokens_details\":{\"reasoning_tokens\":12}}}}\n\n",
+);
+
 #[tokio::test]
 async fn opencode_router_picks_the_wire_per_model() {
-    let (base, seen) = server(vec![sse(200, ANTHROPIC_STREAM), sse(200, OPENAI_STREAM)]).await;
+    let (base, seen) = server(vec![
+        sse(200, ANTHROPIC_STREAM),
+        sse(200, OPENAI_STREAM),
+        sse(200, RESPONSES_STREAM),
+    ])
+    .await;
     let p = opencode::OpenCode::new(
         "opencode-go",
         &format!("{base}/opencode.ai/zen/go/v1"),
@@ -645,8 +662,8 @@ async fn opencode_router_picks_the_wire_per_model() {
     p.chat(&request("deepseek-v4.1-flash"), &|_| {})
         .await
         .unwrap();
-    let e = p.chat(&request("gpt-6-luna"), &|_| {}).await.unwrap_err();
-    assert!(matches!(e, LlmError::Unsupported(_)), "{e}");
+    let (evs, emit) = collect();
+    let r = p.chat(&request("gpt-6-luna"), &emit).await.unwrap();
     let s = seen.lock().unwrap().clone();
     assert_eq!(s[0].path, "/opencode.ai/zen/go/v1/messages");
     assert_eq!(s[0].header("x-api-key"), Some("oc"));
@@ -654,6 +671,74 @@ async fn opencode_router_picks_the_wire_per_model() {
     assert_eq!(s[1].path, "/opencode.ai/zen/go/v1/chat/completions");
     assert_eq!(s[1].header("authorization"), Some("Bearer oc"));
     assert_eq!(s[1].header("x-opencode-session"), Some("agent_x:AGN-1"));
+    // OpenAI Responses wire for gpt-*.
+    assert_eq!(s[2].path, "/opencode.ai/zen/go/v1/responses");
+    assert_eq!(s[2].header("authorization"), Some("Bearer oc"));
+    assert_eq!(s[2].header("x-opencode-session"), Some("agent_x:AGN-1"));
+    let b = &s[2].body;
+    assert_eq!(b["store"], false);
+    assert_eq!(b["stream"], true);
+    assert_eq!(b["instructions"], "rules\n\nSOUL + ROLE\n\nmanifest");
+    assert_eq!(b["max_output_tokens"], 64_000);
+    assert_eq!(b["prompt_cache_key"], "agent_x:AGN-1");
+    assert_eq!(b["reasoning"]["effort"], "high");
+    assert_eq!(b["tools"][0]["type"], "function");
+    assert_eq!(b["tools"][0]["name"], "read_file");
+    let input = b["input"].as_array().unwrap();
+    assert_eq!(
+        input[0],
+        json!({"role": "user", "content": [{"type": "input_text", "text": "Fix the bug"}]})
+    );
+    assert_eq!(
+        input[1],
+        json!({"type": "function_call", "call_id": "toolu_1", "name": "read_file", "arguments": "{\"path\":\"a.rs\"}"})
+    );
+    assert_eq!(
+        input[2],
+        json!({"type": "function_call_output", "call_id": "toolu_1", "output": "fn main(){}"})
+    );
+    assert_eq!(input.len(), 3, "thinking of another vendor is not replayed");
+    // The streamed answer.
+    assert_eq!(r.message.text(), "Hello");
+    let calls = r.message.tool_calls();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].id, "call_9");
+    assert_eq!(calls[0].args, json!({"path": "a.txt"}));
+    assert_eq!(r.stop, StopReason::ToolUse);
+    assert_eq!(
+        (
+            r.usage.input,
+            r.usage.cache_read,
+            r.usage.output,
+            r.usage.reasoning
+        ),
+        (20, 100, 30, 12)
+    );
+    assert_eq!(r.model, "gpt-6-luna");
+    let evs = evs.lock().unwrap();
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, ChatEvent::ThinkingDelta(t) if t == "thinking")));
+    assert!(evs
+        .iter()
+        .any(|e| matches!(e, ChatEvent::ToolCallStarted { name, .. } if name == "read_file")));
+}
+
+/// A failed Responses stream is a stream error (retryable when the server says so).
+#[tokio::test]
+async fn responses_failure_is_a_stream_error() {
+    let failed = "event: response.failed\ndata: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"server_error\",\"message\":\"boom\"}}}\n\n";
+    let (base, _) = server(vec![sse(200, failed)]).await;
+    let p = responses::Responses::new("x", &format!("{base}/v1"), Some("k"), http(), false);
+    match p.chat(&request("gpt-6-luna"), &|_| {}).await {
+        Err(LlmError::Stream {
+            retryable, message, ..
+        }) => {
+            assert!(retryable);
+            assert_eq!(message, "boom");
+        }
+        other => panic!("{other:?}"),
+    }
 }
 
 /// ADR-31: a local Ollama server reports tool and vision support and context length through `/api/show`.

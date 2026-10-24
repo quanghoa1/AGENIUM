@@ -12,6 +12,7 @@ pub mod mock;
 pub mod openai;
 pub mod opencode;
 pub mod pricing;
+pub mod responses;
 pub mod retry;
 pub mod sse;
 pub mod types;
