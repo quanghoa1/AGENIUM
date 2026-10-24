@@ -125,6 +125,7 @@ impl Provider for ScriptedProvider {
             context_window: Some(200_000),
             max_output: Some(8192),
             supports_tools: Some(true),
+            supports_vision: None,
         }])
     }
 

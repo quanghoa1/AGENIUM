@@ -142,6 +142,17 @@ pub struct Runtime {
     pub memory_k: usize,
     /// MCP connections of the agents (one per agent and server).
     pub mcp: Arc<agenium_mcp::McpHub>,
+    /// What each (provider, model) can do, looked up once (ADR-31).
+    model_infos: Mutex<std::collections::HashMap<(String, String), Option<agenium_llm::ModelInfo>>>,
+}
+
+/// `info` with the hand-set capabilities of the provider's configuration applied (they win, ADR-31).
+pub fn apply_caps(cfg: &agenium_config::ProviderConfig, info: &mut agenium_llm::ModelInfo) {
+    if let Some(c) = cfg.caps(&info.id) {
+        info.supports_tools = c.tools.or(info.supports_tools);
+        info.supports_vision = c.vision.or(info.supports_vision);
+        info.context_window = c.context_window.or(info.context_window);
+    }
 }
 
 fn kind_of(p: &dyn Provider) -> &'static str {
@@ -178,6 +189,7 @@ impl Runtime {
             app.layout().mcp_work(),
         ));
         Self {
+            model_infos: Mutex::default(),
             mcp,
             app,
             providers,
@@ -543,6 +555,20 @@ impl Runtime {
             return Ok((report, 0.0));
         }
         let provider = self.providers.provider(&agent.model.provider)?;
+        let info = self
+            .model_info(&agent.model.provider, &agent.model.model, provider.as_ref())
+            .await;
+        if info.as_ref().and_then(|i| i.supports_tools) == Some(false) {
+            return Err(OrchError::Invalid(format!(
+                "model {} of provider {} does not support tool calling, which Agenium agents need (ADR-31); \
+pick another model or set tools = true in its [[providers.model_caps]] if this is wrong",
+                agent.model.model, agent.model.provider
+            )));
+        }
+        let mut cfg = self.loop_cfg(agent, cache_key);
+        if let Some(c) = info.and_then(|i| i.context_window) {
+            cfg.context_window = c;
+        }
         let r = Run {
             provider: provider.as_ref(),
             tools: &work,
@@ -550,7 +576,7 @@ impl Runtime {
             protocol: &protocol,
             specs,
             protocol_names: pnames,
-            cfg: self.loop_cfg(agent, cache_key),
+            cfg,
             observer: &observer,
             cancel: self.cancel.clone(),
             chat: kind != RunKind::Work,
@@ -558,6 +584,52 @@ impl Runtime {
         let report = r.run(&order).await;
         let cost = self.cost(provider.as_ref(), &report.model, &report.usage);
         Ok((report, cost))
+    }
+
+    /// Capabilities of `model` (endpoint report + hand-set flags), looked up once per runtime; `None` when the
+    /// provider does not list it (the run goes ahead with defaults).
+    pub async fn model_info(
+        &self,
+        provider_id: &str,
+        model: &str,
+        provider: &dyn Provider,
+    ) -> Option<agenium_llm::ModelInfo> {
+        let key = (provider_id.to_owned(), model.to_owned());
+        if let Some(v) = self
+            .model_infos
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&key)
+        {
+            return v.clone();
+        }
+        let listed =
+            tokio::time::timeout(std::time::Duration::from_secs(15), provider.list_models())
+                .await
+                .ok()
+                .and_then(|r| r.ok())
+                .unwrap_or_default();
+        let mut info = listed.into_iter().find(|m| m.id == model);
+        if let Some(pc) = self.app.config().provider(provider_id) {
+            if info.is_none() && pc.caps(model).is_some() {
+                info = Some(agenium_llm::ModelInfo {
+                    id: model.to_owned(),
+                    display_name: None,
+                    context_window: None,
+                    max_output: None,
+                    supports_tools: None,
+                    supports_vision: None,
+                });
+            }
+            if let Some(i) = info.as_mut() {
+                apply_caps(pc, i);
+            }
+        }
+        self.model_infos
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(key, info.clone());
+        info
     }
 
     /// Whether the agent's CLI can run now: known, driven by Agenium, installed, at least the checked version, not

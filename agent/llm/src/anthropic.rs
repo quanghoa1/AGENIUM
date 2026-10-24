@@ -476,6 +476,7 @@ impl Provider for Anthropic {
                 context_window: m["max_input_tokens"].as_u64(),
                 max_output: m["max_tokens"].as_u64(),
                 supports_tools: Some(true),
+                supports_vision: Some(true),
             })
             .collect())
     }

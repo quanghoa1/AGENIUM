@@ -1027,6 +1027,7 @@ async fn main() -> Result<()> {
                         },
                         max_concurrency: *max_concurrency,
                         models: vec![],
+                        model_caps: vec![],
                     };
                     app.update_config(|c| {
                         c.providers.retain(|p| p.id != pc.id);
@@ -1059,13 +1060,29 @@ async fn main() -> Result<()> {
                 ProviderCmd::Models { id } => {
                     let ps = ConfiguredProviders::new(app.clone());
                     let p = agenium_orchestrator::runtime::ProviderSource::provider(&ps, id)?;
-                    for m in p.list_models().await.map_err(|e| anyhow!("{e}"))? {
+                    let pc = app.config().provider(id).cloned();
+                    let flag = |b: Option<bool>| match b {
+                        Some(true) => "yes",
+                        Some(false) => "no",
+                        None => "?",
+                    };
+                    for mut m in p.list_models().await.map_err(|e| anyhow!("{e}"))? {
+                        if let Some(pc) = &pc {
+                            agenium_orchestrator::runtime::apply_caps(pc, &mut m);
+                        }
                         println!(
-                            "{}\t{}",
+                            "{}\ttools {}\tvision {}\t{}{}",
                             m.id,
+                            flag(m.supports_tools),
+                            flag(m.supports_vision),
                             m.context_window
                                 .map(|c| format!("{c} tokens"))
-                                .unwrap_or_default()
+                                .unwrap_or_default(),
+                            if m.supports_tools == Some(false) {
+                                "\t(no tool calling: Agenium agents cannot use it)"
+                            } else {
+                                ""
+                            }
                         );
                     }
                 }

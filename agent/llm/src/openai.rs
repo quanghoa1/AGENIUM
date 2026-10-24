@@ -99,6 +99,31 @@ impl OpenAiCompat {
         }
     }
 
+    /// `GET /models` as the server reports it (OpenRouter adds `context_length`).
+    async fn list_openai_models(&self) -> Result<Vec<ModelInfo>, LlmError> {
+        let v = self
+            .http
+            .get_json(
+                &format!("{}/models", self.base_url),
+                &self.headers(),
+                map_error,
+            )
+            .await?;
+        Ok(v["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|m| ModelInfo {
+                id: m["id"].as_str().unwrap_or_default().to_owned(),
+                display_name: m["name"].as_str().map(str::to_owned),
+                context_window: m["context_length"].as_u64(),
+                max_output: None,
+                supports_tools: None,
+                supports_vision: None,
+            })
+            .collect())
+    }
+
     fn headers(&self) -> Vec<(&'static str, String)> {
         let mut h = Vec::new();
         if let Some(k) = &self.api_key {
@@ -465,26 +490,11 @@ impl Provider for OpenAiCompat {
     }
 
     async fn list_models(&self) -> Result<Vec<ModelInfo>, LlmError> {
-        let v = self
-            .http
-            .get_json(
-                &format!("{}/models", self.base_url),
-                &self.headers(),
-                map_error,
-            )
-            .await?;
-        Ok(v["data"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .map(|m| ModelInfo {
-                id: m["id"].as_str().unwrap_or_default().to_owned(),
-                display_name: m["name"].as_str().map(str::to_owned),
-                context_window: m["context_length"].as_u64(),
-                max_output: None,
-                supports_tools: None,
-            })
-            .collect())
+        let mut models = self.list_openai_models().await?;
+        if self.flavor == Flavor::Generic {
+            crate::local::enrich(&self.http, &self.base_url, &mut models).await;
+        }
+        Ok(models)
     }
 
     async fn chat(

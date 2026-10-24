@@ -298,6 +298,28 @@ pub struct ProviderConfig {
     /// Local/custom endpoints: models listed manually when the endpoint cannot list them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub models: Vec<String>,
+    /// Capability flags set by hand (ADR-31); they win over what the endpoint reports.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub model_caps: Vec<ModelCaps>,
+}
+
+/// Capabilities of one model of a provider (`[[providers.model_caps]]`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelCaps {
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vision: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u64>,
+}
+
+impl ProviderConfig {
+    /// The hand-set capabilities of `model`, if any.
+    pub fn caps(&self, model: &str) -> Option<&ModelCaps> {
+        self.model_caps.iter().find(|c| c.model == model)
+    }
 }
 
 fn default_concurrency() -> u32 {
@@ -459,6 +481,10 @@ id = "local-ollama"
 kind = "openai_compat"
 base_url = "http://localhost:11434/v1"
 some_future_key = 1
+[[providers.model_caps]]
+model = "qwen3:8b"
+tools = true
+context_window = 32768
 "#;
 
     #[test]
@@ -469,6 +495,12 @@ some_future_key = 1
         assert_eq!(c.runtime.max_steps_per_run, 200);
         assert_eq!(c.retry, RetrySection::default());
         assert_eq!(c.providers[1].max_concurrency, 4);
+        let caps = c.providers[1].caps("qwen3:8b").unwrap();
+        assert_eq!(
+            (caps.tools, caps.vision, caps.context_window),
+            (Some(true), None, Some(32768))
+        );
+        assert!(c.providers[0].caps("qwen3:8b").is_none());
         assert_eq!(c.secrets.backend, SecretsBackend::Vault);
         assert_eq!(c.sandbox.approval, ApprovalPolicy::OnRequest);
         assert!(!c.app.telemetry);

@@ -7,6 +7,7 @@ pub mod anthropic;
 pub mod error;
 pub mod gemini;
 pub mod http;
+pub mod local;
 pub mod mock;
 pub mod openai;
 pub mod opencode;

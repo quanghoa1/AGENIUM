@@ -423,6 +423,7 @@ impl Provider for Gemini {
                 context_window: m["inputTokenLimit"].as_u64(),
                 max_output: m["outputTokenLimit"].as_u64(),
                 supports_tools: Some(true),
+                supports_vision: Some(true),
             })
             .collect())
     }

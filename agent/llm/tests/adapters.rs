@@ -655,3 +655,52 @@ async fn opencode_router_picks_the_wire_per_model() {
     assert_eq!(s[1].header("authorization"), Some("Bearer oc"));
     assert_eq!(s[1].header("x-opencode-session"), Some("agent_x:AGN-1"));
 }
+
+/// ADR-31: a local Ollama server reports tool and vision support and context length through `/api/show`.
+#[tokio::test]
+async fn local_ollama_capabilities_are_detected() {
+    let (url, seen) = server(vec![
+        json_reply(200, json!({"data": [{"id": "qwen3:8b"}, {"id": "llama2"}]}), &[]),
+        json_reply(404, json!({"error": "not found"}), &[]),
+        json_reply(200, json!({"capabilities": ["completion", "tools"], "model_info": {"qwen3.context_length": 40960}}), &[]),
+        json_reply(200, json!({"capabilities": ["completion"], "model_info": {"llama.context_length": 4096}}), &[]),
+    ])
+    .await;
+    let p = openai::OpenAiCompat::new("local", &format!("{url}/v1"), None, http());
+    let m = p.list_models().await.unwrap();
+    assert_eq!(
+        (m[0].supports_tools, m[0].context_window),
+        (Some(true), Some(40960))
+    );
+    assert_eq!(m[0].supports_vision, Some(false));
+    assert_eq!(
+        (m[1].supports_tools, m[1].context_window),
+        (Some(false), Some(4096))
+    );
+    let s = seen.lock().unwrap();
+    assert_eq!(s[1].path, "/api/v0/models");
+    assert_eq!(
+        (s[2].path.as_str(), &s[2].body),
+        ("/api/show", &json!({"model": "qwen3:8b"}))
+    );
+}
+
+/// ADR-31: LM Studio reports `tool_use`, `vlm` and the context length in `/api/v0/models`.
+#[tokio::test]
+async fn local_lm_studio_capabilities_are_detected() {
+    let (url, _) = server(vec![
+        json_reply(200, json!({"data": [{"id": "qwen2-vl"}]}), &[]),
+        json_reply(200, json!({"data": [{"id": "qwen2-vl", "type": "vlm", "max_context_length": 32768, "capabilities": ["tool_use"]}]}), &[]),
+    ])
+    .await;
+    let p = openai::OpenAiCompat::new("local", &format!("{url}/v1"), None, http());
+    let m = p.list_models().await.unwrap();
+    assert_eq!(
+        (
+            m[0].supports_tools,
+            m[0].supports_vision,
+            m[0].context_window
+        ),
+        (Some(true), Some(true), Some(32768))
+    );
+}

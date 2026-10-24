@@ -1110,3 +1110,33 @@ async fn cli_agent_falls_back_to_the_api_when_configured() {
     assert_eq!(app.agent(agent).unwrap().backend, BackendKind::Cli);
     drop(f);
 }
+
+/// ADR-31: a model known not to call tools is refused before any request; hand-set flags win over the endpoint.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn model_without_tool_calling_is_refused() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, _) = solo(&app);
+    app.update_config(|c| {
+        c.providers.push(agenium_config::ProviderConfig {
+            id: "mock".into(),
+            kind: agenium_config::ProviderKind::Mock,
+            base_url: None,
+            api_key_ref: String::new(),
+            max_concurrency: 1,
+            models: vec![],
+            model_caps: vec![agenium_config::ModelCaps {
+                model: "scripted".into(),
+                tools: Some(false),
+                vision: None,
+                context_window: None,
+            }],
+        })
+    })
+    .unwrap();
+    let err = rt.chat(project, "hello").await.unwrap_err().to_string();
+    assert!(err.contains("does not support tool calling"), "{err}");
+    assert_eq!(p.requests().len(), 0);
+    drop(f);
+}

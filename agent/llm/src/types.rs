@@ -210,4 +210,6 @@ pub struct ModelInfo {
     pub max_output: Option<u64>,
     #[serde(default)]
     pub supports_tools: Option<bool>,
+    #[serde(default)]
+    pub supports_vision: Option<bool>,
 }
