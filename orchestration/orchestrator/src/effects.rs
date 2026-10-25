@@ -22,6 +22,10 @@ pub enum Op {
         intent: String,
     },
     Merge,
+    /// Best-effort push of `branch` to `origin` after a ticket closes (only when the project has a remote).
+    Push {
+        branch: String,
+    },
     RemoveWorktree {
         delete_branch: bool,
     },
@@ -33,6 +37,7 @@ impl Op {
             Op::CreateWorktree => "create_worktree",
             Op::Commit { .. } => "commit",
             Op::Merge => "merge",
+            Op::Push { .. } => "push",
             Op::RemoveWorktree { .. } => "remove_worktree",
         }
     }
@@ -227,6 +232,27 @@ impl App {
                 })?;
             }
             Op::Merge => self.merge_now(&row, &t, &p, &repo)?,
+            Op::Push { branch } => {
+                // Outward-facing and best-effort: a failure is recorded, not retried, and never blocks the close.
+                let result = repo.push("origin", &format!("{branch}:{branch}"), &[]);
+                self.store.commit(None, "system", |w| -> Result<()> {
+                    match &result {
+                        Ok(()) => {
+                            complete(w, &row, &t, "done", serde_json::json!({ "pushed": branch }))?;
+                        }
+                        Err(e) => {
+                            let msg = e.to_string();
+                            crate::engine::system_comment(
+                                w,
+                                &t,
+                                format!("Could not push {branch} to the remote (the work is merged and saved locally): {msg}"),
+                            )?;
+                            complete(w, &row, &t, "done", serde_json::json!({ "push_failed": msg }))?;
+                        }
+                    }
+                    Ok(())
+                })?;
+            }
             Op::RemoveWorktree { delete_branch } => {
                 repo.remove_worktree(t.key.as_str())?;
                 if delete_branch {

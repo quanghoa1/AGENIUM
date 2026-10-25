@@ -552,3 +552,52 @@ fn plan_revision_follows_the_newest_approved_spec() {
         .unwrap();
     assert_eq!(latest.body.spec_version, 2);
 }
+
+/// Push on close only when the project has a remote (the user added a repo): the merged main lands on origin;
+/// without a remote the work stays local. A push failure does not block the close.
+#[test]
+fn a_closed_ticket_pushes_when_the_project_has_a_remote() {
+    let f = fixture();
+    let root = std::path::Path::new(&f.project.path);
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    let k = started(&f, a.id, "PI-1", "Write hello", &[], &["deliverables/**"]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "scripted").unwrap();
+    let wt = worktree(&f, "AGN-1");
+    write(&wt, "deliverables/hello.txt", "hello\n");
+    f.app.apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-1"))).unwrap();
+    f.app.finish_run(run.run, "Completed", 1, &UsageSummary::default()).unwrap();
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    assert!(ticket(&f, "AGN-1").merged);
+
+    // The user adds a repo: a bare origin.
+    let bare = f.root.parent().unwrap().join("origin.git");
+    let git = agenium_vcs::git::Git::default();
+    git.check(root, ["init", "-q", "--bare", bare.to_str().unwrap()]).unwrap();
+    let url = bare.to_string_lossy().replace('\\', "/");
+    git.check(root, ["remote", "add", "origin", &url]).unwrap();
+
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CloseTicket(CloseTicket {
+                ticket_id: k.clone(),
+                reason: "merged".into(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::Closed);
+    assert!(f.app.store().read(ops::pending).unwrap().is_empty(), "push op ran");
+    let heads = git.check(root, ["ls-remote", "--heads", &url]).unwrap();
+    assert!(heads.contains("refs/heads/main"), "main pushed to origin: {heads}");
+}

@@ -323,3 +323,29 @@ fn outside_changes_to_a_worktree_are_detected_and_undone() {
         "the agent's uncommitted work stays"
     );
 }
+
+/// `remote_url` reports the repo's `origin` (push-on-close uses it to tell a project with a remote from a local-only
+/// one) and `push origin` lands on it.
+#[test]
+fn remote_url_detects_origin_and_push_lands() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    assert!(
+        r.remote_url("origin").is_none(),
+        "no remote yet: stays local"
+    );
+    let bare = tmp.path().join("remote.git");
+    Git::default()
+        .check(tmp.path(), ["init", "-q", "--bare", bare.to_str().unwrap()])
+        .unwrap();
+    let url = bare.to_string_lossy().replace('\\', "/");
+    Git::default()
+        .check(&r.root, ["remote", "add", "origin", &url])
+        .unwrap();
+    assert_eq!(r.remote_url("origin").as_deref(), Some(url.as_str()));
+    r.push("origin", "main:main", &[]).unwrap();
+    let heads = Git::default()
+        .check(tmp.path(), ["ls-remote", "--heads", &url])
+        .unwrap();
+    assert!(heads.contains("refs/heads/main"), "{heads}");
+}

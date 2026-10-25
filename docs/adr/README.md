@@ -47,3 +47,4 @@ ADR-52 records this fresh implementation.
 | [77](ADR-77-support-bundle.md) | Support bundle: shareable diagnostics folder (versions, config without secret values, store counts, masked logs); CLI and Settings |
 | [78](ADR-78-markdown-report.md) | Markdown project report (goals, plan progress, ticket table) from stored state; CLI `report`, Overview button |
 | [79](ADR-79-pre-merge-checks.md) | Pre-merge check per template, run in the sandbox (desktop); fail-closed without a backend; wizard field |
+| [80](ADR-80-push-on-close.md) | Push the merged main to origin on Closed when the project has a remote (best-effort, non-blocking); local-only otherwise |

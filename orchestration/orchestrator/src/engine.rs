@@ -1336,6 +1336,20 @@ impl App {
                 },
             )?;
             let mut ops = vec![];
+            // When the project has a remote (the user added a repo), push the merged work; otherwise it stays local.
+            if t.merged {
+                let p = projects::get(w.tx, pid)?;
+                let repo = self.repo(&p);
+                if repo.remote_url("origin").is_some() {
+                    ops.push(crate::effects::journal(
+                        w,
+                        &t,
+                        Op::Push {
+                            branch: p.main_branch.clone(),
+                        },
+                    )?);
+                }
+            }
             if workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed) {
                 ops.push(crate::effects::journal(
                     w,

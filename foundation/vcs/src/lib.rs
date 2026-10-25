@@ -722,6 +722,16 @@ impl Repo {
         })
     }
 
+    /// The URL of remote `name` (e.g. `origin`), or `None` when the repo has no such remote.
+    pub fn remote_url(&self, name: &str) -> Option<String> {
+        self.git
+            .run(&self.root, ["remote", "get-url", name])
+            .ok()
+            .filter(|o| o.ok())
+            .map(|o| o.stdout.trim().to_owned())
+            .filter(|u| !u.is_empty())
+    }
+
     /// Pushes a branch to a remote (used when a ticket closes and the project has a remote).
     pub fn push(&self, remote: &str, refspec: &str, env: &[(&str, &str)]) -> Result<(), VcsError> {
         self.git
