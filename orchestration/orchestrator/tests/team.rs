@@ -1360,3 +1360,28 @@ fn a_validated_lesson_updates_the_agents_overlay_of_a_skill() {
         .contains("breaking changes first"));
     assert!(f.app.skill_overlays(t.web).unwrap().is_empty());
 }
+
+/// Project guidance: the repository's AGENTS.md (not a vendor CLAUDE.md) is read from the project root and carried
+/// into work and review runs for every agent.
+#[test]
+fn agents_md_is_the_shared_project_guidance() {
+    let f = fixture();
+    assert!(
+        f.app.project_guidance(f.project.id).unwrap().is_none(),
+        "none without the file"
+    );
+    std::fs::write(
+        std::path::Path::new(&f.project.path).join("AGENTS.md"),
+        "# Conventions\n- Commit messages start with the ticket key.\n",
+    )
+    .unwrap();
+    // A vendor-specific file is ignored.
+    std::fs::write(
+        std::path::Path::new(&f.project.path).join("CLAUDE.md"),
+        "ignore me",
+    )
+    .unwrap();
+    let g = f.app.project_guidance(f.project.id).unwrap().unwrap();
+    assert!(g.contains("Project guidance (AGENTS.md)") && g.contains("start with the ticket key"));
+    assert!(!g.contains("ignore me"));
+}

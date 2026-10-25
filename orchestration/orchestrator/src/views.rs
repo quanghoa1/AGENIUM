@@ -96,6 +96,31 @@ pub enum RunState {
 impl App {
     /// The part of the agreed spec a ticket serves: the goals, and the requirements its plan item traces to with
     /// their acceptance criteria. Workers cannot read the spec themselves (it is not in their worktree).
+    /// Shared project guidance every agent gets: the repository's `AGENTS.md` (the cross-vendor convention; Agenium
+    /// does not read a vendor-specific `CLAUDE.md`). Read from the project root, trimmed and capped. `None` when
+    /// there is no such file or it is empty.
+    pub fn project_guidance(&self, project: ProjectId) -> Result<Option<String>> {
+        const MAX: usize = 12_000;
+        let p = self.project(project)?;
+        let file = std::path::Path::new(&p.path).join("AGENTS.md");
+        let text = match std::fs::read_to_string(&file) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => {
+                tracing::warn!(file = %file.display(), error = %e, "AGENTS.md not read");
+                return Ok(None);
+            }
+        };
+        let text = text.trim();
+        if text.is_empty() {
+            return Ok(None);
+        }
+        let body: String = text.chars().take(MAX).collect();
+        Ok(Some(format!(
+            "## Project guidance (AGENTS.md)\nConventions for everyone working in this repository. Follow them unless a ticket says otherwise.\n\n{body}"
+        )))
+    }
+
     pub fn ticket_requirements(&self, project: ProjectId, t: &Ticket) -> Result<String> {
         let (plan, spec) = self.store.read(|c| {
             let plan = plans::current_plan(c, project)?;

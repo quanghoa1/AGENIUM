@@ -933,11 +933,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .ok();
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
+        let guidance = self.app.project_guidance(project)?;
         let soul = self.soul_and_role(&agent);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let manifest = self.manifest(&agent, solo, ctx, specs, None, &ctx.fetch_allow);
-            let system = vec![
+            let mut system = vec![
                 SystemBlock {
                     text: prompt::system_rules(solo),
                     cache: false,
@@ -951,6 +952,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     cache: false,
                 },
             ];
+            if let Some(g) = &guidance {
+                system.push(SystemBlock {
+                    text: g.clone(),
+                    cache: true,
+                });
+            }
             let mut messages = prev.clone();
             if messages.is_empty() {
                 let facts: Vec<String> = recalled
@@ -1084,11 +1091,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .value;
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
+        let guidance = self.app.project_guidance(project)?;
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
-            let system = vec![
+            let mut system = vec![
                 SystemBlock {
                     text: prompt::system_rules(true),
                     cache: false,
@@ -1102,6 +1110,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     cache: false,
                 },
             ];
+            if let Some(g) = &guidance {
+                system.push(SystemBlock {
+                    text: g.clone(),
+                    cache: true,
+                });
+            }
             let text = format!(
                 "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
                  Treat the report as a claim: check each criterion's evidence yourself (the test, the changed lines, the file) before you count it as met.\n\
