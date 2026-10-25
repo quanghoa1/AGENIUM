@@ -1,0 +1,19 @@
+---
+name: a11y-audit
+description: Check a UI change against accessibility basics (keyboard, labels, contrast, roles) and fix what fails.
+---
+
+## Job
+Check a UI change against accessibility basics and fix what fails.
+
+## When to use
+A ticket adds or changes UI (components, forms, navigation, colour).
+
+## Steps
+Work through `references/checklist.md`: keyboard, names, roles/structure, colour/contrast, and motion.
+
+## Tools
+`read_file` for the markup/styles; `shell` for any a11y linter or contrast checker the project has; read its output.
+
+## Proof
+List each check as pass/fail with the element and the fix applied. For contrast, give the measured ratio. Do not mark a check passed you did not actually test.

@@ -81,59 +81,53 @@ pub fn lint_skill(name: &str, body: &str, others: &[(String, String)]) -> Vec<St
     out
 }
 
-/// A built-in starter skill shipped with Agenium and seeded into `<root>/skills` (ADR-88).
+/// A built-in starter skill shipped with Agenium and seeded into `<root>/skills` (ADR-88). The content lives as real
+/// files under `templates/skills/<name>/` (SKILL.md plus any `references/` and `scripts/`), embedded at build time.
 pub struct Builtin {
     pub name: &'static str,
-    pub description: &'static str,
-    pub body: &'static str,
+    /// The full SKILL.md (frontmatter + body).
+    pub skill_md: &'static str,
+    /// Extra files (relative path -> content): `references/*.md`, `scripts/*`.
+    pub files: &'static [(&'static str, &'static str)],
 }
 
 impl Builtin {
-    /// The full SKILL.md (frontmatter + body).
     pub fn skill_md(&self) -> String {
-        format!(
-            "---\nname: {}\ndescription: {}\n---\n\n{}",
-            self.name,
-            self.description,
-            self.body.trim_start()
-        )
+        self.skill_md.to_owned()
     }
+}
+
+/// `include_str!` a skill's SKILL.md and list its extra files, from `templates/skills/<name>/`.
+macro_rules! skill {
+    ($name:literal $(, $file:literal)* $(,)?) => {
+        Builtin {
+            name: $name,
+            skill_md: include_str!(concat!("../templates/skills/", $name, "/SKILL.md")),
+            files: &[ $( ($file, include_str!(concat!("../templates/skills/", $name, "/", $file))) ),* ],
+        }
+    };
 }
 
 /// The starter skill library: engineering methodologies written as one-job skills (our own words, learned from the
 /// agency-agents catalogue's logic, not its files). Each ends with a Proof section — the evidence the agent must
 /// produce before claiming the work is done.
 pub const LIBRARY: &[Builtin] = &[
-    Builtin {
-        name: "code-review",
-        description: "Review a change for correctness, safety and clarity before it is approved; report issues with evidence.",
-        body: CODE_REVIEW,
-    },
-    Builtin {
-        name: "root-cause-debugging",
-        description: "Find and fix the cause of a bug (not the symptom): reproduce, isolate, fix, and prove it with a regression test.",
-        body: ROOT_CAUSE_DEBUGGING,
-    },
-    Builtin {
-        name: "perf-audit",
-        description: "Find and fix a performance problem by measuring first, changing one thing, and measuring again.",
-        body: PERF_AUDIT,
-    },
-    Builtin {
-        name: "a11y-audit",
-        description: "Check a UI change against accessibility basics (keyboard, labels, contrast, roles) and fix what fails.",
-        body: A11Y_AUDIT,
-    },
-    Builtin {
-        name: "api-contract-testing",
-        description: "Verify an API endpoint against its stated contract: status codes, shapes, errors and edge cases.",
-        body: API_CONTRACT_TESTING,
-    },
-    Builtin {
-        name: "doc-writing",
-        description: "Write or update user-facing docs for a change so a reader can use it without the code.",
-        body: DOC_WRITING,
-    },
+    skill!("code-review", "references/checklist.md"),
+    skill!("root-cause-debugging"),
+    skill!("perf-audit"),
+    skill!("a11y-audit", "references/checklist.md"),
+    skill!("api-contract-testing"),
+    skill!("doc-writing"),
+    skill!("writing-tests", "references/patterns.md"),
+    skill!("refactoring", "references/catalog.md"),
+    skill!("commit-and-pr", "scripts/check_commit.py"),
+    skill!("migration-safety", "references/checklist.md"),
+    skill!("secure-coding", "references/checklist.md"),
+    skill!(
+        "release-readiness",
+        "references/checklist.md",
+        "scripts/preflight.py"
+    ),
 ];
 
 use crate::app::App;
@@ -201,25 +195,21 @@ impl App {
                 continue;
             }
             std::fs::create_dir_all(&folder).map_err(|e| OrchError::Invalid(e.to_string()))?;
-            std::fs::write(folder.join(agenium_skills::SKILL_FILE), s.skill_md())
+            std::fs::write(folder.join(agenium_skills::SKILL_FILE), s.skill_md)
                 .map_err(|e| OrchError::Invalid(e.to_string()))?;
+            for (rel, content) in s.files {
+                let p = folder.join(rel);
+                if let Some(parent) = p.parent() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| OrchError::Invalid(e.to_string()))?;
+                }
+                std::fs::write(&p, content).map_err(|e| OrchError::Invalid(e.to_string()))?;
+            }
             n += 1;
         }
         Ok(n)
     }
 }
-
-const CODE_REVIEW: &str = "## Job\nReview one change and decide whether it is correct, safe and clear enough to approve.\n\n## When to use\nBefore approving a ticket's work, or when asked to review a diff or a branch.\n\n## Steps\n1. Read the ticket's goal and acceptance criteria; review against them, not your own taste.\n2. Read the diff in full. For each hunk ask: does it do what the ticket asked, and nothing it should not?\n3. Check the risky edges: error paths, empty/None/large inputs, concurrency, resource cleanup, and anything touching secrets or money.\n4. Confirm tests exist for the new behaviour and that they would fail without the change.\n5. Prefer the smallest change that is correct; note reuse or simplification only when it clearly helps.\n\n## Tools\nUse read_file and grep to read the changed files and their callers; run the project's tests and linter through shell and read the output, do not assume it passed.\n\n## Proof\nList each issue as file:line with a one-line reason and, where you can, the concrete input that breaks it. State explicitly which acceptance criteria you verified and how (which test, which command output). A review with no evidence is not a review.\n";
-
-const ROOT_CAUSE_DEBUGGING: &str = "## Job\nFix the cause of a bug, not its symptom.\n\n## When to use\nA ticket reports a defect, a test fails, or behaviour is wrong.\n\n## Steps\n1. Reproduce it first: find the smallest input or steps that trigger it, and capture the exact wrong output.\n2. Isolate: narrow to the function or line responsible (bisect, add a failing assertion, read the call path). Do not guess.\n3. Explain the cause in one sentence before changing code.\n4. Fix the cause. Avoid sleeps, broad try/except, or disabling the test — those hide the bug.\n5. Add a regression test that fails before the fix and passes after.\n\n## Tools\ngrep and read_file to trace the path; shell to run the reproducer and the test; read the real output each time.\n\n## Proof\nShow the reproducer, the one-sentence cause, and the regression test passing after and failing before the fix (paste both runs). \"Could not reproduce\" is a valid, honest outcome — say so instead of changing unrelated code.\n";
-
-const PERF_AUDIT: &str = "## Job\nMake a measured part of the system faster without changing what it does.\n\n## When to use\nA ticket reports slowness, or a change must meet a latency/throughput target.\n\n## Steps\n1. Measure first: capture a baseline (time, allocations, queries) for a realistic input. No baseline, no change.\n2. Find the hot spot with a profiler or timing, not intuition.\n3. Change one thing at a time; keep behaviour identical (same outputs on the same inputs).\n4. Measure again against the baseline; keep the change only if it actually helps.\n\n## Tools\nshell to run the benchmark/profiler and the test suite; read the numbers; read_file to find the hot path.\n\n## Proof\nShow the before and after numbers for the same input, and confirm the behaviour is unchanged (tests still pass). A speedup claim with no before/after measurement does not count.\n";
-
-const A11Y_AUDIT: &str = "## Job\nCheck a UI change against accessibility basics and fix what fails.\n\n## When to use\nA ticket adds or changes UI (components, forms, navigation, colour).\n\n## Steps\n1. Keyboard: every control reachable and operable with Tab/Enter/Escape; visible focus; no trap.\n2. Names: inputs have labels; icon-only buttons have an accessible name; images have alt text.\n3. Roles/structure: correct semantic elements or ARIA roles; headings in order.\n4. Colour: text meets contrast (4.5:1 normal, 3:1 large); meaning never by colour alone.\n5. Motion: respect reduced-motion for non-essential animation.\n\n## Tools\nread_file for the markup/styles; shell for any a11y linter or contrast checker the project has; read its output.\n\n## Proof\nList each check as pass/fail with the element and the fix applied. For contrast, give the measured ratio. Do not mark a check passed you did not actually test.\n";
-
-const API_CONTRACT_TESTING: &str = "## Job\nVerify an API endpoint behaves as its contract says.\n\n## When to use\nA ticket adds or changes an endpoint, or an integration depends on one.\n\n## Steps\n1. State the contract: method, path, inputs, success status and body shape, and the error cases.\n2. Test the happy path: correct status and the exact body shape (fields, types).\n3. Test the edges: missing/invalid input, unauthorised, not-found, and large input; each returns the right status and a clear error, not a 500.\n4. Check idempotency and side effects where the contract promises them.\n\n## Tools\nshell to call the endpoint (curl or the project's test client) and to run the test suite; read the real responses; read_file for the handler and its schema.\n\n## Proof\nFor each case show the request and the actual status and body, next to what the contract requires. A claim of \"works\" with no shown response does not count.\n";
-
-const DOC_WRITING: &str = "## Job\nWrite or update the user-facing docs for a change so a reader can use it without reading the code.\n\n## When to use\nA change adds or alters behaviour a user or another developer relies on (a command, flag, API, config, UI).\n\n## Steps\n1. Find who reads this and what they need to do; write for that task, not for the implementation.\n2. Update the right place (README, reference, changelog) rather than adding a new stray file.\n3. Lead with what it does and a working example; then the details and the edge cases.\n4. Keep it accurate: every command, flag and path must be real and current.\n\n## Tools\nread_file and grep to find the existing docs and confirm names/flags; shell to run any example you include and confirm it works.\n\n## Proof\nShow that the example you wrote actually runs (paste the command and its output), and name the file(s) you updated. Do not document a flag or path you have not verified exists.\n";
 
 #[cfg(test)]
 mod tests {

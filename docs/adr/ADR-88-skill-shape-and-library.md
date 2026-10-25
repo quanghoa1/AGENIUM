@@ -21,11 +21,17 @@ a skill an agent upgrades follow one shape.
    the notes are recorded in the overlay changelog — so agent-distilled skills are held to the shape too. This ties into
    the existing learning loop: validated lessons → overlay (ADR-73), base-update rebase (ADR-86), cross-agent pool
    (ADR-87).
-4. **Built-in starter library**: six engineering skills in our own words, each in the shape above with a Proof section —
-   `code-review`, `root-cause-debugging`, `perf-audit`, `a11y-audit`, `api-contract-testing`, `doc-writing` (the generic,
+4. **Built-in skill library**: twelve engineering skills in our own words, each in the shape above with a Proof section —
+   `code-review`, `root-cause-debugging`, `perf-audit`, `a11y-audit`, `api-contract-testing`, `doc-writing`,
+   `writing-tests`, `refactoring`, `commit-and-pr`, `migration-safety`, `secure-coding`, `release-readiness` (the generic,
    non-cyber methodologies the agency-agents catalogue expresses as personas; the specialist **roles** already landed as
-   ADR-64, the **methodologies** now land as skills). `App::seed_skill_library` writes them into `<root>/skills` on open,
-   **idempotently**: it writes only a skill whose folder is absent, so a user's edits and removals are never overwritten.
+   ADR-64, the **methodologies** land as skills). They ship as **real files** under
+   `orchestration/orchestrator/templates/skills/<name>/` — SKILL.md plus `references/*.md` (longer checklists read on
+   demand, tier 3) and `scripts/*` (two helpers: `commit-and-pr/scripts/check_commit.py` lints a commit message;
+   `release-readiness/scripts/preflight.py` reports a clean-tree GO/NO-GO) — embedded at build time with `include_str!`.
+   `App::seed_skill_library` writes a skill and all its files into `<root>/skills` on open, **idempotently**: it writes
+   only a skill whose folder is absent, so a user's edits and removals are never overwritten. The body references each
+   aux file, so skill validation confirms they exist.
 
 ## Consequences
 
