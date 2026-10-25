@@ -142,6 +142,10 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Shared project guidance from the repo's AGENTS.md (no vendor CLAUDE.md) | DONE | `views.rs::project_guidance`, `team.rs::agents_md_is_the_shared_project_guidance` |
 | Model list by backend (API vs each CLI) | DONE | [ADR-74](adr/ADR-74-models-by-backend.md) |
 | TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |
+| M5: run-log compaction after 90 days | DONE | [ADR-76](adr/ADR-76-run-log-compaction.md) |
+| M5: support bundle (diagnostics without secret values) | DONE | [ADR-77](adr/ADR-77-support-bundle.md) |
+| M5: Markdown project report | DONE | [ADR-78](adr/ADR-78-markdown-report.md) |
+| M5: pre-merge checks per template, run in the sandbox | DONE | [ADR-79](adr/ADR-79-pre-merge-checks.md) |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
@@ -201,8 +205,13 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order, 2026-10-25)
-1. M4.5 rest: sharing between agents (ADR-51 §10, needs the owner) and its golden task GM-6; base-update rebase of
-   overlays (3-way merge).
-2. M5 beta: export/import `.agenium`, pre-merge checks per template, Markdown reports, run-log compression after 90
-   days, push the branch on Closed, egress proxy, change the root, installer and signed updater, support bundle.
-3. M2 on Linux/macOS machines (sandbox attack suite, macOS backend) — needs those machines; graph benchmark rest.
+M4, M4.5 and the self-contained M5 items are done (ADR-64..79). What remains needs an owner decision or real
+infrastructure, not mechanical work:
+1. **export/import `.agenium`** — scope decision: git history + DB rows only, or also agent memory? Secrets excluded.
+2. **push the branch on Closed** — needs a remote + credential handling (GIT_ASKPASS/token); outward-facing, so it
+   waits for the owner to choose the remote and auth.
+3. **egress proxy** — the agent-command network policy; needs a design decision.
+4. **base-update rebase of skill overlays** (3-way merge) and **cross-agent knowledge sharing** GM-6 (ADR-51 §10) —
+   need the owner's call on the sharing model (ticket note vs project pack).
+5. **installer + signed updater** — packaging/signing infrastructure per OS.
+6. **M2 on Linux/macOS** — needs those machines (sandbox attack suite, macOS Seatbelt backend); graph benchmark rest.
