@@ -14,6 +14,7 @@ pub mod mcp;
 pub mod model_lists;
 pub mod prices;
 pub mod registry;
+pub mod report;
 pub mod role_library;
 pub mod role_proposals;
 pub mod runtime;

@@ -90,6 +90,7 @@ fn main() {
             api::resume_project,
             api::stop_all,
             api::support_bundle,
+            api::project_report,
             manage::roles,
             manage::put_role,
             manage::remove_role,

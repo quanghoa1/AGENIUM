@@ -135,6 +135,7 @@ export const api = {
   resumeProject: (project: string) => call<void>("resume_project", { project }),
   stopAll: () => call<void>("stop_all"),
   supportBundle: (out: string) => call<string>("support_bundle", { out }),
+  projectReport: (project: string) => call<string>("project_report", { project }),
 
   // Registry (ADR-61)
   roles: () => call<RoleInfo[]>("roles"),

@@ -45,6 +45,14 @@ enum Cmd {
         #[arg(long, default_value = ".")]
         out: PathBuf,
     },
+    /// Print a Markdown report of a project (goals, plan progress, tickets).
+    Report {
+        #[arg(long)]
+        project: String,
+        /// Write to this file instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Model providers (API keys go to the encrypted vault, never to config.toml).
     #[command(subcommand)]
     Provider(ProviderCmd),
@@ -1233,6 +1241,21 @@ async fn main() -> Result<()> {
             let app = open(&root(&cli)?)?;
             let dir = app.support_bundle(out)?;
             println!("support bundle written to {}", dir.display());
+        }
+        Cmd::Report {
+            project: pname,
+            out,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            let md = app.project_report_md(p.id)?;
+            match out {
+                Some(f) => {
+                    std::fs::write(f, &md)?;
+                    println!("report written to {}", f.display());
+                }
+                None => println!("{md}"),
+            }
         }
         Cmd::Doctor => {
             let r = root(&cli)?;

@@ -35,6 +35,14 @@ pub(crate) fn names(o: &Opened) -> R<HashMap<AgentId, String>> {
 // ---------------------------------------------------------------- setup / status
 
 #[tauri::command]
+pub fn project_report(d: State<'_, Desktop>, project: String) -> R<String> {
+    d.opened()?
+        .app
+        .project_report_md(pid(&project)?)
+        .map_err(err)
+}
+
+#[tauri::command]
 pub fn support_bundle(d: State<'_, Desktop>, out: String) -> R<String> {
     let o = d.opened()?;
     let dir = std::path::PathBuf::from(if out.trim().is_empty() {

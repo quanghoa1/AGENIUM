@@ -1402,3 +1402,19 @@ fn support_bundle_has_diagnostics_without_secrets() {
     assert!(stats.contains("projects: 1"));
     assert!(dir.join("logs").is_dir());
 }
+
+/// Markdown report (M5): a readable project summary from the stored state — goals, plan progress and a ticket table.
+#[test]
+fn project_report_is_markdown_from_state() {
+    let t = team();
+    let f = &t.f;
+    planned(&t);
+    let k = started(f, t.web, "PI-1", "Build the page", &[], &[]);
+    let md = f.app.project_report_md(f.project.id).unwrap();
+    assert!(md.starts_with("# web team") || md.contains("# "), "{md}");
+    assert!(
+        md.contains("## Goals") && md.contains("## Plan progress") && md.contains("## Tickets")
+    );
+    assert!(md.contains(k.as_str()) && md.contains("Build the page"));
+    assert!(md.contains("ticket(s) closed."));
+}

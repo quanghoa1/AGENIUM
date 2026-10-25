@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, MessageSquare } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileText, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AgentStatusBadge, Avatar, Empty, Metric, Mono, OutcomeBadge, PageHeader, RuntimeBadge, Section, ago, tokens } from "../components/ui";
 import { api } from "../lib/api";
@@ -25,6 +25,20 @@ export function OverviewView() {
   return (
     <div className="space-y-5">
       <PageHeader title={app.t("overview.title")} sub={app.t("overview.sub")}>
+        <button
+          className="btn"
+          disabled={!app.project}
+          onClick={() =>
+            app.project &&
+            api
+              .projectReport(app.project)
+              .then((md) => navigator.clipboard.writeText(String(md)))
+              .then(() => app.notify(app.t("overview.reportCopied")))
+              .catch((e) => app.notify(String(e)))
+          }
+        >
+          <FileText className="h-3.5 w-3.5" /> {app.t("overview.report")}
+        </button>
         <button className="btn-primary" onClick={() => app.go("chat")}>
           <MessageSquare className="h-3.5 w-3.5" /> {app.t("top.talk")}
         </button>
