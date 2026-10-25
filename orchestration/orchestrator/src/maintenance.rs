@@ -23,6 +23,8 @@ pub struct MaintenanceReport {
     pub wal_bytes: u64,
     pub backup: Option<String>,
     pub pruned: Vec<String>,
+    /// Runs whose logs were compacted this tick (ADR-76).
+    pub logs_compacted: u64,
 }
 
 fn age_hours(m: &Manifest, now: DateTime<Utc>) -> f64 {
@@ -111,10 +113,24 @@ impl App {
                 weekly: cfg.weekly_keep as usize,
             },
         )?;
+        let keep_days = self.config().backup.run_log_keep_days;
+        let logs_compacted = if keep_days == 0 {
+            0
+        } else {
+            let cutoff = (now - chrono::Duration::days(i64::from(keep_days))).to_rfc3339();
+            self.store
+                .commit(None, "system", |w| {
+                    agenium_store::core::runs::compact_logs(w.tx, &cutoff)
+                        .map_err(crate::OrchError::from)
+                })?
+                .value
+                .0
+        };
         Ok(MaintenanceReport {
             wal_bytes,
             backup: made.map(|m| m.id),
             pruned,
+            logs_compacted,
         })
     }
 }

@@ -219,6 +219,53 @@ pub fn log(
     Ok(n as u32)
 }
 
+/// Compacts the run logs of runs that ended before `cutoff` (RFC 3339): the bulky diagnostic rows (LLM and tool
+/// calls, progress) are dropped; the rows the audit needs — refused protocol calls (`kind = 'tool'`, `ok = false`) —
+/// are kept, and a `compacted` marker row records how many were removed. A run is compacted once. Returns
+/// `(runs compacted, rows removed)`. (ADR-76: run-log retention.)
+pub fn compact_logs(c: &Connection, cutoff: &str) -> Result<(u64, u64), StoreError> {
+    let runs: Vec<String> = {
+        let mut st = c.prepare(
+            "SELECT DISTINCT rl.run FROM run_log rl JOIN run r ON r.id = rl.run \
+             WHERE r.ended_at IS NOT NULL AND r.ended_at < ?1 \
+             AND NOT EXISTS (SELECT 1 FROM run_log m WHERE m.run = rl.run AND m.kind = 'compacted')",
+        )?;
+        let rows = st
+            .query_map([cutoff], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        rows
+    };
+    let keep = "kind = 'tool' AND json_extract(data, '$.ok') = 0";
+    let mut rows_removed = 0u64;
+    let mut done = 0u64;
+    for run in &runs {
+        let removed = c.execute(
+            &format!("DELETE FROM run_log WHERE run = ?1 AND NOT ({keep})"),
+            params![run],
+        )?;
+        if removed == 0 {
+            continue;
+        }
+        let next: i64 = c.query_row(
+            "SELECT COALESCE(MAX(n), 0) + 1 FROM run_log WHERE run = ?1",
+            params![run],
+            |r| r.get(0),
+        )?;
+        c.execute(
+            "INSERT INTO run_log(run, n, kind, data, at) VALUES (?1, ?2, 'compacted', ?3, ?4)",
+            params![
+                run,
+                next,
+                to_json(&serde_json::json!({ "removed": removed }))?,
+                agenium_core::now_iso()
+            ],
+        )?;
+        rows_removed += removed as u64;
+        done += 1;
+    }
+    Ok((done, rows_removed))
+}
+
 pub fn log_entries(c: &Connection, run: RunId) -> Result<Vec<LogEntry>, StoreError> {
     let mut st =
         c.prepare_cached("SELECT n, kind, data, at FROM run_log WHERE run = ?1 ORDER BY n")?;

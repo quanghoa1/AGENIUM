@@ -43,3 +43,4 @@ ADR-52 records this fresh implementation.
 | [73](ADR-73-skill-overlays-memory-page.md) | Skill overlays from lessons held in two contexts (checked, copy-on-write, audited; revert/promote by the user); Memory page |
 | [74](ADR-74-models-by-backend.md) | Model list follows the backend: API lists what the API serves (OpenCode free models only via the opencode CLI), each CLI lists what it runs |
 | [75](ADR-75-typesafe-jev-judge.md) | TypeSafe "Jev" as an optional judge (typed calibrated questions, not a chat model): opt-in review evidence read; images deferred |
+| [76](ADR-76-run-log-compaction.md) | Run logs older than 90 days are compacted (diagnostics dropped, refused protocol calls kept) on the maintenance tick |

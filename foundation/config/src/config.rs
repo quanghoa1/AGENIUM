@@ -203,6 +203,8 @@ pub struct BackupSection {
     pub daily_keep: u32,
     pub weekly_keep: u32,
     pub pre_migrate_keep: u32,
+    /// Run logs older than this many days are compacted to their essentials (ADR-76); 0 = never.
+    pub run_log_keep_days: u32,
 }
 
 impl Default for BackupSection {
@@ -212,6 +214,7 @@ impl Default for BackupSection {
             daily_keep: 7,
             weekly_keep: 4,
             pre_migrate_keep: 3,
+            run_log_keep_days: 90,
         }
     }
 }

@@ -433,3 +433,71 @@ fn v1_database_with_data_migrates_to_the_latest() {
         .collect();
     assert!(!snaps.is_empty(), "pre-migrate snapshot written");
 }
+
+#[test]
+fn old_run_logs_are_compacted_keeping_refused_calls() {
+    let tmp = tempfile::tempdir().unwrap();
+    let s = open(tmp.path());
+    let a = solo_agent(&s);
+    let run = RunId::new();
+    s.commit(None, "system", |w| -> Result<(), StoreError> {
+        runs::insert(
+            w.tx,
+            &runs::Run {
+                id: run,
+                ticket: None,
+                agent: a.id,
+                provider: "mock".into(),
+                model: "m".into(),
+                started_at: "2026-01-01T00:00:00.000Z".into(),
+                ended_at: Some("2026-01-01T00:01:00.000Z".into()),
+                outcome: Some("Completed".into()),
+                steps: 3,
+                usage: Default::default(),
+                heartbeat: None,
+            },
+        )?;
+        runs::log(w.tx, run, "llm", &serde_json::json!({ "tokens": 100 }))?;
+        runs::log(
+            w.tx,
+            run,
+            "tool",
+            &serde_json::json!({ "tool": "read_file", "ok": true }),
+        )?;
+        // A refused protocol call: the audit needs this one.
+        runs::log(
+            w.tx,
+            run,
+            "tool",
+            &serde_json::json!({ "tool": "create_ticket", "ok": false, "args": {} }),
+        )?;
+        Ok(())
+    })
+    .unwrap();
+
+    // A recent cutoff: the run (ended 2026-01-01) is older, so it compacts.
+    let (runs_done, removed) = s
+        .commit(None, "system", |w| {
+            runs::compact_logs(w.tx, "2026-06-01T00:00:00Z")
+        })
+        .unwrap()
+        .value;
+    assert_eq!((runs_done, removed), (1, 2), "two diagnostic rows removed");
+    let kept = s.read(|c| runs::log_entries(c, run)).unwrap();
+    let kinds: Vec<&str> = kept.iter().map(|e| e.kind.as_str()).collect();
+    assert!(
+        kinds.contains(&"tool") && kinds.contains(&"compacted") && !kinds.contains(&"llm"),
+        "{kinds:?}"
+    );
+    assert!(kept
+        .iter()
+        .any(|e| e.data["tool"] == "create_ticket" && e.data["ok"] == false));
+    // Idempotent: a second pass does nothing (the marker stops it).
+    let (again, _) = s
+        .commit(None, "system", |w| {
+            runs::compact_logs(w.tx, "2026-06-01T00:00:00Z")
+        })
+        .unwrap()
+        .value;
+    assert_eq!(again, 0);
+}
