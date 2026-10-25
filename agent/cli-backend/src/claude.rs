@@ -254,7 +254,9 @@ impl Driver for Claude {
             };
         }
         if matches!(name, "WebFetch" | "WebSearch") {
-            return Check::Deny("web tools are disabled in Agenium runs".into());
+            return Check::Deny(
+                "use the `fetch` tool from the \"agenium\" MCP server instead (allowlisted and logged); WebFetch/WebSearch are off".into(),
+            );
         }
         if SUBAGENT_TOOLS.contains(&name) && !cx.subagents {
             return Check::Deny(NO_SUBAGENTS.into());

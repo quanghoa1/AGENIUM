@@ -290,3 +290,9 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
     v.sort_by(|a, b| a.name().cmp(b.name()));
     v
 }
+
+/// The `fetch` tool on its own: the one allowlisted, logged, out-of-sandbox path for reading a URL. A vendor CLI
+/// brings its own file and shell tools but its native web is off, so Agenium hands it this (ADR-84).
+pub fn fetch_tool() -> Arc<dyn Tool> {
+    Arc::new(FetchTool)
+}

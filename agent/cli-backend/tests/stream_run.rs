@@ -162,7 +162,7 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
     );
     assert!(!log.contains("ran: curl"), "{log}");
     assert!(
-        log.contains("denied read_url_content: web and browser tools"),
+        log.contains("denied read_url_content: use the `fetch` tool"),
         "{log}"
     );
     assert!(log.contains("report: report accepted"), "{log}");

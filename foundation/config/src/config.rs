@@ -277,10 +277,26 @@ pub enum ApprovalPolicy {
     Never,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SandboxSection {
     pub approval: ApprovalPolicy,
+    /// Whether a sandboxed shell command may reach the network (ADR-84). Default on: the boundary is the sandbox
+    /// (worktree-only writes, no host home, cleared environment, dies after the run), so an injected command cannot
+    /// read host secrets; letting it install dependencies is worth more than blocking an egress channel the model
+    /// already has. Only takes effect inside a working sandbox backend (fail-closed: no backend, no network). Set it
+    /// off for a strict project where reads go through the `fetch` allowlist only. It does not touch a vendor CLI's
+    /// own host-run commands (`Control::Hook`), which the command gate governs.
+    pub network: bool,
+}
+
+impl Default for SandboxSection {
+    fn default() -> Self {
+        Self {
+            approval: ApprovalPolicy::default(),
+            network: true,
+        }
+    }
 }
 
 /// Agent CLIs driven by the CliBackend (ADR-30, ADR-56).
@@ -537,6 +553,10 @@ context_window = 32768
         assert!(c.providers[0].caps("qwen3:8b").is_none());
         assert_eq!(c.secrets.backend, SecretsBackend::Vault);
         assert_eq!(c.sandbox.approval, ApprovalPolicy::Sandboxed);
+        assert!(
+            c.sandbox.network,
+            "sandboxed commands may reach the network by default (ADR-84)"
+        );
         assert!(!c.app.telemetry);
     }
 

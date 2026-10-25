@@ -50,3 +50,5 @@ ADR-52 records this fresh implementation.
 | [80](ADR-80-push-on-close.md) | Push the merged main to origin on Closed when the project has a remote (best-effort, non-blocking); local-only otherwise |
 | [81](ADR-81-judge-two-modes.md) | The judge is fail-open: Agenium works without it; a key/quota failure disables it and asks the user to re-enable; agent export/import on the desktop |
 | [82](ADR-82-quick-skill-pick.md) | The judge can pick the skill that fits a ticket before a fresh run (a hint, fail-open, off by default); the worker still decides |
+| [83](ADR-83-no-egress-proxy.md) | No egress proxy: the codex-derived sandbox is the containment boundary (network on/off), agents run YOLO; no proxy/allowlist layer |
+| [84](ADR-84-network-posture-and-unified-fetch.md) | Network posture: containment is the boundary (sandboxed commands may use the network by default, fail-closed); every agent reads URLs through one audited `fetch` (allowlist, out-of-sandbox) |

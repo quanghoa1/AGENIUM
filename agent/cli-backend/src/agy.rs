@@ -244,7 +244,9 @@ impl Driver for Agy {
         let args = &call["args"];
         let lower = name.to_ascii_lowercase();
         if ["browser", "url", "web"].iter().any(|w| lower.contains(w)) {
-            return Check::Deny("web and browser tools are disabled in Agenium runs".into());
+            return Check::Deny(
+                "use the `fetch` tool from the \"agenium\" MCP server instead (allowlisted and logged); web and browser tools are off".into(),
+            );
         }
         if lower.contains("subagent") && !cx.subagents {
             return Check::Deny(NO_SUBAGENTS.into());

@@ -287,8 +287,10 @@ impl Runtime {
     ) -> String {
         let sandbox = agenium_sandbox::detect();
         let approval = self.app.config().sandbox.approval;
+        let net_on = self.app.config().sandbox.network && sandbox.backend.is_some();
+        let net_note = if net_on { "network on" } else { "no network" };
         let sandbox_text = match (sandbox.backend, approval) {
-            (Some(b), agenium_config::ApprovalPolicy::Never | agenium_config::ApprovalPolicy::Sandboxed) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, no network)"),
+            (Some(b), agenium_config::ApprovalPolicy::Never | agenium_config::ApprovalPolicy::Sandboxed) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, {net_note})"),
             (None, agenium_config::ApprovalPolicy::Sandboxed) => format!("none: {}; every shell command that is not on the project allowlist is shown to the user for approval", sandbox.reason),
             (_, agenium_config::ApprovalPolicy::Never) => format!("none: {}; shell commands are refused", sandbox.reason),
             (_, agenium_config::ApprovalPolicy::OnRequest) => "the user reviews commands for this project: every shell command that is not on the project allowlist is shown to the user for approval".into(),
@@ -300,10 +302,16 @@ impl Runtime {
             os: std::env::consts::OS.into(),
             shell: ctx.executor.shell().describe(),
             sandbox: sandbox_text,
-            network: if allow.is_empty() {
-                "off; fetch has no allowed domains".into()
-            } else {
-                format!("off for commands; fetch may reach {}", allow.join(", "))
+            network: match (net_on, allow.is_empty()) {
+                (true, true) => {
+                    "commands may reach the network; fetch has no allowed domains".into()
+                }
+                (true, false) => format!(
+                    "commands may reach the network; fetch may reach {}",
+                    allow.join(", ")
+                ),
+                (false, true) => "off; fetch has no allowed domains".into(),
+                (false, false) => format!("off for commands; fetch may reach {}", allow.join(", ")),
             },
             worktree: ctx.root.display().to_string(),
             allowed_paths: vec![],
@@ -579,6 +587,10 @@ impl Runtime {
         }
         // Skill scripts run through the shell: their folders are readable inside the sandbox too.
         ctx.policy.read_roots.extend(skills.dirs());
+        // ADR-84: whether a sandboxed shell command may reach the network. The sandbox (worktree-only writes, no host
+        // home, cleared environment) is the boundary, not the network switch; default on so agents can install
+        // dependencies. For an in-sandbox vendor CLI the container keeps network for its own API regardless.
+        ctx.policy.network = self.app.config().sandbox.network;
         let mut mcp_tools: Vec<Arc<dyn Tool>> = Vec::new();
         let bindings = agenium_mcp::parse_bindings(&agent.mcp)
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
@@ -606,9 +618,14 @@ impl Runtime {
                     .map(|t| t as Arc<dyn Tool>),
             );
         }
-        // A vendor CLI brings its own file and shell tools: it only gets the agent's MCP tools from Agenium.
+        // A vendor CLI brings its own file and shell tools, but its native web is off (ADR-84): from Agenium it gets
+        // the agent's MCP tools plus our `fetch` — the one allowlisted, logged, out-of-sandbox path for reading URLs.
         let cli = cli_ready.is_some();
-        let mut work = if cli { Vec::new() } else { work };
+        let mut work = if cli {
+            vec![agenium_tools::fetch_tool()]
+        } else {
+            work
+        };
         work.extend(mcp_tools);
         let mut exclude = exclude.to_vec();
         if kind != RunKind::Plan {
