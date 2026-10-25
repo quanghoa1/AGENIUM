@@ -21,6 +21,8 @@ pub enum BackupRequest {
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct MaintenanceReport {
     pub wal_bytes: u64,
+    /// Agent memory databases (and the shared pool) that got the passive checkpoint / WAL gate this tick.
+    pub agent_stores: usize,
     pub backup: Option<String>,
     pub pruned: Vec<String>,
     /// Runs whose logs were compacted this tick (ADR-76).
@@ -100,9 +102,20 @@ impl App {
         Ok(Some(m))
     }
 
-    /// One maintenance tick: WAL gate on `core.db`, scheduled backup, retention.
+    /// [`App::maintenance_tick`] at the current time (for callers without a clock of their own).
+    pub fn maintenance_tick_now(&self) -> Result<MaintenanceReport> {
+        self.maintenance_tick(Utc::now())
+    }
+
+    /// One maintenance tick: WAL gate on `core.db` and on every open agent memory database, scheduled backup,
+    /// retention, run-log compaction. The desktop runs it every minute (until 2026-10-25 nothing ran it outside
+    /// tests: no scheduled backups, no compaction, no WAL gate).
     pub fn maintenance_tick(&self, now: DateTime<Utc>) -> Result<MaintenanceReport> {
         let wal_bytes = self.store.db().maintain()?;
+        let stores = self.open_agent_stores();
+        for (_, s) in &stores {
+            s.maintain()?;
+        }
         let made = self.backup(BackupRequest::Scheduled, now)?;
         let cfg = self.config().backup;
         let pruned = backup::prune(
@@ -128,6 +141,7 @@ impl App {
         };
         Ok(MaintenanceReport {
             wal_bytes,
+            agent_stores: stores.len(),
             backup: made.map(|m| m.id),
             pruned,
             logs_compacted,

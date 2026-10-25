@@ -35,6 +35,7 @@ fn main() {
             }
             spawn_event_forwarder(handle.clone());
             spawn_usage_refresh(handle.clone());
+            spawn_maintenance(handle.clone());
             spawn_team_loop(handle);
             Ok(())
         })
@@ -200,6 +201,29 @@ fn spawn_usage_refresh(handle: tauri::AppHandle) {
                 agenium_orchestrator::vendor_usage::REFRESH_MINUTES * 60,
             ))
             .await;
+        }
+    });
+}
+
+/// Every minute: the maintenance tick — WAL gate on every database, scheduled backup with retention, run-log
+/// compaction (it ran nowhere outside tests until 2026-10-25). Off the async runtime: a backup can take a while.
+fn spawn_maintenance(handle: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            let Ok(o) = handle.state::<Desktop>().opened() else {
+                continue;
+            };
+            let app = o.app.clone();
+            match tokio::task::spawn_blocking(move || app.maintenance_tick_now()).await {
+                Ok(Ok(r)) => {
+                    if let Some(b) = &r.backup {
+                        tracing::info!(backup = %b, pruned = r.pruned.len(), "scheduled backup made");
+                    }
+                }
+                Ok(Err(e)) => tracing::warn!(error = %e, "maintenance tick failed"),
+                Err(e) => tracing::warn!(error = %e, "maintenance tick panicked"),
+            }
         }
     });
 }

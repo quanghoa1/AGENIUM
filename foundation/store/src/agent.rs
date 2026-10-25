@@ -228,6 +228,32 @@ pub fn fts_query(text: &str) -> Option<String> {
     (!words.is_empty()).then(|| words.join(" OR "))
 }
 
+/// English words so common that BM25 gives them almost no weight, yet matching them makes a search touch most of the
+/// index (re-measured 2026-10-25: queries keeping them cost several times more at 100 k facts).
+const STOPWORDS: &[&str] = &[
+    "a", "about", "after", "all", "also", "an", "and", "any", "are", "as", "at", "be", "been",
+    "before", "but", "by", "can", "could", "did", "do", "does", "for", "from", "had", "has",
+    "have", "he", "her", "his", "how", "i", "if", "in", "into", "is", "it", "its", "may", "me",
+    "more", "most", "my", "no", "not", "of", "on", "one", "only", "or", "other", "our", "out",
+    "over", "she", "should", "so", "some", "such", "than", "that", "the", "their", "them", "then",
+    "there", "these", "they", "this", "those", "through", "to", "up", "us", "very", "was", "we",
+    "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you",
+    "your",
+];
+
+/// The FTS5 query for a fact search: like [`fts_query`] without stopwords. `None` when only stopwords remain (the
+/// vector channel still answers).
+pub fn fts_search_query(text: &str) -> Option<String> {
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .map(str::to_lowercase)
+        .filter(|w| w.chars().count() >= 2 && !STOPWORDS.contains(&w.as_str()))
+        .take(32)
+        .map(|w| format!("\"{w}\""))
+        .collect();
+    (!words.is_empty()).then(|| words.join(" OR "))
+}
+
 pub struct AgentStore {
     pub(crate) db: Db,
     dim: usize,
@@ -459,6 +485,12 @@ impl AgentStore {
         })
     }
 
+    /// Maintenance tick for this agent's database: passive checkpoint, and the WAL gate past the limit. Returns the WAL
+    /// size afterwards. (Writes also run the WAL gate themselves; the tick catches databases that only read.)
+    pub fn maintain(&self) -> Result<u64, StoreError> {
+        self.db.maintain()
+    }
+
     pub fn count_live(&self) -> Result<u64, StoreError> {
         self.db.read(|c| {
             Ok(c.query_row(
@@ -484,7 +516,7 @@ impl AgentStore {
 
     /// BM25 keyword search over live facts: `(fact id, bm25)` best first.
     pub fn keyword(&self, text: &str, k: usize) -> Result<Vec<(i64, f64)>, StoreError> {
-        let Some(q) = fts_query(text) else {
+        let Some(q) = fts_search_query(text) else {
             return Ok(vec![]);
         };
         self.db.read(|c| {

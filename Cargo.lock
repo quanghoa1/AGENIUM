@@ -139,6 +139,7 @@ dependencies = [
  "agenium-orchestrator",
  "agenium-secrets",
  "agenium-store",
+ "agenium-vcs",
  "anyhow",
  "chrono",
  "serde",

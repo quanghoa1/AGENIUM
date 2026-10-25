@@ -3,6 +3,8 @@
 //! (uses the provider and API key configured in that root; costs tokens).
 //! With a vendor CLI (CliBackend): `--cli codex --model gpt-6-luna` or `--cli agy --model gemini-3.8-flash-low`
 //! (uses the CLI's own login and quota; codex runs inside the sandbox, agy's commands need approval).
+//! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--memory-reuse on|off` (memory
+//! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -75,9 +77,36 @@ async fn main() -> Result<()> {
         eprintln!("running {} ...", agenium_eval::learning::ID);
         results.push(agenium_eval::learning::run(&mode).await?);
     }
+    // `--memory-reuse on|off`: does memory make ticket 2 better (memory_reuse.rs).
+    let reuse = arg(&args, "--memory-reuse");
+    if let Some(on) = &reuse {
+        let extract = match arg(&args, "--extract") {
+            Some(id) => {
+                let root = PathBuf::from(
+                    arg(&args, "--root")
+                        .ok_or_else(|| anyhow!("--root is required with --extract"))?,
+                );
+                let (app, _) = agenium_orchestrator::App::open(
+                    &root,
+                    agenium_orchestrator::AppOptions {
+                        keyring: Arc::new(agenium_secrets::OsKeyring::default()),
+                        checks: Arc::new(agenium_orchestrator::NoCheckFactory),
+                    },
+                )?;
+                let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
+                let p = agenium_orchestrator::runtime::ProviderSource::provider(&source, &id)?;
+                let model = arg(&args, "--extract-model")
+                    .ok_or_else(|| anyhow!("--extract-model is required with --extract"))?;
+                Some((p, model))
+            }
+            None => None,
+        };
+        eprintln!("running {}-{on} ...", agenium_eval::memory_reuse::ID);
+        results.push(agenium_eval::memory_reuse::run(&mode, on == "on", extract).await?);
+    }
     for t in tasks()
         .iter()
-        .filter(|_| !args.iter().any(|a| a == "--team" || a == "--learning"))
+        .filter(|_| !args.iter().any(|a| a == "--team" || a == "--learning") && reuse.is_none())
         .filter(|t| only.as_deref().is_none_or(|o| o == t.id))
     {
         eprintln!("running {} ...", t.id);

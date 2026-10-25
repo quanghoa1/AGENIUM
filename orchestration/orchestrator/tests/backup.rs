@@ -20,6 +20,10 @@ fn scheduled_backups_and_restore_into_a_new_root() {
 
     let t0 = Utc.with_ymd_and_hms(2026, 10, 23, 8, 0, 0).unwrap();
     let r = f.app.maintenance_tick(t0).unwrap();
+    assert!(
+        r.agent_stores >= 1,
+        "the tick also maintains the open agent memory databases"
+    );
     let full = r.backup.expect("first tick takes a full backup");
     assert!(full.ends_with("-full"));
     assert!(

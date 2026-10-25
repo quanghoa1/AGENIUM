@@ -4,6 +4,7 @@
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard, Once};
 use std::time::{Duration, Instant};
 
@@ -96,8 +97,16 @@ pub struct Db {
     writer: Mutex<Connection>,
     readers: ReaderPool,
     opts: DbOptions,
+    /// Committed writes, for the write-path WAL gate.
+    writes: AtomicU64,
     _lock: File,
 }
+
+/// Every this many committed writes, `write` checks the WAL size and runs the WAL gate past the limit.
+const WAL_CHECK_EVERY: u64 = 32;
+
+/// How long the write-path WAL gate waits for in-flight reads before giving up for now (it retries later).
+const WAL_GATE_WAIT: Duration = Duration::from_secs(2);
 
 impl std::fmt::Debug for Db {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -199,6 +208,7 @@ impl Db {
                 size,
             },
             opts,
+            writes: AtomicU64::new(0),
             _lock: lock,
         })
     }
@@ -224,12 +234,25 @@ impl Db {
         &self,
         f: impl FnOnce(&Transaction<'_>) -> Result<T, E>,
     ) -> Result<T, E> {
-        let mut w = self.writer.lock().unwrap_or_else(|p| p.into_inner());
-        let tx = w
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(|e| E::from(StoreError::from(e)))?;
-        let v = f(&tx)?;
-        tx.commit().map_err(|e| E::from(StoreError::from(e)))?;
+        let v = {
+            let mut w = self.writer.lock().unwrap_or_else(|p| p.into_inner());
+            let tx = w
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(|e| E::from(StoreError::from(e)))?;
+            let v = f(&tx)?;
+            tx.commit().map_err(|e| E::from(StoreError::from(e)))?;
+            v
+        };
+        // The WAL gate in the write path (STORE-SCALE §4, re-measured 2026-10-25): with busy readers a passive
+        // checkpoint never restarts the WAL, and agent databases had no maintenance tick at all, so reads slowed
+        // without bound under writes. Checked every few writes, after the writer is released; it waits for in-flight
+        // reads only briefly and otherwise retries on a later write.
+        if self.writes.fetch_add(1, Ordering::Relaxed) % WAL_CHECK_EVERY == WAL_CHECK_EVERY - 1
+            && self.wal_bytes() > self.opts.wal_limit_bytes
+        {
+            // A failure leaves the WAL as it is; the next check retries.
+            let _ = self.checkpoint_gate(WAL_GATE_WAIT);
+        }
         Ok(v)
     }
 
@@ -261,19 +284,44 @@ impl Db {
         Ok(self.wal_bytes())
     }
 
-    /// TRUNCATE checkpoint with all readers parked.
+    /// TRUNCATE checkpoint with all readers parked (waits as long as it takes).
     pub fn checkpoint_exclusive(&self) -> Result<(), StoreError> {
+        self.checkpoint_gate(Duration::MAX).map(|_| ())
+    }
+
+    /// The WAL gate: closes the reader pool to new reads, waits up to `wait` for in-flight reads to finish, then runs
+    /// a TRUNCATE checkpoint and reopens the pool. Returns `false` (nothing done, pool reopened) when reads did not
+    /// drain in time — so a caller that itself holds a read connection cannot deadlock. The pool lock is released
+    /// before the writer is taken (the gate stays closed meanwhile), so the lock order never inverts with `write`.
+    pub fn checkpoint_gate(&self, wait: Duration) -> Result<bool, StoreError> {
+        let deadline = Instant::now().checked_add(wait);
         let mut st = self.readers.lock();
         st.gate = true;
         while st.free.len() < self.readers.size {
-            st = self.readers.cv.wait(st).unwrap_or_else(|p| p.into_inner());
+            let left = deadline.map(|d| d.saturating_duration_since(Instant::now()));
+            if left.is_some_and(|l| l.is_zero()) {
+                st.gate = false;
+                drop(st);
+                self.readers.cv.notify_all();
+                return Ok(false);
+            }
+            st = match left {
+                Some(l) => {
+                    self.readers
+                        .cv
+                        .wait_timeout(st, l)
+                        .unwrap_or_else(|p| p.into_inner())
+                        .0
+                }
+                None => self.readers.cv.wait(st).unwrap_or_else(|p| p.into_inner()),
+            };
         }
+        drop(st);
         let r =
             self.with_writer(|w| w.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(())));
-        st.gate = false;
-        drop(st);
+        self.readers.lock().gate = false;
         self.readers.cv.notify_all();
-        r.map_err(Into::into)
+        r.map(|_| true).map_err(Into::into)
     }
 }
 
@@ -294,6 +342,91 @@ mod tests {
                 Ok(())
             },
         )
+    }
+
+    /// Re-measured 2026-10-25: agent databases never got a maintenance tick, so under busy readers the WAL grew without
+    /// bound and reads slowed to seconds. The write path now runs the WAL gate itself.
+    #[test]
+    fn the_write_path_keeps_the_wal_bounded_with_busy_readers() {
+        let tmp = tempfile::tempdir().unwrap();
+        let limit = 256 * 1024;
+        let db = Arc::new(
+            Db::open(
+                &tmp.path().join("w.db"),
+                DbOptions {
+                    lock_wait: Duration::from_millis(200),
+                    wal_limit_bytes: limit,
+                    readers: 2,
+                    ..Default::default()
+                },
+                |c| {
+                    c.execute_batch("CREATE TABLE IF NOT EXISTS t (x TEXT) STRICT;")?;
+                    Ok(())
+                },
+            )
+            .unwrap(),
+        );
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let readers: Vec<_> = (0..2)
+            .map(|_| {
+                let (db, stop) = (db.clone(), stop.clone());
+                std::thread::spawn(move || {
+                    while !stop.load(Ordering::Relaxed) {
+                        db.read(|c| -> Result<i64, StoreError> {
+                            Ok(c.query_row("SELECT count(*) FROM t", [], |r| r.get(0))?)
+                        })
+                        .unwrap();
+                    }
+                })
+            })
+            .collect();
+        let row = "x".repeat(400);
+        let mut peak = 0;
+        for _ in 0..4000 {
+            db.write(|tx| -> Result<(), StoreError> {
+                tx.execute("INSERT INTO t (x) VALUES (?1)", [&row])?;
+                Ok(())
+            })
+            .unwrap();
+            peak = peak.max(db.wal_bytes());
+        }
+        stop.store(true, Ordering::Relaxed);
+        for r in readers {
+            r.join().unwrap();
+        }
+        // ~1.6 MB written; without the gate the WAL keeps all of it (busy readers block passive checkpoints).
+        assert!(
+            peak < 6 * limit,
+            "WAL peaked at {peak} bytes (limit {limit})"
+        );
+    }
+
+    /// The gate never deadlocks a caller that holds a read: it gives up after its wait and reopens the pool.
+    #[test]
+    fn the_wal_gate_gives_up_when_a_read_is_held() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(open(&tmp.path().join("g.db")).unwrap());
+        let held = db.clone();
+        let reader = std::thread::spawn(move || {
+            held.read(|_| -> Result<(), StoreError> {
+                std::thread::sleep(Duration::from_millis(600));
+                Ok(())
+            })
+            .unwrap();
+        });
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(
+            !db.checkpoint_gate(Duration::from_millis(100)).unwrap(),
+            "gave up"
+        );
+        // The pool is open again: a read goes through.
+        db.read(|c| -> Result<i64, StoreError> { Ok(c.query_row("SELECT 1", [], |r| r.get(0))?) })
+            .unwrap();
+        reader.join().unwrap();
+        assert!(
+            db.checkpoint_gate(Duration::from_secs(5)).unwrap(),
+            "runs once reads drain"
+        );
     }
 
     #[test]
