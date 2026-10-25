@@ -7,6 +7,7 @@ pub mod effects;
 pub mod engine;
 mod error;
 pub mod inbox;
+pub mod judge;
 pub mod maintenance;
 pub mod manifest;
 pub mod mcp;

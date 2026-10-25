@@ -24,6 +24,8 @@ pub struct Config {
     pub secrets: SecretsSection,
     pub sandbox: SandboxSection,
     pub cli: CliSection,
+    /// Optional TypeSafe "Jev" judge (ADR-75); off until set.
+    pub judge: JudgeSection,
     pub providers: Vec<ProviderConfig>,
     /// MCP servers (`[[mcp]]`); agents use them through their bindings.
     pub mcp: Vec<McpServerConfig>,
@@ -43,6 +45,7 @@ impl Default for Config {
             secrets: SecretsSection::default(),
             sandbox: SandboxSection::default(),
             cli: CliSection::default(),
+            judge: JudgeSection::default(),
             providers: Vec::new(),
             mcp: Vec::new(),
         }
@@ -148,6 +151,26 @@ impl Default for RetrySection {
             max_attempts: 8,
             max_total_secs: 300,
         }
+    }
+}
+
+/// TypeSafe System One ("Jev") judge: a cheap, calibrated second opinion (ADR-75). Empty `base_url` = off. Agenium
+/// never uses it as an agent's chat model.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JudgeSection {
+    /// API base (e.g. `https://api.typesafe.ai`); empty disables the judge.
+    pub base_url: String,
+    pub model: String,
+    /// Vault secret name holding the API key (e.g. `judge/typesafe`).
+    pub api_key_ref: String,
+    /// Use it for an independent evidence read before a review run (token-light first opinion).
+    pub review_assist: bool,
+}
+
+impl JudgeSection {
+    pub fn enabled(&self) -> bool {
+        !self.base_url.trim().is_empty() && !self.model.trim().is_empty()
     }
 }
 

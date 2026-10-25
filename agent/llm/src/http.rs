@@ -61,6 +61,32 @@ impl Http {
         serde_json::from_str(&text).map_err(|e| LlmError::Decode(e.to_string()))
     }
 
+    /// POSTs JSON and returns the JSON response; non-2xx mapped by `map_err`.
+    pub async fn post_json(
+        &self,
+        url: &str,
+        headers: &[(&str, String)],
+        body: &serde_json::Value,
+        map_err: fn(u16, &HeaderMap, &str) -> LlmError,
+    ) -> Result<serde_json::Value, LlmError> {
+        let mut rb = self
+            .client
+            .post(url)
+            .timeout(Duration::from_secs(60))
+            .header("content-type", "application/json");
+        for (k, v) in headers {
+            rb = rb.header(*k, v);
+        }
+        let resp = rb.json(body).send().await.map_err(Self::map_send)?;
+        let status = resp.status().as_u16();
+        let h = resp.headers().clone();
+        let text = resp.text().await.map_err(Self::map_send)?;
+        if !(200..300).contains(&status) {
+            return Err(map_err(status, &h, &text));
+        }
+        serde_json::from_str(&text).map_err(|e| LlmError::Decode(e.to_string()))
+    }
+
     /// POSTs `body` and feeds each SSE event to `on_event` until it returns `Ok(true)` (done) or the stream
     /// ends. A stream that ends before `on_event` reported completion is `StreamDropped`.
     pub async fn post_sse(

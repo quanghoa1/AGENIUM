@@ -42,3 +42,4 @@ ADR-52 records this fresh implementation.
 | [72](ADR-72-lessons-decay-consolidation.md) | Lessons need a cue and a signal; rules where the scope matches, hints elsewhere; validated contexts; 90-day decay and consolidation |
 | [73](ADR-73-skill-overlays-memory-page.md) | Skill overlays from lessons held in two contexts (checked, copy-on-write, audited; revert/promote by the user); Memory page |
 | [74](ADR-74-models-by-backend.md) | Model list follows the backend: API lists what the API serves (OpenCode free models only via the opencode CLI), each CLI lists what it runs |
+| [75](ADR-75-typesafe-jev-judge.md) | TypeSafe "Jev" as an optional judge (typed calibrated questions, not a chat model): opt-in review evidence read; images deferred |

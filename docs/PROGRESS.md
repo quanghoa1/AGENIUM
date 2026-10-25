@@ -139,6 +139,9 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Template wizard (new, from a team, import/export TOML, role editor) | DONE | [ADR-71](adr/ADR-71-template-wizard.md) |
 | M4.5: lessons need a cue and a signal, rules/hints by scope, validated contexts, decay and consolidation | DONE | [ADR-72](adr/ADR-72-lessons-decay-consolidation.md) |
 | M4.5: `propose_skill_update` overlays (checked, audited, revert/promote); Memory page | DONE | [ADR-73](adr/ADR-73-skill-overlays-memory-page.md) |
+| Shared project guidance from the repo's AGENTS.md (no vendor CLAUDE.md) | DONE | `views.rs::project_guidance`, `team.rs::agents_md_is_the_shared_project_guidance` |
+| Model list by backend (API vs each CLI) | DONE | [ADR-74](adr/ADR-74-models-by-backend.md) |
+| TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI

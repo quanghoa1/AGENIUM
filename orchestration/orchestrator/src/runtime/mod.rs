@@ -1092,6 +1092,27 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;
+        // Optional judge: an independent first read of the report's evidence (ADR-75), token-light.
+        let report_text = all_comments.iter().rev().find_map(|c| match &c.body {
+            CommentBody::Report(r) => Some(format!(
+                "{}
+{}",
+                r.summary,
+                r.acceptance
+                    .iter()
+                    .map(|a| format!("{}: {}", a.ac_id, a.evidence))
+                    .collect::<Vec<_>>()
+                    .join(
+                        "
+"
+                    )
+            )),
+            _ => None,
+        });
+        let evidence = match &report_text {
+            Some(rep) => self.app.review_evidence(&t, rep).await.unwrap_or_default(),
+            None => String::new(),
+        };
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
@@ -1120,9 +1141,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
                  Treat the report as a claim: check each criterion's evidence yourself (the test, the changed lines, the file) before you count it as met.\n\
                  Then call review_ticket: Approve if every criterion is met, otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
-                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
+                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
                 prompt::ticket_text(&t, None),
                 requirements,
+                evidence,
                 prompt::comments_text(&all_comments),
                 if diff.trim().is_empty() { "(no code changes)" } else { diff.as_str() }
             );
