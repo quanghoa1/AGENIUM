@@ -431,6 +431,21 @@ export interface McpServerRow {
   users: string[];
 }
 
+/** USD per million tokens. */
+export interface Price {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+}
+
+export interface PriceView {
+  source?: string | null;
+  fetched_at?: string | null;
+  /** provider id -> model -> price */
+  providers: Record<string, Record<string, Price>>;
+}
+
 export interface ModelInfo {
   id: string;
   display_name?: string | null;

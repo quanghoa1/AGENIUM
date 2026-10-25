@@ -830,6 +830,29 @@ pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) ->
     o.app.set_agent_backend(id, backend, &b).map_err(err)
 }
 
+/// Model prices per configured provider and where they came from.
+#[tauri::command]
+pub fn prices(d: State<'_, Desktop>) -> R<Value> {
+    Ok(json!(d.opened()?.app.price_view()))
+}
+
+/// Downloads the price catalogue now; returns how many earlier runs got a price.
+#[tauri::command]
+pub async fn refresh_prices(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let n = agenium_orchestrator::prices::refresh_price_catalogue(&o.app)
+        .await
+        .map_err(err)?;
+    Ok(json!({ "priced": n, "view": o.app.price_view() }))
+}
+
+#[tauri::command]
+pub fn rename_agent(d: State<'_, Desktop>, agent: String, name: String) -> R<()> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    o.app.rename_agent(id, &name).map_err(err)
+}
+
 #[tauri::command]
 pub fn set_agent_status(d: State<'_, Desktop>, agent: String, status: String) -> R<()> {
     let o = d.opened()?;

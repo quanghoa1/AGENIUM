@@ -949,3 +949,57 @@ fn a_solo_inbox_has_the_work_left_to_plan() {
         plan[0].text
     );
 }
+
+/// Runs of a model without a price cost 0 until the price catalogue knows the model; storing the catalogue prices
+/// them, matched to the configured provider by its URL. The model list shows which models are free.
+#[test]
+fn the_price_catalogue_prices_earlier_runs() {
+    use agenium_llm::pricing::Catalogue;
+    let t = team();
+    let f = &t.f;
+    f.app
+        .update_config(|c| {
+            c.providers.push(agenium_config::ProviderConfig {
+                id: "go".into(),
+                kind: agenium_config::ProviderKind::OpenaiCompat,
+                base_url: Some("https://opencode.ai/zen/go/v1".into()),
+                api_key_ref: String::new(),
+                max_concurrency: 1,
+                models: vec![],
+                model_caps: vec![],
+            })
+        })
+        .unwrap();
+    planned(&t);
+    let k = started(f, t.web, "PI-1", "Price me", &[], &[]);
+    let run = f
+        .app
+        .start_run(f.project.id, &k, "go", "deepseek-v4.1-flash")
+        .unwrap();
+    let usage = UsageSummary {
+        tokens_in: 1_000_000,
+        tokens_out: 1_000_000,
+        ..Default::default()
+    };
+    f.app.finish_run(run.run, "Completed", 3, &usage).unwrap();
+    assert!(f.app.price_view().providers["go"].is_empty());
+    let c = Catalogue::from_models_dev(
+        &serde_json::json!({"opencode-go": {"api": "https://opencode.ai/inference/go/openai/v1", "models": {
+            "deepseek-v4.1-flash": {"cost": {"input": 0.15, "output": 0.6}},
+            "beam-free": {"cost": {"input": 0, "output": 0}}
+        }}}),
+        "test",
+        &now_iso(),
+    );
+    assert_eq!(f.app.save_price_catalogue(&c).unwrap(), 1);
+    let r = f.app.store().read(|c| runs::get(c, run.run)).unwrap();
+    assert!(
+        (r.usage.estimated_cost_usd - 0.75).abs() < 1e-9,
+        "{:?}",
+        r.usage
+    );
+    assert_eq!(f.app.price_unpriced_runs().unwrap(), 0, "priced once");
+    let view = f.app.price_view();
+    assert!(view.providers["go"]["beam-free"].is_free());
+    assert!(!f.app.price_catalogue_stale());
+}

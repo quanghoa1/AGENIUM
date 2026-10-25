@@ -34,6 +34,7 @@ fn main() {
                 }
             }
             spawn_event_forwarder(handle.clone());
+            spawn_price_refresh(handle.clone());
             spawn_team_loop(handle);
             Ok(())
         })
@@ -71,6 +72,9 @@ fn main() {
             api::create_team,
             api::create_solo,
             api::set_agent_model,
+            api::rename_agent,
+            api::prices,
+            api::refresh_prices,
             api::set_agent_status,
             api::pause_project,
             api::resume_project,
@@ -145,6 +149,27 @@ fn spawn_event_forwarder(handle: tauri::AppHandle) {
                 let _ = handle.emit("agenium://event", &e);
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
+}
+
+/// Model prices: the public catalogue is downloaded when missing or a week old (checked every six hours); runs
+/// that cost 0 for want of a price are priced then.
+fn spawn_price_refresh(handle: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let Ok(o) = handle.state::<Desktop>().opened() else {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            };
+            if o.app.price_catalogue_stale() {
+                match agenium_orchestrator::prices::refresh_price_catalogue(&o.app).await {
+                    Ok(Some(n)) => tracing::info!(priced = n, "price catalogue refreshed"),
+                    Ok(None) => {}
+                    Err(e) => tracing::warn!(error = %e, "price catalogue not refreshed"),
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(6 * 3600)).await;
         }
     });
 }

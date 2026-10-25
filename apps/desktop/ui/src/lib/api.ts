@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
 import type {
+  PriceView,
   AgentMcpKey,
   AgentDetail,
   AgentEntry,
@@ -57,6 +58,8 @@ export interface ModelArg {
 export const api = {
   status: () => call<Status>("status"),
   commandPolicy: () => call<CommandPolicy>("command_policy"),
+  prices: () => call<PriceView>("prices"),
+  refreshPrices: () => call<{ priced: number | null; view: PriceView }>("refresh_prices"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
@@ -111,6 +114,7 @@ export const api = {
   createSolo: (project: string, name: string, model: ModelArg) =>
     call<unknown>("create_solo", { project, name, model }),
   setAgentModel: (agent: string, model: ModelArg) => call<void>("set_agent_model", { agent, model }),
+  renameAgent: (agent: string, name: string) => call<void>("rename_agent", { agent, name }),
   setAgentIdle: (agent: string) => call<void>("set_agent_status", { agent, status: "Idle" }),
   pauseProject: (project: string) => call<void>("pause_project", { project }),
   resumeProject: (project: string) => call<void>("resume_project", { project }),

@@ -134,6 +134,15 @@ pub fn update_progress(
     Ok(())
 }
 
+/// Replaces a run's usage (its cost priced again once the model's price is known).
+pub fn set_usage(c: &Connection, id: RunId, usage: &UsageSummary) -> Result<(), StoreError> {
+    c.execute(
+        "UPDATE run SET usage = ?2 WHERE id = ?1",
+        params![id.to_string(), to_json(usage)?],
+    )?;
+    Ok(())
+}
+
 pub fn finish(c: &Connection, id: RunId, ended_at: &str, outcome: &str) -> Result<(), StoreError> {
     c.execute(
         "UPDATE run SET ended_at = ?2, outcome = ?3 WHERE id = ?1 AND ended_at IS NULL",

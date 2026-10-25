@@ -331,6 +331,17 @@ pub fn set_agent_role_kind(c: &Connection, id: AgentId, kind: RoleKind) -> Resul
     Ok(())
 }
 
+pub fn set_agent_name(c: &Connection, id: AgentId, name: &str) -> Result<(), StoreError> {
+    let n = c.execute(
+        "UPDATE agent SET name = ?2 WHERE id = ?1",
+        params![id.to_string(), name],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("agent {id}")));
+    }
+    Ok(())
+}
+
 pub fn set_agent_model(
     c: &Connection,
     id: AgentId,

@@ -586,6 +586,36 @@ impl App {
         Ok(self.store.read(agents::agents)?)
     }
 
+    /// Renames an agent. The name is unique ignoring case (another agent's name is refused); the id, memory and
+    /// history stay.
+    pub fn rename_agent(&self, id: AgentId, name: &str) -> Result<()> {
+        let name = name.trim();
+        if name.is_empty() || name.len() > 60 || name.contains('~') {
+            return Err(OrchError::Invalid(
+                "the agent name must be 1-60 characters and may not contain '~'".into(),
+            ));
+        }
+        if self
+            .agents()?
+            .iter()
+            .any(|a| a.id != id && a.name.to_lowercase() == name.to_lowercase())
+        {
+            return Err(OrchError::Conflict(format!(
+                "an agent named {name:?} already exists; choose another name"
+            )));
+        }
+        self.store
+            .commit(None, "user", |w| -> std::result::Result<_, StoreError> {
+                agents::set_agent_name(w.tx, id, name)?;
+                w.emit(DomainEvent::AgentUpdated {
+                    agent: id,
+                    field: "name".into(),
+                })?;
+                Ok(())
+            })?;
+        Ok(())
+    }
+
     /// Changes an agent's model. Memory, MCP and skills belong to the agent and are untouched (decision 3b).
     pub fn set_agent_model(&self, id: AgentId, model: &ModelBinding) -> Result<()> {
         self.store

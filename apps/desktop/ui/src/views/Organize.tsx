@@ -1,8 +1,9 @@
-import { AlertTriangle, ArrowLeft, Crown, FolderPlus, Lightbulb, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Crown, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
-import { AgentStatusBadge, Avatar, Empty, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
+import { AgentStatusBadge, Avatar, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
+import { isFree, priceLabel, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
 import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, Capabilities, LeadSuggestion, LibrarySkill, McpServerRow, ModelInfo, RoleInfo, TeamTemplate, TeamsData } from "../lib/types";
 
@@ -21,6 +22,8 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
       .catch(() => undefined);
   }, [value.provider, cli, caps]);
   const listId = `models-${value.provider || "none"}`;
+  const prices = usePrices(useApp().tick);
+  const price = (id: string) => (cli ? undefined : priceOf(prices, value.provider, id));
   return (
     <div className="grid grid-cols-4 gap-2">
       <select className="input" value={value.backend ?? "api"} onChange={(e) => onChange({ ...value, backend: e.target.value as "api" | "cli", provider: "", model: "" })}>
@@ -43,13 +46,19 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
               </option>
             ))}
       </select>
-      <input className="input" list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
+      <div className="relative">
+        <input className={cn("input w-full", isFree(price(value.model)) && "pr-14")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
+        {isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />}
+      </div>
       <datalist id={listId}>
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.supports_tools === false ? "no tool calling" : ""}
-          </option>
-        ))}
+        {models.map((m) => {
+          const p = price(m.id);
+          return (
+            <option key={m.id} value={m.id}>
+              {[isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? "no tool calling" : ""].filter(Boolean).join(" · ")}
+            </option>
+          );
+        })}
       </datalist>
       <select className="input" value={value.effort} onChange={(e) => onChange({ ...value, effort: e.target.value })}>
         {["low", "medium", "high", "xhigh", "max"].map((x) => (
@@ -668,6 +677,44 @@ function DeleteAgent({ agent }: { agent: AgentRecord }) {
   );
 }
 
+/** The agent's name with an inline rename (unique ignoring case; the backend refuses a taken name). */
+function AgentName({ id, name }: { id: string; name: string }) {
+  const app = useApp();
+  const [draft, setDraft] = useState<string | null>(null);
+  if (draft === null)
+    return (
+      <span className="flex items-center gap-1">
+        <span className="text-lg font-semibold">{name}</span>
+        <button className="rounded p-1 text-subtle hover:bg-elevated hover:text-fg" title={app.t("agents.rename")} onClick={() => setDraft(name)}>
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </span>
+    );
+  const save = () =>
+    api
+      .renameAgent(id, draft)
+      .then(() => (setDraft(null), app.refresh(), app.notify(app.t("common.done"))))
+      .catch((e) => app.notify(String(e)));
+  return (
+    <span className="flex items-center gap-1.5">
+      <input
+        className="input h-8 w-56"
+        autoFocus
+        maxLength={60}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => (e.key === "Enter" ? save() : e.key === "Escape" ? setDraft(null) : undefined)}
+      />
+      <button className="btn-primary" disabled={!draft.trim() || draft.trim() === name} onClick={save}>
+        {app.t("common.save")}
+      </button>
+      <button className="btn" onClick={() => setDraft(null)}>
+        {app.t("common.cancel")}
+      </button>
+    </span>
+  );
+}
+
 export function AgentView({ id }: { id: string }) {
   const app = useApp();
   const [d, setD] = useState<AgentDetail | null>(null);
@@ -695,7 +742,7 @@ export function AgentView({ id }: { id: string }) {
         <Avatar name={a.name} className="h-12 w-12 text-sm" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold">{a.name}</span>
+            <AgentName id={a.id} name={a.name} />
             {entry && (entry.pool ? <span className="chip border-dashed border-line-strong text-subtle">POOL</span> : <RoleChip solo={entry.solo} lead={entry.is_lead} planner={d.planner} />)}
             <AgentStatusBadge status={a.status} />
           </div>

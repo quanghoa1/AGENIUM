@@ -1,7 +1,8 @@
-import { Copy, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Copy, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Empty, PageHeader, Section, cn, tokens } from "../components/ui";
+import { Empty, FreeTag, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
+import { isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
 import type { AuditEntry, CommandPolicy, RunRow, TeamTemplate } from "../lib/types";
 
@@ -96,14 +97,16 @@ export function AuditView() {
 export function UsageView() {
   const app = useApp();
   const [rows, setRows] = useState<RunRow[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const prices = usePrices(app.tick);
   useEffect(() => {
     api.runs(2000).then(setRows);
   }, [app.tick]);
   const agg = useMemo(() => {
-    const m = new Map<string, { runs: number; ok: number; tin: number; tout: number; cost: number; model: string }>();
+    const m = new Map<string, { runs: number; ok: number; tin: number; tout: number; cost: number; model: string; provider: string }>();
     for (const r of rows) {
       const k = r.agent_name ?? r.agent;
-      const x = m.get(k) ?? { runs: 0, ok: 0, tin: 0, tout: 0, cost: 0, model: r.model };
+      const x = m.get(k) ?? { runs: 0, ok: 0, tin: 0, tout: 0, cost: 0, model: r.model, provider: r.provider };
       x.runs++;
       if (r.outcome === "Completed") x.ok++;
       x.tin += r.usage.tokens_in;
@@ -116,7 +119,25 @@ export function UsageView() {
   const total = agg.reduce((s, [, x]) => s + x.cost, 0);
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.usage")} sub={`${app.t("usage.sub")} ${rows.length} runs · $${total.toFixed(3)}`} />
+      <PageHeader title={app.t("nav.usage")} sub={`${app.t("usage.sub")} ${rows.length} runs · $${total.toFixed(3)}`}>
+        <span className="text-[11px] text-subtle">
+          {prices?.fetched_at ? `${app.t("usage.pricesFrom")} ${prices.source?.replace(/^https?:\/\//, "").split("/")[0]} · ${ago(prices.fetched_at)}` : app.t("usage.noPrices")}
+        </span>
+        <button
+          className="btn"
+          disabled={refreshing}
+          onClick={() => {
+            setRefreshing(true);
+            api
+              .refreshPrices()
+              .then((r) => (app.notify(r.priced === null ? app.t("usage.pricesOff") : `${app.t("usage.pricesUpdated")} ${r.priced}`), app.refresh()))
+              .catch((e) => app.notify(String(e)))
+              .finally(() => setRefreshing(false));
+          }}
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} /> {app.t("usage.refreshPrices")}
+        </button>
+      </PageHeader>
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -134,7 +155,9 @@ export function UsageView() {
             {agg.map(([k, x]) => (
               <tr key={k}>
                 <td className="px-4 py-2 font-medium">{k}</td>
-                <td className="px-3 text-muted">{x.model}</td>
+                <td className="px-3 text-muted">
+                  {x.model} {isFree(priceOf(prices, x.provider, x.model)) && <FreeTag />}
+                </td>
                 <td className="px-3 font-mono">{x.runs}</td>
                 <td className="px-3 font-mono">{Math.round((100 * x.ok) / x.runs)}%</td>
                 <td className="px-3 font-mono">{tokens(x.tin)}</td>

@@ -20,7 +20,6 @@ use agenium_backend::{
     sorted_specs, work_specs, Cancel, LoopConfig, Outcome, Run, RunReport, WorkOrder,
 };
 use agenium_core::*;
-use agenium_llm::pricing::PriceTable;
 use agenium_llm::{ChatEvent, Message, Provider, ProviderSpec, RetryPolicy, SystemBlock, ToolSpec};
 use agenium_memory::{Embedder, MemoryRetriever};
 use agenium_skills::SkillSet;
@@ -163,7 +162,6 @@ pub struct Runtime {
     pub providers: Arc<dyn ProviderSource>,
     pub approver: Arc<dyn Approver>,
     pub embedder: Arc<dyn Embedder>,
-    pub prices: PriceTable,
     pub retry: RetryPolicy,
     pub live: Option<LiveSink>,
     pub cancel: Cancel,
@@ -191,10 +189,6 @@ pub fn apply_caps(cfg: &agenium_config::ProviderConfig, info: &mut agenium_llm::
     }
 }
 
-fn kind_of(p: &dyn Provider) -> &'static str {
-    p.kind()
-}
-
 /// Two stopped/failed runs in a row on one ticket: stop auto-restarting it and ask the user (avoids burning tokens on
 /// a deterministic failure; the stall-nudge of M4 builds on this).
 const MAX_FAILED_RUNS: usize = 2;
@@ -213,8 +207,6 @@ impl Runtime {
         providers: Arc<dyn ProviderSource>,
         approver: Arc<dyn Approver>,
     ) -> Self {
-        let prices =
-            PriceTable::load(&app.layout().pricing()).unwrap_or_else(|_| PriceTable::builtin());
         let r = app.config().retry;
         let retry = RetryPolicy {
             base: std::time::Duration::from_millis(r.base_ms),
@@ -238,7 +230,6 @@ impl Runtime {
             providers,
             approver,
             embedder,
-            prices,
             retry,
             live: None,
             cancel: Cancel::default(),
@@ -491,8 +482,19 @@ impl Runtime {
         Ok(true)
     }
 
-    fn cost(&self, provider: &dyn Provider, model: &str, u: &agenium_llm::Usage) -> f64 {
-        self.prices.cost(kind_of(provider), model, u).unwrap_or(0.0)
+    /// Estimated cost of a run of an API model (0 while the model has no price; priced again when the catalogue
+    /// is refreshed).
+    fn cost(&self, provider: &str, model: &str, u: &agenium_llm::Usage) -> f64 {
+        let usage = agenium_core::UsageSummary {
+            tokens_in: u.input,
+            tokens_out: u.output,
+            cache_read: u.cache_read,
+            cache_write: u.cache_write,
+            ..Default::default()
+        };
+        self.app
+            .usage_cost(&self.app.prices(), provider, model, &usage)
+            .unwrap_or(0.0)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -704,7 +706,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             nudge: nudge_for(kind),
         };
         let report = r.run(&order).await;
-        let cost = self.cost(provider.as_ref(), &report.model, &report.usage);
+        let cost = self.cost(&agent.model.provider, &report.model, &report.usage);
         Ok((report, cost))
     }
 

@@ -33,3 +33,4 @@ ADR-52 records this fresh implementation.
 | [63](ADR-63-team-runs-until-done.md) | From the agreed spec to the end the team runs on its own (run state, team loop, stop/resume per project); the Lead approves plans of an agreed spec |
 | [64](ADR-64-sandboxed-commands-roles-review.md) | Commands run in the sandbox without asking; no plan items for the Lead's role; workers get their requirements; skeptical review; ROLE.md sections and a specialist role library |
 | [65](ADR-65-agent-names-audit-only.md) | Agent names are role names without the team, unique ignoring case; the Activity page folds into the audit trail |
+| [66](ADR-66-model-prices-catalogue.md) | Model prices from the models.dev catalogue (cached, refreshed weekly, earlier runs priced again); FREE models marked; OpenCode free models need the OpenCode client |

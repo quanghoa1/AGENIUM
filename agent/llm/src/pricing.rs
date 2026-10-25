@@ -1,7 +1,10 @@
 //! Display-only price table (decision 3k: cost is a metric, never a limit). Ships with built-in Anthropic list
 //! prices (USD per million tokens, from the Claude API model table cached 2026-10-06) and is overridden/extended by
-//! `<root>/pricing.toml`. Unknown models cost "unknown", not zero; local endpoints cost 0 (decision 31).
+//! `<root>/pricing.toml`. Other API models take their price from a public model catalogue (models.dev format),
+//! downloaded into `<root>/price-catalogue.json`. Unknown models cost "unknown", not zero; local endpoints cost 0
+//! (decision 31).
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -115,14 +118,170 @@ impl PriceTable {
 
     /// Estimated cost in USD, `None` when the model has no price.
     pub fn cost(&self, provider_kind: &str, model: &str, u: &Usage) -> Option<f64> {
-        let p = self.lookup(provider_kind, model)?;
-        Some(
-            (u.input as f64 * p.input
-                + u.output as f64 * p.output
-                + u.cache_read as f64 * p.cache_read
-                + u.cache_write as f64 * p.cache_write)
-                / 1_000_000.0,
-        )
+        self.lookup(provider_kind, model).map(|p| p.cost(u))
+    }
+}
+
+/// The prices of one provider of the catalogue.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CatalogueProvider {
+    pub id: String,
+    /// The provider's API base URL, used to match a configured provider whose id differs.
+    #[serde(default)]
+    pub api: Option<String>,
+    pub models: BTreeMap<String, Price>,
+}
+
+/// Model prices from a public catalogue, trimmed to what pricing needs.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Catalogue {
+    pub fetched_at: String,
+    pub source: String,
+    pub providers: Vec<CatalogueProvider>,
+}
+
+impl Catalogue {
+    /// Reads the models.dev format: `{ "<provider>": { "api": .., "models": { "<model>": { "cost": { "input": ..,
+    /// "output": .., "cache_read": .., "cache_write": .. } } } } }`, USD per million tokens. Models without a cost
+    /// are left out.
+    pub fn from_models_dev(v: &serde_json::Value, source: &str, fetched_at: &str) -> Self {
+        let mut providers = Vec::new();
+        for (id, p) in v.as_object().into_iter().flatten() {
+            let mut models = BTreeMap::new();
+            for (mid, m) in p["models"].as_object().into_iter().flatten() {
+                let c = &m["cost"];
+                let (Some(input), Some(output)) = (c["input"].as_f64(), c["output"].as_f64())
+                else {
+                    continue;
+                };
+                let entry = PriceEntry {
+                    provider: None,
+                    model: mid.clone(),
+                    input,
+                    output,
+                    // No cache price listed: the provider bills cached tokens as plain input.
+                    cache_read: c["cache_read"].as_f64().or(Some(input)),
+                    cache_write: c["cache_write"].as_f64().or(Some(input)),
+                };
+                models.insert(mid.clone(), entry.price());
+            }
+            if !models.is_empty() {
+                providers.push(CatalogueProvider {
+                    id: id.clone(),
+                    api: p["api"].as_str().map(str::to_owned),
+                    models,
+                });
+            }
+        }
+        Self {
+            fetched_at: fetched_at.into(),
+            source: source.into(),
+            providers,
+        }
+    }
+
+    /// The catalogue provider of a configured provider: the same id, else the one whose API URL is on the same
+    /// host and shares the most path segments with `base_url` (a tie on a host means no match).
+    pub fn provider(&self, id: &str, base_url: Option<&str>) -> Option<&CatalogueProvider> {
+        if let Some(p) = self.providers.iter().find(|p| p.id == id) {
+            return Some(p);
+        }
+        let (host, path) = split_url(base_url?)?;
+        let mut best: Vec<(usize, &CatalogueProvider)> = self
+            .providers
+            .iter()
+            .filter_map(|p| {
+                let (h, ps) = split_url(p.api.as_deref()?)?;
+                (h == host).then(|| (ps.iter().filter(|s| path.contains(s)).count(), p))
+            })
+            .collect();
+        best.sort_by_key(|b| std::cmp::Reverse(b.0));
+        match best.as_slice() {
+            [(_, p)] => Some(p),
+            [(a, p), (b, _), ..] if a > b => Some(p),
+            _ => None,
+        }
+    }
+}
+
+/// Downloads the catalogue at `url` (models.dev format).
+pub async fn fetch_catalogue(url: &str, fetched_at: &str) -> Result<Catalogue, crate::LlmError> {
+    fn map_err(status: u16, _: &reqwest::header::HeaderMap, body: &str) -> crate::LlmError {
+        crate::LlmError::Network(format!(
+            "HTTP {status}: {}",
+            body.chars().take(200).collect::<String>()
+        ))
+    }
+    let v = crate::http::Http::default_client()?
+        .get_json(url, &[], map_err)
+        .await?;
+    Ok(Catalogue::from_models_dev(&v, url, fetched_at))
+}
+
+/// Host and the meaningful path segments of a URL (version and wire names left out).
+fn split_url(url: &str) -> Option<(String, Vec<String>)> {
+    let rest = url.split("://").nth(1)?;
+    let mut parts = rest.split('/');
+    let host = parts.next()?.to_ascii_lowercase();
+    let segs = parts
+        .filter(|s| !s.is_empty() && !matches!(*s, "v1" | "v2" | "api" | "openai" | "anthropic"))
+        .map(str::to_ascii_lowercase)
+        .collect();
+    Some((host, segs))
+}
+
+/// The price list in use: `<root>/pricing.toml` and the built-in table first, then the catalogue.
+#[derive(Debug, Clone, Default)]
+pub struct Prices {
+    pub table: PriceTable,
+    pub catalogue: Catalogue,
+}
+
+impl Prices {
+    /// Price of `model` on the configured provider `id` (of wire `kind`, at `base_url`).
+    pub fn lookup(
+        &self,
+        id: &str,
+        kind: &str,
+        base_url: Option<&str>,
+        model: &str,
+    ) -> Option<Price> {
+        self.table
+            .entries
+            .iter()
+            .find(|e| e.matches(kind, model) || e.matches(id, model))
+            .map(PriceEntry::price)
+            .or_else(|| {
+                self.catalogue
+                    .provider(id, base_url)
+                    .and_then(|p| p.models.get(model).copied())
+            })
+    }
+
+    pub fn cost(
+        &self,
+        id: &str,
+        kind: &str,
+        base_url: Option<&str>,
+        model: &str,
+        u: &Usage,
+    ) -> Option<f64> {
+        self.lookup(id, kind, base_url, model).map(|p| p.cost(u))
+    }
+}
+
+impl Price {
+    /// Cost in USD of `u` at this price.
+    pub fn cost(&self, u: &Usage) -> f64 {
+        (u.input as f64 * self.input
+            + u.output as f64 * self.output
+            + u.cache_read as f64 * self.cache_read
+            + u.cache_write as f64 * self.cache_write)
+            / 1_000_000.0
+    }
+
+    pub fn is_free(&self) -> bool {
+        self.input == 0.0 && self.output == 0.0
     }
 }
 
@@ -157,5 +316,65 @@ mod tests {
             "user entries win"
         );
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn catalogue_prices_api_models() {
+        let v = serde_json::json!({
+            "opencode-go": {"api": "https://opencode.ai/inference/go/openai/v1", "models": {
+                "deepseek-v4.1-flash": {"cost": {"input": 0.15, "output": 0.6, "cache_read": 0.003}},
+                "beam-free": {"cost": {"input": 0, "output": 0}},
+                "no-price": {}
+            }},
+            "opencode": {"api": "https://opencode.ai/inference/openai/v1", "models": {
+                "deepseek-v4.1-flash": {"cost": {"input": 0.3, "output": 1.2}}
+            }}
+        });
+        let c = Catalogue::from_models_dev(&v, "test", "2026-10-25");
+        assert!(!c
+            .providers
+            .iter()
+            .any(|p| p.models.contains_key("no-price")));
+        // Matched by id, then by host and path ("go") when the configured id differs.
+        assert_eq!(c.provider("opencode-go", None).unwrap().id, "opencode-go");
+        assert_eq!(
+            c.provider("my-go", Some("https://opencode.ai/zen/go/v1"))
+                .unwrap()
+                .id,
+            "opencode-go"
+        );
+        assert!(c.provider("x", Some("https://example.com/v1")).is_none());
+        let prices = Prices {
+            table: PriceTable::builtin(),
+            catalogue: c,
+        };
+        let u = Usage {
+            input: 1_000_000,
+            output: 1_000_000,
+            cache_read: 1_000_000,
+            cache_write: 0,
+            reasoning: 0,
+        };
+        let cost = prices
+            .cost(
+                "my-go",
+                "openai_compat",
+                Some("https://opencode.ai/zen/go/v1"),
+                "deepseek-v4.1-flash",
+                &u,
+            )
+            .unwrap();
+        assert!((cost - (0.15 + 0.6 + 0.003)).abs() < 1e-9, "{cost}");
+        assert!(prices
+            .lookup("opencode-go", "openai_compat", None, "beam-free")
+            .unwrap()
+            .is_free());
+        assert!(prices
+            .lookup("opencode-go", "openai_compat", None, "gpt-x")
+            .is_none());
+        // The built-in table still prices Anthropic models.
+        assert!(prices
+            .lookup("anthropic", "anthropic", None, "claude-opus-5-5")
+            .is_some());
     }
 }

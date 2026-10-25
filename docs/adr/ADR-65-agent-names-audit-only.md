@@ -14,13 +14,13 @@ Activity"; "the user may not give two agents the same name")
    (CLI `--prefix`) still works.
 3. **Names are unique, ignoring case.** Agents live in one pool across teams, so creating an agent (pool, Solo, team,
    import) with a name another agent has, or twice in one team, is refused with "an agent named ... already exists;
-   choose another name". A template takes the next free number instead (`lead-2`). Existing agents keep their
-   names.
+   choose another name". A template takes the next free number instead (`lead-2`). An agent can be renamed from
+   its page (same rule; id, memory and history stay), so older `<project>-<role>` names can be brought in line.
 4. **No Activity page.** It listed the raw event log of every project; the audit trail shows the same events for the
    current project with agent names, ticket links, refused calls, a filter and a Markdown export.
 
 ## Consequences
 
-- `App::check_names_free`; `create_team_from_template` numbers taken names; desktop and CLI default to no prefix.
+- `App::check_names_free`, `App::rename_agent` (IPC `rename_agent`, pencil next to the name); `create_team_from_template` numbers taken names; desktop and CLI default to no prefix.
 - UI: the Activity nav item, route and strings are gone (`api.events` stays for the Live tab).
 - Test: `team.rs::agent_names_are_role_names_and_unique`.

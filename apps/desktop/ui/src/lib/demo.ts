@@ -1,6 +1,7 @@
 // Demo answers for a plain browser (no Tauri): a small project shaped like real Agenium data, for layout work and
 // screenshots. Read-only: actions resolve without changing anything.
 import type {
+  PriceView,
   AgentEntry,
   Capabilities,
   ChatLine,
@@ -91,6 +92,17 @@ const cards = [
 const statuses: TicketStatus[] = ["New", "Assigned", "InProgress", "Pending", "Resolved", "Reopened", "Closed", "Cancelled"];
 
 const board: Column[] = statuses.map((s) => ({ status: s, cards: cards.filter((c) => c.status === s).map((c) => c.card) }));
+
+const demoPrices: PriceView = {
+  source: "https://models.dev/api.json",
+  fetched_at: iso(60),
+  providers: {
+    "opencode-go": {
+      "deepseek-v4.1-flash": { input: 0.15, output: 0.6, cache_read: 0.003, cache_write: 0.1875 },
+      "beam-free": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+    },
+  },
+};
 
 const projects: ProjectSummary[] = [
   {
@@ -244,6 +256,10 @@ const status: Status = { root: "C:\\Users\\you\\.agenium", ready: true, version:
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 60));
   switch (cmd) {
+    case "prices":
+      return demoPrices;
+    case "refresh_prices":
+      return { priced: 0, view: demoPrices };
     case "command_policy":
     case "set_command_policy":
       return { approval: args?.approval ?? "sandboxed", backend: "WindowsMxc", reason: "MXC process container: writes only in the worktree, reads limited to toolchains, no network" };

@@ -155,6 +155,8 @@ pub struct UsageSection {
     pub show_tokens: bool,
     pub show_estimated_cost: bool,
     pub pricing_file: String,
+    /// Public model catalogue (models.dev format) the prices of API models come from; empty = off.
+    pub price_catalogue_url: String,
 }
 
 impl Default for UsageSection {
@@ -163,6 +165,7 @@ impl Default for UsageSection {
             show_tokens: true,
             show_estimated_cost: true,
             pricing_file: "pricing.toml".into(),
+            price_catalogue_url: "https://models.dev/api.json".into(),
         }
     }
 }

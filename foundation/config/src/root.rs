@@ -105,6 +105,10 @@ impl RootLayout {
     pub fn pricing(&self) -> PathBuf {
         self.root.join("pricing.toml")
     }
+    /// Prices downloaded from the public model catalogue (a cache: refreshed, never edited).
+    pub fn price_catalogue(&self) -> PathBuf {
+        self.root.join("price-catalogue.json")
+    }
     pub fn db(&self) -> PathBuf {
         self.root.join("db")
     }

@@ -18,6 +18,8 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { isFree, priceOf, usePrices } from "../lib/prices";
+import { useApp } from "../lib/store";
 import type { AgentStatus, BackendKind, ModelBinding, TicketStatus } from "../lib/types";
 
 export function cn(...v: (string | false | null | undefined)[]) {
@@ -87,13 +89,20 @@ export function PriorityBadge({ p }: { p: number }) {
   return <span className={cn("chip", tone)}>P{p}</span>;
 }
 
+/** A model whose catalogue price is 0 for input and output. */
+export function FreeTag({ className }: { className?: string }) {
+  return <span className={cn("chip border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0 text-[10px] font-bold text-emerald-600 dark:text-emerald-300", className)}>FREE</span>;
+}
+
 export function RuntimeBadge({ backend, model }: { backend: BackendKind; model: ModelBinding }) {
   const cli = backend === "Cli";
+  const prices = usePrices(useApp().tick);
   return (
     <span className="chip border-line-strong bg-elevated text-muted">
       {cli ? <Terminal className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
       {cli ? `CLI:${model.provider}` : model.provider} · {model.model || "default"}
       <span className="text-subtle">· {model.effort}</span>
+      {!cli && isFree(priceOf(prices, model.provider, model.model)) && <FreeTag />}
     </span>
   );
 }
