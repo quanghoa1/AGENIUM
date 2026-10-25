@@ -255,6 +255,7 @@ impl App {
             }
             Op::RemoveWorktree { delete_branch } => {
                 repo.remove_worktree(t.key.as_str())?;
+                agenium_sandbox::remove_run_temp_dir(&repo.worktree_path(t.key.as_str()));
                 if delete_branch {
                     repo.delete_branch(&agenium_vcs::ticket_branch(t.key.as_str()))?;
                 }
@@ -521,6 +522,7 @@ impl App {
                     });
                     if !owned {
                         repo.remove_worktree(&name)?;
+                        agenium_sandbox::remove_run_temp_dir(&repo.worktree_path(&name));
                         report
                             .actions
                             .push(format!("removed orphan worktree {name}"));

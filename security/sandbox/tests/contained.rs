@@ -6,6 +6,15 @@ use std::io::{BufRead, BufReader, Write};
 use agenium_sandbox::service::spawn_contained;
 use agenium_sandbox::{detect, SandboxPolicy};
 
+/// Removes a worktree's command TEMP (outside the worktree, under the system TEMP) when the test ends.
+struct RunTemp(std::path::PathBuf);
+
+impl Drop for RunTemp {
+    fn drop(&mut self) {
+        agenium_sandbox::remove_run_temp_dir(&self.0);
+    }
+}
+
 fn echo_argv() -> Vec<String> {
     if cfg!(windows) {
         // Reads one line from stdin and writes it back, then exits.
@@ -27,6 +36,7 @@ fn live_stdio_round_trip() {
         return;
     }
     let wt = tempfile::tempdir().unwrap();
+    let _temp = RunTemp(wt.path().to_path_buf());
     let policy = SandboxPolicy::workspace(wt.path());
     let (mut p, mut io) =
         spawn_contained(&echo_argv(), wt.path(), &BTreeMap::new(), &policy).unwrap();
@@ -57,6 +67,7 @@ fn agy_inside_the_sandbox() {
     }
     let agy = agenium_sandbox::find_program("agy").expect("agy on PATH");
     let wt = tempfile::tempdir().unwrap();
+    let _temp = RunTemp(wt.path().to_path_buf());
     let home = tempfile::tempdir().unwrap();
     let mut policy = SandboxPolicy::workspace(wt.path());
     policy.network = true;
@@ -119,6 +130,7 @@ fn codex_inside_the_sandbox() {
     let codex = agenium_sandbox::find_program("codex").expect("codex on PATH");
     let user_home = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap());
     let wt = tempfile::tempdir().unwrap();
+    let _temp = RunTemp(wt.path().to_path_buf());
     let home = tempfile::tempdir().unwrap();
     std::fs::copy(
         user_home.join(".codex/auth.json"),

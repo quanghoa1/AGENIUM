@@ -18,7 +18,9 @@ fn runtime(
     p: Arc<ScriptedProvider>,
     approver: Arc<dyn Approver>,
 ) -> (Arc<agenium_orchestrator::App>, Runtime) {
-    // The runtime shares the App; tests keep using the fixture's handle through the Arc.
+    // The runtime shares the App; tests keep using the fixture's handle through the Arc. Its root lies in the fixture's
+    // temp dir, so the fixture must outlive app and runtime: tests declare `f` first and never drop it early (an
+    // explicit `drop(f)` at the end of ten tests left their temp dirs behind on Windows).
     let app = Arc::new(open_app(
         &f.root.parent().unwrap().join("rt-root"),
         f.keyring.clone(),
@@ -227,7 +229,6 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
     assert!(log
         .iter()
         .any(|e| e.kind == "tool" && e.data["tool"] == "shell"));
-    drop(f);
 }
 
 /// ADR-63: a project's team runs once the spec is agreed and until the user stops it; stopping one project stops
@@ -445,7 +446,6 @@ async fn denied_command_question_and_continuation() {
         app.ticket(project, &key("AGN-1")).unwrap().status,
         TicketStatus::Resolved
     );
-    drop(f);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -553,7 +553,6 @@ async fn quota_exhaustion_parks_the_agent_and_repeated_failures_escalate() {
     assert!(rt.tick(project).await.unwrap().is_empty(), "nudges used up");
     assert!(rt.tick(project).await.unwrap().is_empty());
     assert_eq!(stopping(&app), 1, "escalated to the user once");
-    drop(f);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -577,7 +576,6 @@ async fn chat_with_exhausted_credit_marks_the_agent_and_explains() {
         app.agent(agent).unwrap().status,
         AgentStatus::QuotaExhausted
     );
-    drop(f);
 }
 
 /// M15-4: the skills index is in the cached system prefix, `load_skill` returns the body and the skill folder is
@@ -725,7 +723,6 @@ async fn skills_are_indexed_loaded_and_readable() {
     let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
     assert_eq!(s.outcome, "Completed");
     assert_eq!(std::fs::read_to_string(&tone).unwrap(), "Be warm.\n");
-    drop(f);
 }
 
 /// M15-1: switching an agent to another vendor keeps its memory, skills and the stored conversation; the run
@@ -910,7 +907,6 @@ async fn vendor_switch_keeps_memory_skills_and_conversation() {
         .read(|c| runs::for_ticket(c, app.ticket(project, &key("AGN-1")).unwrap().id))
         .unwrap();
     assert_eq!(runs_.last().unwrap().provider, "vendor-b");
-    drop(f);
 }
 
 /// Streamable HTTP MCP stub: initialize, tools/list, tools/call (`search`), bearer token required.
@@ -1121,7 +1117,6 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
     }));
     let _ = rt.review(project, &key("AGN-1")).await;
     assert_eq!(p.remaining(), 0, "both review requests were made");
-    drop(f);
 }
 
 /// M15-2: closing a ticket runs the memory pipeline for the assignee once; the next ticket's work order recalls
@@ -1245,7 +1240,6 @@ async fn closing_a_ticket_teaches_the_assignee() {
     }));
     let _ = rt.run_ticket(project, &key("AGN-2")).await;
     assert_eq!(p.remaining(), 0);
-    drop(f);
 }
 
 /// ADR-30 / ADR-56: a CLI agent whose CLI cannot run fails with the reason, or uses the configured API fallback.
@@ -1285,7 +1279,6 @@ async fn cli_agent_falls_back_to_the_api_when_configured() {
     );
     // The agent stays a CLI agent.
     assert_eq!(app.agent(agent).unwrap().backend, BackendKind::Cli);
-    drop(f);
 }
 
 /// ADR-31: a model known not to call tools is refused before any request; hand-set flags win over the endpoint.
@@ -1315,7 +1308,6 @@ async fn model_without_tool_calling_is_refused() {
     let err = rt.chat(project, "hello").await.unwrap_err().to_string();
     assert!(err.contains("does not support tool calling"), "{err}");
     assert_eq!(p.requests().len(), 0);
-    drop(f);
 }
 
 /// M4 acceptance (scripted model): a team (Lead + 2 workers) takes an approved plan with a dependency to two

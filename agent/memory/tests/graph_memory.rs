@@ -35,11 +35,12 @@ fn ctx() -> RecallContext {
     }
 }
 
+/// The temp dir is the last field: fields drop in order, and Windows cannot delete the database while it is open.
 struct World {
-    _tmp: tempfile::TempDir,
     store: Arc<AgentStore>,
     e: Arc<dyn Embedder>,
     p: ScriptedProvider,
+    _tmp: tempfile::TempDir,
 }
 
 impl World {

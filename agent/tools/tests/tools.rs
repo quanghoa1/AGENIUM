@@ -16,7 +16,19 @@ async fn call(c: &ToolCtx, name: &str, args: serde_json::Value) -> Result<ToolOu
     tool(name).call(c, args).await
 }
 
-fn setup() -> (tempfile::TempDir, ToolCtx) {
+/// The test worktree. Its commands' TEMP lies outside it, under the system TEMP, and goes with it.
+struct Worktree {
+    root: std::path::PathBuf,
+    _tmp: tempfile::TempDir,
+}
+
+impl Drop for Worktree {
+    fn drop(&mut self) {
+        agenium_sandbox::remove_run_temp_dir(&self.root);
+    }
+}
+
+fn setup() -> (Worktree, ToolCtx) {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("wt");
     std::fs::create_dir_all(root.join("src")).unwrap();
@@ -30,7 +42,7 @@ fn setup() -> (tempfile::TempDir, ToolCtx) {
     std::fs::create_dir_all(root.join("target")).unwrap();
     std::fs::write(root.join("target/junk.rs"), "add").unwrap();
     let c = ctx(&root);
-    (tmp, c)
+    (Worktree { root, _tmp: tmp }, c)
 }
 
 #[test]

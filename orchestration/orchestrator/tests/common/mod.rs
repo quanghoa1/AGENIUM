@@ -10,12 +10,15 @@ use agenium_orchestrator::*;
 use agenium_secrets::MemoryKeyring;
 use agenium_store::core::{agents, projects};
 
+/// Fields drop in declaration order: the temp dir must come last, after the app has closed its databases. Windows
+/// cannot delete an open file, `TempDir` ignores the failure, and the whole tree stayed behind (5 500 dirs, 8.8 GB on
+/// C: in three days, 2026-10-25).
 pub struct Fixture {
-    pub _tmp: tempfile::TempDir,
     pub root: PathBuf,
     pub keyring: Arc<MemoryKeyring>,
     pub app: App,
     pub project: projects::Project,
+    pub _tmp: tempfile::TempDir,
 }
 
 pub struct Checks(pub Option<(bool, String)>);

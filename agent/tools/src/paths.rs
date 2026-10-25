@@ -81,12 +81,16 @@ pub fn resolve(
     };
     let norm = lexical_normalize(&joined);
     let real = resolve_existing(&norm);
+    // The worktree has two names when a symlink or a short name leads to it (macOS: /var -> /private/var; Windows:
+    // QUANGH~1 -> the long name), and a CLI that asks the OS for its working directory writes the canonical one:
+    // both name the worktree. The resolved path must still be inside it, so a link cannot escape.
     let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let in_root = within(&norm, root) && within(&real, &canon_root);
+    let in_root =
+        (within(&norm, root) || within(&norm, &canon_root)) && within(&real, &canon_root);
     let in_read_root = !write
         && read_roots.iter().any(|r| {
             let cr = std::fs::canonicalize(r).unwrap_or_else(|_| r.clone());
-            within(&norm, r) && within(&real, &cr)
+            (within(&norm, r) || within(&norm, &cr)) && within(&real, &cr)
         });
     if !(in_root || in_read_root) {
         return Err(ToolError::new(
@@ -275,6 +279,26 @@ mod tests {
             "read roots are read-only"
         );
         assert!(resolve(&root, &[], "", false).is_err());
+    }
+
+    /// macOS run of 2026-10-25: the worktree was given as /var/folders/…/wt, the agent CLI wrote to its getcwd(),
+    /// /private/var/folders/…/wt/a.txt, and the write was refused as outside the worktree. On Windows the temp dir
+    /// is often a short name (`C:\Users\QUANGH~1\…`) whose canonical form is the long one.
+    #[test]
+    fn the_canonical_name_of_the_worktree_is_the_worktree() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("wt");
+        std::fs::create_dir_all(&root).unwrap();
+        let canon = std::fs::canonicalize(&root).unwrap();
+        let inside = canon.join("a.txt");
+        assert!(resolve(&root, &[], inside.to_str().unwrap(), true).is_ok());
+        let outside = canon.join("..").join("escape.txt");
+        assert_eq!(
+            resolve(&root, &[], outside.to_str().unwrap(), true)
+                .unwrap_err()
+                .code,
+            "out_of_scope"
+        );
     }
 
     #[cfg(unix)]

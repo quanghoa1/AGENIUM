@@ -112,15 +112,31 @@ pub fn git_read_roots(root: &Path) -> Vec<PathBuf> {
     vec![common]
 }
 
-/// Per-worktree temporary directory outside the worktree (so auto-commit never sees it).
+/// Per-worktree temporary directory outside the worktree (so auto-commit never sees it): the TEMP/TMP of the
+/// worktree's commands. Keyed by the worktree path, spelled either way (separators; case on Windows).
 pub fn run_temp_dir(root: &Path) -> PathBuf {
+    let mut key = root.to_string_lossy().replace('\\', "/");
+    key = key.trim_start_matches("//?/").trim_end_matches('/').to_owned();
+    if cfg!(windows) {
+        key = key.to_lowercase();
+    }
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    for b in root.to_string_lossy().bytes() {
+    for b in key.bytes() {
         h = (h ^ b as u64).wrapping_mul(0x0100_0000_01b3);
     }
     std::env::temp_dir()
         .join("agenium")
         .join(format!("{h:016x}"))
+}
+
+/// Deletes the worktree's temporary directory when the worktree goes away. Builds and package managers fill it, and
+/// it lives under the system TEMP (on Windows usually the small system drive); nothing removed it before, so every
+/// ticket left one behind. Best effort: a file still open is left for the next removal.
+pub fn remove_run_temp_dir(root: &Path) {
+    let dir = run_temp_dir(root);
+    if dir.exists() {
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -775,6 +791,15 @@ mod tests {
         SandboxPolicy::workspace(dir)
     }
 
+    /// Removes the worktree's command TEMP when the test ends.
+    struct RunTemp<'a>(&'a Path);
+
+    impl Drop for RunTemp<'_> {
+        fn drop(&mut self) {
+            remove_run_temp_dir(self.0);
+        }
+    }
+
     #[test]
     fn fail_closed_detection() {
         let a = detect();
@@ -792,6 +817,7 @@ mod tests {
     #[tokio::test]
     async fn runs_with_clean_env_and_captures_output() {
         let tmp = tempfile::tempdir().unwrap();
+        let _temp = RunTemp(tmp.path());
         std::env::set_var("AGENIUM_TEST_SECRET_CANARY", "sk-ant-CANARY");
         let ex = Executor::new(Shell::detect());
         let cmd = match ex.shell() {
@@ -826,6 +852,7 @@ mod tests {
     #[tokio::test]
     async fn timeout_kills_the_process_tree() {
         let tmp = tempfile::tempdir().unwrap();
+        let _temp = RunTemp(tmp.path());
         let ex = Executor::new(Shell::detect());
         let cmd = match ex.shell() {
             Shell::Bash(_) => "sleep 30 & sleep 30; echo never",

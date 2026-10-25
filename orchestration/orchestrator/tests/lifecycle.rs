@@ -95,6 +95,10 @@ fn solo_ticket_full_lifecycle() {
         "hello\n"
     );
 
+    // The worktree's command TEMP (outside the worktree) goes with it.
+    let run_temp = agenium_sandbox::run_temp_dir(&wt);
+    std::fs::create_dir_all(&run_temp).unwrap();
+    std::fs::write(run_temp.join("build.tmp"), "x").unwrap();
     let close_ctx = ctx(&f, lead);
     let closed = f
         .app
@@ -108,6 +112,7 @@ fn solo_ticket_full_lifecycle() {
         .unwrap();
     assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::Closed);
     assert!(!wt.exists(), "worktree removed on close");
+    assert!(!run_temp.exists(), "its temp dir too");
     let repo = f.app.repo(&f.project);
     assert!(
         !repo.branch_exists("agenium/AGN-1").unwrap(),
