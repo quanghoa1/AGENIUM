@@ -62,7 +62,7 @@
 | codex 0.163.0 | `exec --json -` / `exec resume` | `CODEX_HOME` | sandbox | driven, golden 5/5 (gpt-6-luna) |
 | agy 1.4.4 | stream-json in/out | `USERPROFILE`/`HOME` | hook | driven, golden 5/5 (gemini-3.8-flash-low) |
 | claude 2.1.310 | `-p` stream-json in/out | `CLAUDE_CONFIG_DIR` | hook | driven, golden 5/5 (haiku) |
-| opencode 2.1.2 | `run --format json` | config/state/cache via `XDG_*` (login lives in the data folder) | — | dropped (owner, 2026-10-24): the OpenCode subscription is used through the API backend |
+| opencode 2.1.2 | `serve` + HTTP API (ADR-68) | all `XDG_*` and opencode's home in the per-run home | Agenium answers `permission.asked` (hook endpoint) | driven since 2026-10-25 for OpenCode's free models (ADR-68); paid OpenCode models stay on the API backend |
 | devin | `-p` prints text only | none (always loads the user's MCP servers and hooks) | — | not drivable |
 
 ## Findings that shaped the design
@@ -73,7 +73,7 @@
 - agy inside an MXC container is not logged in (the credential store is out of reach); codex is, with its login file
   in the per-run home.
 
-## opencode 2.1.2 findings (CLI dropped)
+## opencode 2.1.2 findings (CLI dropped on 2026-10-24, driven again since ADR-68)
 
 Decision (owner, 2026-10-24): the opencode CLI is not driven. The same subscription works through the API backend
 (OpenCode Go relay, ADR-52 §12-13), where Agenium runs the loop and holds every permission itself. This narrows

@@ -502,6 +502,7 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
     let clis = detected_clis(&d, refresh == Some(true)).await?;
     Ok(json!({
         "providers": providers, "clis": clis,
+        "cli_models": { "opencode": o.app.opencode_free_models() },
         "templates": o.app.team_templates().map_err(err)?,
         "cli_fallback": { "provider": cfg.cli.fallback_provider, "model": cfg.cli.fallback_model },
     }))

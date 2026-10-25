@@ -22,6 +22,9 @@ pub struct Setup<'a> {
     pub hook_url: &'a str,
     /// Solo agents may start the CLI's own subagents; team members never do (the team is the delegation).
     pub subagents: bool,
+    /// The CLI's model (empty = its default), for CLIs that take it in their configuration rather than as an
+    /// argument.
+    pub model: &'a str,
 }
 
 /// Context of a permission check.
@@ -81,6 +84,8 @@ pub enum Event {
         input: Value,
         done: bool,
     },
+    /// Tokens of one model step (CLIs that report usage per step rather than per turn).
+    Usage(Usage),
     /// The vendor's subscription usage, as the CLI reported it during the run.
     Limits(agenium_llm::vendor_usage::VendorUsage),
     /// The turn ended. `denied` lists the permission kinds the CLI refused itself.
@@ -100,6 +105,15 @@ pub trait Driver: Send + Sync {
     fn args(&self, model: &str, home: &Path, resume: Option<&str>, subagents: bool) -> Vec<String>;
     /// Writes the per-run configuration into `setup.home` and returns the environment that makes the CLI use it.
     fn prepare(&self, setup: &Setup) -> std::io::Result<BTreeMap<String, String>>;
+    /// The binary to start, given what was found on PATH (e.g. the real binary behind an npm shim).
+    fn program(&self, found: &Path) -> PathBuf {
+        found.to_path_buf()
+    }
+    /// The CLI runs as a local server driven through its HTTP API by an in-process bridge (opencode) instead of
+    /// a JSON stream on stdio.
+    fn served(&self) -> bool {
+        false
+    }
     /// Called after the run (the process has ended): e.g. hand a refreshed login back to the user's CLI.
     fn finish(&self, _setup: &Setup) -> std::io::Result<()> {
         Ok(())

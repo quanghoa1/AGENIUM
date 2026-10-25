@@ -9,6 +9,7 @@ pub mod claude;
 pub mod codex;
 pub mod detect;
 pub mod driver;
+pub mod opencode;
 pub mod run;
 
 pub use detect::{detect_all, CliInfo, CliKind, Login};
@@ -22,6 +23,7 @@ pub fn driver(kind: CliKind) -> Option<&'static dyn Driver> {
         CliKind::Agy => Some(&agy::Agy),
         CliKind::Codex => Some(&codex::Codex),
         CliKind::Claude => Some(&claude::Claude),
-        CliKind::Devin | CliKind::Opencode => None,
+        CliKind::Opencode => Some(&opencode::Opencode),
+        CliKind::Devin => None,
     }
 }

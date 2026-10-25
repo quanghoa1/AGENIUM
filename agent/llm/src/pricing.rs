@@ -130,6 +130,9 @@ pub struct CatalogueProvider {
     #[serde(default)]
     pub api: Option<String>,
     pub models: BTreeMap<String, Price>,
+    /// Models the provider no longer serves (`status: deprecated`); their prices still price earlier runs.
+    #[serde(default)]
+    pub deprecated: std::collections::BTreeSet<String>,
 }
 
 /// Model prices from a public catalogue, trimmed to what pricing needs.
@@ -148,6 +151,7 @@ impl Catalogue {
         let mut providers = Vec::new();
         for (id, p) in v.as_object().into_iter().flatten() {
             let mut models = BTreeMap::new();
+            let mut deprecated = std::collections::BTreeSet::new();
             for (mid, m) in p["models"].as_object().into_iter().flatten() {
                 let c = &m["cost"];
                 let (Some(input), Some(output)) = (c["input"].as_f64(), c["output"].as_f64())
@@ -164,12 +168,16 @@ impl Catalogue {
                     cache_write: c["cache_write"].as_f64().or(Some(input)),
                 };
                 models.insert(mid.clone(), entry.price());
+                if m["status"] == "deprecated" {
+                    deprecated.insert(mid.clone());
+                }
             }
             if !models.is_empty() {
                 providers.push(CatalogueProvider {
                     id: id.clone(),
                     api: p["api"].as_str().map(str::to_owned),
                     models,
+                    deprecated,
                 });
             }
         }
@@ -324,6 +332,7 @@ mod tests {
             "opencode-go": {"api": "https://opencode.ai/inference/go/openai/v1", "models": {
                 "deepseek-v4.1-flash": {"cost": {"input": 0.15, "output": 0.6, "cache_read": 0.003}},
                 "beam-free": {"cost": {"input": 0, "output": 0}},
+                "old-free": {"cost": {"input": 0, "output": 0}, "status": "deprecated"},
                 "no-price": {}
             }},
             "opencode": {"api": "https://opencode.ai/inference/openai/v1", "models": {
@@ -335,6 +344,11 @@ mod tests {
             .providers
             .iter()
             .any(|p| p.models.contains_key("no-price")));
+        assert!(c
+            .provider("opencode-go", None)
+            .unwrap()
+            .deprecated
+            .contains("old-free"));
         // Matched by id, then by host and path ("go") when the configured id differs.
         assert_eq!(c.provider("opencode-go", None).unwrap().id, "opencode-go");
         assert_eq!(

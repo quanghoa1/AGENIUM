@@ -72,7 +72,7 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | API fallback when the CLI cannot run | DONE (`[cli] fallback_provider/fallback_model`) | `orchestrator/tests/runtime.rs::cli_agent_falls_back_to_the_api_when_configured` |
 | Contract per minimum version | DONE (stream parsing tested on lines captured from codex 0.163.0 / agy 1.4.4; older = not used) | `codex.rs`, `agy.rs` tests |
 | claude driver | DONE (hook control, per-run `CLAUDE_CONFIG_DIR`) | `agent/cli-backend/src/claude.rs`, `quality/eval/results/20261024T065834Z-cli-claude-haiku.json` |
-| opencode driver | DROPPED (owner): the OpenCode subscription runs through the API backend; opencode 2.1.2 has no usable permission hook in `run` (findings in ADR-56) | ADR-56 |
+| opencode driver (OpenCode's free models) | DONE: `opencode serve` driven through its HTTP API, every permission decided by Agenium; **5/5** golden tasks with `deepseek-v4.1-flash-free` | [ADR-68](adr/ADR-68-opencode-cli-free-models.md), `quality/eval/results/20261025T050257Z-cli-opencode-deepseek-v4.1-flash-free.json` |
 
 Embedding model measured here (release build, `agent/memory/tests/local_model.rs`, own 60-fact fixture
 `tests/data/retrieval.json` because the S6 pair set is not in the pack): load 0.09 s; EN recall@1 0.733, **recall@5
@@ -186,7 +186,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   wizard, the scheduler's priority aging and idle pool, the Lead "interrupt" (ADR-57: rounds instead), locking a
   worktree while the user edits it.
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
-  tests. CLI backend: codex, agy and claude driven; opencode CLI dropped (OpenCode via API); devin not drivable (ADR-56).
+  tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
 - Sandbox backends: macOS Seatbelt (M2) and the S3 containment matrix on Linux (Windows MXC: ADR-53, Linux bubblewrap: ADR-54).
 - Context compaction beyond the checkpoint-and-continue approach.
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel

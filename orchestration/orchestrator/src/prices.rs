@@ -100,6 +100,24 @@ impl App {
         }
     }
 
+    /// OpenCode's free models still served (`opencode` in the catalogue, price 0, not deprecated): what the
+    /// opencode CLI backend can run (ADR-68).
+    pub fn opencode_free_models(&self) -> Vec<String> {
+        self.prices()
+            .catalogue
+            .providers
+            .iter()
+            .find(|p| p.id == "opencode")
+            .map(|p| {
+                p.models
+                    .iter()
+                    .filter(|(m, price)| price.is_free() && !p.deprecated.contains(*m))
+                    .map(|(m, _)| m.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// True when the catalogue was never downloaded or is older than [`CATALOGUE_MAX_AGE_DAYS`].
     pub fn price_catalogue_stale(&self) -> bool {
         let c = self.prices().catalogue;

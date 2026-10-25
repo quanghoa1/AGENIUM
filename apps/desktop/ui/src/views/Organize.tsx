@@ -13,7 +13,12 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   const [models, setModels] = useState<ModelInfo[]>([]);
   useEffect(() => {
     setModels([]);
-    if (cli || !value.provider) return;
+    if (cli) {
+      // The opencode CLI runs OpenCode's free models (ADR-68).
+      setModels((caps?.cli_models?.[value.provider] ?? []).map((id) => ({ id })));
+      return;
+    }
+    if (!value.provider) return;
     const listed = caps?.providers.find((p) => p.id === value.provider)?.models ?? [];
     if (listed.length) setModels(listed.map((id) => ({ id })));
     api
@@ -23,7 +28,8 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   }, [value.provider, cli, caps]);
   const listId = `models-${value.provider || "none"}`;
   const prices = usePrices(useApp().tick);
-  const price = (id: string) => (cli ? undefined : priceOf(prices, value.provider, id));
+  const freeCli = new Set(cli ? (caps?.cli_models?.[value.provider] ?? []) : []);
+  const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
   return (
     <div className="grid grid-cols-4 gap-2">
       <select className="input" value={value.backend ?? "api"} onChange={(e) => onChange({ ...value, backend: e.target.value as "api" | "cli", provider: "", model: "" })}>

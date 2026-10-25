@@ -252,6 +252,7 @@ const capabilities: Capabilities = {
   ],
   templates: [],
   cli_fallback: { provider: "opencode-go", model: "deepseek-v4.1-flash" },
+  cli_models: { opencode: ["deepseek-v4.1-flash-free", "glm-5.3-flash-free"] },
 };
 
 const chat: ChatLine[] = [

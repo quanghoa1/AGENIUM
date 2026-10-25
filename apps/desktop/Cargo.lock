@@ -62,6 +62,8 @@ dependencies = [
  "agenium-sandbox",
  "agenium-tools",
  "async-trait",
+ "futures",
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",

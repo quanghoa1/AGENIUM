@@ -439,6 +439,7 @@ mod tests {
                 mcp_authorization: "Bearer t",
                 hook_url: "http://127.0.0.1:1/hook",
                 subagents: false,
+                model: "",
             })
             .unwrap();
         assert_eq!(env["USERPROFILE"], home.path().display().to_string());

@@ -335,6 +335,8 @@ export interface Capabilities {
   clis: CliInfo[];
   templates: TeamTemplate[];
   cli_fallback: { provider: string; model: string };
+  /** Models a CLI backend can run that Agenium knows of (opencode: OpenCode's free models). */
+  cli_models?: Record<string, string[]>;
 }
 
 export interface Fact {

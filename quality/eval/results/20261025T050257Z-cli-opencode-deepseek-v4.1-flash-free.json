@@ -1,0 +1,108 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 86978,
+    "tokens_out": 1262,
+    "cost_usd": 0.0,
+    "elapsed_ms": 34098
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 15,
+    "tool_errors": 3,
+    "error_codes": {
+      "invalid_arguments": 3
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `acceptance`"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 144624,
+    "tokens_out": 2221,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41666
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 21,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 165223,
+    "tokens_out": 2754,
+    "cost_usd": 0.0,
+    "elapsed_ms": 62363
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 95259,
+    "tokens_out": 1317,
+    "cost_usd": 0.0,
+    "elapsed_ms": 30690
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 148036,
+    "tokens_out": 1847,
+    "cost_usd": 0.0,
+    "elapsed_ms": 46675
+  }
+]

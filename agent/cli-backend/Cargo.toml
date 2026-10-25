@@ -21,6 +21,8 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["net"] }
 tempfile.workspace = true
 tracing.workspace = true
+futures.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
 ulid.workspace = true
 
 [dev-dependencies]

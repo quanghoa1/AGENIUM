@@ -239,7 +239,7 @@ struct Proc {
     handle: Handle,
 }
 
-fn keep_tail(tail: &Mutex<Vec<u8>>, bytes: &[u8]) {
+pub(crate) fn keep_tail(tail: &Mutex<Vec<u8>>, bytes: &[u8]) {
     let mut t = tail.lock().unwrap();
     t.extend_from_slice(bytes);
     let excess = t.len().saturating_sub(STDERR_TAIL);
@@ -344,10 +344,15 @@ impl CliRun<'_> {
         let server = Server::start(Arc::new(Bridge { tools, tx }), MCP_SERVER)
             .await
             .map_err(|e| failed(format!("cannot start the Agenium MCP server: {e}")))?;
-        let home = tempfile::Builder::new()
+        let mut home = tempfile::Builder::new()
             .prefix("agenium-cli-home-")
             .tempdir()
             .map_err(|e| failed(format!("cannot create the CLI home: {e}")))?;
+        // Diagnostics: `AGENIUM_KEEP_CLI_HOME=1` keeps the per-run home (the CLI's own logs) after the run.
+        if std::env::var_os("AGENIUM_KEEP_CLI_HOME").is_some() {
+            home.disable_cleanup(true);
+            tracing::warn!(home = %home.path().display(), "per-run CLI home kept");
+        }
         let (url, hook_url, authorization) =
             (server.url(), server.hook_url(), server.authorization());
         let setup = Setup {
@@ -358,6 +363,7 @@ impl CliRun<'_> {
             mcp_authorization: &authorization,
             hook_url: &hook_url,
             subagents: self.subagents,
+            model: &self.model,
         };
         let home_env = self
             .driver
@@ -526,6 +532,36 @@ ask_question if you are blocked.",
                 else {
                     return Err(failed("stdio pipes missing"));
                 };
+                if self.driver.served() {
+                    drop(stdin);
+                    crate::opencode::bridge(
+                        stdout,
+                        in_rx,
+                        out_tx,
+                        env,
+                        self.cwd.clone(),
+                        tail.clone(),
+                    );
+                    let t = tail.clone();
+                    tokio::spawn(async move {
+                        let mut buf = [0u8; 4096];
+                        while let Ok(n) = stderr.read(&mut buf).await {
+                            if n == 0 {
+                                break;
+                            }
+                            keep_tail(&t, &buf[..n]);
+                        }
+                    });
+                    return Ok(Proc {
+                        input: Some(in_tx),
+                        lines,
+                        stderr: tail,
+                        handle: Handle::Host {
+                            child: Box::new(child),
+                            _tree: tree,
+                        },
+                    });
+                }
                 let mut in_rx = in_rx;
                 tokio::spawn(async move {
                     while let Some(l) = in_rx.recv().await {
@@ -677,6 +713,11 @@ ask_question if you are blocked.",
         match ev {
             Event::Session(s) => {
                 st.session = Some(s);
+                None
+            }
+            Event::Usage(u) => {
+                st.usage.add(&u);
+                self.observer.step(st.steps, &st.usage);
                 None
             }
             Event::Limits(u) => {

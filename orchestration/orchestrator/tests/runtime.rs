@@ -1226,9 +1226,9 @@ async fn cli_agent_falls_back_to_the_api_when_configured() {
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
     let (project, agent) = solo(&app);
-    // opencode is detected but not driven by Agenium.
+    // devin is known but not driven by Agenium (ADR-56).
     let cli_model = ModelBinding {
-        provider: "opencode".into(),
+        provider: "devin".into(),
         model: "some-model".into(),
         effort: Effort::Low,
         max_tokens: None,
@@ -1236,7 +1236,7 @@ async fn cli_agent_falls_back_to_the_api_when_configured() {
     app.set_agent_backend(agent, BackendKind::Cli, &cli_model)
         .unwrap();
     let err = rt.chat(project, "hello").await.unwrap_err().to_string();
-    assert!(err.contains("does not drive opencode"), "{err}");
+    assert!(err.contains("does not drive devin"), "{err}");
     assert_eq!(p.requests().len(), 0);
 
     app.update_config(|c| {

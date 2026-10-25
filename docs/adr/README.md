@@ -35,3 +35,4 @@ ADR-52 records this fresh implementation.
 | [65](ADR-65-agent-names-audit-only.md) | Agent names are role names without the team, unique ignoring case; the Activity page folds into the audit trail |
 | [66](ADR-66-model-prices-catalogue.md) | Model prices from the models.dev catalogue (cached, refreshed weekly, earlier runs priced again); FREE models marked; OpenCode free models need the OpenCode client |
 | [67](ADR-67-vendor-usage-footer.md) | Vendor subscription usage in the footer (Claude from its run events, Codex app-server RPC, OpenCode Go endpoint; Antigravity listed without numbers); only honest channels |
+| [68](ADR-68-opencode-cli-free-models.md) | opencode CLI backend for OpenCode free models: `opencode serve` driven over HTTP, every permission through Agenium's hook, fully isolated home |

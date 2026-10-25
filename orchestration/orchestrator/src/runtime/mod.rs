@@ -771,10 +771,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let driver = agenium_cli_backend::driver(cli)
             .ok_or_else(|| format!("Agenium does not drive {name} yet (ADR-56)"))?;
         let info = agenium_cli_backend::detect::detect(cli);
-        let program = info
-            .path
-            .clone()
-            .ok_or_else(|| format!("{name} is not installed (not on PATH)"))?;
+        let program = driver.program(
+            &info
+                .path
+                .clone()
+                .ok_or_else(|| format!("{name} is not installed (not on PATH)"))?,
+        );
         if !info.compatible {
             return Err(format!(
                 "{name} cannot be used: {}",
