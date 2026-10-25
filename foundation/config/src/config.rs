@@ -168,6 +168,10 @@ pub struct JudgeSection {
     pub review_assist: bool,
     /// Before a work run, let it pick the skill that fits the ticket, so the worker loads the right one fast.
     pub skill_hint: bool,
+    /// After a ticket closes, let it decide whether the episode is worth remembering before the costly extraction
+    /// model runs; skip extraction only when it is confident nothing is worth keeping and there is nothing to
+    /// reconcile. Fail-open: on doubt the extraction runs as usual.
+    pub memory_gate: bool,
 }
 
 impl JudgeSection {

@@ -176,6 +176,43 @@ impl App {
         ))
     }
 
+    /// After a ticket closes, a cheap read of whether the `episode` holds anything worth remembering, so the costly
+    /// extraction model can be skipped on routine work (ADR-85). `Some(false)` only when the judge is confident
+    /// nothing is worth keeping; `Some(true)` when it is; `None` when the judge is off/disabled, `memory_gate` is off,
+    /// the verdict is unsure, or the call failed — the caller then extracts as usual. A key/quota failure disables it.
+    pub async fn worth_remembering(&self, episode: &str) -> Option<bool> {
+        if !self.config().judge.memory_gate {
+            return None;
+        }
+        let judge = match self.judge() {
+            Ok(Some(j)) => j,
+            _ => return None,
+        };
+        let j = Judging::default().state_text("episode", episode).noul(
+            "worth",
+            "Does `episode` contain anything worth remembering for future tickets — a durable fact, preference, \
+             convention, path/command, or (if it names a signal like a reopen or correction) a lesson — as opposed to \
+             only routine work with nothing new?",
+        );
+        let answers = match judge.ask(&j).await {
+            Ok(a) => a,
+            Err(e) => {
+                if is_credential_or_quota(&e) {
+                    let _ = self.disable_judge(e.to_string());
+                }
+                return None;
+            }
+        };
+        let p = answers.get("worth").and_then(|a| a.noul)?;
+        if p >= MET {
+            Some(true)
+        } else if p <= 1.0 - MET {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
     /// An independent first read of `report` against `t`'s acceptance criteria, for the review task (ADR-75).
     /// `None` when the judge is off/disabled, `review_assist` is off, there are no criteria, or the call failed —
     /// the review then proceeds on the Lead's own read. A key/quota failure disables the judge.

@@ -144,6 +144,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |
 | Judge is fail-open (two modes), disables on key/quota failure, re-enable in Settings; agent export/import on desktop | DONE | [ADR-81](adr/ADR-81-judge-two-modes.md) |
 | Quick skill pick: the judge suggests the skill that fits a fresh ticket (a hint, fail-open, off by default) | DONE | [ADR-82](adr/ADR-82-quick-skill-pick.md) |
+| Memory gate: the judge skips extraction on routine tickets when confident nothing is worth remembering (fail-open, off by default); [with/without comparison](jev-comparison.md) | DONE | [ADR-85](adr/ADR-85-memory-gate.md) |
 | Network posture: containment is the boundary; sandboxed commands may use the network by default (fail-closed); no egress proxy; every agent reads URLs through one audited `fetch` (allowlist, out-of-sandbox) | DONE | [ADR-83](adr/ADR-83-no-egress-proxy.md), [ADR-84](adr/ADR-84-network-posture-and-unified-fetch.md) |
 | M5: run-log compaction after 90 days | DONE | [ADR-76](adr/ADR-76-run-log-compaction.md) |
 | M5: support bundle (diagnostics without secret values) | DONE | [ADR-77](adr/ADR-77-support-bundle.md) |

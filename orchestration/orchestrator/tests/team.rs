@@ -1598,3 +1598,75 @@ async fn skill_hint_prepends_the_judges_pick() {
         "a 'none' pick is not a hint"
     );
 }
+
+/// ADR-85: the memory gate is fail-open. Off by default it returns None (extract as usual); on, it returns Some(false)
+/// only when the judge is confident nothing is worth remembering, Some(true) when it is, and None when unsure.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn memory_gate_skips_only_on_a_confident_no() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    async fn mock(answer: &'static str) -> String {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = l.accept().await.unwrap();
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = sock.read(&mut buf).await.unwrap();
+                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let body = answer.as_bytes();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
+                body.len()
+            );
+            sock.write_all(resp.as_bytes()).await.unwrap();
+            sock.write_all(body).await.unwrap();
+            sock.flush().await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+
+    let f = fixture();
+    // Off by default: None, so the caller extracts as usual.
+    assert_eq!(f.app.worth_remembering("routine work").await, None);
+
+    let on = |base: String| {
+        move |c: &mut agenium_config::Config| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: base.clone(),
+                model: "jev-latest".into(),
+                memory_gate: true,
+                ..Default::default()
+            }
+        }
+    };
+    // Confident "no" (0.05): skip is allowed.
+    f.app
+        .update_config(on(mock(
+            r#"{"answers":{"worth":{"type":"noul","noul":0.05}}}"#,
+        )
+        .await))
+        .unwrap();
+    assert_eq!(f.app.worth_remembering("routine work").await, Some(false));
+    // Confident "yes" (0.95): do not skip.
+    f.app
+        .update_config(on(mock(
+            r#"{"answers":{"worth":{"type":"noul","noul":0.95}}}"#,
+        )
+        .await))
+        .unwrap();
+    assert_eq!(
+        f.app.worth_remembering("a new convention").await,
+        Some(true)
+    );
+    // Unsure (0.5): None, extract as usual.
+    f.app
+        .update_config(on(mock(
+            r#"{"answers":{"worth":{"type":"noul","noul":0.5}}}"#,
+        )
+        .await))
+        .unwrap();
+    assert_eq!(f.app.worth_remembering("maybe").await, None);
+}

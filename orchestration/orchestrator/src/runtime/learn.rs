@@ -138,6 +138,23 @@ impl Runtime {
                 transcript(&conversation)
             ),
         };
+        // ADR-85: on routine work with nothing to reconcile, a cheap judge read can skip the costly extraction call.
+        // Only when there are no signals, no memories were shown and the ticket was not reopened (so the reuse
+        // bookkeeping below has nothing to do) and the judge is confident the episode holds nothing worth keeping.
+        if ep.signals.is_empty()
+            && ep.used.is_empty()
+            && !ep.reopened
+            && self.app.worth_remembering(&ep.transcript).await == Some(false)
+        {
+            tracing::info!(ticket = %t.key, "memory extraction skipped: the judge found nothing worth remembering");
+            mem.set_meta(&marker, &chrono::Utc::now().to_rfc3339())?;
+            let _ = self.app.run_log(
+                log_run,
+                "memory",
+                serde_json::json!({ "skipped": "judge: nothing worth remembering" }),
+            );
+            return Ok(None);
+        }
         // Extraction is an API call: a CLI agent uses the `[cli]` API fallback model for it (ADR-56).
         let (provider_id, model_id) = if agent.backend == BackendKind::Cli {
             let cfg = self.app.config().cli;
