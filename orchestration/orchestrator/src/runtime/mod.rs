@@ -2253,15 +2253,17 @@ mod tests {
 
     #[test]
     fn windows_powershell_5_is_named_with_its_byte_order_mark() {
-        let old = super::shell_text(&Shell::PowerShell(
-            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe".into(),
-        ));
+        // Joined, not a `C:\…` literal: on Linux and macOS a backslash is not a separator (VM run, 2026-10-26).
+        let dir = std::path::Path::new("WindowsPowerShell").join("v1.0");
+        let old = super::shell_text(&Shell::PowerShell(dir.join("powershell.exe")));
         assert!(
             old.contains("byte-order mark") && old.contains("WriteAllText"),
             "{old}"
         );
         let new = super::shell_text(&Shell::PowerShell(
-            r"C:\Program Files\PowerShell\7\pwsh.exe".into(),
+            std::path::Path::new("PowerShell")
+                .join("7")
+                .join("pwsh.exe"),
         ));
         assert!(!new.contains("byte-order mark"), "{new}");
     }
