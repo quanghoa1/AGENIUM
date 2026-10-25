@@ -971,6 +971,37 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 .collect();
             self.app.skill_hint(&t, &skills).await
         };
+        // ADR-91: the skill-writing tools (propose_skill_update, propose_new_skill) are offered only when the agent
+        // holds a lesson that may become skill knowledge — live, trusted, held in two distinct contexts. Without one
+        // they are withheld, so an agent never writes skills from unproven experience.
+        let ready: Vec<i64> = mem
+            .live(10_000)?
+            .into_iter()
+            .filter(|f| {
+                f.kind == agenium_store::FactKind::Lesson
+                    && !f.untrusted
+                    && f.validated.len() >= crate::skill_overlay::MIN_CONTEXTS
+            })
+            .map(|f| f.id)
+            .collect();
+        let skill_tools_off: &[ProtocolTool] = if ready.is_empty() {
+            &[
+                ProtocolTool::ProposeSkillUpdate,
+                ProtocolTool::ProposeNewSkill,
+            ]
+        } else {
+            &[]
+        };
+        let ready_hint = (!ready.is_empty() && !start.continuation).then(|| {
+            let ids: Vec<String> = ready.iter().take(8).map(|id| format!("#{id}")).collect();
+            format!(
+                "\nLessons that held in two or more contexts: {}. Only after the ticket's work is done, never instead of it: \
+                 if one is a reusable procedure that a skill of yours covers, improve that skill with propose_skill_update; \
+                 only if no skill covers it, write it down as a new skill with propose_new_skill (every section filled, a \
+                 Proof that demands evidence). If none is a reusable procedure, do nothing.\n",
+                ids.join(", ")
+            )
+        });
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let manifest = self.manifest(&agent, solo, ctx, specs, None, &ctx.fetch_allow);
@@ -1014,6 +1045,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 if let Some(h) = &skill_hint {
                     first.push_str(h);
                 }
+                if let Some(h) = &ready_hint {
+                    first.push_str(h);
+                }
                 messages.push(Message::user_text(first));
             } else {
                 let newer: Vec<Comment> = all_comments
@@ -1048,7 +1082,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 &root,
                 builder,
                 agenium_tools::work_tools(),
-                &[ProtocolTool::ProposeSkillUpdate],
+                skill_tools_off,
             )
             .await;
         let (report, cost) = match res {
@@ -1207,7 +1241,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 &root,
                 builder,
                 read_only,
-                &[ProtocolTool::ProposeSkillUpdate],
+                &[
+                    ProtocolTool::ProposeSkillUpdate,
+                    ProtocolTool::ProposeNewSkill,
+                ],
             )
             .await;
         let (report, cost) = match res {
@@ -1332,6 +1369,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 read_only,
                 &[
                     ProtocolTool::ProposeSkillUpdate,
+                    ProtocolTool::ProposeNewSkill,
                     ProtocolTool::SubmitReport,
                     ProtocolTool::PostProgress,
                     ProtocolTool::AskQuestion,
@@ -1513,6 +1551,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 read_only,
                 &[
                     ProtocolTool::ProposeSkillUpdate,
+                    ProtocolTool::ProposeNewSkill,
                     ProtocolTool::ProposeSpec,
                     ProtocolTool::ReviewTicket,
                     ProtocolTool::CloseTicket,

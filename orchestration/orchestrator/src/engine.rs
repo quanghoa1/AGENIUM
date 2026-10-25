@@ -313,8 +313,8 @@ impl App {
             Intent::ProposeRole(r) => self.propose_role(ctx, r),
             Intent::ProposeSoulChange(c) => self.needs_user(ctx, None, format!("change to SOUL.md proposed: {}", c.reason), serde_json::to_value(&c).ok()),
             Intent::ProposeRoleChange(c) => self.needs_user(ctx, None, format!("change to ROLE.md proposed: {}", c.reason), serde_json::to_value(&c).ok()),
-            Intent::ProposeSkillUpdate(_) | Intent::LoadSkill(_) => {
-                Err(invalid("skills are handled by the agent runtime (load_skill, propose_skill_update during a run)"))
+            Intent::ProposeSkillUpdate(_) | Intent::ProposeNewSkill(_) | Intent::LoadSkill(_) => {
+                Err(invalid("skills are handled by the agent runtime (load_skill, propose_skill_update, propose_new_skill during a run)"))
             }
         }?;
         for op in &out.ops {

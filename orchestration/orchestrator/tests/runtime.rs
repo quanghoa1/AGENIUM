@@ -201,6 +201,11 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         assert!(names.contains(&n), "{n}");
     }
     assert!(!names.contains(&"load_skill"));
+    // ADR-91: without a lesson that held in two contexts the skill-writing tools are withheld.
+    assert!(
+        !names.contains(&"propose_skill_update") && !names.contains(&"propose_new_skill"),
+        "{names:?}"
+    );
     assert!(work.messages[0].text().contains("# Ticket AGN-1"));
     assert!(work.messages[0]
         .text()
@@ -616,9 +621,33 @@ async fn skills_are_indexed_loaded_and_readable() {
     )
     .unwrap();
 
+    // ADR-91: a lesson that held in two contexts makes the skill-writing tools available, with a hint naming it.
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let lesson = mem
+        .add(
+            &agenium_store::NewFact {
+                kind: agenium_store::FactKind::Lesson,
+                cue: Some("writing greeting files".into()),
+                ..agenium_store::NewFact::fact("Greeting files end with a newline.", "ticket:AGN-0")
+            },
+            None,
+        )
+        .unwrap();
+    mem.validate_in(lesson, "p/ticket:AGN-0").unwrap();
+    mem.validate_in(lesson, "p/ticket:AGN-9").unwrap();
+    let ready = format!("#{lesson}");
+
     let tone = dir.join("references/tone.md").display().to_string();
     let tone2 = tone.clone();
     p.push(Box::new(move |req| {
+        let offered = |n: &str| req.tools.iter().any(|t| t.name == n);
+        assert!(offered("propose_new_skill") && offered("propose_skill_update"));
+        let first = req.messages[0].text();
+        assert!(
+            first.contains("Lessons that held in two or more contexts") && first.contains(&ready),
+            "{first}"
+        );
         assert!(req.system[1].cache);
         assert!(
             req.system[1]

@@ -1,6 +1,8 @@
 # ADR-73: Skill overlays from validated lessons; the Memory page
 
 Status: Accepted (2026-10-25, M4.5, decision 35; owner: "add a Memory tab to the UI").
+Amended by [ADR-91](ADR-91-agent-created-skills.md): the tool was excluded from every run kind until then; it is now
+offered in work runs when the agent holds a lesson that held in two contexts.
 
 ## Decision
 

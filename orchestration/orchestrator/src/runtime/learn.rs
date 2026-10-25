@@ -202,6 +202,10 @@ impl Runtime {
                 if let Err(e) = self.share_lessons(agent_id, &mem) {
                     tracing::warn!(error = %e, "sharing generalized lessons failed");
                 }
+                // ADR-91: a skill the agent created is flagged for the user once its lesson stops holding (anti-drift).
+                if let Err(e) = self.app.audit_created_skills(agent_id) {
+                    tracing::warn!(error = %e, "auditing created skills failed");
+                }
                 Ok(Some(rep))
             }
             Err(e) => {

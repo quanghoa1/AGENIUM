@@ -258,6 +258,27 @@ impl Protocol for RunProtocol {
             }
             return Ok((v, Effect::Continue));
         }
+        // ADR-91: a new skill distilled from a validated lesson, created only when every gate passes.
+        if let Intent::ProposeNewSkill(u) = intent {
+            let (app, agent) = (self.app.clone(), self.agent);
+            let skill = u.name.trim().to_owned();
+            let mut v = tokio::task::spawn_blocking({
+                let app = app.clone();
+                move || app.create_agent_skill(agent, &u)
+            })
+            .await
+            .map_err(|e| ToolError::new("internal", e.to_string()))?
+            .map_err(|e| tool_error(&e))?;
+            // Same fail-open quality read as an update: only with the judge on.
+            if let Some(body) = app.agent_overlay_body(agent, &skill) {
+                if let Some(quality) = app.skill_quality(&body).await {
+                    if let Some(obj) = v.as_object_mut() {
+                        obj.insert("quality".into(), serde_json::json!(quality));
+                    }
+                }
+            }
+            return Ok((v, Effect::Continue));
+        }
         let tool = intent.tool();
         let actor = match (tool.group(), self.role) {
             (ToolGroup::Lead, _) => Actor::Lead(self.agent),

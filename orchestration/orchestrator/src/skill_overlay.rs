@@ -19,7 +19,7 @@ use crate::{OrchError, Result};
 pub const MIN_CONTEXTS: usize = 2;
 
 /// Phrases that turn a skill into someone else's instructions (prompt injection); an update carrying one is refused.
-const INJECTION: &[&str] = &[
+pub(crate) const INJECTION: &[&str] = &[
     "ignore previous instructions",
     "ignore all previous",
     "disregard the above",
@@ -221,7 +221,7 @@ impl App {
             .join(name)
     }
 
-    fn agent_memory_store(
+    pub(crate) fn agent_memory_store(
         &self,
         agent: AgentId,
     ) -> Result<std::sync::Arc<agenium_store::AgentStore>> {

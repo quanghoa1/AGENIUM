@@ -144,6 +144,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Skill shape + authoring checks (reused by agent self-upgrade) + seeded 12-skill library with references/scripts (agency-agents methodologies, our words) | DONE | [ADR-88](adr/ADR-88-skill-shape-and-library.md) |
 | Vendor badge: the AI behind each agent's model shown in the inspector and pixel office | DONE | [ADR-89](adr/ADR-89-vendor-badge.md) |
 | Optional Jev skill-quality read (one job / actionable / proof / no stale code) on top of the structural check | DONE | [ADR-90](adr/ADR-90-jev-skill-quality.md) |
+| Agent-created skills (`propose_new_skill`): strict gates, contained, offered only with a qualifying lesson, anti-drift flag; skill-writing tools now reachable in work runs | DONE | [ADR-91](adr/ADR-91-agent-created-skills.md) |
 | Shared project guidance from the repo's AGENTS.md (no vendor CLAUDE.md) | DONE | `views.rs::project_guidance`, `team.rs::agents_md_is_the_shared_project_guidance` |
 | Model list by backend (API vs each CLI) | DONE | [ADR-74](adr/ADR-74-models-by-backend.md) |
 | TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |

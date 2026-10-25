@@ -58,3 +58,4 @@ ADR-52 records this fresh implementation.
 | [88](ADR-88-skill-shape-and-library.md) | Skill shape (Job/When/Steps/Tools/Proof) + advisory authoring checks reused by agent self-upgrade; a seeded 12-skill library (SKILL.md + references + scripts) from agency-agents methodologies (our own words) |
 | [89](ADR-89-vendor-badge.md) | Show the AI vendor behind each agent's model as a small badge (Live inspector + pixel office); our own monogram, detected from provider/model |
 | [90](ADR-90-jev-skill-quality.md) | Optional fail-open Jev read of a skill's quality (one job, actionable steps, proof demands evidence, no stale code) on top of the always-on structural check |
+| [91](ADR-91-agent-created-skills.md) | Agents may create a new skill only through strict gates (trusted lesson held in two contexts, no duplicate, full shape, safe), contained to the agent, offered only with a qualifying lesson, flagged when its lesson stops holding |

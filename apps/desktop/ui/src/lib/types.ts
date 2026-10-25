@@ -378,9 +378,21 @@ export interface OverlayView {
   stale: boolean;
 }
 
+/** A skill the agent created itself from a validated lesson (ADR-91). */
+export interface CreatedSkill {
+  lesson: number;
+  lesson_text: string;
+  reason: string;
+  at: string;
+  /** Set when the lesson stopped holding: why, and when. */
+  flagged?: string | null;
+}
+
 export interface MemoryData {
   facts: Fact[];
   overlays: OverlayView[];
+  /** Skill name -> what the agent created and why. */
+  created: Record<string, CreatedSkill>;
   hide_below: number;
 }
 

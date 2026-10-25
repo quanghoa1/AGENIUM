@@ -159,7 +159,7 @@ export function MemoryView() {
                 { value: "lesson" as const, label: `${app.t("memory.lessons")} (${counts.lesson})` },
                 { value: "fact" as const, label: `${app.t("memory.facts")} (${counts.fact})` },
                 { value: "preference" as const, label: `${app.t("memory.preferences")} (${counts.preference})` },
-                { value: "overlay" as const, label: `${app.t("memory.overlays")} (${data?.overlays.length ?? 0})` },
+                { value: "overlay" as const, label: `${app.t("memory.overlays")} (${(data?.overlays.length ?? 0) + Object.keys(data?.created ?? {}).length})` },
               ]}
             />
             {tab !== "overlay" && (
@@ -179,6 +179,38 @@ export function MemoryView() {
             <div className="text-xs text-subtle">{app.t("common.loading")}</div>
           ) : tab === "overlay" ? (
             <div className="space-y-3">
+              {/* ADR-91: skills the agent created itself — the lesson behind each, flagged when it stops holding. */}
+              {Object.entries(data.created ?? {}).map(([name, c]) => (
+                <Section
+                  key={`created-${name}`}
+                  title={
+                    <span className="flex items-center gap-2 normal-case">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> {name}
+                      <span className="chip border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">{app.t("memory.created")}</span>
+                      {c.flagged && (
+                        <span className="chip border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400" title={c.flagged}>
+                          {app.t("memory.flagged")}
+                        </span>
+                      )}
+                    </span>
+                  }
+                  right={
+                    <button className="btn" onClick={() => act("remove_skill", { skill: name }, app.t("memory.skillRemoved"))}>
+                      <Trash2 className="h-3.5 w-3.5" /> {app.t("memory.removeSkill")}
+                    </button>
+                  }
+                >
+                  <div className="space-y-1 text-[11px]">
+                    <div>
+                      <Mono className="text-subtle">{ago(c.at)}</Mono> <b>{c.reason}</b>
+                    </div>
+                    <div className="text-muted">
+                      {app.t("memory.fromLesson")} #{c.lesson}: {c.lesson_text}
+                    </div>
+                    {c.flagged && <div className="text-amber-600 dark:text-amber-400">{c.flagged}</div>}
+                  </div>
+                </Section>
+              ))}
               {data.overlays.map((o) => (
                 <Section
                   key={o.skill}
@@ -226,7 +258,7 @@ export function MemoryView() {
                   <DiffView diff={o.diff} />
                 </Section>
               ))}
-              {data.overlays.length === 0 && <Empty>{app.t("memory.noOverlays")}</Empty>}
+              {data.overlays.length === 0 && Object.keys(data.created ?? {}).length === 0 && <Empty>{app.t("memory.noOverlays")}</Empty>}
             </div>
           ) : (
             <div className="space-y-2">

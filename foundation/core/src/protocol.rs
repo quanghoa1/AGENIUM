@@ -120,6 +120,8 @@ protocol_tools! {
         "Load the full instructions of a skill listed in your skills index.";
     ProposeSkillUpdate => "propose_skill_update", Shared, ProposeSkillUpdate,
         "Propose an update to your own copy of a skill, backed by validated lessons.";
+    ProposeNewSkill => "propose_new_skill", Shared, ProposeNewSkill,
+        "Create a new skill in your own skills folder from a lesson that held in two contexts. Only when no skill you have covers it (otherwise use propose_skill_update); it must have every section filled (Job, When to use, Steps, Tools, Proof). Checked strictly; the user can review or delete it.";
     ProposeSoulChange => "propose_soul_change", Shared, ProposeChange,
         "Propose a change to your SOUL.md; the user decides.";
     ProposeRoleChange => "propose_role_change", Shared, ProposeChange,
@@ -204,6 +206,7 @@ pub enum Intent {
     SubmitPlanDraft(PlanDraft),
     LoadSkill(LoadSkill),
     ProposeSkillUpdate(ProposeSkillUpdate),
+    ProposeNewSkill(ProposeNewSkill),
     ProposeSoulChange(ProposeChange),
     ProposeRoleChange(ProposeChange),
 }
@@ -250,6 +253,7 @@ impl Intent {
             SubmitPlanDraft(_) => ProtocolTool::SubmitPlanDraft,
             LoadSkill(_) => ProtocolTool::LoadSkill,
             ProposeSkillUpdate(_) => ProtocolTool::ProposeSkillUpdate,
+            ProposeNewSkill(_) => ProtocolTool::ProposeNewSkill,
             ProposeSoulChange(_) => ProtocolTool::ProposeSoulChange,
             ProposeRoleChange(_) => ProtocolTool::ProposeRoleChange,
         }
@@ -317,6 +321,7 @@ impl Intent {
             | CreateAggregate(_)
             | LoadSkill(_)
             | ProposeSkillUpdate(_)
+            | ProposeNewSkill(_)
             | ProposeSoulChange(_)
             | ProposeRoleChange(_) => Ok(()),
         }
@@ -331,7 +336,7 @@ mod tests {
     fn catalogue_matches_design_index() {
         // docs/design/SCHEMAS/tools/index.json: Lead 15, Worker 5, Shared 4 (24 tools); Solo = all. Agenium adds
         // set_member_mcp_key (Lead group; per-agent MCP keys, 2026-10-25) and
-        // submit_plan_draft (Worker group, planner role only; ADR-59).
+        // submit_plan_draft (Worker group, planner role only; ADR-59) and propose_new_skill (Shared; ADR-91).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -339,11 +344,11 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (16, 6, 4)
+            (16, 6, 5)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 26);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 20);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 10);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 27);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 21);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 11);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);
         }

@@ -617,6 +617,24 @@ pub struct ProposeSkillUpdate {
     pub lesson: i64,
 }
 
+/// Create a NEW skill in your own skills folder, distilled from a validated lesson (ADR-91). Strongly gated so agents
+/// do not create skills carelessly: the lesson must have held in two different contexts, the skill must follow the full
+/// shape (## Job, ## When to use, ## Steps, ## Tools, ## Proof, all filled), and it must not duplicate a skill you
+/// already have. Your own copy only; the user reviews or deletes it; it never changes another agent's skills.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProposeNewSkill {
+    /// 1-64 characters of a-z, 0-9 and single hyphens; must not be the name of a skill you already have.
+    pub name: String,
+    /// One line: when this skill applies (its cue).
+    pub description: String,
+    /// The SKILL.md body with the sections ## Job, ## When to use, ## Steps, ## Tools and ## Proof, each filled.
+    pub body: String,
+    pub reason: String,
+    /// Memory id of the lesson this skill distils (`lesson #<id>` in your memory); it must have held in two contexts.
+    pub lesson: i64,
+}
+
 /// Answer stored on an Answer comment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Answer {

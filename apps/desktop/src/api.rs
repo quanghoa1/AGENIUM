@@ -410,12 +410,14 @@ pub fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
     Ok(json!({
         "facts": mem.live(2000).map_err(err)?,
         "overlays": o.app.skill_overlays(id).map_err(err)?,
+        // ADR-91: skills the agent created itself, with the lesson behind each and whether it was flagged.
+        "created": o.app.created_skills(id).map_err(err)?,
         "hide_below": agenium_store::agent::HIDE_BELOW_WEIGHT,
     }))
 }
 
-/// Memory actions of the user: `retire` a fact, `revert` or `promote` a skill overlay, `tidy` (decay and
-/// consolidation now).
+/// Memory actions of the user: `retire` a fact, `remove_skill` (a skill the agent created), `revert` or `promote` a
+/// skill overlay, `rebase`, `tidy` (decay and consolidation now).
 #[tauri::command]
 pub fn memory_action(
     d: State<'_, Desktop>,
@@ -432,7 +434,12 @@ pub fn memory_action(
         .map_err(err)?;
     let skill = || skill.clone().ok_or_else(|| "skill missing".to_owned());
     match action.as_str() {
-        "retire" => mem.retire(fact.ok_or("fact missing")?).map_err(err)?,
+        "retire" => {
+            mem.retire(fact.ok_or("fact missing")?).map_err(err)?;
+            // ADR-91: a skill built on a retired lesson is flagged for review right away.
+            o.app.audit_created_skills(id).map_err(err)?;
+        }
+        "remove_skill" => o.app.remove_created_skill(id, &skill()?).map_err(err)?,
         "revert" => o.app.revert_skill_overlay(id, &skill()?).map_err(err)?,
         "promote" => o.app.promote_skill_overlay(id, &skill()?).map_err(err)?,
         "rebase" => {
