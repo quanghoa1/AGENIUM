@@ -357,18 +357,24 @@ pub async fn run(
     // What memory held after ticket 1, and what recall showed ticket 2.
     let e = app.embedder();
     let mem = app.agent_store(agent.id, e.dim(), e.model_id())?;
+    // Where each memory came from and where it holds: a scope the recall context conflicts with hides it.
     let lessons: Vec<String> = mem
         .live(200)?
         .into_iter()
-        .map(|f| format!("[{:?}] {}", f.kind, f.text))
+        .map(|f| format!("[{:?}] ({} {}) {}", f.kind, f.source, f.scope, f.text))
         .collect();
     let t2 = app.ticket(
         project.id,
         &tickets[1]["ticket"].as_str().unwrap_or("AGN-2").parse()?,
     )?;
     let mut shown = 0usize;
+    let mut shown_texts: Vec<String> = Vec::new();
     for r in app.store().read(|c| runs::for_ticket(c, t2.id))? {
-        shown += mem.usage_for_run(&r.id.to_string())?.len();
+        for (fact, rank, via) in mem.usage_for_run(&r.id.to_string())? {
+            shown += 1;
+            let text = mem.get(fact).map(|f| f.text).unwrap_or_default();
+            shown_texts.push(format!("run {} #{rank} {via}: {text}", r.id));
+        }
     }
 
     let t1 = &tickets[0];
@@ -402,6 +408,7 @@ pub async fn run(
             "ticket2": tickets[1],
             "memories_after": lessons,
             "ticket2_facts_shown": shown,
+            "ticket2_shown": shown_texts,
         })),
     })
 }

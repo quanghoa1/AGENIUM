@@ -217,6 +217,9 @@ there. {commands}\n",
     s
 }
 
+/// How much of a tool result the run's conversation keeps (the memory transcript shows 600 characters of it).
+const RECORDED_RESULT_CHARS: usize = 4000;
+
 fn failed(e: impl std::fmt::Display) -> Outcome {
     Outcome::Failed {
         message: e.to_string(),
@@ -770,6 +773,8 @@ ask_question if you are blocked.",
                 if !self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
                     self.observer
                         .tool(&format!("cli:{name}"), &input, &Ok(String::new()));
+                    // The CLI ran it; its result is not in the stream.
+                    self.record_tool(st, &id, &name, &input, None);
                 }
                 None
             }
@@ -818,7 +823,52 @@ ask_question if you are blocked.",
         self.driver.hook_answer(allow, &reason)
     }
 
+    /// Keeps a tool call — and its result when Agenium ran the tool — in the run's conversation. The memory pipeline
+    /// learns from that conversation and a continuation is shown it; without the calls a CLI run left only the
+    /// agent's prose (2026-10-26: Haiku's first ticket taught a generic lesson and missed the rule its merge
+    /// failure had stated, while API runs, which keep their calls, learned the rule every time).
+    fn record_tool(
+        &self,
+        st: &mut State,
+        id: &str,
+        name: &str,
+        args: &Value,
+        result: Option<(&str, bool)>,
+    ) {
+        let call = Message {
+            role: Role::Assistant,
+            parts: vec![Part::ToolCall {
+                id: id.to_owned(),
+                name: name.to_owned(),
+                args: args.clone(),
+                signature: None,
+            }],
+        };
+        self.observer.message(&call);
+        st.messages.push(call);
+        if let Some((content, is_error)) = result {
+            let res = Message {
+                role: Role::User,
+                parts: vec![Part::ToolResult {
+                    call_id: id.to_owned(),
+                    name: name.to_owned(),
+                    content: content.chars().take(RECORDED_RESULT_CHARS).collect(),
+                    is_error,
+                }],
+            };
+            self.observer.message(&res);
+            st.messages.push(res);
+        }
+    }
+
     async fn offered_call(&self, name: &str, args: Value, st: &mut State) -> CallResult {
+        let r = self.offered_call_inner(name, args.clone(), st).await;
+        let id = format!("cli-{}", ulid::Ulid::new());
+        self.record_tool(st, &id, name, &args, Some((&r.text, r.is_error)));
+        r
+    }
+
+    async fn offered_call_inner(&self, name: &str, args: Value, st: &mut State) -> CallResult {
         if st.effect.is_some_and(|e| e != Effect::Continue) || st.stop.is_some() {
             return CallResult {
                 text: "not executed: the run is ending".into(),

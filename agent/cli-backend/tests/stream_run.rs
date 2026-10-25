@@ -166,6 +166,19 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
         "{log}"
     );
     assert!(log.contains("report: report accepted"), "{log}");
+    // The run's conversation keeps the calls (the memory pipeline learns from it): submit_report with its result.
+    let has = |f: &dyn Fn(&agenium_llm::Part) -> bool| {
+        report.messages.iter().any(|m| m.parts.iter().any(f))
+    };
+    assert!(
+        has(&|p| matches!(p, agenium_llm::Part::ToolCall { name, .. } if name == "submit_report")),
+        "{:?}",
+        report.messages
+    );
+    assert!(has(
+        &|p| matches!(p, agenium_llm::Part::ToolResult { name, content, .. }
+        if name == "submit_report" && content.contains("accepted"))
+    ));
     let calls = proto.calls.lock().unwrap().clone();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].1, json!({"summary": "done"}));
