@@ -218,10 +218,13 @@ pub fn label(r: &Recalled) -> String {
             } else {
                 String::new()
             };
-            format!("Rule (lesson{held}): {}{when}", r.text)
+            format!("Rule (lesson #{}{held}): {}{when}", r.id, r.text)
         }
         (agenium_store::FactKind::Lesson, false) => {
-            format!("Hint from another context, verify first: {}{when}", r.text)
+            format!(
+                "Hint from another context (lesson #{}), verify first: {}{when}",
+                r.id, r.text
+            )
         }
         _ => r.text.clone(),
     }

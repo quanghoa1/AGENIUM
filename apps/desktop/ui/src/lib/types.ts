@@ -360,6 +360,24 @@ export interface Fact {
   weight: number;
   created_at: string;
   used_at?: string | null;
+  /** Contexts a lesson held in (decision 35). */
+  validated?: string[];
+}
+
+/** An agent's own version of a skill (decision 35). */
+export interface OverlayView {
+  skill: string;
+  base_version: string;
+  diff: string;
+  changelog: { at?: string; reason?: string; lesson?: number; lesson_text?: string }[];
+  /** `role` or `library`. */
+  base: string;
+}
+
+export interface MemoryData {
+  facts: Fact[];
+  overlays: OverlayView[];
+  hide_below: number;
 }
 
 export interface AgentDetail {

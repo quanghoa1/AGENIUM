@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
 import type {
+  MemoryData,
   PriceView,
   VendorUsage,
   AgentMcpKey,
@@ -88,6 +89,9 @@ export const api = {
   events: (since?: number, limit?: number) => call<EventRecord[]>("events", { since, limit }),
   capabilities: (refresh = false) => call<Capabilities>("capabilities", { refresh }),
   templates: () => call<TeamTemplate[]>("templates"),
+  memory: (agent: string) => call<MemoryData>("memory", { agent }),
+  memoryAction: (agent: string, action: string, fact?: number, skill?: string) =>
+    call<unknown>("memory_action", { agent, action, fact: fact ?? null, skill: skill ?? null }),
   saveTemplate: (template: TeamTemplate) => call<TeamTemplate>("save_template", { template }),
   removeTemplate: (id: string) => call<void>("remove_template", { id }),
   templateFromTeam: (team: string, id: string, name: string) => call<TeamTemplate>("template_from_team", { team, id, name }),

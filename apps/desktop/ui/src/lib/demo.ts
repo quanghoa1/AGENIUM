@@ -269,6 +269,17 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "refresh_vendor_usage":
     case "read_claude_usage":
       return demoUsage;
+    case "memory":
+      return {
+        hide_below: 0.2,
+        overlays: [],
+        facts: [
+          { id: 12, text: "Breaking changes go first in release notes.", kind: "lesson", scope: { project: "shop" }, cue: "writing release notes", evidence: "Reopened by the review", source: "ticket:SHOP-4", untrusted: false, confidence: 0.7, weight: 0.95, created_at: iso(3000), used_at: iso(60), validated: ["p1/ticket:SHOP-6", "p1/ticket:SHOP-9"] },
+          { id: 7, text: "The shop API runs on port 8080 in development.", kind: "fact", scope: {}, source: "ticket:SHOP-2", untrusted: false, confidence: 0.55, weight: 0.8, created_at: iso(9000) },
+        ],
+      };
+    case "memory_action":
+      return { ok: true };
     case "decide_role_proposal":
     case "save_template":
     case "remove_template":

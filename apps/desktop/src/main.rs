@@ -83,6 +83,8 @@ fn main() {
             api::remove_template,
             api::template_from_team,
             api::template_toml,
+            api::memory,
+            api::memory_action,
             api::set_agent_status,
             api::pause_project,
             api::resume_project,

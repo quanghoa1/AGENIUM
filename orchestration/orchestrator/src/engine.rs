@@ -314,7 +314,7 @@ impl App {
             Intent::ProposeSoulChange(c) => self.needs_user(ctx, None, format!("change to SOUL.md proposed: {}", c.reason), serde_json::to_value(&c).ok()),
             Intent::ProposeRoleChange(c) => self.needs_user(ctx, None, format!("change to ROLE.md proposed: {}", c.reason), serde_json::to_value(&c).ok()),
             Intent::ProposeSkillUpdate(_) | Intent::LoadSkill(_) => {
-                Err(invalid("skills are handled by the agent runtime; propose_skill_update is not available yet"))
+                Err(invalid("skills are handled by the agent runtime (load_skill, propose_skill_update during a run)"))
             }
         }?;
         for op in &out.ops {

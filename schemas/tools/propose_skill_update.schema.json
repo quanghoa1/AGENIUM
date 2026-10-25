@@ -4,8 +4,13 @@
   "additionalProperties": false,
   "description": "Propose an update to your own copy of a skill, backed by validated lessons.",
   "properties": {
+    "lesson": {
+      "description": "Memory id of the lesson this change writes down (shown as `lesson #<id>` in your memory); it must have held\nin two different contexts.",
+      "format": "int64",
+      "type": "integer"
+    },
     "patch": {
-      "description": "Unified diff against the current SKILL.md.",
+      "description": "Unified diff against the current SKILL.md (paths `a/SKILL.md` and `b/SKILL.md`).",
       "type": "string"
     },
     "reason": {
@@ -18,7 +23,8 @@
   "required": [
     "skill",
     "patch",
-    "reason"
+    "reason",
+    "lesson"
   ],
   "title": "propose_skill_update",
   "type": "object",

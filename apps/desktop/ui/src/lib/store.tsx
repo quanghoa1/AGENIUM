@@ -19,6 +19,7 @@ export type View =
   | "providers"
   | "templates"
   | "audit"
+  | "memory"
   | "usage"
   | "settings"
   | "chat"

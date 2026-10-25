@@ -2,6 +2,7 @@ import {
   BarChart3,
   Bell,
   Bot,
+  Brain,
   ChevronLeft,
   ChevronRight,
   Cpu,
@@ -89,6 +90,7 @@ export function Shell({ children }: { children: ReactNode }) {
       items: [
         { id: "projects", label: "nav.projects", icon: <FolderKanban className="h-4 w-4" />, badge: app.projects.length || undefined },
         { id: "agents", label: "nav.agents", icon: <Bot className="h-4 w-4" /> },
+        { id: "memory", label: "nav.memory", icon: <Brain className="h-4 w-4" /> },
         { id: "teams", label: "nav.teams", icon: <Users className="h-4 w-4" /> },
       ],
     },

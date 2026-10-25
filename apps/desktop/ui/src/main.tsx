@@ -7,6 +7,7 @@ import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
 import { AgentView, AgentsView, ProjectsView, TeamsView } from "./views/Organize";
 import { AuditView, SettingsView, SetupView, UsageView } from "./views/Admin";
+import { MemoryView } from "./views/Memory";
 import { TemplatesView } from "./views/Templates";
 import { LibraryView, ProvidersView } from "./views/Capabilities";
 import { LiveView } from "./views/Live";
@@ -46,6 +47,8 @@ function Router() {
         return <ProvidersView />;
       case "templates":
         return <TemplatesView />;
+      case "memory":
+        return <MemoryView />;
       case "audit":
         return <AuditView />;
       case "usage":

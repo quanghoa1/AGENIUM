@@ -375,6 +375,52 @@ pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
     }))
 }
 
+/// The Memory page: an agent's live facts and lessons (faded ones included) and its skill overlays.
+#[tauri::command]
+pub fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let mem = o
+        .app
+        .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
+        .map_err(err)?;
+    Ok(json!({
+        "facts": mem.live(2000).map_err(err)?,
+        "overlays": o.app.skill_overlays(id).map_err(err)?,
+        "hide_below": agenium_store::agent::HIDE_BELOW_WEIGHT,
+    }))
+}
+
+/// Memory actions of the user: `retire` a fact, `revert` or `promote` a skill overlay, `tidy` (decay and
+/// consolidation now).
+#[tauri::command]
+pub fn memory_action(
+    d: State<'_, Desktop>,
+    agent: String,
+    action: String,
+    fact: Option<i64>,
+    skill: Option<String>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let mem = o
+        .app
+        .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
+        .map_err(err)?;
+    let skill = || skill.clone().ok_or_else(|| "skill missing".to_owned());
+    match action.as_str() {
+        "retire" => mem.retire(fact.ok_or("fact missing")?).map_err(err)?,
+        "revert" => o.app.revert_skill_overlay(id, &skill()?).map_err(err)?,
+        "promote" => o.app.promote_skill_overlay(id, &skill()?).map_err(err)?,
+        "tidy" => {
+            let (decayed, folded) = mem.tidy().map_err(err)?;
+            return Ok(json!({ "decayed": decayed, "consolidated": folded }));
+        }
+        other => return Err(format!("unknown memory action {other:?}")),
+    }
+    Ok(json!({ "ok": true }))
+}
+
 #[tauri::command]
 pub fn set_team_lead(d: State<'_, Desktop>, project: String, agent: String) -> R<()> {
     let o = d.opened()?;

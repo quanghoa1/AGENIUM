@@ -281,7 +281,8 @@ async fn lessons_need_a_cue_and_a_signal_and_are_rules_only_in_their_scope() {
     assert!(lesson.exact, "the named router brings the tp-link scope");
     let shown = agenium_memory::retrieve::label(lesson);
     assert!(
-        shown.starts_with("Rule (lesson)") && shown.contains("when: DHCP leases drop"),
+        shown.starts_with(&format!("Rule (lesson #{})", lesson.id))
+            && shown.contains("when: DHCP leases drop"),
         "{shown}"
     );
     let hint = w.recall("routers keep losing DHCP leases");
@@ -290,8 +291,7 @@ async fn lessons_need_a_cue_and_a_signal_and_are_rules_only_in_their_scope() {
         .find(|r| r.text.contains("pinning static leases"))
     {
         assert!(!l.exact);
-        assert!(agenium_memory::retrieve::label(l)
-            .starts_with("Hint from another context, verify first"));
+        assert!(agenium_memory::retrieve::label(l).starts_with("Hint from another context"));
     }
 
     // No signal: the lesson is not kept; a lesson without a cue neither.

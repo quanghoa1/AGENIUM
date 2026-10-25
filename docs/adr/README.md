@@ -40,3 +40,4 @@ ADR-52 records this fresh implementation.
 | [70](ADR-70-aging-and-worktree-guard.md) | Scheduler aging (a level per `aging_hours` waited); changes made to a worktree outside Agenium are undone before the next run, saved as a patch and reported |
 | [71](ADR-71-template-wizard.md) | Template wizard: new, from a team, import/export TOML, edit roles (kind, count, tags, scope, model, ROLE.md), validated on save |
 | [72](ADR-72-lessons-decay-consolidation.md) | Lessons need a cue and a signal; rules where the scope matches, hints elsewhere; validated contexts; 90-day decay and consolidation |
+| [73](ADR-73-skill-overlays-memory-page.md) | Skill overlays from lessons held in two contexts (checked, copy-on-write, audited; revert/promote by the user); Memory page |

@@ -236,6 +236,15 @@ impl Protocol for RunProtocol {
                 )),
             };
         }
+        // Decision 35: the agent's own skill overlay, checked and applied by the orchestrator.
+        if let Intent::ProposeSkillUpdate(u) = intent {
+            let (app, agent) = (self.app.clone(), self.agent);
+            return tokio::task::spawn_blocking(move || app.apply_skill_update(agent, &u))
+                .await
+                .map_err(|e| ToolError::new("internal", e.to_string()))?
+                .map(|v| (v, Effect::Continue))
+                .map_err(|e| tool_error(&e));
+        }
         let tool = intent.tool();
         let actor = match (tool.group(), self.role) {
             (ToolGroup::Lead, _) => Actor::Lead(self.agent),

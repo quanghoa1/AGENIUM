@@ -16,6 +16,7 @@ pub mod role_library;
 pub mod role_proposals;
 pub mod runtime;
 pub mod sched;
+pub mod skill_overlay;
 pub mod team_templates;
 pub mod templates;
 pub mod vendor_usage;
