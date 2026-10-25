@@ -4,40 +4,7 @@ import { Empty, FreeTag, PageHeader, Section, ago, cn, tokens } from "../compone
 import { api } from "../lib/api";
 import { isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
-import type { AuditEntry, CommandPolicy, RunRow, TeamTemplate } from "../lib/types";
-
-export function TemplatesView() {
-  const app = useApp();
-  const [ts, setTs] = useState<TeamTemplate[]>([]);
-  useEffect(() => {
-    api.templates().then(setTs);
-  }, []);
-  return (
-    <div className="space-y-4">
-      <PageHeader title={app.t("nav.templates")} sub={app.t("templates.sub")} />
-      {ts.map((t) => (
-        <Section key={t.id} title={`${t.name} · ${t.id}@${t.version} · report ${t.report_template}`}>
-          <div className="mb-3 text-xs text-muted">{t.description}</div>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {t.roles.map((r) => (
-              <div key={r.id} className="rounded-lg border border-line bg-elevated/40 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold">{r.id}</span>
-                  <span className={cn("chip", r.kind === "lead" ? "border-purple-500/30 text-purple-600 dark:text-purple-300" : r.planner ? "border-cyan-500/30 text-cyan-600 dark:text-cyan-300" : "border-line-strong text-muted")}>
-                    {r.planner ? "planner" : r.kind}
-                    {r.count > 1 ? ` ×${r.count}` : ""}
-                  </span>
-                </div>
-                <div className="mt-1.5 line-clamp-4 text-[11px] text-subtle">{r.prompt}</div>
-                {r.allowed_paths.length > 0 && <div className="mt-2 font-mono text-[10px] text-muted">scope: {r.allowed_paths.join(", ")}</div>}
-              </div>
-            ))}
-          </div>
-        </Section>
-      ))}
-    </div>
-  );
-}
+import type { AuditEntry, CommandPolicy, RunRow } from "../lib/types";
 
 export function AuditView() {
   const app = useApp();

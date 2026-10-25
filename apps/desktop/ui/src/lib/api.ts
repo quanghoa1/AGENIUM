@@ -88,6 +88,11 @@ export const api = {
   events: (since?: number, limit?: number) => call<EventRecord[]>("events", { since, limit }),
   capabilities: (refresh = false) => call<Capabilities>("capabilities", { refresh }),
   templates: () => call<TeamTemplate[]>("templates"),
+  saveTemplate: (template: TeamTemplate) => call<TeamTemplate>("save_template", { template }),
+  removeTemplate: (id: string) => call<void>("remove_template", { id }),
+  templateFromTeam: (team: string, id: string, name: string) => call<TeamTemplate>("template_from_team", { team, id, name }),
+  /** Export (`id`: the TOML text) or import (`text`: saved, returns the template). */
+  templateToml: (id?: string, text?: string) => call<unknown>("template_toml", { id: id ?? null, text: text ?? null }),
   chat: (project: string, message: string) =>
     call<{ run: string; outcome: string; text: string }>("chat", { project, message }),
   chatHistory: (project: string) => call<ChatLine[]>("chat_history", { project }),

@@ -215,6 +215,92 @@ impl App {
             .ok_or_else(|| OrchError::NotFound(format!("no team template {id:?}")))
     }
 
+    /// The template wizard (M4): validates a template and stores it as `<root>/templates/<id>.toml` (same id as a
+    /// built-in overrides it). Teams made from it before keep their role folders.
+    pub fn save_team_template(&self, t: &TeamTemplate) -> Result<TeamTemplate> {
+        t.validate()?;
+        let dir = self.layout().templates();
+        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        std::fs::write(dir.join(format!("{}.toml", t.id)), t.to_toml())
+            .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        self.team_template(&t.id)
+    }
+
+    /// Removes a user template (a built-in it overrode comes back); built-ins cannot be removed.
+    pub fn remove_team_template(&self, id: &str) -> Result<()> {
+        let file = self.layout().templates().join(format!("{id}.toml"));
+        if !slug_ok(id) || !file.is_file() {
+            return Err(OrchError::NotFound(format!("no user template {id:?}")));
+        }
+        std::fs::remove_file(file).map_err(|e| OrchError::Invalid(e.to_string()))
+    }
+
+    /// Whether `id` is (or overrides) one of the built-in templates, and whether the user saved one with this id.
+    pub fn template_origin(&self, id: &str) -> (bool, bool) {
+        (
+            builtin().iter().any(|t| t.id == id),
+            self.layout()
+                .templates()
+                .join(format!("{id}.toml"))
+                .is_file(),
+        )
+    }
+
+    /// A template from a team as it is: one role per role of its members (ROLE.md text, tags, write scope, planner),
+    /// counted by members, the Lead's role as lead, each role's model as its default. To save as `id`.
+    pub fn template_from_team(&self, team: TeamId, id: &str, name: &str) -> Result<TeamTemplate> {
+        let (t, members) = self.team(team)?;
+        let lead = t.lead;
+        let mut roles: Vec<RoleSpec> = Vec::new();
+        for m in &members {
+            let short = m
+                .role
+                .split_once('-')
+                .filter(|(prefix, _)| {
+                    self.role_file(&m.role)
+                        .template
+                        .starts_with(&format!("{prefix}@"))
+                })
+                .map(|(_, rest)| rest.to_owned())
+                .unwrap_or_else(|| m.role.clone());
+            if let Some(r) = roles.iter_mut().find(|r| r.id == short) {
+                r.count += 1;
+                continue;
+            }
+            let info = self.role(&m.role).ok();
+            roles.push(RoleSpec {
+                id: short,
+                kind: if Some(m.id) == lead {
+                    RoleKind::Lead
+                } else {
+                    RoleKind::Worker
+                },
+                tags: info.as_ref().map(|i| i.tags.clone()).unwrap_or_default(),
+                prompt: info.as_ref().map(|i| i.prompt.clone()).unwrap_or_default(),
+                skills: vec![],
+                allowed_paths: self.role_allowed_paths(&m.role),
+                default_model: (!m.model.provider.is_empty() && !m.model.model.is_empty())
+                    .then(|| format!("{}/{}", m.model.provider, m.model.model)),
+                count: 1,
+                planner: self.is_planner_role(&m.role),
+            });
+        }
+        let report_template = match t.project {
+            Some(p) => self.manifest(&self.project(p)?)?.project.template,
+            None => "coding@1".to_owned(),
+        };
+        let tpl = TeamTemplate {
+            id: id.to_owned(),
+            version: "1.0.0".into(),
+            name: name.to_owned(),
+            description: format!("Made from the team {}.", t.name),
+            report_template,
+            roles,
+        };
+        tpl.validate()?;
+        Ok(tpl)
+    }
+
     /// Validates a template file and stores it as `<root>/templates/<id>.toml` (a user template; same id as a
     /// built-in overrides it).
     pub fn import_team_template(&self, file: &Path) -> Result<TeamTemplate> {

@@ -270,6 +270,11 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "read_claude_usage":
       return demoUsage;
     case "decide_role_proposal":
+    case "save_template":
+    case "remove_template":
+    case "template_toml":
+      return null;
+    case "template_from_team":
       return null;
     case "prices":
       return demoPrices;

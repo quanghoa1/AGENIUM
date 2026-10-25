@@ -136,6 +136,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Commands run in the sandbox without asking (policy `sandboxed`, default), approvals per project, workers get the requirements they serve, skeptical review, ROLE.md sections + advice, specialist role library | DONE | ADR-64 |
 | `propose_role`: the Lead proposes a library or new role, the user approves (agent created, joins the team) or declines | DONE | [ADR-69](adr/ADR-69-propose-role.md); real Lead proposed `api-tester` on the test root |
 | Scheduler aging; outside edits to a ticket worktree undone before the next run (patch kept, user told) | DONE | [ADR-70](adr/ADR-70-aging-and-worktree-guard.md) |
+| Template wizard (new, from a team, import/export TOML, role editor) | DONE | [ADR-71](adr/ADR-71-template-wizard.md) |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
@@ -184,7 +185,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
-- M4 rest: the template wizard; the Lead "interrupt" (ADR-57: rounds instead).
+- M4: the Lead "interrupt" (ADR-57: rounds instead); per-template allowlist and pre-merge checks (M5).
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
   tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
 - Sandbox backends: macOS Seatbelt (M2) and the S3 containment matrix on Linux (Windows MXC: ADR-53, Linux bubblewrap: ADR-54).
@@ -195,9 +196,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order, 2026-10-25)
-1. M4 rest: the template wizard.
-2. M4.5 learning: lessons with scope/cue/decay from reviews and reopens, `propose_skill_update` with copy-on-write
+1. M4.5 learning: lessons with scope/cue/decay from reviews and reopens, `propose_skill_update` with copy-on-write
    overlays (view/revert), consolidation and forgetting; golden task GM-6.
-3. M5 beta: export/import `.agenium`, pre-merge checks per template, Markdown reports, run-log compression after 90
+2. M5 beta: export/import `.agenium`, pre-merge checks per template, Markdown reports, run-log compression after 90
    days, push the branch on Closed, egress proxy, change the root, installer and signed updater, support bundle.
-4. M2 on Linux/macOS machines (sandbox attack suite, macOS backend) — needs those machines; graph benchmark rest.
+3. M2 on Linux/macOS machines (sandbox attack suite, macOS backend) — needs those machines; graph benchmark rest.

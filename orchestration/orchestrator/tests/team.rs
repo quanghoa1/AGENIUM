@@ -1196,3 +1196,63 @@ fn outside_edits_to_a_worktree_are_undone_before_the_next_run() {
         "once"
     );
 }
+
+/// The template wizard (M4): a team becomes a template, saved under the root, used for another project's team,
+/// and removed; invalid templates are refused with the reason.
+#[test]
+fn a_team_becomes_a_template_that_makes_new_teams() {
+    let t = team();
+    let f = &t.f;
+    let (team, _) = f.app.team_of_project(f.project.id).unwrap().unwrap();
+    let tpl = f
+        .app
+        .template_from_team(team.id, "webshop", "Web shop")
+        .unwrap();
+    let ids: Vec<(&str, RoleKind)> = tpl.roles.iter().map(|r| (r.id.as_str(), r.kind)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("lead", RoleKind::Lead),
+            ("web", RoleKind::Worker),
+            ("api", RoleKind::Worker)
+        ]
+    );
+    assert_eq!(f.app.template_origin("webshop"), (false, false));
+    f.app.save_team_template(&tpl).unwrap();
+    assert_eq!(f.app.template_origin("webshop"), (false, true));
+    assert!(f
+        .app
+        .team_templates()
+        .unwrap()
+        .iter()
+        .any(|x| x.id == "webshop"));
+
+    let mut bad = tpl.clone();
+    bad.roles[1].kind = RoleKind::Lead;
+    let e = f.app.save_team_template(&bad).unwrap_err().to_string();
+    assert!(e.contains("exactly one lead"), "{e}");
+
+    let other = f
+        .app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "shop2".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    let out = f
+        .app
+        .create_team_from_template(other, "webshop", &model(), None, None, "")
+        .unwrap();
+    assert_eq!(out.agents.len(), 3);
+    assert!(
+        f.app.remove_team_template("coding").is_err(),
+        "built-ins stay"
+    );
+    f.app.remove_team_template("webshop").unwrap();
+    assert!(f.app.team_template("webshop").is_err());
+}

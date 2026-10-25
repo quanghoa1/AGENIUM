@@ -510,7 +510,73 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
 
 #[tauri::command]
 pub fn templates(d: State<'_, Desktop>) -> R<Value> {
-    Ok(json!(d.opened()?.app.team_templates().map_err(err)?))
+    let app = &d.opened()?.app;
+    let ts = app.team_templates().map_err(err)?;
+    // Each template with where it comes from: built in, saved by the user, or a user copy of a built-in.
+    Ok(json!(ts
+        .into_iter()
+        .map(|t| {
+            let (builtin, custom) = app.template_origin(&t.id);
+            let mut v = json!(t);
+            v["builtin"] = json!(builtin);
+            v["custom"] = json!(custom);
+            v
+        })
+        .collect::<Vec<_>>()))
+}
+
+/// The template wizard: saves a team template (validated) under the root.
+#[tauri::command]
+pub fn save_template(d: State<'_, Desktop>, template: Value) -> R<Value> {
+    let mut template = template;
+    if let Some(o) = template.as_object_mut() {
+        o.remove("builtin");
+        o.remove("custom");
+    }
+    let t: agenium_orchestrator::team_templates::TeamTemplate =
+        serde_json::from_value(template).map_err(|e| e.to_string())?;
+    Ok(json!(d
+        .opened()?
+        .app
+        .save_team_template(&t)
+        .map_err(err)?))
+}
+
+/// Removes a user template (a built-in it overrode comes back).
+#[tauri::command]
+pub fn remove_template(d: State<'_, Desktop>, id: String) -> R<()> {
+    d.opened()?.app.remove_team_template(&id).map_err(err)
+}
+
+/// A template drafted from a team as it is (not saved yet).
+#[tauri::command]
+pub fn template_from_team(
+    d: State<'_, Desktop>,
+    team: String,
+    id: String,
+    name: String,
+) -> R<Value> {
+    let team: TeamId = team.parse().map_err(|e: IdParseError| e.to_string())?;
+    Ok(json!(d
+        .opened()?
+        .app
+        .template_from_team(team, &id, &name)
+        .map_err(err)?))
+}
+
+/// A template as TOML (export), or a TOML text checked and saved (import).
+#[tauri::command]
+pub fn template_toml(d: State<'_, Desktop>, id: Option<String>, text: Option<String>) -> R<Value> {
+    let app = &d.opened()?.app;
+    match (id, text) {
+        (_, Some(text)) => {
+            let t =
+                agenium_orchestrator::team_templates::TeamTemplate::parse(&text).map_err(err)?;
+            Ok(json!(app.save_team_template(&t).map_err(err)?))
+        }
+        (Some(id), None) => Ok(json!(app.team_template(&id).map_err(err)?.to_toml())),
+        (None, None) => Err("give a template id or a TOML text".into()),
+    }
 }
 
 // ---------------------------------------------------------------- actions

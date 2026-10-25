@@ -322,6 +322,10 @@ export interface TeamTemplate {
   description: string;
   report_template: string;
   roles: RoleSpec[];
+  /** Built in (or overriding a built-in when `custom` too). */
+  builtin?: boolean;
+  /** Saved by the user under the root. */
+  custom?: boolean;
 }
 
 export interface CliInfo {
