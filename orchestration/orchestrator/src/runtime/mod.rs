@@ -1554,6 +1554,26 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 ));
             }
         }
+        for p in self.app.role_proposals(project)? {
+            use agenium_store::core::roles::ProposalStatus as S;
+            s.push_str(&format!(
+                "Role proposal {} ({}): {}\n",
+                p.id,
+                p.body.role_id,
+                match (p.status, p.agent) {
+                    (S::Pending, _) => "waiting for the user".to_owned(),
+                    (S::Approved, Some(a)) => format!(
+                        "approved, {} joined the team",
+                        self.app.agent(a).map(|x| x.name).unwrap_or_default()
+                    ),
+                    (S::Approved, None) => "approved".to_owned(),
+                    (S::Declined, _) => format!(
+                        "declined by the user{}",
+                        p.note.map(|n| format!(": {n}")).unwrap_or_default()
+                    ),
+                }
+            ));
+        }
         let ts = self.app.tickets(project)?;
         if ts.is_empty() {
             s.push_str("No tickets yet.");

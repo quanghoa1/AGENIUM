@@ -1042,3 +1042,111 @@ fn vendor_usage_keeps_the_last_good_reading() {
     );
     assert!(rows[0].error.as_deref().unwrap().contains("did not answer"));
 }
+
+/// Decision 3l: the Lead proposes a role its team lacks; nothing is created until the user approves (the agent
+/// joins the team, a new role gets its ROLE.md) or declines (the Lead sees why).
+#[test]
+fn the_lead_proposes_a_role_and_the_user_decides() {
+    use agenium_orchestrator::views::NeedKind;
+    use agenium_store::core::roles::ProposalStatus;
+    let t = team();
+    let f = &t.f;
+    // The approved agent takes the Lead's model, whose provider must be configured.
+    f.app
+        .update_config(|c| {
+            c.providers.push(agenium_config::ProviderConfig {
+                id: "mock".into(),
+                kind: agenium_config::ProviderKind::Mock,
+                base_url: None,
+                api_key_ref: String::new(),
+                max_concurrency: 1,
+                models: vec![],
+                model_caps: vec![],
+            })
+        })
+        .unwrap();
+    let propose = |actor: Actor, role: &str| {
+        f.app.apply(
+            &ctx(f, actor),
+            Intent::ProposeRole(agenium_core::forms::ProposeRole {
+                role_id: role.into(),
+                title: "API tester".into(),
+                description:
+                    "Tests the HTTP API end to end; the plan has contract tests no worker can write"
+                        .into(),
+                tags: vec!["testing".into()],
+                skills: vec![],
+                model_hint: None,
+            }),
+        )
+    };
+    let out = propose(Actor::Lead(t.lead), "api-tester").unwrap();
+    assert_eq!(out.result["status"], "waiting_for_user_approval");
+    let id = out.result["proposal"].as_str().unwrap().to_owned();
+    assert!(propose(Actor::Lead(t.lead), "api-tester")
+        .unwrap_err()
+        .to_string()
+        .contains("already proposed"));
+    assert!(
+        propose(Actor::Worker(t.web), "qa").is_err(),
+        "workers do not propose roles"
+    );
+    assert!(
+        propose(Actor::Lead(t.lead), "web")
+            .unwrap_err()
+            .to_string()
+            .contains("web-1"),
+        "a role the team has goes to its member"
+    );
+    let members = || f.app.team_of_project(f.project.id).unwrap().unwrap().1;
+    assert_eq!(
+        members().len(),
+        3,
+        "nothing is created before the user decides"
+    );
+    let needs = f.app.needs_you(f.project.id).unwrap();
+    let item = needs
+        .iter()
+        .find(|n| n.kind == NeedKind::RoleProposal)
+        .unwrap();
+    assert_eq!(item.proposal.as_deref(), Some(id.as_str()));
+
+    // Approve: a library role, the Lead's model.
+    let p = f
+        .app
+        .decide_role_proposal(f.project.id, &id, true, None, None)
+        .unwrap();
+    assert_eq!(p.status, ProposalStatus::Approved);
+    let joined = members()
+        .into_iter()
+        .find(|m| Some(m.id) == p.agent)
+        .unwrap();
+    assert_eq!(
+        (joined.name.as_str(), joined.role.as_str()),
+        ("api-tester", "api-tester")
+    );
+    assert!(
+        f.app
+            .decide_role_proposal(f.project.id, &id, true, None, None)
+            .is_err(),
+        "decided once"
+    );
+
+    // A new role: declined, nothing written; then approved, its ROLE.md follows the role shape.
+    let declined = propose(Actor::Lead(t.lead), "release-manager").unwrap();
+    let rid = declined.result["proposal"].as_str().unwrap().to_owned();
+    let d = f
+        .app
+        .decide_role_proposal(f.project.id, &rid, false, None, Some("not in this project"))
+        .unwrap();
+    assert_eq!(d.status, ProposalStatus::Declined);
+    assert!(f.app.role("release-manager").is_err());
+    let again = propose(Actor::Lead(t.lead), "release-manager").unwrap();
+    let aid = again.result["proposal"].as_str().unwrap().to_owned();
+    f.app
+        .decide_role_proposal(f.project.id, &aid, true, None, None)
+        .unwrap();
+    let role = f.app.role("release-manager").unwrap();
+    assert!(role.lint.is_empty(), "{:?}", role.lint);
+    assert_eq!(members().len(), 5);
+}

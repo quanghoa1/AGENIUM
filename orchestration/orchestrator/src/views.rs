@@ -366,6 +366,8 @@ pub enum NeedKind {
     Question,
     /// "Review before merge": an approved code ticket waits for the user's merge.
     MergeReview,
+    /// The Lead proposes a role its team lacks (decision 3l): approve (an agent joins) or decline.
+    RoleProposal,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -378,6 +380,9 @@ pub struct NeedItem {
     /// Spec or plan version to approve.
     pub version: Option<u32>,
     pub agent: Option<String>,
+    /// The role proposal to decide (`RoleProposal`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<String>,
     pub text: String,
     pub at: String,
 }
@@ -393,6 +398,7 @@ impl App {
             comment: None,
             version: None,
             agent: None,
+            proposal: None,
             text,
             at: at.to_owned(),
         };
@@ -518,6 +524,31 @@ impl App {
                     &t.updated_at,
                 ));
             }
+        }
+        for p in self
+            .role_proposals(project)?
+            .into_iter()
+            .filter(|p| p.status == agenium_store::core::roles::ProposalStatus::Pending)
+        {
+            out.push(NeedItem {
+                proposal: Some(p.id.clone()),
+                ..need(
+                    NeedKind::RoleProposal,
+                    None,
+                    format!(
+                        "The Lead proposes a new role {} ({}): {}{}",
+                        p.body.role_id,
+                        p.body.title.trim(),
+                        p.body.description.trim(),
+                        p.body
+                            .model_hint
+                            .as_deref()
+                            .map(|m| format!(" Suggested model: {m}."))
+                            .unwrap_or_default()
+                    ),
+                    &p.created_at,
+                )
+            });
         }
         out.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.at.cmp(&b.at)));
         Ok(out)

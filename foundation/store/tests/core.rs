@@ -396,7 +396,7 @@ fn v1_database_with_data_migrates_to_the_latest() {
     }
     let s = open(tmp.path());
     assert_eq!(s.migration().from, 1);
-    assert_eq!(s.migration().to, 3);
+    assert_eq!(s.migration().to, 4);
     s.commit(None, "user", |w| -> Result<(), StoreError> {
         let c = w.tx;
         let team: Option<String> = c.query_row("SELECT team FROM agent WHERE id = 'agent_01'", [], |r| r.get(0))?;

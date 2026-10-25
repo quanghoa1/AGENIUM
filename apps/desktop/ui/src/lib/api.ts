@@ -63,6 +63,8 @@ export const api = {
   vendorUsage: () => call<VendorUsage[]>("vendor_usage"),
   refreshVendorUsage: () => call<VendorUsage[]>("refresh_vendor_usage"),
   readClaudeUsage: () => call<VendorUsage[]>("read_claude_usage"),
+  decideRoleProposal: (project: string, proposal: string, approve: boolean, note?: string) =>
+    call<unknown>("decide_role_proposal", { project, proposal, approve, note: note ?? null }),
   refreshPrices: () => call<{ priced: number | null; view: PriceView }>("refresh_prices"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),

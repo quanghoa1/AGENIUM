@@ -66,7 +66,8 @@ export type NeedKind =
   | "PlanApproval"
   | "Permission"
   | "Question"
-  | "MergeReview";
+  | "MergeReview"
+  | "RoleProposal";
 
 export interface NeedItem {
   kind: NeedKind;
@@ -75,6 +76,8 @@ export interface NeedItem {
   comment?: string | null;
   version?: number | null;
   agent?: string | null;
+  /** The role proposal to decide (`RoleProposal`). */
+  proposal?: string | null;
   text: string;
   at: string;
 }

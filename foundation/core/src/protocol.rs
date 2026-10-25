@@ -95,7 +95,7 @@ protocol_tools! {
     ApprovePermission => "approve_permission", Lead, ApprovePermission,
         "Decide a permission request inside the project allowlist, for the current work on that ticket only. Requests outside the allowlist go to the user.";
     ProposeRole => "propose_role", Lead, ProposeRole,
-        "Propose a new role for the team; an agent is created only if the user approves.";
+        "Propose a role your team lacks: a role id from get_team's role_library, or a new id with what the role does and why the plan needs it. An agent with it joins your team only if the user approves.";
     GetTeam => "get_team", Lead, NoArgs,
         "Read the current team roster: members, roles, tags, model, status, current ticket and MCP servers with their key names.";
     SetMemberMcpKey => "set_member_mcp_key", Lead, SetMemberMcpKey,

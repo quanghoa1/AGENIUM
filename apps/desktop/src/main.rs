@@ -78,6 +78,7 @@ fn main() {
             api::vendor_usage,
             api::refresh_vendor_usage,
             api::read_claude_usage,
+            api::decide_role_proposal,
             api::set_agent_status,
             api::pause_project,
             api::resume_project,

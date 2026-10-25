@@ -118,14 +118,25 @@ enum Cmd {
         #[arg(long)]
         always: bool,
     },
-    /// Approve a requirement spec or plan version waiting for you.
+    /// Approve a requirement spec or plan version, a merge, or a role the Lead proposed, waiting for you.
     Approve {
         #[arg(long)]
         project: String,
-        #[arg(value_parser = ["spec", "plan", "merge"])]
+        #[arg(value_parser = ["spec", "plan", "merge", "role"])]
         what: String,
-        /// Version (spec/plan) or ticket key (merge).
+        /// Version (spec/plan), ticket key (merge) or proposal id (role, e.g. RP-01...).
         target: String,
+    },
+    /// Decline a role the Lead proposed (it sees your reason).
+    Decline {
+        #[arg(long)]
+        project: String,
+        #[arg(value_parser = ["role"])]
+        what: String,
+        /// Proposal id (RP-...).
+        target: String,
+        #[arg(long)]
+        note: Option<String>,
     },
     /// Event log (resync source of every UI).
     Events {
@@ -518,6 +529,11 @@ enum RoleCmd {
     },
     Remove {
         id: String,
+    },
+    /// Roles the project's Lead proposed (decide with `approve role <id>` / `decline role <id>`).
+    Proposals {
+        #[arg(long)]
+        project: String,
     },
 }
 
@@ -2275,6 +2291,15 @@ async fn main() -> Result<()> {
         Cmd::Role(rc) => {
             let app = open(&root(&cli)?)?;
             match rc {
+                RoleCmd::Proposals { project: pname } => {
+                    let p = project(&app, pname)?;
+                    for r in app.role_proposals(p.id)? {
+                        println!(
+                            "{}	{}	{:?}	{}: {}",
+                            r.id, r.body.role_id, r.status, r.body.title, r.body.description
+                        );
+                    }
+                }
                 RoleCmd::List => {
                     for r in app.roles()? {
                         let flags = [
@@ -2453,6 +2478,12 @@ async fn main() -> Result<()> {
             match what.as_str() {
                 "spec" => app.approve_spec(p.id, target.parse()?)?,
                 "plan" => app.approve_plan(p.id, target.parse()?)?,
+                "role" => {
+                    let r = app.decide_role_proposal(p.id, target, true, None, None)?;
+                    if let Some(a) = r.agent {
+                        println!("{} joined the team", app.agent(a)?.name);
+                    }
+                }
                 _ => {
                     app.user_approve_merge(
                         p.id,
@@ -2461,6 +2492,17 @@ async fn main() -> Result<()> {
                 }
             }
             println!("approved {what} {target}");
+        }
+        Cmd::Decline {
+            project: pname,
+            what: _,
+            target,
+            note,
+        } => {
+            let app = open(&root(&cli)?)?;
+            let p = project(&app, pname)?;
+            app.decide_role_proposal(p.id, target, false, None, note.as_deref())?;
+            println!("declined role proposal {target}");
         }
         Cmd::Events { since, follow } => {
             let app = open(&root(&cli)?)?;

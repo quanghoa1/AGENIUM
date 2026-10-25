@@ -165,6 +165,20 @@ pub enum DomainEvent {
         version: u32,
         by: String,
     },
+    /// The Lead proposed a role its team lacks (decision 3l); waits for the user.
+    RoleProposed {
+        project: ProjectId,
+        proposal: String,
+        role: String,
+    },
+    /// The user approved (an agent joined the team) or declined a role proposal.
+    RoleProposalDecided {
+        project: ProjectId,
+        proposal: String,
+        approved: bool,
+        #[serde(default)]
+        agent: Option<AgentId>,
+    },
     /// The planner's draft of plan v1 (ADR-59); kept in the log, read by the Lead's inbox.
     PlanDrafted {
         project: ProjectId,

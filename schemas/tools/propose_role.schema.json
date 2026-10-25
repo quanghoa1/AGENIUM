@@ -2,7 +2,7 @@
   "$id": "https://agenium.dev/schemas/v1/tools/propose_role.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Propose a new role for the team; an agent is created only if the user approves.",
+  "description": "Propose a role your team lacks: a role id from get_team's role_library, or a new id with what the role does and why the plan needs it. An agent with it joins your team only if the user approves.",
   "properties": {
     "description": {
       "type": "string"

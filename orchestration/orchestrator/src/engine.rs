@@ -310,7 +310,7 @@ impl App {
             Intent::ProposeSpec(s) => self.propose_spec(ctx, s),
             Intent::CreatePlan(p) => self.create_plan(ctx, p),
             Intent::RevisePlan(p) => self.revise_plan(ctx, p),
-            Intent::ProposeRole(r) => self.needs_user(ctx, None, format!("Lead proposes a new role {:?}: {}", r.role_id, r.description), serde_json::to_value(&r).ok()),
+            Intent::ProposeRole(r) => self.propose_role(ctx, r),
             Intent::ProposeSoulChange(c) => self.needs_user(ctx, None, format!("change to SOUL.md proposed: {}", c.reason), serde_json::to_value(&c).ok()),
             Intent::ProposeRoleChange(c) => self.needs_user(ctx, None, format!("change to ROLE.md proposed: {}", c.reason), serde_json::to_value(&c).ok()),
             Intent::ProposeSkillUpdate(_) | Intent::LoadSkill(_) => {
@@ -342,6 +342,93 @@ impl App {
             .store
             .commit(ctx.intent_id.as_deref(), &ctx.actor.label(), f)?
             .value)
+    }
+
+    /// A Lead proposes a role its team lacks (decision 3l): kept as a pending proposal; an agent is created and
+    /// joins the team only when the user approves (`App::decide_role_proposal`).
+    fn propose_role(&self, ctx: &CallCtx, r: agenium_core::forms::ProposeRole) -> Result<Outcome> {
+        use agenium_store::core::roles::{self, ProposalStatus, RoleProposal};
+        let project = ctx.project;
+        let Actor::Lead(lead) = ctx.actor else {
+            return Err(denied("only a team's Lead proposes roles"));
+        };
+        let role = r.role_id.trim().to_owned();
+        if role.is_empty()
+            || role.len() > 60
+            || role.starts_with('-')
+            || !role
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            return Err(invalid(format!(
+                "role_id {role:?}: lowercase letters, digits and '-' (at most 60)"
+            )));
+        }
+        if r.title.trim().is_empty() || r.description.trim().len() < 20 {
+            return Err(invalid(
+                "a role proposal needs a title and a description of what the role does and why the team needs it",
+            ));
+        }
+        self.commit(ctx, |w| {
+            let team = require_lead(w, project, &ctx.actor)?
+                .ok_or_else(|| denied("the project has no team"))?;
+            if team.solo {
+                return Err(denied(
+                    "a Solo agent works alone: ask the user to build a team instead",
+                ));
+            }
+            if let Some(m) = agents::agents_of_team(w.tx, team.id)?
+                .into_iter()
+                .find(|m| m.role == role)
+            {
+                return Err(invalid(format!(
+                    "{} already has the role {role}: give the work to them",
+                    m.name
+                )));
+            }
+            if let Some(p) = roles::for_project(w.tx, project)?
+                .into_iter()
+                .find(|p| p.status == ProposalStatus::Pending && p.body.role_id == role)
+            {
+                return Err(invalid(format!(
+                    "role {role} is already proposed ({}) and waits for the user",
+                    p.id
+                )));
+            }
+            let id = format!("RP-{}", ulid::Ulid::new());
+            roles::insert(
+                w.tx,
+                &RoleProposal {
+                    id: id.clone(),
+                    project,
+                    team: team.id,
+                    proposed_by: lead,
+                    body: agenium_core::forms::ProposeRole {
+                        role_id: role.clone(),
+                        ..r.clone()
+                    },
+                    status: ProposalStatus::Pending,
+                    agent: None,
+                    note: None,
+                    created_at: now_iso(),
+                    decided_at: None,
+                },
+            )?;
+            w.emit(DomainEvent::RoleProposed {
+                project,
+                proposal: id.clone(),
+                role: role.clone(),
+            })?;
+            w.emit(DomainEvent::NeedsUser {
+                ticket: None,
+                reason: format!("the Lead proposes a new role {role}: {}", r.title.trim()),
+            })?;
+            Ok(Outcome::ok(serde_json::json!({
+                "status": "waiting_for_user_approval",
+                "proposal": id,
+                "next": "the user decides; on approval an agent with this role joins your team (get_team shows it). Until then keep its plan items unassigned.",
+            })))
+        })
     }
 
     fn needs_user(
@@ -1498,9 +1585,18 @@ impl App {
                 })
             })
             .collect();
-        Ok(Outcome::ok(
-            serde_json::json!({ "team": team.name, "solo": team.solo, "members": roster }),
-        ))
+        // Specialist roles the Lead can propose_role by id when the team lacks one (decision 3l).
+        let library: Vec<serde_json::Value> = if team.solo {
+            vec![]
+        } else {
+            crate::role_library::library()
+                .into_iter()
+                .map(|r| serde_json::json!({ "role": r.id, "mission": crate::role_library::mission(&r.prompt) }))
+                .collect()
+        };
+        Ok(Outcome::ok(serde_json::json!({
+            "team": team.name, "solo": team.solo, "members": roster, "role_library": library,
+        })))
     }
 }
 
@@ -1581,7 +1677,7 @@ fn check_roles(
         return Ok(());
     }
     Err(invalid(format!(
-        "plan items {} have role {lead_role}, the Lead's own role, and the Lead takes no tickets in team mode: give          them to a worker role ({}) or fold that work into your reviews",
+        "plan items {} have role {lead_role}, the Lead's own role, and the Lead takes no tickets in team mode: give them to a worker role ({}), fold that work into your reviews, or propose_role when no worker fits",
         theirs.join(", "),
         workers.into_iter().collect::<Vec<_>>().join(", ")
     )))

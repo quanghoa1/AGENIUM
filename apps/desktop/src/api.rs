@@ -868,6 +868,24 @@ pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) ->
     o.app.set_agent_backend(id, backend, &b).map_err(err)
 }
 
+/// The user approves (an agent with the role joins the Lead's team, with the Lead's model) or declines a role the
+/// Lead proposed (decision 3l).
+#[tauri::command]
+pub fn decide_role_proposal(
+    d: State<'_, Desktop>,
+    project: String,
+    proposal: String,
+    approve: bool,
+    note: Option<String>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let p = o
+        .app
+        .decide_role_proposal(pid(&project)?, &proposal, approve, None, note.as_deref())
+        .map_err(err)?;
+    Ok(json!(p))
+}
+
 /// Model prices per configured provider and where they came from.
 #[tauri::command]
 pub fn prices(d: State<'_, Desktop>) -> R<Value> {

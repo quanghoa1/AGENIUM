@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, ShieldAlert, Terminal, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ListItem } from "../components/motion";
@@ -16,11 +16,12 @@ const icon: Record<NeedKind, ReactNode> = {
   Permission: <KeyRound className="h-4 w-4 text-amber-500" />,
   Question: <HelpCircle className="h-4 w-4 text-blue-500" />,
   MergeReview: <GitMerge className="h-4 w-4 text-purple-500" />,
+  RoleProposal: <UserPlus className="h-4 w-4 text-cyan-500" />,
 };
 
 /** Stable identity of a "needs you" item across refreshes (for list animations). */
 export function needKey(n: NeedItem): string {
-  return [n.project, n.kind, n.ticket ?? "", n.comment ?? "", n.version ?? "", n.agent ?? ""].join("|");
+  return [n.project, n.kind, n.ticket ?? "", n.comment ?? "", n.version ?? "", n.agent ?? "", n.proposal ?? ""].join("|");
 }
 
 /** One "needs you" item with the action that resolves it. */
@@ -78,6 +79,16 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
             </button>
             <button disabled={busy} className="btn-primary" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, true), app.t("common.done"))}>
               <Check className="h-3.5 w-3.5" /> {app.t("common.approve")}
+            </button>
+          </>
+        )}
+        {n.kind === "RoleProposal" && n.proposal && (
+          <>
+            <button disabled={busy} className="btn-danger" title={app.t("need.declineRole")} onClick={() => act(api.decideRoleProposal(n.project, n.proposal!, false), app.t("common.done"))}>
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <button disabled={busy} className="btn-primary" title={app.t("need.approveRole")} onClick={() => act(api.decideRoleProposal(n.project, n.proposal!, true), app.t("need.roleAdded"))}>
+              <UserPlus className="h-3.5 w-3.5" /> {app.t("common.approve")}
             </button>
           </>
         )}

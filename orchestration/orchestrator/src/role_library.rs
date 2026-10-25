@@ -35,6 +35,20 @@ pub fn library() -> Vec<RoleSpec> {
         .roles
 }
 
+/// The first line of a role text's Mission section (its one-line summary).
+pub fn mission(text: &str) -> String {
+    sections(text)
+        .into_iter()
+        .find(|(h, _)| h == "Mission")
+        .and_then(|(_, body)| {
+            body.lines()
+                .map(str::trim)
+                .find(|l| !l.is_empty())
+                .map(str::to_owned)
+        })
+        .unwrap_or_default()
+}
+
 /// An empty ROLE.md with the sections to fill in.
 pub fn role_skeleton() -> String {
     ROLE_SECTIONS

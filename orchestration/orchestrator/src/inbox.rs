@@ -227,7 +227,7 @@ You take no tickets: give every plan item one of your workers' roles ({}).",
                     comment: None,
                     created_at: String::new(),
                     text: format!(
-                        "Approved plan v{} has items without a live ticket (none yet, or every ticket cancelled): {}. create_ticket for each (respect depends_on between items), then assign_ticket; an item that is no longer needed, or that no worker role fits, is changed or dropped with revise_plan.",
+                        "Approved plan v{} has items without a live ticket (none yet, or every ticket cancelled): {}. create_ticket for each (respect depends_on between items), then assign_ticket; an item that is no longer needed is changed or dropped with revise_plan; when no worker role fits, propose_role (the user decides) or revise_plan.",
                         plan.version,
                         missing.join("; ")
                     ),

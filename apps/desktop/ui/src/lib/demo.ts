@@ -269,6 +269,8 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "refresh_vendor_usage":
     case "read_claude_usage":
       return demoUsage;
+    case "decide_role_proposal":
+      return null;
     case "prices":
       return demoPrices;
     case "refresh_prices":

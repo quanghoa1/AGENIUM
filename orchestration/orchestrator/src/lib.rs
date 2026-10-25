@@ -13,6 +13,7 @@ pub mod mcp;
 pub mod prices;
 pub mod registry;
 pub mod role_library;
+pub mod role_proposals;
 pub mod runtime;
 pub mod sched;
 pub mod team_templates;
