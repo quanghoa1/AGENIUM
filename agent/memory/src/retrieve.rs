@@ -155,7 +155,11 @@ pub fn recall(
         if !f.is_live() || f.untrusted || f.weight < agenium_store::agent::HIDE_BELOW_WEIGHT {
             continue;
         }
-        let sf = match scope_match(&normalize_scope(&f.scope), &scope) {
+        let item_scope = normalize_scope(&f.scope);
+        let exact = item_scope
+            .as_object()
+            .is_none_or(|o| o.iter().all(|(k, v)| scope.get(k) == Some(v)));
+        let sf = match scope_match(&item_scope, &scope) {
             ScopeMatch::Conflict => continue,
             ScopeMatch::Factor(x) => {
                 let empty = f.scope.as_object().is_none_or(|o| o.is_empty());
@@ -179,6 +183,10 @@ pub fn recall(
             via,
             score,
             project: f.project,
+            kind: f.kind,
+            cue: f.cue,
+            exact,
+            validated: f.validated.len(),
         });
     }
     let project = ctx.project.as_deref();
@@ -192,6 +200,31 @@ pub fn recall(
     });
     out.truncate(k);
     Ok(out)
+}
+
+/// How a recalled memory is shown to the work (decision 35): a lesson whose scope matches the work exactly is a rule,
+/// one from a nearby context a hint to verify first; other facts as they are.
+pub fn label(r: &Recalled) -> String {
+    let when = r
+        .cue
+        .as_deref()
+        .filter(|c| !c.trim().is_empty())
+        .map(|c| format!(" (when: {})", c.trim()))
+        .unwrap_or_default();
+    match (r.kind, r.exact) {
+        (agenium_store::FactKind::Lesson, true) => {
+            let held = if r.validated > 1 {
+                format!(", held in {} contexts", r.validated)
+            } else {
+                String::new()
+            };
+            format!("Rule (lesson{held}): {}{when}", r.text)
+        }
+        (agenium_store::FactKind::Lesson, false) => {
+            format!("Hint from another context, verify first: {}{when}", r.text)
+        }
+        _ => r.text.clone(),
+    }
 }
 
 #[cfg(test)]

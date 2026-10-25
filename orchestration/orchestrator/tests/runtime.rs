@@ -1170,7 +1170,7 @@ async fn closing_a_ticket_teaches_the_assignee() {
         let t = req.messages[0].text();
         assert!(t.contains("Episode ticket:AGN-1") && t.contains("[tool call] write_file"), "{t}");
         Ok(calls_response(
-            "{\"facts\": [{\"text\": \"Greeting files in this project end with a newline.\", \"kind\": \"lesson\"}]}",
+            "{\"facts\": [{\"text\": \"Greeting files in this project end with a newline.\", \"kind\": \"fact\"}]}",
             vec![],
         ))
     }));

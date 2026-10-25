@@ -146,6 +146,14 @@ pub struct Recalled {
     pub score: f64,
     /// Project the fact was learned in.
     pub project: Option<String>,
+    pub kind: agenium_store::FactKind,
+    /// When a lesson applies.
+    pub cue: Option<String>,
+    /// Every scope key of the fact matches the work's context (decision 35: a lesson is then a rule, otherwise a
+    /// hint to verify).
+    pub exact: bool,
+    /// Contexts the fact held in.
+    pub validated: usize,
 }
 
 /// Builds the memory block of a work order and records what was used.

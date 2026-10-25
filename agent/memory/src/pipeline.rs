@@ -65,6 +65,9 @@ pub struct Episode {
     pub run: Option<String>,
     /// Memories shown to that run: (fact id, text).
     pub used: Vec<(i64, String)>,
+    /// What makes the episode worth a lesson (decision 35): a reopen, a failed merge, the Lead's correction or
+    /// praise, the user's feedback. Without one only facts and preferences are kept.
+    pub signals: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +90,11 @@ pub struct LearnReport {
     pub edges: usize,
     pub helped: usize,
     pub misleading: Vec<i64>,
+    /// Lessons shown to the run that held again, in a new context.
+    pub validated: usize,
+    /// Forgetting and consolidation after the episode.
+    pub decayed: u64,
+    pub consolidated: u64,
     /// Facts, operations, mentions or relations refused by the guards.
     pub rejected: Vec<String>,
     pub tokens_in: u64,
@@ -123,6 +131,8 @@ struct Extracted {
     kind: Option<String>,
     #[serde(default)]
     external: bool,
+    #[serde(default)]
+    cue: Option<String>,
     #[serde(default)]
     scope: Value,
     #[serde(default)]
@@ -166,10 +176,13 @@ For each fact give \"scope\": where it holds, with keys among vendor, product, v
 vendor, product, software, library, language, project, repo, file, service, config, error, concept, command, person; \
 role subject|object|mention; optional description) and \"relations\" between those entities (src and dst are entity \
 names of the same fact; type among is_a, part_of, depends_on, uses, configured_with, causes, fixes, workaround_for, \
-conflicts_with, applies_to, replaced_by, related_to). At most 12 facts; none is fine. If the episode lists MEMORIES \
+conflicts_with, applies_to, replaced_by, related_to). A lesson also needs a \"cue\": when it applies (the situation \
+that should bring it to mind); a lesson without a cue is not kept. Lessons come only from the SIGNALS listed with the \
+episode (a reopen, a failed merge, the Lead's correction or praise, the user's feedback): a lesson is a rule with its \
+reason, not an incident log; with no signals extract facts and preferences only. At most 12 facts; none is fine. If the episode lists MEMORIES \
 SHOWN and the ticket was reopened, list in \"misleading\" the ids of the memories that led to the rejected work. \
 Answer with JSON only: {\"facts\": [{\"text\": \"...\", \"kind\": \"fact|preference|lesson\", \"external\": false, \
-\"scope\": {}, \"entities\": [{\"name\": \"...\", \"type\": \"...\", \"role\": \"subject\"}], \"relations\": [{\"src\": \
+\"cue\": \"when ...\", \"scope\": {}, \"entities\": [{\"name\": \"...\", \"type\": \"...\", \"role\": \"subject\"}], \"relations\": [{\"src\": \
 \"...\", \"type\": \"...\", \"dst\": \"...\", \"scope\": {}}]}], \"misleading\": []}";
 
 const DECIDE_RULES: &str = "You maintain your own long-term memory. For each NEW fact you see the most similar EXISTING \
@@ -266,6 +279,17 @@ fn is_empty_scope(v: &Value) -> bool {
     v.as_object().is_none_or(|o| o.is_empty())
 }
 
+/// Forgetting and consolidation after each episode (decision 35): weights decay while facts go unused, and copies of
+/// the same fact fold into one.
+fn maintain(store: &AgentStore, report: &mut LearnReport) -> Result<(), MemoryError> {
+    report.decayed = store.decay(
+        chrono::Utc::now(),
+        agenium_store::agent::DECAY_HALF_LIFE_DAYS,
+    )?;
+    report.consolidated = store.consolidate()?;
+    Ok(())
+}
+
 /// Runs the pipeline for one episode. `clean` redacts known secret values and returns `None` when the text
 /// still looks like a secret (the fact is dropped).
 pub async fn learn(
@@ -279,8 +303,14 @@ pub async fn learn(
     let mut report = LearnReport::default();
     let transcript: String = ep.transcript.chars().take(60_000).collect();
     let mut prompt = format!(
-        "Episode {} (outcome: {})\n\n{transcript}",
-        ep.source, ep.outcome
+        "Episode {} (outcome: {})\nSIGNALS: {}\n\n{transcript}",
+        ep.source,
+        ep.outcome,
+        if ep.signals.is_empty() {
+            "none (no lessons)".to_owned()
+        } else {
+            ep.signals.join("; ")
+        }
     );
     if !ep.used.is_empty() {
         prompt.push_str("\n\n## MEMORIES SHOWN to this run\n");
@@ -311,6 +341,18 @@ pub async fn learn(
                         .rejected
                         .push("an external lesson was stored as an untrusted fact".into());
                 }
+                if f.kind.as_deref() == Some("lesson") {
+                    if ep.signals.is_empty() {
+                        report
+                            .rejected
+                            .push("a lesson from an episode without signals".into());
+                        continue;
+                    }
+                    if f.cue.as_deref().is_none_or(|c| c.trim().is_empty()) {
+                        report.rejected.push("a lesson without a cue".into());
+                        continue;
+                    }
+                }
                 if f.kind.as_deref() == Some("lesson") && is_empty_scope(&f.scope) {
                     if let Some(p) = &ep.project_name {
                         f.scope = serde_json::json!({ "project": p });
@@ -336,13 +378,20 @@ pub async fn learn(
                 report.misleading.push(*id);
             }
         } else if !shown.is_empty() {
+            // A lesson that held again counts the context (decision 35: two make it a skill-update candidate).
+            let context = format!("{}/{}", ep.project.as_deref().unwrap_or("-"), ep.source);
             for id in &shown {
                 store.adjust_confidence(*id, HELPED_DELTA)?;
+                if store.get(*id).is_ok_and(|f| f.kind == FactKind::Lesson) {
+                    store.validate_in(*id, &context)?;
+                    report.validated += 1;
+                }
             }
             report.helped = store.signal_usage(run, None, "closed", Some("helped"))? as usize;
         }
     }
     if facts.is_empty() {
+        maintain(store, &mut report)?;
         return Ok(report);
     }
 
@@ -405,7 +454,13 @@ pub async fn learn(
                 kind: kind_of(f.kind.as_deref()),
                 project: ep.project.clone(),
                 scope: agenium_store::graph::normalize_scope(&f.scope),
-                cue: None,
+                cue: f
+                    .cue
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|c| !c.is_empty())
+                    .and_then(clean)
+                    .map(|c| c.chars().take(MAX_FACT_CHARS).collect()),
                 evidence: Some(ep.outcome.chars().take(200).collect()),
                 source: ep.source.clone(),
                 untrusted: f.external,
@@ -599,6 +654,7 @@ pub async fn learn(
             report.edges += 1;
         }
     }
+    maintain(store, &mut report)?;
     Ok(report)
 }
 

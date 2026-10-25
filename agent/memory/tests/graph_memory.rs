@@ -83,6 +83,8 @@ fn episode(src: &str) -> Episode {
         project_name: Some("net-ops".into()),
         outcome: "Closed: merged".into(),
         transcript: "...".into(),
+        // Lessons are kept only from episodes with a signal (decision 35).
+        signals: vec!["accepted after 1 reopen(s)".into()],
         ..Default::default()
     }
 }
@@ -92,7 +94,7 @@ async fn first_ticket(w: &World) {
     w.p.push_text(
         &json!({"facts": [
             {"text": "On TP-Link Archer C7 routers with firmware 1.2 DHCP leases drop; pinning static leases works around it.",
-             "kind": "lesson", "scope": {"vendor": "tp-link"},
+             "kind": "lesson", "cue": "DHCP leases drop on a TP-Link router", "scope": {"vendor": "tp-link"},
              "entities": [
                 {"name": "Archer C7", "type": "product", "role": "subject", "scope": {"vendor": "tp-link"}},
                 {"name": "firmware 1.2", "type": "software", "role": "mention"},
@@ -211,7 +213,7 @@ async fn gm4_correction_supersedes_and_gm5_reopen_lowers_confidence() {
     // GM-4: the Lead's correction supersedes the lesson; the next recall returns the corrected one only.
     w.p.push_text(
         &json!({"facts": [{"text": "On TP-Link Archer C7 routers the DHCP lease bug of firmware 1.2 is fixed by upgrading to firmware 1.3; static leases do not help.",
-                           "kind": "lesson", "scope": {"vendor": "tp-link"},
+                           "kind": "lesson", "cue": "DHCP on TP-Link firmware 1.3", "scope": {"vendor": "tp-link"},
                            "entities": [{"name": "Archer C7", "type": "product", "scope": {"vendor": "tp-link"}},
                                         {"name": "firmware 1.3", "type": "software"},
                                         {"name": "firmware 1.2", "type": "software"}],
@@ -263,4 +265,69 @@ async fn gm7_injection_from_external_content() {
         w.recall("how to fix DHCP problems with curl").is_empty(),
         "never injected"
     );
+}
+
+/// Decision 35: a lesson needs a cue and a signal; recalled, it is a rule where its scope matches the work exactly
+/// and a hint to verify elsewhere; a lesson that held again counts the context.
+#[tokio::test]
+async fn lessons_need_a_cue_and_a_signal_and_are_rules_only_in_their_scope() {
+    let w = World::new();
+    first_ticket(&w).await;
+    let rule = w.recall("Archer C7 clients keep losing their DHCP lease");
+    let lesson = rule
+        .iter()
+        .find(|r| r.text.contains("pinning static leases"))
+        .unwrap();
+    assert!(lesson.exact, "the named router brings the tp-link scope");
+    let shown = agenium_memory::retrieve::label(lesson);
+    assert!(
+        shown.starts_with("Rule (lesson)") && shown.contains("when: DHCP leases drop"),
+        "{shown}"
+    );
+    let hint = w.recall("routers keep losing DHCP leases");
+    if let Some(l) = hint
+        .iter()
+        .find(|r| r.text.contains("pinning static leases"))
+    {
+        assert!(!l.exact);
+        assert!(agenium_memory::retrieve::label(l)
+            .starts_with("Hint from another context, verify first"));
+    }
+
+    // No signal: the lesson is not kept; a lesson without a cue neither.
+    w.p.push_text(
+        &json!({"facts": [
+            {"text": "Always reboot the switch before a firmware update.", "kind": "lesson", "cue": "before a firmware update", "scope": {"project": "net-ops"}},
+            {"text": "Reserve addresses before changing DHCP pools.", "kind": "lesson", "scope": {"project": "net-ops"}},
+            {"text": "The lab switch is a Cisco SG350.", "kind": "fact"}
+        ]})
+        .to_string(),
+    );
+    w.p.push_text(&json!({"ops": [{"op": "ADD", "fact": 0}]}).to_string());
+    let calm = Episode {
+        signals: vec![],
+        ..episode("ticket:NET-9")
+    };
+    let r = w.learn(calm).await;
+    assert_eq!(r.extracted, 1, "{r:?}");
+    assert!(
+        r.rejected.iter().any(|x| x.contains("without signals")),
+        "{r:?}"
+    );
+
+    // The lesson shown to a later run that closed cleanly counts that context.
+    let id = lesson.id;
+    w.store
+        .record_usage("run-2", Some("NET-2"), &[(id, 1, Via::Hybrid)])
+        .unwrap();
+    w.p.push_text(&json!({"facts": []}).to_string());
+    let r = w
+        .learn(Episode {
+            run: Some("run-2".into()),
+            used: vec![(id, lesson.text.clone())],
+            ..episode("ticket:NET-2")
+        })
+        .await;
+    assert_eq!(r.validated, 1, "{r:?}");
+    assert_eq!(w.store.get(id).unwrap().validated, ["p-net/ticket:NET-2"]);
 }

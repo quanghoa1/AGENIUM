@@ -163,3 +163,37 @@ fn reindex_replaces_vectors() {
     let q: Vec<f32> = embed("alpha beta", DIM).into_iter().rev().collect();
     assert_eq!(s.knn(&q, 1).unwrap()[0].0, a);
 }
+
+/// Decision 35: lessons count the contexts they held in; unused facts fade by half every 90 days and hide below
+/// 0.2; duplicates fold into the most trusted copy (history kept).
+#[test]
+fn validation_decay_and_consolidation() {
+    let tmp = tempfile::tempdir().unwrap();
+    let s = open(tmp.path());
+    let a = add(&s, "Run cargo test --workspace before submitting");
+    assert_eq!(s.validate_in(a, "project:p1").unwrap(), 1);
+    assert_eq!(
+        s.validate_in(a, "project:p1").unwrap(),
+        1,
+        "same context once"
+    );
+    assert_eq!(s.validate_in(a, "project:p2").unwrap(), 2);
+    assert_eq!(s.get(a).unwrap().validated, ["project:p1", "project:p2"]);
+
+    let now = chrono::Utc::now();
+    assert!(s.decay(now, 90.0).unwrap() <= 1);
+    assert!(s.get(a).unwrap().weight > 0.99);
+    let later = now + chrono::Duration::days(90);
+    s.decay(later, 90.0).unwrap();
+    assert!((s.get(a).unwrap().weight - 0.5).abs() < 0.01);
+    s.decay(now + chrono::Duration::days(240), 90.0).unwrap();
+    assert!(s.get(a).unwrap().weight < agenium_store::agent::HIDE_BELOW_WEIGHT);
+
+    let b = add(&s, "run  cargo TEST --workspace before submitting");
+    let c = add(&s, "Something else");
+    assert_eq!(s.consolidate().unwrap(), 1);
+    let (fa, fb) = (s.get(a).unwrap(), s.get(b).unwrap());
+    assert!(fa.is_live() != fb.is_live(), "one of the two stays");
+    assert!(s.get(c).unwrap().is_live());
+    assert_eq!(s.consolidate().unwrap(), 0);
+}

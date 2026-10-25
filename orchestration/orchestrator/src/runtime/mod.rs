@@ -944,7 +944,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             ];
             let mut messages = prev.clone();
             if messages.is_empty() {
-                let facts: Vec<String> = recalled.iter().map(|r| r.text.clone()).collect();
+                let facts: Vec<String> = recalled
+                    .iter()
+                    .map(agenium_memory::retrieve::label)
+                    .collect();
                 let mut first = format!(
                     "{}{}{}\n",
                     prompt::memory_text(&facts),

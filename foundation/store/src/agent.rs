@@ -25,6 +25,10 @@ pub const AGENT_MIGRATIONS: &[Migration] = &[
         version: 2,
         sql: include_str!("schema/agent_002.sql"),
     },
+    Migration {
+        version: 3,
+        sql: include_str!("schema/agent_003.sql"),
+    },
 ];
 
 /// Tables carried by an agent export (in dependency order). `agent_meta`, vectors and the ANN journal are
@@ -45,6 +49,8 @@ pub const EXPORT_TABLES: &[&str] = &[
 pub const RRF_K: f64 = 60.0;
 /// Facts whose decayed weight falls below this are not retrieved (kept, not deleted; decision 35).
 pub const HIDE_BELOW_WEIGHT: f64 = 0.2;
+/// Half-life of a fact's weight while it is not used (decision 35).
+pub const DECAY_HALF_LIFE_DAYS: f64 = 90.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -119,6 +125,9 @@ pub struct Fact {
     pub created_at: String,
     pub updated_at: String,
     pub used_at: Option<String>,
+    /// Contexts in which the fact (a lesson) was used and the work held (decision 35).
+    #[serde(default)]
+    pub validated: Vec<String>,
 }
 
 impl Fact {
@@ -157,9 +166,10 @@ pub struct Hit {
 }
 
 const FACT_COLS: &str = "id, text, kind, project, scope, cue, evidence, source, untrusted, confidence, weight, model_id, \
-    superseded_by, created_at, updated_at, used_at";
+    superseded_by, created_at, updated_at, used_at, validated";
 
 fn map_fact(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Fact, String, String)> {
+    let validated: String = r.get(16)?;
     Ok((
         Fact {
             id: r.get(0)?,
@@ -178,6 +188,7 @@ fn map_fact(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Fact, String, String)> {
             created_at: r.get(13)?,
             updated_at: r.get(14)?,
             used_at: r.get(15)?,
+            validated: serde_json::from_str(&validated).unwrap_or_default(),
         },
         r.get(2)?,
         r.get(4)?,
@@ -538,6 +549,102 @@ impl AgentStore {
                 tx.execute("UPDATE fact SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1", [fact])?;
             }
             Ok(())
+        })
+    }
+
+    /// Records that a fact held in `context` (`project:<id>` / `ticket:<key>`); returns in how many distinct contexts
+    /// it has held (decision 35: two or more make a lesson a skill-update candidate).
+    pub fn validate_in(&self, fact: i64, context: &str) -> Result<usize, StoreError> {
+        self.db.write(|tx| {
+            let raw: String =
+                tx.query_row("SELECT validated FROM fact WHERE id = ?1", [fact], |r| {
+                    r.get(0)
+                })?;
+            let mut v: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+            if !v.iter().any(|c| c == context) {
+                v.push(context.to_owned());
+                tx.execute(
+                    "UPDATE fact SET validated = ?2 WHERE id = ?1",
+                    params![
+                        fact,
+                        serde_json::to_string(&v).unwrap_or_else(|_| "[]".into())
+                    ],
+                )?;
+            }
+            Ok(v.len())
+        })
+    }
+
+    /// Forgetting (decision 35): the weight of every live fact halves for each `half_life_days` it went unused (since
+    /// it was last used, else since it was made); below [`HIDE_BELOW_WEIGHT`] it is no longer retrieved but kept.
+    /// Returns how many weights changed.
+    pub fn decay(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+        half_life_days: f64,
+    ) -> Result<u64, StoreError> {
+        self.db.write(|tx| {
+            let rows: Vec<(i64, String, Option<String>, f64)> = {
+                let mut st = tx.prepare(
+                    "SELECT id, created_at, used_at, weight FROM fact WHERE superseded_by IS NULL",
+                )?;
+                let rows = st
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                rows
+            };
+            let mut n = 0;
+            for (id, created, used, old) in rows {
+                let since = used.unwrap_or(created);
+                let Ok(at) = chrono::DateTime::parse_from_rfc3339(&since) else {
+                    continue;
+                };
+                let days =
+                    (now - at.with_timezone(&chrono::Utc)).num_seconds().max(0) as f64 / 86_400.0;
+                let w = 0.5f64.powf(days / half_life_days.max(1.0));
+                if (w - old).abs() > 1e-6 {
+                    tx.execute("UPDATE fact SET weight = ?2 WHERE id = ?1", params![id, w])?;
+                    n += 1;
+                }
+            }
+            Ok(n)
+        })
+    }
+
+    /// Consolidation (decision 35): live facts that say the same thing (same kind, scope and text up to case and
+    /// spacing) become one: the most trusted (then the newest) stays, the others are superseded by it and keep
+    /// their history. Returns how many were folded.
+    pub fn consolidate(&self) -> Result<u64, StoreError> {
+        self.db.write(|tx| {
+            let rows: Vec<(i64, String, String, String, f64)> = {
+                let mut st = tx.prepare(
+                    "SELECT id, text, kind, scope, confidence FROM fact WHERE superseded_by IS NULL AND id IS NOT NULL",
+                )?;
+                let rows = st
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                rows
+            };
+            let norm = |t: &str| t.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+            let mut groups: std::collections::BTreeMap<(String, String, String), Vec<(i64, f64)>> =
+                std::collections::BTreeMap::new();
+            for (id, text, kind, scope, conf) in rows {
+                groups.entry((kind, scope, norm(&text))).or_default().push((id, conf));
+            }
+            let mut n = 0;
+            for (_, mut ids) in groups.into_iter().filter(|(_, v)| v.len() > 1) {
+                ids.sort_by(|a, b| b.1.total_cmp(&a.1).then(b.0.cmp(&a.0)));
+                let keep = ids[0].0;
+                for (id, _) in &ids[1..] {
+                    tx.execute(
+                        "UPDATE fact SET superseded_by = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1",
+                        params![id, keep],
+                    )?;
+                    Self::drop_vector(tx, *id)?;
+                    n += 1;
+                }
+            }
+            Ok(n)
         })
     }
 

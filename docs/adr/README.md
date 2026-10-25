@@ -39,3 +39,4 @@ ADR-52 records this fresh implementation.
 | [69](ADR-69-propose-role.md) | The Lead proposes roles (library or new); the user approves (an agent joins the team) or declines; Needs you, CLI, Lead project state |
 | [70](ADR-70-aging-and-worktree-guard.md) | Scheduler aging (a level per `aging_hours` waited); changes made to a worktree outside Agenium are undone before the next run, saved as a patch and reported |
 | [71](ADR-71-template-wizard.md) | Template wizard: new, from a team, import/export TOML, edit roles (kind, count, tags, scope, model, ROLE.md), validated on save |
+| [72](ADR-72-lessons-decay-consolidation.md) | Lessons need a cue and a signal; rules where the scope matches, hints elsewhere; validated contexts; 90-day decay and consolidation |

@@ -90,7 +90,32 @@ impl Runtime {
                 .collect(),
             None => vec![],
         };
+        // Decision 35: what makes the episode worth a lesson.
+        let mut signals = Vec::new();
+        if t.status == TicketStatus::Reopened {
+            signals.push(format!(
+                "the review reopened the work (reopen #{})",
+                t.reopen_count
+            ));
+        } else if t.reopen_count > 0 {
+            signals.push(format!(
+                "accepted after {} reopen(s): what changed between the rejected and the accepted work",
+                t.reopen_count
+            ));
+        }
+        if cmts.iter().any(
+            |c| matches!(&c.body, CommentBody::System { text } if text.starts_with("Merge failed")),
+        ) {
+            signals.push("a merge or pre-merge check failed".into());
+        }
+        if cmts
+            .iter()
+            .any(|c| c.author == Author::User && matches!(c.body, CommentBody::Text { .. }))
+        {
+            signals.push("the user commented on the work".into());
+        }
         let ep = Episode {
+            signals,
             source: format!("ticket:{}", t.key),
             project: Some(project.to_string()),
             project_name: Some(self.app.project(project)?.name),
