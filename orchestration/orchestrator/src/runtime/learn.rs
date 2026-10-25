@@ -198,6 +198,10 @@ impl Runtime {
                     "memory",
                     serde_json::to_value(&rep).unwrap_or_default(),
                 );
+                // ADR-87: promote this agent's now-generalized lessons into the shared pool.
+                if let Err(e) = self.share_lessons(agent_id, &mem) {
+                    tracing::warn!(error = %e, "sharing generalized lessons failed");
+                }
                 Ok(Some(rep))
             }
             Err(e) => {
@@ -210,6 +214,60 @@ impl Runtime {
                 Ok(None)
             }
         }
+    }
+
+    /// Promotes `agent`'s generalized lessons into the shared pool (ADR-87): a live, trusted Lesson that held in two
+    /// or more distinct contexts and is not scoped to one project. The pool copy drops the project, keeps scope and cue,
+    /// and caps confidence; pool recall ranks it below the recalling agent's own memory. Deduped by text, so repeated
+    /// runs do not pile up copies. No-op when `[memory] share` is off.
+    fn share_lessons(
+        &self,
+        agent: AgentId,
+        mem: &std::sync::Arc<agenium_store::AgentStore>,
+    ) -> Result<usize> {
+        if !self.app.config().memory.share {
+            return Ok(0);
+        }
+        let pool = self.app.pool_memory()?;
+        let norm = |s: &str| s.trim().to_lowercase();
+        let have: std::collections::HashSet<String> = pool
+            .live(10_000)?
+            .into_iter()
+            .map(|f| norm(&f.text))
+            .collect();
+        let mut n = 0;
+        for f in mem.live(10_000)? {
+            let project_scoped = f
+                .scope
+                .as_object()
+                .is_some_and(|o| o.contains_key("project"));
+            let general = f.kind == agenium_store::FactKind::Lesson
+                && !f.untrusted
+                && f.validated.len() >= crate::skill_overlay::MIN_CONTEXTS
+                && !project_scoped;
+            if !general || have.contains(&norm(&f.text)) {
+                continue;
+            }
+            let nf = agenium_store::NewFact {
+                text: f.text.clone(),
+                kind: agenium_store::FactKind::Lesson,
+                project: None,
+                scope: f.scope.clone(),
+                cue: f.cue.clone(),
+                evidence: None,
+                source: format!("shared:{agent}"),
+                untrusted: false,
+                confidence: f.confidence.min(0.6),
+            };
+            let vector = self
+                .embedder
+                .embed(std::slice::from_ref(&f.text))
+                .ok()
+                .and_then(|mut v| v.pop());
+            pool.add(&nf, vector.as_deref())?;
+            n += 1;
+        }
+        Ok(n)
     }
 
     fn is_review_run(&self, r: &runs::Run) -> bool {

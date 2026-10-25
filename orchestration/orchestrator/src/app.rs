@@ -720,6 +720,13 @@ impl App {
         Ok(s)
     }
 
+    /// The shared pool of generalized lessons (ADR-87): a memory database under a reserved nil agent id that every
+    /// agent also recalls from. Real agents get a random id, so the nil id never collides.
+    pub fn pool_memory(&self) -> Result<Arc<AgentStore>> {
+        let e = self.embedder();
+        self.agent_store(AgentId::from_ulid(ulid::Ulid::nil()), e.dim(), e.model_id())
+    }
+
     /// Closes this process's handle of an agent database (deletion).
     pub(crate) fn forget_agent_store(&self, id: AgentId) {
         self.agent_stores

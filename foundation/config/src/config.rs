@@ -237,6 +237,10 @@ pub struct MemorySection {
     pub top_k: u32,
     /// Run the memory pipeline (extract -> ADD/UPDATE/DELETE) when a ticket is Closed or Reopened.
     pub learn: bool,
+    /// Share generalized lessons between agents through a controlled pool (ADR-87): a lesson is promoted only after it
+    /// held in >=2 distinct contexts and is not scoped to one project, and every agent also recalls from the pool
+    /// (ranked below its own memory). Off stops promotion and pool recall.
+    pub share: bool,
 }
 
 impl Default for MemorySection {
@@ -247,6 +251,7 @@ impl Default for MemorySection {
             ann_threshold: 100_000,
             top_k: 8,
             learn: true,
+            share: true,
         }
     }
 }

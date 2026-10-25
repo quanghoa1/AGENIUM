@@ -54,3 +54,4 @@ ADR-52 records this fresh implementation.
 | [84](ADR-84-network-posture-and-unified-fetch.md) | Network posture: containment is the boundary (sandboxed commands may use the network by default, fail-closed); every agent reads URLs through one audited `fetch` (allowlist, out-of-sandbox) |
 | [85](ADR-85-memory-gate.md) | The judge can skip memory extraction on routine tickets (a confident "nothing worth remembering"; fail-open, off by default) |
 | [86](ADR-86-overlay-rebase.md) | Skill overlays rebase onto an updated base (3-way merge; reverse-apply reconstructs the old base, clean merge auto-applies, conflict is left for the user) |
+| [87](ADR-87-shared-lesson-pool.md) | Cross-agent knowledge sharing (GM-6): a controlled shared pool of generalized lessons (promoted only after holding in >=2 distinct contexts and non-project-scoped; recalled below own memory, verify-first) |

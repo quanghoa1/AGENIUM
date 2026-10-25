@@ -154,17 +154,31 @@ pub struct Recalled {
     pub exact: bool,
     /// Contexts the fact held in.
     pub validated: usize,
+    /// From the shared pool (ADR-87), not this agent's own memory: recalled for the agent but not logged as its usage.
+    pub shared: bool,
 }
 
 /// Builds the memory block of a work order and records what was used.
 pub struct MemoryRetriever {
     store: Arc<AgentStore>,
     embedder: Arc<dyn Embedder>,
+    /// The shared pool of generalized lessons (ADR-87); recalled below the agent's own memory.
+    pool: Option<Arc<AgentStore>>,
 }
 
 impl MemoryRetriever {
     pub fn new(store: Arc<AgentStore>, embedder: Arc<dyn Embedder>) -> Self {
-        Self { store, embedder }
+        Self {
+            store,
+            embedder,
+            pool: None,
+        }
+    }
+
+    /// Also recall from the shared pool (ADR-87). Pool hits rank below the agent's own and are not logged as its usage.
+    pub fn with_pool(mut self, pool: Option<Arc<AgentStore>>) -> Self {
+        self.pool = pool;
+        self
     }
 
     /// Top `k` live facts for `query` (ticket title + description + acceptance). Facts from the current project
@@ -190,7 +204,23 @@ impl MemoryRetriever {
         ctx: &retrieve::RecallContext,
         k: usize,
     ) -> Result<Vec<Recalled>, MemoryError> {
-        retrieve::recall(&self.store, self.embedder.as_ref(), query, ctx, k)
+        let mut own = retrieve::recall(&self.store, self.embedder.as_ref(), query, ctx, k)?;
+        let Some(pool) = &self.pool else {
+            return Ok(own);
+        };
+        // Pool hits rank below the agent's own: scale their score and drop any whose text the agent already holds.
+        let have: std::collections::HashSet<String> =
+            own.iter().map(|r| r.text.trim().to_lowercase()).collect();
+        let mut shared = retrieve::recall(pool, self.embedder.as_ref(), query, ctx, k)?;
+        shared.retain(|r| !have.contains(&r.text.trim().to_lowercase()));
+        for r in &mut shared {
+            r.shared = true;
+            r.score *= 0.6;
+        }
+        own.append(&mut shared);
+        own.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));
+        own.truncate(k);
+        Ok(own)
     }
 
     /// Logs every injected fact (rank, channel) for the run (M1-11 acceptance: one `fact_usage` row per fact).
@@ -200,8 +230,10 @@ impl MemoryRetriever {
         ticket: Option<&str>,
         used: &[Recalled],
     ) -> Result<(), MemoryError> {
+        // Shared-pool hits (ADR-87) carry pool fact ids, not this agent's, so they are not logged as its usage.
         let rows: Vec<(i64, u32, Via)> = used
             .iter()
+            .filter(|r| !r.shared)
             .enumerate()
             .map(|(i, r)| (r.id, i as u32 + 1, r.via))
             .collect();
@@ -280,5 +312,69 @@ mod tests {
             e,
         );
         assert!(empty.recall("anything", None, 5).unwrap().is_empty());
+    }
+
+    /// ADR-87: the shared pool is recalled below the agent's own memory, flagged `shared`, deduped by text, and never
+    /// logged as the agent's usage.
+    #[test]
+    fn pooled_recall_merges_shared_lessons_below_own() {
+        let tmp = tempfile::tempdir().unwrap();
+        let e: Arc<dyn Embedder> = Arc::new(HashEmbedder::new(64));
+        let open = |name: &str| {
+            Arc::new(
+                AgentStore::open(
+                    &tmp.path().join(name),
+                    64,
+                    e.model_id(),
+                    &tmp.path().join("b"),
+                )
+                .unwrap(),
+            )
+        };
+        let own = open("own.db");
+        let pool = open("pool.db");
+        let add = |s: &Arc<AgentStore>, t: &str| {
+            let v = e.embed(&[t.to_owned()]).unwrap().pop().unwrap();
+            s.add(
+                &NewFact {
+                    kind: agenium_store::FactKind::Lesson,
+                    ..NewFact::fact(t, "shared:x")
+                },
+                Some(&v),
+            )
+            .unwrap()
+        };
+        add(&own, "prefer ripgrep over grep in this repo");
+        let dup = "run the suite with cargo test --workspace";
+        add(&own, dup);
+        add(&pool, dup); // same text in the pool -> deduped away
+        add(&pool, "pin exact crate versions in examples");
+
+        let r = MemoryRetriever::new(own.clone(), e.clone()).with_pool(Some(pool));
+        let got = r
+            .recall("how do I run the whole test suite", None, 8)
+            .unwrap();
+        // The deduped pool copy does not appear twice.
+        assert_eq!(
+            got.iter().filter(|g| g.text == dup).count(),
+            1,
+            "deduped by text"
+        );
+        // The unique pool lesson appears, flagged shared.
+        let shared: Vec<_> = got.iter().filter(|g| g.shared).collect();
+        assert!(
+            shared
+                .iter()
+                .any(|g| g.text == "pin exact crate versions in examples"),
+            "the unique pool lesson is recalled as shared: {got:?}"
+        );
+        // record() logs only the agent's own facts, never the shared ones.
+        r.record("run-1", None, &got).unwrap();
+        let logged = own.usage_for_run("run-1").unwrap().len();
+        assert_eq!(logged, got.iter().filter(|g| !g.shared).count());
+        assert!(
+            logged < got.len(),
+            "at least one shared hit was excluded from usage"
+        );
     }
 }

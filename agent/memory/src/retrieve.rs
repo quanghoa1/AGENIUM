@@ -187,6 +187,7 @@ pub fn recall(
             cue: f.cue,
             exact,
             validated: f.validated.len(),
+            shared: false,
         });
     }
     let project = ctx.project.as_deref();
@@ -211,6 +212,13 @@ pub fn label(r: &Recalled) -> String {
         .filter(|c| !c.trim().is_empty())
         .map(|c| format!(" (when: {})", c.trim()))
         .unwrap_or_default();
+    // A shared-pool lesson (ADR-87) came from another agent; show it as a hint to verify, never a hard rule.
+    if r.shared && r.kind == agenium_store::FactKind::Lesson {
+        return format!(
+            "Shared lesson (from another agent, verify first): {}{when}",
+            r.text
+        );
+    }
     match (r.kind, r.exact) {
         (agenium_store::FactKind::Lesson, true) => {
             let held = if r.validated > 1 {

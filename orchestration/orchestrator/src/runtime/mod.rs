@@ -924,7 +924,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             (vec![], None, None)
         };
         let solo = team.solo;
-        let retriever = MemoryRetriever::new(mem.clone(), self.embedder.clone());
+        // ADR-87: also recall from the shared pool of generalized lessons (ranked below the agent's own memory).
+        let pool = if self.app.config().memory.share {
+            self.app.pool_memory().ok()
+        } else {
+            None
+        };
+        let retriever = MemoryRetriever::new(mem.clone(), self.embedder.clone()).with_pool(pool);
         let query = format!(
             "{}\n{}\n{}",
             t.title,
