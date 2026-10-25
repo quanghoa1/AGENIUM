@@ -4,7 +4,8 @@
 //! With a vendor CLI (CliBackend): `--cli codex --model gpt-6-luna` or `--cli agy --model gemini-3.8-flash-low`
 //! (uses the CLI's own login and quota; codex runs inside the sandbox, agy's commands need approval).
 //! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--memory-reuse on|off` (memory
-//! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`).
+//! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`;
+//! `--models <dir>` gives the agent the local embedding model from `<dir>`, else memory uses the hashing embedder).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -102,7 +103,10 @@ async fn main() -> Result<()> {
             None => None,
         };
         eprintln!("running {}-{on} ...", agenium_eval::memory_reuse::ID);
-        results.push(agenium_eval::memory_reuse::run(&mode, on == "on", extract).await?);
+        let models = arg(&args, "--models").map(PathBuf::from);
+        results.push(
+            agenium_eval::memory_reuse::run(&mode, on == "on", extract, models.as_deref()).await?,
+        );
     }
     for t in tasks()
         .iter()

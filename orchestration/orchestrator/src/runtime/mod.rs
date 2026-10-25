@@ -201,6 +201,25 @@ fn failed(outcome: &str) -> bool {
     outcome.starts_with("Stopped") || outcome.starts_with("Error") || outcome == "Cancelled"
 }
 
+/// The work order's shell line. Windows PowerShell 5.1 puts a byte-order mark before UTF-8 text and writes UTF-16 by
+/// default; the file then fails exact checks (a first line, a shebang, a parser) while looking right when read back
+/// (Codex agents in the memory-reuse benchmark, docs/memory-eval.md).
+fn shell_text(shell: &agenium_sandbox::Shell) -> String {
+    let mut s = shell.describe();
+    if let agenium_sandbox::Shell::PowerShell(p) = shell {
+        if p.file_name()
+            .is_some_and(|n| n.eq_ignore_ascii_case("powershell.exe"))
+        {
+            s.push_str(
+                "; it is Windows PowerShell 5.1: Set-Content/Out-File -Encoding utf8 start the file with a byte-order \
+                 mark and `>` writes UTF-16, so write files with your file tool or \
+                 [IO.File]::WriteAllText(path, text) (UTF-8 without a BOM)",
+            );
+        }
+    }
+    s
+}
+
 impl Runtime {
     pub fn new(
         app: Arc<App>,
@@ -307,7 +326,7 @@ impl Runtime {
             role: agent.role.clone(),
             solo,
             os: std::env::consts::OS.into(),
-            shell: ctx.executor.shell().describe(),
+            shell: shell_text(ctx.executor.shell()),
             sandbox: sandbox_text,
             network: match (net_on, allow.is_empty()) {
                 (true, true) => {
@@ -2226,4 +2245,24 @@ async fn join_all_boxed<F: std::future::Future>(
         .into_iter()
         .map(|r| r.expect("every future completed"))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use agenium_sandbox::Shell;
+
+    #[test]
+    fn windows_powershell_5_is_named_with_its_byte_order_mark() {
+        let old = super::shell_text(&Shell::PowerShell(
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe".into(),
+        ));
+        assert!(
+            old.contains("byte-order mark") && old.contains("WriteAllText"),
+            "{old}"
+        );
+        let new = super::shell_text(&Shell::PowerShell(
+            r"C:\Program Files\PowerShell\7\pwsh.exe".into(),
+        ));
+        assert!(!new.contains("byte-order mark"), "{new}");
+    }
 }

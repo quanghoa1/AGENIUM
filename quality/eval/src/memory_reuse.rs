@@ -12,7 +12,7 @@
 //! <model>` with `--root` for those runs (DeepSeek on the OpenCode key).
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use agenium_core::comment::CommentBody;
@@ -35,11 +35,16 @@ const OWNER_LINE: &str = "Owner: docs-team";
 /// The folders whose files are team documents.
 const TEAM_DIRS: [&str; 2] = ["deliverables", "reports"];
 
-/// The project's pre-merge check: every team document names its owning team on its first line.
-struct OwnerRule;
+/// The project's pre-merge check: every team document names its owning team on its first line. `seen` keeps, for the
+/// result file only, each rejected first line as written (a UTF-8 BOM or a joined line shows there); the agent sees the
+/// check's log alone.
+struct OwnerRule {
+    seen: Arc<Mutex<Vec<String>>>,
+}
 impl CheckRunner for OwnerRule {
     fn run(&self, worktree: &Path) -> CheckOutcome {
         let mut bad = Vec::new();
+        let wt = worktree.file_name().unwrap_or_default().to_string_lossy();
         for dir in TEAM_DIRS {
             let Ok(rd) = std::fs::read_dir(worktree.join(dir)) else {
                 continue;
@@ -49,14 +54,14 @@ impl CheckRunner for OwnerRule {
                 if name.starts_with('.') || !e.path().is_file() {
                     continue;
                 }
-                let first = std::fs::read_to_string(e.path())
-                    .unwrap_or_default()
-                    .lines()
-                    .next()
-                    .unwrap_or_default()
-                    .trim()
-                    .to_owned();
-                if first != OWNER_LINE {
+                let content = std::fs::read_to_string(e.path()).unwrap_or_default();
+                let line = content.lines().next().unwrap_or_default();
+                if line.trim() != OWNER_LINE {
+                    let shown: String = line.chars().take(80).collect();
+                    self.seen
+                        .lock()
+                        .unwrap()
+                        .push(format!("{wt}: {dir}/{name}: {shown:?}"));
                     bad.push(format!("{dir}/{name}"));
                 }
             }
@@ -79,14 +84,16 @@ impl CheckRunner for OwnerRule {
     }
 }
 
-struct OwnerRuleFactory;
+struct OwnerRuleFactory(Arc<Mutex<Vec<String>>>);
 impl CheckFactory for OwnerRuleFactory {
     fn for_project(
         &self,
         _: &agenium_store::core::projects::Project,
         _: &agenium_orchestrator::manifest::ProjectManifest,
     ) -> Arc<dyn CheckRunner> {
-        Arc::new(OwnerRule)
+        Arc::new(OwnerRule {
+            seen: self.0.clone(),
+        })
     }
 }
 
@@ -132,6 +139,22 @@ fn files(root: &Path) -> Vec<String> {
     out
 }
 
+/// The agent's live memories: where each came from and where it holds (a scope the recall context conflicts with
+/// hides it, and so do the untrusted mark and a weight below the hiding threshold).
+fn held(mem: &agenium_store::AgentStore) -> anyhow::Result<Vec<String>> {
+    Ok(mem
+        .live(200)?
+        .into_iter()
+        .map(|f| {
+            let untrusted = if f.untrusted { " untrusted" } else { "" };
+            format!(
+                "[{:?}{untrusted} w={:.2}] ({} {}) {}",
+                f.kind, f.weight, f.source, f.scope, f.text
+            )
+        })
+        .collect())
+}
+
 /// Per-ticket measurements.
 fn measure(
     app: &App,
@@ -173,16 +196,30 @@ pub async fn run(
     mode: &Mode,
     memory_on: bool,
     extract: Option<(Arc<dyn Provider>, String)>,
+    models: Option<&Path>,
 ) -> anyhow::Result<TaskResult> {
     let start = Instant::now();
     let tmp = tempfile::tempdir()?;
+    let rejected = Arc::new(Mutex::new(Vec::new()));
     let (app, _) = App::open(
         &tmp.path().join("root"),
         AppOptions {
             keyring: Arc::new(agenium_secrets::MemoryKeyring::default()),
-            checks: Arc::new(OwnerRuleFactory),
+            checks: Arc::new(OwnerRuleFactory(rejected.clone())),
         },
     )?;
+    // The local embedding model, as `agenium models download` installs it; without it memory uses the hashing embedder.
+    if let Some(dir) = models {
+        let spec = agenium_memory::local::BGE_SMALL_EN;
+        let (from, to) = (spec.dir(dir), spec.dir(&app.layout().models()));
+        std::fs::create_dir_all(&to)?;
+        for e in std::fs::read_dir(&from)? {
+            let e = e?;
+            if e.path().is_file() {
+                std::fs::copy(e.path(), to.join(e.file_name()))?;
+            }
+        }
+    }
     let app = Arc::new(app);
     let project = app.create_project(&CreateProject {
         name: "docs".into(),
@@ -302,7 +339,12 @@ pub async fn run(
     };
     let rt = Runtime::new(app.clone(), Arc::new(StaticProviders(providers)), approver);
 
+    let memory = || {
+        let e = app.embedder();
+        app.agent_store(agent.id, e.dim(), e.model_id())
+    };
     let mut tickets = Vec::new();
+    let mut before_t2 = Vec::new();
     for (item, file, word) in [
         ("PI-1", "deliverables/hello.txt", "hello"),
         ("PI-2", "reports/weekly.txt", "weekly"),
@@ -311,6 +353,8 @@ pub async fn run(
         // (as reports/weekly.md), so the measured ticket was its third and its first merge could copy a reports/ file
         // already on main (the 2026-10-25 v2 runs).
         if item == "PI-2" {
+            // What recall could draw on: ticket 2's own learning may rewrite these texts afterwards.
+            before_t2 = held(memory()?.as_ref())?;
             app.apply(
                 &user,
                 Intent::RevisePlan(PlanRevision {
@@ -355,14 +399,8 @@ pub async fn run(
     }
 
     // What memory held after ticket 1, and what recall showed ticket 2.
-    let e = app.embedder();
-    let mem = app.agent_store(agent.id, e.dim(), e.model_id())?;
-    // Where each memory came from and where it holds: a scope the recall context conflicts with hides it.
-    let lessons: Vec<String> = mem
-        .live(200)?
-        .into_iter()
-        .map(|f| format!("[{:?}] ({} {}) {}", f.kind, f.source, f.scope, f.text))
-        .collect();
+    let mem = memory()?;
+    let lessons = held(&mem)?;
     let t2 = app.ticket(
         project.id,
         &tickets[1]["ticket"].as_str().unwrap_or("AGN-2").parse()?,
@@ -404,11 +442,14 @@ pub async fn run(
         elapsed_ms: start.elapsed().as_millis() as u64,
         learning: Some(json!({
             "memory": memory_on,
+            "embedder": app.embedder().model_id(),
             "ticket1": tickets[0],
             "ticket2": tickets[1],
+            "memories_before_ticket2": before_t2,
             "memories_after": lessons,
             "ticket2_facts_shown": shown,
             "ticket2_shown": shown_texts,
+            "check_rejected": rejected.lock().unwrap().clone(),
         })),
     })
 }
