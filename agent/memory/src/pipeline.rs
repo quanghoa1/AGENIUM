@@ -165,7 +165,9 @@ enum Op {
     },
 }
 
-const EXTRACT_RULES: &str = "You maintain your own long-term memory as an Agenium agent. From the episode below, extract \
+/// The memory-extraction system prompt. Public so the Jev-offload measurement (docs/jev-comparison.md,
+/// `agenium-eval` example) can price the extraction call the memory gate skips.
+pub const EXTRACT_RULES: &str = "You maintain your own long-term memory as an Agenium agent. From the episode below, extract \
 facts worth remembering for future tickets: stable project facts (commands, paths, conventions, configuration), user \
 preferences, and lessons (what failed and what fixed it, review feedback). Rules: English only; one short sentence per \
 fact (max 300 characters), self-contained (name the project/tool it applies to); no secrets, tokens or passwords; no \

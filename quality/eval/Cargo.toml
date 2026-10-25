@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 agenium-core.workspace = true
 agenium-llm.workspace = true
+agenium-memory.workspace = true
 agenium-orchestrator.workspace = true
 agenium-secrets.workspace = true
 agenium-store.workspace = true

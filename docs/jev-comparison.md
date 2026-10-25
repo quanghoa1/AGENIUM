@@ -1,19 +1,19 @@
-# With Jev vs without: how much it improves
+# With Jev vs without: how much the main agent saves
 
-Jev (TypeSafe System One) is an **optional, fail-open** judge: off by default, and every Jev call returns nothing on
-any doubt, so Agenium behaves identically with Jev absent. This note compares the two modes for the three wired uses and
-says, with real numbers, how much Jev buys — and when it is worth turning on.
+Jev (TypeSafe System One) is a **decision-support** model: it makes a typed choice/judgment so the main agent does not
+have to. So the right question is **not** "is Jev more accurate than an LLM" (it is a choice model, not a chat model) —
+it is **"with Jev added, how many tokens does the main agent avoid spending?"** This note measures that. Jev is optional
+and fail-open: off by default, every call returns nothing on doubt, so Agenium behaves identically without it.
 
-**Bottom line (measured twice, including a hard set — see below):** against a strong, cheap modern model
-(`deepseek-v4.1-flash`) Jev showed **no accuracy and no calibration advantage** on these judge tasks — the baseline tied
-on the easy set and *beat* Jev on calibration on the hard set (Brier 0.0036 vs 0.0194), both at 22/22 accuracy. Jev's
-only edges were **latency and token leanness**, and even the latency edge was large on the easy set (~5×) but small and
-noisy on the hard set (1.7 s vs 2.3 s, with Jev outliers to 7 s). The practical conclusion: **do not adopt Jev for
-correctness or calibration when the agent model is already a capable cheap model** — a cheap in-house model judge does as
-well or better. Jev's remaining case is narrow: offloading cheap typed judgments when the agent's own model is
-*expensive* (to save its tokens/latency) or *weak*. It stays off by default and fail-open, so turning it on never risks
-correctness; but on this evidence it is rarely worth turning on. The per-use token arithmetic below still holds; the
-empirical half is what reshaped the recommendation.
+**Bottom line (measured):** Jev's value is **offloading work off the main agent**, and the saving is real and large:
+per routine ticket the memory gate skips a **~1,150-token extraction on a tiny ticket, scaling to ~15–19k tokens on a
+full transcript**; with 12 real skills (~2,456 tokens each) the skill hint lets the agent read **one** file instead of
+several, avoiding **~5–27k main-agent tokens per run**. Those tokens move off the main agent entirely (Jev reads short
+descriptions on its own budget). And offloading to Jev does **not** cost correctness: on a 16- and a 22-item labelled
+judge set Jev matched a strong cheap baseline at 22/22 accuracy (the baseline was even a touch better *calibrated*, so
+Jev is not an accuracy upgrade — it is a token offload that is at least as correct). The offload matters most when the
+main agent's model is expensive or its context is tight; on a cheap model the dollar figure is small even though the
+token figure is large.
 
 ## Prices and assumptions
 
@@ -26,6 +26,22 @@ empirical half is what reshaped the recommendation.
   the live A/B (bottom) measures it directly.
 
 These are per-call figures; multiply by your ticket/skill volume.
+
+## Main-agent token reduction — measured (2026-10-25)
+
+The metric that fits a decision-support model: tokens the **main agent** no longer spends because Jev did the sub-task.
+Measured with `cargo run -p agenium-eval --example jev_offload -- --root <root> --provider <id> --model <model>
+--skills <dir>` (the extraction call priced live on `deepseek-v4.1-flash`; skill sizes from 12 real `SKILL.md` files).
+
+| Offload | Without Jev (main agent spends) | With Jev (main agent spends) | Main-agent tokens saved |
+| --- | --- | --- | --- |
+| **memory_gate**, routine ticket | the extraction call: **786 in + 366 out = 1,152** on a tiny ticket; up to ~15k in + ~4k out on a full transcript | 0 (Jev runs the gate on its own budget) | **~1.1k → ~19k per skipped ticket** |
+| **skill_hint**, 12 skills (~2,456 tok each) | reads several `SKILL.md` to choose — 3–5 files ≈ **7k–12k**, up to ~29k to read all | reads only the one chosen file (~2.5k); Jev reads the descriptions | **~5k–27k per run** |
+| **review_assist** | — | — | none — it is *additive* (a second opinion), not an offload |
+
+So two of the three uses move real work off the main agent; `review_assist` does not (it adds a Jev call, it does not
+remove a main-agent one). The saving scales with transcript length and skill count/size, and it is the same token count
+whether the agent model is cheap or dear — only its dollar value changes.
 
 ## 1. `skill_hint` — the cleanest token win
 
@@ -84,11 +100,12 @@ batch.
 Because Jev is off by default and fail-open, turning it on never risks correctness — the worst case is you paid for a
 few cheap typed calls that returned "unsure". Turn it off and Agenium is unchanged.
 
-## The live A/B — measured (2026-10-25)
+## Does offloading to Jev cost correctness? — A/B measured (2026-10-25)
 
-Jev via the TypeSafe API; baseline `deepseek-v4.1-flash` through Agenium's own provider
-(`cargo run -p agenium-eval --example jev_baseline`). Jev's key is test-only and was passed in per-command env, never
-stored. Two labelled sets, both the shape of `review_assist` / `worth_remembering`:
+This is the *secondary* check: offloading a choice to Jev only helps if Jev is not worse at it. Jev via the TypeSafe
+API; baseline `deepseek-v4.1-flash` through Agenium's own provider (`cargo run -p agenium-eval --example jev_baseline`).
+Jev's key is test-only and was passed in per-command env, never stored. Two labelled sets, both the shape of
+`review_assist` / `worth_remembering`:
 
 - **Easy** (16 items, `quality/eval/data/jev-judge.json`): straightforward evidence/criterion and signal items.
 - **Hard** (22 items, `quality/eval/data/jev-judge-hard.json`): designed to trip an overconfident judge — partial
@@ -115,9 +132,10 @@ stored. Two labelled sets, both the shape of `review_assist` / `worth_rememberin
   with Jev outliers to 7 s (network variance).
 - **Tokens: Jev is leaner** (no reasoning tokens), but on a cheap model the dollar gap is negligible.
 
-**Takeaway (this reshaped the recommendation):** when the agent model is already a capable cheap model, Jev is **not**
-a correctness or calibration upgrade for these judge tasks — a cheap in-house model judge does as well or better, with
-no external dependency. Jev's narrow remaining case is offloading cheap typed judgments when the agent's own model is
-*expensive* or *weak*. It stays off by default and fail-open (the gating is covered by `team.rs::skill_hint_*`,
-`team.rs::memory_gate_*`, `agent/llm/tests/systemone.rs`), so enabling it never risks correctness — but on this evidence
-it is rarely worth enabling. Reproduce with the two datasets above and the `jev_baseline` example.
+**Takeaway for the offload question:** Jev is **at least as correct** as a strong cheap baseline on these judge tasks
+(tied on accuracy; the baseline was marginally better *calibrated*). So offloading the choice to Jev does not cost
+correctness — which is what the offload argument needs. What it does *not* show is any accuracy/calibration *upgrade*
+from Jev, so the reason to enable Jev is the **main-agent token reduction measured above**, not better answers — and that
+reduction is most worth it when the main agent's model is expensive or its context is tight. Off by default and
+fail-open (gating covered by `team.rs::skill_hint_*`, `team.rs::memory_gate_*`, `agent/llm/tests/systemone.rs`), so
+enabling never risks correctness. Reproduce with the two datasets and the `jev_baseline` / `jev_offload` examples.
