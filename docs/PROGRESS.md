@@ -143,6 +143,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Model list by backend (API vs each CLI) | DONE | [ADR-74](adr/ADR-74-models-by-backend.md) |
 | TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |
 | Judge is fail-open (two modes), disables on key/quota failure, re-enable in Settings; agent export/import on desktop | DONE | [ADR-81](adr/ADR-81-judge-two-modes.md) |
+| Quick skill pick: the judge suggests the skill that fits a fresh ticket (a hint, fail-open, off by default) | DONE | [ADR-82](adr/ADR-82-quick-skill-pick.md) |
 | M5: run-log compaction after 90 days | DONE | [ADR-76](adr/ADR-76-run-log-compaction.md) |
 | M5: support bundle (diagnostics without secret values) | DONE | [ADR-77](adr/ADR-77-support-bundle.md) |
 | M5: Markdown project report | DONE | [ADR-78](adr/ADR-78-markdown-report.md) |

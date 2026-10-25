@@ -49,3 +49,4 @@ ADR-52 records this fresh implementation.
 | [79](ADR-79-pre-merge-checks.md) | Pre-merge check per template, run in the sandbox (desktop); fail-closed without a backend; wizard field |
 | [80](ADR-80-push-on-close.md) | Push the merged main to origin on Closed when the project has a remote (best-effort, non-blocking); local-only otherwise |
 | [81](ADR-81-judge-two-modes.md) | The judge is fail-open: Agenium works without it; a key/quota failure disables it and asks the user to re-enable; agent export/import on the desktop |
+| [82](ADR-82-quick-skill-pick.md) | The judge can pick the skill that fits a ticket before a fresh run (a hint, fail-open, off by default); the worker still decides |

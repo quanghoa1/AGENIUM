@@ -166,6 +166,8 @@ pub struct JudgeSection {
     pub api_key_ref: String,
     /// Use it for an independent evidence read before a review run (token-light first opinion).
     pub review_assist: bool,
+    /// Before a work run, let it pick the skill that fits the ticket, so the worker loads the right one fast.
+    pub skill_hint: bool,
 }
 
 impl JudgeSection {

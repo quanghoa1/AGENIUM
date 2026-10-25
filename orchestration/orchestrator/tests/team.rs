@@ -1471,6 +1471,7 @@ fn the_judge_is_optional_and_a_failure_turns_it_off() {
                 model: "jev-latest".into(),
                 api_key_ref: String::new(),
                 review_assist: true,
+                ..Default::default()
             }
         })
         .unwrap();
@@ -1490,5 +1491,110 @@ fn the_judge_is_optional_and_a_failure_turns_it_off() {
     assert!(
         f.app.judge().unwrap().is_none(),
         "disabled until re-enabled"
+    );
+}
+
+/// ADR-82: the quick skill pick is fail-open. Off by default and with the flag off it returns nothing, and it never
+/// asks the judge when there are fewer than two skills to choose between — so the worker always runs.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn skill_hint_is_off_by_default_and_needs_two_skills() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Refactor the parser", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+    let two = [
+        (
+            "refactor".to_string(),
+            "restructure code safely".to_string(),
+        ),
+        ("docs".to_string(), "write documentation".to_string()),
+    ];
+    // Off by default.
+    assert!(f.app.skill_hint(&t, &two).await.is_none());
+    // On, but asked with a single skill: no question, no hint.
+    f.app
+        .update_config(|c| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: "http://127.0.0.1:1".into(),
+                model: "jev-latest".into(),
+                skill_hint: true,
+                ..Default::default()
+            }
+        })
+        .unwrap();
+    assert!(
+        f.app.skill_hint(&t, &two[..1]).await.is_none(),
+        "one skill never reaches the judge"
+    );
+}
+
+/// ADR-82: with the judge on and confident, the pick is prepended as a hint naming the chosen skill; a "none" pick
+/// adds nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn skill_hint_prepends_the_judges_pick() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // A one-shot mock Jev that replies with the given answer body to the first request.
+    async fn mock(answer: &'static str) -> String {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = l.accept().await.unwrap();
+            let mut buf = [0u8; 8192];
+            // Read until the request headers end; the body is irrelevant to the mock.
+            loop {
+                let n = sock.read(&mut buf).await.unwrap();
+                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let body = answer.as_bytes();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
+                body.len()
+            );
+            sock.write_all(resp.as_bytes()).await.unwrap();
+            sock.write_all(body).await.unwrap();
+            sock.flush().await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+
+    let two = [
+        (
+            "refactor".to_string(),
+            "restructure code safely".to_string(),
+        ),
+        ("docs".to_string(), "write documentation".to_string()),
+    ];
+
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Refactor the parser", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+
+    // A confident pick becomes a hint naming the skill.
+    let base =
+        mock(r#"{"answers":{"skill":{"type":"choice","choice":"refactor","confidence":0.95}}}"#)
+            .await;
+    f.app
+        .update_config(|c| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: base,
+                model: "jev-latest".into(),
+                skill_hint: true,
+                ..Default::default()
+            }
+        })
+        .unwrap();
+    let hint = f.app.skill_hint(&t, &two).await.expect("a confident pick");
+    assert!(hint.contains("refactor"), "names the picked skill: {hint}");
+
+    // "none" (or a low-confidence pick) adds no hint.
+    let base =
+        mock(r#"{"answers":{"skill":{"type":"choice","choice":"none","confidence":0.9}}}"#).await;
+    f.app.update_config(|c| c.judge.base_url = base).unwrap();
+    assert!(
+        f.app.skill_hint(&t, &two).await.is_none(),
+        "a 'none' pick is not a hint"
     );
 }

@@ -935,6 +935,19 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;
         let soul = self.soul_and_role(&agent);
+        // ADR-82: on a fresh run, the judge may pick the best-fitting skill so the worker loads the right one
+        // without reading them all. Fail-open: `None` unless the judge is on and confident.
+        let skill_hint = if start.continuation {
+            None
+        } else {
+            let skills: Vec<(String, String)> = self
+                .skills(&agent)
+                .skills
+                .iter()
+                .map(|s| (s.meta.name.clone(), s.meta.description.clone()))
+                .collect();
+            self.app.skill_hint(&t, &skills).await
+        };
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let manifest = self.manifest(&agent, solo, ctx, specs, None, &ctx.fetch_allow);
@@ -975,6 +988,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     first.push_str(&format!("\n## Notes from your previous run\n{n}\n"));
                 }
                 first.push_str(&format!("\nYour worktree is {} on branch agenium/{}. Do the work, then call submit_report.", ctx.root.display(), t.key));
+                if let Some(h) = &skill_hint {
+                    first.push_str(h);
+                }
                 messages.push(Message::user_text(first));
             } else {
                 let newer: Vec<Comment> = all_comments

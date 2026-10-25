@@ -8,7 +8,7 @@
 //! per acceptance criterion, a token-light first opinion for the Lead's expensive model.
 
 use agenium_core::{DomainEvent, Ticket};
-use agenium_llm::systemone::{Judge, Judging};
+use agenium_llm::systemone::{Judge, Judging, Question};
 use agenium_llm::LlmError;
 use serde::{Deserialize, Serialize};
 
@@ -123,6 +123,57 @@ impl App {
                 Err(OrchError::Invalid(format!("the judge still fails: {e}")))
             }
         }
+    }
+
+    /// Before a work run, lets the judge pick the skill that best fits the ticket from `skills` (name, description),
+    /// so the worker loads the right one without reading them all (ADR-82). `None` when the judge is off/disabled,
+    /// `skill_hint` is off, there are fewer than two skills, or the pick is "none"/low-confidence/failed. A
+    /// key/quota failure disables the judge.
+    pub async fn skill_hint(&self, t: &Ticket, skills: &[(String, String)]) -> Option<String> {
+        if !self.config().judge.skill_hint || skills.len() < 2 {
+            return None;
+        }
+        let judge = match self.judge() {
+            Ok(Some(j)) => j,
+            _ => return None,
+        };
+        let mut criteria: std::collections::BTreeMap<String, String> = skills
+            .iter()
+            .map(|(name, desc)| (name.clone(), desc.chars().take(200).collect()))
+            .collect();
+        criteria.insert("none".into(), "no skill fits this ticket".into());
+        let mut j = Judging::default().state_text(
+            "ticket",
+            &format!(
+                "{}\n{}",
+                t.title,
+                t.description.chars().take(800).collect::<String>()
+            ),
+        );
+        j.questions.insert(
+            "skill".into(),
+            Question::Choice {
+                instructions: "Which skill best fits the work described in `ticket`?".into(),
+                criteria,
+            },
+        );
+        let answers = match judge.ask(&j).await {
+            Ok(a) => a,
+            Err(e) => {
+                if is_credential_or_quota(&e) {
+                    let _ = self.disable_judge(e.to_string());
+                }
+                return None;
+            }
+        };
+        let a = answers.get("skill")?;
+        let pick = a.choice.as_deref()?;
+        if pick == "none" || a.confidence.is_some_and(|c| c < MET) {
+            return None;
+        }
+        Some(format!(
+            "\nSuggested skill (TypeSafe Jev, a hint — load it only if it fits): `{pick}`. Call load_skill to read it before the work it covers.\n"
+        ))
     }
 
     /// An independent first read of `report` against `t`'s acceptance criteria, for the review task (ADR-75).
