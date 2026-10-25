@@ -164,7 +164,7 @@ export const api = {
   dissolveTeam: (team: string) => call<void>("dissolve_team", { team }),
   skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),
   importSkill: (path: string, replace = false) =>
-    call<{ name: string; description: string; shape_notes: string[] }>("import_skill", { path, replace }),
+    call<{ name: string; description: string; shape_notes: string[]; quality: string[] }>("import_skill", { path, replace }),
   skillSkeleton: () => call<string>("skill_skeleton", {}),
   lintSkill: (name: string, body: string) => call<string[]>("lint_skill", { name, body }),
   removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),

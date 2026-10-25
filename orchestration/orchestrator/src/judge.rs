@@ -213,6 +213,55 @@ impl App {
         }
     }
 
+    /// A calibrated read of a skill `body` against the methodology principles (ADR-90): one job, actionable steps, a
+    /// proof that demands evidence, and no long embedded code that goes stale. Returns a human-readable note per
+    /// principle (e.g. "proof demands evidence: weak (41%)"). `None` when the judge is off/disabled, `skill_quality`
+    /// is off, or the call failed — the deterministic shape check (`lint_skill`) still runs regardless. A key/quota
+    /// failure disables the judge.
+    pub async fn skill_quality(&self, body: &str) -> Option<Vec<String>> {
+        if !self.config().judge.skill_quality {
+            return None;
+        }
+        let judge = match self.judge() {
+            Ok(Some(j)) => j,
+            _ => return None,
+        };
+        let qs: [(&str, &str); 4] = [
+            ("one job", "Does `skill` describe exactly one job, not several bundled together?"),
+            ("actionable steps", "Are the steps in `skill` concrete and actionable rather than vague?"),
+            ("proof demands evidence", "Does `skill` require concrete evidence (a proof) before the work may be called done?"),
+            ("no stale code", "Is `skill` free of long embedded code blocks that would go out of date?"),
+        ];
+        let mut j = Judging::default().state_text("skill", body);
+        for (id, q) in &qs {
+            j = j.noul(id, q);
+        }
+        let answers = match judge.ask(&j).await {
+            Ok(a) => a,
+            Err(e) => {
+                if is_credential_or_quota(&e) {
+                    let _ = self.disable_judge(e.to_string());
+                }
+                return None;
+            }
+        };
+        let notes: Vec<String> = qs
+            .iter()
+            .filter_map(|(id, _)| {
+                let p = answers.get(*id).and_then(|a| a.noul)?;
+                let verdict = if p >= MET {
+                    "yes"
+                } else if p <= 1.0 - MET {
+                    "no"
+                } else {
+                    "weak"
+                };
+                Some(format!("{id}: {verdict} ({:.0}%)", p * 100.0))
+            })
+            .collect();
+        (!notes.is_empty()).then_some(notes)
+    }
+
     /// An independent first read of `report` against `t`'s acceptance criteria, for the review task (ADR-75).
     /// `None` when the judge is off/disabled, `review_assist` is off, there are no criteria, or the call failed —
     /// the review then proceeds on the Lead's own read. A key/quota failure disables the judge.

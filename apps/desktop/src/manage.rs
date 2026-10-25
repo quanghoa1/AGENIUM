@@ -283,14 +283,16 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
 
 /// Imports a skill folder or `.zip` into the library.
 #[tauri::command]
-pub fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) -> R<Value> {
+pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) -> R<Value> {
     let src = PathBuf::from(path.trim().trim_matches('"'));
     let o = d.opened()?;
     let meta = o.app.import_library_skill(&src, replace).map_err(err)?;
     // ADR-88: advisory skill-shape checks shown after import (one job, when-to-use, steps, tools, proof).
     let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
     let notes = o.app.lint_skill(&meta.name, &body);
-    Ok(json!({ "name": meta.name, "description": meta.description, "shape_notes": notes }))
+    // ADR-90: when the judge is on, a calibrated read of the skill against the methodology principles.
+    let quality = o.app.skill_quality(&body).await.unwrap_or_default();
+    Ok(json!({ "name": meta.name, "description": meta.description, "shape_notes": notes, "quality": quality }))
 }
 
 /// The recommended empty SKILL.md body sections (ADR-88), for an authoring form.

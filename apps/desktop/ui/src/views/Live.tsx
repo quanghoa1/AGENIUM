@@ -47,6 +47,7 @@ import { Markdown } from "../components/Markdown";
 import { ListItem, PanelSwap, ProgressBar, Segmented } from "../components/motion";
 import { PixelOffice, type Activity, type CallKind, type OfficeAgent } from "../components/PixelOffice";
 import { Avatar, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
+import { VendorBadge } from "../components/VendorBadge";
 import { api, onEvent, onRun } from "../lib/api";
 import { useApp, type LiveRun as Stream } from "../lib/store";
 import type { AgentTrace, BusItem, Column, EventRecord, LiveAgent, LiveData, LogEntry, PlanView, TicketStatus } from "../lib/types";
@@ -530,6 +531,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="chip border-line-strong">
+            <VendorBadge provider={a.agent.model.provider} model={a.agent.model.model} size={14} />
             <span className="text-subtle">{app.t("common.model")}</span>
             <b className="font-mono">
               {a.agent.backend === "Cli" ? `CLI:${a.agent.model.provider}` : a.agent.model.provider}/{a.agent.model.model}

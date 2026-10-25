@@ -1716,3 +1716,69 @@ fn the_starter_skill_library_is_seeded_and_valid() {
     // Seeding again writes nothing (idempotent).
     assert_eq!(f.app.seed_skill_library().unwrap(), 0);
 }
+
+/// ADR-90: the judge's skill-quality read is fail-open (off by default returns None) and, when on, turns each Noul
+/// into a human-readable verdict note.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn skill_quality_is_off_by_default_and_reads_each_principle() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    async fn mock(answer: &'static str) -> String {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = l.accept().await.unwrap();
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = sock.read(&mut buf).await.unwrap();
+                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let body = answer.as_bytes();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
+                body.len()
+            );
+            sock.write_all(resp.as_bytes()).await.unwrap();
+            sock.write_all(body).await.unwrap();
+            sock.flush().await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+
+    let f = fixture();
+    assert!(
+        f.app.skill_quality("## Job\nx").await.is_none(),
+        "off by default"
+    );
+
+    let base = mock(
+        r#"{"answers":{"one job":{"type":"noul","noul":0.95},"actionable steps":{"type":"noul","noul":0.9},"proof demands evidence":{"type":"noul","noul":0.2},"no stale code":{"type":"noul","noul":0.85}}}"#,
+    )
+    .await;
+    f.app
+        .update_config(|c| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: base,
+                model: "jev-latest".into(),
+                skill_quality: true,
+                ..Default::default()
+            }
+        })
+        .unwrap();
+    let notes = f
+        .app
+        .skill_quality("## Job\n...")
+        .await
+        .expect("on -> notes");
+    assert!(
+        notes.iter().any(|n| n.starts_with("one job: yes")),
+        "{notes:?}"
+    );
+    assert!(
+        notes
+            .iter()
+            .any(|n| n.starts_with("proof demands evidence: no")),
+        "{notes:?}"
+    );
+}

@@ -172,6 +172,10 @@ pub struct JudgeSection {
     /// model runs; skip extraction only when it is confident nothing is worth keeping and there is nothing to
     /// reconcile. Fail-open: on doubt the extraction runs as usual.
     pub memory_gate: bool,
+    /// Let it judge a skill's quality against the methodology principles (one job, actionable steps, a proof that
+    /// demands evidence, no stale embedded code) when a skill is imported or an agent upgrades one (ADR-90). The
+    /// deterministic shape check always runs; this adds a calibrated semantic read. Fail-open.
+    pub skill_quality: bool,
 }
 
 impl JudgeSection {

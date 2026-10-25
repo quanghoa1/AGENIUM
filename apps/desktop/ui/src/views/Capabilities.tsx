@@ -394,6 +394,10 @@ function SkillsPanel() {
         if (m.shape_notes?.length) {
           app.notify(`${app.t("library.shapeNotes")} ${m.name}: ${m.shape_notes.join("; ")}`);
         }
+        // ADR-90: the judge's calibrated read of the skill against the methodology principles (only when it is on).
+        if (m.quality?.length) {
+          app.notify(`${app.t("library.quality")} ${m.name}: ${m.quality.join("; ")}`);
+        }
         setPath("");
         load();
       })

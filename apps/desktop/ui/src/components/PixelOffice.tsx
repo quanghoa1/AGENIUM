@@ -9,6 +9,7 @@
 // every sprite below is a hand-made character map, every piece of furniture is drawn from rectangles.
 import { useEffect, useRef, useState } from "react";
 import type { LiveAgent } from "../lib/types";
+import { vendorOf } from "../lib/vendors";
 
 export type Activity = "idle" | "thinking" | "tool" | "shell" | "text" | "waiting" | "off";
 
@@ -433,6 +434,23 @@ function labelWidth(g: CanvasRenderingContext2D, text: string) {
 
 // Long names keep both ends: "very-long…archer-1".
 const labelText = (text: string) => (text.length > 18 ? `${text.slice(0, 8)}…${text.slice(-9)}` : text);
+
+/** A tiny vendor chip (brand colour + initial) drawn just left of a name, so the office shows which model runs an
+ * agent (ADR-89). Returns its width so the name can sit beside it. */
+function vendorChip(g: CanvasRenderingContext2D, rightX: number, cy: number, provider: string, model: string): number {
+  const v = vendorOf(provider, model);
+  const s = 7;
+  const x = rightX - s;
+  const y = cy - Math.ceil(s / 2);
+  g.fillStyle = v.color;
+  g.fillRect(x, y, s, s);
+  g.fillStyle = "#ffffff";
+  g.font = "5px ui-monospace, monospace";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(v.initial[0], x + s / 2, y + s / 2 + 0.5);
+  return s + 1;
+}
 
 /** A small dark pill with text, centred on cx (names over heads, tickets on delegation lines). */
 function label(g: CanvasRenderingContext2D, cx: number, y: number, text: string, bg: string, fg: string) {
@@ -891,6 +909,8 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
         while (placed.some((p) => lx < p.x + p.w + 1 && p.x < lx + lw + 1 && Math.abs(p.y - ly) < 7)) ly -= 7;
         placed.push({ x: lx, y: ly, w: lw });
         label(g, Math.round(w.x), ly, oa.agent.agent.name, id === selected ? "#2563eb" : "#111827e6", "#ffffff");
+        // The vendor behind this agent's model, as a small chip left of the name.
+        vendorChip(g, lx - 1, ly, oa.agent.agent.model.provider, oa.agent.agent.model.model);
       }
       // envelopes between a Lead and a worker
       const now = performance.now();
