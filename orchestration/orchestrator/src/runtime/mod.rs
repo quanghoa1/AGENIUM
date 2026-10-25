@@ -1481,17 +1481,35 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             ))
         })?;
         let mut s = String::new();
+        // The spec in full: the Lead writes tickets from it, and workers only see what the tickets carry.
         match spec {
-            Some(sp) => s.push_str(&format!(
-                "Spec v{} ({}): {} requirement(s)\n",
-                sp.version,
-                if sp.locked_at.is_some() {
-                    "locked"
-                } else {
-                    "waiting for the user"
-                },
-                sp.body.requirements.len()
-            )),
+            Some(sp) => {
+                s.push_str(&format!(
+                    "Spec v{} ({}):\nGoals: {}\n",
+                    sp.version,
+                    if sp.locked_at.is_some() {
+                        "locked"
+                    } else {
+                        "waiting for the user"
+                    },
+                    sp.body.goals.join("; ")
+                ));
+                for (label, list) in [
+                    ("Scope", &sp.body.scope),
+                    ("Out of scope", &sp.body.out_of_scope),
+                    ("Constraints", &sp.body.constraints),
+                ] {
+                    if !list.is_empty() {
+                        s.push_str(&format!("{label}: {}\n", list.join("; ")));
+                    }
+                }
+                for r in &sp.body.requirements {
+                    s.push_str(&format!("- {}: {}\n", r.id, r.text));
+                    for a in &r.acceptance {
+                        s.push_str(&format!("  - {}: {}\n", a.id, a.text));
+                    }
+                }
+            }
             None => s.push_str("No requirement spec yet.\n"),
         }
         match plan {

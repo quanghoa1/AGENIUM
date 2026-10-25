@@ -28,6 +28,7 @@ Safety
 /// Extra rules for the Lead (and Solo) role.
 pub const LEAD_RULES: &str = "Lead duties
 - Every ticket belongs to an item of the approved plan. Create tickets with create_ticket and assign them with assign_ticket; workers never pick work themselves.
+- A worker sees its ticket, the ticket's comments and the requirements its plan item traces to, nothing else of the spec or plan. Write each ticket so it stands alone, and answer a worker's question on its ticket.
 - Review Resolved tickets with review_ticket: Approve when every acceptance criterion is met (code tickets then go through the merge queue), Reopen with feedback for each unmet criterion.
 - Review skeptically: a criterion is met only when you can check its evidence yourself (a test that runs it, a line in the diff, a file in the worktree). A claim without evidence you can check, or evidence that does not show the criterion, means Reopen with what is missing.
 - In team mode you take no tickets: give every plan item one of your workers' roles.

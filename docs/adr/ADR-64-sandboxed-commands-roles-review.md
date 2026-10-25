@@ -22,7 +22,11 @@ of agent personas, rules only, our own text)
    a `synthesist` worker for the combined answer the Lead used to plan for itself.
 4. **Workers get the requirements they serve.** A work run and a review run carry "What this ticket serves": the spec
    goals, the requirements the plan item traces to with their acceptance criteria, and the constraints. Workers
-   could not read the spec (it is not in their worktree) and asked the user for it.
+   could not read the spec (it is not in their worktree) and asked the user for it. A worker already got its ticket
+   (description, acceptance criteria) and every comment on it (the Lead's notes and answers; new ones when a run
+   resumes), but the Lead could not copy the requirement into the ticket: its inbox and chat runs saw only "spec v1,
+   1 requirement". Their project state now carries the spec in full (goals, scope, constraints, each requirement
+   with its criteria), and the Lead rules say a ticket must stand alone.
 5. **Skeptical review.** The Dev/QA loop already exists (a report needs evidence per criterion, Reopen needs feedback
    per unmet criterion, more than three reopens escalate to the user). The Lead's rules and review task now say to
    treat a report as a claim and check each criterion's evidence (the test, the changed lines, the file) before

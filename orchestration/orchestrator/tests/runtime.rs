@@ -1378,6 +1378,11 @@ async fn team_lead_inbox_takes_a_plan_to_closed_tickets() {
             .expect("the inbox lists the question with its id")
             .to_owned();
         assert!(task.contains("api-1"), "the asker is named");
+        assert!(
+            task.contains("- REQ-1: A greeting file exists")
+                && task.contains("  - AC-1: hello.txt says hello"),
+            "the Lead answers from the spec text, not just its size"
+        );
         Ok(calls_response(
             "",
             vec![(
