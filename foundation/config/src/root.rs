@@ -106,6 +106,10 @@ impl RootLayout {
         self.root.join("pricing.toml")
     }
     /// The vendors' subscription usage as last read (a cache: rewritten by every reading).
+    /// Judge health (ADR-81): off after an auth/quota failure until the user re-enables.
+    pub fn judge_health(&self) -> PathBuf {
+        self.root.join("judge-health.json")
+    }
     pub fn vendor_usage(&self) -> PathBuf {
         self.root.join("vendor-usage.json")
     }

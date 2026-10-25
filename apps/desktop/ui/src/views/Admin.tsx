@@ -166,6 +166,7 @@ export function SettingsView() {
           <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
         </Section>
         <CommandPolicySection />
+        <JudgeSection />
         <Section title={app.t("settings.support")}>
           <div className="text-[11px] text-subtle">{app.t("settings.supportNote")}</div>
           <button
@@ -182,6 +183,46 @@ export function SettingsView() {
         </Section>
       </div>
     </div>
+  );
+}
+
+/** The optional TypeSafe Jev judge: configured or not, disabled after a failure, re-enable after re-entering the key. */
+function JudgeSection() {
+  const app = useApp();
+  const [st, setSt] = useState<{ configured: boolean; disabled: boolean; reason?: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api.judgeStatus().then(setSt).catch(() => undefined);
+  }, [app.tick]);
+  return (
+    <Section title={app.t("settings.judge")}>
+      <div className="text-[11px] text-subtle">{app.t("settings.judgeNote")}</div>
+      <div className="mt-2 text-xs">
+        {!st ? null : !st.configured ? (
+          <span className="text-muted">{app.t("settings.judgeOff")}</span>
+        ) : st.disabled ? (
+          <span className="text-rose-600 dark:text-rose-400">{app.t("settings.judgeDisabled")}{st.reason ? `: ${st.reason}` : ""}</span>
+        ) : (
+          <span className="text-emerald-600 dark:text-emerald-400">{app.t("settings.judgeOn")}</span>
+        )}
+      </div>
+      {st?.configured && (
+        <button
+          className="btn mt-2"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            api
+              .enableJudge()
+              .then(() => (app.notify(app.t("settings.judgeEnabled")), app.refresh()))
+              .catch((e) => app.notify(String(e)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {app.t("settings.judgeEnable")}
+        </button>
+      )}
+    </Section>
   );
 }
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Crown, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Crown, Download, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
@@ -773,6 +773,18 @@ export function AgentView({ id }: { id: string }) {
             <Crown className="h-3.5 w-3.5 text-purple-500" /> {app.t("agents.makeLead")}
           </button>
         )}
+        <button
+          className="btn"
+          title={app.t("agents.exportNote")}
+          onClick={() =>
+            api
+              .exportAgent(a.id, "")
+              .then((f) => app.notify(`${app.t("agents.exported")} ${f}`))
+              .catch((e) => app.notify(String(e)))
+          }
+        >
+          <Download className="h-3.5 w-3.5" /> {app.t("agents.export")}
+        </button>
       </div>
       <Segmented
         id="agent-tab"

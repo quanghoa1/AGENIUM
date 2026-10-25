@@ -1457,3 +1457,38 @@ fn a_template_sets_the_projects_pre_merge_check() {
             .ok
     );
 }
+
+/// The judge runs in two modes (ADR-81): off by default and after a disabling failure, so Agenium always works; a
+/// disabled health state gates `judge()` off even when `[judge]` is configured.
+#[test]
+fn the_judge_is_optional_and_a_failure_turns_it_off() {
+    let f = fixture();
+    assert!(f.app.judge().unwrap().is_none(), "off by default");
+    f.app
+        .update_config(|c| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: "https://api.typesafe.ai".into(),
+                model: "jev-latest".into(),
+                api_key_ref: String::new(),
+                review_assist: true,
+            }
+        })
+        .unwrap();
+    assert!(f.app.judge().unwrap().is_some(), "on when configured");
+    // A disabling failure (key/quota) writes judge-health.json; the gate then returns None.
+    std::fs::write(
+        f.app.layout().judge_health(),
+        serde_json::to_string(&agenium_orchestrator::judge::JudgeHealth {
+            disabled: true,
+            reason: Some("TypeSafe key rejected".into()),
+            at: None,
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(f.app.judge_health().disabled);
+    assert!(
+        f.app.judge().unwrap().is_none(),
+        "disabled until re-enabled"
+    );
+}

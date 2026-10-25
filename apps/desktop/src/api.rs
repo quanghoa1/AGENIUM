@@ -550,6 +550,63 @@ async fn cli_models(
     found
 }
 
+/// The judge's state: configured, enabled (not disabled by a failure), and why if disabled (ADR-81).
+#[tauri::command]
+pub fn judge_status(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let h = o.app.judge_health();
+    Ok(
+        json!({ "configured": o.app.config().judge.enabled(), "disabled": h.disabled, "reason": h.reason }),
+    )
+}
+
+/// Re-enables the judge and checks it (after the user re-entered the key).
+#[tauri::command]
+pub async fn enable_judge(d: State<'_, Desktop>) -> R<()> {
+    d.opened()?.app.enable_judge().await.map_err(err)
+}
+
+/// Exports an agent (memory, skills and overlays, skill/MCP enablement; no secret values) to a file in `out`.
+#[tauri::command]
+pub fn export_agent(d: State<'_, Desktop>, agent: String, out: String) -> R<String> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let name = o.app.agent(id).map_err(err)?.name;
+    let dir = std::path::PathBuf::from(if out.trim().is_empty() {
+        std::env::temp_dir().display().to_string()
+    } else {
+        out
+    });
+    let file = dir.join(format!("{name}.agenium.jsonl"));
+    o.app
+        .export_agent(id, &file, o.rt.embedder.as_ref(), &Default::default())
+        .map_err(err)?;
+    Ok(file.display().to_string())
+}
+
+/// Imports an agent from a file into `project` as a Solo agent (renamed if `name` is given).
+#[tauri::command]
+pub fn import_agent(
+    d: State<'_, Desktop>,
+    file: String,
+    project: String,
+    name: Option<String>,
+) -> R<Value> {
+    let o = d.opened()?;
+    let a = o
+        .app
+        .import_agent(
+            std::path::Path::new(&file),
+            &agenium_orchestrator::agent_io::ImportRequest {
+                project: pid(&project)?,
+                name,
+            },
+            o.rt.embedder.as_ref(),
+        )
+        .map_err(err)?;
+    Ok(json!({ "id": a.id, "name": a.name }))
+}
+
 /// The vendors' subscription usage for the footer (last readings; see `agenium_orchestrator::vendor_usage`).
 #[tauri::command]
 pub async fn vendor_usage(d: State<'_, Desktop>) -> R<Value> {

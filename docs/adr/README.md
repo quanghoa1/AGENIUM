@@ -48,3 +48,4 @@ ADR-52 records this fresh implementation.
 | [78](ADR-78-markdown-report.md) | Markdown project report (goals, plan progress, ticket table) from stored state; CLI `report`, Overview button |
 | [79](ADR-79-pre-merge-checks.md) | Pre-merge check per template, run in the sandbox (desktop); fail-closed without a backend; wizard field |
 | [80](ADR-80-push-on-close.md) | Push the merged main to origin on Closed when the project has a remote (best-effort, non-blocking); local-only otherwise |
+| [81](ADR-81-judge-two-modes.md) | The judge is fail-open: Agenium works without it; a key/quota failure disables it and asks the user to re-enable; agent export/import on the desktop |

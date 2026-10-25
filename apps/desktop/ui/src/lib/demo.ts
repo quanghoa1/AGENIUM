@@ -271,6 +271,14 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
       return demoUsage;
     case "support_bundle":
       return "C:/Temp/agenium-support-demo";
+    case "judge_status":
+      return { configured: false, disabled: false, reason: null };
+    case "enable_judge":
+      return null;
+    case "export_agent":
+      return "C:/Temp/agent.agenium.jsonl";
+    case "import_agent":
+      return { id: "agent_demo", name: "imported" };
     case "project_report":
       return "# Demo project\n\n## Goals\n- Ship the shop\n";
     case "memory":

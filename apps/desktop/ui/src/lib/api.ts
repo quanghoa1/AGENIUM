@@ -135,6 +135,10 @@ export const api = {
   resumeProject: (project: string) => call<void>("resume_project", { project }),
   stopAll: () => call<void>("stop_all"),
   supportBundle: (out: string) => call<string>("support_bundle", { out }),
+  judgeStatus: () => call<{ configured: boolean; disabled: boolean; reason?: string | null }>("judge_status"),
+  enableJudge: () => call<void>("enable_judge"),
+  exportAgent: (agent: string, out: string) => call<string>("export_agent", { agent, out }),
+  importAgent: (file: string, project: string, name?: string) => call<{ id: string; name: string }>("import_agent", { file, project, name: name ?? null }),
   projectReport: (project: string) => call<string>("project_report", { project }),
 
   // Registry (ADR-61)
