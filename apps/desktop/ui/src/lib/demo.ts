@@ -266,6 +266,7 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
   switch (cmd) {
     case "vendor_usage":
     case "refresh_vendor_usage":
+    case "read_claude_usage":
       return demoUsage;
     case "prices":
       return demoPrices;

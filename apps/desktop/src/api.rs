@@ -477,6 +477,17 @@ pub async fn refresh_vendor_usage(d: State<'_, Desktop>) -> R<Value> {
     Ok(json!(o.app.vendor_usage(&clis)))
 }
 
+/// Reads Claude's usage now (one tiny Haiku turn, on the user's click).
+#[tauri::command]
+pub async fn read_claude_usage(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let clis = detected_clis(&d, false).await?;
+    agenium_orchestrator::vendor_usage::read_claude_usage(&o.app, &clis)
+        .await
+        .map_err(err)?;
+    Ok(json!(o.app.vendor_usage(&clis)))
+}
+
 /// Providers, agent CLIs (detected at most every 5 minutes, or now with `refresh`), templates, CLI fallback.
 #[tauri::command]
 pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Value> {

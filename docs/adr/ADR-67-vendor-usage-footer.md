@@ -12,7 +12,10 @@ from Orca's rules (stablyai/orca: status-bar usage segments, its per-vendor read
    Codex reset credits, the error) with a refresh.
 2. **Only honest channels.** Nothing poses as another client and no user CLI config is written:
    - **Claude**: the `rate_limit_event` Claude Code prints in its stream-json during an Agenium run
-     (`unifiedWindows.five_hour/seven_day.utilization`, `resetsAt`). No polling: Orca's call to Anthropic's OAuth
+     (`unifiedWindows.five_hour/seven_day.utilization`, `resetsAt`), and "Read now" in the Claude details: one
+     tiny Haiku turn of the official CLI without tools (owner: "Haiku is cheap, so acceptable; official is
+     better"), in a scratch `CLAUDE_CONFIG_DIR` with a copy of the login like a run. Never on the schedule.
+     No polling of Anthropic's API: Orca's call to its OAuth
      usage endpoint sends Claude Code's User-Agent and uses the CLI's login token, and its live feed edits
      `~/.claude/settings.json`; both are out.
    - **Codex**: its own app-server RPC `account/rateLimits/read` (`clientInfo.name = "agenium"`, no model turn), in
@@ -26,7 +29,7 @@ from Orca's rules (stablyai/orca: status-bar usage segments, its per-vendor read
 
 ## Consequences
 
-- `agenium_llm::vendor_usage` (types, parsers, OpenCode Go reader), `agenium_cli_backend::codex::rate_limits`,
+- `agenium_llm::vendor_usage` (types, parsers, OpenCode Go reader), `agenium_cli_backend::codex::rate_limits`, `claude::rate_limits` (IPC `read_claude_usage`),
   `Event::Limits` and `CliRun::on_limits`, `agenium_orchestrator::vendor_usage`; desktop IPC `vendor_usage`,
   `refresh_vendor_usage`; UI `UsageFooter`.
 - Tests: `vendor_usage::vendor_reports_become_windows`, `claude::parses_the_stream` (rate_limit_event),

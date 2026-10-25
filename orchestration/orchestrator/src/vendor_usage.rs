@@ -1,5 +1,5 @@
 //! The vendors' subscription usage for the app's footer (display only, decision 3k). Claude reports it during its
-//! own runs; Codex and OpenCode Go are read on a schedule through their honest channels
+//! own runs or, when the user asks, from one tiny Haiku turn; Codex and OpenCode Go are read on a schedule through their honest channels
 //! (`agenium_llm::vendor_usage`). Antigravity has no way to report quota to another app yet (agy 1.4.7 runs
 //! `/usage` as a model turn), so it is listed without numbers. The last reading of each vendor is kept in
 //! `<root>/vendor-usage.json`.
@@ -76,7 +76,7 @@ impl App {
             if c.login == Login::NotLoggedIn {
                 r.error = Some("not signed in".into());
             } else if c.kind == CliKind::Claude && r.updated_at.is_empty() {
-                r.note = Some("updates when a Claude agent runs".into());
+                r.note = Some("updates when a Claude agent runs, or read it now".into());
             } else if c.kind == CliKind::Agy {
                 r.note = Some("Antigravity does not report its quota to other apps".into());
             }
@@ -133,4 +133,22 @@ pub async fn refresh_vendor_usage(app: &App, clis: &[agenium_cli_backend::CliInf
         app.record_vendor_usage(u)?;
     }
     Ok(())
+}
+
+/// Reads Claude's usage now with one tiny Haiku turn (the user asked for it: it costs a little quota).
+pub async fn read_claude_usage(app: &App, clis: &[agenium_cli_backend::CliInfo]) -> Result<()> {
+    let now = agenium_core::now_iso();
+    let program = clis
+        .iter()
+        .find(|c| c.kind == CliKind::Claude && c.compatible)
+        .and_then(|c| c.path.clone())
+        .ok_or_else(|| OrchError::Invalid("Claude Code is not installed".into()))?;
+    let scratch = app.layout().agents().join(".usage-probe");
+    let u = agenium_cli_backend::claude::rate_limits(&program, &scratch)
+        .await
+        .unwrap_or_else(|e| VendorUsage {
+            error: Some(e),
+            ..VendorUsage::new("claude", &now)
+        });
+    app.record_vendor_usage(u)
 }

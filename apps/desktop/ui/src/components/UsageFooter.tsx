@@ -1,6 +1,6 @@
 // The app's footer: each vendor's subscription usage (5-hour, weekly, monthly windows: % used and the time to the
 // reset), amber from 60 % and red from 80 %. A click opens the vendor's details; the refresh reads Codex and OpenCode
-// Go now (Claude reports during its own runs).
+// Go now; Claude reports during its own runs, or reads now on the Claude row's button (one small Haiku turn).
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, onUsage } from "../lib/api";
@@ -40,7 +40,7 @@ function Bar({ p, className }: { p: number; className?: string }) {
   );
 }
 
-function Segment({ u, open, onOpen, onRefresh, busy }: { u: VendorUsage; open: boolean; onOpen: () => void; onRefresh: () => void; busy: boolean }) {
+function Segment({ u, open, onOpen, onRefresh, onReadNow, busy }: { u: VendorUsage; open: boolean; onOpen: () => void; onRefresh: () => void; onReadNow?: () => void; busy: boolean }) {
   const app = useApp();
   const t = app.t;
   const top = u.windows.reduce((m, w) => Math.max(m, w.used_percent), 0);
@@ -73,9 +73,11 @@ function Segment({ u, open, onOpen, onRefresh, busy }: { u: VendorUsage; open: b
           <div className="flex items-center gap-2">
             <span className="font-semibold">{vendorName(u.vendor)}</span>
             {u.plan && <span className="chip border-line-strong px-1.5 py-0 text-[10px] uppercase text-muted">{u.plan}</span>}
-            <button className="ml-auto rounded p-1 text-subtle hover:bg-elevated hover:text-fg" title={t("footer.refresh")} onClick={onRefresh} disabled={busy}>
-              <RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} />
-            </button>
+            {!onReadNow && (
+              <button className="ml-auto rounded p-1 text-subtle hover:bg-elevated hover:text-fg" title={t("footer.refresh")} onClick={onRefresh} disabled={busy}>
+                <RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} />
+              </button>
+            )}
           </div>
           <div className="mt-0.5 text-[10px] text-subtle">{u.updated_at ? `${t("footer.updated")} ${ago(u.updated_at)}` : t("footer.never")}</div>
           <div className="mt-2.5 space-y-2">
@@ -95,6 +97,11 @@ function Segment({ u, open, onOpen, onRefresh, busy }: { u: VendorUsage; open: b
             ))}
           </div>
           {u.note && <div className="mt-2.5 rounded-lg bg-elevated px-2 py-1.5 text-[11px] text-muted">{u.note}</div>}
+          {onReadNow && (
+            <button className="btn mt-2.5 w-full justify-center" onClick={onReadNow} disabled={busy}>
+              <RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} /> {t("footer.readClaude")}
+            </button>
+          )}
           {u.error && (
             <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {u.windows.length > 0 ? `${t("footer.stale")} ` : ""}
@@ -129,10 +136,9 @@ export function UsageFooter() {
     window.addEventListener("mousedown", close);
     return () => window.removeEventListener("mousedown", close);
   }, [open]);
-  const refresh = () => {
+  const refresh = (read = api.refreshVendorUsage) => {
     setBusy(true);
-    api
-      .refreshVendorUsage()
+    read()
       .then(setRows)
       .catch((e) => app.notify(String(e)))
       .finally(() => setBusy(false));
@@ -142,9 +148,17 @@ export function UsageFooter() {
     <footer ref={ref} className="flex h-8 shrink-0 items-center justify-end gap-1 border-t border-line bg-surface px-3">
       <span className="label mr-1">{app.t("footer.usage")}</span>
       {rows.map((u) => (
-        <Segment key={u.vendor} u={u} open={open === u.vendor} onOpen={() => setOpen(open === u.vendor ? null : u.vendor)} onRefresh={refresh} busy={busy} />
+        <Segment
+          key={u.vendor}
+          u={u}
+          open={open === u.vendor}
+          onOpen={() => setOpen(open === u.vendor ? null : u.vendor)}
+          onRefresh={() => refresh()}
+          onReadNow={u.vendor === "claude" ? () => refresh(api.readClaudeUsage) : undefined}
+          busy={busy}
+        />
       ))}
-      <button className="ml-1 rounded p-1 text-subtle hover:bg-elevated hover:text-fg" title={app.t("footer.refresh")} onClick={refresh} disabled={busy}>
+      <button className="ml-1 rounded p-1 text-subtle hover:bg-elevated hover:text-fg" title={app.t("footer.refresh")} onClick={() => refresh()} disabled={busy}>
         <RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} />
       </button>
     </footer>

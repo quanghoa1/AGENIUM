@@ -62,6 +62,7 @@ export const api = {
   prices: () => call<PriceView>("prices"),
   vendorUsage: () => call<VendorUsage[]>("vendor_usage"),
   refreshVendorUsage: () => call<VendorUsage[]>("refresh_vendor_usage"),
+  readClaudeUsage: () => call<VendorUsage[]>("read_claude_usage"),
   refreshPrices: () => call<{ priced: number | null; view: PriceView }>("refresh_prices"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),

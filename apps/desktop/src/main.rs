@@ -77,6 +77,7 @@ fn main() {
             api::refresh_prices,
             api::vendor_usage,
             api::refresh_vendor_usage,
+            api::read_claude_usage,
             api::set_agent_status,
             api::pause_project,
             api::resume_project,
