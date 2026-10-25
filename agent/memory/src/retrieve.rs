@@ -124,7 +124,21 @@ pub fn recall(
         }
         scored.extend(r.reached.iter().map(|n| (n.entity, n.score * base)));
     }
-    let graph_hits = store.facts_of_entities(&scored, &scope, POOL)?;
+    // The graph proposes what is connected; what is relevant comes first. Ordered by graph score alone, the facts of
+    // the entity the query names (hop 0: its deploy day, its latency budget) filled the channel and pushed the
+    // two-hop answer out of the top 8 (graph QA: MRR 0.83 -> 0.45 with the graph on, ADR-94). Candidates without a
+    // vector rank last.
+    let mut graph_hits = store.facts_of_entities(&scored, &scope, POOL * 4)?;
+    let ids: Vec<i64> = graph_hits.iter().map(|(f, _)| f.id).collect();
+    let sim = store.similarity_to(&qv, &ids)?;
+    let relevance = |id: i64| sim.get(&id).copied().unwrap_or(-1.0);
+    graph_hits.sort_by(|a, b| {
+        relevance(b.0.id)
+            .total_cmp(&relevance(a.0.id))
+            .then(b.1.total_cmp(&a.1))
+            .then(a.0.id.cmp(&b.0.id))
+    });
+    graph_hits.truncate(POOL);
 
     // Fusion over the candidates that pass the hard filters.
     let mut fused: HashMap<i64, (f64, [bool; 3])> = HashMap::new();

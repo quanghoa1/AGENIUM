@@ -1,0 +1,21 @@
+quality/eval/examples/entity_ask.rs — the ambiguous band of entity_resolution.rs (bge-small-en-v1.5) put to
+opencode-go:deepseek-v4.1-flash with the pipeline's own SAME_RULES question, groups of ten. 2026-10-25/26, Windows.
+(Transcribed from the console; the per-kind tables are in docs/memory-eval.md.)
+
+1) Entity vectors of "name. description" (the design before ADR-94) — 285 ambiguous pairs
+   tokens in 12208, out 10971; unreadable answers 0
+   same pairs: model said same 134 of 135 | different pairs: model said same 0 of 150
+   resolution as a whole (rules + model): precision 1.0000 (659 of 659), recall 0.754 (659 of 874)
+
+2) Entity vectors of the name alone (ADR-94) — 562 ambiguous pairs, run A
+   tokens in 23864, out 27433; unreadable answers 20 (2 groups answered 9 verdicts for 10 pairs)
+   same pairs: model said same 114 of 119 | different pairs: model said same 2 of 443
+   resolution as a whole (rules + model): precision 0.9975 (803 of 805), recall 0.919 (803 of 874)
+
+3) Name alone, run B (same pairs, a second sample)
+   tokens in 23864, out 23351; unreadable answers 40 (4 groups answered 9 verdicts for 10 pairs)
+   same pairs: model said same 112 of 119 | different pairs: model said same 3 of 443
+   resolution as a whole (rules + model): precision 0.9963 (801 of 804), recall 0.916 (801 of 874)
+   model said SAME for different things: "Vualt Agent" vs "Vue"; "Go kit" vs "Go"; "Extreme Networks" vs "Juniper Networks"
+   model said different for the same thing: "Consul service discovery" vs "Consul"; "Grafana dashboard" vs "Grafana";
+     "Vue UI framework" vs "Vue"; "the Go" vs "Go"; "Rust language" vs "Rust"; "Amazon Web Srevices" vs "Amazon Web Services"

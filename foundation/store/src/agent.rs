@@ -217,6 +217,58 @@ pub(crate) fn vec_blob(v: &[f32]) -> Vec<u8> {
     v.iter().flat_map(|x| x.to_le_bytes()).collect()
 }
 
+/// Can the vector take part in cosine search? A zero (or non-finite) vector has no direction: sqlite-vec returns a NULL
+/// distance for it, and one such row breaks every search of the table. The hashing embedder returns one for text
+/// without a word of two letters ("C#"). Such facts and entities are stored without a vector (found by keyword, alias
+/// and graph) and such queries skip the vector channel.
+/// Since ADR-94 `graph::canonical` keeps `+` and `#` after a word ("c#", "c++"); names and aliases stored before
+/// were keyed without them ("c"). Re-keys them once per database (they are rare: the scan matches only names with
+/// those characters). Scope values normalised before cannot be recovered ("c" may have been C, C# or C++) and stay.
+fn rekey_names(c: &mut Connection) -> Result<(), StoreError> {
+    let done: Option<String> = c
+        .query_row("SELECT value FROM agent_meta WHERE key = 'canonical'", [], |r| r.get(0))
+        .optional()?;
+    if done.as_deref() == Some("2") {
+        return Ok(());
+    }
+    let tx = c.transaction()?;
+    {
+        let rows: Vec<(i64, String, String)> = tx
+            .prepare("SELECT id, name, canonical_key FROM entity WHERE name GLOB '*[+#]*'")?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<Result<_, _>>()?;
+        for (id, name, key) in rows {
+            let new = crate::graph::canonical(&name);
+            if new != key {
+                tx.execute("UPDATE entity SET canonical_key = ?2 WHERE id = ?1", params![id, new])?;
+            }
+        }
+        let rows: Vec<(i64, String, String)> = tx
+            .prepare("SELECT entity_id, alias_norm, alias FROM entity_alias WHERE alias GLOB '*[+#]*'")?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<Result<_, _>>()?;
+        for (id, norm, alias) in rows {
+            let new = crate::graph::canonical(&alias);
+            if new != norm {
+                tx.execute(
+                    "UPDATE OR IGNORE entity_alias SET alias_norm = ?3 WHERE entity_id = ?1 AND alias_norm = ?2",
+                    params![id, norm, new],
+                )?;
+            }
+        }
+    }
+    tx.execute(
+        "INSERT INTO agent_meta(key, value) VALUES ('canonical', '2') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub(crate) fn usable(v: &[f32]) -> bool {
+    v.iter().all(|x| x.is_finite()) && v.iter().any(|x| *x != 0.0)
+}
+
 /// Turns free text into a safe FTS5 query: every word token quoted, OR-ed (BM25 ranks by overlap).
 pub fn fts_query(text: &str) -> Option<String> {
     let words: Vec<String> = text
@@ -323,6 +375,7 @@ impl AgentStore {
                 "CREATE VIRTUAL TABLE IF NOT EXISTS fact_vec USING vec0(embedding float[{dim}] distance_metric=cosine);
                  CREATE VIRTUAL TABLE IF NOT EXISTS entity_vec USING vec0(embedding float[{dim}] distance_metric=cosine);"
             ))?;
+            rekey_names(c)?;
             Ok(())
         })?;
         Ok(AgentStore {
@@ -374,7 +427,7 @@ impl AgentStore {
             ],
         )?;
         let id = tx.last_insert_rowid();
-        if let Some(v) = vector {
+        if let Some(v) = vector.filter(|v| usable(v)) {
             tx.execute(
                 "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
                 params![id, vec_blob(v)],
@@ -501,16 +554,51 @@ impl AgentStore {
         })
     }
 
-    /// Exact cosine KNN over live facts: `(fact id, distance)` ascending.
+    /// Cosine similarity of the query to each given fact that has a vector (facts without one are absent).
+    pub fn similarity_to(&self, query: &[f32], ids: &[i64]) -> Result<HashMap<i64, f64>, StoreError> {
+        self.check_vec(query)?;
+        let mut out = HashMap::new();
+        if ids.is_empty() || !usable(query) {
+            return Ok(out);
+        }
+        let qn = query.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+        self.db.read(|c| {
+            let mut st = c.prepare_cached("SELECT embedding FROM fact_vec WHERE rowid = ?1")?;
+            for id in ids {
+                let blob: Option<Vec<u8>> = st.query_row([id], |r| r.get(0)).optional()?;
+                let Some(blob) = blob else { continue };
+                let v = blob
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|b| f32::from_le_bytes(*b) as f64);
+                let (mut dot, mut vn) = (0.0, 0.0);
+                for (x, q) in v.zip(query) {
+                    dot += x * *q as f64;
+                    vn += x * x;
+                }
+                if vn > 0.0 && qn > 0.0 {
+                    out.insert(*id, dot / (vn.sqrt() * qn));
+                }
+            }
+            Ok(out)
+        })
+    }
+
+    /// Exact cosine KNN over live facts: `(fact id, distance)` ascending. A query without a direction finds nothing;
+    /// rows without a distance (a zero vector stored before `usable` existed) are skipped.
     pub fn knn(&self, query: &[f32], k: usize) -> Result<Vec<(i64, f64)>, StoreError> {
         self.check_vec(query)?;
-        if k == 0 {
+        if k == 0 || !usable(query) {
             return Ok(vec![]);
         }
         self.db.read(|c| {
             let mut st = c.prepare_cached("SELECT rowid, distance FROM fact_vec WHERE embedding MATCH ?1 AND k = ?2 ORDER BY distance")?;
-            let rows = st.query_map(params![vec_blob(query), k as i64], |r| Ok((r.get(0)?, r.get(1)?)))?;
-            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+            let rows = st.query_map(params![vec_blob(query), k as i64], |r| {
+                Ok((r.get::<_, i64>(0)?, r.get::<_, Option<f64>>(1)?))
+            })?;
+            let rows = rows.collect::<Result<Vec<_>, _>>()?;
+            Ok(rows.into_iter().filter_map(|(id, d)| Some((id, d?))).collect())
         })
     }
 
@@ -794,14 +882,20 @@ impl AgentStore {
         }
         self.db.write(|tx| {
             for (f, v) in facts.iter().zip(&vecs) {
-                tx.execute("DELETE FROM fact_vec WHERE rowid = ?1", [f.id])?;
-                tx.execute(
-                    "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
-                    params![f.id, vec_blob(v)],
-                )?;
+                let had = tx.execute("DELETE FROM fact_vec WHERE rowid = ?1", [f.id])? > 0;
                 tx.execute(
                     "UPDATE fact SET model_id = ?2 WHERE id = ?1",
                     params![f.id, self.model_id],
+                )?;
+                if !usable(v) {
+                    if had {
+                        tx.execute("INSERT INTO ann_journal(op, fact_id) VALUES (2, ?1)", [f.id])?;
+                    }
+                    continue;
+                }
+                tx.execute(
+                    "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
+                    params![f.id, vec_blob(v)],
                 )?;
                 tx.execute(
                     "INSERT INTO ann_journal(op, fact_id) VALUES (1, ?1)",

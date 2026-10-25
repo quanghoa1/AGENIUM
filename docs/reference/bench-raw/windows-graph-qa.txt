@@ -1,0 +1,48 @@
+| embedder | graph | question type | n | recall@8 | MRR | scope leaks |
+|---|---|---|---|---|---|---|
+| hash-v1 | off | single-hop | 24 | 1.00 | 0.91 | 0 |
+| hash-v1 | off | two-hop | 36 | 0.81 | 0.62 | 0 |
+| hash-v1 | off | two-hop-team | 12 | 0.83 | 0.70 | 0 |
+| hash-v1 | off | scope-trap | 40 | 0.40 | 0.09 | 23 |
+| hash-v1 | off | all | 112 | 0.71 | 0.50 | 23 |
+| hash-v1 | on | single-hop | 24 | 1.00 | 0.87 | 0 |
+| hash-v1 | on | two-hop | 36 | 0.81 | 0.59 | 0 |
+| hash-v1 | on | two-hop-team | 12 | 0.83 | 0.61 | 0 |
+| hash-v1 | on | scope-trap | 40 | 0.93 | 0.77 | 0 |
+| hash-v1 | on | all | 112 | 0.89 | 0.71 | 0 |
+| bge-small-en-v1.5 | off | single-hop | 24 | 1.00 | 1.00 | 0 |
+| bge-small-en-v1.5 | off | two-hop | 36 | 0.92 | 0.83 | 0 |
+| bge-small-en-v1.5 | off | two-hop-team | 12 | 0.92 | 0.81 | 0 |
+| bge-small-en-v1.5 | off | scope-trap | 40 | 0.75 | 0.16 | 38 |
+| bge-small-en-v1.5 | off | all | 112 | 0.88 | 0.62 | 38 |
+| bge-small-en-v1.5 | on | single-hop | 24 | 1.00 | 1.00 | 0 |
+| bge-small-en-v1.5 | on | two-hop | 36 | 0.97 | 0.84 | 0 |
+| bge-small-en-v1.5 | on | two-hop-team | 12 | 1.00 | 0.82 | 0 |
+| bge-small-en-v1.5 | on | scope-trap | 40 | 1.00 | 0.97 | 0 |
+| bge-small-en-v1.5 | on | all | 112 | 0.99 | 0.92 | 0 |
+[hash-v1] Q027 two-hop: billing-api keeps rebalancing its consumers and never makes progress. How do we fix it?
+    gold ["issue:Kafka 3.6"], got ["team:payments team", "uses:billing-api:Redis 7.2", "uses:billing-api:Kafka 3.6", "uses:billing-api:PostgreSQL 16", "svc:billing-api:0", "uses:reporting-batch:Grafana 10", "svc:billing-api:1", "svc:billing-api:2"]
+[hash-v1] Q032 two-hop: auth-service can no longer authenticate against the Windows NTLM proxy. How do we fix it?
+    gold ["issue:OpenSSL 3.0"], got ["team:identity team", "issue:GitLab Runner 16", "svc:auth-service:0", "uses:auth-service:OpenSSL 3.0", "issue:Kafka 3.6", "uses:auth-service:Vault 1.15", "svc:auth-service:3", "issue:Vault 1.15"]
+[hash-v1] Q035 two-hop: search-indexer keeps rebalancing its consumers and never makes progress. How do we fix it?
+    gold ["issue:Kafka 3.6"], got ["team:search team", "uses:search-indexer:Elasticsearch 8.11", "uses:search-indexer:Python 3.12", "uses:search-indexer:Kafka 3.6", "svc:search-indexer:0", "uses:reporting-batch:Grafana 10", "svc:search-indexer:3", "svc:search-indexer:1"]
+[hash-v1] Q040 two-hop: data-pipeline runs some long background jobs twice. How do we fix it?
+    gold ["issue:Celery 5.3"], got ["issue:React 18", "svc:data-pipeline:3", "uses:data-pipeline:Celery 5.3", "uses:data-pipeline:Python 3.12", "trivia:Celery 5.3:0", "team:search team", "svc:data-pipeline:1", "uses:data-pipeline:MongoDB 7.0"]
+[hash-v1] Q043 two-hop: notification-worker hangs when publishing messages during traffic peaks. How do we fix it?
+    gold ["issue:RabbitMQ 3.12"], got ["team:messaging team", "svc:notification-worker:1", "uses:notification-worker:Node.js 20", "issue:Kafka 3.6", "uses:notification-worker:RabbitMQ 3.12", "uses:notification-worker:Redis 7.2", "svc:notification-worker:2", "svc:notification-worker:3"]
+[hash-v1] Q053 two-hop: reporting-batch loses its dashboard changes after every restart. How do we fix it?
+    gold ["issue:Grafana 10"], got ["svc:reporting-batch:0", "uses:reporting-batch:Grafana 10", "uses:reporting-batch:MongoDB 7.0", "svc:mobile-gateway:0", "svc:auth-service:0", "svc:data-pipeline:0", "issue:Docker 24", "svc:edge-proxy:0"]
+[hash-v1] Q059 two-hop: chat-service hangs when publishing messages during traffic peaks. How do we fix it?
+    gold ["issue:RabbitMQ 3.12"], got ["team:messaging team", "uses:chat-service:Kubernetes 1.29", "svc:chat-service:1", "team:identity team", "uses:auth-service:Go 1.22", "issue:Kafka 3.6", "team:catalog team", "team:payments team"]
+[hash-v1] Q066 two-hop-team: A service owned by the search team runs some long background jobs twice. How do we fix it?
+    gold ["issue:Celery 5.3"], got ["team:search team", "issue:React 18", "team:identity team", "team:messaging team", "svc:search-indexer:3", "team:payments team", "issue:Vault 1.15", "trivia:Celery 5.3:0"]
+[hash-v1] Q067 two-hop-team: A service owned by the messaging team hangs when publishing messages during traffic peaks. How do we fix it?
+    gold ["issue:RabbitMQ 3.12"], got ["team:messaging team", "team:identity team", "team:payments team", "team:platform team", "team:catalog team", "issue:Vault 1.15", "team:search team", "svc:chat-service:3"]
+[hash-v1] Q098 scope-trap: A firmware update on the Deco M5 fails halfway. How do we complete it safely?
+    gold ["net:TP-Link:firmware update failure"], got ["product:Deco M5", "net:TP-Link:DHCP lease drops", "issue:Go 1.22", "issue:MongoDB 7.0", "svc:admin-portal:3", "trivia:Terraform 1.6:0", "svc:data-pipeline:3", "net:TP-Link:guest network isolation"]
+[hash-v1] Q105 scope-trap: Guest Wi-Fi clients can reach internal servers through the Archer C7. How do we isolate them?
+    gold ["net:TP-Link:guest network isolation"], got ["product:Archer C7", "net:TP-Link:firmware update failure", "svc:admin-portal:3", "product:UniFi Dream Machine", "product:UniFi U6-LR", "svc:edge-proxy:3", "product:Orbi RBR50", "issue:nginx 1.25"]
+[hash-v1] Q106 scope-trap: Guest Wi-Fi clients can reach internal servers through the Deco M5. How do we isolate them?
+    gold ["net:TP-Link:guest network isolation"], got ["product:Deco M5", "net:TP-Link:firmware update failure", "svc:admin-portal:3", "trivia:Terraform 1.6:0", "product:UniFi Dream Machine", "svc:edge-proxy:3", "product:Orbi RBR50", "issue:Node.js 20"]
+[bge-small-en-v1.5] Q043 two-hop: notification-worker hangs when publishing messages during traffic peaks. How do we fix it?
+    gold ["issue:RabbitMQ 3.12"], got ["uses:notification-worker:RabbitMQ 3.12", "svc:notification-worker:1", "uses:notification-worker:Node.js 20", "svc:notification-worker:3", "uses:notification-worker:Redis 7.2", "svc:notification-worker:2", "issue:gRPC 1.60", "svc:notification-worker:0"]

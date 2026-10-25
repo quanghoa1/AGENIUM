@@ -1,0 +1,42 @@
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[32293]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /Users/devin/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/Users/devin/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/devin/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/devin/agenium-macos-test/agenium-macos-test-kit/work/agenium-e2077d3/target/release/deps/libLLVM.dylib' (no such file), '/Users/devin/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+| edges | seeds | hub cap | depth | p50 ms | p95 ms | p99 ms | max ms | > 25 ms | avg nodes |
+|---|---|---|---|---|---|---|---|---|---|
+built 101975 edges / 33334 entities in 0.9 s
+| 100000 | random | on (200) | 1 | 0.06 | 0.08 | 0.09 | 0.3 | 0% | 4.6 |
+| 100000 | random | on (200) | 2 | 0.13 | 0.34 | 0.45 | 0.8 | 0% | 36.1 |
+| 100000 | random | on (200) | 3 | 0.73 | 2.26 | 2.87 | 3.8 | 0% | 48.5 |
+| 100000 | hub-biased | on (200) | 1 | 0.14 | 0.23 | 0.26 | 0.3 | 0% | 43.5 |
+| 100000 | hub-biased | on (200) | 2 | 0.86 | 1.47 | 1.92 | 1.9 | 0% | 43.5 |
+| 100000 | hub-biased | on (200) | 3 | 6.78 | 14.87 | 19.39 | 20.4 | 0% | 43.5 |
+| 100000 | random | off | 1 | 0.07 | 0.08 | 0.09 | 0.1 | 0% | 5.4 |
+| 100000 | random | off | 2 | 0.15 | 3.78 | 4.53 | 5.3 | 0% | 36.0 |
+| 100000 | random | off | 3 | 5.16 | 37.63 | 65.71 | 70.0 | 17% | 48.7 |
+| 100000 | hub-biased | off | 1 | 0.15 | 0.65 | 1.95 | 3.6 | 0% | 50.0 |
+| 100000 | hub-biased | off | 2 | 1.04 | 5.39 | 25.16 | 33.6 | 2% | 50.0 |
+| 100000 | hub-biased | off | 3 | 53.83 | 209.60 | 830.08 | 932.0 | 94% | 50.0 |
+| 100000 | the 2000-edge hub | off | 1 | 2.27 | - | - | - | - | 50 |
+| 100000 | the 2000-edge hub | off | 2 | 23.75 | - | - | - | - | 50 |
+| 100000 | the 2000-edge hub | off | 3 | 904.34 | - | - | - | - | 50 |
+built 1001948 edges / 333334 entities in 13.5 s
+| 1000000 | random | on (200) | 1 | 0.07 | 0.08 | 0.14 | 0.2 | 0% | 6.1 |
+| 1000000 | random | on (200) | 2 | 0.13 | 0.31 | 0.40 | 0.5 | 0% | 33.2 |
+| 1000000 | random | on (200) | 3 | 0.74 | 2.98 | 3.60 | 6.0 | 0% | 47.6 |
+| 1000000 | hub-biased | on (200) | 1 | 0.05 | 0.06 | 0.06 | 0.1 | 0% | 0.0 |
+| 1000000 | hub-biased | on (200) | 2 | 0.06 | 0.06 | 0.06 | 0.1 | 0% | 0.0 |
+| 1000000 | hub-biased | on (200) | 3 | 0.06 | 0.06 | 0.07 | 0.1 | 0% | 0.0 |
+| 1000000 | random | off | 1 | 0.07 | 0.08 | 0.10 | 0.2 | 0% | 6.4 |
+| 1000000 | random | off | 2 | 0.16 | 4.84 | 17.77 | 18.8 | 0% | 39.1 |
+| 1000000 | random | off | 3 | 1.46 | 37.73 | 193.05 | 207.2 | 8% | 48.4 |
+| 1000000 | hub-biased | off | 1 | 0.55 | 2.00 | 4.98 | 19.1 | 0% | 50.0 |
+| 1000000 | hub-biased | off | 2 | 4.80 | 24.88 | 45.88 | 171.2 | 5% | 50.0 |
+| 1000000 | hub-biased | off | 3 | 440.49 | 2160.10 | 4039.33 | 4862.6 | 100% | 50.0 |
+| 1000000 | the 2000-edge hub | off | 1 | 2.02 | - | - | - | - | 50 |
+| 1000000 | the 2000-edge hub | off | 2 | 42.12 | - | - | - | - | 50 |
+| 1000000 | the 2000-edge hub | off | 3 | 2576.19 | - | - | - | - | 50 |
+exit=0 seconds=108

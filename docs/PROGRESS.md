@@ -201,8 +201,9 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 ## Not done / not run (honest list)
 - Real Anthropic, Gemini, OpenAI, OpenRouter, DeepSeek-direct and local endpoints (only OpenCode Go was run; the
   owner allows DeepSeek models only). The OpenCode Anthropic and Responses wires are contract-tested, not run.
-- Graph memory: adjacency cache, the labelled resolution set and the multi-hop QA set; memory extraction after chat
-  sessions (only Closed/Reopened tickets trigger it now). (Consolidation/forgetting, lessons with cue/decay, skill
+- Graph memory: adjacency cache; memory extraction after chat sessions (only Closed/Reopened tickets trigger it now).
+  (The labelled resolution set — 2 152 mentions — and the 112-question multi-hop set are built and run:
+  docs/memory-eval.md, ADR-94. Memory reuse ran on DeepSeek, n = 5; not yet on the CLI models.) (Consolidation/forgetting, lessons with cue/decay, skill
   overlays, sharing between agents and agent-created skills are done: ADR-73, 86, 87, 91, 92.) The skill-writing
   tools ran on six real models (docs/learning-loop-eval.md); no model tried to get a duplicate or contradicting skill
   past the ADR-92 gates, so those are verified by tests only.
@@ -212,9 +213,12 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.)
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
   tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
-- Sandbox backends: macOS Seatbelt (M2) and the S3 containment matrix on Linux (Windows MXC: ADR-53, Linux bubblewrap: ADR-54).
+- Sandbox: the S3 containment matrix against the shipping backends on Linux and macOS (Windows MXC: ADR-53, Linux
+  bubblewrap: ADR-54, macOS Seatbelt: ADR-55 — its first run on a Mac passed the sandbox tests, 2026-10-25).
 - Context compaction beyond the checkpoint-and-continue approach.
-- cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
+- cargo-deny, GitHub workflows. **macOS: first run 2026-10-25** (virtual M4 Pro): build OK, 289 passed / 1 failed /
+  2 ignored — the failure was a real path-confinement defect (a worktree reached through `/private/var`), fixed and
+  reproduced on Windows (8.3 short names); benchmarks in STORE-SCALE §10. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
   6.18, cargo 1.98.1): `cargo build --workspace` and `cargo test --workspace` PASS (no sandbox backend yet, so commands
   run after approval as designed). Since then a bubblewrap backend through `mxc-sdk` (ADR-54) is active on that distro;
   the sandbox tests pass inside it. **2026-10-25: the current code's full suite ran on WSL2 Ubuntu (real kernel,

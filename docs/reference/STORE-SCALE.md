@@ -289,4 +289,35 @@ Reading it:
 - 4 readers + 1 writer is far beyond real use (an agent reads at run start and writes a few facts when a ticket closes;
   the shared pool sees reads from many agents and rare writes). The store opens 2 reader connections per agent database,
   so 4 readers queue; at 1 M each query is dominated by the 1.2 s exact KNN.
-- Not run on the rewrite yet: macOS, Linux, a warm-cache pass, the graph concurrency/cold cases (§8.1 lists them).
+- Not run on the rewrite yet: Linux, a warm-cache pass, the graph concurrency/cold cases (§8.1 lists them). macOS: §10.
+
+## 10. First macOS run of the rewrite (2026-10-25, commit e2077d3)
+
+Run by the test kit (`run-macos-tests.sh --with-1m --with-desktop`) on a **virtual** Apple M4 Pro (12 cores, 16 GB,
+macOS 26.6.2, disk below the recommended free space), so absolute numbers may differ from real hardware. Raw:
+`bench-raw/macos-2026-10-25/`.
+
+- Build of the workspace 210 s; tests **289 passed, 1 failed, 2 ignored**. The failure was a real defect: the worktree
+  was given as `/var/folders/…`, the agent CLI wrote to its `getcwd()` under `/private/var/folders/…` (the same
+  directory) and path confinement refused it. Fixed (both names of the worktree are the worktree; the resolved path must
+  still be inside it) and reproduced on Windows, where 8.3 short names (`C:\Users\QUANGH~1`) cause the same.
+- `agenium doctor`: Seatbelt sandbox present (experimental, ADR-55). Desktop UI build and typecheck pass; the Tauri app
+  builds.
+
+| Facts | Ingest/s | KNN p50/p95 | BM25 p50/p95 | hybrid p50/p95 | recall p50/p95 | needle | 4R+1W reader p95, writer/s |
+|---|---|---|---|---|---|---|---|
+| 10 k | 5 903 | 2.6 / 3.2 | 0.4 / 1.1 | 2.9 / 3.8 | 3.7 / 4.7 | 50/50 | 336, 1 184 |
+| 100 k | 3 494 | 26 / 29 | 3.3 / 10.8 | 28 / 36 | 31 / 39 | 50/50 | 2 392, 1 408 |
+| 1 M | 4 076 | 314 / 338 | 46 / 118 | 348 / 423 | 372 / 451 | 50/50 | 3 000, 1 425 |
+
+Single-reader queries are faster than on the Windows machine (exact KNN at 1 M: 314 vs 1 244 ms p50); under 4 readers +
+1 writer the reader p95 is 5× higher at 100 k (2.4 s vs 0.45 s) — the VM's I/O, not yet explained. Graph traversal with
+the hub cap at 1 M edges: random seeds depth 2 p95 **0.31 ms**, depth 3 p95 **2.98 ms** (targets 25 / 50 ms met); without
+the cap, hub-biased depth 3 p95 2.2 s (as on Windows: the cap is what keeps it bounded).
+
+## 11. Quality on labelled sets (ADR-94)
+
+Latency answers "how fast"; `docs/memory-eval.md` answers "how right" on the production paths: entity resolution on
+2 152 labelled mentions (precision 1.000 by the rules, 0.996–0.998 with the model deciding the ambiguous band, recall
+0.92), multi-hop recall on 112 labelled questions (recall@8 0.99, MRR 0.92, zero scope leaks with bge), and memory reuse
+on a real model.

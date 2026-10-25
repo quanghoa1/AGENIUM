@@ -1,0 +1,35 @@
+embedder: hash-v1 | 115 entities, 2152 mentions (874 same, 1278 different) | bands: auto >= 0.9 + string-similar, ask >= 0.8
+auto-merge precision 1.0000 (509 of 509), auto-merge recall 0.582 (509 of 874), sent to the model 115 (5.3 %), false merges 0
+
+| mention kind | n | same: right | same: WRONG | ask: right entity | ask: other/none | new: right | new: missed |
+|---|---|---|---|---|---|---|---|
+| alias | 151 | 151 | 0 | 0 | 0 | 0 | 0 |
+| article | 99 | 0 | 0 | 33 | 0 | 0 | 66 |
+| conflicting-scope | 16 | 0 | 0 | 0 | 0 | 16 | 0 |
+| exact | 115 | 115 | 0 | 0 | 0 | 0 | 0 |
+| joined | 50 | 3 | 0 | 0 | 2 | 0 | 45 |
+| lower | 97 | 97 | 0 | 0 | 0 | 0 | 0 |
+| other-type | 29 | 0 | 0 | 0 | 0 | 29 | 0 |
+| other-version | 21 | 0 | 0 | 0 | 0 | 21 | 0 |
+| outsider | 112 | 0 | 0 | 0 | 6 | 106 | 0 |
+| outsider-variant | 112 | 0 | 0 | 0 | 0 | 112 | 0 |
+| separator | 50 | 50 | 0 | 0 | 0 | 0 | 0 |
+| sibling | 345 | 0 | 0 | 0 | 13 | 332 | 0 |
+| sibling-suffix | 345 | 0 | 0 | 0 | 2 | 343 | 0 |
+| sibling-typo | 298 | 0 | 0 | 0 | 4 | 294 | 0 |
+| suffix | 115 | 4 | 0 | 39 | 0 | 0 | 72 |
+| typo | 97 | 0 | 0 | 1 | 6 | 0 | 90 |
+| upper | 85 | 85 | 0 | 0 | 0 | 0 | 0 |
+| vendor-prefix | 15 | 4 | 0 | 9 | 0 | 0 | 2 |
+
+Best vector candidate similarity (same type), by label:
+| band | same | different | share same |
+|---|---|---|---|
+| 0.00..0.50 | 245 | 401 | 0.38 |
+| 0.50..0.60 | 8 | 19 | 0.30 |
+| 0.60..0.70 | 18 | 52 | 0.26 |
+| 0.70..0.80 | 0 | 1 | 0.00 |
+| 0.80..0.85 | 0 | 0 | - |
+| 0.85..0.90 | 0 | 0 | - |
+| 0.90..0.95 | 0 | 0 | - |
+| 0.95..1.00 | 20 | 16 | 0.56 |

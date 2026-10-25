@@ -1,0 +1,75 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 8 fact(s)",
+    "runs": 6,
+    "steps": 25,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 256419,
+    "tokens_out": 4539,
+    "cost_usd": 0.0,
+    "elapsed_ms": 96878,
+    "learning": {
+      "memories_after": [
+        "[Fact] Project settings for the docs project are stored in agenium.toml at the worktree root (project id, name, key_prefix, main_branch, template, checks, network allowlist); currently the [checks] pre_merge value and the network allowlist are empty, so no configured check is present in the worktree config itself.",
+        "[Fact] In the docs project worktree, reports/ does not exist initially and is created on first write of a report file, showing up as untracked in git status.",
+        "[Fact] In the docs project, writing file content ending in a newline via write_file produces LF-only endings with no BOM, as confirmed with Format-Hex.",
+        "[Fact] In the docs project, deliverables/hello.txt is an existing reference document that shows the ownership-line-plus-content format used for team documents.",
+        "[Lesson] The failure text of the docs pre-merge check names the exact expected first line, so read it and match it verbatim rather than guessing.",
+        "[Lesson] Verify a docs deliverables file with byte-level checks before submitting: exact case-sensitive first line match, required content still present, no BOM and LF endings.",
+        "[Lesson] When the pre-merge check rejects a docs document because the first line is wrong, prepend the exact required ownership line as line 1 while keeping the required content on the following line.",
+        "[Fact] In the docs project worktrees, verification is done with PowerShell commands such as Get-Content, Test-Path and Get-Content -Raw.",
+        "[Fact] In the docs project, team documents live in the deliverables/ and reports/ directories, as stated in the project README.",
+        "[Lesson] When creating any document under deliverables/ or reports/ in the docs project, write the first line as exactly 'Owner: docs-team' before submitting, otherwise the pre-merge check fails.",
+        "[Fact] In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 16,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 162010,
+        "tokens_out": 2646
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 94409,
+        "tokens_out": 1893
+      },
+      "ticket2_facts_shown": 8
+    }
+  }
+]

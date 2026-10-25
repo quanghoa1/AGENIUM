@@ -1,7 +1,9 @@
 # ADR-55: macOS sandbox backend = Seatbelt through `mxc-sdk` (experimental)
 
-- **Status:** Accepted for implementation; **not run on a Mac yet** (compiles and passes clippy for
-  `x86_64-apple-darwin`)
+- **Status:** Accepted; **first run on a Mac 2026-10-25** (virtual M4 Pro, macOS 26.6.2): `agenium doctor` detects
+  Seatbelt, and the sandbox tests that need a backend pass inside it (live stdin/stdout round trip, clean environment,
+  timeout kills the process tree). The S3 containment matrix against it is not run yet. Raw:
+  `docs/reference/bench-raw/macos-2026-10-25/`.
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Amends:** ADR-43 (macOS Seatbelt v2, experimental) — implementation choice only.
 

@@ -1,0 +1,16 @@
+date: 2026-10-25T15:16:44Z
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+Darwin ip-172-16-5-2.us-west-2.compute.internal 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+cpu: Apple M4 Pro (Virtual)
+cores: 12
+memory_bytes: 17179869184
+disk_free: /dev/disk4s5   123Gi    85Gi    18Gi    83%    2.1M  185M    1%   /System/Volumes/Data
+rustc 1.99.0 (b940084d7 2026-09-28)
+cargo 1.99.0 (5f94df478 2026-08-27)
+git version 2.50.1 (Apple Git-155)
+Python 3.9.6
+v24.21.0
+10.8.3
+source: /Users/devin/agenium-macos-test/agenium-macos-test-kit/work/agenium-e2077d3

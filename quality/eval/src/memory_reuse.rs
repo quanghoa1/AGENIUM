@@ -1,9 +1,12 @@
 //! Memory-reuse benchmark (does memory make the agent better on the next ticket?). A pre-merge check enforces a project
-//! rule the agent cannot know upfront — every file under `deliverables/` starts with `Owner: docs-team`. Ticket 1
-//! (create `hello.txt`) meets it the hard way: the merge fails with a message naming the rule, the agent fixes the file,
-//! and closing the ticket runs the memory pipeline (the "check failed" signal). Ticket 2 (create `bye.txt`) by the same
-//! agent is the measurement, with memory **on** (learn + recall) or **off** (`[memory] learn = false`): did its first
-//! merge pass, how many runs, steps and tokens did it take, and how many facts did recall show it.
+//! rule the agent cannot know upfront — every team document, under `deliverables/` or `reports/`, starts with
+//! `Owner: docs-team`. Ticket 1 (create `deliverables/hello.txt`) meets it the hard way: the merge fails with a message
+//! stating the rule, the agent fixes the file, and closing the ticket runs the memory pipeline (the "check failed"
+//! signal). Ticket 2 (create `reports/weekly.txt`) by the same agent is the measurement, with memory **on** (learn +
+//! recall) or **off** (`[memory] learn = false`): did its first merge pass, how many runs, steps and tokens did it take,
+//! and how many facts did recall show it. Ticket 2 writes into a folder ticket 1 never touched, so copying the shape of
+//! `hello.txt` does not pass by itself; only the general rule does (the first design used `deliverables/bye.txt`, and
+//! both conditions passed by imitating the file next to it).
 //!
 //! A CLI agent extracts memories with the `[cli]` fallback API model (ADR-56); pass `--extract <provider> --extract-model
 //! <model>` with `--root` for those runs (DeepSeek on the OpenCode key).
@@ -29,12 +32,18 @@ pub const ID: &str = "memory-reuse";
 
 const OWNER_LINE: &str = "Owner: docs-team";
 
-/// The project's pre-merge check: every deliverable names its owning team on its first line.
+/// The folders whose files are team documents.
+const TEAM_DIRS: [&str; 2] = ["deliverables", "reports"];
+
+/// The project's pre-merge check: every team document names its owning team on its first line.
 struct OwnerRule;
 impl CheckRunner for OwnerRule {
     fn run(&self, worktree: &Path) -> CheckOutcome {
         let mut bad = Vec::new();
-        if let Ok(rd) = std::fs::read_dir(worktree.join("deliverables")) {
+        for dir in TEAM_DIRS {
+            let Ok(rd) = std::fs::read_dir(worktree.join(dir)) else {
+                continue;
+            };
             for e in rd.flatten() {
                 let name = e.file_name().to_string_lossy().into_owned();
                 if name.starts_with('.') || !e.path().is_file() {
@@ -48,7 +57,7 @@ impl CheckRunner for OwnerRule {
                     .trim()
                     .to_owned();
                 if first != OWNER_LINE {
-                    bad.push(name);
+                    bad.push(format!("{dir}/{name}"));
                 }
             }
         }
@@ -61,9 +70,9 @@ impl CheckRunner for OwnerRule {
             CheckOutcome {
                 ok: false,
                 log: format!(
-                    "pre-merge check failed: deliverables/{}: the first line must be exactly '{OWNER_LINE}' \
-                     (project rule: every deliverable names its owning team on its first line)",
-                    bad.join(", deliverables/")
+                    "pre-merge check failed: {}: the first line must be exactly '{OWNER_LINE}' (project rule: \
+                     every team document, in deliverables/ or reports/, names its owning team on its first line)",
+                    bad.join(", ")
                 ),
             }
         }
@@ -81,6 +90,13 @@ impl CheckFactory for OwnerRuleFactory {
     }
 }
 
+fn milestones() -> Vec<Milestone> {
+    vec![Milestone {
+        id: "M1".into(),
+        title: "Notes".into(),
+    }]
+}
+
 fn plan_item(id: &str, title: &str, ac: &[AcceptanceCriterion]) -> PlanItem {
     PlanItem {
         id: id.into(),
@@ -93,6 +109,27 @@ fn plan_item(id: &str, title: &str, ac: &[AcceptanceCriterion]) -> PlanItem {
         estimate: Estimate::S,
         scope_paths: vec![],
     }
+}
+
+/// Files on the project's main checkout, relative and sorted (dot entries skipped).
+fn files(root: &Path) -> Vec<String> {
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<String>) {
+        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            if e.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let p = e.path();
+            if p.is_dir() {
+                walk(root, &p, out);
+            } else if let Ok(rel) = p.strip_prefix(root) {
+                out.push(rel.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, root, &mut out);
+    out.sort();
+    out
 }
 
 /// Per-ticket measurements.
@@ -114,7 +151,7 @@ fn measure(
             |c| matches!(&c.body, CommentBody::System { text } if text.starts_with("Merge failed")),
         )
         .count();
-    let content = std::fs::read_to_string(root.join("deliverables").join(file)).unwrap_or_default();
+    let content = std::fs::read_to_string(root.join(file)).unwrap_or_default();
     Ok(json!({
         "ticket": key.to_string(),
         "status": t.status.to_string(),
@@ -127,6 +164,8 @@ fn measure(
         "steps": rs.iter().map(|r| r.steps).sum::<u32>(),
         "tokens_in": t.usage.tokens_in,
         "tokens_out": t.usage.tokens_out,
+        "files_after": files(root),
+        "tickets_in_project": app.store().read(|c| agenium_store::core::tickets::list(c, project, &Default::default()))?.len(),
     }))
 }
 
@@ -156,7 +195,7 @@ pub async fn run(
     let root = Path::new(&project.path).to_path_buf();
     std::fs::write(
         root.join("README.md"),
-        "# Docs\n\nTeam documents live in deliverables/.\n",
+        "# Docs\n\nTeam documents live in deliverables/ and reports/.\n",
     )?;
     app.repo(&project)
         .commit_all(&root, "Eval fixture", ("eval", "eval@agenium.local"), &[])?;
@@ -226,20 +265,20 @@ pub async fn run(
     let ac = |file: &str, word: &str| {
         vec![AcceptanceCriterion {
             id: "AC-1".into(),
-            text: format!("deliverables/{file} exists and contains the word {word}"),
+            text: format!("{file} exists and contains the word {word}"),
         }]
     };
     let user = CallCtx::user(project.id);
     app.apply(
         &user,
         Intent::ProposeSpec(RequirementSpec {
-            goals: vec!["Two short team notes".into()],
+            goals: vec!["Two short team documents".into()],
             scope: vec![],
             out_of_scope: vec![],
             requirements: vec![Requirement {
                 id: "REQ-1".into(),
-                text: "Short notes in deliverables/".into(),
-                acceptance: ac("hello.txt", "hello"),
+                text: "Short team documents in deliverables/ and reports/".into(),
+                acceptance: ac("deliverables/hello.txt", "hello"),
             }],
             constraints: vec![],
         }),
@@ -248,14 +287,8 @@ pub async fn run(
         &user,
         Intent::CreatePlan(TicketPlan {
             spec_version: 1,
-            milestones: vec![Milestone {
-                id: "M1".into(),
-                title: "Notes".into(),
-            }],
-            items: vec![
-                plan_item("PI-1", "Hello note", &ac("hello.txt", "hello")),
-                plan_item("PI-2", "Bye note", &ac("bye.txt", "bye")),
-            ],
+            milestones: milestones(),
+            items: vec![plan_item("PI-1", "Hello note", &ac("deliverables/hello.txt", "hello"))],
         }),
     )?;
     let approver: Arc<dyn agenium_orchestrator::runtime::Approver> = if approve {
@@ -266,15 +299,35 @@ pub async fn run(
     let rt = Runtime::new(app.clone(), Arc::new(StaticProviders(providers)), approver);
 
     let mut tickets = Vec::new();
-    for (item, file, word) in [("PI-1", "hello.txt", "hello"), ("PI-2", "bye.txt", "bye")] {
+    for (item, file, word) in [
+        ("PI-1", "deliverables/hello.txt", "hello"),
+        ("PI-2", "reports/weekly.txt", "weekly"),
+    ] {
+        // The weekly report enters the plan only now: with it in plan v1 the Lead ticketed it on its own after ticket 1
+        // (as reports/weekly.md), so the measured ticket was its third and its first merge could copy a reports/ file
+        // already on main (the 2026-10-25 v2 runs).
+        if item == "PI-2" {
+            app.apply(
+                &user,
+                Intent::RevisePlan(PlanRevision {
+                    base_version: 1,
+                    reason: "Add the weekly report".into(),
+                    milestones: milestones(),
+                    items: vec![
+                        plan_item("PI-1", "Hello note", &ac("deliverables/hello.txt", "hello")),
+                        plan_item("PI-2", "Weekly report", &ac(file, word)),
+                    ],
+                }),
+            )?;
+        }
         let out = app.apply(
             &user,
             Intent::CreateTicket(agenium_core::forms::NewTicket {
                 kind: TicketKind::Task,
                 plan_item: item.into(),
                 parent: None,
-                title: format!("Add deliverables/{file}"),
-                description: format!("Create deliverables/{file} containing the word {word}."),
+                title: format!("Add {file}"),
+                description: format!("Create {file} containing the word {word}."),
                 acceptance: ac(file, word),
                 priority: 2,
                 depends_on: vec![],

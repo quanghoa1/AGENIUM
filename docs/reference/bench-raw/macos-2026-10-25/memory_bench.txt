@@ -1,0 +1,12 @@
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[31854]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /Users/devin/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/Users/devin/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/devin/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/devin/agenium-macos-test/agenium-macos-test-kit/work/agenium-e2077d3/target/release/deps/libLLVM.dylib' (no such file), '/Users/devin/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+| Facts | Ingest/s (1 txn per add) | DB on disk | KNN p50/p95 ms | BM25 p50/p95 ms | hybrid p50/p95 ms | recall p50/p95 ms | needle | reopen ms | 4R+1W: reader hybrid p95 ms, writer adds/s |
+|---|---|---|---|---|---|---|---|---|---|
+| 10000 | 5903 | 25 MB | 2.62 / 3.15 | 0.40 / 1.07 | 2.94 / 3.84 | 3.66 / 4.65 | 50/50 | 5 | 335.6, 1184 |
+| 100000 | 3494 | 195 MB | 26.06 / 29.08 | 3.25 / 10.82 | 28.39 / 35.94 | 31.04 / 39.08 | 50/50 | 3 | 2391.8, 1408 |
+exit=0 seconds=122

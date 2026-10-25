@@ -1,0 +1,36 @@
+
+added 145 packages, and audited 146 packages in 2s
+
+28 packages are looking for funding
+  run `npm fund` for details
+
+3 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.8.3 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+> agenium-desktop-ui@0.1.0 build
+> tsc -b && vite build
+
+vite v6.4.5 building for production...
+transforming...
+✓ 2045 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                    0.41 kB │ gzip:   0.27 kB
+dist/assets/index--rLezquj.css    32.96 kB │ gzip:   6.86 kB
+dist/assets/webview--5uqFL3K.js    3.34 kB │ gzip:   1.14 kB
+dist/assets/window-DfZIt9We.js    14.32 kB │ gzip:   3.56 kB
+dist/assets/index-DxyXFusP.js    734.74 kB │ gzip: 216.51 kB
+✓ built in 1.96s
+exit=0 seconds=9

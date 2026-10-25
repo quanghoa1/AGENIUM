@@ -173,7 +173,8 @@ impl Runtime {
         let model = PipelineModel {
             model: model_id,
             effort: Effort::Low,
-            max_tokens: 4000,
+            // Twelve facts with entities and relations, plus a reasoning model's thinking: 4 000 cut answers off.
+            max_tokens: 8000,
             retry: self.retry,
         };
         let redactor = self.app.redactor().clone();

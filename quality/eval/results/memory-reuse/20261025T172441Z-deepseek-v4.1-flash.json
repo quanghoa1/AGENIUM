@@ -1,0 +1,72 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 5 fact(s)",
+    "runs": 6,
+    "steps": 29,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 296891,
+    "tokens_out": 4985,
+    "cost_usd": 0.0,
+    "elapsed_ms": 117385,
+    "learning": {
+      "memories_after": [
+        "[Fact] The docs project runs on the coding@1 report template with main branch main and marks work done via submit_report, which returns a commit hash. Its agenium.toml declares key_prefix AGN, main_branch main, template coding@1, empty shared_dirs/include_files, an empty pre_merge check and an empty network allowlist.",
+        "[Fact] In the docs project, agents can verify a file's exact bytes with PowerShell [System.IO.File]::ReadAllBytes to confirm LF endings, no BOM and no trailing whitespace before submitting.",
+        "[Lesson] When the docs pre-merge check rejects a file for a missing required header line, prepend that line (e.g. 'Owner: docs-team') as line 1 and keep the ticket's required content below it — this passed both the AC and the check.",
+        "[Lesson] Before submitting a report on a docs/deliverables ticket, check the file against all project conventions (e.g. the required 'Owner: docs-team' first line), since acceptance-criteria checks and an approving review can pass while the pre-merge check still fails at merge time.",
+        "[Fact] In the docs project, team documents live in the deliverables/ and reports/ directories, as stated in the project README.",
+        "[Fact] In this environment shell commands run in PowerShell on Windows, so Get-Content and Select-String are used for file verification.",
+        "[Fact] In the docs project, ticket work is done on branch agenium/<ticket-id> in a git worktree under projects/docs/.agenium/worktrees/<ticket-id>.",
+        "[Fact] In the docs project, every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team' (project rule enforced by a pre-merge check)."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 19,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 193836,
+        "tokens_out": 2956
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 103055,
+        "tokens_out": 2029
+      },
+      "ticket2_facts_shown": 5
+    }
+  }
+]

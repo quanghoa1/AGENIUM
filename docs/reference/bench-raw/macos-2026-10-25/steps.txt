@@ -1,0 +1,18 @@
+== machine  (15:16:44)
+== build (cargo build --workspace --all-targets)  (15:16:45)
+   exit=0 seconds=210
+== tests (cargo test --workspace --no-fail-fast)  (15:20:15)
+   exit=101 seconds=24
+== doctor (system requirements, sandbox backend, shell, agent CLIs)  (15:20:39)
+   exit=0 seconds=61
+== memory store benchmark (10k, 100k)  (15:21:40)
+   exit=0 seconds=122
+== memory store benchmark (1M)  (15:23:42)
+   exit=0 seconds=492
+== graph benchmark (100k, 1M edges)  (15:31:54)
+   exit=0 seconds=108
+== desktop UI (npm ci, build, typecheck)  (15:33:42)
+   exit=0 seconds=9
+== desktop app (Tauri, cargo build)  (15:33:51)
+   exit=0 seconds=108
+== summary  (15:35:39)

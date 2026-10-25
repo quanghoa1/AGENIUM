@@ -1,0 +1,13 @@
+84:---- agenium_decides_every_tool_call_and_the_run_ends_through_submit_report stdout ----
+85-
+86-thread 'agenium_decides_every_tool_call_and_the_run_ends_through_submit_report' (62063) panicked at agent/cli-backend/tests/stream_run.rs:155:58:
+87-called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+88-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+89-
+90-
+91-failures:
+92-    agenium_decides_every_tool_call_and_the_run_ends_through_submit_report
+93-
+94-test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+95-
+96-error: test failed, to rerun pass `-p agenium-cli-backend --test stream_run`

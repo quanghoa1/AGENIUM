@@ -73,13 +73,21 @@ fn load_embedder(models_root: &Path) -> Arc<dyn Embedder> {
     Arc::new(HashEmbedder::new(384))
 }
 
-/// Re-embeds live facts whose vectors come from another embedder (model switch with the same dimension).
+/// Re-embeds live facts whose vectors come from another embedder (model switch with the same dimension), and entity
+/// vectors made from "name. description" before ADR-94 (once per database).
 pub fn refresh_vectors(store: &AgentStore, embedder: &dyn Embedder) -> Result<u64, MemoryError> {
+    const ENTITY_TEXT: &str = "name";
+    let entities_current = store.meta("entity_vector_text")?.as_deref() == Some(ENTITY_TEXT);
     if store.stale_vectors(embedder.model_id())? == 0 {
+        if !entities_current {
+            store.reindex_entities(|t| embedder.embed(t))?;
+            store.set_meta("entity_vector_text", ENTITY_TEXT)?;
+        }
         return Ok(0);
     }
     let n = store.reindex(|t| embedder.embed(t))?;
     store.reindex_entities(|t| embedder.embed(t))?;
+    store.set_meta("entity_vector_text", ENTITY_TEXT)?;
     Ok(n)
 }
 
@@ -114,12 +122,22 @@ impl Embedder for HashEmbedder {
         Ok(texts
             .iter()
             .map(|t| {
-                let words: Vec<String> = t
-                    .to_lowercase()
+                let lower = t.to_lowercase();
+                let mut words: Vec<String> = lower
                     .split(|c: char| !c.is_alphanumeric())
                     .filter(|w| w.len() > 1)
                     .map(str::to_owned)
                     .collect();
+                // Text without a word of two letters ("C#", "C++") keeps its symbols rather than becoming a zero
+                // vector, which has no direction to search with.
+                if words.is_empty() {
+                    words = lower
+                        .split_whitespace()
+                        .map(|w| w.trim_matches(|c: char| c == '.' || c == ','))
+                        .filter(|w| !w.is_empty())
+                        .map(str::to_owned)
+                        .collect();
+                }
                 let mut v = vec![0f32; self.dim];
                 for w in &words {
                     v[(fnv(w) % self.dim as u64) as usize] += 1.0;

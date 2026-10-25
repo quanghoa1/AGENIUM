@@ -1,0 +1,72 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 278721,
+    "tokens_out": 4309,
+    "cost_usd": 0.0,
+    "elapsed_ms": 104040,
+    "learning": {
+      "memories_after": [
+        "[Fact] In the docs project worktree, document file contents are verified by reading them back with PowerShell's 'Get-Content -Raw'.",
+        "[Fact] In the docs project, new files are confirmed as untracked-but-present via 'git status --short' (showing a '??' entry for the new directory).",
+        "[Fact] In the docs project, the reports/ directory may not exist in the worktree initially and is created implicitly by writing a file such as reports/weekly.txt into it.",
+        "[Lesson] In the docs project, a worktree may not contain agenium.toml, and agenium.toml has [checks] pre_merge empty when present; pre-merge checks still run, so never assume absence of visible check config means no checks exist.",
+        "[Fact] On Windows worktrees in this environment, verifying files with PowerShell (Test-Path, Get-Content, -ceq, -match) and git status/git diff works well.",
+        "[Fact] In the docs project, deliverables/ and reports/ are the directories where team documents live, as stated in README.md.",
+        "[Fact] In the docs project, the first line of every team document in deliverables/ or reports/ must be exactly 'Owner: docs-team'; a pre-merge check enforces this.",
+        "[Lesson] Meeting a ticket's literal acceptance criteria (file exists, contains the word) is not enough in the docs project; project-wide document conventions such as the owner first line are also enforced before merge."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 18,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 188618,
+        "tokens_out": 2935
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 90103,
+        "tokens_out": 1374
+      },
+      "ticket2_facts_shown": 4
+    }
+  }
+]

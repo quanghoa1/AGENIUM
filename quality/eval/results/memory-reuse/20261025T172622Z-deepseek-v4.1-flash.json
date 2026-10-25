@@ -1,0 +1,73 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 3 fact(s)",
+    "runs": 6,
+    "steps": 28,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 283717,
+    "tokens_out": 4130,
+    "cost_usd": 0.0,
+    "elapsed_ms": 100742,
+    "learning": {
+      "memories_after": [
+        "[Fact] In the docs project, new files are checked for tracking eligibility with git status --short and git check-ignore.",
+        "[Fact] In the docs project, file contents can be verified in PowerShell with Get-Content, Select-String -SimpleMatch, and [System.IO.File]::ReadAllBytes for byte/line-ending checks.",
+        "[Fact] The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/ directories.",
+        "[Fact] Docs project deliverable files follow the style of deliverables/hello.txt: an 'Owner: docs-team' header line followed by the content line.",
+        "[Fact] In the docs project worktrees files are written with LF line endings and no BOM, which is verified in PowerShell by dumping bytes with [System.IO.File]::ReadAllBytes.",
+        "[Lesson] The docs project's real pre-merge rules are not necessarily listed in agenium.toml ([checks] pre_merge may be empty), so the enforced rule must be discovered from the merge check output.",
+        "[Fact] Agenium tickets in the docs project are worked in worktrees at projects/docs/.agenium/worktrees/<ticket> on branch agenium/<ticket>.",
+        "[Fact] The docs project keeps team documents in the deliverables/ and reports/ directories, as stated in its README.md.",
+        "[Fact] In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check rejects files that lack it."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 18,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 184144,
+        "tokens_out": 2954
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 99573,
+        "tokens_out": 1176
+      },
+      "ticket2_facts_shown": 3
+    }
+  }
+]

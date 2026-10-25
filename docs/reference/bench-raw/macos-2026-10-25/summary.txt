@@ -1,0 +1,6 @@
+commit: e2077d3
+tests: passed 289, failed 1, ignored 2
+failing tests:
+test agenium_decides_every_tool_call_and_the_run_ends_through_submit_report ... FAILED
+build: exit=0 seconds=210
+doctor sandbox line: sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, no network

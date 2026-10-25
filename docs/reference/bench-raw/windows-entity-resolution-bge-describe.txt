@@ -1,0 +1,35 @@
+embedder: bge-small-en-v1.5 | 115 entities, 2152 mentions (874 same, 1278 different) | bands: auto >= 0.9 + string-similar, ask >= 0.8
+auto-merge precision 1.0000 (525 of 525), auto-merge recall 0.601 (525 of 874), sent to the model 285 (13.2 %), false merges 0
+
+| mention kind | n | same: right | same: WRONG | ask: right entity | ask: other/none | new: right | new: missed |
+|---|---|---|---|---|---|---|---|
+| alias | 151 | 151 | 0 | 0 | 0 | 0 | 0 |
+| article | 99 | 1 | 0 | 34 | 0 | 0 | 64 |
+| conflicting-scope | 16 | 0 | 0 | 0 | 0 | 16 | 0 |
+| exact | 115 | 115 | 0 | 0 | 0 | 0 | 0 |
+| joined | 50 | 3 | 0 | 17 | 0 | 0 | 30 |
+| lower | 97 | 97 | 0 | 0 | 0 | 0 | 0 |
+| other-type | 29 | 0 | 0 | 0 | 0 | 29 | 0 |
+| other-version | 21 | 0 | 0 | 0 | 0 | 21 | 0 |
+| outsider | 112 | 0 | 0 | 0 | 1 | 111 | 0 |
+| outsider-variant | 112 | 0 | 0 | 0 | 1 | 111 | 0 |
+| separator | 50 | 50 | 0 | 0 | 0 | 0 | 0 |
+| sibling | 345 | 0 | 0 | 0 | 23 | 322 | 0 |
+| sibling-suffix | 345 | 0 | 0 | 0 | 121 | 224 | 0 |
+| sibling-typo | 298 | 0 | 0 | 0 | 2 | 296 | 0 |
+| suffix | 115 | 18 | 0 | 73 | 2 | 0 | 22 |
+| typo | 97 | 0 | 0 | 1 | 0 | 0 | 96 |
+| upper | 85 | 85 | 0 | 0 | 0 | 0 | 0 |
+| vendor-prefix | 15 | 5 | 0 | 10 | 0 | 0 | 0 |
+
+Best vector candidate similarity (same type), by label:
+| band | same | different | share same |
+|---|---|---|---|
+| 0.00..0.50 | 13 | 9 | 0.59 |
+| 0.50..0.60 | 229 | 276 | 0.45 |
+| 0.60..0.70 | 419 | 738 | 0.36 |
+| 0.70..0.80 | 154 | 187 | 0.45 |
+| 0.80..0.85 | 18 | 6 | 0.75 |
+| 0.85..0.90 | 1 | 1 | 0.50 |
+| 0.90..0.95 | 0 | 0 | - |
+| 0.95..1.00 | 0 | 0 | - |

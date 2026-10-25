@@ -11,10 +11,12 @@ use rusqlite::{params, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::agent::{vec_blob, AgentStore, Fact};
+use crate::agent::{usable, vec_blob, AgentStore, Fact};
 use crate::StoreError;
 
-/// Normalised name: lowercase, every run of non-alphanumeric characters becomes one space, trimmed.
+/// Normalised name: lowercase, every run of non-alphanumeric characters becomes one space, trimmed. `+` and `#`
+/// directly after a letter or digit stay part of the word: "C#", "C++" and "C" are three languages, and "DS920+" is
+/// not "DS920" (they all became "c" / "ds920" before ADR-94; `AgentStore::open` re-keys older databases).
 pub fn canonical(s: &str) -> String {
     let mut out = String::new();
     let mut gap = false;
@@ -25,6 +27,8 @@ pub fn canonical(s: &str) -> String {
             }
             out.push(c);
             gap = false;
+        } else if matches!(c, '+' | '#') && !gap && !out.is_empty() {
+            out.push(c);
         } else {
             gap = true;
         }
@@ -331,7 +335,7 @@ impl AgentStore {
                         ],
                     )?;
                     let id = tx.last_insert_rowid();
-                    if let Some(v) = vector {
+                    if let Some(v) = vector.filter(|v| usable(v)) {
                         tx.execute(
                             "INSERT INTO entity_vec(rowid, embedding) VALUES (?1, ?2)",
                             params![id, vec_blob(v)],
@@ -385,14 +389,14 @@ impl AgentStore {
                     found.entry(id?).or_insert(("fts", 0.0));
                 }
             }
-            if let Some(v) = vector {
+            if let Some(v) = vector.filter(|v| usable(v)) {
                 let mut st = c.prepare_cached(
                     "SELECT rowid, distance FROM entity_vec WHERE embedding MATCH ?1 AND k = ?2 ORDER BY distance",
                 )?;
-                let rows: Vec<(i64, f64)> = st
+                let rows: Vec<(i64, Option<f64>)> = st
                     .query_map(params![vec_blob(v), (k * 4) as i64], |r| Ok((r.get(0)?, r.get(1)?)))?
                     .collect::<Result<_, _>>()?;
-                for (id, d) in rows {
+                for (id, d) in rows.into_iter().filter_map(|(id, d)| Some((id, d?))) {
                     let sim = 1.0 - d;
                     let e = found.entry(id).or_insert(("vector", sim));
                     if e.1 < sim {
@@ -810,13 +814,14 @@ GROUP BY node ORDER BY score DESC, node LIMIT ?5";
         Ok(out)
     }
 
-    /// Rebuilds `entity_fts` and `entity_vec` (after an import or an embedder change).
+    /// Rebuilds `entity_fts` and `entity_vec` (after an import or an embedder change). Vectors are made from the name
+    /// alone, as `agenium_memory::resolve::entity_text` makes them (ADR-94).
     pub fn reindex_entities(
         &self,
         embed: impl Fn(&[String]) -> Result<Vec<Vec<f32>>, String>,
     ) -> Result<u64, StoreError> {
         let rows: Vec<(i64, String)> = self.db.read(|c| -> Result<_, StoreError> {
-            let mut st = c.prepare("SELECT id, name || '. ' || COALESCE(description, '') FROM entity WHERE merged_into IS NULL")?;
+            let mut st = c.prepare("SELECT id, name || '. ' FROM entity WHERE merged_into IS NULL")?;
             let v = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
             Ok(v)
         })?;
@@ -837,10 +842,12 @@ GROUP BY node ORDER BY score DESC, node LIMIT ?5";
         self.db.write(|tx| {
             tx.execute("DELETE FROM entity_vec", [])?;
             for ((id, _), v) in rows.iter().zip(&vecs) {
-                tx.execute(
-                    "INSERT INTO entity_vec(rowid, embedding) VALUES (?1, ?2)",
-                    params![id, vec_blob(v)],
-                )?;
+                if usable(v) {
+                    tx.execute(
+                        "INSERT INTO entity_vec(rowid, embedding) VALUES (?1, ?2)",
+                        params![id, vec_blob(v)],
+                    )?;
+                }
                 refresh_fts(tx, *id)?;
             }
             Ok(rows.len() as u64)
