@@ -33,7 +33,10 @@ of agent personas, rules only, our own text)
    rewritten in that shape (version 1.1.0; role folders already written stay the user's). A role library adds
    specialist presets usable in any team: code-reviewer, bugfixer, codebase-explorer, software-architect, sre,
    appsec-auditor, api-tester, performance-engineer, accessibility-auditor, technical-writer.
-7. **Not taken from the catalogue:** personality and emoji, long prompts, free-text orchestration (ours is tools and
+7. **Review spills do not block the merge.** Found on the real run: the Lead's review tools wrote a full output to
+   `artifacts/tool-output/<run>/` in the worker's worktree after the worker's last commit, and the merge refused the
+   "uncommitted" file, retrying forever. The merge queue ignores untracked files in that folder.
+8. **Not taken from the catalogue:** personality and emoji, long prompts, free-text orchestration (ours is tools and
    tickets), roles without path or tool limits. No text or file of it is copied.
 
 ## Consequences

@@ -131,7 +131,10 @@ fn merge_queue_rebases_detects_conflicts_and_failed_checks() {
         matches!(&m1, MergeOutcome::Merged { changed_files, .. } if changed_files == &vec!["a.txt".to_string(), "shared.txt".to_string()]),
         "{m1:?}"
     );
-    // B branched before A merged: rebased onto the new main, then fast-forwarded.
+    // B branched before A merged: rebased onto the new main, then fast-forwarded. The full output a review
+    // run's tool left in B's worktree is not part of the work and does not block the merge.
+    write(&b.path, "artifacts/tool-output/run9/0001.log", "long output
+");
     let m2 = r.merge_ticket("AGN-2", &NoCheck).unwrap();
     assert!(matches!(m2, MergeOutcome::Merged { .. }), "{m2:?}");
     assert!(r.root.join("a.txt").exists() && r.root.join("b.txt").exists());

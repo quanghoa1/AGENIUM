@@ -17,6 +17,9 @@ pub use git::Git;
 
 pub const MIN_GIT: (u32, u32) = (2, 30);
 
+/// Worktree-relative folder where tools write full outputs (`artifacts/tool-output/<run>`, agenium-tools).
+pub const TOOL_OUTPUT_DIR: &str = "artifacts/tool-output";
+
 #[derive(Debug, thiserror::Error)]
 pub enum VcsError {
     #[error("git is not available: {0}")]
@@ -542,7 +545,12 @@ impl Repo {
                 sha: self.head_sha(&self.main)?.unwrap_or(head),
             });
         }
-        let dirty = self.status(&wt)?;
+        // Full outputs that tools of a later run (the review) spilled into the worktree are not part of the work.
+        let dirty: Vec<String> = self
+            .status(&wt)?
+            .into_iter()
+            .filter(|l| !l.starts_with(&format!("?? {TOOL_OUTPUT_DIR}/")))
+            .collect();
         if !dirty.is_empty() {
             return Err(VcsError::Invalid(format!(
                 "worktree of {key} has uncommitted changes: {dirty:?}"
