@@ -220,14 +220,9 @@ impl Driver for Codex {
     }
 }
 
-/// Codex's subscription usage through its own app-server RPC (`account/rateLimits/read`; no model turn). It runs
-/// in a scratch `CODEX_HOME` holding a copy of the user's login, like a run, and hands a refreshed login back the
-/// same way. The client names itself `agenium`.
-pub async fn rate_limits(
-    program: &Path,
-    scratch: &Path,
-    now: &str,
-) -> Result<agenium_llm::vendor_usage::VendorUsage, String> {
+/// One request to codex's own app-server (no model turn), in a scratch `CODEX_HOME` holding a copy of the user's
+/// login like a run (a refreshed login is handed back the same way). The client names itself `agenium`.
+async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Value, String> {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     let user = user_codex_home().ok_or("no codex home")?;
     let home = scratch.join("codex-home");
@@ -276,7 +271,7 @@ pub async fn rate_limits(
             match m["id"].as_u64() {
                 Some(1) => {
                     let next = send(json!({"method": "initialized"}))
-                        + &send(json!({"id": 2, "method": "account/rateLimits/read"}));
+                        + &send(json!({"id": 2, "method": method, "params": {}}));
                     stdin
                         .write_all(next.as_bytes())
                         .await
@@ -284,10 +279,8 @@ pub async fn rate_limits(
                 }
                 Some(2) if m["error"].is_object() => {
                     return Err(format!(
-                        "codex: {}",
-                        m["error"]["message"]
-                            .as_str()
-                            .unwrap_or("rate limits unavailable")
+                        "codex {method}: {}",
+                        m["error"]["message"].as_str().unwrap_or("failed")
                     ))
                 }
                 Some(2) => return Ok(m["result"].clone()),
@@ -303,7 +296,32 @@ pub async fn rate_limits(
     if let Err(e) = hand_back_login(&user.join("auth.json"), &home.join("auth.json")) {
         tracing::warn!(error = %e, "codex login not handed back");
     }
-    out.map(|r| agenium_llm::vendor_usage::from_codex_rate_limits(&r, now))
+    out
+}
+
+/// Codex's subscription usage through its app-server (`account/rateLimits/read`).
+pub async fn rate_limits(
+    program: &Path,
+    scratch: &Path,
+    now: &str,
+) -> Result<agenium_llm::vendor_usage::VendorUsage, String> {
+    app_server(program, scratch, "account/rateLimits/read")
+        .await
+        .map(|r| agenium_llm::vendor_usage::from_codex_rate_limits(&r, now))
+}
+
+/// The models this codex login can use (`model/list`, hidden ones left out), default first.
+pub async fn models(program: &Path, scratch: &Path) -> Result<Vec<String>, String> {
+    let r = app_server(program, scratch, "model/list").await?;
+    let mut out: Vec<(bool, String)> = r["data"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|m| m["hidden"] != true)
+        .filter_map(|m| Some((m["isDefault"] == true, m["id"].as_str()?.to_owned())))
+        .collect();
+    out.sort_by_key(|(default, _)| !*default);
+    Ok(out.into_iter().map(|(_, id)| id).collect())
 }
 
 #[cfg(test)]

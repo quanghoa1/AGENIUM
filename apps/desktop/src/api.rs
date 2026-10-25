@@ -504,6 +504,29 @@ pub async fn detected_clis(d: &Desktop, refresh: bool) -> R<Vec<agenium_cli_back
     Ok(found)
 }
 
+/// Models each driven CLI can run (`model/list`, `agy models`, ...), listed at most every 5 minutes.
+async fn cli_models(
+    d: &Desktop,
+    o: &crate::state::Opened,
+    clis: &[agenium_cli_backend::CliInfo],
+    refresh: bool,
+) -> std::collections::BTreeMap<String, Vec<String>> {
+    let cached = d
+        .cli_models
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_ref()
+        .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(300))
+        .map(|(_, v)| v.clone());
+    if let Some(v) = cached.filter(|_| !refresh) {
+        return v;
+    }
+    let found = agenium_orchestrator::model_lists::cli_models(&o.app, clis).await;
+    *d.cli_models.lock().unwrap_or_else(|p| p.into_inner()) =
+        Some((std::time::Instant::now(), found.clone()));
+    found
+}
+
 /// The vendors' subscription usage for the footer (last readings; see `agenium_orchestrator::vendor_usage`).
 #[tauri::command]
 pub async fn vendor_usage(d: State<'_, Desktop>) -> R<Value> {
@@ -543,12 +566,13 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
         .providers
         .iter()
         .map(|p| json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
-                          "models": p.models, "max_concurrency": p.max_concurrency }))
+                          "models": p.models.iter().filter(|m| o.app.api_serves(&p.id, m)).collect::<Vec<_>>(),
+                          "max_concurrency": p.max_concurrency }))
         .collect();
     let clis = detected_clis(&d, refresh == Some(true)).await?;
     Ok(json!({
         "providers": providers, "clis": clis,
-        "cli_models": { "opencode": o.app.opencode_free_models() },
+        "cli_models": cli_models(&d, &o, &clis, refresh == Some(true)).await,
         "templates": o.app.team_templates().map_err(err)?,
         "cli_fallback": { "provider": cfg.cli.fallback_provider, "model": cfg.cli.fallback_model },
     }))

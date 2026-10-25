@@ -362,6 +362,18 @@ pub async fn rate_limits(
     out
 }
 
+/// Models Claude Code accepts with `--model`: its aliases (the newest of each family) and full model ids. The CLI
+/// has no command that lists them.
+pub const MODELS: [&str; 7] = [
+    "haiku",
+    "sonnet",
+    "opus",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-fable-5-1",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;

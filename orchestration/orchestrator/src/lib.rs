@@ -10,6 +10,7 @@ pub mod inbox;
 pub mod maintenance;
 pub mod manifest;
 pub mod mcp;
+pub mod model_lists;
 pub mod prices;
 pub mod registry;
 pub mod role_library;

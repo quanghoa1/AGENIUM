@@ -14,7 +14,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   useEffect(() => {
     setModels([]);
     if (cli) {
-      // The opencode CLI runs OpenCode's free models (ADR-68).
+      // What this CLI runs with the user's login (codex model/list, agy models, Claude aliases, OpenCode's free models).
       setModels((caps?.cli_models?.[value.provider] ?? []).map((id) => ({ id })));
       return;
     }
@@ -28,7 +28,8 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   }, [value.provider, cli, caps]);
   const listId = `models-${value.provider || "none"}`;
   const prices = usePrices(useApp().tick);
-  const freeCli = new Set(cli ? (caps?.cli_models?.[value.provider] ?? []) : []);
+  // Only the opencode CLI's list is OpenCode's free models; the other CLIs list what their login can run.
+  const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []) : []);
   const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
   return (
     <div className="grid grid-cols-4 gap-2">

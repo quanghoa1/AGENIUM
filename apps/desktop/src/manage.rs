@@ -449,6 +449,8 @@ pub async fn provider_models(d: State<'_, Desktop>, id: String) -> R<Value> {
     let p = o.rt.providers.provider(&id).map_err(err)?;
     let pc = o.app.config().provider(&id).cloned();
     let mut models = p.list_models().await.map_err(|e| e.to_string())?;
+    // Only what the API serves (OpenCode's free models need the opencode CLI backend, ADR-68).
+    models.retain(|m| o.app.api_serves(&id, &m.id));
     if let Some(pc) = &pc {
         for m in &mut models {
             agenium_orchestrator::runtime::apply_caps(pc, m);

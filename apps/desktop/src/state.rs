@@ -118,6 +118,9 @@ pub struct Opened {
     pub rt: Arc<Runtime>,
 }
 
+/// Models per CLI program (ADR-68 follow-up).
+pub type CliModels = std::collections::BTreeMap<String, Vec<String>>;
+
 pub struct Desktop {
     pub root: PathBuf,
     pub opened: RwLock<Option<Arc<Opened>>>,
@@ -126,6 +129,8 @@ pub struct Desktop {
     pub busy: Arc<Mutex<std::collections::HashSet<agenium_core::ProjectId>>>,
     /// Agent CLIs found on this machine and when (detection runs each CLI: cached, refreshed on demand).
     pub clis: Mutex<Option<(std::time::Instant, Vec<agenium_cli_backend::CliInfo>)>>,
+    /// Models each CLI can run, listed at most every 5 minutes.
+    pub cli_models: Mutex<Option<(std::time::Instant, CliModels)>>,
 }
 
 impl Desktop {
@@ -136,6 +141,7 @@ impl Desktop {
             approvals: Arc::default(),
             busy: Arc::default(),
             clis: Mutex::new(None),
+            cli_models: Mutex::new(None),
         }
     }
 

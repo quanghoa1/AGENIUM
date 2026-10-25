@@ -290,6 +290,32 @@ impl Driver for Agy {
     }
 }
 
+/// The models this Antigravity login can use (`agy models`: `id<TAB>name` lines; no model turn).
+pub async fn models(program: &Path) -> Result<Vec<String>, String> {
+    let mut cmd = tokio::process::Command::new(program);
+    cmd.arg("models")
+        .env("AGY_CLI_DISABLE_AUTO_UPDATE", "true")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    let out = tokio::time::timeout(std::time::Duration::from_secs(40), cmd.output())
+        .await
+        .map_err(|_| "agy models did not answer in 40 s".to_owned())?
+        .map_err(|e| format!("cannot start agy: {e}"))?;
+    Ok(parse_models(&String::from_utf8_lossy(&out.stdout)))
+}
+
+fn parse_models(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|l| l.split_once('\t'))
+        .map(|(id, _)| id.trim().to_owned())
+        .filter(|id| !id.is_empty() && !id.contains(' '))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,6 +451,16 @@ mod tests {
             call("browser_click_element", json!({})),
             Check::Deny(_)
         ));
+    }
+
+    #[test]
+    fn lists_models() {
+        // `agy models` on agy 1.4.7.
+        let out = "Fetching available models...
+gemini-4-argon-medium	Gemini 4 Argon (Medium)
+gemini-3.8-flash-low	Gemini 3.8 Flash (Low)
+";
+        assert_eq!(parse_models(out), ["gemini-4-argon-medium", "gemini-3.8-flash-low"]);
     }
 
     #[test]
