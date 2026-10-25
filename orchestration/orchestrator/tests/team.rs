@@ -1418,3 +1418,42 @@ fn project_report_is_markdown_from_state() {
     assert!(md.contains(k.as_str()) && md.contains("Build the page"));
     assert!(md.contains("ticket(s) closed."));
 }
+
+/// Pre-merge check per template (M5): a template's `pre_merge` command becomes the project's check, and the sandbox
+/// check factory builds a real check for it (a no-op when empty).
+#[test]
+fn a_template_sets_the_projects_pre_merge_check() {
+    use agenium_orchestrator::app::CheckFactory;
+    use agenium_orchestrator::check::SandboxCheckFactory;
+    let f = fixture();
+    let mut tpl = f.app.team_template("coding").unwrap();
+    tpl.id = "coding-checked".into();
+    tpl.pre_merge = "echo check-ok".into();
+    f.app.save_team_template(&tpl).unwrap();
+    f.app
+        .create_team_from_template(f.project.id, "coding-checked", &model(), None, None, "")
+        .unwrap();
+    let m = f
+        .app
+        .manifest(&f.app.project(f.project.id).unwrap())
+        .unwrap();
+    assert_eq!(m.checks.pre_merge, "echo check-ok");
+
+    let p = f.app.project(f.project.id).unwrap();
+    assert!(
+        !SandboxCheckFactory
+            .for_project(&p, &m)
+            .run(std::path::Path::new("."))
+            .ok
+            || agenium_sandbox::detect().backend.is_some()
+    );
+    let mut empty = m.clone();
+    empty.checks.pre_merge = String::new();
+    // An empty check always passes.
+    assert!(
+        SandboxCheckFactory
+            .for_project(&p, &empty)
+            .run(std::path::Path::new("."))
+            .ok
+    );
+}

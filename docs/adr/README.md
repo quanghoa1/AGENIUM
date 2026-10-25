@@ -46,3 +46,4 @@ ADR-52 records this fresh implementation.
 | [76](ADR-76-run-log-compaction.md) | Run logs older than 90 days are compacted (diagnostics dropped, refused protocol calls kept) on the maintenance tick |
 | [77](ADR-77-support-bundle.md) | Support bundle: shareable diagnostics folder (versions, config without secret values, store counts, masked logs); CLI and Settings |
 | [78](ADR-78-markdown-report.md) | Markdown project report (goals, plan progress, ticket table) from stored state; CLI `report`, Overview button |
+| [79](ADR-79-pre-merge-checks.md) | Pre-merge check per template, run in the sandbox (desktop); fail-closed without a backend; wizard field |

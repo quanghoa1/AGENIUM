@@ -7,7 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use agenium_core::{ProjectId, RunId, TicketKey};
-use agenium_orchestrator::app::{App, AppOptions, NoCheckFactory};
+use agenium_orchestrator::app::{App, AppOptions};
+use agenium_orchestrator::check::SandboxCheckFactory;
 use agenium_orchestrator::runtime::{Approval, Approver, ConfiguredProviders, Runtime};
 use async_trait::async_trait;
 use serde::Serialize;
@@ -162,7 +163,7 @@ impl Desktop {
             AppOptions {
                 keyring,
                 // Pre-merge checks need an approval UI of their own: not run from the desktop app yet.
-                checks: Arc::new(NoCheckFactory),
+                checks: Arc::new(SandboxCheckFactory),
             },
         )
         .map_err(err)?;

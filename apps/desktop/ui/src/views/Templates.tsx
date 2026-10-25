@@ -20,6 +20,7 @@ const blank = (): TeamTemplate => ({
   name: "",
   description: "",
   report_template: "coding@1",
+  pre_merge: "",
   roles: [blankRole("lead", "lead"), blankRole("worker", "worker")],
 });
 
@@ -243,6 +244,11 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
           </label>
         </div>
         <textarea className="input mt-3 h-16" placeholder={app.t("templates.description")} value={t.description} onChange={(e) => setT({ ...t, description: e.target.value })} />
+        <label className="mt-3 block text-xs">
+          <span className="label">{app.t("templates.preMerge")}</span>
+          <input className="input mt-1 font-mono" placeholder="cargo test" value={t.pre_merge ?? ""} onChange={(e) => setT({ ...t, pre_merge: e.target.value })} />
+          <span className="mt-1 block text-[10px] text-subtle">{app.t("templates.preMergeNote")}</span>
+        </label>
       </Section>
       <Section title={`${app.t("templates.roles")} (${t.roles.length})`}>
         <div className="space-y-3">

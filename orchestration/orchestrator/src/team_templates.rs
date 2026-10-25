@@ -28,6 +28,9 @@ pub struct TeamTemplate {
     pub description: String,
     /// Default WorkReport template of the project's tickets (e.g. `coding@1`).
     pub report_template: String,
+    /// Command run in the worktree by the merge queue before a fast-forward (e.g. `cargo test`); empty = none.
+    #[serde(default)]
+    pub pre_merge: String,
     pub roles: Vec<RoleSpec>,
 }
 
@@ -285,9 +288,12 @@ impl App {
                 planner: self.is_planner_role(&m.role),
             });
         }
-        let report_template = match t.project {
-            Some(p) => self.manifest(&self.project(p)?)?.project.template,
-            None => "coding@1".to_owned(),
+        let (report_template, pre_merge) = match t.project {
+            Some(p) => {
+                let m = self.manifest(&self.project(p)?)?;
+                (m.project.template, m.checks.pre_merge)
+            }
+            None => ("coding@1".to_owned(), String::new()),
         };
         let tpl = TeamTemplate {
             id: id.to_owned(),
@@ -295,6 +301,7 @@ impl App {
             name: name.to_owned(),
             description: format!("Made from the team {}.", t.name),
             report_template,
+            pre_merge,
             roles,
         };
         tpl.validate()?;
@@ -383,6 +390,9 @@ impl App {
         let p = self.project(project)?;
         let mut m = self.manifest(&p)?;
         m.project.template = t.report_template.clone();
+        if !t.pre_merge.trim().is_empty() {
+            m.checks.pre_merge = t.pre_merge.clone();
+        }
         m.save(Path::new(&p.path))
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
         let (team, agents) = self.create_team(project, &t.name, &lead, &workers)?;

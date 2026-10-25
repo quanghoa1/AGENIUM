@@ -3,6 +3,7 @@
 
 pub mod agent_io;
 pub mod app;
+pub mod check;
 pub mod effects;
 pub mod engine;
 mod error;

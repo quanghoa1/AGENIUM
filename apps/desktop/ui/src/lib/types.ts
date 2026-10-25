@@ -321,6 +321,8 @@ export interface TeamTemplate {
   name: string;
   description: string;
   report_template: string;
+  /** Command run in the worktree by the merge queue before merge (empty = none). */
+  pre_merge?: string;
   roles: RoleSpec[];
   /** Built in (or overriding a built-in when `custom` too). */
   builtin?: boolean;
