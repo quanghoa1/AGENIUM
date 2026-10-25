@@ -35,8 +35,12 @@ Rules:
 3. `NOTICE` lists the derived files; keep it in step when a derived file is added or removed.
 4. Fail closed: a backend is reported only when it actually works on the machine (probe, not version strings).
 
-## 2. When Codex changes its sandbox
+## 2. When Codex or mxc-sdk changes
 
+0. `devtools/scripts/upstream-watch.sh` (weekly, and before any sandbox work) reports in one go: the vendored Codex
+   files against `openai/codex` main, the `mxc-sdk` pin against crates.io, the latest `microsoft/mxc` release, and the
+   upstream issues/PRs an open Agenium item waits on (its `WATCH` list; add one whenever an ADR leaves something to
+   upstream). Exit 1 means something to look at.
 1. `devtools/scripts/sync-codex-sandbox.sh main --summary` — prints `same / changed / new / missing-upstream` per vendored file.
    Without `--summary` it prints the full unified diff.
 2. For each **changed** file look up its row in `VENDOR.md`:
@@ -57,7 +61,7 @@ Rules:
 |---|---|---|---|
 | Windows | MXC process container (`mxc-sdk`) | a Windows build with the process security environment API (seen on 11 build 26300) | no admin, no extra users; shell = PowerShell (MSYS/Git Bash cannot start in the container); build needs `RC_PATH` (`devtools/scripts/rc-windres.cmd`) on the GNU toolchain |
 | Linux | bubblewrap (`mxc-sdk` v1, allow-list binds) | `bwrap` + unprivileged user namespaces | verified on WSL2 Ubuntu 24.04; Ubuntu hosts may need `kernel.apparmor_restrict_unprivileged_userns=0` |
-| macOS | Seatbelt (`mxc-sdk` v1, ADR-55) | `sandbox-exec` | experimental: compiles for macOS, not yet run on a Mac |
+| macOS | Seatbelt (`mxc-sdk` v1, ADR-55) | `sandbox-exec` | experimental; containment run on a Mac 2026-10-26: file escapes blocked, a daemon outlives the command, a host unix socket is reachable with network on (upstream: mxc #1277) |
 
 ## 4. Design invariants (do not break)
 
