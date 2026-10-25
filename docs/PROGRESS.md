@@ -203,7 +203,9 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
   6.18, cargo 1.98.1): `cargo build --workspace` and `cargo test --workspace` PASS (no sandbox backend yet, so commands
   run after approval as designed). Since then a bubblewrap backend through `mxc-sdk` (ADR-54) is active on that distro;
-  the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
+  the sandbox tests pass inside it. **2026-10-25: the current code's full suite ran on WSL2 Ubuntu (real kernel,
+  bubblewrap present): 264 passed, 0 failed (2 local-model tests ignored).** The S3 containment matrix was run in the
+  spike (`spike-reports/S3`); running it against the shipping bubblewrap backend, and the macOS backend, are NOT RUN.
 
 ## Next steps (proposed order, 2026-10-25)
 M4, M4.5 and the self-contained M5 items are done (ADR-64..79). What remains needs an owner decision or real
