@@ -330,6 +330,7 @@ impl App {
                 "the agent name must be 1-60 characters and may not contain '~'",
             ));
         }
+        self.check_names_free(&[name])?;
         self.ensure_role(&a.role)?;
         let role = self.role(&a.role)?;
         self.check_model(a.backend, &a.model)?;

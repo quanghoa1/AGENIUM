@@ -2,6 +2,7 @@
 //! (Lead + workers: tags, ROLE.md text, skills, allowed paths, count, default model) and its report template.
 //! Built-in: coding, pentest, research, content; user templates in `<root>/templates/<id>.toml` (same id = override).
 
+use std::collections::HashSet;
 use std::path::Path;
 
 use agenium_core::*;
@@ -227,7 +228,7 @@ impl App {
         Ok(t)
     }
 
-    /// Creates the project's team from a template: one agent per role slot named `<prefix>-<role>[-n]`, the role
+    /// Creates the project's team from a template: one agent per role slot named `[<prefix>-]<role>[-n]`, the role
     /// folders (ROLE.md and the write scope) when missing, and the project's default report template.
     pub fn create_team_from_template(
         &self,
@@ -240,9 +241,12 @@ impl App {
     ) -> Result<TeamFromTemplate> {
         let t = self.team_template(template)?;
         let prefix = prefix.trim();
-        if prefix.is_empty() {
-            return Err(OrchError::Invalid("the agent name prefix is empty".into()));
-        }
+        // Names are unique across teams: a name already taken gets the next free number.
+        let mut taken: HashSet<String> = self
+            .agents()?
+            .into_iter()
+            .map(|a| a.name.to_lowercase())
+            .collect();
         let mut lead = None;
         let mut workers = Vec::new();
         let mut missing_skills = Vec::new();
@@ -258,12 +262,24 @@ impl App {
                 (RoleKind::Worker, _, Some(m)) if r.planner => m.clone(),
                 _ => model.clone(),
             };
-            for n in 1..=r.count {
-                let name = if r.count == 1 {
-                    format!("{prefix}-{}", r.id)
+            let base = if prefix.is_empty() {
+                r.id.clone()
+            } else {
+                format!("{prefix}-{}", r.id)
+            };
+            let mut n = 1;
+            for _ in 0..r.count {
+                let mut name = if r.count == 1 {
+                    base.clone()
                 } else {
-                    format!("{prefix}-{}-{n}", r.id)
+                    format!("{base}-{n}")
                 };
+                while taken.contains(&name.to_lowercase()) {
+                    n += 1;
+                    name = format!("{base}-{n}");
+                }
+                n += 1;
+                taken.insert(name.to_lowercase());
                 let spec = CreateAgent {
                     name,
                     role: t.role_dir(&r.id),

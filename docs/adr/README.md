@@ -32,3 +32,4 @@ ADR-52 records this fresh implementation.
 | [62](ADR-62-mcp-keys-projects-live-chat.md) | Per-agent MCP keys (system key by default, Lead tool set_member_mcp_key, shown in the app, masked in logs), projects by folder name or repository, Live tab as a chat with a plan tab |
 | [63](ADR-63-team-runs-until-done.md) | From the agreed spec to the end the team runs on its own (run state, team loop, stop/resume per project); the Lead approves plans of an agreed spec |
 | [64](ADR-64-sandboxed-commands-roles-review.md) | Commands run in the sandbox without asking; no plan items for the Lead's role; workers get their requirements; skeptical review; ROLE.md sections and a specialist role library |
+| [65](ADR-65-agent-names-audit-only.md) | Agent names are role names without the team, unique ignoring case; the Activity page folds into the audit trail |

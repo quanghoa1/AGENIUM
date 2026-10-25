@@ -12,7 +12,7 @@ import { LiveView } from "./views/Live";
 import { ChatView } from "./views/Chat";
 import { NeedsView } from "./views/Needs";
 import { OverviewView } from "./views/Overview";
-import { ActivityView, RunView, RunsView } from "./views/Runs";
+import { RunView, RunsView } from "./views/Runs";
 import { TicketView } from "./views/Ticket";
 import { TicketsView } from "./views/Tickets";
 
@@ -33,8 +33,6 @@ function Router() {
         return <RunsView />;
       case "run":
         return id ? <RunView id={id} /> : <RunsView />;
-      case "activity":
-        return <ActivityView />;
       case "projects":
         return <ProjectsView />;
       case "agents":

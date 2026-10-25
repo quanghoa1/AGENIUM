@@ -426,7 +426,7 @@ enum TeamCmd {
     Template { id: String },
     /// Validate a template file and store it in <root>/templates (same id as a built-in overrides it).
     Import { file: PathBuf },
-    /// Create the project's team from a template: one agent per role slot, named <prefix>-<role>[-n].
+    /// Create the project's team from a template: one agent per role slot, named [<prefix>-]<role>[-n] (a taken name gets the next free number).
     Create {
         #[arg(long)]
         project: String,
@@ -444,7 +444,7 @@ enum TeamCmd {
         planner_model: Option<String>,
         #[arg(long, default_value = "high")]
         effort: String,
-        /// Agent name prefix (default: the project name).
+        /// Agent name prefix (default: none).
         #[arg(long)]
         prefix: Option<String>,
     },
@@ -2116,7 +2116,7 @@ async fn main() -> Result<()> {
                         &m,
                         lm.as_ref(),
                         pm.as_ref(),
-                        prefix.as_deref().unwrap_or(&p.name),
+                        prefix.as_deref().unwrap_or(""),
                     )?;
                     println!("team created on {} from {template}:", p.name);
                     for (name, role) in &out.agents {

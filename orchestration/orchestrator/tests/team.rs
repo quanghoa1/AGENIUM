@@ -560,6 +560,58 @@ fn team_from_template_and_write_scope() {
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Resolved);
 }
 
+/// Without a prefix a template names its agents after their roles; names stay unique across teams (ignoring case),
+/// so a taken name gets the next free number and a name the user types twice is refused.
+#[test]
+fn agent_names_are_role_names_and_unique() {
+    let f = fixture();
+    let out = f
+        .app
+        .create_team_from_template(f.project.id, "pentest", &model(), None, None, "")
+        .unwrap();
+    let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(names, ["lead", "planner", "web", "mobile", "recon"]);
+    let project = |name: &str| {
+        f.app
+            .create_project(&agenium_orchestrator::CreateProject {
+                name: name.into(),
+                path: None,
+                key_prefix: None,
+                template: None,
+                folder: None,
+                repo: None,
+            })
+            .unwrap()
+            .id
+    };
+    let second = project("second");
+    let out = f
+        .app
+        .create_team_from_template(second, "research", &model(), None, None, "")
+        .unwrap();
+    let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
+    assert!(
+        names.contains(&"lead-2") && !names.contains(&"lead"),
+        "{names:?}"
+    );
+    let third = project("third");
+    let solo = |name: &str| {
+        f.app.create_solo(
+            third,
+            &agenium_orchestrator::CreateAgent {
+                name: name.into(),
+                role: "solo".into(),
+                role_kind: RoleKind::Lead,
+                tags: vec![],
+                model: model(),
+            },
+        )
+    };
+    let e = solo("Web").unwrap_err().to_string();
+    assert!(e.contains("already exists"), "{e}");
+    solo("ada").unwrap();
+}
+
 /// ADR-59: the planner drafts plan v1 once the spec is approved; the Lead reviews the draft and creates the plan;
 /// the planner never takes tickets.
 #[test]

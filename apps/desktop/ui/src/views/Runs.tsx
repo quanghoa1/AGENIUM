@@ -4,7 +4,7 @@ import { Markdown } from "../components/Markdown";
 import { Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
-import type { EventRecord, LogEntry, RunDetail, RunRow } from "../lib/types";
+import type { LogEntry, RunDetail, RunRow } from "../lib/types";
 
 export function RunsView() {
   const app = useApp();
@@ -180,38 +180,6 @@ export function RunView({ id }: { id: string }) {
           {d.log.length === 0 && <Empty>{app.t("common.none")}</Empty>}
         </div>
       </Section>
-    </div>
-  );
-}
-
-export function ActivityView() {
-  const app = useApp();
-  const [rows, setRows] = useState<EventRecord[]>([]);
-  useEffect(() => {
-    api.events(undefined, 300).then((e) => setRows([...e].reverse()));
-  }, [app.tick]);
-  return (
-    <div>
-      <PageHeader title={app.t("nav.activity")} sub={app.t("activity.sub")} />
-      <div className="card divide-y divide-line">
-        {rows.map((e) => (
-          <div key={e.seq} className="flex items-center gap-3 px-4 py-2 text-xs">
-            <Mono className="w-12 text-subtle">#{e.seq}</Mono>
-            <span className="w-44 font-medium">{e.kind}</span>
-            <span className="w-28 truncate text-muted">{e.actor.startsWith("agent:") ? "agent" : e.actor}</span>
-            <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-subtle">
-              {e.payload?.key ? `${e.payload.key} ` : ""}
-              {JSON.stringify(e.payload)}
-            </span>
-            <Mono className="text-subtle">{ago(e.at)}</Mono>
-          </div>
-        ))}
-        {rows.length === 0 && (
-          <div className="p-4">
-            <Empty>{app.t("common.none")}</Empty>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

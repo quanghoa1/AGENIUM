@@ -7,7 +7,6 @@ import type { CommandApproval, ProjectSummary, Status } from "./types";
 
 export type View =
   | "overview"
-  | "activity"
   | "tickets"
   | "ticket"
   | "runs"

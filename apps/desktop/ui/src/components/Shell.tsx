@@ -1,5 +1,4 @@
 import {
-  Activity,
   BarChart3,
   Bell,
   Bot,
@@ -82,7 +81,6 @@ export function Shell({ children }: { children: ReactNode }) {
         { id: "needs", label: "nav.needs", icon: <Bell className="h-4 w-4" />, badge: needs || undefined, tone: "amber" },
         { id: "tickets", label: "nav.tickets", icon: <KanbanSquare className="h-4 w-4" />, badge: current?.tickets || undefined, tone: "cyan" },
         { id: "runs", label: "nav.runs", icon: <Terminal className="h-4 w-4" /> },
-        { id: "activity", label: "nav.activity", icon: <Activity className="h-4 w-4" /> },
       ],
     },
     {

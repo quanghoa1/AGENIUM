@@ -324,15 +324,7 @@ impl App {
             .cloned()
             .collect();
         let name = req.name.clone().unwrap_or_else(|| profile.name.clone());
-        if self
-            .store()
-            .read(|c| agents::agent_by_name(c, &name))?
-            .is_some()
-        {
-            return Err(OrchError::Conflict(format!(
-                "an agent named {name:?} already exists; choose another name"
-            )));
-        }
+        self.check_names_free(&[&name])?;
         if let Some(b) = profile
             .skills
             .iter()

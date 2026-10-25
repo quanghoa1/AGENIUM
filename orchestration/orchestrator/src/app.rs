@@ -1,7 +1,7 @@
 //! The application service: owns the root, configuration, `core.db`, the realtime bus and the secret store, and
 //! exposes every state-changing operation. UI/CLI/agent runtimes call only this.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -447,6 +447,7 @@ impl App {
         project: ProjectId,
         a: &CreateAgent,
     ) -> Result<(agents::Team, agents::Agent)> {
+        self.check_names_free(&[&a.name])?;
         let team = agents::Team {
             id: TeamId::new(),
             name: format!("{} (solo)", a.name),
@@ -494,6 +495,11 @@ impl App {
         lead: &CreateAgent,
         workers: &[CreateAgent],
     ) -> Result<(agents::Team, Vec<agents::Agent>)> {
+        let names: Vec<&str> = std::iter::once(lead)
+            .chain(workers)
+            .map(|a| a.name.as_str())
+            .collect();
+        self.check_names_free(&names)?;
         let team = agents::Team {
             id: TeamId::new(),
             name: name.to_owned(),
@@ -535,6 +541,24 @@ impl App {
         let mut all = vec![lead_row];
         all.extend(worker_rows);
         Ok((self.store.read(|c| agents::get_team(c, team.id))?, all))
+    }
+
+    /// Agent names are unique, ignoring case: an existing agent or another of `names` with the same name is refused.
+    pub(crate) fn check_names_free(&self, names: &[&str]) -> Result<()> {
+        let mut taken: HashSet<String> = self
+            .agents()?
+            .into_iter()
+            .map(|a| a.name.to_lowercase())
+            .collect();
+        for n in names {
+            if !taken.insert(n.trim().to_lowercase()) {
+                return Err(OrchError::Conflict(format!(
+                    "an agent named {:?} already exists; choose another name",
+                    n.trim()
+                )));
+            }
+        }
+        Ok(())
     }
 
     fn new_agent_row(&self, team: TeamId, a: &CreateAgent, kind: RoleKind) -> agents::Agent {

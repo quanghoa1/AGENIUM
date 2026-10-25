@@ -777,7 +777,6 @@ pub fn create_team(
 ) -> R<Value> {
     let o = d.opened()?;
     let p = pid(&project)?;
-    let name = o.app.project(p).map_err(err)?.name;
     let b = |m: &ModelArg| binding(&m.provider, &m.model, &m.effort);
     let out = o
         .app
@@ -787,7 +786,7 @@ pub fn create_team(
             &b(&model)?,
             lead_model.as_ref().map(b).transpose()?.as_ref(),
             planner_model.as_ref().map(b).transpose()?.as_ref(),
-            prefix.as_deref().unwrap_or(&name),
+            prefix.as_deref().unwrap_or(""),
         )
         .map_err(err)?;
     Ok(json!(out))
