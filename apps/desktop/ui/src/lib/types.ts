@@ -431,6 +431,22 @@ export interface McpServerRow {
   users: string[];
 }
 
+export interface UsageWindow {
+  window: "5h" | "day" | "week" | "month";
+  used_percent: number;
+  resets_at?: string | null;
+}
+
+/** A vendor's subscription usage (`claude`, `codex`, `agy`, `opencode-go:<provider>`). */
+export interface VendorUsage {
+  vendor: string;
+  plan?: string | null;
+  windows: UsageWindow[];
+  note?: string | null;
+  error?: string | null;
+  updated_at: string;
+}
+
 /** USD per million tokens. */
 export interface Price {
   input: number;

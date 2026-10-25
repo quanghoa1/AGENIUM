@@ -2,6 +2,7 @@
 // screenshots. Read-only: actions resolve without changing anything.
 import type {
   PriceView,
+  VendorUsage,
   AgentEntry,
   Capabilities,
   ChatLine,
@@ -92,6 +93,13 @@ const cards = [
 const statuses: TicketStatus[] = ["New", "Assigned", "InProgress", "Pending", "Resolved", "Reopened", "Closed", "Cancelled"];
 
 const board: Column[] = statuses.map((s) => ({ status: s, cards: cards.filter((c) => c.status === s).map((c) => c.card) }));
+
+const demoUsage: VendorUsage[] = [
+  { vendor: "claude", windows: [{ window: "5h", used_percent: 9, resets_at: iso(-133) }, { window: "week", used_percent: 18, resets_at: iso(-4000) }], updated_at: iso(12) },
+  { vendor: "codex", plan: "plus", windows: [{ window: "5h", used_percent: 64, resets_at: iso(-80) }, { window: "week", used_percent: 31, resets_at: iso(-7000) }], note: "2 reset credit(s)", updated_at: iso(3) },
+  { vendor: "agy", windows: [], note: "Antigravity does not report its quota to other apps", updated_at: "" },
+  { vendor: "opencode-go:opencode-go", plan: "Go", windows: [{ window: "5h", used_percent: 86, resets_at: iso(-45) }, { window: "week", used_percent: 40, resets_at: iso(-5000) }], updated_at: iso(3) },
+];
 
 const demoPrices: PriceView = {
   source: "https://models.dev/api.json",
@@ -256,6 +264,9 @@ const status: Status = { root: "C:\\Users\\you\\.agenium", ready: true, version:
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 60));
   switch (cmd) {
+    case "vendor_usage":
+    case "refresh_vendor_usage":
+      return demoUsage;
     case "prices":
       return demoPrices;
     case "refresh_prices":

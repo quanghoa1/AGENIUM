@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
 import type {
   PriceView,
+  VendorUsage,
   AgentMcpKey,
   AgentDetail,
   AgentEntry,
@@ -59,6 +60,8 @@ export const api = {
   status: () => call<Status>("status"),
   commandPolicy: () => call<CommandPolicy>("command_policy"),
   prices: () => call<PriceView>("prices"),
+  vendorUsage: () => call<VendorUsage[]>("vendor_usage"),
+  refreshVendorUsage: () => call<VendorUsage[]>("refresh_vendor_usage"),
   refreshPrices: () => call<{ priced: number | null; view: PriceView }>("refresh_prices"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
@@ -172,6 +175,12 @@ export async function onEvent(f: (e: EventRecord) => void): Promise<UnlistenFn> 
 export async function onRun(f: (run: string, ev: any) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => {};
   return listen<{ run: string; event: any }>("agenium://run", (e) => f(e.payload.run, e.payload.event));
+}
+
+/** The vendors' usage was read again (`agenium://usage`). */
+export async function onUsage(f: () => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => {};
+  return listen("agenium://usage", () => f());
 }
 
 export async function onApproval(f: (a: CommandApproval) => void): Promise<UnlistenFn> {

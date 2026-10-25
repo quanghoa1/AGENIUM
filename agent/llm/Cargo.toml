@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 agenium-core.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 futures.workspace = true
 rand = "0.8"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }

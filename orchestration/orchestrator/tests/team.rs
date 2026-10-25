@@ -1003,3 +1003,42 @@ fn the_price_catalogue_prices_earlier_runs() {
     assert!(view.providers["go"]["beam-free"].is_free());
     assert!(!f.app.price_catalogue_stale());
 }
+
+/// A vendor's reading is kept per vendor; a failed reading keeps the earlier windows with its error. Rows follow
+/// the CLIs installed and the OpenCode Go providers configured.
+#[test]
+fn vendor_usage_keeps_the_last_good_reading() {
+    use agenium_llm::vendor_usage::{UsageWindow, VendorUsage};
+    let f = fixture();
+    let good = VendorUsage {
+        windows: vec![UsageWindow {
+            window: "5h".into(),
+            used_percent: 42.0,
+            resets_at: None,
+        }],
+        ..VendorUsage::new("codex", "2026-10-25T00:00:00Z")
+    };
+    f.app.record_vendor_usage(good).unwrap();
+    f.app
+        .record_vendor_usage(VendorUsage {
+            error: Some("codex app-server did not answer in 40 s".into()),
+            ..VendorUsage::new("codex", "2026-10-25T00:15:00Z")
+        })
+        .unwrap();
+    let codex = agenium_cli_backend::CliInfo {
+        kind: agenium_cli_backend::CliKind::Codex,
+        path: Some("codex".into()),
+        version: Some("0.163.0".into()),
+        login: agenium_cli_backend::Login::LoggedIn,
+        compatible: true,
+        note: None,
+    };
+    let rows = f.app.vendor_usage(&[codex]);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].windows[0].used_percent, 42.0);
+    assert_eq!(
+        rows[0].updated_at, "2026-10-25T00:00:00Z",
+        "the good reading's time"
+    );
+    assert!(rows[0].error.as_deref().unwrap().contains("did not answer"));
+}

@@ -17,6 +17,7 @@ pub mod runtime;
 pub mod sched;
 pub mod team_templates;
 pub mod templates;
+pub mod vendor_usage;
 pub mod views;
 
 pub use app::{App, AppOptions, CheckFactory, CreateAgent, CreateProject, NoCheckFactory};

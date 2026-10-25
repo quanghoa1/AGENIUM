@@ -81,6 +81,8 @@ pub enum Event {
         input: Value,
         done: bool,
     },
+    /// The vendor's subscription usage, as the CLI reported it during the run.
+    Limits(agenium_llm::vendor_usage::VendorUsage),
     /// The turn ended. `denied` lists the permission kinds the CLI refused itself.
     TurnEnd {
         usage: Usage,

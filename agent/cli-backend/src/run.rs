@@ -93,6 +93,8 @@ pub struct CliRun<'a> {
     pub nudge: Option<String>,
     /// Solo agents may start the CLI's own subagents; team members never do.
     pub subagents: bool,
+    /// Receives the vendor's subscription usage when the CLI reports it.
+    pub on_limits: Option<Arc<dyn Fn(agenium_llm::vendor_usage::VendorUsage) + Send + Sync>>,
 }
 
 /// Why Agenium stopped the CLI.
@@ -675,6 +677,12 @@ ask_question if you are blocked.",
         match ev {
             Event::Session(s) => {
                 st.session = Some(s);
+                None
+            }
+            Event::Limits(u) => {
+                if let Some(f) = &self.on_limits {
+                    f(u);
+                }
                 None
             }
             Event::Text(t) => {

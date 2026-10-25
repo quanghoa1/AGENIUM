@@ -34,7 +34,7 @@ fn main() {
                 }
             }
             spawn_event_forwarder(handle.clone());
-            spawn_price_refresh(handle.clone());
+            spawn_usage_refresh(handle.clone());
             spawn_team_loop(handle);
             Ok(())
         })
@@ -75,6 +75,8 @@ fn main() {
             api::rename_agent,
             api::prices,
             api::refresh_prices,
+            api::vendor_usage,
+            api::refresh_vendor_usage,
             api::set_agent_status,
             api::pause_project,
             api::resume_project,
@@ -153,15 +155,24 @@ fn spawn_event_forwarder(handle: tauri::AppHandle) {
     });
 }
 
-/// Model prices: the public catalogue is downloaded when missing or a week old (checked every six hours); runs
-/// that cost 0 for want of a price are priced then.
-fn spawn_price_refresh(handle: tauri::AppHandle) {
+/// Every 15 minutes: the vendors' subscription usage (Codex, OpenCode Go), and the model price catalogue when it
+/// is missing or a week old (runs that cost 0 for want of a price are priced then).
+fn spawn_usage_refresh(handle: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
             let Ok(o) = handle.state::<Desktop>().opened() else {
                 tokio::time::sleep(Duration::from_secs(5)).await;
                 continue;
             };
+            let clis = api::detected_clis(&handle.state::<Desktop>(), false)
+                .await
+                .unwrap_or_default();
+            if let Err(e) =
+                agenium_orchestrator::vendor_usage::refresh_vendor_usage(&o.app, &clis).await
+            {
+                tracing::warn!(error = %e, "vendor usage not refreshed");
+            }
+            let _ = handle.emit("agenium://usage", ());
             if o.app.price_catalogue_stale() {
                 match agenium_orchestrator::prices::refresh_price_catalogue(&o.app).await {
                     Ok(Some(n)) => tracing::info!(priced = n, "price catalogue refreshed"),
@@ -169,7 +180,10 @@ fn spawn_price_refresh(handle: tauri::AppHandle) {
                     Err(e) => tracing::warn!(error = %e, "price catalogue not refreshed"),
                 }
             }
-            tokio::time::sleep(Duration::from_secs(6 * 3600)).await;
+            tokio::time::sleep(Duration::from_secs(
+                agenium_orchestrator::vendor_usage::REFRESH_MINUTES * 60,
+            ))
+            .await;
         }
     });
 }

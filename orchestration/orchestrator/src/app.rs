@@ -65,6 +65,8 @@ pub struct App {
     pub(crate) merge_locks: Mutex<HashMap<ProjectId, Arc<Mutex<()>>>>,
     pub(crate) faults: FaultPlan,
     agent_stores: Mutex<HashMap<AgentId, Arc<AgentStore>>>,
+    /// Serializes writes of `<root>/vendor-usage.json`.
+    pub(crate) vendor_usage_lock: Mutex<()>,
 }
 
 struct StoreSource(Arc<CoreStore>);
@@ -157,6 +159,7 @@ impl App {
             merge_locks: Mutex::new(HashMap::new()),
             faults: Arc::new(Mutex::new(Vec::new())),
             agent_stores: Mutex::new(HashMap::new()),
+            vendor_usage_lock: Mutex::new(()),
         };
         let report = app.reconcile()?;
         app.purge_deleted_agents()?;

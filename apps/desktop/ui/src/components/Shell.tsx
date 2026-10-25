@@ -34,6 +34,7 @@ import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
 import { CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
 import { cn } from "./ui";
+import { UsageFooter } from "./UsageFooter";
 
 interface NavItem {
   id: View;
@@ -221,6 +222,7 @@ export function Shell({ children }: { children: ReactNode }) {
           />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto p-5">{children}</main>
+        <UsageFooter />
       </div>
 
       <Overlay open={palette} onClose={() => setPalette(false)} kind="palette" top="pt-24">

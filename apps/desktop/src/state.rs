@@ -125,7 +125,7 @@ pub struct Desktop {
     /// The project rounds currently running (no second round of the same project in parallel).
     pub busy: Arc<Mutex<std::collections::HashSet<agenium_core::ProjectId>>>,
     /// Agent CLIs found on this machine and when (detection runs each CLI: cached, refreshed on demand).
-    pub clis: Mutex<Option<(std::time::Instant, serde_json::Value)>>,
+    pub clis: Mutex<Option<(std::time::Instant, Vec<agenium_cli_backend::CliInfo>)>>,
 }
 
 impl Desktop {

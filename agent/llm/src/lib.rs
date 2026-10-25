@@ -16,6 +16,7 @@ pub mod responses;
 pub mod retry;
 pub mod sse;
 pub mod types;
+pub mod vendor_usage;
 
 use std::sync::Arc;
 use std::time::Duration;

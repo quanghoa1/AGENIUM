@@ -105,6 +105,10 @@ impl RootLayout {
     pub fn pricing(&self) -> PathBuf {
         self.root.join("pricing.toml")
     }
+    /// The vendors' subscription usage as last read (a cache: rewritten by every reading).
+    pub fn vendor_usage(&self) -> PathBuf {
+        self.root.join("vendor-usage.json")
+    }
     /// Prices downloaded from the public model catalogue (a cache: refreshed, never edited).
     pub fn price_catalogue(&self) -> PathBuf {
         self.root.join("price-catalogue.json")

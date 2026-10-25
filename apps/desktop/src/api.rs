@@ -51,11 +51,16 @@ pub fn status(d: State<'_, Desktop>) -> Value {
 pub fn command_policy(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let sb = agenium_sandbox::detect();
-    Ok(json!({ "approval": o.app.config().sandbox.approval, "backend": sb.backend, "reason": sb.reason }))
+    Ok(
+        json!({ "approval": o.app.config().sandbox.approval, "backend": sb.backend, "reason": sb.reason }),
+    )
 }
 
 #[tauri::command]
-pub fn set_command_policy(d: State<'_, Desktop>, approval: agenium_config::ApprovalPolicy) -> R<Value> {
+pub fn set_command_policy(
+    d: State<'_, Desktop>,
+    approval: agenium_config::ApprovalPolicy,
+) -> R<Value> {
     d.opened()?
         .app
         .update_config(|c| c.sandbox.approval = approval)
@@ -433,6 +438,45 @@ pub fn events(d: State<'_, Desktop>, since: Option<u64>, limit: Option<usize>) -
         .map_err(err)?))
 }
 
+/// The agent CLIs on this machine, detected at most every 5 minutes (or now with `refresh`).
+pub async fn detected_clis(d: &Desktop, refresh: bool) -> R<Vec<agenium_cli_backend::CliInfo>> {
+    let cached = d
+        .clis
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_ref()
+        .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(300))
+        .map(|(_, v)| v.clone());
+    if let Some(v) = cached.filter(|_| !refresh) {
+        return Ok(v);
+    }
+    let found = tokio::task::spawn_blocking(agenium_cli_backend::detect::detect_all)
+        .await
+        .map_err(|e| e.to_string())?;
+    *d.clis.lock().unwrap_or_else(|p| p.into_inner()) =
+        Some((std::time::Instant::now(), found.clone()));
+    Ok(found)
+}
+
+/// The vendors' subscription usage for the footer (last readings; see `agenium_orchestrator::vendor_usage`).
+#[tauri::command]
+pub async fn vendor_usage(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let clis = detected_clis(&d, false).await?;
+    Ok(json!(o.app.vendor_usage(&clis)))
+}
+
+/// Reads the vendors now (the footer's refresh).
+#[tauri::command]
+pub async fn refresh_vendor_usage(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let clis = detected_clis(&d, false).await?;
+    agenium_orchestrator::vendor_usage::refresh_vendor_usage(&o.app, &clis)
+        .await
+        .map_err(err)?;
+    Ok(json!(o.app.vendor_usage(&clis)))
+}
+
 /// Providers, agent CLIs (detected at most every 5 minutes, or now with `refresh`), templates, CLI fallback.
 #[tauri::command]
 pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Value> {
@@ -444,25 +488,7 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
         .map(|p| json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
                           "models": p.models, "max_concurrency": p.max_concurrency }))
         .collect();
-    let cached = d
-        .clis
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .as_ref()
-        .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(300))
-        .map(|(_, v)| v.clone());
-    let clis = match cached.filter(|_| refresh != Some(true)) {
-        Some(v) => v,
-        None => {
-            let found = tokio::task::spawn_blocking(agenium_cli_backend::detect::detect_all)
-                .await
-                .map_err(|e| e.to_string())?;
-            let v = json!(found);
-            *d.clis.lock().unwrap_or_else(|p| p.into_inner()) =
-                Some((std::time::Instant::now(), v.clone()));
-            v
-        }
-    };
+    let clis = detected_clis(&d, refresh == Some(true)).await?;
     Ok(json!({
         "providers": providers, "clis": clis,
         "templates": o.app.team_templates().map_err(err)?,

@@ -842,6 +842,14 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             nudge: nudge_for(kind),
             // Only Solo agents may start the CLI's own subagents (the owner's rule; a team delegates by tickets).
             subagents: protocol.solo,
+            on_limits: {
+                let app = self.app.clone();
+                Some(Arc::new(move |u| {
+                    if let Err(e) = app.record_vendor_usage(u) {
+                        tracing::warn!(error = %e, "vendor usage not recorded");
+                    }
+                }))
+            },
         };
         Ok(r.run(order).await)
     }

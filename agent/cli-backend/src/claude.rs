@@ -199,6 +199,12 @@ impl Driver for Claude {
                     done: true,
                 })
                 .collect(),
+            Some("rate_limit_event") => {
+                agenium_llm::vendor_usage::from_claude_event(v, &agenium_core::now_iso())
+                    .map(Event::Limits)
+                    .into_iter()
+                    .collect()
+            }
             Some("result") => {
                 let u = &v["usage"];
                 let n = |k: &str| u[k].as_u64().unwrap_or(0);
@@ -351,6 +357,17 @@ mod tests {
             &ev(r#"{"type":"result","subtype":"error_max_turns","is_error":true,"result":""}"#)[0],
             Event::TurnEnd { error: Some(_), .. }
         ));
+        // The subscription usage the CLI reports on its own (claude 2.1.310).
+        match &ev(
+            r#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1792903200,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.09,"resetsAt":1792903200,"status":"allowed"},"seven_day":{"utilization":0.18,"resetsAt":1793224800,"status":"allowed"}}}}"#,
+        )[0]
+        {
+            Event::Limits(u) => {
+                assert_eq!(u.vendor, "claude");
+                assert_eq!(u.windows.len(), 2);
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

@@ -220,6 +220,92 @@ impl Driver for Codex {
     }
 }
 
+/// Codex's subscription usage through its own app-server RPC (`account/rateLimits/read`; no model turn). It runs
+/// in a scratch `CODEX_HOME` holding a copy of the user's login, like a run, and hands a refreshed login back the
+/// same way. The client names itself `agenium`.
+pub async fn rate_limits(
+    program: &Path,
+    scratch: &Path,
+    now: &str,
+) -> Result<agenium_llm::vendor_usage::VendorUsage, String> {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    let user = user_codex_home().ok_or("no codex home")?;
+    let home = scratch.join("codex-home");
+    let cwd = scratch.join("cwd");
+    for d in [&home, &cwd] {
+        std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
+    }
+    copy_login(&user.join("auth.json"), &home.join("auth.json")).map_err(|e| e.to_string())?;
+    let mut cmd = tokio::process::Command::new(program);
+    cmd.args([
+        "-c",
+        "approval_policy=never",
+        "-s",
+        "read-only",
+        "app-server",
+    ])
+    .env("CODEX_HOME", &home)
+    .current_dir(&cwd)
+    .stdin(std::process::Stdio::piped())
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::null())
+    .kill_on_drop(true);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("cannot start codex: {e}"))?;
+    let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
+        return Err("codex stdio pipes missing".into());
+    };
+    let ask = async {
+        let send = |v: Value| format!("{v}\n");
+        stdin
+            .write_all(
+                send(json!({"id": 1, "method": "initialize",
+                    "params": {"clientInfo": {"name": "agenium", "version": env!("CARGO_PKG_VERSION")}}}))
+                .as_bytes(),
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        let mut lines = BufReader::new(stdout).lines();
+        while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+            let Ok(m) = serde_json::from_str::<Value>(line.trim()) else {
+                continue;
+            };
+            match m["id"].as_u64() {
+                Some(1) => {
+                    let next = send(json!({"method": "initialized"}))
+                        + &send(json!({"id": 2, "method": "account/rateLimits/read"}));
+                    stdin
+                        .write_all(next.as_bytes())
+                        .await
+                        .map_err(|e| e.to_string())?;
+                }
+                Some(2) if m["error"].is_object() => {
+                    return Err(format!(
+                        "codex: {}",
+                        m["error"]["message"]
+                            .as_str()
+                            .unwrap_or("rate limits unavailable")
+                    ))
+                }
+                Some(2) => return Ok(m["result"].clone()),
+                _ => {}
+            }
+        }
+        Err("codex app-server ended without an answer".into())
+    };
+    let out = tokio::time::timeout(std::time::Duration::from_secs(40), ask)
+        .await
+        .unwrap_or_else(|_| Err("codex app-server did not answer in 40 s".into()));
+    let _ = child.kill().await;
+    if let Err(e) = hand_back_login(&user.join("auth.json"), &home.join("auth.json")) {
+        tracing::warn!(error = %e, "codex login not handed back");
+    }
+    out.map(|r| agenium_llm::vendor_usage::from_codex_rate_limits(&r, now))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

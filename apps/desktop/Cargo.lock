@@ -56,6 +56,7 @@ name = "agenium-cli-backend"
 version = "0.1.0"
 dependencies = [
  "agenium-backend",
+ "agenium-core",
  "agenium-llm",
  "agenium-mcp",
  "agenium-sandbox",
@@ -125,6 +126,7 @@ version = "0.1.0"
 dependencies = [
  "agenium-core",
  "async-trait",
+ "chrono",
  "futures",
  "rand 0.8.8",
  "reqwest",

@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 agenium-backend.workspace = true
+agenium-core.workspace = true
 agenium-llm.workspace = true
 agenium-mcp.workspace = true
 agenium-sandbox.workspace = true
