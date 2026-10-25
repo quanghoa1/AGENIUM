@@ -18,6 +18,7 @@ use agenium_store::core::runs;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+pub mod learning;
 pub mod team;
 
 pub struct Task {
@@ -183,6 +184,9 @@ pub struct TaskResult {
     pub tokens_out: u64,
     pub cost_usd: f64,
     pub elapsed_ms: u64,
+    /// The learning-loop scenario's observations (`learning` module); absent for the other tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub learning: Option<Value>,
 }
 
 pub enum Mode {
@@ -462,6 +466,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         tokens_out: t.usage.tokens_out,
         cost_usd: t.usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
+        learning: None,
     })
 }
 

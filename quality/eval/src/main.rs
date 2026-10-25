@@ -70,9 +70,14 @@ async fn main() -> Result<()> {
         eprintln!("running {} ...", agenium_eval::team::ID);
         results.push(agenium_eval::team::run(&mode).await?);
     }
+    // `--learning`: the learning-loop scenario (ADR-91/92) instead of the single-agent tasks.
+    if args.iter().any(|a| a == "--learning") {
+        eprintln!("running {} ...", agenium_eval::learning::ID);
+        results.push(agenium_eval::learning::run(&mode).await?);
+    }
     for t in tasks()
         .iter()
-        .filter(|_| !args.iter().any(|a| a == "--team"))
+        .filter(|_| !args.iter().any(|a| a == "--team" || a == "--learning"))
         .filter(|t| only.as_deref().is_none_or(|o| o == t.id))
     {
         eprintln!("running {} ...", t.id);

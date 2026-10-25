@@ -609,8 +609,14 @@ pub struct ProposeChange {
 #[serde(deny_unknown_fields)]
 pub struct ProposeSkillUpdate {
     pub skill: String,
-    /// Unified diff against the current SKILL.md (paths `a/SKILL.md` and `b/SKILL.md`).
+    /// Unified diff against the current SKILL.md (paths `a/SKILL.md` and `b/SKILL.md`; context lines copied exactly).
+    /// Give this or `content`.
+    #[serde(default)]
     pub patch: String,
+    /// Or the complete new body of the skill (everything after its frontmatter, which stays as it is) — simpler and
+    /// safer than a diff. Give this or `patch`.
+    #[serde(default)]
+    pub content: Option<String>,
     pub reason: String,
     /// Memory id of the lesson this change writes down (shown as `lesson #<id>` in your memory); it must have held
     /// in two different contexts.

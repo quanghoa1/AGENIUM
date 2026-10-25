@@ -1,0 +1,44 @@
+[
+  {
+    "id": "learning-loop",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 109270,
+    "tokens_out": 2827,
+    "cost_usd": 0.0,
+    "elapsed_ms": 53308,
+    "learning": {
+      "applied_procedure": false,
+      "calls": [],
+      "created": [],
+      "lessons": [
+        {
+          "id": 1,
+          "label": "procedure"
+        },
+        {
+          "id": 2,
+          "label": "covered"
+        },
+        {
+          "id": 3,
+          "label": "fact"
+        }
+      ],
+      "overlays": [],
+      "used_tools": false,
+      "violations": []
+    }
+  }
+]

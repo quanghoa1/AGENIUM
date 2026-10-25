@@ -146,6 +146,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Optional Jev skill-quality read (one job / actionable / proof / no stale code) on top of the structural check | DONE | [ADR-90](adr/ADR-90-jev-skill-quality.md) |
 | Agent-created skills (`propose_new_skill`): strict gates, contained, offered only with a qualifying lesson, anti-drift flag; skill-writing tools now reachable in work runs | DONE | [ADR-91](adr/ADR-91-agent-created-skills.md) |
 | Skills cannot contradict each other: one subject one skill (calibrated), no explicit opposite directive (new/update/import), judge read when on, experience flag | DONE | [ADR-92](adr/ADR-92-skill-contradictions.md) |
+| Learning loop on real models: 6 models x 2 passes (DeepSeek, Claude Haiku/Sonnet/Opus, gpt-6-luna, gpt-6.1-sol), 12/12 pass, 0 violations; update robustness fixed | DONE | [learning-loop-eval](learning-loop-eval.md), [ADR-93](adr/ADR-93-skill-update-robustness.md) |
 | Shared project guidance from the repo's AGENTS.md (no vendor CLAUDE.md) | DONE | `views.rs::project_guidance`, `team.rs::agents_md_is_the_shared_project_guidance` |
 | Model list by backend (API vs each CLI) | DONE | [ADR-74](adr/ADR-74-models-by-backend.md) |
 | TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |
@@ -203,7 +204,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - Graph memory: adjacency cache, the labelled resolution set and the multi-hop QA set; memory extraction after chat
   sessions (only Closed/Reopened tickets trigger it now). (Consolidation/forgetting, lessons with cue/decay, skill
   overlays, sharing between agents and agent-created skills are done: ADR-73, 86, 87, 91, 92.) The skill-writing
-  tools were only reachable since ADR-91: a real-model team run exercising them is NOT RUN yet.
+  tools ran on six real models (docs/learning-loop-eval.md); no model tried to get a duplicate or contradicting skill
+  past the ADR-92 gates, so those are verified by tests only.
 - MCP: OAuth, the legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
@@ -220,7 +222,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   spike (`spike-reports/S3`); running it against the shipping bubblewrap backend, and the macOS backend, are NOT RUN.
 
 ## Next steps (proposed order, 2026-10-25)
-M4, M4.5 and the self-contained M5 items are done (ADR-64..92). What remains needs an owner decision or real
+M4, M4.5 and the self-contained M5 items are done (ADR-64..93). What remains needs an owner decision or real
 infrastructure, not mechanical work:
 - **egress proxy** — DROPPED ([ADR-83](adr/ADR-83-no-egress-proxy.md), [ADR-84](adr/ADR-84-network-posture-and-unified-fetch.md)):
   containment is the boundary, sandboxed commands may use the network by default (fail-closed), reads go through one

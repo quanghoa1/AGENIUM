@@ -276,5 +276,6 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
         tokens_out: usage.tokens_out,
         cost_usd: usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
+        learning: None,
     })
 }

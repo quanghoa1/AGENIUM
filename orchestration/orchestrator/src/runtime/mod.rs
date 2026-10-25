@@ -995,10 +995,11 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let ready_hint = (!ready.is_empty() && !start.continuation).then(|| {
             let ids: Vec<String> = ready.iter().take(8).map(|id| format!("#{id}")).collect();
             format!(
-                "\nLessons that held in two or more contexts: {}. Only after the ticket's work is done, never instead of it: \
-                 if one is a reusable procedure that a skill of yours covers, improve that skill with propose_skill_update; \
-                 only if no skill covers it, write it down as a new skill with propose_new_skill (every section filled, a \
-                 Proof that demands evidence). If none is a reusable procedure, do nothing.\n",
+                "\nLessons that held in two or more contexts: {}. When the ticket's work is done and before you call \
+                 submit_report (never instead of the work): if one is a reusable procedure that a skill of yours covers, \
+                 improve that skill with propose_skill_update; only if no skill covers it, write it down as a new skill with \
+                 propose_new_skill (every section filled, a Proof that demands evidence). If none is a reusable procedure, \
+                 do nothing.\n",
                 ids.join(", ")
             )
         });

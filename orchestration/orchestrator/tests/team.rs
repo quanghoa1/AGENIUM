@@ -1299,6 +1299,7 @@ fn a_validated_lesson_updates_the_agents_overlay_of_a_skill() {
     let update = |line: &str| ProposeSkillUpdate {
         skill: "release-notes".into(),
         patch: patch(line),
+        content: None,
         reason: "readers missed breaking changes".into(),
         lesson,
     };
@@ -2080,6 +2081,7 @@ fn skills_cannot_contradict_each_other() {
     let update = |skill: &str, old: &str, new: &str, lesson: i64| ProposeSkillUpdate {
         skill: skill.into(),
         patch: format!("--- a/SKILL.md\n+++ b/SKILL.md\n@@ -9,1 +9,2 @@\n 1. {old}\n+2. {new}\n"),
+        content: None,
         reason: "a lesson held twice".into(),
         lesson,
     };

@@ -60,3 +60,4 @@ ADR-52 records this fresh implementation.
 | [90](ADR-90-jev-skill-quality.md) | Optional fail-open Jev read of a skill's quality (one job, actionable steps, proof demands evidence, no stale code) on top of the always-on structural check |
 | [91](ADR-91-agent-created-skills.md) | Agents may create a new skill only through strict gates (trusted lesson held in two contexts, no duplicate, full shape, safe), contained to the agent, offered only with a qualifying lesson, flagged when its lesson stops holding |
 | [92](ADR-92-skill-contradictions.md) | Skills cannot contradict each other: one subject one skill (calibrated words+meaning), no explicit opposite directive (references included; updates only for introduced conflicts), judge read when on, experience flag |
+| [93](ADR-93-skill-update-robustness.md) | Skill updates an agent can land: whole body (`content`) or diff, the real patch error, a unique-content fallback; found by the 6-model learning-loop runs |

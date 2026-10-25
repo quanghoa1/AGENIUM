@@ -39,7 +39,8 @@ that call `apply_skill_update` directly. Fixed here with one offering policy for
    still goes only through the existing gated paths (shared pool ADR-87, promote).
 3. **When the tools are offered** (both `propose_skill_update` and `propose_new_skill`): **work runs only, and only when
    the agent holds at least one qualifying lesson** (live, trusted, two contexts). Then the first message names those
-   lessons and says to write a skill down **only after the ticket's work, never instead of it**, to improve an existing
+   lessons and says to write a skill down **when the work is done and before `submit_report`** (which ends the run;
+   review runs never offer the tools), never instead of the work, to improve an existing
    skill first, and to do nothing if no lesson is a reusable procedure. Review, chat, inbox and plan runs never get them.
 4. **Anti-drift** — a created skill keeps the id of its lesson. After every learning pass (and when the user retires a
    fact) Agenium checks each created skill: if its lesson was **deleted, retired or replaced**, or its **confidence fell

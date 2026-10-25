@@ -119,7 +119,7 @@ protocol_tools! {
     LoadSkill => "load_skill", Shared, LoadSkill,
         "Load the full instructions of a skill listed in your skills index.";
     ProposeSkillUpdate => "propose_skill_update", Shared, ProposeSkillUpdate,
-        "Propose an update to your own copy of a skill, backed by validated lessons.";
+        "Propose an update to your own copy of a skill, backed by a lesson that held in two contexts: either the complete new body as content (simplest), or a unified diff as patch.";
     ProposeNewSkill => "propose_new_skill", Shared, ProposeNewSkill,
         "Create a new skill in your own skills folder from a lesson that held in two contexts. Only when no skill you have covers it (otherwise use propose_skill_update); it must have every section filled (Job, When to use, Steps, Tools, Proof). Checked strictly; the user can review or delete it.";
     ProposeSoulChange => "propose_soul_change", Shared, ProposeChange,

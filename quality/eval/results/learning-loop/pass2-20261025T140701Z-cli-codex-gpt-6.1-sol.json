@@ -1,0 +1,72 @@
+[
+  {
+    "id": "learning-loop",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 1,
+    "error_codes": {},
+    "errors": [
+      "propose_skill_update: invalid: the patch does not apply to the current SKILL.md (error: patch failed: SKILL.md:7\nerror: SKILL.md: patch does not apply). Copy the context lines exactly as load_skill shows them, or send the complete new body as `content` instead of a patch"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 125617,
+    "tokens_out": 1500,
+    "cost_usd": 0.0,
+    "elapsed_ms": 93911,
+    "learning": {
+      "applied_procedure": true,
+      "calls": [
+        {
+          "before_work": false,
+          "lesson": "covered",
+          "ok": false,
+          "result": "invalid: the patch does not apply to the current SKILL.md (error: patch failed: SKILL.md:7\nerror: SKILL.md: patch does not apply). Copy the context lines exactly as load_skill shows them, or send the complete new body as `content` instead of a patch",
+          "sent": "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -7,1 +7,1 @@\n-2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\").\n+2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\"). In this demo project, start with the ticket key, for example `AGN-12: Add greeting`.\n",
+          "skill": "commit-and-pr",
+          "tool": "propose_skill_update"
+        },
+        {
+          "before_work": false,
+          "lesson": "covered",
+          "ok": true,
+          "result": "{\"note\":\"your own copy of the skill is updated; other agents keep the base, and the user can review or revert it\",\"skill\":\"commit-and-pr\",\"status\":\"applied\"}",
+          "sent": null,
+          "skill": "commit-and-pr",
+          "tool": "propose_skill_update"
+        }
+      ],
+      "created": [],
+      "lessons": [
+        {
+          "id": 1,
+          "label": "procedure"
+        },
+        {
+          "id": 2,
+          "label": "covered"
+        },
+        {
+          "id": 3,
+          "label": "fact"
+        }
+      ],
+      "overlays": [
+        {
+          "lessons": [
+            "covered"
+          ],
+          "skill": "commit-and-pr"
+        }
+      ],
+      "used_tools": true,
+      "violations": []
+    }
+  }
+]

@@ -90,23 +90,124 @@ fn apply_patch(text: &str, patch: &str) -> Result<String> {
     if !p.ends_with('\n') {
         p.push('\n');
     }
-    std::fs::write(&patch_file, p).map_err(io)?;
-    let mut last = String::new();
+    // A diff with `a/` `b/` paths is meant for -p1: report that attempt's error, not the -p0 fallback's (which only
+    // says "b/SKILL.md: No such file" and hid the real cause from agents in the learning-loop runs).
+    let prefixed = p
+        .lines()
+        .any(|l| l.starts_with("--- a/") || l.starts_with("+++ b/"));
+    std::fs::write(&patch_file, &p).map_err(io)?;
+    let mut errors = Vec::new();
     for strip in ["-p1", "-p0"] {
         let out = std::process::Command::new("git")
+            .args(["-c", "core.autocrlf=false", "-c", "core.eol=lf"])
             .args(["apply", "--recount", "--whitespace=nowarn", strip])
             .arg(&patch_file)
             .current_dir(dir.path())
             .output()
             .map_err(io)?;
         if out.status.success() {
-            return std::fs::read_to_string(dir.path().join("SKILL.md")).map_err(io);
+            let t = std::fs::read_to_string(dir.path().join("SKILL.md")).map_err(io)?;
+            return Ok(t.replace("\r\n", "\n"));
         }
-        last = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+        errors.push(String::from_utf8_lossy(&out.stderr).trim().to_owned());
     }
+    // Fallback seen in the real runs: a hunk with no context lines numbered from the body the agent read (so git cannot
+    // place it). When every hunk's old text occurs exactly once, apply it by content; anything ambiguous is refused.
+    if let Some(t) = apply_by_content(&text.replace("\r\n", "\n"), &p) {
+        return Ok(t);
+    }
+    let reason = if prefixed { &errors[0] } else { &errors[1] };
     Err(invalid(format!(
-        "the patch does not apply to the current SKILL.md: {last}"
+        "the patch does not apply to the current SKILL.md ({reason}). Copy the context lines exactly as load_skill \
+         shows them, or send the complete new body as `content` instead of a patch"
     )))
+}
+
+/// Applies a unified diff by text instead of line numbers: each hunk's old lines (context and removed) must occur
+/// exactly once in `text` and are replaced by its new lines (context and added). `None` when a hunk is empty, missing
+/// or ambiguous — then nothing is applied.
+fn apply_by_content(text: &str, patch: &str) -> Option<String> {
+    let mut hunks: Vec<(Vec<&str>, Vec<&str>)> = Vec::new();
+    for line in patch.lines() {
+        if line.starts_with("@@") {
+            hunks.push((Vec::new(), Vec::new()));
+            continue;
+        }
+        let Some((old, new)) = hunks.last_mut() else {
+            continue; // file headers before the first hunk
+        };
+        match line.chars().next() {
+            Some(' ') => {
+                old.push(&line[1..]);
+                new.push(&line[1..]);
+            }
+            Some('-') => old.push(&line[1..]),
+            Some('+') => new.push(&line[1..]),
+            Some('\\') => {} // "\ No newline at end of file"
+            None => {
+                old.push("");
+                new.push("");
+            }
+            _ => return None,
+        }
+    }
+    // Match whole lines only ("Step 1" must not match inside "Step 10"): wrap in newlines while matching.
+    let mut out = format!("\n{text}\n");
+    for (old, new) in hunks {
+        if old.iter().all(|l| l.trim().is_empty()) {
+            return None;
+        }
+        let (old, new) = (
+            format!("\n{}\n", old.join("\n")),
+            format!("\n{}\n", new.join("\n")),
+        );
+        if out.matches(&old).count() != 1 {
+            return None;
+        }
+        out = out.replacen(&old, &new, 1);
+    }
+    Some(out[1..out.len() - 1].to_owned())
+}
+
+/// The SKILL.md front block (`---` … `---` and its line end), or "" when there is none.
+fn frontmatter(text: &str) -> &str {
+    if let Some(rest) = text.strip_prefix("---") {
+        if let Some(end) = rest.find("\n---") {
+            let close = 3 + end + 4;
+            let eol = text[close..]
+                .find('\n')
+                .map(|i| i + 1)
+                .unwrap_or(text.len() - close);
+            return &text[..close + eol];
+        }
+    }
+    ""
+}
+
+/// The skill text an update produces: the current frontmatter with the new body (`content`; a frontmatter the agent
+/// copied in is dropped, so name and description cannot change this way), or the current text with the diff applied
+/// (`patch`). Exactly one of the two.
+fn updated_text(current: &str, u: &ProposeSkillUpdate) -> Result<String> {
+    let content = u
+        .content
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
+    match (content, u.patch.trim().is_empty()) {
+        (Some(_), false) => Err(invalid(
+            "give either the new body as content or a patch, not both",
+        )),
+        (None, true) => Err(invalid("give the new body as content (or a patch)")),
+        (Some(body), true) => {
+            let body = crate::skill_shape::strip_frontmatter(body);
+            Ok(format!(
+                "{}\n{}\n",
+                frontmatter(&current.replace("\r\n", "\n")).trim_end(),
+                body.trim()
+            ))
+        }
+        (None, false) => apply_patch(current, &u.patch),
+    }
 }
 
 /// Reverse-applies `patch` (a base -> overlay diff) to `overlay`, reconstructing the base it was built on.
@@ -248,7 +349,7 @@ impl App {
             base.meta.dir.join("SKILL.md")
         };
         let current = std::fs::read_to_string(path).map_err(io)?;
-        let updated = apply_patch(&current, &u.patch)?;
+        let updated = updated_text(&current, u)?;
         Ok((current, updated))
     }
 
@@ -297,7 +398,7 @@ impl App {
             dir.join("SKILL.md")
         };
         let current = std::fs::read_to_string(current).map_err(io)?;
-        let updated = apply_patch(&current, &u.patch)?;
+        let updated = updated_text(&current, u)?;
         let lower = updated.to_lowercase();
         if let Some(p) = INJECTION
             .iter()
@@ -566,7 +667,87 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-    use super::{diff_texts, merge_three, unapply_patch};
+    use super::{diff_texts, merge_three, unapply_patch, updated_text};
+    use agenium_core::forms::ProposeSkillUpdate;
+
+    fn proposal(patch: &str, content: Option<&str>) -> ProposeSkillUpdate {
+        ProposeSkillUpdate {
+            skill: "demo".into(),
+            patch: patch.into(),
+            content: content.map(str::to_owned),
+            reason: "r".into(),
+            lesson: 1,
+        }
+    }
+
+    /// The learning-loop runs: agents struggle with exact diffs, so the whole new body is accepted and the frontmatter
+    /// stays — even when the agent pastes a frontmatter with another name.
+    #[test]
+    fn an_update_can_send_the_whole_body_and_keeps_the_frontmatter() {
+        let new_body =
+            "# Demo\n\nStep 1: read the file.\nStep 2: write the file.\nStep 3: run the tests.";
+        let out = updated_text(BASE, &proposal("", Some(new_body))).unwrap();
+        assert!(
+            out.starts_with("---\nname: demo\ndescription: a demo skill\n---\n"),
+            "{out}"
+        );
+        assert!(out.contains("Step 3: run the tests.") && out.ends_with('\n'));
+        let pasted = format!("---\nname: renamed\ndescription: hijacked\n---\n\n{new_body}");
+        let out = updated_text(BASE, &proposal("", Some(&pasted))).unwrap();
+        assert!(
+            out.contains("name: demo") && !out.contains("renamed") && !out.contains("hijacked"),
+            "{out}"
+        );
+        assert!(
+            updated_text(BASE, &proposal("x", Some(new_body))).is_err(),
+            "not both"
+        );
+        assert!(
+            updated_text(BASE, &proposal("", None)).is_err(),
+            "not neither"
+        );
+    }
+
+    /// The exact patch gpt-6.1-sol sent in the learning-loop run: no context lines, numbered from the body it read
+    /// (line 7; the real line is 14). git cannot place it; the unique-content fallback applies it. An ambiguous or
+    /// partial-line match is still refused.
+    #[test]
+    fn a_zero_context_hunk_with_a_wrong_line_number_applies_by_content() {
+        let skill = crate::skill_shape::LIBRARY
+            .iter()
+            .find(|b| b.name == "commit-and-pr")
+            .unwrap()
+            .skill_md;
+        let sol = "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -7,1 +7,1 @@\n\
+                   -2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\").\n\
+                   +2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\"). In \
+                   this demo project, start with the ticket key, for example `AGN-12: Add greeting`.\n";
+        let out = updated_text(skill, &proposal(sol, None)).unwrap();
+        assert!(out.contains("start with the ticket key"), "{out}");
+        assert!(out.starts_with("---\nname: commit-and-pr\n"));
+        assert_eq!(
+            out.lines().count(),
+            skill.lines().count(),
+            "one line replaced, nothing else"
+        );
+        // "Step 1" alone must not match inside "Step 10", and a line that occurs twice is ambiguous.
+        let text = "Step 1: a\nStep 10: b\n";
+        assert!(super::apply_by_content(text, "@@ -1 +1 @@\n-Step 1\n+Step one\n").is_none());
+        let twice = "x\nsame\ny\nsame\n";
+        assert!(super::apply_by_content(twice, "@@ -2 +2 @@\n-same\n+other\n").is_none());
+    }
+
+    /// A diff whose context does not match reports the -p1 reason with a hint, not the -p0 fallback's
+    /// "b/SKILL.md: No such file" that hid the cause in the real runs.
+    #[test]
+    fn a_mismatched_diff_reports_the_real_reason() {
+        let bad = "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -8,1 +8,2 @@\n Step 1: read the whole file.\n+Step 1b: note it.\n";
+        let e = updated_text(BASE, &proposal(bad, None))
+            .unwrap_err()
+            .to_string();
+        assert!(!e.contains("No such file"), "{e}");
+        assert!(e.contains("content"), "points to the simpler way: {e}");
+    }
 
     const BASE: &str = "---\nname: demo\ndescription: a demo skill\n---\n\n# Demo\n\nStep 1: read the file.\nStep 2: write the file.\n";
 
