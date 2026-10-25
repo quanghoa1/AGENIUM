@@ -1,6 +1,7 @@
 //! Scheduling (decision 36 / architecture "Scheduler & vận hành"): workers never pull work; the Lead assigns and
 //! the scheduler starts a run when the ticket is ready (dependencies satisfied) and its assignee is Idle.
-//! Priority first, then age. Also the run lifecycle bookkeeping used by agent runtimes.
+//! Priority first, then age, and waiting raises the priority (aging, [`effective_priority`]). Also the run
+//! lifecycle bookkeeping used by agent runtimes.
 
 use agenium_core::*;
 use agenium_store::core::{agents, runs, tickets};
@@ -28,6 +29,25 @@ pub struct RunStart {
     pub continuation: bool,
 }
 
+/// The priority a ticket is scheduled with: one level higher (lower number) for every `aging_hours` since it was
+/// created, never above P0, so low-priority work is not starved by a stream of new urgent tickets.
+pub fn effective_priority(
+    priority: u8,
+    created_at: &str,
+    now: chrono::DateTime<chrono::Utc>,
+    aging_hours: u32,
+) -> u8 {
+    if aging_hours == 0 {
+        return priority;
+    }
+    let Ok(at) = chrono::DateTime::parse_from_rfc3339(created_at) else {
+        return priority;
+    };
+    let waited = now.signed_duration_since(at).num_hours().max(0) as u64;
+    let steps = waited / u64::from(aging_hours);
+    priority.saturating_sub(steps.min(u64::from(u8::MAX)) as u8)
+}
+
 impl App {
     /// Tickets of `project` that can start a run now, best first. At most one per agent (one active ticket per
     /// worker, decision 28).
@@ -50,12 +70,10 @@ impl App {
             })
             .filter(|t| t.assignee.is_some() && !live.contains(&t.id))
             .collect();
-        // Priority (P0 first), then oldest first: waiting tickets age to the front within a priority.
-        cands.sort_by(|a, b| {
-            a.priority
-                .cmp(&b.priority)
-                .then(a.created_at.cmp(&b.created_at))
-        });
+        // Effective priority (P0 first, raised by waiting), then oldest first.
+        let (now, aging) = (chrono::Utc::now(), self.config().runtime.aging_hours);
+        let eff = |t: &Ticket| effective_priority(t.priority, &t.created_at, now, aging);
+        cands.sort_by(|a, b| eff(a).cmp(&eff(b)).then(a.created_at.cmp(&b.created_at)));
         for t in cands {
             let agent = t.assignee.unwrap_or_else(AgentId::new);
             if out.iter().any(|r| r.agent == agent) {
@@ -183,34 +201,41 @@ impl App {
         steps: u32,
         usage: &UsageSummary,
     ) -> Result<()> {
-        self.store.commit(None, "system", |w| -> Result<()> {
-            let r = runs::get(w.tx, run)?;
-            if r.ended_at.is_some() {
-                return Ok(());
-            }
-            runs::update_progress(w.tx, run, steps, usage, &now_iso())?;
-            runs::finish(w.tx, run, &now_iso(), outcome)?;
-            if let Some(tid) = r.ticket {
-                let mut t = tickets::get(w.tx, tid)?;
-                t.usage.add(usage);
-                tickets::update(w.tx, &t)?;
-            }
-            let a = agents::get_agent(w.tx, r.agent)?;
-            if a.status == AgentStatus::Working {
-                agents::set_agent_status(w.tx, r.agent, AgentStatus::Idle)?;
-                w.emit(DomainEvent::AgentStatusChanged {
+        let ticket = self
+            .store
+            .commit(None, "system", |w| -> Result<Option<TicketId>> {
+                let r = runs::get(w.tx, run)?;
+                if r.ended_at.is_some() {
+                    return Ok(None);
+                }
+                runs::update_progress(w.tx, run, steps, usage, &now_iso())?;
+                runs::finish(w.tx, run, &now_iso(), outcome)?;
+                if let Some(tid) = r.ticket {
+                    let mut t = tickets::get(w.tx, tid)?;
+                    t.usage.add(usage);
+                    tickets::update(w.tx, &t)?;
+                }
+                let a = agents::get_agent(w.tx, r.agent)?;
+                if a.status == AgentStatus::Working {
+                    agents::set_agent_status(w.tx, r.agent, AgentStatus::Idle)?;
+                    w.emit(DomainEvent::AgentStatusChanged {
+                        agent: r.agent,
+                        from: AgentStatus::Working,
+                        to: AgentStatus::Idle,
+                    })?;
+                }
+                w.emit(DomainEvent::RunEnded {
+                    run,
                     agent: r.agent,
-                    from: AgentStatus::Working,
-                    to: AgentStatus::Idle,
+                    outcome: outcome.to_owned(),
                 })?;
-            }
-            w.emit(DomainEvent::RunEnded {
-                run,
-                agent: r.agent,
-                outcome: outcome.to_owned(),
+                Ok(r.ticket)
             })?;
-            Ok(())
-        })?;
+        // Decision 19: what the run left in the worktree, to tell later outside changes from the agents' work.
+        if let Some(t) = ticket.value {
+            let project = self.store.read(|c| tickets::get(c, t))?.project;
+            self.record_worktree_state(project, run)?;
+        }
         Ok(())
     }
 
@@ -224,5 +249,30 @@ impl App {
             Ok(())
         })?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::effective_priority;
+
+    #[test]
+    fn waiting_raises_the_priority_up_to_p0() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-10-25T12:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let fresh = "2026-10-25T11:00:00Z";
+        let day = "2026-10-24T11:00:00Z";
+        let week = "2026-10-18T12:00:00Z";
+        assert_eq!(effective_priority(2, fresh, now, 24), 2);
+        assert_eq!(
+            effective_priority(2, day, now, 24),
+            1,
+            "a day of waiting: one level"
+        );
+        assert_eq!(effective_priority(3, week, now, 24), 0, "never above P0");
+        assert_eq!(effective_priority(2, week, now, 0), 2, "aging off");
+        // A P2 that waited a day ranks with a fresh P1 and, being older, goes first.
+        assert!(effective_priority(2, day, now, 24) <= effective_priority(1, fresh, now, 24));
     }
 }

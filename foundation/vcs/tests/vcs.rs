@@ -257,3 +257,69 @@ fn a_dependent_worktree_catches_up_with_main_before_its_work() {
     write(&b.path, "web/index.html", "x");
     assert_eq!(r.catch_up("AGN-2").unwrap(), None);
 }
+
+/// Decision 19: a worktree changed outside Agenium (an edited file, a new file, a commit without Agenium's trailer)
+/// is detected against the state Agenium left, and put back; the undone change comes back as a patch.
+#[test]
+fn outside_changes_to_a_worktree_are_detected_and_undone() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    write(&w.path, "deliverables/a.txt", "agent\n");
+    r.commit_all(&w.path, "Add a", AUTHOR, &[("Agenium-Intent", "01ABC")])
+        .unwrap();
+    write(&w.path, "deliverables/wip.txt", "agent work in progress\n");
+    let left = r.worktree_state(&w.path).unwrap();
+    assert_eq!(r.worktree_state(&w.path).unwrap(), left, "stable");
+    assert!(
+        r.status(&w.path)
+            .unwrap()
+            .iter()
+            .any(|l| l.contains("wip.txt")),
+        "real index untouched"
+    );
+    assert!(r.foreign_commits(&w.path, &left.head).unwrap().is_empty());
+
+    // Outside: edit, add a file, and commit on the branch.
+    write(&w.path, "deliverables/a.txt", "user\n");
+    write(&w.path, "notes/user.md", "mine\n");
+    r.git().check(&w.path, ["add", "-A"]).unwrap();
+    r.git()
+        .check(
+            &w.path,
+            [
+                "-c",
+                "user.name=u",
+                "-c",
+                "user.email=u@x",
+                "commit",
+                "-q",
+                "-m",
+                "by hand",
+            ],
+        )
+        .unwrap();
+    assert_ne!(r.worktree_state(&w.path).unwrap(), left);
+    assert_eq!(r.foreign_commits(&w.path, &left.head).unwrap().len(), 1);
+
+    let patch = r.restore_worktree(&w.path, &left).unwrap();
+    assert!(
+        patch.contains("notes/user.md") && patch.contains("+user"),
+        "{patch}"
+    );
+    assert_eq!(
+        r.worktree_state(&w.path).unwrap(),
+        left,
+        "back to what Agenium left"
+    );
+    assert!(!w.path.join("notes/user.md").exists());
+    assert_eq!(
+        std::fs::read_to_string(w.path.join("deliverables/a.txt")).unwrap(),
+        "agent\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(w.path.join("deliverables/wip.txt")).unwrap(),
+        "agent work in progress\n",
+        "the agent's uncommitted work stays"
+    );
+}

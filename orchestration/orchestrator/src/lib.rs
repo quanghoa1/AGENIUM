@@ -20,6 +20,7 @@ pub mod team_templates;
 pub mod templates;
 pub mod vendor_usage;
 pub mod views;
+pub mod worktree_guard;
 
 pub use app::{App, AppOptions, CheckFactory, CreateAgent, CreateProject, NoCheckFactory};
 pub use engine::{CallCtx, Outcome, RunEffect};

@@ -858,6 +858,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
 
     /// Runs the assignee on a ready ticket (start -> loop -> outcome handling).
     pub async fn run_ticket(&self, project: ProjectId, key: &TicketKey) -> Result<RunSummary> {
+        // Decision 19: changes made to the worktree outside Agenium are undone before the agent continues.
+        if let Err(e) = self.app.guard_worktree(project, key) {
+            tracing::warn!(ticket = %key, error = %e, "worktree guard failed");
+        }
         let t = self.app.ticket(project, key)?;
         let agent_id = t
             .assignee
@@ -1015,6 +1019,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
 
     /// Lead review of a Resolved ticket: report + diff -> review_ticket (approve merges) -> close_ticket.
     pub async fn review(&self, project: ProjectId, key: &TicketKey) -> Result<RunSummary> {
+        if let Err(e) = self.app.guard_worktree(project, key) {
+            tracing::warn!(ticket = %key, error = %e, "worktree guard failed");
+        }
         let t = self.app.ticket(project, key)?;
         let (team, _) = self
             .app

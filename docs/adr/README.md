@@ -37,3 +37,4 @@ ADR-52 records this fresh implementation.
 | [67](ADR-67-vendor-usage-footer.md) | Vendor subscription usage in the footer (Claude from its run events, Codex app-server RPC, OpenCode Go endpoint; Antigravity listed without numbers); only honest channels |
 | [68](ADR-68-opencode-cli-free-models.md) | opencode CLI backend for OpenCode free models: `opencode serve` driven over HTTP, every permission through Agenium's hook, fully isolated home |
 | [69](ADR-69-propose-role.md) | The Lead proposes roles (library or new); the user approves (an agent joins the team) or declines; Needs you, CLI, Lead project state |
+| [70](ADR-70-aging-and-worktree-guard.md) | Scheduler aging (a level per `aging_hours` waited); changes made to a worktree outside Agenium are undone before the next run, saved as a patch and reported |

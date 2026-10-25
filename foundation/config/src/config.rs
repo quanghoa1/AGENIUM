@@ -101,6 +101,8 @@ pub struct RuntimeSection {
     pub stall_minutes: u32,
     pub stall_nudges: u32,
     pub blocking_question_sla_minutes: u32,
+    /// Scheduler aging: a ticket waiting this long counts one priority level higher (up to P0); 0 = off.
+    pub aging_hours: u32,
     pub max_reopen_before_escalate: u32,
     pub shell_timeout_secs: u32,
     pub shell_timeout_max_secs: u32,
@@ -119,6 +121,7 @@ impl Default for RuntimeSection {
             stall_minutes: 5,
             stall_nudges: 3,
             blocking_question_sla_minutes: 10,
+            aging_hours: 24,
             max_reopen_before_escalate: 3,
             shell_timeout_secs: 120,
             shell_timeout_max_secs: 600,

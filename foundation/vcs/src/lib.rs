@@ -62,6 +62,14 @@ pub struct Repo {
     git: Git,
 }
 
+/// A worktree's content at one moment (decision 19: what Agenium left it with after a run).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorktreeState {
+    pub head: String,
+    /// Tree of every file in the worktree, uncommitted and untracked (not ignored) included.
+    pub tree: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorktreeInfo {
     pub path: PathBuf,
@@ -469,6 +477,104 @@ impl Repo {
             .filter(|l| !l.is_empty())
             .map(str::to_owned)
             .collect())
+    }
+
+    /// What a worktree holds: its HEAD and the tree of all its files (committed, changed, and untracked files that
+    /// are not ignored), written with a scratch index in the worktree's git dir so the real index is untouched.
+    pub fn worktree_state(&self, worktree: &Path) -> Result<WorktreeState, VcsError> {
+        let head = self
+            .git
+            .check(worktree, ["rev-parse", "HEAD"])?
+            .trim()
+            .to_owned();
+        let tree = self.scratch_tree(worktree)?;
+        Ok(WorktreeState { head, tree })
+    }
+
+    fn scratch_index(&self, worktree: &Path) -> Result<PathBuf, VcsError> {
+        let dir = self
+            .git
+            .check(worktree, ["rev-parse", "--absolute-git-dir"])?;
+        Ok(PathBuf::from(dir.trim()).join("agenium-scratch.index"))
+    }
+
+    fn scratch_tree(&self, worktree: &Path) -> Result<String, VcsError> {
+        let index = self.scratch_index(worktree)?;
+        let idx = index.to_string_lossy().into_owned();
+        let env = [("GIT_INDEX_FILE", idx.as_str())];
+        let tree = (|| {
+            self.git.check_env(worktree, ["read-tree", "HEAD"], &env)?;
+            self.git.check_env(worktree, ["add", "-A"], &env)?;
+            self.git.check_env(worktree, ["write-tree"], &env)
+        })();
+        let _ = std::fs::remove_file(&index);
+        Ok(tree?.trim().to_owned())
+    }
+
+    /// Commits on the worktree's branch since `from` that Agenium did not make (no `Agenium-Intent` trailer) and that
+    /// `main` does not hold (a catch-up with main is Agenium's).
+    pub fn foreign_commits(&self, worktree: &Path, from: &str) -> Result<Vec<String>, VcsError> {
+        let out = self.git.check(
+            worktree,
+            [
+                "log",
+                "--format=%H%x09%(trailers:key=Agenium-Intent,valueonly,separator=%x2C)",
+                &format!("{from}..HEAD"),
+                "--not",
+                &self.main,
+            ],
+        )?;
+        Ok(out
+            .lines()
+            .filter_map(|l| l.split_once('\t'))
+            .filter(|(_, intent)| intent.trim().is_empty())
+            .map(|(sha, _)| sha.to_owned())
+            .collect())
+    }
+
+    /// Puts a worktree back to `to` (an earlier [`WorktreeState`]) after changes made outside Agenium: returns the
+    /// binary patch of what is undone (to keep for the user), then resets the branch to `to.head` and the files to
+    /// `to.tree` (files added since are removed); the index follows HEAD afterwards.
+    pub fn restore_worktree(
+        &self,
+        worktree: &Path,
+        to: &WorktreeState,
+    ) -> Result<String, VcsError> {
+        let now = self.worktree_state(worktree)?;
+        let patch = self
+            .git
+            .check(worktree, ["diff", "--binary", &to.tree, &now.tree])?;
+        let added = self.git.check(
+            worktree,
+            [
+                "diff",
+                "--name-only",
+                "--diff-filter=A",
+                "-z",
+                &to.tree,
+                &now.tree,
+            ],
+        )?;
+        if now.head != to.head {
+            self.git
+                .check(worktree, ["reset", "-q", "--soft", &to.head])?;
+        }
+        let index = self.scratch_index(worktree)?;
+        let idx = index.to_string_lossy().into_owned();
+        let env = [("GIT_INDEX_FILE", idx.as_str())];
+        let written = (|| {
+            self.git
+                .check_env(worktree, ["read-tree", &to.tree], &env)?;
+            self.git
+                .check_env(worktree, ["checkout-index", "-a", "-f"], &env)
+        })();
+        let _ = std::fs::remove_file(&index);
+        written?;
+        for f in added.split('\0').filter(|f| !f.is_empty()) {
+            let _ = std::fs::remove_file(worktree.join(f));
+        }
+        self.git.check(worktree, ["reset", "-q"])?;
+        Ok(patch)
     }
 
     /// Uncommitted changes in a worktree (porcelain lines).

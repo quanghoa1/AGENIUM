@@ -1150,3 +1150,49 @@ fn the_lead_proposes_a_role_and_the_user_decides() {
     assert!(role.lint.is_empty(), "{:?}", role.lint);
     assert_eq!(members().len(), 5);
 }
+
+/// Decision 19: a change made to a ticket worktree outside Agenium between two runs is undone before the next run,
+/// kept as a patch and reported on the ticket; the agent's own uncommitted work stays.
+#[test]
+fn outside_edits_to_a_worktree_are_undone_before_the_next_run() {
+    let t = team();
+    let f = &t.f;
+    planned(&t);
+    let k = started(f, t.web, "PI-1", "Write the page", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wt = worktree(f, k.as_str());
+    write(&wt, "deliverables/page.md", "agent draft\n");
+    f.app
+        .finish_run(run.run, "Stopped:max_steps", 3, &UsageSummary::default())
+        .unwrap();
+    assert!(
+        f.app.guard_worktree(f.project.id, &k).unwrap().is_none(),
+        "nothing changed"
+    );
+
+    write(&wt, "deliverables/page.md", "edited by hand\n");
+    write(&wt, "scratch.txt", "mine\n");
+    let patch = f
+        .app
+        .guard_worktree(f.project.id, &k)
+        .unwrap()
+        .expect("undone");
+    assert!(std::fs::read_to_string(&patch)
+        .unwrap()
+        .contains("edited by hand"));
+    assert_eq!(
+        std::fs::read_to_string(wt.join("deliverables/page.md")).unwrap(),
+        "agent draft\n"
+    );
+    assert!(!wt.join("scratch.txt").exists());
+    let cs = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::comments::for_ticket(c, ticket(f, k.as_str()).id))
+        .unwrap();
+    assert!(cs.iter().any(|c| matches!(&c.body, CommentBody::System { text } if text.contains("outside Agenium were undone"))));
+    assert!(
+        f.app.guard_worktree(f.project.id, &k).unwrap().is_none(),
+        "once"
+    );
+}
