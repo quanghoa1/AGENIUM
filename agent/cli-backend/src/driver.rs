@@ -198,17 +198,11 @@ pub fn normalize(p: &Path, base: &Path) -> PathBuf {
     out
 }
 
-/// Whether `p` (relative to `base`) lies inside `root` (case-insensitive on Windows).
+/// Whether `p` (relative to `base`) lies inside `root` (case-insensitive on Windows), under either name of the root
+/// and with links resolved: the confinement rule of the API tools (`agenium_tools::paths::confined`).
 pub fn inside(p: &Path, base: &Path, root: &Path) -> bool {
     let (p, root) = (normalize(p, base), normalize(root, base));
-    if cfg!(windows) {
-        let norm = |x: &Path| x.to_string_lossy().to_lowercase().replace('/', "\\");
-        let (a, b) = (norm(&p), norm(&root));
-        let b = b.trim_end_matches('\\').to_owned();
-        a == b || a.starts_with(&format!("{b}\\"))
-    } else {
-        p.starts_with(&root)
-    }
+    agenium_tools::paths::confined(&p, &root)
 }
 
 /// Whether `command` is allowed by the project allowlist (exact entries; `prefix *` entries match the prefix when
@@ -241,6 +235,18 @@ mod tests {
             assert!(inside(Path::new(r"c:\WT\sub\f"), root, root));
             assert!(!inside(Path::new(r"C:\wt2\f"), root, root));
         }
+    }
+
+    /// macOS runs of 2026-10-25/26 (stream_run): the worktree was /var/folders/…/wt and the CLI wrote under its
+    /// getcwd(), /private/var/folders/…/wt; the hook refused it. On Windows the canonical name is `\\?\D:\…`.
+    #[test]
+    fn the_canonical_name_of_the_worktree_is_inside_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("wt");
+        std::fs::create_dir(&root).unwrap();
+        let canon = std::fs::canonicalize(&root).unwrap();
+        assert!(inside(&canon.join("a.txt"), &root, &root));
+        assert!(!inside(&canon.join("..").join("escape.txt"), &root, &root));
     }
 
     #[test]

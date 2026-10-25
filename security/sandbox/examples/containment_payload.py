@@ -159,12 +159,19 @@ def mkdir_rename():
     return "renamed"
 
 
+def git_status():
+    r = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+    if r.returncode != 0:  # git says why on stderr; the exit code alone (128) does not
+        raise RuntimeError(f"git status exit {r.returncode}: {r.stderr.strip()}")
+    return r.returncode
+
+
 run("ok.write_in_worktree", lambda: write(os.path.join(WT, "ok-write.txt")))
 run("ok.mkdir_and_rename", mkdir_rename)
 run("ok.tmpdir", lambda: write(os.path.join(os.environ["TMPDIR"], "ok.tmp")))
 run("ok.dev_null", lambda: open("/dev/null", "w").write("x"))
 run("ok.subprocess", lambda: subprocess.run(["sh", "-c", "echo hi"], check=True, capture_output=True, text=True).stdout.strip())
-run("ok.git_status", lambda: subprocess.run(["git", "status", "--porcelain"], check=True, capture_output=True, text=True).returncode)
+run("ok.git_status", git_status)
 run("ok.read_own_interpreter", lambda: peek(sys.executable))
 
 # ---- a daemon that tries to outlive the run (verified on the host)

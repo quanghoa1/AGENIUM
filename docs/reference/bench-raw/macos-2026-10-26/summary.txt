@@ -1,0 +1,7 @@
+commit: bc3bb60
+tests: passed 295, failed 1, ignored 2
+failing tests:
+test agenium_decides_every_tool_call_and_the_run_ends_through_submit_report ... FAILED
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+sandbox network: private network (outbound only; no inbound, no host loopback)
+sandboxed modes: 7 escape(s) or broken must-work item(s)

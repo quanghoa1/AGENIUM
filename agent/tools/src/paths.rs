@@ -62,6 +62,15 @@ fn resolve_existing(p: &Path) -> PathBuf {
     c
 }
 
+/// `true` when the absolute, lexically normalised `p` is inside `root`. The root has two names when a symlink or a
+/// short name leads to it (macOS: /var -> /private/var; Windows: QUANGH~1 -> the long name), and a CLI that asks the
+/// OS for its working directory writes the canonical one: both name the root. The resolved path must still be inside
+/// it, so a link cannot escape.
+pub fn confined(p: &Path, root: &Path) -> bool {
+    let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    (within(p, root) || within(p, &canon_root)) && within(&resolve_existing(p), &canon_root)
+}
+
 /// Resolves a tool path. `write` additionally forbids `.git` and requires the worktree root.
 pub fn resolve(
     root: &Path,
@@ -80,17 +89,8 @@ pub fn resolve(
         root.join(p)
     };
     let norm = lexical_normalize(&joined);
-    let real = resolve_existing(&norm);
-    // The worktree has two names when a symlink or a short name leads to it (macOS: /var -> /private/var; Windows:
-    // QUANGH~1 -> the long name), and a CLI that asks the OS for its working directory writes the canonical one:
-    // both name the worktree. The resolved path must still be inside it, so a link cannot escape.
-    let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let in_root = (within(&norm, root) || within(&norm, &canon_root)) && within(&real, &canon_root);
-    let in_read_root = !write
-        && read_roots.iter().any(|r| {
-            let cr = std::fs::canonicalize(r).unwrap_or_else(|_| r.clone());
-            (within(&norm, r) || within(&norm, &cr)) && within(&real, &cr)
-        });
+    let in_root = confined(&norm, root);
+    let in_read_root = !write && read_roots.iter().any(|r| confined(&norm, r));
     if !(in_root || in_read_root) {
         return Err(ToolError::new(
             "out_of_scope",

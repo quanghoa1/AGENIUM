@@ -505,7 +505,20 @@ impl Executor {
         if let Some(t) = &policy.temp_dir {
             std::fs::create_dir_all(t)?;
             env.insert("TMPDIR".into(), t.display().to_string());
+            // HOME stays the user's, and their ~/.gitconfig is outside the sandbox: Seatbelt answers EPERM (not
+            // ENOENT as on Linux, where it is not mounted) and git stops with "unable to access", exit 128 (likely
+            // cause of the macOS containment run's `ok.git_status` failure, 2026-10-26). As on Windows, the agent's
+            // git reads a config of its own.
+            let gc = t.join("agent.gitconfig");
+            if !gc.is_file() {
+                std::fs::write(
+                    &gc,
+                    "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n",
+                )?;
+            }
+            env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
         }
+        env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
         let env: Vec<(String, String)> = env.into_iter().collect();
         let (command, cwd, policy, timeout) = (
             spec.command.clone(),

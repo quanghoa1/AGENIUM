@@ -1,0 +1,10 @@
+== machine  (18:48:05)
+== build (cargo build --workspace --all-targets)  (18:48:10)
+   exit=0 seconds=133
+== tests (cargo test --workspace --no-fail-fast)  (18:50:23)
+   exit=101 seconds=25
+== doctor  (18:50:48)
+   exit=0 seconds=44
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (18:51:32)
+   exit=1 seconds=57
+== summary  (18:52:29)

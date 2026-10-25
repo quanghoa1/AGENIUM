@@ -213,7 +213,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.)
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
   tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
-- Sandbox: the containment matrix against Seatbelt on macOS (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
+- Sandbox on macOS (containment run 2026-10-26, ADR-55): a daemon outlives the command, and with network on a host unix
+  socket is reachable (mxc-sdk emits an unfiltered `network-outbound`). File escapes are blocked. (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
   VM, 0 escapes, ADR-95; Windows MXC: ADR-53/S2). An AppArmor profile shipped with a Linux installer (until then,
   Ubuntu 24.04+ hosts run sandboxed commands without network unless the user allows user namespaces, ADR-95).
 - Context compaction beyond the checkpoint-and-continue approach.
@@ -225,7 +226,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   run after approval as designed). Since then a bubblewrap backend through `mxc-sdk` (ADR-54) is active on that distro;
   the sandbox tests pass inside it. **2026-10-25: the current code's full suite ran on WSL2 Ubuntu (real kernel,
   bubblewrap present): 264 passed, 0 failed (2 local-model tests ignored).** The S3 containment matrix was run in the
-  spike (`spike-reports/S3`); running it against the shipping bubblewrap backend, and the macOS backend, are NOT RUN.
+  spike (`spike-reports/S3`); since run against the shipping backends: bubblewrap (ADR-95) and Seatbelt (ADR-55, 2026-10-26: second Mac run, 295
+  passed / 1 failed, the same CLI-hook path defect, now fixed in the hook too).
 
 ## Next steps (proposed order, 2026-10-25)
 M4, M4.5 and the self-contained M5 items are done (ADR-64..93). What remains needs an owner decision or real
