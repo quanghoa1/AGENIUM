@@ -114,6 +114,8 @@ fn main() {
             manage::dissolve_team,
             manage::skill_library,
             manage::import_skill,
+            manage::skill_skeleton,
+            manage::lint_skill,
             manage::remove_skill,
             manage::skill_text,
             manage::mcp_servers,

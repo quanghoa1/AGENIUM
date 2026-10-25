@@ -388,7 +388,15 @@ function SkillsPanel() {
   const doImport = (p: string) =>
     api
       .importSkill(p, replace)
-      .then((m) => (app.notify(`${app.t("library.imported")} ${m.name}`), setPath(""), load()))
+      .then((m) => {
+        app.notify(`${app.t("library.imported")} ${m.name}`);
+        // ADR-88: surface the skill-shape advice (one job, when-to-use, steps, tools, proof) so the user can improve it.
+        if (m.shape_notes?.length) {
+          app.notify(`${app.t("library.shapeNotes")} ${m.name}: ${m.shape_notes.join("; ")}`);
+        }
+        setPath("");
+        load();
+      })
       .catch((e) => app.notify(String(e)));
   // Drop a skill folder or .zip on the window (Tauri gives the paths).
   useEffect(() => {

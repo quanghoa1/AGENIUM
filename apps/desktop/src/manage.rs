@@ -285,11 +285,24 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
 #[tauri::command]
 pub fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) -> R<Value> {
     let src = PathBuf::from(path.trim().trim_matches('"'));
-    Ok(json!(d
-        .opened()?
-        .app
-        .import_library_skill(&src, replace)
-        .map_err(err)?))
+    let o = d.opened()?;
+    let meta = o.app.import_library_skill(&src, replace).map_err(err)?;
+    // ADR-88: advisory skill-shape checks shown after import (one job, when-to-use, steps, tools, proof).
+    let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
+    let notes = o.app.lint_skill(&meta.name, &body);
+    Ok(json!({ "name": meta.name, "description": meta.description, "shape_notes": notes }))
+}
+
+/// The recommended empty SKILL.md body sections (ADR-88), for an authoring form.
+#[tauri::command]
+pub fn skill_skeleton(d: State<'_, Desktop>) -> R<String> {
+    Ok(d.opened()?.app.skill_skeleton())
+}
+
+/// Advisory skill-shape checks on a body (ADR-88): missing/empty sections, too long, near-duplicate. Never blocks.
+#[tauri::command]
+pub fn lint_skill(d: State<'_, Desktop>, name: String, body: String) -> R<Vec<String>> {
+    Ok(d.opened()?.app.lint_skill(&name, &body))
 }
 
 #[tauri::command]

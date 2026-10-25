@@ -298,6 +298,9 @@ impl App {
         let _ = std::fs::remove_dir_all(&staging_root);
         let base_text = std::fs::read_to_string(base.meta.dir.join("SKILL.md")).map_err(io)?;
         let cumulative = diff_texts(&base_text, &updated)?;
+        // ADR-88: the same skill-shape checks the user sees when authoring also run on an agent's self-upgrade, as
+        // advice recorded with the change (never blocking).
+        let notes = self.lint_skill(name, &crate::skill_shape::strip_frontmatter(&updated));
         mem.put_overlay(
             name,
             base.meta.version.as_deref().unwrap_or("unversioned"),
@@ -309,6 +312,7 @@ impl App {
                 "lesson_text": lesson.text,
                 "validated": lesson.validated,
                 "patch": u.patch,
+                "shape_notes": notes,
             }),
         )?;
         self.store.commit(None, &format!("agent:{agent}"), |w| {

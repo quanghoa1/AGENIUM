@@ -1670,3 +1670,49 @@ async fn memory_gate_skips_only_on_a_confident_no() {
         .unwrap();
     assert_eq!(f.app.worth_remembering("maybe").await, None);
 }
+
+/// ADR-88: opening a root seeds the built-in starter skill library, and every seeded skill is valid and passes its
+/// own shape checks.
+#[test]
+fn the_starter_skill_library_is_seeded_and_valid() {
+    let f = fixture();
+    let lib = f.app.skill_registry().library();
+    assert!(
+        lib.problems.is_empty(),
+        "seeded skills are valid: {:?}",
+        lib.problems
+    );
+    let names: Vec<_> = lib.skills.iter().map(|s| s.meta.name.clone()).collect();
+    for want in [
+        "code-review",
+        "root-cause-debugging",
+        "perf-audit",
+        "doc-writing",
+    ] {
+        assert!(
+            names.contains(&want.to_string()),
+            "seeded {want}: have {names:?}"
+        );
+    }
+    // The shape check the user sees passes on a seeded skill.
+    let text = std::fs::read_to_string(
+        f.app
+            .skill_registry()
+            .dir_of(&agenium_skills::Owner::Library)
+            .join("code-review")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    // Body = everything after the frontmatter block.
+    let body = text
+        .trim_start()
+        .strip_prefix("---")
+        .and_then(|r| r.find("\n---").map(|i| r[i + 4..].to_string()))
+        .unwrap_or(text);
+    assert!(
+        f.app.lint_skill("code-review", &body).is_empty(),
+        "a seeded skill passes its own shape checks"
+    );
+    // Seeding again writes nothing (idempotent).
+    assert_eq!(f.app.seed_skill_library().unwrap(), 0);
+}

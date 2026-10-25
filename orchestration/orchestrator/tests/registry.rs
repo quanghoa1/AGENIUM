@@ -421,10 +421,10 @@ fn library_skills_and_mcp_servers_are_switched_per_agent() {
             .is_err(),
         "exists"
     );
-    assert_eq!(
-        f.app.skill_registry().library().names(),
-        vec!["csv-report", "lead-team"]
-    );
+    // The two imported skills are in the library (alongside the seeded starter skills, ADR-88).
+    let lib = f.app.skill_registry().library();
+    let names = lib.names();
+    assert!(names.contains(&"csv-report") && names.contains(&"lead-team"));
 
     let ana = new_agent(&f, "ana", "coding-backend");
     let max = new_agent(&f, "max", "coding-backend");
@@ -459,7 +459,9 @@ fn library_skills_and_mcp_servers_are_switched_per_agent() {
     assert!(f.app.remove_library_skill("csv-report", false).is_err());
     f.app.remove_library_skill("csv-report", true).unwrap();
     assert!(f.app.agent(ana.id).unwrap().skills.is_empty());
-    assert_eq!(f.app.skill_registry().library().names(), vec!["lead-team"]);
+    let lib = f.app.skill_registry().library();
+    let names = lib.names();
+    assert!(!names.contains(&"csv-report") && names.contains(&"lead-team"));
 
     // MCP servers of the system, switched per agent.
     f.app

@@ -163,7 +163,10 @@ export const api = {
   setTeamProject: (team: string, project: string | null) => call<void>("set_team_project", { team, project }),
   dissolveTeam: (team: string) => call<void>("dissolve_team", { team }),
   skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),
-  importSkill: (path: string, replace = false) => call<{ name: string }>("import_skill", { path, replace }),
+  importSkill: (path: string, replace = false) =>
+    call<{ name: string; description: string; shape_notes: string[] }>("import_skill", { path, replace }),
+  skillSkeleton: () => call<string>("skill_skeleton", {}),
+  lintSkill: (name: string, body: string) => call<string[]>("lint_skill", { name, body }),
   removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),
   skillText: (name: string) => call<{ name: string; body: string; files: string[] }>("skill_text", { name }),
   mcpServers: () => call<McpServerRow[]>("mcp_servers"),

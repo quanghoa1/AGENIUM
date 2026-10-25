@@ -163,6 +163,10 @@ impl App {
         };
         let report = app.reconcile()?;
         app.purge_deleted_agents()?;
+        // Seed the built-in starter skill library (ADR-88); best-effort, never blocks opening the root.
+        if let Err(e) = app.seed_skill_library() {
+            tracing::warn!(error = %e, "seeding the starter skill library failed");
+        }
         Ok((app, report))
     }
 
