@@ -1,0 +1,18 @@
+[
+  {"id":"q01","state":"The report says: added hello.txt containing the text 'hello' and ran the test, which passed.","q":"Does the work create a file named hello.txt?","label":true},
+  {"id":"q02","state":"The report says: refactored the parser and updated the docs. No tests were added or run.","q":"Does the report provide evidence that a test was run?","label":false},
+  {"id":"q03","state":"Commit message: 'Fix null pointer in UserService.login when email is missing'. Diff adds a guard clause returning early on a null email.","q":"Does the change guard against a missing email in login?","label":true},
+  {"id":"q04","state":"The ticket asked to add retry with exponential backoff. The diff adds a single retry with a fixed 1s sleep.","q":"Does the implementation use exponential backoff?","label":false},
+  {"id":"q05","state":"Episode: the agent renamed a variable and reformatted whitespace in one file. The review approved on the first try. No signals.","q":"Does this episode contain a durable lesson worth remembering for future tickets?","label":false},
+  {"id":"q06","state":"Episode: the ticket was reopened because the agent edited files outside its write scope; the fix was to request_permission kind=path before writing shared config.","q":"Does this episode contain a durable lesson worth remembering for future tickets?","label":true},
+  {"id":"q07","state":"The report claims all acceptance criteria are met but lists no files changed and shows no command output.","q":"Does the report provide concrete evidence that the work was done?","label":false},
+  {"id":"q08","state":"Diff adds a new function `parse_iso8601` with three unit tests covering valid, invalid and empty inputs, all passing in the shown test output.","q":"Is the new function covered by tests?","label":true},
+  {"id":"q09","state":"The project convention noted: 'Always run cargo fmt --all before committing; CI rejects unformatted code.'","q":"Is this a durable project fact worth remembering?","label":true},
+  {"id":"q10","state":"The report says the agent spent 7 steps and the ticket status is now Resolved.","q":"Is this a durable fact worth remembering (as opposed to temporary run state)?","label":false},
+  {"id":"q11","state":"Acceptance criterion: 'The endpoint returns 404 for an unknown id.' The diff adds a handler that returns 404 with body {\"error\":\"not found\"} when the id is missing, and a test asserting status 404.","q":"Is the acceptance criterion met?","label":true},
+  {"id":"q12","state":"Acceptance criterion: 'Passwords are hashed with Argon2.' The diff stores the password with base64 encoding only.","q":"Is the acceptance criterion met?","label":false},
+  {"id":"q13","state":"The agent's report: 'I could not reproduce the bug and made no code changes; closing as cannot-reproduce.'","q":"Did the agent change any code?","label":false},
+  {"id":"q14","state":"Review feedback from the Lead: 'Good — but next time add an integration test for the happy path, not only unit tests.' The ticket was reopened once.","q":"Does this episode contain a lesson worth remembering?","label":true},
+  {"id":"q15","state":"The diff adds `println!(\"debug: {}\", secret_token)` to log the value of an API token for troubleshooting.","q":"Does the change risk leaking a secret in logs?","label":true},
+  {"id":"q16","state":"The report says the feature flag was added behind config `features.new_ui` defaulting to false, with a test toggling it on and off.","q":"Is the new feature flag disabled by default?","label":true}
+]
