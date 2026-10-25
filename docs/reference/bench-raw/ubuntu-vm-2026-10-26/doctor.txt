@@ -1,0 +1,18 @@
+root: /home/quanghoa1/agenium-home
+os: Linux (Ubuntu 25.10) (kernel 6.17.0-41-generic)
+  [BelowMinimum] cpu_cores = 2 (minimum 4 cores, recommended 8)
+  [BelowMinimum] ram = 5.2 GB (minimum 8 GB, recommended 16 GB)
+  [BelowRecommended] disk_free = 19.6 GB (minimum 10 GB free, recommended 50 GB (SSD))
+  [Ok] git = git version 2.51.0 (git 2.30+ is required (every project is a git repository))
+  [Ok] os = Linux (Ubuntu 25.10) (kernel 6.17.0-41-generic) (Linux: the sandbox needs bubblewrap or Landlock ABI >= 3 (kernel 6.2+), otherwise agents only run with per-command approval)
+sandbox: Some(Bubblewrap) - bubblewrap: writes only in the worktree, reads limited to system and toolchain folders, no network
+sandbox network: commands run WITHOUT network, and CLI agents cannot run sandboxed: this host refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+shell: bash (/usr/bin/bash)
+agent CLIs (CliBackend, M2.5; Agenium never logs in for you):
+  codex     not installed (not on PATH)
+  agy       not installed (not on PATH)
+  devin     not installed (not on PATH)
+  claude    not installed (not on PATH)
+  opencode  not installed (not on PATH)
+embedding model: not installed, memory uses keyword-level hashing (agenium models download)
+keyring: available

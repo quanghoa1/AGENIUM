@@ -1,0 +1,7 @@
+Ubuntu 25.10 VM (VMware, 2 vCPU, 5.2 GB), commit 528169a + the fixes of ADR-95.
+
+First run (528169a as committed): cargo build --workspace --all-targets 507 s; cargo test --workspace --no-fail-fast:
+  passed 294, failed 1 (orchestrator runtime::solo_agent_takes_a_request_to_a_closed_merged_ticket: the shell command
+  never started — `[sandbox] network = true` asked bubblewrap for inbound connections, which it refuses).
+After the fixes (ingress/host loopback denied; no private network -> the command runs without network):
+  cargo test --workspace --no-fail-fast: passed 296, failed 0, ignored 2 (the 2 local-model tests).

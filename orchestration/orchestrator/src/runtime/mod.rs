@@ -287,8 +287,15 @@ impl Runtime {
     ) -> String {
         let sandbox = agenium_sandbox::detect();
         let approval = self.app.config().sandbox.approval;
-        let net_on = self.app.config().sandbox.network && sandbox.backend.is_some();
-        let net_note = if net_on { "network on" } else { "no network" };
+        // What commands really get: on a Linux host without a private network they run without one (ADR-95).
+        let asked = self.app.config().sandbox.network && sandbox.backend.is_some();
+        let available = agenium_sandbox::network_available();
+        let net_on = asked && available.is_ok();
+        let net_note = match (asked, available) {
+            (true, Ok(())) => "network on".to_owned(),
+            (true, Err(why)) => format!("no network on this machine: {why}"),
+            (false, _) => "no network".to_owned(),
+        };
         let sandbox_text = match (sandbox.backend, approval) {
             (Some(b), agenium_config::ApprovalPolicy::Never | agenium_config::ApprovalPolicy::Sandboxed) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, {net_note})"),
             (None, agenium_config::ApprovalPolicy::Sandboxed) => format!("none: {}; every shell command that is not on the project allowlist is shown to the user for approval", sandbox.reason),

@@ -1,0 +1,9 @@
+Linux quanghoa1 6.17.0-41-generic #41-Ubuntu SMP PREEMPT_DYNAMIC Sat Jun 20 18:01:40 UTC 2026 x86_64 GNU/Linux
+PRETTY_NAME="Ubuntu 25.10"
+2
+Mem:           5.2Gi       1.4Gi       225Mi       4.8Mi       3.9Gi       3.9Gi
+bubblewrap 0.11.0
+slirp4netns version 1.2.1
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+git version 2.51.0
+apparmor_restrict_unprivileged_userns=1

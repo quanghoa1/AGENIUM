@@ -288,7 +288,11 @@ pub async fn run(
         Intent::CreatePlan(TicketPlan {
             spec_version: 1,
             milestones: milestones(),
-            items: vec![plan_item("PI-1", "Hello note", &ac("deliverables/hello.txt", "hello"))],
+            items: vec![plan_item(
+                "PI-1",
+                "Hello note",
+                &ac("deliverables/hello.txt", "hello"),
+            )],
         }),
     )?;
     let approver: Arc<dyn agenium_orchestrator::runtime::Approver> = if approve {

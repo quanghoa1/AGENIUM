@@ -34,6 +34,86 @@ pub fn available() -> bool {
     })
 }
 
+/// Can a command with the network on get a private network here? `Err` says why not, in words for the user (cached).
+/// Linux: bubblewrap gives it its own network namespace reached through slirp4netns, which needs slirp4netns and
+/// unprivileged user + network namespaces — Ubuntu 24.04+ refuses those by default (AppArmor). macOS: Seatbelt opens
+/// the network in place, so it always can.
+pub fn private_network() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        Ok(())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        static STATE: OnceLock<Result<(), String>> = OnceLock::new();
+        STATE
+            .get_or_init(|| {
+                if crate::find_in_path("slirp4netns").is_none() {
+                    return Err("slirp4netns is not installed (sudo apt install slirp4netns)".into());
+                }
+                // The probe mxc-sdk runs before it starts slirp: a namespace that cannot map the user (AppArmor lets a
+                // bare `unshare --user --net` through, then refuses the uid map) is no namespace for the sandbox.
+                let allowed = std::process::Command::new("unshare")
+                    .args(["--user", "--map-current-user", "--keep-caps", "--net", "--", "sh", "-c", ":"])
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                    .is_ok_and(|s| s.success());
+                if !allowed {
+                    return Err("this host refuses unprivileged user and network namespaces (Ubuntu 24.04+: \
+                         AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor \
+                         profile for Agenium, or set that sysctl to 0)"
+                        .into());
+                }
+                Ok(())
+            })
+            .clone()
+    }
+}
+
+/// A host whose `/etc/resolv.conf` names only its own loopback stub (systemd-resolved's 127.0.0.53) resolves no
+/// names inside the sandbox's private network, where that address is the sandbox's own loopback.
+pub fn private_dns_problem() -> Option<String> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    let conf = std::fs::read_to_string("/etc/resolv.conf").ok()?;
+    let servers: Vec<&str> = conf
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("nameserver"))
+        .map(str::trim)
+        .collect();
+    let local = |s: &&str| s.starts_with("127.") || *s == "::1";
+    (!servers.is_empty() && servers.iter().all(local)).then(|| {
+        format!(
+            "names do not resolve inside the sandbox: /etc/resolv.conf names only {} (the host's local resolver, \
+             e.g. systemd-resolved); fix: sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf",
+            servers.join(", ")
+        )
+    })
+}
+
+/// The policy a command actually runs with, and the line that tells the agent what changed: with the network on but
+/// no private network possible, the command runs without network rather than not at all (never with more access
+/// than asked for; the owner's decision of 2026-10-26).
+fn effective(policy: &SandboxPolicy) -> (SandboxPolicy, Option<String>) {
+    let mut p = policy.clone();
+    if !p.network {
+        return (p, None);
+    }
+    match private_network() {
+        Err(why) => {
+            p.network = false;
+            (
+                p,
+                Some(format!("[agenium] this command ran without network: {why}")),
+            )
+        }
+        Ok(()) => (p, private_dns_problem().map(|d| format!("[agenium] {d}"))),
+    }
+}
+
 fn containment() -> Containment {
     #[cfg(target_os = "linux")]
     {
@@ -152,6 +232,9 @@ pub fn request(
         .into_iter()
         .filter(|r| !write.contains(r))
         .collect();
+    // `network` opens the way out only. Nothing reaches into the sandbox and it cannot reach the host's loopback
+    // (local databases, Agenium's own ports): bubblewrap refuses an accepting ingress posture outright, and with it
+    // every command ran with the default `[sandbox] network = true` failed to start (Ubuntu 25.10, 2026-10-26).
     let action = if policy.network {
         NetworkAction::Allow
     } else {
@@ -169,8 +252,8 @@ pub fn request(
                 ..Default::default()
             }),
             ingress: Some(NetworkIngressPolicy {
-                default: Some(action),
-                host_loopback: Some(action),
+                default: Some(NetworkAction::Deny),
+                host_loopback: Some(NetworkAction::Deny),
             }),
             ..Default::default()
         }),
@@ -204,6 +287,8 @@ pub fn run(
     timeout: Duration,
 ) -> Result<ExecOutput, ExecError> {
     let start = Instant::now();
+    let (policy, note) = effective(policy);
+    let policy = &policy;
     let mut child =
         v1::spawn(request(command, cwd, env, policy), Default::default()).map_err(|e| {
             ExecError::Spawn {
@@ -244,10 +329,17 @@ pub fn run(
     };
     let stdout = join(out, &out_closer);
     let stderr = join(err, &err_closer);
+    let mut stderr_text = note
+        .map(|n| {
+            n + "
+"
+        })
+        .unwrap_or_default();
+    stderr_text.push_str(&String::from_utf8_lossy(&stderr));
     Ok(ExecOutput {
         exit_code: code,
         stdout: String::from_utf8_lossy(&stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        stderr: stderr_text,
         timed_out,
         elapsed_ms: start.elapsed().as_millis() as u64,
     })

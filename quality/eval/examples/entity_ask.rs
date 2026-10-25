@@ -53,7 +53,10 @@ async fn main() -> Result<()> {
         let mut q = String::new();
         for (n, p) in chunk.iter().enumerate() {
             let line = p["line"].as_str().unwrap_or_default();
-            q.push_str(&format!("{n}.{}", line.split_once('.').map(|x| x.1).unwrap_or(line)));
+            q.push_str(&format!(
+                "{n}.{}",
+                line.split_once('.').map(|x| x.1).unwrap_or(line)
+            ));
         }
         let req = ChatRequest {
             model: model.clone(),
@@ -88,7 +91,9 @@ async fn main() -> Result<()> {
             let same = p["same"] == true;
             // As the pipeline does: a missing answer is "different".
             let yes = said.get(i).copied().unwrap_or(false);
-            let k = by_kind.entry(p["kind"].as_str().unwrap_or("?").to_owned()).or_default();
+            let k = by_kind
+                .entry(p["kind"].as_str().unwrap_or("?").to_owned())
+                .or_default();
             k[(same as usize) * 2 + yes as usize] += 1;
             if same != yes && i < said.len() {
                 notes.push(format!(
@@ -100,7 +105,12 @@ async fn main() -> Result<()> {
         }
     }
     let total = |f: fn(&[usize; 4]) -> usize| by_kind.values().map(f).sum::<usize>();
-    let (tn, fp, fneg, tp) = (total(|k| k[0]), total(|k| k[1]), total(|k| k[2]), total(|k| k[3]));
+    let (tn, fp, fneg, tp) = (
+        total(|k| k[0]),
+        total(|k| k[1]),
+        total(|k| k[2]),
+        total(|k| k[3]),
+    );
     let auto_right = asks["auto_right"].as_u64().unwrap_or(0) as usize;
     let auto_wrong = asks["auto_wrong"].as_u64().unwrap_or(0) as usize;
     let positives = asks["positives"].as_u64().unwrap_or(1) as usize;

@@ -111,6 +111,16 @@ pub fn spawn_contained(
                 "no sandbox backend works on this machine".into(),
             ));
         }
+        // A contained service (a CLI agent) is useless without the network it asked for: say so instead of starting
+        // it without (commands fall back; see unix::effective).
+        if policy.network {
+            if let Err(why) = crate::unix::private_network() {
+                return Err(ExecError::Refused(format!(
+                    "{} needs the network inside the sandbox, but {why}",
+                    argv[0]
+                )));
+            }
+        }
         let mut env = crate::clean_env(env);
         if let Some(t) = &policy.temp_dir {
             std::fs::create_dir_all(t)?;

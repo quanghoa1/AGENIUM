@@ -1,0 +1,19 @@
+Containment with the private network enabled the way `agenium doctor` says (transcribed from the console,
+2026-10-26, same Ubuntu 25.10 VM): sysctl kernel.apparmor_restrict_unprivileged_userns=0 and
+/etc/resolv.conf -> /run/systemd/resolve/resolv.conf for the run, both restored afterwards.
+
+sandbox network: private network (outbound only; no inbound, no host loopback)
+[sandbox, network on] net.dns: allowed (network on) — inside: ('172.66.147.243', 443)
+[sandbox, network on] net.tcp_internet: allowed (network on) — inside: connected
+| daemon.outlives_a_timeout | blocked | blocked |
+| daemon.outlives_the_run | blocked | blocked |
+| net.dns | blocked | allowed (network on) |
+| net.tcp_host_listener | blocked | blocked |
+| net.tcp_internet | blocked | allowed (network on) |
+| net.unix_host_socket | blocked | blocked |
+| ok.tmpdir | ok | ok |
+sandboxed modes: 0 escape(s) or broken must-work item(s)
+(All write/read/meta/env rows: blocked in both modes, as in containment-default.txt.)
+
+Before the resolv.conf change (userns allowed, stub resolver 127.0.0.53): net.tcp_internet allowed, net.dns blocked —
+names did not resolve inside the private network.

@@ -14,8 +14,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use agenium_memory::resolve::{decide, entity_text, Decision, ASK_SAME, AUTO_SAME};
 use agenium_memory::default_embedder;
+use agenium_memory::resolve::{decide, entity_text, Decision, ASK_SAME, AUTO_SAME};
 use agenium_store::graph::NewEntity;
 use agenium_store::AgentStore;
 use serde_json::Value;
@@ -49,17 +49,28 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     // The design before ADR-94: entity vectors of "name. description".
     let describe = args.iter().any(|a| a == "--describe");
-    let ask_out = args.iter().position(|a| a == "--ask-out").and_then(|i| args.get(i + 1)).cloned();
+    let ask_out = args
+        .iter()
+        .position(|a| a == "--ask-out")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
     let models = args
         .iter()
         .enumerate()
         .find(|(i, a)| !a.starts_with("--") && (*i == 0 || args[i - 1] != "--ask-out"))
         .map(|(_, a)| a.clone());
     let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/data/entity_pairs.json");
-    let d: Value = serde_json::from_str(&std::fs::read_to_string(&data).expect("entity_pairs.json")).unwrap();
+    let d: Value =
+        serde_json::from_str(&std::fs::read_to_string(&data).expect("entity_pairs.json")).unwrap();
     let e = default_embedder(Path::new(models.as_deref().unwrap_or("-")));
     let tmp = tempfile::tempdir().unwrap();
-    let store = AgentStore::open(&tmp.path().join("er.db"), e.dim(), e.model_id(), &tmp.path().join("b")).unwrap();
+    let store = AgentStore::open(
+        &tmp.path().join("er.db"),
+        e.dim(),
+        e.model_id(),
+        &tmp.path().join("b"),
+    )
+    .unwrap();
 
     // The catalogue as memory holds it: name, identity scope, description, aliases, vector of name + description.
     let mut ids: BTreeMap<String, i64> = BTreeMap::new();
@@ -108,7 +119,9 @@ fn main() {
         };
         let gold = p["gold"].as_str().map(|g| ids[g]);
         let v = e.embed(&[entity_text(&mention.name)]).unwrap().pop();
-        let cands = store.entity_candidates(&mention.kind, &mention.name, v.as_deref(), 5).unwrap();
+        let cands = store
+            .entity_candidates(&mention.kind, &mention.name, v.as_deref(), 5)
+            .unwrap();
         let dec = decide(&mention, &cands);
         if let Decision::Ask(id, sim) = dec {
             let e = store.entity(id).unwrap();
@@ -117,7 +130,12 @@ fn main() {
                 "line": agenium_memory::pipeline::same_line(0, &mention, &e, sim),
             }));
         }
-        if let Some(best) = cands.iter().filter(|c| c.via == "vector").map(|c| c.similarity).reduce(f64::max) {
+        if let Some(best) = cands
+            .iter()
+            .filter(|c| c.via == "vector")
+            .map(|c| c.similarity)
+            .reduce(f64::max)
+        {
             sims.push((best, gold.is_some()));
         }
         let kind = p["kind"].as_str().unwrap().to_owned();
@@ -133,12 +151,20 @@ fn main() {
                 .find(|c| matches!(dec, Decision::Same(id, _) if id == c.entity.id))
                 .map(|c| format!("{} via {} {:.2}", c.entity.name, c.via, c.similarity))
                 .unwrap_or_default();
-            wrong.push(format!("{kind}: \"{}\" ({}) merged into {to}", mention.name, mention.kind));
+            wrong.push(format!(
+                "{kind}: \"{}\" ({}) merged into {to}",
+                mention.name, mention.kind
+            ));
         }
     }
 
     let same_total = all.same_right + all.same_wrong;
-    let positives: usize = d["pairs"].as_array().unwrap().iter().filter(|p| !p["gold"].is_null()).count();
+    let positives: usize = d["pairs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| !p["gold"].is_null())
+        .count();
     println!(
         "embedder: {} | {} entities, {} mentions ({positives} same, {} different) | bands: auto >= {AUTO_SAME} + string-similar, ask >= {ASK_SAME}",
         e.model_id(),
@@ -172,12 +198,22 @@ fn main() {
     let bands = [0.0, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.01];
     for w in bands.windows(2) {
         let (lo, hi) = (w[0], w[1]);
-        let s = sims.iter().filter(|(x, p)| *p && *x >= lo && *x < hi).count();
-        let o = sims.iter().filter(|(x, p)| !*p && *x >= lo && *x < hi).count();
+        let s = sims
+            .iter()
+            .filter(|(x, p)| *p && *x >= lo && *x < hi)
+            .count();
+        let o = sims
+            .iter()
+            .filter(|(x, p)| !*p && *x >= lo && *x < hi)
+            .count();
         println!(
             "| {lo:.2}..{:.2} | {s} | {o} | {} |",
             hi.min(1.0),
-            if s + o == 0 { "-".into() } else { format!("{:.2}", s as f64 / (s + o) as f64) }
+            if s + o == 0 {
+                "-".into()
+            } else {
+                format!("{:.2}", s as f64 / (s + o) as f64)
+            }
         );
     }
     if let Some(path) = ask_out {

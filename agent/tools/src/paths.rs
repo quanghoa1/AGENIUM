@@ -85,8 +85,7 @@ pub fn resolve(
     // QUANGH~1 -> the long name), and a CLI that asks the OS for its working directory writes the canonical one:
     // both name the worktree. The resolved path must still be inside it, so a link cannot escape.
     let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let in_root =
-        (within(&norm, root) || within(&norm, &canon_root)) && within(&real, &canon_root);
+    let in_root = (within(&norm, root) || within(&norm, &canon_root)) && within(&real, &canon_root);
     let in_read_root = !write
         && read_roots.iter().any(|r| {
             let cr = std::fs::canonicalize(r).unwrap_or_else(|_| r.clone());

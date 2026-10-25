@@ -33,9 +33,36 @@ fn versions(name: &str) -> Vec<String> {
 
 /// Words that never tell two things apart when added to a name ("the Redis server", "Archer C7 device").
 const GENERIC: &[&str] = &[
-    "the", "a", "an", "our", "my", "this", "that", "service", "server", "app", "application", "tool", "library", "lib",
-    "framework", "system", "device", "instance", "setup", "cluster", "database", "db", "api", "platform", "engine",
-    "software", "project", "module", "package", "product",
+    "the",
+    "a",
+    "an",
+    "our",
+    "my",
+    "this",
+    "that",
+    "service",
+    "server",
+    "app",
+    "application",
+    "tool",
+    "library",
+    "lib",
+    "framework",
+    "system",
+    "device",
+    "instance",
+    "setup",
+    "cluster",
+    "database",
+    "db",
+    "api",
+    "platform",
+    "engine",
+    "software",
+    "project",
+    "module",
+    "package",
+    "product",
 ];
 
 /// Do two names say the same thing? Equal once spaces are ignored ("ArcherC7"), or every word one has and the other
@@ -64,7 +91,11 @@ pub fn context_words(e: &Entity) -> Vec<String> {
         text.push(' ');
         text.push_str(v.as_str().unwrap_or(""));
     }
-    canonical(&text).split(' ').filter(|w| !w.is_empty()).map(str::to_owned).collect()
+    canonical(&text)
+        .split(' ')
+        .filter(|w| !w.is_empty())
+        .map(str::to_owned)
+        .collect()
 }
 
 /// `firmware 1.2` vs `firmware 1.3`: the same words with different numbers name different versions.
@@ -205,8 +236,15 @@ mod tests {
 
     #[test]
     fn bands_and_hard_rules() {
-        assert!(same_name("Archer C7 router", "archer c7", &["router".to_owned()]));
-        assert!(!same_name("Archer C7 router", "archer c7", &[]), "an unexplained extra word goes to the model");
+        assert!(same_name(
+            "Archer C7 router",
+            "archer c7",
+            &["router".to_owned()]
+        ));
+        assert!(
+            !same_name("Archer C7 router", "archer c7", &[]),
+            "an unexplained extra word goes to the model"
+        );
         assert!(same_name("ArcherC7", "Archer-C7", &[]));
         assert!(!same_name("Archer C7", "Nighthawk R7000", &[]));
         // Qualifiers keep siblings apart; words the stored entity is described with do not.
@@ -225,7 +263,10 @@ mod tests {
         let mut described = cand(1, "Archer C7", json!({"vendor": "tp-link"}), "vector", 0.93);
         described.entity.description = Some("dual-band Wi-Fi router".into());
         assert_eq!(
-            decide(&m("TP-Link Archer-C7 router", json!({})), &[described.clone()]),
+            decide(
+                &m("TP-Link Archer-C7 router", json!({})),
+                &[described.clone()]
+            ),
             Decision::Same(1, 0.93)
         );
         // A qualifier the entity is not described with: the model decides, even at 0.93.

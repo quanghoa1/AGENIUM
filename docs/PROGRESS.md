@@ -213,10 +213,12 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.)
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
   tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
-- Sandbox: the S3 containment matrix against the shipping backends on Linux and macOS (Windows MXC: ADR-53, Linux
-  bubblewrap: ADR-54, macOS Seatbelt: ADR-55 — its first run on a Mac passed the sandbox tests, 2026-10-25).
+- Sandbox: the containment matrix against Seatbelt on macOS (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
+  VM, 0 escapes, ADR-95; Windows MXC: ADR-53/S2). An AppArmor profile shipped with a Linux installer (until then,
+  Ubuntu 24.04+ hosts run sandboxed commands without network unless the user allows user namespaces, ADR-95).
 - Context compaction beyond the checkpoint-and-continue approach.
-- cargo-deny, GitHub workflows. **macOS: first run 2026-10-25** (virtual M4 Pro): build OK, 289 passed / 1 failed /
+- cargo-deny, GitHub workflows. **Real Ubuntu 25.10 (VMware VM, 2026-10-26): 296 passed, 0 failed** after the ADR-95
+  fixes — the first run found that no sandboxed command could start with the network on. **macOS: first run 2026-10-25** (virtual M4 Pro): build OK, 289 passed / 1 failed /
   2 ignored — the failure was a real path-confinement defect (a worktree reached through `/private/var`), fixed and
   reproduced on Windows (8.3 short names); benchmarks in STORE-SCALE §10. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
   6.18, cargo 1.98.1): `cargo build --workspace` and `cargo test --workspace` PASS (no sandbox backend yet, so commands

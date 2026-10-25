@@ -36,11 +36,15 @@ fn responder(current: Arc<Mutex<String>>) -> agenium_llm::mock::Responder {
             current.lock().unwrap().clone()
         } else if prompt.starts_with("NEW ") {
             let n = prompt.lines().filter(|l| l.starts_with("NEW ")).count();
-            json!({"ops": (0..n).map(|i| json!({"op": "ADD", "fact": i})).collect::<Vec<_>>()}).to_string()
+            json!({"ops": (0..n).map(|i| json!({"op": "ADD", "fact": i})).collect::<Vec<_>>()})
+                .to_string()
         } else {
             let n = prompt
                 .lines()
-                .filter(|l| l.split_once(". ").is_some_and(|(a, _)| a.parse::<usize>().is_ok()))
+                .filter(|l| {
+                    l.split_once(". ")
+                        .is_some_and(|(a, _)| a.parse::<usize>().is_ok())
+                })
                 .count();
             json!({"same": vec![false; n]}).to_string()
         };
@@ -53,8 +57,14 @@ fn responder(current: Arc<Mutex<String>>) -> agenium_llm::mock::Responder {
     })
 }
 
-async fn build(d: &Value, e: &Arc<dyn Embedder>, graph: bool, dir: &Path) -> (AgentStore, HashMap<i64, String>) {
-    let store = AgentStore::open(&dir.join("qa.db"), e.dim(), e.model_id(), &dir.join("b")).unwrap();
+async fn build(
+    d: &Value,
+    e: &Arc<dyn Embedder>,
+    graph: bool,
+    dir: &Path,
+) -> (AgentStore, HashMap<i64, String>) {
+    let store =
+        AgentStore::open(&dir.join("qa.db"), e.dim(), e.model_id(), &dir.join("b")).unwrap();
     let current = Arc::new(Mutex::new(String::new()));
     let p = ScriptedProvider::new("stub");
     let model = PipelineModel {
@@ -74,7 +84,10 @@ async fn build(d: &Value, e: &Arc<dyn Embedder>, graph: bool, dir: &Path) -> (Ag
             .unwrap()
             .iter()
             .map(|f| {
-                key_of_text.insert(f["text"].as_str().unwrap().to_owned(), f["key"].as_str().unwrap().to_owned());
+                key_of_text.insert(
+                    f["text"].as_str().unwrap().to_owned(),
+                    f["key"].as_str().unwrap().to_owned(),
+                );
                 let mut f = f.clone();
                 if !graph {
                     f["entities"] = json!([]);
@@ -131,7 +144,8 @@ async fn main() {
     let misses = args.iter().any(|a| a == "--misses");
     let models = args.iter().find(|a| !a.starts_with("--"));
     let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/data/graph_qa.json");
-    let d: Value = serde_json::from_str(&std::fs::read_to_string(&data).expect("graph_qa.json")).unwrap();
+    let d: Value =
+        serde_json::from_str(&std::fs::read_to_string(&data).expect("graph_qa.json")).unwrap();
     let mut embedders: Vec<Arc<dyn Embedder>> = vec![Arc::new(HashEmbedder::new(384))];
     if let Some(m) = models {
         let e = default_embedder(Path::new(m));
@@ -152,15 +166,31 @@ async fn main() {
         for graph in [false, true] {
             let tmp = tempfile::tempdir().unwrap();
             let (store, keys) = build(&d, e, graph, tmp.path()).await;
-            assert_eq!(keys.len() as u64, store.count_live().unwrap(), "every fact stored once");
+            assert_eq!(
+                keys.len() as u64,
+                store.count_live().unwrap(),
+                "every fact stored once"
+            );
             let mut by: HashMap<&str, Score> = HashMap::new();
             for q in d["questions"].as_array().unwrap() {
                 let typ = q["type"].as_str().unwrap();
-                let gold: Vec<&str> = q["gold"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
-                let forbidden: Vec<&str> =
-                    q["forbidden"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+                let gold: Vec<&str> = q["gold"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect();
+                let forbidden: Vec<&str> = q["forbidden"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect();
                 let got = recall(&store, e.as_ref(), q["text"].as_str().unwrap(), &ctx, K).unwrap();
-                let got: Vec<&str> = got.iter().map(|r| keys.get(&r.id).map(String::as_str).unwrap_or("?")).collect();
+                let got: Vec<&str> = got
+                    .iter()
+                    .map(|r| keys.get(&r.id).map(String::as_str).unwrap_or("?"))
+                    .collect();
                 let rank = got.iter().position(|k| gold.contains(k));
                 let leak = got.iter().any(|k| forbidden.contains(k));
                 for t in [typ, "all"] {

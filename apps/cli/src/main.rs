@@ -1266,6 +1266,9 @@ async fn main() -> Result<()> {
             }
             let sb = agenium_sandbox::detect();
             println!("sandbox: {:?} - {}", sb.backend, sb.reason);
+            if sb.backend.is_some() {
+                println!("sandbox network: {}", agenium_sandbox::network_report());
+            }
             println!("shell: {}", agenium_sandbox::Shell::detect().describe());
             println!("agent CLIs (CliBackend, M2.5; Agenium never logs in for you):");
             for c in agenium_cli_backend::detect_all() {

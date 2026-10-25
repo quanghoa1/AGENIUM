@@ -821,8 +821,11 @@ GROUP BY node ORDER BY score DESC, node LIMIT ?5";
         embed: impl Fn(&[String]) -> Result<Vec<Vec<f32>>, String>,
     ) -> Result<u64, StoreError> {
         let rows: Vec<(i64, String)> = self.db.read(|c| -> Result<_, StoreError> {
-            let mut st = c.prepare("SELECT id, name || '. ' FROM entity WHERE merged_into IS NULL")?;
-            let v = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+            let mut st =
+                c.prepare("SELECT id, name || '. ' FROM entity WHERE merged_into IS NULL")?;
+            let v = st
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(v)
         })?;
         let texts: Vec<String> = rows.iter().map(|r| r.1.clone()).collect();

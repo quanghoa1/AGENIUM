@@ -112,11 +112,47 @@ pub fn git_read_roots(root: &Path) -> Vec<PathBuf> {
     vec![common]
 }
 
+/// Whether sandboxed commands asked to have the network get it on this machine; `Err` says why not (Linux without a
+/// private network: they run without one, ADR-95).
+pub fn network_available() -> Result<(), String> {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        unix::private_network()
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        Ok(())
+    }
+}
+
+/// What `[sandbox] network = true` gives sandboxed commands on this machine, in one line (`agenium doctor`).
+pub fn network_report() -> String {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        match unix::private_network() {
+            Err(why) => {
+                format!("commands run WITHOUT network, and CLI agents cannot run sandboxed: {why}")
+            }
+            Ok(()) => match unix::private_dns_problem() {
+                Some(d) => format!("private network, but {d}"),
+                None => "private network (outbound only; no inbound, no host loopback)".into(),
+            },
+        }
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        "network through the container's own policy (Windows MXC)".into()
+    }
+}
+
 /// Per-worktree temporary directory outside the worktree (so auto-commit never sees it): the TEMP/TMP of the
 /// worktree's commands. Keyed by the worktree path, spelled either way (separators; case on Windows).
 pub fn run_temp_dir(root: &Path) -> PathBuf {
     let mut key = root.to_string_lossy().replace('\\', "/");
-    key = key.trim_start_matches("//?/").trim_end_matches('/').to_owned();
+    key = key
+        .trim_start_matches("//?/")
+        .trim_end_matches('/')
+        .to_owned();
     if cfg!(windows) {
         key = key.to_lowercase();
     }
@@ -163,7 +199,7 @@ pub fn detect() -> Availability {
         if mxc::available() {
             Availability {
                 backend: Some(Backend::WindowsMxc),
-                reason: "MXC process container: writes only in the worktree, reads limited to toolchains, no network"
+                reason: "MXC process container: writes only in the worktree, reads limited to toolchains, network as `[sandbox] network` says"
                     .into(),
             }
         } else {
@@ -179,7 +215,7 @@ pub fn detect() -> Availability {
         if unix::available() {
             Availability {
                 backend: Some(Backend::Bubblewrap),
-                reason: "bubblewrap: writes only in the worktree, reads limited to system and toolchain folders, no network"
+                reason: "bubblewrap: writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says"
                     .into(),
             }
         } else {
@@ -195,7 +231,7 @@ pub fn detect() -> Availability {
         if unix::available() {
             Availability {
                 backend: Some(Backend::Seatbelt),
-                reason: "Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, no network"
+                reason: "Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says"
                     .into(),
             }
         } else {
@@ -847,6 +883,39 @@ mod tests {
             !out.stdout.contains("CANARY"),
             "secrets never reach agent commands"
         );
+    }
+
+    /// `[sandbox] network = true` is the default (ADR-84): a command must start with it. On Ubuntu 25.10 every such
+    /// command failed, because the policy also asked bubblewrap to accept inbound connections, and where the host
+    /// cannot give the sandbox a private network the command now runs without one and says so.
+    #[tokio::test]
+    async fn a_command_with_the_network_on_starts() {
+        if detect().backend.is_none() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let _temp = RunTemp(tmp.path());
+        let ex = Executor::new(Shell::detect());
+        let mut p = policy(tmp.path());
+        p.network = true;
+        let out = ex
+            .run(
+                &CommandSpec {
+                    command: "echo up".into(),
+                    cwd: tmp.path().into(),
+                    timeout: Duration::from_secs(30),
+                    env: BTreeMap::new(),
+                },
+                &p,
+            )
+            .await
+            .unwrap();
+        assert_eq!(out.exit_code, Some(0), "{out:?}");
+        assert!(out.stdout.contains("up"), "{out:?}");
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if unix::private_network().is_err() {
+            assert!(out.stderr.contains("ran without network"), "{out:?}");
+        }
     }
 
     #[tokio::test]

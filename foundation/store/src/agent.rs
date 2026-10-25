@@ -226,7 +226,11 @@ pub(crate) fn vec_blob(v: &[f32]) -> Vec<u8> {
 /// those characters). Scope values normalised before cannot be recovered ("c" may have been C, C# or C++) and stay.
 fn rekey_names(c: &mut Connection) -> Result<(), StoreError> {
     let done: Option<String> = c
-        .query_row("SELECT value FROM agent_meta WHERE key = 'canonical'", [], |r| r.get(0))
+        .query_row(
+            "SELECT value FROM agent_meta WHERE key = 'canonical'",
+            [],
+            |r| r.get(0),
+        )
         .optional()?;
     if done.as_deref() == Some("2") {
         return Ok(());
@@ -240,11 +244,16 @@ fn rekey_names(c: &mut Connection) -> Result<(), StoreError> {
         for (id, name, key) in rows {
             let new = crate::graph::canonical(&name);
             if new != key {
-                tx.execute("UPDATE entity SET canonical_key = ?2 WHERE id = ?1", params![id, new])?;
+                tx.execute(
+                    "UPDATE entity SET canonical_key = ?2 WHERE id = ?1",
+                    params![id, new],
+                )?;
             }
         }
         let rows: Vec<(i64, String, String)> = tx
-            .prepare("SELECT entity_id, alias_norm, alias FROM entity_alias WHERE alias GLOB '*[+#]*'")?
+            .prepare(
+                "SELECT entity_id, alias_norm, alias FROM entity_alias WHERE alias GLOB '*[+#]*'",
+            )?
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
             .collect::<Result<_, _>>()?;
         for (id, norm, alias) in rows {
@@ -555,13 +564,21 @@ impl AgentStore {
     }
 
     /// Cosine similarity of the query to each given fact that has a vector (facts without one are absent).
-    pub fn similarity_to(&self, query: &[f32], ids: &[i64]) -> Result<HashMap<i64, f64>, StoreError> {
+    pub fn similarity_to(
+        &self,
+        query: &[f32],
+        ids: &[i64],
+    ) -> Result<HashMap<i64, f64>, StoreError> {
         self.check_vec(query)?;
         let mut out = HashMap::new();
         if ids.is_empty() || !usable(query) {
             return Ok(out);
         }
-        let qn = query.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+        let qn = query
+            .iter()
+            .map(|x| (*x as f64).powi(2))
+            .sum::<f64>()
+            .sqrt();
         self.db.read(|c| {
             let mut st = c.prepare_cached("SELECT embedding FROM fact_vec WHERE rowid = ?1")?;
             for id in ids {
@@ -889,7 +906,10 @@ impl AgentStore {
                 )?;
                 if !usable(v) {
                     if had {
-                        tx.execute("INSERT INTO ann_journal(op, fact_id) VALUES (2, ?1)", [f.id])?;
+                        tx.execute(
+                            "INSERT INTO ann_journal(op, fact_id) VALUES (2, ?1)",
+                            [f.id],
+                        )?;
                     }
                     continue;
                 }

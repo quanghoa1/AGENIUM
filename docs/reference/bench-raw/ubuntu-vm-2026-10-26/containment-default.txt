@@ -1,0 +1,64 @@
+platform: linux | backend: Some(Bubblewrap) | shell: bash (/usr/bin/bash)
+network = true gives: commands run WITHOUT network, and CLI agents cannot run sandboxed: this host refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+[no sandbox (baseline)] done in 9.1 s
+[no sandbox (baseline)] meta.chmod_outside: ESCAPED — inside: None
+[no sandbox (baseline)] meta.utime_outside: ESCAPED — inside: None
+[no sandbox (baseline)] net.dns: allowed (network on) — inside: ('104.20.23.154', 443)
+[no sandbox (baseline)] net.tcp_host_listener: allowed (network on) — inside: connected
+[no sandbox (baseline)] net.tcp_internet: allowed (network on) — inside: connected
+[no sandbox (baseline)] net.unix_host_socket: ESCAPED — inside: connected
+[no sandbox (baseline)] ok.tmpdir: FAIL (KeyError: 'TMPDIR') — inside: KeyError: 'TMPDIR'
+[no sandbox (baseline)] read.host_process_environ: ESCAPED — inside: 1861 4147454e49554d5f484f4d45
+[no sandbox (baseline)] read.real_home_listing: ESCAPED — inside: ['.bash_history', '.bash_logout', '.bashrc', '.cache', '.cargo']
+[no sandbox (baseline)] read.real_ssh_dir: ESCAPED — inside: ['authorized_keys']
+[no sandbox (baseline)] read.secret_outside: ESCAPED — inside: 34 2d2d2d2d2d424547494e2041
+[no sandbox (baseline)] write.delete_outside: ESCAPED — inside: None
+[no sandbox (baseline)] write.dotdot: ESCAPED — inside: /tmp/.tmp6duMwd/project/.agenium/worktrees/T1/../../../../agenium-containment-64361-no sandbox (baseline)-1792953059309-dotdot.txt
+[no sandbox (baseline)] write.home: ESCAPED — inside: /tmp/.tmp6duMwd/home/new.txt
+[no sandbox (baseline)] write.main_git_config: ESCAPED — inside: appended
+[no sandbox (baseline)] write.main_git_hook: ESCAPED — inside: /tmp/.tmp6duMwd/project/.git/hooks/pre-commit
+[no sandbox (baseline)] write.outside_dir: ESCAPED — inside: /tmp/.tmp6duMwd/outside/new.txt
+[no sandbox (baseline)] write.rename_out: ESCAPED — inside: moved
+[no sandbox (baseline)] write.tmp: ESCAPED — inside: /tmp/agenium-containment-64361-no sandbox (baseline)-1792953059309-tmp.txt
+[no sandbox (baseline)] write.truncate_outside: ESCAPED — inside: None
+[no sandbox (baseline)] write.via_hardlink: ESCAPED — inside: /tmp/.tmp6duMwd/project/.agenium/worktrees/T1/esc_hard
+[no sandbox (baseline)] write.via_symlink: ESCAPED — inside: /tmp/.tmp6duMwd/project/.agenium/worktrees/T1/esc_link/via_symlink.txt
+[sandbox, network off] done in 9.1 s
+[sandbox, network on] done in 9.1 s
+
+| test | no sandbox (baseline) | sandbox, network off | sandbox, network on |
+|---|---|---|---|
+| daemon.outlives_a_timeout | ESCAPED | blocked | blocked |
+| daemon.outlives_the_run | ESCAPED | blocked | blocked |
+| env.canary | blocked | blocked | blocked |
+| meta.chmod_outside | ESCAPED | blocked | blocked |
+| meta.utime_outside | ESCAPED | blocked | blocked |
+| net.dns | allowed (network on) | blocked | blocked |
+| net.tcp_host_listener | allowed (network on) | blocked | blocked |
+| net.tcp_internet | allowed (network on) | blocked | blocked |
+| net.unix_host_socket | ESCAPED | blocked | blocked |
+| ok.dev_null | ok | ok | ok |
+| ok.git_status | ok | ok | ok |
+| ok.mkdir_and_rename | ok | ok | ok |
+| ok.read_own_interpreter | ok | ok | ok |
+| ok.subprocess | ok | ok | ok |
+| ok.tmpdir | FAIL (KeyError: 'TMPDIR') | ok | ok |
+| ok.write_in_worktree | ok | ok | ok |
+| read.etc_shadow | blocked | blocked | blocked |
+| read.host_process_environ | ESCAPED | blocked | blocked |
+| read.real_home_listing | ESCAPED | blocked (sees only the toolchain mounts ['.cargo', '.rustup']) | blocked (sees only the toolchain mounts ['.cargo', '.rustup']) |
+| read.real_ssh_dir | ESCAPED | blocked | blocked |
+| read.secret_outside | ESCAPED | blocked | blocked |
+| write.delete_outside | ESCAPED | blocked | blocked |
+| write.dotdot | ESCAPED | blocked | blocked |
+| write.home | ESCAPED | blocked | blocked |
+| write.main_git_config | ESCAPED | blocked | blocked |
+| write.main_git_hook | ESCAPED | blocked | blocked |
+| write.outside_dir | ESCAPED | blocked | blocked |
+| write.rename_out | ESCAPED | blocked | blocked |
+| write.tmp | ESCAPED | blocked | blocked |
+| write.truncate_outside | ESCAPED | blocked | blocked |
+| write.via_hardlink | ESCAPED | blocked | blocked |
+| write.via_symlink | ESCAPED | blocked | blocked |
+
+sandboxed modes: 0 escape(s) or broken must-work item(s)

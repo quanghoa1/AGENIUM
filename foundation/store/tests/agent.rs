@@ -209,13 +209,31 @@ fn zero_vectors_are_not_indexed_and_do_not_break_search() {
     let zero = vec![0f32; DIM];
     let a = add(&s, "Windows builds use the GNU toolchain");
     // Stored with a zero vector (as if every word were one letter): kept, found by keyword only.
-    let z = s.add(&NewFact::fact("C# and C++ interop", "ticket:AGN-1"), Some(&zero)).unwrap();
-    assert_eq!(s.stale_vectors("toy-hash").unwrap(), 0, "a fact without a usable vector is not stale");
+    let z = s
+        .add(
+            &NewFact::fact("C# and C++ interop", "ticket:AGN-1"),
+            Some(&zero),
+        )
+        .unwrap();
+    assert_eq!(
+        s.stale_vectors("toy-hash").unwrap(),
+        0,
+        "a fact without a usable vector is not stale"
+    );
     let knn = s.knn(&embed("windows toolchain", DIM), 5).unwrap();
     assert_eq!(knn.iter().map(|h| h.0).collect::<Vec<_>>(), vec![a]);
     assert!(s.knn(&zero, 5).unwrap().is_empty());
-    assert_eq!(s.keyword("interop", 5).unwrap().first().map(|h| h.0), Some(z));
-    assert_eq!(s.hybrid("interop", Some(&zero), 5).unwrap().first().map(|h| h.fact.id), Some(z));
+    assert_eq!(
+        s.keyword("interop", 5).unwrap().first().map(|h| h.0),
+        Some(z)
+    );
+    assert_eq!(
+        s.hybrid("interop", Some(&zero), 5)
+            .unwrap()
+            .first()
+            .map(|h| h.fact.id),
+        Some(z)
+    );
 
     let ent = |name: &str| NewEntity {
         kind: "language".into(),
@@ -226,15 +244,29 @@ fn zero_vectors_are_not_indexed_and_do_not_break_search() {
         confidence: 0.6,
         evidence: None,
     };
-    let (rust, _) = s.upsert_entity(&ent("Rust"), Some(&embed("Rust. systems language", DIM))).unwrap();
+    let (rust, _) = s
+        .upsert_entity(&ent("Rust"), Some(&embed("Rust. systems language", DIM)))
+        .unwrap();
     let (csharp, _) = s.upsert_entity(&ent("C#"), Some(&zero)).unwrap();
-    let c = s.entity_candidates("language", "Rust", Some(&embed("Rust", DIM)), 5).unwrap();
+    let c = s
+        .entity_candidates("language", "Rust", Some(&embed("Rust", DIM)), 5)
+        .unwrap();
     assert_eq!(c.first().map(|c| c.entity.id), Some(rust));
-    let c = s.entity_candidates("language", "C#", Some(&zero), 5).unwrap();
-    assert_eq!(c.first().map(|c| (c.entity.id, c.via)), Some((csharp, "exact")));
-    s.reindex(|t| Ok(t.iter().map(|_| vec![0f32; DIM]).collect())).unwrap();
-    s.reindex_entities(|t| Ok(t.iter().map(|_| vec![0f32; DIM]).collect())).unwrap();
-    assert!(s.knn(&embed("windows toolchain", DIM), 5).unwrap().is_empty());
+    let c = s
+        .entity_candidates("language", "C#", Some(&zero), 5)
+        .unwrap();
+    assert_eq!(
+        c.first().map(|c| (c.entity.id, c.via)),
+        Some((csharp, "exact"))
+    );
+    s.reindex(|t| Ok(t.iter().map(|_| vec![0f32; DIM]).collect()))
+        .unwrap();
+    s.reindex_entities(|t| Ok(t.iter().map(|_| vec![0f32; DIM]).collect()))
+        .unwrap();
+    assert!(s
+        .knn(&embed("windows toolchain", DIM), 5)
+        .unwrap()
+        .is_empty());
     assert_eq!(s.stale_vectors("toy-hash").unwrap(), 0);
 }
 
@@ -264,7 +296,10 @@ fn symbol_names_get_their_own_keys_and_old_keys_are_rewritten() {
         s.db()
             .write(|tx| -> Result<(), StoreError> {
                 tx.execute("UPDATE entity SET canonical_key = 'c' WHERE id = ?1", [id])?;
-                tx.execute("UPDATE entity_alias SET alias_norm = 'c' WHERE entity_id = ?1", [id])?;
+                tx.execute(
+                    "UPDATE entity_alias SET alias_norm = 'c' WHERE entity_id = ?1",
+                    [id],
+                )?;
                 tx.execute("DELETE FROM agent_meta WHERE key = 'canonical'", [])?;
                 Ok(())
             })
@@ -274,9 +309,21 @@ fn symbol_names_get_their_own_keys_and_old_keys_are_rewritten() {
     let s = open(tmp.path());
     assert_eq!(s.entity(csharp).unwrap().canonical_key, "c#");
     let c = s.entity_candidates("language", "C#", None, 5).unwrap();
-    assert_eq!(c.first().map(|c| (c.entity.id, c.via)), Some((csharp, "exact")));
-    assert!(s.entity_candidates("language", "C++", None, 5).unwrap().iter().all(|c| c.entity.id != csharp || c.via == "fts"));
+    assert_eq!(
+        c.first().map(|c| (c.entity.id, c.via)),
+        Some((csharp, "exact"))
+    );
+    assert!(s
+        .entity_candidates("language", "C++", None, 5)
+        .unwrap()
+        .iter()
+        .all(|c| c.entity.id != csharp || c.via == "fts"));
     let (cpp, created) = s.upsert_entity(&ent("C++"), None).unwrap();
     assert!(created && cpp != csharp);
-    assert_eq!(s.entities_in_text("we port C# code to C++", 5).unwrap().len(), 2);
+    assert_eq!(
+        s.entities_in_text("we port C# code to C++", 5)
+            .unwrap()
+            .len(),
+        2
+    );
 }
