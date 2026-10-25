@@ -21,8 +21,10 @@ Add an **optional, fail-open** Jev read of a skill's *quality*, on top of the al
 - Gated by `[judge].skill_quality` (off by default). `None` when the judge is off/disabled, the flag is off, or the call
   fails; a key/quota failure disables the judge (ADR-81). The deterministic shape check always runs regardless, so skill
   checking never depends on Jev being on.
-- Surfaced when a skill is imported: `import_skill` returns `quality` (the notes) alongside `shape_notes`, and the
-  desktop shows both.
+- Surfaced in both places a skill changes: when the **user imports** one (`import_skill` returns `quality` beside
+  `shape_notes`, shown by the desktop) and when an **agent self-upgrades** one (`propose_skill_update`): the async bridge
+  reads the upgraded overlay body and adds `quality` to the tool result the agent sees. Fail-open throughout — without
+  the judge (or on any failure) the agent gets only the deterministic shape check, so the loop never depends on Jev.
 
 This is **how** Jev evaluates a skill: as a second, semantic opinion. Per the measured A/B (`docs/jev-comparison.md`),
 Jev is not more accurate than a capable cheap model on judge tasks, so this is an opt-in convenience (a cheap, calibrated
@@ -31,9 +33,9 @@ offload), not a correctness gate — the structural `lint_skill` remains the def
 ## Consequences
 
 - `foundation/config`: `JudgeSection.skill_quality` (off by default).
-- `orchestration/orchestrator`: `App::skill_quality`.
+- `orchestration/orchestrator`: `App::skill_quality`, `App::agent_overlay_body`; the `ProposeSkillUpdate` branch in
+  `runtime/bridge.rs` adds the quality read after the (sync) apply.
 - Desktop: `import_skill` is async and returns `quality`; `Capabilities` shows the notes; vi/en `library.quality`.
 - Test: `team.rs::skill_quality_is_off_by_default_and_reads_each_principle` (mock Jev).
-- Not done (by design): a Jev gate that blocks a low-quality skill (it stays advisory); wiring the quality read into the
-  agent self-upgrade path (`apply_skill_update` records the deterministic `shape_notes`; a Jev read there would make that
-  path async — deferred).
+- Not done (by design): a Jev gate that blocks a low-quality skill — it stays advisory, and the deterministic shape
+  check is always the default so nothing depends on Jev.

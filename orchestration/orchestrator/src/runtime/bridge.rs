@@ -239,11 +239,24 @@ impl Protocol for RunProtocol {
         // Decision 35: the agent's own skill overlay, checked and applied by the orchestrator.
         if let Intent::ProposeSkillUpdate(u) = intent {
             let (app, agent) = (self.app.clone(), self.agent);
-            return tokio::task::spawn_blocking(move || app.apply_skill_update(agent, &u))
-                .await
-                .map_err(|e| ToolError::new("internal", e.to_string()))?
-                .map(|v| (v, Effect::Continue))
-                .map_err(|e| tool_error(&e));
+            let skill = u.skill.trim().to_owned();
+            let mut v = tokio::task::spawn_blocking({
+                let app = app.clone();
+                move || app.apply_skill_update(agent, &u)
+            })
+            .await
+            .map_err(|e| ToolError::new("internal", e.to_string()))?
+            .map_err(|e| tool_error(&e))?;
+            // ADR-90: with the judge on, a calibrated quality read of the upgraded skill is added to the result the
+            // agent sees. Fail-open: without the judge (or on any failure) the result is just the shape check.
+            if let Some(body) = app.agent_overlay_body(agent, &skill) {
+                if let Some(quality) = app.skill_quality(&body).await {
+                    if let Some(obj) = v.as_object_mut() {
+                        obj.insert("quality".into(), serde_json::json!(quality));
+                    }
+                }
+            }
+            return Ok((v, Effect::Continue));
         }
         let tool = intent.tool();
         let actor = match (tool.group(), self.role) {

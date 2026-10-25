@@ -156,6 +156,17 @@ impl App {
         lint_skill(name, body, &self.library_skill_bodies(name))
     }
 
+    /// The body (frontmatter stripped) of an agent's overlay of `skill`, for a quality read after a self-upgrade
+    /// (ADR-90). `None` if the agent has no overlay of it.
+    pub fn agent_overlay_body(&self, agent: agenium_core::AgentId, skill: &str) -> Option<String> {
+        let dir = self
+            .skill_registry()
+            .dir_of(&agenium_skills::Owner::Agent(agent.to_string()));
+        std::fs::read_to_string(dir.join(skill).join(agenium_skills::SKILL_FILE))
+            .ok()
+            .map(|t| strip_frontmatter(&t))
+    }
+
     /// The body (frontmatter stripped) of a library skill, for a shape check after import. `None` if absent.
     pub fn library_skill_body(&self, name: &str) -> Option<String> {
         let dir = self
