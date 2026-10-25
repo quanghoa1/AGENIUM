@@ -59,3 +59,4 @@ ADR-52 records this fresh implementation.
 | [89](ADR-89-vendor-badge.md) | Show the AI vendor behind each agent's model as a small badge (Live inspector + pixel office); our own monogram, detected from provider/model |
 | [90](ADR-90-jev-skill-quality.md) | Optional fail-open Jev read of a skill's quality (one job, actionable steps, proof demands evidence, no stale code) on top of the always-on structural check |
 | [91](ADR-91-agent-created-skills.md) | Agents may create a new skill only through strict gates (trusted lesson held in two contexts, no duplicate, full shape, safe), contained to the agent, offered only with a qualifying lesson, flagged when its lesson stops holding |
+| [92](ADR-92-skill-contradictions.md) | Skills cannot contradict each other: one subject one skill (calibrated words+meaning), no explicit opposite directive (references included; updates only for introduced conflicts), judge read when on, experience flag |

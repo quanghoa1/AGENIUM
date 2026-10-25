@@ -262,6 +262,59 @@ impl App {
         (!notes.is_empty()).then_some(notes)
     }
 
+    /// The judge's read of whether a new or changed skill `text` contradicts the existing skills closest to it
+    /// (ADR-92): one Noul per related skill — "do they give contradictory instructions for the same situation?".
+    /// Returns the names it confidently reads as contradicting (at or above `MET`). `None` when the judge is
+    /// off/disabled, `skill_quality` is off, there is nothing related, or the call failed — the deterministic checks
+    /// (one subject, explicit opposite directives) still apply. A key/quota failure disables the judge.
+    pub async fn skill_contradiction(
+        &self,
+        text: &str,
+        related: &[(String, String)],
+    ) -> Option<Vec<String>> {
+        if !self.config().judge.skill_quality || related.is_empty() {
+            return None;
+        }
+        let judge = match self.judge() {
+            Ok(Some(j)) => j,
+            _ => return None,
+        };
+        let cap = |s: &str| s.chars().take(6000).collect::<String>();
+        let mut j = Judging::default().state_text("new_skill", &cap(text));
+        for (i, (_, guidance)) in related.iter().enumerate() {
+            let key = format!("existing_{i}");
+            j = j.state_text(&key, &cap(guidance)).noul(
+                &format!("c{i}"),
+                &format!(
+                    "Do `new_skill` and `{key}` give contradictory instructions for the same situation (one says to do \
+                     something the other says not to do)?"
+                ),
+            );
+        }
+        let answers = match judge.ask(&j).await {
+            Ok(a) => a,
+            Err(e) => {
+                if is_credential_or_quota(&e) {
+                    let _ = self.disable_judge(e.to_string());
+                }
+                return None;
+            }
+        };
+        Some(
+            related
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| {
+                    answers
+                        .get(&format!("c{i}"))
+                        .and_then(|a| a.noul)
+                        .is_some_and(|p| p >= MET)
+                })
+                .map(|(_, (name, _))| name.clone())
+                .collect(),
+        )
+    }
+
     /// An independent first read of `report` against `t`'s acceptance criteria, for the review task (ADR-75).
     /// `None` when the judge is off/disabled, `review_assist` is off, there are no criteria, or the call failed —
     /// the review then proceeds on the Lead's own read. A key/quota failure disables the judge.

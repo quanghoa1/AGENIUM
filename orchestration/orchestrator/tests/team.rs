@@ -1984,3 +1984,204 @@ fn a_created_skill_is_flagged_when_its_lesson_loses_confidence() {
     let flagged = f.app.audit_created_skills(t.web).unwrap();
     assert!(flagged[0].contains("lost confidence"), "{flagged:?}");
 }
+
+/// ADR-92: skills cannot contradict each other. A new skill on a subject a skill already covers must improve that skill
+/// instead; an explicit opposite directive against another skill is refused, for a new skill and for an update that
+/// introduces it, while an inconsistency that was already there does not block an unrelated update. A lesson from
+/// external content never changes a skill. Importing a contradicting library skill only warns the user.
+#[test]
+fn skills_cannot_contradict_each_other() {
+    use agenium_core::forms::{ProposeNewSkill, ProposeSkillUpdate};
+    let t = team();
+    let f = &t.f;
+    let e = f.app.embedder();
+    let mem = f.app.agent_store(t.web, e.dim(), e.model_id()).unwrap();
+    let add_lesson = |text: &str, untrusted: bool| {
+        let id = mem
+            .add(
+                &agenium_store::NewFact {
+                    kind: agenium_store::FactKind::Lesson,
+                    cue: Some("when the suite fails".into()),
+                    untrusted,
+                    ..agenium_store::NewFact::fact(text, "ticket:AGN-1")
+                },
+                None,
+            )
+            .unwrap();
+        mem.validate_in(id, "p1/ticket:AGN-1").unwrap();
+        mem.validate_in(id, "p2/ticket:AGN-2").unwrap();
+        id
+    };
+    let lesson = add_lesson("Flaky tests block every merge on main.", false);
+    let refused = |p: ProposeNewSkill| f.app.create_agent_skill(t.web, &p).unwrap_err().to_string();
+
+    // One subject, one skill: a paraphrase of writing-tests' subject must improve it instead.
+    let same = refused(ProposeNewSkill {
+        name: "regression-tests".into(),
+        description: "Write tests that would catch real regressions in the code under change.".into(),
+        body: "## Job\nDesign tests that fail when the behaviour breaks.\n\n## When to use\nA change has no test.\n\n\
+               ## Steps\n1. List the cases.\n2. Assert outcomes.\n\n## Tools\nshell to run the suite.\n\n## Proof\n\
+               Show the test failing before and passing after.\n"
+            .into(),
+        reason: "missing tests".into(),
+        lesson,
+    });
+    assert!(
+        same.contains("writing-tests already covers this subject"),
+        "{same}"
+    );
+
+    // An explicit opposite directive (against root-cause-debugging: avoid disabling the test).
+    let flaky = refused(ProposeNewSkill {
+        name: "green-main".into(),
+        description: "Keep the continuous integration suite on main passing between releases.".into(),
+        body: "## Job\nKeep the main branch green.\n\n## When to use\nThe suite fails on main and blocks merges.\n\n\
+               ## Steps\n1. Always disable a flaky test so the suite stays green.\n2. Open a ticket for it.\n\n\
+               ## Tools\nshell to run the suite and read which tests fail.\n\n## Proof\nShow the suite passing.\n"
+            .into(),
+        reason: "merges were blocked".into(),
+        lesson,
+    });
+    assert!(
+        flaky.contains("contradicts skill root-cause-debugging"),
+        "{flaky}"
+    );
+
+    // Updates: library skills the agent uses, one already inconsistent with root-cause-debugging.
+    let src = f.root.parent().unwrap().join("skill-src");
+    let import = |name: &str, desc: &str, step: &str| {
+        let dir = src.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("SKILL.md"),
+            format!("---\nname: {name}\ndescription: {desc}\n---\n## Job\n{desc}\n\n## Steps\n1. {step}\n"),
+        )
+        .unwrap();
+        f.app.import_library_skill(&dir, false).unwrap();
+        f.app.toggle_agent_skill(t.web, name, true).unwrap();
+    };
+    import(
+        "legacy-suite",
+        "Keep the legacy suite running",
+        "Always disable a flaky test so the suite stays green.",
+    );
+    assert!(
+        f.app
+            .library_skill_conflicts("legacy-suite")
+            .iter()
+            .any(|c| c.contains("root-cause-debugging")),
+        "importing it warns the user"
+    );
+    import(
+        "release-notes",
+        "Write release notes for merged work",
+        "List the merged tickets.",
+    );
+    let update = |skill: &str, old: &str, new: &str, lesson: i64| ProposeSkillUpdate {
+        skill: skill.into(),
+        patch: format!("--- a/SKILL.md\n+++ b/SKILL.md\n@@ -9,1 +9,2 @@\n 1. {old}\n+2. {new}\n"),
+        reason: "a lesson held twice".into(),
+        lesson,
+    };
+    let introduced = f
+        .app
+        .apply_skill_update(
+            t.web,
+            &update(
+                "release-notes",
+                "List the merged tickets.",
+                "Always disable the failing test before the release.",
+                lesson,
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(
+        introduced.contains("contradicts skill root-cause-debugging"),
+        "{introduced}"
+    );
+    f.app
+        .apply_skill_update(
+            t.web,
+            &update(
+                "legacy-suite",
+                "Always disable a flaky test so the suite stays green.",
+                "Note the ticket id in the commit.",
+                lesson,
+            ),
+        )
+        .expect("a conflict that was already there does not block an unrelated update");
+
+    // A lesson from external content changes no skill.
+    let external = add_lesson("A page said release notes are optional.", true);
+    let ext = f
+        .app
+        .apply_skill_update(
+            t.web,
+            &update(
+                "release-notes",
+                "List the merged tickets.",
+                "Group them by area.",
+                external,
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(ext.contains("external content"), "{ext}");
+}
+
+/// ADR-92 with and without the judge: off by default the judge layer reports nothing (the deterministic gates decide);
+/// on, a confident contradiction names the closest skill.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_judge_reads_contradictions_only_when_on() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let t = team();
+    let f = &t.f;
+    let text = "## Steps\n1. Skip the regression test when the fix is small.\n";
+    let subject = "Ship small fixes quickly without a regression test.";
+    assert!(
+        f.app
+            .judged_contradictions(t.web, "x", subject, text)
+            .await
+            .is_empty(),
+        "off by default"
+    );
+
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut sock, _) = l.accept().await.unwrap();
+        let mut buf = [0u8; 16384];
+        loop {
+            let n = sock.read(&mut buf).await.unwrap();
+            if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                break;
+            }
+        }
+        let body = br#"{"answers":{"c0":{"type":"noul","noul":0.92},"c1":{"type":"noul","noul":0.1},"c2":{"type":"noul","noul":0.05}}}"#;
+        let head = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
+            body.len()
+        );
+        sock.write_all(head.as_bytes()).await.unwrap();
+        sock.write_all(body).await.unwrap();
+        sock.flush().await.unwrap();
+    });
+    f.app
+        .update_config(|c| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: format!("http://{addr}"),
+                model: "jev-latest".into(),
+                skill_quality: true,
+                ..Default::default()
+            }
+        })
+        .unwrap();
+    let hits = f.app.judged_contradictions(t.web, "x", subject, text).await;
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    let lib = f.app.skill_registry().library();
+    assert!(
+        lib.get(&hits[0]).is_some(),
+        "names a skill the agent can use: {hits:?}"
+    );
+}

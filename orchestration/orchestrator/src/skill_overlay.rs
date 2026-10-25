@@ -229,6 +229,29 @@ impl App {
         self.agent_store(agent, e.dim(), e.model_id())
     }
 
+    /// The SKILL.md an update would produce, without writing anything: (current, updated). Lets the judge read a change
+    /// for contradictions before it is applied (ADR-92).
+    pub fn preview_skill_update(
+        &self,
+        agent: AgentId,
+        u: &ProposeSkillUpdate,
+    ) -> Result<(String, String)> {
+        let a = self.agent(agent)?;
+        let name = u.skill.trim();
+        let base = self
+            .base_skill(&a, name)
+            .ok_or_else(|| invalid(format!("{name:?} is not a role or library skill of yours")))?;
+        let dir = self.overlay_dir(agent, name);
+        let path = if dir.join("SKILL.md").is_file() {
+            dir.join("SKILL.md")
+        } else {
+            base.meta.dir.join("SKILL.md")
+        };
+        let current = std::fs::read_to_string(path).map_err(io)?;
+        let updated = apply_patch(&current, &u.patch)?;
+        Ok((current, updated))
+    }
+
     /// `propose_skill_update` of `agent`: checks and applies the change to its own overlay (decision 35).
     pub fn apply_skill_update(
         &self,
@@ -248,6 +271,13 @@ impl App {
             .map_err(|_| invalid(format!("lesson #{} is not in your memory", u.lesson)))?;
         if lesson.kind != FactKind::Lesson || !lesson.is_live() {
             return Err(invalid(format!("#{} is not a live lesson", u.lesson)));
+        }
+        // ADR-92: like a new skill, a lesson that came from external content never changes a skill.
+        if lesson.untrusted {
+            return Err(invalid(format!(
+                "lesson #{} came from external content (a page, a file, a tool output): it cannot change a skill",
+                u.lesson
+            )));
         }
         if lesson.validated.len() < MIN_CONTEXTS {
             return Err(invalid(format!(
@@ -282,6 +312,26 @@ impl App {
             return Err(invalid(
                 "the change carries something that looks like a secret: refused",
             ));
+        }
+        // ADR-92: the change must not introduce an explicit contradiction with another skill the agent uses (an
+        // inconsistency that was already there before the change does not block it).
+        let others: Vec<(String, String)> = self
+            .known_skills(Some(&a), name)
+            .into_iter()
+            .map(|k| (k.name, k.guidance))
+            .collect();
+        let strip = crate::skill_shape::strip_frontmatter;
+        let before = crate::skill_conflict::directive_conflicts(name, &strip(&current), &others);
+        let introduced: Vec<String> =
+            crate::skill_conflict::directive_conflicts(name, &strip(&updated), &others)
+                .into_iter()
+                .filter(|c| !before.contains(c))
+                .collect();
+        if !introduced.is_empty() {
+            return Err(invalid(format!(
+                "the change {}; reconcile the two skills first (or improve the other one)",
+                introduced.join("; ")
+            )));
         }
         // Write into a staging copy, validate the skill, then swap it in.
         // (The staging folder carries the skill's name: a skill's name must equal its folder's.)

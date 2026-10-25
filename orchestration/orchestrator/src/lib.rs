@@ -20,6 +20,7 @@ pub mod role_library;
 pub mod role_proposals;
 pub mod runtime;
 pub mod sched;
+pub mod skill_conflict;
 pub mod skill_create;
 pub mod skill_overlay;
 pub mod skill_shape;

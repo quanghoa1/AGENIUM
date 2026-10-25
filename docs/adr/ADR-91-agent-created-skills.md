@@ -64,5 +64,5 @@ that call `apply_skill_update` directly. Fixed here with one offering policy for
 - Tests: `team.rs::an_agent_creates_a_skill_only_through_every_gate` (each gate, containment, one-lesson-one-skill,
   retire → flag once, delete), `team.rs::a_created_skill_is_flagged_when_its_lesson_loses_confidence`;
   `runtime.rs` asserts the tools are withheld without a qualifying lesson and offered (with the hint) with one.
-- Known limit: a new skill that *contradicts* an existing one with different words passes the near-duplicate check; it
-  stays contained to its agent, and the flag catches it once reopens show its lesson is wrong.
+- Contradictions between skills: addressed by [ADR-92](ADR-92-skill-contradictions.md) (one subject, one skill;
+  no explicit opposite directive; the judge when on; the experience flag).

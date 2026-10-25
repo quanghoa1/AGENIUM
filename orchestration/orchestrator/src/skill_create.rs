@@ -176,6 +176,35 @@ impl App {
             return refuse(format!("the new skill is not ready: {}", notes.join("; ")));
         }
 
+        // No contradiction (ADR-92). One subject, one skill: a subject already covered must be improved in place, so
+        // two skills about the same thing can never drift apart. Then no explicit opposite directive against any skill.
+        let known = self.known_skills(Some(&a), name);
+        let subjects: Vec<(String, String)> = known
+            .iter()
+            .map(|k| (k.name.clone(), k.subject.clone()))
+            .collect();
+        let me = crate::skill_conflict::subject(description, body);
+        if let Some((other, score, how)) =
+            crate::skill_conflict::same_subject(&me, &subjects, Some(self.embedder().as_ref()))
+        {
+            return refuse(format!(
+                "skill {other} already covers this subject (same {how}, {:.0}%): improve it with propose_skill_update \
+                 instead of adding a second skill about the same thing",
+                score * 100.0
+            ));
+        }
+        let guidance: Vec<(String, String)> = known
+            .iter()
+            .map(|k| (k.name.clone(), k.guidance.clone()))
+            .collect();
+        let conflicts = crate::skill_conflict::directive_conflicts(name, body, &guidance);
+        if !conflicts.is_empty() {
+            return refuse(format!(
+                "the new skill {}; reconcile it with that skill (or improve that skill) first",
+                conflicts.join("; ")
+            ));
+        }
+
         // Write a staging copy, validate it as a skill, then swap it in.
         std::fs::create_dir_all(&own_dir).map_err(io)?;
         let staging_root = own_dir.join(format!(".new-{}", ulid::Ulid::new()));

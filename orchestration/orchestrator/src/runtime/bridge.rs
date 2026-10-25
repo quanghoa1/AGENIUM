@@ -240,6 +240,36 @@ impl Protocol for RunProtocol {
         if let Intent::ProposeSkillUpdate(u) = intent {
             let (app, agent) = (self.app.clone(), self.agent);
             let skill = u.skill.trim().to_owned();
+            // ADR-92: with the judge on, read the would-be skill for contradictions before anything is written.
+            if app.config().judge.skill_quality {
+                let preview = tokio::task::spawn_blocking({
+                    let (app, u) = (app.clone(), u.clone());
+                    move || app.preview_skill_update(agent, &u)
+                })
+                .await
+                .map_err(|e| ToolError::new("internal", e.to_string()))?;
+                if let Ok((_, updated)) = preview {
+                    let body = crate::skill_shape::strip_frontmatter(&updated);
+                    let desc = updated
+                        .lines()
+                        .find_map(|l| l.strip_prefix("description: "))
+                        .unwrap_or("");
+                    let subject = crate::skill_conflict::subject(desc, &body);
+                    let hits = app
+                        .judged_contradictions(agent, &skill, &subject, &body)
+                        .await;
+                    if !hits.is_empty() {
+                        return Err(ToolError::new(
+                            "contradiction",
+                            format!(
+                                "the judge reads this change as contradicting skill {}: reconcile the skills (or improve \
+                                 that one) first",
+                                hits.join(", ")
+                            ),
+                        ));
+                    }
+                }
+            }
             let mut v = tokio::task::spawn_blocking({
                 let app = app.clone();
                 move || app.apply_skill_update(agent, &u)
@@ -262,6 +292,22 @@ impl Protocol for RunProtocol {
         if let Intent::ProposeNewSkill(u) = intent {
             let (app, agent) = (self.app.clone(), self.agent);
             let skill = u.name.trim().to_owned();
+            // ADR-92: with the judge on, a semantic contradiction read against the closest skills before anything is
+            // written. Without it the deterministic gates in create_agent_skill decide alone.
+            let subject = crate::skill_conflict::subject(&u.description, &u.body);
+            let hits = app
+                .judged_contradictions(agent, &skill, &subject, &u.body)
+                .await;
+            if !hits.is_empty() {
+                return Err(ToolError::new(
+                    "contradiction",
+                    format!(
+                        "the judge reads the new skill as contradicting skill {}: improve that skill instead, or \
+                         reconcile them first",
+                        hits.join(", ")
+                    ),
+                ));
+            }
             let mut v = tokio::task::spawn_blocking({
                 let app = app.clone();
                 move || app.create_agent_skill(agent, &u)
