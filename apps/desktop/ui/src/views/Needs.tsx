@@ -136,9 +136,9 @@ export function CommandRow({ a }: { a: CommandApproval }) {
 
 export function NeedsView() {
   const app = useApp();
-  const [items, setItems] = useState<{ project: string; items: NeedItem[] }[]>([]);
+  const [items, setItems] = useState<{ id: string; project: string; items: NeedItem[] }[]>([]);
   useEffect(() => {
-    Promise.all(app.projects.map((p) => api.needsYou(p.id).then((r) => ({ project: p.name, items: r.needs, cmds: r.command_approvals })))).then((rs) => {
+    Promise.all(app.projects.map((p) => api.needsYou(p.id).then((r) => ({ id: p.id, project: p.name, items: r.needs, cmds: r.command_approvals })))).then((rs) => {
       setItems(rs);
       const cmds = rs.flatMap((r) => r.cmds);
       if (cmds.length) app.setApprovals(cmds.filter((c, i) => cmds.findIndex((x) => x.id === c.id) === i));
@@ -149,25 +149,18 @@ export function NeedsView() {
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.needs")} sub={`${total}`} />
-      {app.approvals.length > 0 && (
-        <Section title={app.t("needs.commands")}>
-          <div className="space-y-2">
-            <AnimatePresence initial={false} mode="popLayout">
-              {app.approvals.map((a) => (
-                <ListItem key={String(a.id)} id={String(a.id)}>
-                  <CommandRow a={a} />
-                </ListItem>
-              ))}
-            </AnimatePresence>
-          </div>
-        </Section>
-      )}
       {items
-        .filter((r) => r.items.length)
+        .map((r) => ({ ...r, cmds: app.approvals.filter((a) => a.project === r.id) }))
+        .filter((r) => r.items.length || r.cmds.length)
         .map((r) => (
-          <Section key={r.project} title={r.project}>
+          <Section key={r.id} title={r.project}>
             <div className="space-y-2">
               <AnimatePresence initial={false} mode="popLayout">
+                {r.cmds.map((a) => (
+                  <ListItem key={`cmd-${a.id}`} id={`cmd-${a.id}`}>
+                    <CommandRow a={a} />
+                  </ListItem>
+                ))}
                 {r.items.map((n) => (
                   <ListItem key={needKey(n)} id={needKey(n)}>
                     <NeedRow n={n} />

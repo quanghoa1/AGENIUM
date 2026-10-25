@@ -39,6 +39,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             api::status,
+            api::command_policy,
+            api::set_command_policy,
             api::setup,
             api::projects,
             api::overview,

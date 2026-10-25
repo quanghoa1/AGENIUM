@@ -297,9 +297,10 @@ impl Runtime {
         let sandbox = agenium_sandbox::detect();
         let approval = self.app.config().sandbox.approval;
         let sandbox_text = match (sandbox.backend, approval) {
-            (Some(b), agenium_config::ApprovalPolicy::Never) => format!("{b:?}, commands run without asking inside the sandbox"),
+            (Some(b), agenium_config::ApprovalPolicy::Never | agenium_config::ApprovalPolicy::Sandboxed) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, no network)"),
+            (None, agenium_config::ApprovalPolicy::Sandboxed) => format!("none: {}; every shell command that is not on the project allowlist is shown to the user for approval", sandbox.reason),
             (_, agenium_config::ApprovalPolicy::Never) => format!("none: {}; shell commands are refused", sandbox.reason),
-            (_, agenium_config::ApprovalPolicy::OnRequest) => "no OS sandbox for this run: every shell command that is not on the project allowlist is shown to the user for approval".into(),
+            (_, agenium_config::ApprovalPolicy::OnRequest) => "the user reviews commands for this project: every shell command that is not on the project allowlist is shown to the user for approval".into(),
         };
         prompt::manifest_text(&Manifest {
             agent: agent.name.clone(),
@@ -906,6 +907,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .record(&start.run.to_string(), Some(t.key.as_str()), &recalled)
             .ok();
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
+        let requirements = self.app.ticket_requirements(project, &t)?;
         let soul = self.soul_and_role(&agent);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
@@ -928,9 +930,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             if messages.is_empty() {
                 let facts: Vec<String> = recalled.iter().map(|r| r.text.clone()).collect();
                 let mut first = format!(
-                    "{}{}\n",
+                    "{}{}{}\n",
                     prompt::memory_text(&facts),
-                    prompt::ticket_text(&t, None)
+                    prompt::ticket_text(&t, None),
+                    requirements
                 );
                 first.push_str(&prompt::comments_text(&all_comments));
                 if let Some(n) = &note {
@@ -1049,6 +1052,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             })?
             .value;
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
+        let requirements = self.app.ticket_requirements(project, &t)?;
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
@@ -1068,10 +1072,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 },
             ];
             let text = format!(
-                "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree.\n\
-                 Then call review_ticket: Approve if every criterion is met, otherwise Reopen with feedback per unmet criterion. \
-                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
+                "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
+                 Treat the report as a claim: check each criterion's evidence yourself (the test, the changed lines, the file) before you count it as met.\n\
+                 Then call review_ticket: Approve if every criterion is met, otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
+                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
                 prompt::ticket_text(&t, None),
+                requirements,
                 prompt::comments_text(&all_comments),
                 if diff.trim().is_empty() { "(no code changes)" } else { diff.as_str() }
             );

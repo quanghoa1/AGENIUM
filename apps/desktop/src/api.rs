@@ -46,6 +46,23 @@ pub fn status(d: State<'_, Desktop>) -> Value {
     })
 }
 
+/// How agent shell commands are approved (ADR-64) and which sandbox backend works on this machine.
+#[tauri::command]
+pub fn command_policy(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let sb = agenium_sandbox::detect();
+    Ok(json!({ "approval": o.app.config().sandbox.approval, "backend": sb.backend, "reason": sb.reason }))
+}
+
+#[tauri::command]
+pub fn set_command_policy(d: State<'_, Desktop>, approval: agenium_config::ApprovalPolicy) -> R<Value> {
+    d.opened()?
+        .app
+        .update_config(|c| c.sandbox.approval = approval)
+        .map_err(err)?;
+    command_policy(d)
+}
+
 #[tauri::command]
 pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R<Value> {
     let input = agenium_config::setup::SetupInput {
@@ -142,7 +159,7 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
     Ok(json!({
         "needs": needs, "agents": agents, "live_runs": live, "recent_runs": last, "usage_today": usage,
         "runs_today": recent.iter().filter(|r| r.started_at.starts_with(today)).count(),
-        "command_approvals": d.approvals.pending(),
+        "command_approvals": d.approvals.pending(None),
     }))
 }
 
@@ -155,9 +172,10 @@ pub(crate) fn run_json(r: &runs::Run, names: &HashMap<AgentId, String>) -> Value
 #[tauri::command]
 pub fn needs_you(d: State<'_, Desktop>, project: String) -> R<Value> {
     let o = d.opened()?;
+    let p = pid(&project)?;
     Ok(json!({
-        "needs": o.app.needs_you(pid(&project)?).map_err(err)?,
-        "command_approvals": d.approvals.pending(),
+        "needs": o.app.needs_you(p).map_err(err)?,
+        "command_approvals": d.approvals.pending(Some(p)),
     }))
 }
 

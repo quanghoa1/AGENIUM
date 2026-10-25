@@ -1,9 +1,9 @@
-import { Copy } from "lucide-react";
+import { Copy, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Empty, PageHeader, Section, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
-import type { AuditEntry, RunRow, TeamTemplate } from "../lib/types";
+import type { AuditEntry, CommandPolicy, RunRow, TeamTemplate } from "../lib/types";
 
 export function TemplatesView() {
   const app = useApp();
@@ -175,8 +175,39 @@ export function SettingsView() {
           </div>
           <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
         </Section>
+        <CommandPolicySection />
       </div>
     </div>
+  );
+}
+
+/** How agent shell commands are approved and whether this machine has a working sandbox (ADR-64). */
+function CommandPolicySection() {
+  const app = useApp();
+  const [p, setP] = useState<CommandPolicy | null>(null);
+  useEffect(() => {
+    api.commandPolicy().then(setP).catch(() => setP(null));
+  }, []);
+  if (!p) return null;
+  return (
+    <Section title={app.t("settings.commands")}>
+      <div className="flex flex-wrap gap-2">
+        {(["sandboxed", "on-request", "never"] as const).map((m) => (
+          <button
+            key={m}
+            className={cn("btn", p.approval === m && "border-accent text-accent")}
+            onClick={() => api.setCommandPolicy(m).then(setP).catch((e) => app.notify(String(e)))}
+          >
+            {app.t(`settings.commands.${m}`)}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 text-[11px] text-subtle">{app.t(`settings.commands.${p.approval}.hint`)}</div>
+      <div className={cn("mt-2 flex items-center gap-1.5 text-[11px]", p.backend ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300")}>
+        {p.backend ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+        {p.backend ? app.t("settings.sandboxOn") : app.t("settings.sandboxOff")}
+      </div>
+    </Section>
   );
 }
 

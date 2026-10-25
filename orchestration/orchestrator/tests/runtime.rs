@@ -273,6 +273,7 @@ struct Denier;
 impl Approver for Denier {
     async fn approve_command(
         &self,
+        _: ProjectId,
         _: Option<&TicketKey>,
         _: &str,
         command: &str,
@@ -282,11 +283,65 @@ impl Approver for Denier {
     }
 }
 
+/// ADR-64: with the default policy a contained command runs without asking when a sandbox backend works, and goes to
+/// the user without one; a vendor CLI's host command always goes to the user; YOLO without a sandbox is refused.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn sandboxed_commands_run_without_asking() {
+    use agenium_config::ApprovalPolicy;
+    use agenium_orchestrator::runtime::bridge::RunGate;
+    use agenium_tools::{CommandGate, GateDecision};
+    let f = fixture();
+    let (app, _rt) = runtime(
+        &f,
+        Arc::new(ScriptedProvider::new("mock")),
+        Arc::new(Denier),
+    );
+    let (project, _) = solo(&app);
+    assert_eq!(app.config().sandbox.approval, ApprovalPolicy::Sandboxed);
+    let gate = |contained| RunGate {
+        app: app.clone(),
+        project,
+        ticket: None,
+        agent: "ada".into(),
+        approver: Arc::new(Denier),
+        contained,
+    };
+    let cwd = f.root.clone();
+    let asked = |d: &GateDecision| matches!(d, GateDecision::Deny(r) if r.contains("not now"));
+    let sandbox = agenium_sandbox::detect().backend.is_some();
+    let d = gate(true).check("cargo test", &cwd).await;
+    if sandbox {
+        assert_eq!(d, GateDecision::Allow);
+    } else {
+        assert!(asked(&d), "{d:?}");
+    }
+    let d = gate(false).check("cargo test", &cwd).await;
+    assert!(asked(&d), "a host command goes to the user: {d:?}");
+    app.update_config(|c| c.sandbox.approval = ApprovalPolicy::OnRequest)
+        .unwrap();
+    let d = gate(true).check("cargo test", &cwd).await;
+    assert!(asked(&d), "on-request asks even with a sandbox: {d:?}");
+    app.update_config(|c| c.sandbox.approval = ApprovalPolicy::Never)
+        .unwrap();
+    let d = gate(true).check("cargo test", &cwd).await;
+    if sandbox {
+        assert_eq!(d, GateDecision::Allow);
+    } else {
+        assert!(
+            matches!(&d, GateDecision::Deny(r) if r.contains("fail-closed")),
+            "{d:?}"
+        );
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn denied_command_question_and_continuation() {
     let f = fixture();
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(Denier));
+    // The user reviews every command (sandbox or not).
+    app.update_config(|c| c.sandbox.approval = agenium_config::ApprovalPolicy::OnRequest)
+        .unwrap();
     let (project, agent) = solo(&app);
     let lead = Actor::Lead(agent);
     let ctxp = |a: Actor| agenium_orchestrator::CallCtx {

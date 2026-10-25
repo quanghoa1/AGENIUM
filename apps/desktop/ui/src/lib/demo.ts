@@ -137,7 +137,7 @@ const overview: Overview = {
   usage_today: usage(146_000, 7_800, 0.012),
   runs_today: runs.length,
   command_approvals: [
-    { id: 1, ticket: "SHOP-2", agent: "shop-backend", command: "npm test -- cart", cwd: "…/worktrees/SHOP-2", at: iso(1) },
+    { id: 1, project: P, ticket: "SHOP-2", agent: "shop-backend", command: "npm test -- cart", cwd: "…/worktrees/SHOP-2", at: iso(1) },
   ],
 };
 
@@ -244,6 +244,9 @@ const status: Status = { root: "C:\\Users\\you\\.agenium", ready: true, version:
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 60));
   switch (cmd) {
+    case "command_policy":
+    case "set_command_policy":
+      return { approval: args?.approval ?? "sandboxed", backend: "WindowsMxc", reason: "MXC process container: writes only in the worktree, reads limited to toolchains, no network" };
     case "status":
       return status;
     case "projects":

@@ -139,8 +139,8 @@ pub struct Availability {
     pub reason: String,
 }
 
-/// Which isolation backend is usable here. Backends ship in M2: until then the answer is `None` on every OS,
-/// which forces the approval policy (fail-closed, never a silent unsandboxed YOLO).
+/// Which isolation backend is usable here. `None` sends every command to the user's approval (fail-closed, never a
+/// silent unsandboxed YOLO).
 pub fn detect() -> Availability {
     #[cfg(windows)]
     {

@@ -129,10 +129,11 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | `setup` honours `AGENIUM_HOME` and does not remember it machine-wide | DONE | ADR-61 §8 |
 | Desktop: providers & CLIs, skills & MCP library, create agent, compose/manage teams | DONE | ADR-61 Consequences; real app on a test root (pool agents created, suggestion "role meant to lead, tags, skill lead-team") |
 | Desktop: Live tab (rooms, pixel office, room log, inspector with thinking / tool-skill-MCP calls / role-based chat), window maximized + F11 | DONE | ADR-60 "Live tab"; watched a real team round on DeepSeek: Lead created and assigned tickets, a researcher worked, calls classified with args/output/ms |
-| Finding from that round: a plan item whose role is the Lead's (research-lead) cannot become a ticket (the Lead takes no tickets in team mode); the Lead cancelled it | OPEN | plan validation should refuse items for the Lead's role, or the Lead does such synthesis in its review |
+| Finding from that round: a plan item whose role is the Lead's (research-lead) cannot become a ticket (the Lead takes no tickets in team mode); the Lead cancelled it | DONE | ADR-64 §3: plans refuse items for the Lead's own role; research template has a synthesist |
 | Language: no user-language setting; Lead/Solo answer in the language the user writes in | DONE | ADR-40 amendment |
 | Per-agent MCP keys + Lead tool set_member_mcp_key; projects by folder name or repo; no machine paths in the UI; Live: desks for agents with a task, lounge for free ones, names, plan tab, CLI-like chat with expandable thinking | DONE | ADR-62; real app on the test root |
 | Team runs from the agreed spec to the end (no autopilot switch, no "run a round"), stop/resume per project, Lead approves plans of an agreed spec | DONE | ADR-63 |
+| Commands run in the sandbox without asking (policy `sandboxed`, default), approvals per project, workers get the requirements they serve, skeptical review, ROLE.md sections + advice, specialist role library | DONE | ADR-64 |
 
 ## Spike S2 — Windows sandbox (run 2026-10-24, first run ever)
 Report: [`spike-reports/S2/REPORT.md`](spike-reports/S2/REPORT.md), evidence in `spike-reports/S2/evidence/`. Codex CLI
@@ -183,10 +184,10 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
 - M4 rest: `propose_role` (Lead proposes a role, the user approves; today it only lands in Needs you), the template
   wizard, the scheduler's priority aging and idle pool, the Lead "interrupt" (ADR-57: rounds instead), locking a
-  worktree while the user edits it; the finding that a plan item for the Lead's own role cannot become a ticket.
+  worktree while the user edits it.
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
   tests. CLI backend: codex, agy and claude driven; opencode CLI dropped (OpenCode via API); devin not drivable (ADR-56).
-- Sandbox backends: Linux bubblewrap/Landlock, macOS Seatbelt (M2). Windows has none in v1 (ADR-39).
+- Sandbox backends: macOS Seatbelt (M2) and the S3 containment matrix on Linux (Windows MXC: ADR-53, Linux bubblewrap: ADR-54).
 - Context compaction beyond the checkpoint-and-continue approach.
 - cargo-deny, GitHub workflows, macOS runs of this codebase. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel
   6.18, cargo 1.98.1): `cargo build --workspace` and `cargo test --workspace` PASS (no sandbox backend yet, so commands
@@ -194,7 +195,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   the sandbox tests pass inside it. The S3 containment matrix on Linux and the macOS backend are NOT RUN.
 
 ## Next steps (proposed order, 2026-10-25)
-1. M4 rest (see above), starting with the Lead-role plan items and `propose_role`.
+1. M4 rest (see above), starting with `propose_role` (the Lead proposes a role, from the library or new, the user approves).
 2. M4.5 learning: lessons with scope/cue/decay from reviews and reopens, `propose_skill_update` with copy-on-write
    overlays (view/revert), consolidation and forgetting; golden task GM-6.
 3. M5 beta: export/import `.agenium`, pre-merge checks per template, Markdown reports, run-log compression after 90

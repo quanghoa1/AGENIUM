@@ -616,6 +616,7 @@ fn interactive() -> bool {
 impl Approver for TerminalApprover {
     async fn approve_command(
         &self,
+        _: ProjectId,
         ticket: Option<&TicketKey>,
         agent: &str,
         command: &str,
@@ -1261,10 +1262,14 @@ async fn main() -> Result<()> {
                 println!(
                     "approval policy: {:?}{}",
                     cfg.sandbox.approval,
-                    if cfg.sandbox.approval == ApprovalPolicy::Never && sb.backend.is_none() {
-                        " (YOLO is refused: no sandbox backend, fail-closed)"
-                    } else {
-                        ""
+                    match (cfg.sandbox.approval, sb.backend.is_some()) {
+                        (ApprovalPolicy::Never, false) =>
+                            " (YOLO is refused: no sandbox backend, fail-closed)",
+                        (ApprovalPolicy::Sandboxed, true) =>
+                            " (commands run inside the sandbox without asking)",
+                        (ApprovalPolicy::Sandboxed, false) =>
+                            " (no sandbox backend: commands need your approval)",
+                        _ => "",
                     }
                 );
                 println!("secrets: {}", app.secrets().describe());

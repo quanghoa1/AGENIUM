@@ -229,13 +229,15 @@ pub struct SecretsSection {
     pub backend: SecretsBackend,
 }
 
-/// Approval policy for commands/writes that the sandbox does not cover.
+/// Approval policy of agent shell commands (ADR-64).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum ApprovalPolicy {
-    /// Before a sandbox backend is verified on this OS: every shell command and every write outside the worktree
-    /// needs the user's approval (M1-7).
+    /// Commands run without asking inside a working sandbox backend; without one each command not on the project
+    /// allowlist goes to the user. Commands a vendor CLI runs on the host always go to the allowlist or the user.
     #[default]
+    Sandboxed,
+    /// Every shell command not on the project allowlist needs the user's approval, sandbox or not (M1-7).
     OnRequest,
     /// YOLO: run without asking, inside the sandbox only. Refused when no sandbox backend works (fail-closed).
     Never,
@@ -500,7 +502,7 @@ context_window = 32768
         );
         assert!(c.providers[0].caps("qwen3:8b").is_none());
         assert_eq!(c.secrets.backend, SecretsBackend::Vault);
-        assert_eq!(c.sandbox.approval, ApprovalPolicy::OnRequest);
+        assert_eq!(c.sandbox.approval, ApprovalPolicy::Sandboxed);
         assert!(!c.app.telemetry);
     }
 

@@ -94,6 +94,50 @@ pub enum RunState {
 }
 
 impl App {
+    /// The part of the agreed spec a ticket serves: the goals, and the requirements its plan item traces to with
+    /// their acceptance criteria. Workers cannot read the spec themselves (it is not in their worktree).
+    pub fn ticket_requirements(&self, project: ProjectId, t: &Ticket) -> Result<String> {
+        let (plan, spec) = self.store.read(|c| {
+            let plan = plans::current_plan(c, project)?;
+            let spec = match &plan {
+                Some(p) => plans::spec(c, project, p.body.spec_version)?,
+                None => None,
+            };
+            Ok((plan, spec))
+        })?;
+        let (Some(plan), Some(spec)) = (plan, spec) else {
+            return Ok(String::new());
+        };
+        let Some(item) = plan.body.items.iter().find(|i| i.id == t.plan_item) else {
+            return Ok(String::new());
+        };
+        let mut s = format!(
+            "\n## What this ticket serves (spec v{}, plan item {}: {})\nGoals: {}\n",
+            spec.version,
+            item.id,
+            item.title,
+            spec.body.goals.join("; ")
+        );
+        for r in spec
+            .body
+            .requirements
+            .iter()
+            .filter(|r| item.trace_to.contains(&r.id))
+        {
+            s.push_str(&format!("- {}: {}\n", r.id, r.text));
+            for a in &r.acceptance {
+                s.push_str(&format!("  - {}: {}\n", a.id, a.text));
+            }
+        }
+        if !spec.body.constraints.is_empty() {
+            s.push_str(&format!(
+                "Constraints: {}\n",
+                spec.body.constraints.join("; ")
+            ));
+        }
+        Ok(s)
+    }
+
     /// The project's run state, from its status, its spec and its plan.
     pub fn run_state(&self, project: ProjectId) -> Result<RunState> {
         use agenium_store::core::projects::ProjectStatus;

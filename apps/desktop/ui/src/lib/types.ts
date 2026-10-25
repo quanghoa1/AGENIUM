@@ -79,8 +79,19 @@ export interface NeedItem {
   at: string;
 }
 
+/** sandboxed: commands run inside a working sandbox without asking (otherwise you approve them); on-request: you
+ *  approve every command not on the project allowlist; never: no asking, refused without a sandbox (ADR-64). */
+export type ApprovalPolicy = "sandboxed" | "on-request" | "never";
+
+export interface CommandPolicy {
+  approval: ApprovalPolicy;
+  backend: string | null;
+  reason: string;
+}
+
 export interface CommandApproval {
   id: number;
+  project: string;
   ticket?: string | null;
   agent: string;
   command: string;
@@ -370,6 +381,8 @@ export interface RoleInfo {
   template: string;
   exists: boolean;
   agents: number;
+  /** Advice about the ROLE.md text: missing or empty sections, too long, nearly the same as another role. */
+  lint: string[];
 }
 
 export type AgentRecord = AgentEntry["agent"] & { mcp: any };

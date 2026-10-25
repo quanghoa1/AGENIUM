@@ -104,6 +104,7 @@ dependencies = [
  "agenium-llm",
  "agenium-mcp",
  "agenium-orchestrator",
+ "agenium-sandbox",
  "agenium-secrets",
  "agenium-store",
  "async-trait",

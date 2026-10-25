@@ -51,6 +51,8 @@ pub struct RoleInfo {
     pub exists: bool,
     /// Live agents with this role.
     pub agents: usize,
+    /// Advice about the ROLE.md text (sections, length, near-duplicate roles; ADR-64).
+    pub lint: Vec<String>,
 }
 
 /// A role written by the user (or a preset edited before use).
@@ -171,6 +173,7 @@ impl App {
                     lead: f.lead,
                     template: f.template,
                     exists: true,
+                    lint: vec![],
                 });
             }
         }
@@ -190,8 +193,37 @@ impl App {
                     lead: r.kind == RoleKind::Lead,
                     template: format!("{}@{}", t.id, t.version),
                     exists: false,
+                    lint: vec![],
                 });
             }
+        }
+        for r in crate::role_library::library() {
+            if out.iter().any(|x| x.id == r.id) {
+                continue;
+            }
+            out.push(RoleInfo {
+                agents: count(&r.id),
+                prompt: r.prompt.trim().to_owned(),
+                tags: r.tags,
+                allowed_paths: r.allowed_paths,
+                planner: r.planner,
+                lead: r.kind == RoleKind::Lead,
+                template: crate::role_library::LIBRARY_ORIGIN.into(),
+                exists: false,
+                lint: vec![],
+                id: r.id,
+            });
+        }
+        let texts: Vec<(String, String)> = out
+            .iter()
+            .map(|r| (r.id.clone(), r.prompt.clone()))
+            .collect();
+        let others: Vec<(&str, &str)> = texts
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect();
+        for r in &mut out {
+            r.lint = crate::role_library::lint_role(&r.id, &r.prompt, &others);
         }
         Ok(out)
     }
@@ -276,6 +308,12 @@ impl App {
             if let Some(r) = t.roles.iter().find(|r| t.role_dir(&r.id) == id) {
                 return self.materialize_role(&t, r);
             }
+        }
+        if let Some(r) = crate::role_library::library()
+            .into_iter()
+            .find(|r| r.id == id)
+        {
+            return self.write_role_folder(id, crate::role_library::LIBRARY_ORIGIN, &r);
         }
         Err(OrchError::NotFound(format!(
             "role {id:?}: create it first or pick a template role"

@@ -50,6 +50,17 @@ fn team_spec_waits_for_the_user_and_the_plan_is_the_leads() {
         .unwrap_err();
     assert!(e.to_string().contains("not approved"), "{e}");
     f.app.approve_spec(f.project.id, 1).unwrap();
+    // The Lead takes no tickets: an item for its own role could never be worked on.
+    let mut own = plan(&[("PI-1", &[])]);
+    own.items[0].role = "lead".into();
+    let e = f
+        .app
+        .apply(&ctx(f, lead), Intent::CreatePlan(own))
+        .unwrap_err();
+    assert!(
+        e.to_string().contains("the Lead's own role") && e.to_string().contains("(api, web)"),
+        "{e}"
+    );
     let out = f
         .app
         .apply(&ctx(f, lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
@@ -61,6 +72,15 @@ fn team_spec_waits_for_the_user_and_the_plan_is_the_leads() {
             Intent::CreateTicket(new_ticket("PI-1", "x", &[], &[])),
         )
         .unwrap();
+    // The worker's task carries the requirements its ticket serves (it cannot read the spec itself).
+    let tk = f.app.ticket(f.project.id, &key("AGN-1")).unwrap();
+    let req = f.app.ticket_requirements(f.project.id, &tk).unwrap();
+    assert!(
+        req.contains("Goals: Greet users")
+            && req.contains("- REQ-1: A greeting file exists")
+            && req.contains("  - AC-1: hello.txt says hello"),
+        "{req}"
+    );
     // A plan revision that only adds an item is minor: the Lead approves it itself.
     let mut p2 = plan(&[("PI-1", &[]), ("PI-2", &["PI-1"])]);
     let rev = agenium_core::plan::PlanRevision {

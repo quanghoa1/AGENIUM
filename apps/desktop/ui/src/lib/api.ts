@@ -24,7 +24,9 @@ import type {
   Capabilities,
   ChatLine,
   Column,
+  ApprovalPolicy,
   CommandApproval,
+  CommandPolicy,
   EventRecord,
   InboxItem,
   NeedItem,
@@ -54,6 +56,8 @@ export interface ModelArg {
 
 export const api = {
   status: () => call<Status>("status"),
+  commandPolicy: () => call<CommandPolicy>("command_policy"),
+  setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
   overview: () => call<Overview>("overview"),

@@ -31,6 +31,7 @@ pub enum Approval {
 pub trait Approver: Send + Sync {
     async fn approve_command(
         &self,
+        project: ProjectId,
         ticket: Option<&TicketKey>,
         agent: &str,
         command: &str,
@@ -43,7 +44,14 @@ pub struct DenyApprover;
 
 #[async_trait]
 impl Approver for DenyApprover {
-    async fn approve_command(&self, _: Option<&TicketKey>, _: &str, _: &str, _: &Path) -> Approval {
+    async fn approve_command(
+        &self,
+        _: ProjectId,
+        _: Option<&TicketKey>,
+        _: &str,
+        _: &str,
+        _: &Path,
+    ) -> Approval {
         Approval::Deny("no one is available to approve commands in this session".into())
     }
 }
@@ -53,14 +61,22 @@ pub struct AutoApprove;
 
 #[async_trait]
 impl Approver for AutoApprove {
-    async fn approve_command(&self, _: Option<&TicketKey>, _: &str, _: &str, _: &Path) -> Approval {
+    async fn approve_command(
+        &self,
+        _: ProjectId,
+        _: Option<&TicketKey>,
+        _: &str,
+        _: &str,
+        _: &Path,
+    ) -> Approval {
         Approval::Allow
     }
 }
 
-/// Command gate of a run (M1-7): with approval policy `on-request` every command not on the project allowlist
-/// goes to the user; with `never` (YOLO) commands run only when a sandbox backend works, otherwise they are refused
-/// (fail-closed).
+/// Command gate of a run (M1-7, ADR-64): with approval policy `sandboxed` (the default) a contained command runs
+/// without asking when a sandbox backend works and goes to the user otherwise; with `on-request` every command not
+/// on the project allowlist goes to the user; with `never` (YOLO) commands run only when a sandbox backend works,
+/// otherwise they are refused (fail-closed).
 pub struct RunGate {
     pub app: Arc<App>,
     pub project: ProjectId,
@@ -90,14 +106,19 @@ impl CommandGate for RunGate {
     async fn check(&self, command: &str, cwd: &Path) -> GateDecision {
         let policy = self.app.config().sandbox.approval;
         let sandbox = agenium_sandbox::detect();
-        if policy == ApprovalPolicy::Never && self.contained {
-            return match sandbox.backend {
-                Some(_) => GateDecision::Allow,
-                None => GateDecision::Deny(format!(
-                    "YOLO mode is refused: {} (fail-closed)",
-                    sandbox.reason
-                )),
-            };
+        if self.contained {
+            match (policy, sandbox.backend) {
+                (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, Some(_)) => {
+                    return GateDecision::Allow
+                }
+                (ApprovalPolicy::Never, None) => {
+                    return GateDecision::Deny(format!(
+                        "YOLO mode is refused: {} (fail-closed)",
+                        sandbox.reason
+                    ))
+                }
+                _ => {}
+            }
         }
         let list = match self.app.project(self.project) {
             Ok(p) => crate::engine::allowlist(&self.app, &p),
@@ -108,7 +129,13 @@ impl CommandGate for RunGate {
         }
         match self
             .approver
-            .approve_command(self.ticket.as_ref(), &self.agent, command, cwd)
+            .approve_command(
+                self.project,
+                self.ticket.as_ref(),
+                &self.agent,
+                command,
+                cwd,
+            )
             .await
         {
             Approval::Allow => GateDecision::Allow,

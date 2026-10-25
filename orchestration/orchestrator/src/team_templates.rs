@@ -297,7 +297,13 @@ impl App {
 
     /// Writes a template role's folder (`ROLE.md`, `role.toml`) when the files do not exist yet.
     pub(crate) fn materialize_role(&self, t: &TeamTemplate, r: &RoleSpec) -> Result<()> {
-        let dir = self.layout().roles().join(t.role_dir(&r.id));
+        self.write_role_folder(&t.role_dir(&r.id), &format!("{}@{}", t.id, t.version), r)
+    }
+
+    /// Writes a preset role's folder `<root>/roles/<id>` (`ROLE.md`, `role.toml` naming `origin`) when the files do
+    /// not exist yet.
+    pub(crate) fn write_role_folder(&self, id: &str, origin: &str, r: &RoleSpec) -> Result<()> {
+        let dir = self.layout().roles().join(id);
         std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
         let role_md = dir.join("ROLE.md");
         if !role_md.exists() && !r.prompt.trim().is_empty() {
@@ -307,7 +313,7 @@ impl App {
         let scope = dir.join("role.toml");
         if !scope.exists() {
             let body = toml::to_string(&RoleFile {
-                template: format!("{}@{}", t.id, t.version),
+                template: origin.to_owned(),
                 allowed_paths: r.allowed_paths.clone(),
                 planner: r.planner,
                 lead: r.kind == RoleKind::Lead,

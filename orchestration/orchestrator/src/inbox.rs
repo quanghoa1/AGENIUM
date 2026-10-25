@@ -184,7 +184,19 @@ impl App {
                 (Some(_), None) => None,
                 (None, _) => Some(format!("Spec v{} is approved and has no plan yet: create_plan (you approve it: the user agreed on the spec).", spec.version)),
             };
-            if let Some(text) = text {
+            if let Some(mut text) = text {
+                if !team.solo {
+                    let roles: std::collections::BTreeSet<&str> = members
+                        .iter()
+                        .filter(|m| m.id != lead)
+                        .map(|m| m.role.as_str())
+                        .collect();
+                    text.push_str(&format!(
+                        "
+You take no tickets: give every plan item one of your workers' roles ({}).",
+                        roles.into_iter().collect::<Vec<_>>().join(", ")
+                    ));
+                }
                 out.push(InboxItem {
                     kind: InboxKind::Planning,
                     ticket: None,

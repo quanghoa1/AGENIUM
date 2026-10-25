@@ -1,4 +1,4 @@
-import { ArrowLeft, Crown, FolderPlus, Lightbulb, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Crown, FolderPlus, Lightbulb, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, Empty, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
@@ -169,7 +169,8 @@ const NEW_ROLE = "__new__";
 function RolePicker({ roles, value, onChange, draft, setDraft }: { roles: RoleInfo[]; value: string; onChange: (id: string) => void; draft: RoleDraft; setDraft: (d: RoleDraft) => void }) {
   const app = useApp();
   const mine = roles.filter((r) => !r.template);
-  const presets = roles.filter((r) => r.template);
+  const presets = roles.filter((r) => r.template && r.template !== LIBRARY);
+  const library = roles.filter((r) => r.template === LIBRARY);
   const r = roles.find((x) => x.id === value);
   return (
     <div className="space-y-2">
@@ -193,6 +194,15 @@ function RolePicker({ roles, value, onChange, draft, setDraft }: { roles: RoleIn
             </option>
           ))}
         </optgroup>
+        {library.length > 0 && (
+          <optgroup label={app.t("agents.library")}>
+            {library.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.id}
+              </option>
+            ))}
+          </optgroup>
+        )}
         <option value={NEW_ROLE}>+ {app.t("agents.newRole")}</option>
       </select>
       {r && (
@@ -208,6 +218,7 @@ function RolePicker({ roles, value, onChange, draft, setDraft }: { roles: RoleIn
             ))}
             {r.allowed_paths.length > 0 && <Mono className="text-subtle">scope: {r.allowed_paths.join(", ")}</Mono>}
           </div>
+          <RoleLint lint={r.lint} />
         </div>
       )}
       {value === NEW_ROLE && <RoleEditor draft={draft} setDraft={setDraft} />}
@@ -224,7 +235,36 @@ interface RoleDraft {
   planner: boolean;
 }
 
-const emptyRole: RoleDraft = { id: "", prompt: "", tags: "", paths: "", lead: false, planner: false };
+/** The sections of every ROLE.md (same list as `role_library::ROLE_SECTIONS`, ADR-64). */
+const ROLE_SECTIONS = ["Mission", "Rules", "Deliverables", "Workflow", "Done when"];
+const ROLE_SKELETON = ROLE_SECTIONS.map((s) => `## ${s}\n`).join("\n");
+const LIBRARY = "library@1";
+
+const emptyRole: RoleDraft = { id: "", prompt: ROLE_SKELETON, tags: "", paths: "", lead: false, planner: false };
+
+/** Sections still missing or empty in a role text (the server's check adds length and near-duplicates). */
+function draftLint(text: string): string[] {
+  const body: Record<string, string> = {};
+  let cur: string | null = null;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("## ")) body[(cur = line.slice(3).trim().toLowerCase())] = "";
+    else if (cur) body[cur] += line;
+  }
+  return ROLE_SECTIONS.filter((s) => !body[s.toLowerCase()]?.trim()).map((s) => `## ${s}`);
+}
+
+function RoleLint({ lint }: { lint: string[] }) {
+  if (!lint?.length) return null;
+  return (
+    <ul className="mt-1.5 space-y-0.5 text-amber-600 dark:text-amber-300">
+      {lint.map((w) => (
+        <li key={w} className="flex items-start gap-1">
+          <AlertTriangle className="mt-px h-3 w-3 shrink-0" /> {w}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function RoleEditor({ draft, setDraft }: { draft: RoleDraft; setDraft: (d: RoleDraft) => void }) {
   const app = useApp();
@@ -241,7 +281,13 @@ function RoleEditor({ draft, setDraft }: { draft: RoleDraft; setDraft: (d: RoleD
       </label>
       <label className="md:col-span-2">
         <span className="label">{app.t("agents.roleText")}</span>
-        <textarea className="input mt-1 min-h-[80px] text-xs" value={draft.prompt} placeholder={app.t("agents.roleTextHint")} onChange={(e) => set({ prompt: e.target.value })} />
+        <textarea className="input mt-1 min-h-[220px] font-mono text-xs" value={draft.prompt} placeholder={app.t("agents.roleTextHint")} onChange={(e) => set({ prompt: e.target.value })} />
+        <div className="mt-1 text-[11px] text-subtle">{app.t("agents.roleSections")}</div>
+        {draftLint(draft.prompt).length > 0 && (
+          <div className="text-[11px]">
+            <RoleLint lint={[`${app.t("agents.roleMissing")}: ${draftLint(draft.prompt).join(", ")}`]} />
+          </div>
+        )}
       </label>
       <label className="md:col-span-2">
         <span className="label">{app.t("agents.rolePaths")}</span>
@@ -410,7 +456,7 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
     });
   }, [open]);
   const flip = (xs: string[], x: string, on: boolean) => (on ? [...new Set([...xs, x])] : xs.filter((y) => y !== x));
-  const ready = name.trim() && role && (role !== NEW_ROLE || (draft.id && draft.prompt.trim())) && model.provider && (model.backend === "cli" || model.model);
+  const ready = name.trim() && role && (role !== NEW_ROLE || (draft.id && !draftLint(draft.prompt).includes("## Mission"))) && model.provider && (model.backend === "cli" || model.model);
   const create = async () => {
     setBusy(true);
     try {

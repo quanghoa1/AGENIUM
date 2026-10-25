@@ -2,7 +2,7 @@
 //! dependency DAG, scope) and commits its state changes, comments and events in one transaction, idempotent by
 //! intent id. Git side effects are journaled in the same transaction and executed right after (see `effects`).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use agenium_core::comment::PermissionOutcome;
 use agenium_core::forms::*;
@@ -430,11 +430,11 @@ impl App {
                 )));
             }
             check_trace(&spec, &plan.items)?;
+            check_roles(w, team.as_ref(), &plan.items)?;
             if plans::latest_plan(w.tx, project)?.is_some() {
                 return Err(invalid("a plan already exists; use revise_plan"));
             }
             // The user agreed on the spec: the plan built from it is the team's work, approved by the Lead (ADR-63).
-            let _ = team;
             let row = PlanRow {
                 id: ulid::Ulid::new().to_string(),
                 project,
@@ -486,6 +486,7 @@ impl App {
                 return Err(invalid("a plan already exists; the Lead owns it now"));
             }
             check_trace(&spec, &d.items)?;
+            check_roles(w, agents::teams_of_project(w.tx, project)?.first(), &d.items)?;
             w.emit(DomainEvent::PlanDrafted { project, spec_version: d.spec_version, by: agent, draft: d })?;
             Ok(Outcome {
                 result: serde_json::json!({ "draft_for_spec": spec.version, "next": "the Lead reviews your draft and creates the plan; your work is done" }),
@@ -526,6 +527,7 @@ impl App {
                 _ => plans::spec(w.tx, project, base.body.spec_version)?.ok_or_else(|| invalid("plan spec missing"))?,
             };
             check_trace(&spec, &rev.items)?;
+            check_roles(w, team.as_ref(), &rev.items)?;
             // Items that have tickets must keep existing (shrink scope, never drop work silently).
             for t in tickets::list(w.tx, project, &Default::default())? {
                 if !t.status.is_terminal() && !rev.items.iter().any(|i| i.id == t.plan_item) {
@@ -535,7 +537,6 @@ impl App {
             let (diff, scope_change) = plan_diff(&base.body.items, &rev.items);
             // Every item traces to the agreed spec, so a revision stays inside what the user agreed (ADR-63): the
             // Lead approves it and the user is informed. New requirements need a new spec, which the user approves.
-            let _ = team;
             let self_approve = true;
             let version = base.version + 1;
             let row = PlanRow {
@@ -1540,6 +1541,50 @@ fn closure(graph: &HashMap<TicketId, Vec<TicketId>>, start: &[TicketId]) -> Hash
         }
     }
     seen
+}
+
+/// In team mode the Lead takes no tickets: a plan item for the Lead's own role (when no worker has it) could never
+/// be worked on. The Lead does such synthesis in its reviews, or gives the item to a worker role.
+fn check_roles(
+    w: &WriteCtx<'_, '_>,
+    team: Option<&agents::Team>,
+    items: &[agenium_core::plan::PlanItem],
+) -> Result<()> {
+    let Some(team) = team.filter(|t| !t.solo) else {
+        return Ok(());
+    };
+    let Some(lead) = team.lead else {
+        return Ok(());
+    };
+    let members = agents::agents_of_team(w.tx, team.id)?;
+    let Some(lead_role) = members
+        .iter()
+        .find(|m| m.id == lead)
+        .map(|m| m.role.as_str())
+    else {
+        return Ok(());
+    };
+    let workers: BTreeSet<&str> = members
+        .iter()
+        .filter(|m| m.id != lead)
+        .map(|m| m.role.as_str())
+        .collect();
+    if workers.contains(lead_role) {
+        return Ok(());
+    }
+    let theirs: Vec<&str> = items
+        .iter()
+        .filter(|i| i.role == lead_role)
+        .map(|i| i.id.as_str())
+        .collect();
+    if theirs.is_empty() {
+        return Ok(());
+    }
+    Err(invalid(format!(
+        "plan items {} have role {lead_role}, the Lead's own role, and the Lead takes no tickets in team mode: give          them to a worker role ({}) or fold that work into your reviews",
+        theirs.join(", "),
+        workers.into_iter().collect::<Vec<_>>().join(", ")
+    )))
 }
 
 fn check_trace(spec: &SpecRow, items: &[agenium_core::plan::PlanItem]) -> Result<()> {

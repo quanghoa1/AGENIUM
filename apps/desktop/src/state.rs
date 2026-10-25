@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use agenium_core::{RunId, TicketKey};
+use agenium_core::{ProjectId, RunId, TicketKey};
 use agenium_orchestrator::app::{App, AppOptions, NoCheckFactory};
 use agenium_orchestrator::runtime::{Approval, Approver, ConfiguredProviders, Runtime};
 use async_trait::async_trait;
@@ -24,6 +24,7 @@ pub fn err(e: impl std::fmt::Display) -> String {
 #[derive(Debug, Clone, Serialize)]
 pub struct CommandApproval {
     pub id: u64,
+    pub project: ProjectId,
     pub ticket: Option<TicketKey>,
     pub agent: String,
     pub command: String,
@@ -38,12 +39,14 @@ pub struct Approvals {
 }
 
 impl Approvals {
-    pub fn pending(&self) -> Vec<CommandApproval> {
+    /// The requests of one project, or of every project.
+    pub fn pending(&self, project: Option<ProjectId>) -> Vec<CommandApproval> {
         let mut v: Vec<_> = self
             .waiting
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .values()
+            .filter(|(a, _)| project.is_none_or(|p| a.project == p))
             .map(|(a, _)| a.clone())
             .collect();
         v.sort_by_key(|a| a.id);
@@ -73,6 +76,7 @@ pub struct UiApprover {
 impl Approver for UiApprover {
     async fn approve_command(
         &self,
+        project: ProjectId,
         ticket: Option<&TicketKey>,
         agent: &str,
         command: &str,
@@ -81,6 +85,7 @@ impl Approver for UiApprover {
         let id = self.approvals.next.fetch_add(1, Ordering::SeqCst) + 1;
         let req = CommandApproval {
             id,
+            project,
             ticket: ticket.cloned(),
             agent: agent.to_owned(),
             command: command.to_owned(),

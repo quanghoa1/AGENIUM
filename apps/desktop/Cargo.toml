@@ -20,6 +20,7 @@ agenium-core = { path = "../../foundation/core" }
 agenium-llm = { path = "../../agent/llm" }
 agenium-mcp = { path = "../../agent/mcp" }
 agenium-orchestrator = { path = "../../orchestration/orchestrator" }
+agenium-sandbox = { path = "../../security/sandbox" }
 agenium-secrets = { path = "../../security/secrets" }
 agenium-store = { path = "../../foundation/store" }
 async-trait = "0.1"
