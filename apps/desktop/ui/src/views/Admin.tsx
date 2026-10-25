@@ -166,6 +166,20 @@ export function SettingsView() {
           <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
         </Section>
         <CommandPolicySection />
+        <Section title={app.t("settings.support")}>
+          <div className="text-[11px] text-subtle">{app.t("settings.supportNote")}</div>
+          <button
+            className="btn mt-2"
+            onClick={() =>
+              api
+                .supportBundle("")
+                .then((dir) => app.notify(`${app.t("settings.supportDone")} ${dir}`))
+                .catch((e) => app.notify(String(e)))
+            }
+          >
+            {app.t("settings.supportMake")}
+          </button>
+        </Section>
       </div>
     </div>
   );

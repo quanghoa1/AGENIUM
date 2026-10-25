@@ -40,6 +40,11 @@ enum Cmd {
     },
     /// System requirements, sandbox, keyring and reconcile report.
     Doctor,
+    /// Write a support bundle (diagnostics, no secret values) to a folder.
+    Support {
+        #[arg(long, default_value = ".")]
+        out: PathBuf,
+    },
     /// Model providers (API keys go to the encrypted vault, never to config.toml).
     #[command(subcommand)]
     Provider(ProviderCmd),
@@ -1223,6 +1228,11 @@ async fn main() -> Result<()> {
                 "Suggested parallel agents: {}",
                 out.report.suggested_parallel
             );
+        }
+        Cmd::Support { out } => {
+            let app = open(&root(&cli)?)?;
+            let dir = app.support_bundle(out)?;
+            println!("support bundle written to {}", dir.display());
         }
         Cmd::Doctor => {
             let r = root(&cli)?;

@@ -35,6 +35,21 @@ pub(crate) fn names(o: &Opened) -> R<HashMap<AgentId, String>> {
 // ---------------------------------------------------------------- setup / status
 
 #[tauri::command]
+pub fn support_bundle(d: State<'_, Desktop>, out: String) -> R<String> {
+    let o = d.opened()?;
+    let dir = std::path::PathBuf::from(if out.trim().is_empty() {
+        std::env::temp_dir().display().to_string()
+    } else {
+        out
+    });
+    Ok(o.app
+        .support_bundle(&dir)
+        .map_err(err)?
+        .display()
+        .to_string())
+}
+
+#[tauri::command]
 pub fn status(d: State<'_, Desktop>) -> Value {
     let opened = d.opened().ok();
     let cfg = opened.as_ref().map(|o| o.app.config());

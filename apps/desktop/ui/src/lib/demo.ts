@@ -269,6 +269,8 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "refresh_vendor_usage":
     case "read_claude_usage":
       return demoUsage;
+    case "support_bundle":
+      return "C:/Temp/agenium-support-demo";
     case "memory":
       return {
         hide_below: 0.2,

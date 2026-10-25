@@ -134,6 +134,7 @@ export const api = {
   pauseProject: (project: string) => call<void>("pause_project", { project }),
   resumeProject: (project: string) => call<void>("resume_project", { project }),
   stopAll: () => call<void>("stop_all"),
+  supportBundle: (out: string) => call<string>("support_bundle", { out }),
 
   // Registry (ADR-61)
   roles: () => call<RoleInfo[]>("roles"),

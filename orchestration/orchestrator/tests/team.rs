@@ -1385,3 +1385,20 @@ fn agents_md_is_the_shared_project_guidance() {
     assert!(g.contains("Project guidance (AGENTS.md)") && g.contains("start with the ticket key"));
     assert!(!g.contains("ignore me"));
 }
+
+/// Support bundle (M5): a shareable diagnostics folder with versions, the config (secret names only), store counts
+/// and masked logs; no secret values.
+#[test]
+fn support_bundle_has_diagnostics_without_secrets() {
+    let f = fixture();
+    let out = f.root.parent().unwrap().join("bundle-out");
+    let dir = f.app.support_bundle(&out).unwrap();
+    for name in ["versions.txt", "config.toml", "stats.txt", "README.txt"] {
+        assert!(dir.join(name).is_file(), "missing {name}");
+    }
+    let versions = std::fs::read_to_string(dir.join("versions.txt")).unwrap();
+    assert!(versions.contains("agenium ") && versions.contains("sandbox backend"));
+    let stats = std::fs::read_to_string(dir.join("stats.txt")).unwrap();
+    assert!(stats.contains("projects: 1"));
+    assert!(dir.join("logs").is_dir());
+}

@@ -89,6 +89,7 @@ fn main() {
             api::pause_project,
             api::resume_project,
             api::stop_all,
+            api::support_bundle,
             manage::roles,
             manage::put_role,
             manage::remove_role,
