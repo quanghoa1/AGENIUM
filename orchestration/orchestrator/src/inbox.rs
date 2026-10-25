@@ -207,7 +207,12 @@ You take no tickets: give every plan item one of your workers' roles ({}).",
             }
         }
         if let Some(plan) = self.store.read(|c| plans::current_plan(c, project))? {
-            let planned: HashSet<&str> = tickets.iter().map(|t| t.plan_item.as_str()).collect();
+            // An item whose tickets were all cancelled is neither done nor in work: it comes back to the Lead.
+            let planned: HashSet<&str> = tickets
+                .iter()
+                .filter(|t| t.status != TicketStatus::Cancelled)
+                .map(|t| t.plan_item.as_str())
+                .collect();
             let missing: Vec<String> = plan
                 .body
                 .items
@@ -222,7 +227,7 @@ You take no tickets: give every plan item one of your workers' roles ({}).",
                     comment: None,
                     created_at: String::new(),
                     text: format!(
-                        "Approved plan v{} has items without tickets: {}. create_ticket for each (respect depends_on between items), then assign_ticket.",
+                        "Approved plan v{} has items without a live ticket (none yet, or every ticket cancelled): {}. create_ticket for each (respect depends_on between items), then assign_ticket; an item that is no longer needed, or that no worker role fits, is changed or dropped with revise_plan.",
                         plan.version,
                         missing.join("; ")
                     ),

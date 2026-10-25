@@ -859,11 +859,41 @@ fn lead_sets_a_member_mcp_key() {
 #[test]
 fn a_solo_inbox_has_the_work_left_to_plan() {
     let f = fixture();
-    solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
     let inbox = f.app.lead_inbox(f.project.id).unwrap();
     assert_eq!(
         inbox.iter().map(|i| i.kind).collect::<Vec<_>>(),
         [agenium_orchestrator::inbox::InboxKind::Plan]
     );
     assert!(inbox[0].text.contains("PI-1") && inbox[0].text.contains("PI-2"));
+    // An item whose only ticket was cancelled is neither done nor in work: it comes back (found on a real run).
+    let lead = Actor::Lead(a.id);
+    for (item, title) in [("PI-1", "one"), ("PI-2", "two")] {
+        f.app
+            .apply(
+                &ctx(&f, lead),
+                Intent::CreateTicket(new_ticket(item, title, &[], &[])),
+            )
+            .unwrap();
+    }
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CancelTicket(CancelTicket {
+                ticket_id: key("AGN-2"),
+                reason: "the Lead cannot take it".into(),
+            }),
+        )
+        .unwrap();
+    let plan = f.app.lead_inbox(f.project.id).unwrap();
+    let plan: Vec<_> = plan
+        .iter()
+        .filter(|i| i.kind == agenium_orchestrator::inbox::InboxKind::Plan)
+        .collect();
+    assert_eq!(plan.len(), 1);
+    assert!(
+        plan[0].text.contains("PI-2") && !plan[0].text.contains("PI-1"),
+        "{}",
+        plan[0].text
+    );
 }

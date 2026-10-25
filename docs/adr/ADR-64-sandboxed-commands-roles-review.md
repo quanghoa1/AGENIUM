@@ -36,7 +36,11 @@ of agent personas, rules only, our own text)
 7. **Review spills do not block the merge.** Found on the real run: the Lead's review tools wrote a full output to
    `artifacts/tool-output/<run>/` in the worker's worktree after the worker's last commit, and the merge refused the
    "uncommitted" file, retrying forever. The merge queue ignores untracked files in that folder.
-8. **Not taken from the catalogue:** personality and emoji, long prompts, free-text orchestration (ours is tools and
+8. **A plan item whose tickets were all cancelled comes back to the Lead.** It is neither done nor in work, so the
+   project stalled in `Running`. The Lead's inbox now lists it with the other items without a live ticket: create a
+   new ticket, or change or drop the item with `revise_plan`. On the real run the Lead moved PI-3 from its own role to
+   a researcher, the new ticket was worked, reviewed and merged, and the project reached `Done`.
+9. **Not taken from the catalogue:** personality and emoji, long prompts, free-text orchestration (ours is tools and
    tickets), roles without path or tool limits. No text or file of it is copied.
 
 ## Consequences
@@ -45,5 +49,6 @@ of agent personas, rules only, our own text)
 - Desktop: Settings "Agent shell commands"; Needs you groups commands by project; the role picker has a "Specialist
   roles" group, shows the advice, and a new role starts from the section skeleton.
 - Tests: `runtime.rs::sandboxed_commands_run_without_asking`, the denied-command test sets `on-request`;
-  `team.rs` checks the Lead-role refusal and the requirements text; `role_library` unit tests check every built-in
+  `team.rs` checks the Lead-role refusal, the requirements text and the cancelled-item inbox; `vcs.rs` the
+  tool-output spill; `role_library` unit tests check every built-in
   role against the shape and against each other.
