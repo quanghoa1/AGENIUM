@@ -435,6 +435,10 @@ pub fn memory_action(
         "retire" => mem.retire(fact.ok_or("fact missing")?).map_err(err)?,
         "revert" => o.app.revert_skill_overlay(id, &skill()?).map_err(err)?,
         "promote" => o.app.promote_skill_overlay(id, &skill()?).map_err(err)?,
+        "rebase" => {
+            let outcomes = o.app.rebase_skill_overlays(id).map_err(err)?;
+            return Ok(json!({ "rebased": outcomes }));
+        }
         "tidy" => {
             let (decayed, folded) = mem.tidy().map_err(err)?;
             return Ok(json!({ "decayed": decayed, "consolidated": folded }));

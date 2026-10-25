@@ -371,9 +371,11 @@ export interface OverlayView {
   skill: string;
   base_version: string;
   diff: string;
-  changelog: { at?: string; reason?: string; lesson?: number; lesson_text?: string }[];
+  changelog: { at?: string; reason?: string; lesson?: number; lesson_text?: string; rebased_onto?: string }[];
   /** `role` or `library`. */
   base: string;
+  /** The base SKILL.md changed since this overlay was built; it can be rebased onto the new base. */
+  stale: boolean;
 }
 
 export interface MemoryData {

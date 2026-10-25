@@ -53,3 +53,4 @@ ADR-52 records this fresh implementation.
 | [83](ADR-83-no-egress-proxy.md) | No egress proxy: the codex-derived sandbox is the containment boundary (network on/off), agents run YOLO; no proxy/allowlist layer |
 | [84](ADR-84-network-posture-and-unified-fetch.md) | Network posture: containment is the boundary (sandboxed commands may use the network by default, fail-closed); every agent reads URLs through one audited `fetch` (allowlist, out-of-sandbox) |
 | [85](ADR-85-memory-gate.md) | The judge can skip memory extraction on routine tickets (a confident "nothing worth remembering"; fail-open, off by default) |
+| [86](ADR-86-overlay-rebase.md) | Skill overlays rebase onto an updated base (3-way merge; reverse-apply reconstructs the old base, clean merge auto-applies, conflict is left for the user) |

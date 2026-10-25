@@ -139,6 +139,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | Template wizard (new, from a team, import/export TOML, role editor) | DONE | [ADR-71](adr/ADR-71-template-wizard.md) |
 | M4.5: lessons need a cue and a signal, rules/hints by scope, validated contexts, decay and consolidation | DONE | [ADR-72](adr/ADR-72-lessons-decay-consolidation.md) |
 | M4.5: `propose_skill_update` overlays (checked, audited, revert/promote); Memory page | DONE | [ADR-73](adr/ADR-73-skill-overlays-memory-page.md) |
+| Skill overlays rebase onto an updated base (3-way merge; clean auto-applies, conflict left for the user) | DONE | [ADR-86](adr/ADR-86-overlay-rebase.md) |
 | Shared project guidance from the repo's AGENTS.md (no vendor CLAUDE.md) | DONE | `views.rs::project_guidance`, `team.rs::agents_md_is_the_shared_project_guidance` |
 | Model list by backend (API vs each CLI) | DONE | [ADR-74](adr/ADR-74-models-by-backend.md) |
 | TypeSafe "Jev" evaluated and wired as an optional judge (off by default) | DONE | [ADR-75](adr/ADR-75-typesafe-jev-judge.md) |
@@ -217,7 +218,6 @@ infrastructure, not mechanical work:
 - **egress proxy** — DROPPED ([ADR-83](adr/ADR-83-no-egress-proxy.md), [ADR-84](adr/ADR-84-network-posture-and-unified-fetch.md)):
   containment is the boundary, sandboxed commands may use the network by default (fail-closed), reads go through one
   audited `fetch`; no proxy/allowlist layer.
-1. **base-update rebase of skill overlays** (3-way merge) and **cross-agent knowledge sharing** GM-6 (ADR-51 §10) —
-   the overlay rebase is pure engineering; GM-6 needs the owner's call on the sharing model (ticket note vs project pack).
+1. **cross-agent knowledge sharing** GM-6 (ADR-51 §10) — needs the owner's call on the sharing model (ticket note vs project pack). (The base-update 3-way rebase of skill overlays is DONE, [ADR-86](adr/ADR-86-overlay-rebase.md).)
 2. **installer + signed updater** — deferred (core not finished yet); packaging/signing infrastructure per OS.
 3. **M2 on Linux/macOS** — needs those machines (sandbox attack suite, macOS Seatbelt backend); graph benchmark rest.

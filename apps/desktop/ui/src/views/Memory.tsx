@@ -188,10 +188,20 @@ export function MemoryView() {
                       <span className="chip border-line-strong text-muted">
                         {app.t("memory.base")} {o.base} · {o.base_version}
                       </span>
+                      {o.stale && (
+                        <span className="chip border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                          {app.t("memory.stale")}
+                        </span>
+                      )}
                     </span>
                   }
                   right={
                     <span className="flex gap-1.5">
+                      {o.stale && (
+                        <button className="btn" onClick={() => act("rebase", {}, app.t("memory.rebased"))} title={app.t("memory.rebaseHint")}>
+                          <GitMerge className="h-3.5 w-3.5" /> {app.t("memory.rebase")}
+                        </button>
+                      )}
                       <button className="btn" onClick={() => act("revert", { skill: o.skill })}>
                         <RotateCcw className="h-3.5 w-3.5" /> {app.t("memory.revert")}
                       </button>

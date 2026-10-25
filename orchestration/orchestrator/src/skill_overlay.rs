@@ -42,6 +42,21 @@ pub struct OverlayView {
     pub changelog: Vec<serde_json::Value>,
     /// Where the base lives: `role` or `library`.
     pub base: String,
+    /// The base SKILL.md changed since this overlay was built, so the diff mixes base changes with the agent's;
+    /// `rebase_skill_overlays` can 3-way merge it onto the new base (ADR-86).
+    pub stale: bool,
+}
+
+/// The result of rebasing one overlay onto its updated base (ADR-86).
+#[derive(Debug, Clone, Serialize)]
+pub struct RebaseOutcome {
+    pub skill: String,
+    pub from_version: String,
+    pub to_version: String,
+    /// `up-to-date`, `rebased`, `conflict`, or `no-base`.
+    pub status: String,
+    /// On a conflict: the merged text with `<<<<<<<` markers, for the user to resolve (the overlay is left unchanged).
+    pub conflict_preview: Option<String>,
 }
 
 fn invalid(m: impl Into<String>) -> OrchError {
@@ -92,6 +107,82 @@ fn apply_patch(text: &str, patch: &str) -> Result<String> {
     Err(invalid(format!(
         "the patch does not apply to the current SKILL.md: {last}"
     )))
+}
+
+/// Reverse-applies `patch` (a base -> overlay diff) to `overlay`, reconstructing the base it was built on.
+fn unapply_patch(overlay: &str, patch: &str) -> Result<String> {
+    let dir = tempfile::tempdir().map_err(io)?;
+    std::fs::write(dir.path().join("SKILL.md"), overlay).map_err(io)?;
+    let patch_file = dir.path().join("change.patch");
+    let mut p = patch.replace("\r\n", "\n");
+    if !p.ends_with('\n') {
+        p.push('\n');
+    }
+    std::fs::write(&patch_file, p).map_err(io)?;
+    let mut last = String::new();
+    // `diff_texts` writes under a/ and b/ subdirs, so git's own a/ b/ prefix makes the paths a/a/SKILL.md, b/b/SKILL.md
+    // (strip 2); -p1/-p0 cover a patch stored in another shape.
+    for strip in ["-p2", "-p1", "-p0"] {
+        let out = std::process::Command::new("git")
+            .args(["-c", "core.autocrlf=false", "-c", "core.eol=lf"])
+            .args([
+                "apply",
+                "--reverse",
+                "--recount",
+                "--whitespace=nowarn",
+                strip,
+            ])
+            .arg(&patch_file)
+            .current_dir(dir.path())
+            .output()
+            .map_err(io)?;
+        if out.status.success() {
+            let t = std::fs::read_to_string(dir.path().join("SKILL.md")).map_err(io)?;
+            return Ok(t.replace("\r\n", "\n"));
+        }
+        last = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+    }
+    Err(invalid(format!(
+        "cannot reconstruct the base the overlay was built on: {last}"
+    )))
+}
+
+/// 3-way merge (ADR-86): start from `new_base` and fold in the agent's `old_base` -> `overlay` changes. Returns the
+/// merged text and whether it carries conflict markers. `git merge-file` needs no repository.
+fn merge_three(new_base: &str, old_base: &str, overlay: &str) -> Result<(String, bool)> {
+    let dir = tempfile::tempdir().map_err(io)?;
+    let cur = dir.path().join("current");
+    let anc = dir.path().join("ancestor");
+    let oth = dir.path().join("other");
+    std::fs::write(&cur, new_base.replace("\r\n", "\n")).map_err(io)?;
+    std::fs::write(&anc, old_base.replace("\r\n", "\n")).map_err(io)?;
+    std::fs::write(&oth, overlay.replace("\r\n", "\n")).map_err(io)?;
+    let out = std::process::Command::new("git")
+        .args([
+            "-c",
+            "core.autocrlf=false",
+            "-c",
+            "core.eol=lf",
+            "merge-file",
+            "-p",
+            "--diff3",
+            "-L",
+            "new base",
+            "-L",
+            "previous base",
+            "-L",
+            "your overlay",
+        ])
+        .arg(&cur)
+        .arg(&anc)
+        .arg(&oth)
+        .output()
+        .map_err(io)?;
+    // Exit status: 0 = clean, > 0 = number of conflicts, < 0 = error. Treat a non-zero code as a conflict; a real git
+    // error leaves the merged text with markers too, which the caller surfaces for the user.
+    let merged = String::from_utf8_lossy(&out.stdout).replace("\r\n", "\n");
+    let conflict = out.status.code().unwrap_or(1) != 0;
+    Ok((merged, conflict))
 }
 
 /// Unified diff `a/SKILL.md` -> `b/SKILL.md` (git, no repository needed).
@@ -248,6 +339,12 @@ impl App {
             let overlay_text =
                 std::fs::read_to_string(self.overlay_dir(agent, &o.skill).join("SKILL.md"))
                     .unwrap_or_default();
+            // Stale when the base the overlay was built on (reconstructed by reverse-applying the stored patch) no
+            // longer matches the current base — i.e. the base SKILL.md changed under the overlay.
+            let stale = base.is_some()
+                && unapply_patch(&overlay_text, &o.patch)
+                    .map(|old| old != base_text)
+                    .unwrap_or(false);
             out.push(OverlayView {
                 diff: diff_texts(&base_text, &overlay_text)?,
                 base: match base.map(|b| b.meta.origin) {
@@ -257,9 +354,119 @@ impl App {
                 skill: o.skill,
                 base_version: o.base_version,
                 changelog: o.changelog,
+                stale,
             });
         }
         Ok(out)
+    }
+
+    /// Rebases every stale overlay of `agent` onto its updated base (ADR-86): reconstructs the base each overlay was
+    /// built on, 3-way merges the agent's change onto the current base, and — when the merge is clean — swaps the
+    /// overlay in and records a `rebased_onto` changelog entry. A conflicting overlay is left untouched and reported
+    /// for the user to resolve (revert or re-propose), with one Needs-you.
+    pub fn rebase_skill_overlays(&self, agent: AgentId) -> Result<Vec<RebaseOutcome>> {
+        let a = self.agent(agent)?;
+        let mem = self.agent_memory_store(agent)?;
+        let mut out = Vec::new();
+        let mut conflicts = Vec::new();
+        for o in mem.overlays()? {
+            let outcome = self.rebase_one(agent, &a, mem.as_ref(), &o)?;
+            if outcome.status == "conflict" {
+                conflicts.push(outcome.skill.clone());
+            }
+            out.push(outcome);
+        }
+        if !conflicts.is_empty() {
+            self.store.commit(None, &format!("agent:{agent}"), |w| {
+                w.emit(DomainEvent::NeedsUser {
+                    ticket: None,
+                    reason: format!(
+                        "skill overlay(s) {} could not be rebased onto the updated base automatically; review and revert or re-propose them",
+                        conflicts.join(", ")
+                    ),
+                })
+                .map_err(OrchError::from)
+            })?;
+        }
+        Ok(out)
+    }
+
+    fn rebase_one(
+        &self,
+        agent: AgentId,
+        a: &agenium_store::core::agents::Agent,
+        mem: &agenium_store::AgentStore,
+        o: &agenium_store::agent::OverlayRow,
+    ) -> Result<RebaseOutcome> {
+        let mut outcome = RebaseOutcome {
+            skill: o.skill.clone(),
+            from_version: o.base_version.clone(),
+            to_version: o.base_version.clone(),
+            status: "up-to-date".into(),
+            conflict_preview: None,
+        };
+        let Some(base) = self.base_skill(a, &o.skill) else {
+            outcome.status = "no-base".into();
+            return Ok(outcome);
+        };
+        let new_version = base
+            .meta
+            .version
+            .clone()
+            .unwrap_or_else(|| "unversioned".into());
+        outcome.to_version = new_version.clone();
+        let new_base = std::fs::read_to_string(base.meta.dir.join("SKILL.md")).map_err(io)?;
+        let dir = self.overlay_dir(agent, &o.skill);
+        let overlay = std::fs::read_to_string(dir.join("SKILL.md")).map_err(io)?;
+        let old_base = unapply_patch(&overlay, &o.patch)?;
+        if old_base == new_base {
+            // The base is unchanged; only refresh the recorded version if its label drifted.
+            if o.base_version != new_version {
+                mem.put_overlay(&o.skill, &new_version, &o.patch, serde_json::json!({}))?;
+            }
+            return Ok(outcome);
+        }
+        let (merged, conflict) = merge_three(&new_base, &old_base, &overlay)?;
+        if conflict {
+            outcome.status = "conflict".into();
+            outcome.conflict_preview = Some(merged);
+            return Ok(outcome);
+        }
+        // Clean merge: validate in a staging copy, then swap it in (as apply_skill_update does).
+        let staging_root = dir.with_file_name(format!(".rebase-{}", ulid::Ulid::new()));
+        let staging = staging_root.join(&o.skill);
+        copy_dir(&dir, &staging).map_err(io)?;
+        std::fs::write(staging.join("SKILL.md"), &merged).map_err(io)?;
+        if let Err(e) = agenium_skills::validate(&staging, Origin::Overlay) {
+            let _ = std::fs::remove_dir_all(&staging_root);
+            outcome.status = "conflict".into();
+            outcome.conflict_preview =
+                Some(format!("the rebased skill is not valid: {e}\n\n{merged}"));
+            return Ok(outcome);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::rename(&staging, &dir).map_err(io)?;
+        let _ = std::fs::remove_dir_all(&staging_root);
+        let cumulative = diff_texts(&new_base, &merged)?;
+        mem.put_overlay(
+            &o.skill,
+            &new_version,
+            &cumulative,
+            serde_json::json!({
+                "at": now_iso(),
+                "rebased_onto": new_version,
+                "from_version": o.base_version,
+            }),
+        )?;
+        self.store.commit(None, &format!("agent:{agent}"), |w| {
+            w.emit(DomainEvent::AgentUpdated {
+                agent,
+                field: format!("skill_overlay_rebased:{}", o.skill),
+            })
+            .map_err(OrchError::from)
+        })?;
+        outcome.status = "rebased".into();
+        Ok(outcome)
     }
 
     /// The user reverts an overlay: the agent uses the base again (the changelog goes with it).
@@ -300,5 +507,64 @@ impl App {
             .map_err(OrchError::from)
         })?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{diff_texts, merge_three, unapply_patch};
+
+    const BASE: &str = "---\nname: demo\ndescription: a demo skill\n---\n\n# Demo\n\nStep 1: read the file.\nStep 2: write the file.\n";
+
+    #[test]
+    fn unapply_reconstructs_the_base_the_overlay_was_built_on() {
+        let overlay = BASE.replace(
+            "Step 2: write the file.",
+            "Step 2: write the file.\nStep 3: run the tests.",
+        );
+        let patch = diff_texts(BASE, &overlay).unwrap();
+        assert_eq!(unapply_patch(&overlay, &patch).unwrap(), BASE);
+    }
+
+    #[test]
+    fn a_non_conflicting_base_change_rebases_cleanly() {
+        // Agent added Step 3 at the end; the base later added a note at the top. Disjoint regions -> clean merge.
+        let overlay = BASE.replace(
+            "Step 2: write the file.",
+            "Step 2: write the file.\nStep 3: run the tests.",
+        );
+        let new_base = BASE.replace(
+            "# Demo\n",
+            "# Demo\n\nNote: always format before committing.\n",
+        );
+        let (merged, conflict) = merge_three(&new_base, BASE, &overlay).unwrap();
+        assert!(!conflict, "disjoint edits should not conflict:\n{merged}");
+        assert!(
+            merged.contains("Step 3: run the tests."),
+            "keeps the overlay's change"
+        );
+        assert!(
+            merged.contains("always format before committing"),
+            "keeps the base's change"
+        );
+    }
+
+    #[test]
+    fn an_overlapping_base_change_reports_a_conflict() {
+        // Both the base and the overlay rewrite the same line.
+        let overlay = BASE.replace(
+            "Step 2: write the file.",
+            "Step 2: write the file carefully.",
+        );
+        let new_base = BASE.replace(
+            "Step 2: write the file.",
+            "Step 2: write the file atomically.",
+        );
+        let (merged, conflict) = merge_three(&new_base, BASE, &overlay).unwrap();
+        assert!(conflict, "overlapping edits should conflict");
+        assert!(
+            merged.contains("<<<<<<<"),
+            "carries conflict markers:\n{merged}"
+        );
     }
 }
