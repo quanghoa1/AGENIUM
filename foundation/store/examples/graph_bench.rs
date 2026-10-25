@@ -1,12 +1,20 @@
 //! Graph-memory traversal benchmark (ADR-51 §13 item 1, M15-10) on the real Rust store.
 //!
-//! `cargo run --release -p agenium-store --example graph_bench -- [edges ...]` (default: 100000 1000000)
+//! `cargo run --release -p agenium-store --example graph_bench -- [edges ...] [--readers-secs N]`
+//! (default: 100000 1000000; concurrency window 10 s)
 //!
 //! Synthetic graph per size: entities = edges / 3, destinations drawn with a skewed (Zipf-like) distribution, 10% of
 //! edges scoped to vendor tp-link or netgear, context vendor=netgear; one extra hub with 2 000 incoming edges.
 //! For depth 1..3: 100 random seeds and 100 hub-biased seeds (the 1% highest in-degree), hub cap on (200) and off,
 //! no time budget (raw latency) plus the share of queries that would exceed the 25 ms budget. Warm cache.
+//!
+//! Then, per size, the cases ADR-51 §13 listed and the first run left out (depth 2, random seeds, hub cap 200, the
+//! production budget of 25 ms): the first 100 queries on a freshly opened store (SQLite's page cache empty; the OS
+//! cache is not dropped, which needs administrator rights), edge ingest through `add_edge` alone (one transaction
+//! per edge, as the memory pipeline writes), 4 readers alone, and 4 readers while 1 writer adds edges.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use agenium_store::graph::Expansion;
@@ -108,10 +116,101 @@ fn build(dir: &std::path::Path, edges: usize) -> (AgentStore, Vec<i64>, i64) {
     (s, hubs, n)
 }
 
+/// Depth-2 expansion from random seeds with the production settings; returns the latency in ms.
+fn query(s: &AgentStore, r: &mut Rng, n: i64, ctx: &serde_json::Value) -> f64 {
+    let seed = 1 + r.below(n as u64) as i64;
+    let t = Instant::now();
+    s.expand(&[seed], ctx, &Expansion::default()).unwrap();
+    t.elapsed().as_secs_f64() * 1000.0
+}
+
+fn summary(v: &mut [f64]) -> String {
+    if v.is_empty() {
+        return "-".into();
+    }
+    let max = v.iter().cloned().fold(0.0, f64::max);
+    format!(
+        "{:.2} / {:.2} / {max:.1}",
+        pct(&mut v.to_vec(), 0.5),
+        pct(&mut v.to_vec(), 0.95)
+    )
+}
+
+/// `readers` threads querying for `secs` while (optionally) one thread adds edges: reader latencies, edges/s.
+fn concurrent(
+    s: &Arc<AgentStore>,
+    n: i64,
+    readers: usize,
+    writer: bool,
+    secs: u64,
+) -> (Vec<f64>, f64) {
+    let stop = Arc::new(AtomicBool::new(false));
+    let written = Arc::new(AtomicU64::new(0));
+    let mut handles = Vec::new();
+    for k in 0..readers {
+        let (s, stop) = (s.clone(), stop.clone());
+        handles.push(std::thread::spawn(move || {
+            let mut r = Rng(0x5eed + k as u64);
+            let ctx = serde_json::json!({"vendor": "netgear"});
+            let mut lat = Vec::new();
+            while !stop.load(Ordering::Relaxed) {
+                lat.push(query(&s, &mut r, n, &ctx));
+            }
+            lat
+        }));
+    }
+    let w = writer.then(|| {
+        let (s, stop, written) = (s.clone(), stop.clone(), written.clone());
+        std::thread::spawn(move || {
+            let mut r = Rng(0xfeed);
+            while !stop.load(Ordering::Relaxed) {
+                let (a, b) = (1 + r.below(n as u64) as i64, 1 + r.below(n as u64) as i64);
+                if a != b
+                    && s.add_edge(
+                        a,
+                        b,
+                        "related_to",
+                        &serde_json::json!({}),
+                        0.8,
+                        None,
+                        "bench",
+                    )
+                    .is_ok()
+                {
+                    written.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        })
+    });
+    let t = Instant::now();
+    std::thread::sleep(Duration::from_secs(secs));
+    stop.store(true, Ordering::Relaxed);
+    let lat: Vec<f64> = handles
+        .into_iter()
+        .flat_map(|h| h.join().unwrap())
+        .collect();
+    if let Some(w) = w {
+        w.join().unwrap();
+    }
+    (
+        lat,
+        written.load(Ordering::Relaxed) as f64 / t.elapsed().as_secs_f64(),
+    )
+}
+
 fn main() {
-    let sizes: Vec<usize> = std::env::args()
-        .skip(1)
-        .filter_map(|a| a.parse().ok())
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let secs: u64 = args
+        .iter()
+        .position(|a| a == "--readers-secs")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(10);
+    let sizes: Vec<usize> = args
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i == 0 || args[i - 1] != "--readers-secs")
+        .filter_map(|(_, a)| a.parse().ok())
         .collect::<Vec<_>>();
     let sizes = if sizes.is_empty() {
         vec![100_000, 1_000_000]
@@ -120,6 +219,7 @@ fn main() {
     };
     println!("| edges | seeds | hub cap | depth | p50 ms | p95 ms | p99 ms | max ms | > 25 ms | avg nodes |");
     println!("|---|---|---|---|---|---|---|---|---|---|");
+    let mut later = Vec::new();
     for edges in sizes {
         let tmp = tempfile::tempdir().unwrap();
         let (s, hubs, n) = build(tmp.path(), edges);
@@ -175,5 +275,66 @@ fn main() {
                 res.reached.len()
             );
         }
+        later.push((edges, tmp, s, n));
+    }
+
+    println!();
+    println!("Depth 2, random seeds, hub cap 200, 25 ms budget (the production settings); {secs} s per concurrent case:");
+    println!("| edges | case | query p50 / p95 / max ms | queries | edges written/s |");
+    println!("|---|---|---|---|---|");
+    for (edges, tmp, s, n) in later {
+        // Freshly opened: SQLite's page cache is empty (the OS cache is not).
+        drop(s);
+        let s = Arc::new(
+            AgentStore::open(
+                &tmp.path().join("bench.db"),
+                4,
+                "m",
+                &tmp.path().join("backups"),
+            )
+            .unwrap(),
+        );
+        let ctx = serde_json::json!({"vendor": "netgear"});
+        let mut r = Rng(7);
+        let mut lat: Vec<f64> = (0..100).map(|_| query(&s, &mut r, n, &ctx)).collect();
+        println!(
+            "| {edges} | first 100 queries after open | {} | 100 | - |",
+            summary(&mut lat)
+        );
+        let t = Instant::now();
+        let mut written = 0;
+        while written < 2000 {
+            let (a, b) = (1 + r.below(n as u64) as i64, 1 + r.below(n as u64) as i64);
+            if a != b
+                && s.add_edge(
+                    a,
+                    b,
+                    "related_to",
+                    &serde_json::json!({}),
+                    0.8,
+                    None,
+                    "bench",
+                )
+                .is_ok()
+            {
+                written += 1;
+            }
+        }
+        println!(
+            "| {edges} | add_edge alone (one transaction each) | - | - | {:.0} |",
+            written as f64 / t.elapsed().as_secs_f64()
+        );
+        let (mut lat, _) = concurrent(&s, n, 4, false, secs);
+        let count = lat.len();
+        println!(
+            "| {edges} | 4 readers | {} | {count} | - |",
+            summary(&mut lat)
+        );
+        let (mut lat, rate) = concurrent(&s, n, 4, true, secs);
+        let count = lat.len();
+        println!(
+            "| {edges} | 4 readers + 1 writer | {} | {count} | {rate:.0} |",
+            summary(&mut lat)
+        );
     }
 }

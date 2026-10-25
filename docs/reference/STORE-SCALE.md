@@ -220,9 +220,9 @@ Without the hub cap the path-guarded walk enumerates paths: 1 M edges, hub-biase
 4.1 s; the 2 000-edge hub as seed costs 4.5 / 82 / 5 222 ms at depth 1 / 2 / 3. At 100 k edges with the cap on, hub-biased
 seeds (whose degree is still below 200) reach p95 29 ms at depth 3 (10 % over the 25 ms budget, which then interrupts the
 expansion). Consequences kept in the code: hub cap 200, depth <= 3 (retrieval uses 2 hops from query entities and 1 hop
-from entities of the best text hits), 25 ms `progress_handler` budget. Not run: cold cache, 4 readers + 1 writer, the
-set-based shape, ingest throughput under readers, entity-resolution precision on a labelled set, the >= 100-question
-multi-hop QA set and Linux/macOS runs. Golden scenarios GM-1..5/7 pass deterministically
+from entities of the best text hits), 25 ms `progress_handler` budget. Not run then: cold cache, 4 readers + 1 writer and
+ingest under readers (since run: §12), entity-resolution precision and the >= 100-question multi-hop QA set (since run:
+§11), the set-based shape, and Linux/macOS runs. Golden scenarios GM-1..5/7 pass deterministically
 (`crates/agenium-memory/tests/graph_memory.rs`, scope leak 0 on GM-2).
 
 ### 8.2 Earlier feasibility probe and plan
@@ -321,3 +321,26 @@ Latency answers "how fast"; `docs/memory-eval.md` answers "how right" on the pro
 2 152 labelled mentions (precision 1.000 by the rules, 0.996–0.998 with the model deciding the ambiguous band, recall
 0.92), multi-hop recall on 112 labelled questions (recall@8 0.99, MRR 0.92, zero scope leaks with bge), and memory reuse
 on a real model.
+
+## 12. Graph store under load: cold open, edge ingest, readers with a writer (2026-10-26)
+
+The cases §8.1 left out, measured with the same synthetic graph (`foundation/store/examples/graph_bench.rs`, now with
+these phases) at the production settings: depth 2, random seeds, hub cap 200, the 25 ms budget. Windows 11, 10 cores,
+release build. Raw: `bench-raw/windows-graph-bench-2026-10-26.txt`.
+
+| Edges | first 100 queries after reopen p50 / p95 / max | `add_edge` alone | 4 readers p50 / p95 / max (queries in 10 s) | 4 readers + 1 writer p50 / p95 / max (queries) | writer under readers |
+|---|---|---|---|---|---|
+| 100 k | 0.44 / 0.98 / 1.1 ms | 4 569 edges/s | 0.72 / 2.43 / 18.8 ms (41 095) | 1.17 / 4.48 / 42.4 ms (23 814) | 3 148 edges/s |
+| 1 M | 0.52 / 1.57 / 3.6 ms | 2 337 edges/s | 0.69 / 2.66 / 22.3 ms (40 019) | 1.82 / **8.51** / 54.6 ms (13 752) | 2 485 edges/s |
+
+- **ADR-51 target (depth 2 p95 <= 25 ms) holds under load**: 8.5 ms p95 at 1 M edges with 4 readers and a writer.
+- **Cold open costs little**: SQLite's page cache starts empty after a reopen, and the first 100 queries are within 2x
+  of warm. The OS file cache was not dropped, because that needs administrator rights, so a cold disk is not measured.
+- **Ingest**: one transaction per edge, as the memory pipeline writes, gives 2.3–4.6 k edges/s. An episode adds tens
+  of edges, so the write path is not a bottleneck. Under 4 readers the writer slows by 31 % at 100 k edges and not at
+  all at 1 M edges (2 485 vs 2 337 edges/s alone).
+- **A writer costs readers throughput, not latency**: queries per 10 s fall 42 % (100 k) and 66 % (1 M). p95 stays far
+  inside the target. The max (42–55 ms) is single outliers above the 25 ms budget, which cuts the expansion and leaves
+  the text channels to answer (`timed_out`).
+- The warm traversal table re-ran with §8.1's numbers (1 M edges, random seeds, cap on: depth 2 p95 0.46 ms, depth 3
+  p95 4.0 ms).
