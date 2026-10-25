@@ -27,7 +27,9 @@ import {
   Link2,
   ListChecks,
   Lock,
+  Maximize2,
   MessageSquareReply,
+  Minimize2,
   MonitorPlay,
   OctagonPause,
   Pause,
@@ -443,6 +445,8 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
   const lead = team?.lead ? data.agents.find((x) => x.agent.id === team.lead) : undefined;
   const [trace, setTrace] = useState<AgentTrace | null>(null);
   const [comm, setComm] = useState(true);
+  // Tool / skill / MCP list: folded, normal (a third of the panel next to the conversation) or expanded.
+  const [tools, setTools] = useState<"folded" | "normal" | "expanded">("normal");
   const live = !!a.run;
   useEffect(() => {
     setTrace(null);
@@ -538,31 +542,50 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
         </div>
       </div>
       {/* 1. tool / skill / MCP */}
-      <div className="flex min-h-0 flex-col border-b border-line px-4 py-2.5" style={{ maxHeight: comm ? "34%" : undefined, flex: comm ? undefined : 1 }}>
-        <div className="label mb-1.5 flex items-center gap-1.5">
-          <Wrench className="h-3 w-3" /> 1 · Tool / Skill / MCP
-          {trace?.run && (
-            <span className="ml-auto flex items-center gap-1.5 normal-case">
-              <OutcomeBadge outcome={trace.run.outcome} />
-              <Mono className="text-subtle">
-                {trace.run.steps} step · {tokens(trace.run.usage.tokens_in + trace.run.usage.tokens_out)} tok · {ago(trace.run.started_at)}
-              </Mono>
-            </span>
-          )}
+      <div
+        className="flex min-h-0 flex-col border-b border-line px-4 py-2.5"
+        style={tools === "folded" ? undefined : { maxHeight: comm ? (tools === "expanded" ? "72%" : "34%") : undefined, flex: comm && tools === "normal" ? undefined : 1 }}
+      >
+        <div className={cn("label flex items-center gap-1.5", tools !== "folded" && "mb-1.5")}>
+          <button className="flex items-center gap-1.5" onClick={() => setTools(tools === "folded" ? "normal" : "folded")}>
+            {tools === "folded" ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            <Wrench className="h-3 w-3" /> 1 · Tool / Skill / MCP
+          </button>
+          <span className="ml-auto flex items-center gap-1.5 normal-case">
+            {trace?.run && (
+              <>
+                <OutcomeBadge outcome={trace.run.outcome} />
+                <Mono className="text-subtle">
+                  {trace.run.steps} step · {tokens(trace.run.usage.tokens_in + trace.run.usage.tokens_out)} tok · {ago(trace.run.started_at)}
+                </Mono>
+              </>
+            )}
+            <button
+              className="rounded p-0.5 text-subtle hover:bg-elevated hover:text-fg"
+              title={app.t(tools === "expanded" ? "live.toolsShrink" : "live.toolsExpand")}
+              onClick={() => setTools(tools === "expanded" ? "normal" : "expanded")}
+            >
+              {tools === "expanded" ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+          </span>
         </div>
-        {stream?.phase === "tool" && act?.call && (
-          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1.5 text-[11px]">
-            <span className="h-2 w-2 animate-ping rounded-full bg-purple-500" />
-            <CallBadge kind={act.call.kind} />
-            <span className="truncate font-mono">{act.call.label}</span>
-          </div>
+        {tools !== "folded" && (
+          <>
+            {stream?.phase === "tool" && act?.call && (
+              <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1.5 text-[11px]">
+                <span className="h-2 w-2 animate-ping rounded-full bg-purple-500" />
+                <CallBadge kind={act.call.kind} />
+                <span className="truncate font-mono">{act.call.label}</span>
+              </div>
+            )}
+            <div className="min-h-0 space-y-1 overflow-y-auto">
+              {[...calls].reverse().map((e, i) => (
+                <CallRow key={e.n} e={e} open={i === 0 && !!trace?.live} />
+              ))}
+              {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
+            </div>
+          </>
         )}
-        <div className="min-h-0 space-y-1 overflow-y-auto">
-          {[...calls].reverse().map((e, i) => (
-            <CallRow key={e.n} e={e} open={i === 0 && !!trace?.live} />
-          ))}
-          {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
-        </div>
       </div>
       {/* 2. conversation, by role, like a CLI chat (thinking folded in) */}
       <div className={cn("flex min-h-0 flex-col", comm ? "flex-1" : "")}>

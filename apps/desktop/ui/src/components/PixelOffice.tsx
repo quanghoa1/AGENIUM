@@ -425,12 +425,19 @@ function sign(g: CanvasRenderingContext2D, cx: number, y: number, kind: CallKind
   g.fillText(label, x + tw + 5, y + 1.5);
 }
 
+/** Width of a `label` pill. */
+function labelWidth(g: CanvasRenderingContext2D, text: string) {
+  g.font = "bold 4px ui-sans-serif, system-ui";
+  return Math.ceil(g.measureText(labelText(text)).width) + 4;
+}
+
+// Long names keep both ends: "very-long…archer-1".
+const labelText = (text: string) => (text.length > 18 ? `${text.slice(0, 8)}…${text.slice(-9)}` : text);
+
 /** A small dark pill with text, centred on cx (names over heads, tickets on delegation lines). */
 function label(g: CanvasRenderingContext2D, cx: number, y: number, text: string, bg: string, fg: string) {
-  g.font = "bold 4px ui-sans-serif, system-ui";
-  // Long names keep both ends (teams name their agents "<team>-<role>-<n>"): "teamdemo…archer-1".
-  const t = text.length > 18 ? `${text.slice(0, 8)}…${text.slice(-9)}` : text;
-  const w = Math.ceil(g.measureText(t).width) + 4;
+  const t = labelText(text);
+  const w = labelWidth(g, text);
   const x = Math.round(cx - w / 2);
   R(g, x, y, w, 6, bg);
   g.fillStyle = fg;
@@ -871,12 +878,19 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
           sign(g, d.desk.tx * T + w / 2, d.desk.ty * T - 16, sgn.kind, sgn.text);
         }
       }
-      // names over the heads (after the signs, so they stay readable)
+      // names over the heads (after the signs, so they stay readable); a name that would cover another one (two
+      // agents side by side on the sofa) moves up a row
+      const placed: { x: number; y: number; w: number }[] = [];
       for (const oa of agents) {
         const id = oa.agent.agent.id;
         const w = walkers.current.get(id)!;
         const top = Math.round(w.y - 18) - (w.sitting === "desk" ? 3 : w.sitting === "sofa" ? 2 : 0);
-        label(g, Math.round(w.x), top - 7, oa.agent.agent.name, id === selected ? "#2563eb" : "#111827e6", "#ffffff");
+        const lw = labelWidth(g, oa.agent.agent.name);
+        const lx = Math.round(w.x - lw / 2);
+        let ly = top - 7;
+        while (placed.some((p) => lx < p.x + p.w + 1 && p.x < lx + lw + 1 && Math.abs(p.y - ly) < 7)) ly -= 7;
+        placed.push({ x: lx, y: ly, w: lw });
+        label(g, Math.round(w.x), ly, oa.agent.agent.name, id === selected ? "#2563eb" : "#111827e6", "#ffffff");
       }
       // envelopes between a Lead and a worker
       const now = performance.now();
