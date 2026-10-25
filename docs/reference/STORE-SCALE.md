@@ -238,3 +238,55 @@ set-based vs path-guarded, cold vs warm, 1 reader and 4 readers + 1 writer, p50/
 its effect on reader p95; (3) entity-resolution precision/recall per similarity band (auto-merge precision ≥ 0.98); (4) multi-hop QA golden set (≥ 100 questions:
 single-hop / 2-hop / scope-trap): recall@8 and MRR for vec+bm25 vs +graph, scope-leak = 0; (5) stretch: parity vs SurrealDB `->edge->` on the same graph;
 (6) consolidation and adjacency-cache build time/RAM. Acceptance criteria and golden tasks: ADR-51 §13.
+
+## 9. Rewritten store, re-measured 2026-10-25 (Windows 11, 10 cores)
+
+Sections 2–7 were measured on the trial implementation (`crates/agenium-store-bench`), which the rewrite did not carry
+over. `cargo run --release -p agenium-memory --example memory_bench -- 10000 100000 1000000` measures the rewritten
+store through the production API: `AgentStore::{add, knn, keyword, hybrid}` and the full `retrieve::recall` path (vector +
+BM25 + graph + scope filter + re-rank), 200 queries of 3–6 words, a 50-trial needle test, reopen, and 4 readers running
+hybrid while 1 writer adds facts for 10 s. Data is a synthetic stand-in (10–20-word sentences from a 6 000-word Zipf
+vocabulary, 384-d hashing-embedder vectors); exact-KNN latency does not depend on the vector distribution. Ingest is one
+transaction per `add`, as the memory pipeline writes. No warm-up pass: the first queries after ingest are measured.
+
+**First run, as found** (milliseconds unless noted):
+
+| Facts | Ingest/s | KNN p50/p95 | BM25 p50/p95 | hybrid p50/p95 | recall p50/p95 | needle | 4R+1W reader p95 |
+|---|---|---|---|---|---|---|---|
+| 10 k | 1 990 | 4.2 / 7.4 | 4.6 / 8.0 | 9.1 / 13.1 | 10.4 / 15.2 | 50/50 | 142 |
+| 100 k | 2 264 | 45 / 68 | 46 / 90 | 90 / 156 | 93 / 164 | 50/50 | 1 028 |
+| 1 M | 1 915 | 727 / 859 | 534 / 756 | 1 247 / 1 538 | 1 287 / 1 579 | 50/50 | **49 143** |
+
+Three causes, measured:
+
+1. **No WAL gate on agent databases.** `Db::maintain` (passive checkpoint + exclusive TRUNCATE past 64 MB, §4 fix 3) ran
+   only on `core.db`, and nothing called the maintenance tick outside tests — so not even `core.db`, scheduled backups or
+   run-log compaction ran in the app. Under writes with busy readers the WAL grew without bound. Fix: `Db::write` checks
+   the WAL every 32 writes and runs a bounded WAL gate past the limit (gives up if reads do not drain within 2 s, so a
+   caller holding a read cannot deadlock; the pool lock is released before the writer is taken); the maintenance tick
+   also covers every open agent database and the desktop runs it every minute. Test: without the gate the WAL peaks at
+   16× the limit under busy readers.
+2. **Stopwords in fact search.** The FTS query ORed every token, so BM25 touched most of the index. `fts_search_query`
+   drops English stopwords (near-zero IDF, so ranking barely changes); entity-name search keeps the full query.
+3. **Reopen ≈ 1.1 s was a measurement artifact**: it followed the concurrency phase and included WAL recovery. It is now
+   measured before that phase.
+
+**After the fixes:**
+
+| Facts | Ingest/s | KNN p50/p95 | BM25 p50/p95 | hybrid p50/p95 | recall p50/p95 | needle | reopen | 4R+1W reader p95, writer/s |
+|---|---|---|---|---|---|---|---|---|
+| 10 k | 4 656 | 3.7 / 4.0 | **0.5 / 1.3** | **4.4 / 5.2** | **5.5 / 6.3** | 50/50 | 18 | **104**, 3 242 |
+| 100 k | 4 188 | 35 / 37 | **3.6 / 12.2** | **38 / 46** | **41 / 50** | 50/50 | 9 | **454**, 2 844 |
+| 1 M | 3 189 | 1 244 / 1 892 | **127 / 394** | 1 302 / 1 834 | 1 346 / 2 282 | 50/50 | 9 | **4 619**, 854 |
+
+Reading it:
+- At 10 k and 100 k every query got 2–13× faster; BM25 at 100 k (3.6 ms) is now below the trial's 7.5 ms.
+- Above 100 k the cost is **exact KNN**: the ANN index that ADR-50 switches on at 100 k facts (`[memory] ann_threshold`)
+  is **not wired in the rewrite**, so search is linear (~35 ms at 100 k, 0.7–1.2 s at 1 M). The 1 M KNN figure moved
+  from 727 to 1 244 ms p50 between runs although `knn()` did not change: without a warm-up, the first run read freshly
+  written, cache-hot WAL pages, while with the gate those pages are in the main file — treat it as cache-dependent, not
+  a regression. Wiring the ANN sidecar is the remaining work.
+- 4 readers + 1 writer is far beyond real use (an agent reads at run start and writes a few facts when a ticket closes;
+  the shared pool sees reads from many agents and rare writes). The store opens 2 reader connections per agent database,
+  so 4 readers queue; at 1 M each query is dominated by the 1.2 s exact KNN.
+- Not run on the rewrite yet: macOS, Linux, a warm-cache pass, the graph concurrency/cold cases (§8.1 lists them).
