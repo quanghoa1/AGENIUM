@@ -460,7 +460,10 @@ mod tests {
 gemini-4-argon-medium	Gemini 4 Argon (Medium)
 gemini-3.8-flash-low	Gemini 3.8 Flash (Low)
 ";
-        assert_eq!(parse_models(out), ["gemini-4-argon-medium", "gemini-3.8-flash-low"]);
+        assert_eq!(
+            parse_models(out),
+            ["gemini-4-argon-medium", "gemini-3.8-flash-low"]
+        );
     }
 
     #[test]

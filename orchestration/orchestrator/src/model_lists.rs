@@ -41,7 +41,9 @@ pub async fn cli_models(app: &App, clis: &[CliInfo]) -> BTreeMap<String, Vec<Str
         let models = match c.kind {
             CliKind::Codex => agenium_cli_backend::codex::models(program, &scratch).await,
             CliKind::Agy => agenium_cli_backend::agy::models(program).await,
-            CliKind::Claude => Ok(agenium_cli_backend::claude::MODELS.map(str::to_owned).to_vec()),
+            CliKind::Claude => Ok(agenium_cli_backend::claude::MODELS
+                .map(str::to_owned)
+                .to_vec()),
             CliKind::Opencode => Ok(app.opencode_free_models()),
             CliKind::Devin => continue,
         };

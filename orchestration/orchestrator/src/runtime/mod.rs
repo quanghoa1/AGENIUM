@@ -677,7 +677,10 @@ impl Runtime {
             // Subscription plans: tokens are recorded, no per-token price is known.
             return Ok((report, 0.0));
         }
-        if !self.app.api_serves(&agent.model.provider, &agent.model.model) {
+        if !self
+            .app
+            .api_serves(&agent.model.provider, &agent.model.model)
+        {
             return Err(OrchError::Invalid(format!(
                 "{} is one of OpenCode's free models, which answer only to OpenCode itself: give {} the opencode CLI backend with this model, or pick a paid model of {} (ADR-68)",
                 agent.model.model, agent.name, agent.model.provider
