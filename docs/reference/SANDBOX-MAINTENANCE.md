@@ -24,7 +24,7 @@ security/sandbox/src/
   lib.rs                       detect() (fail-closed), SandboxPolicy, Executor, clean environment, process-tree kill
 ```
 
-Third-party library (not vendored): `mxc-sdk` (Microsoft, MIT) from crates.io, pinned `=1.0.0`.
+Third-party library (not vendored): `mxc-sdk` (Microsoft, MIT) from crates.io, pinned `=1.0.1` (1.0.0 until 2026-10-26; 1.0.1 resolves DNS through a host loopback stub resolver).
 
 Rules:
 

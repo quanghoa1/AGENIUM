@@ -19,13 +19,13 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 # Bubblewrap (Linux) and Seatbelt (macOS) through the same SDK as the Windows backend (MIT).
-mxc-sdk = "=1.0.0"
+mxc-sdk = "=1.0.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
 # Microsoft MXC process containers (MIT). Its build script needs an rc.exe; on the GNU toolchain
 # `.cargo/config.toml` points RC_PATH at devtools/scripts/rc-windres.cmd.
-mxc-sdk = "=1.0.0"
+mxc-sdk = "=1.0.1"
 flatbuffers = "25"
 # 1.2.4 imports OneCore_apiset, which the GNU Windows toolchain does not ship (same pin as Codex).
 tracelogging = "=1.2.3"

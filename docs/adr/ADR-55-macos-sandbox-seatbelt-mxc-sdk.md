@@ -56,4 +56,6 @@ Open:
   `/var/run/docker.sock` is therefore reachable from a sandboxed command when the network is on. Listing directories
   outside the read roots is still denied, so sockets at random paths (the ssh-agent's) are hard to find. The SDK has no
   rule for scoping unix sockets. A `profile_override` replaces the whole profile, and the request-to-profile conversion is
-  crate-private. To raise upstream with mxc-sdk, together with DNS in the Linux private network (ADR-95).
+  crate-private. Upstream: issue microsoft/mxc#1277 is open; the PR adding `deniedUnixSocketPaths` (#1278) was closed
+  unmerged on 2026-10-24. Tracked by `devtools/scripts/upstream-watch.sh`. mxc-sdk 1.0.1 (adopted 2026-10-26) does not
+  change this; its Seatbelt changes are metadata of denied paths and the launch method (the third Mac run checks it).

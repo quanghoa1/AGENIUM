@@ -133,10 +133,7 @@ pub fn network_report() -> String {
             Err(why) => {
                 format!("commands run WITHOUT network, and CLI agents cannot run sandboxed: {why}")
             }
-            Ok(()) => match unix::private_dns_problem() {
-                Some(d) => format!("private network, but {d}"),
-                None => "private network (outbound only; no inbound, no host loopback)".into(),
-            },
+            Ok(()) => "private network (outbound only; no inbound, no host loopback)".into(),
         }
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]

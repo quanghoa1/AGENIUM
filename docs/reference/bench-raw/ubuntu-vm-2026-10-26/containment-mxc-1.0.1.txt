@@ -1,0 +1,48 @@
+Containment on the shipping bubblewrap backend with mxc-sdk 1.0.1 (2026-10-26, same Ubuntu 25.10 VM): sysctl
+kernel.apparmor_restrict_unprivileged_userns=0 for the run (restored to 1 afterwards); /etc/resolv.conf left as installed
+(-> stub-resolv.conf, nameserver 127.0.0.53). The 'names do not resolve' line was printed by the pre-fix code that
+this run removed; net.dns inside the sandbox resolved.
+
+platform: linux | backend: Some(Bubblewrap) | shell: bash (/usr/bin/bash)
+network = true gives: private network, but names do not resolve inside the sandbox: /etc/resolv.conf names only 127.0.0.53 (the host's local resolver, e.g. systemd-resolved); fix: sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+[sandbox, network off] done in 9.1 s
+[sandbox, network on] done in 9.3 s
+[sandbox, network on] net.dns: allowed (network on) — inside: ('104.20.23.154', 443)
+[sandbox, network on] net.tcp_internet: allowed (network on) — inside: connected
+
+| test | sandbox, network off | sandbox, network on |
+|---|---|---|
+| daemon.outlives_a_timeout | blocked | blocked |
+| daemon.outlives_the_run | blocked | blocked |
+| env.canary | blocked | blocked |
+| meta.chmod_outside | blocked | blocked |
+| meta.utime_outside | blocked | blocked |
+| net.dns | blocked | allowed (network on) |
+| net.tcp_host_listener | blocked | blocked |
+| net.tcp_internet | blocked | allowed (network on) |
+| net.unix_host_socket | blocked | blocked |
+| ok.dev_null | ok | ok |
+| ok.git_status | ok | ok |
+| ok.mkdir_and_rename | ok | ok |
+| ok.read_own_interpreter | ok | ok |
+| ok.subprocess | ok | ok |
+| ok.tmpdir | ok | ok |
+| ok.write_in_worktree | ok | ok |
+| read.etc_shadow | blocked | blocked |
+| read.host_process_environ | blocked | blocked |
+| read.real_home_listing | blocked (sees only the toolchain mounts ['.cargo', '.rustup']) | blocked (sees only the toolchain mounts ['.cargo', '.rustup']) |
+| read.real_ssh_dir | blocked | blocked |
+| read.secret_outside | blocked | blocked |
+| write.delete_outside | blocked | blocked |
+| write.dotdot | blocked | blocked |
+| write.home | blocked | blocked |
+| write.main_git_config | blocked | blocked |
+| write.main_git_hook | blocked | blocked |
+| write.outside_dir | blocked | blocked |
+| write.rename_out | blocked | blocked |
+| write.tmp | blocked | blocked |
+| write.truncate_outside | blocked | blocked |
+| write.via_hardlink | blocked | blocked |
+| write.via_symlink | blocked | blocked |
+
+sandboxed modes: 0 escape(s) or broken must-work item(s)

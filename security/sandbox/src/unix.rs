@@ -72,28 +72,6 @@ pub fn private_network() -> Result<(), String> {
     }
 }
 
-/// A host whose `/etc/resolv.conf` names only its own loopback stub (systemd-resolved's 127.0.0.53) resolves no
-/// names inside the sandbox's private network, where that address is the sandbox's own loopback.
-pub fn private_dns_problem() -> Option<String> {
-    if !cfg!(target_os = "linux") {
-        return None;
-    }
-    let conf = std::fs::read_to_string("/etc/resolv.conf").ok()?;
-    let servers: Vec<&str> = conf
-        .lines()
-        .filter_map(|l| l.trim().strip_prefix("nameserver"))
-        .map(str::trim)
-        .collect();
-    let local = |s: &&str| s.starts_with("127.") || *s == "::1";
-    (!servers.is_empty() && servers.iter().all(local)).then(|| {
-        format!(
-            "names do not resolve inside the sandbox: /etc/resolv.conf names only {} (the host's local resolver, \
-             e.g. systemd-resolved); fix: sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf",
-            servers.join(", ")
-        )
-    })
-}
-
 /// The policy a command actually runs with, and the line that tells the agent what changed: with the network on but
 /// no private network possible, the command runs without network rather than not at all (never with more access
 /// than asked for; the owner's decision of 2026-10-26).
@@ -110,7 +88,9 @@ fn effective(policy: &SandboxPolicy) -> (SandboxPolicy, Option<String>) {
                 Some(format!("[agenium] this command ran without network: {why}")),
             )
         }
-        Ok(()) => (p, private_dns_problem().map(|d| format!("[agenium] {d}"))),
+        // mxc-sdk 1.0.1 forwards DNS to a host loopback stub resolver (systemd-resolved's 127.0.0.53), so names
+        // resolve inside the private network without touching /etc/resolv.conf (Ubuntu 25.10 VM, 2026-10-26).
+        Ok(()) => (p, None),
     }
 }
 

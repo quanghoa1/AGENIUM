@@ -30,13 +30,14 @@ networked sandbox its own network namespace reached through slirp4netns. On the 
   access than asked for, and never with the host's network.
 - **A CLI agent is refused, not degraded**: it cannot work without network, so starting one in that state fails with
   the reason and the fix.
-- **DNS caveat**: when the private network works but resolv.conf names only a loopback stub, commands are told that
-  names will not resolve, with the fix (`sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf`).
-- **Told everywhere**: `agenium doctor` prints a `sandbox network:` line (private network / private but no DNS /
-  without network and why); the work order tells the agent "no network on this machine: <why>" instead of "network on".
+- **DNS caveat** (superseded 2026-10-26 by mxc-sdk 1.0.1, which forwards DNS to a host loopback stub resolver): when
+  the private network worked but resolv.conf named only a loopback stub, commands were told that names would not
+  resolve, with a fix. With 1.0.1 names resolve unchanged (VM, stub `127.0.0.53`: `net.dns` allowed, 0 escapes;
+  `docs/reference/bench-raw/ubuntu-vm-2026-10-26/containment-mxc-1.0.1.txt`), and the caveat is gone.
+- **Told everywhere**: `agenium doctor` prints a `sandbox network:` line (private network / without network and why); the work order tells the agent "no network on this machine: <why>" instead of "network on".
 - **To enable** on Ubuntu 24.04+: install slirp4netns, allow unprivileged user namespaces (sysctl
   `kernel.apparmor_restrict_unprivileged_userns=0`, or an AppArmor profile for Agenium — to ship with the Linux
-  installer), and point resolv.conf at the real resolver list. Verified on the VM: DNS and TCP out work, host loopback
+  installer). Verified on the VM: DNS and TCP out work, host loopback
   and unix sockets stay blocked, 0 escapes.
 
 ## Containment, measured on the shipping backend
@@ -55,10 +56,9 @@ must-work items pass. Raw: `docs/reference/bench-raw/ubuntu-vm-2026-10-26/`. mac
 
 ## Consequences
 
-- `security/sandbox/src/unix.rs`: ingress/host loopback always deny; `private_network`, `private_dns_problem`,
+- `security/sandbox/src/unix.rs`: ingress/host loopback always deny; `private_network`,
   `effective` (fallback + note); `service.rs` refuses a networked contained service without a private network;
   `lib.rs`: `network_available`, `network_report`, test `a_command_with_the_network_on_starts`.
 - `apps/cli` doctor line; `orchestration/orchestrator/src/runtime/mod.rs` work-order network note.
 - Full suite on the VM: 296 passed, 0 failed (2 local-model tests ignored).
-- Not done: shipping an AppArmor profile with a Linux installer; a DNS fix inside the sandbox that needs no host change
-  (mxc-sdk cannot remap `/etc/resolv.conf`; worth raising upstream).
+- Not done: shipping an AppArmor profile with a Linux installer; DNS inside the sandbox needs no host change since mxc-sdk 1.0.1.
