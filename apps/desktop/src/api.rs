@@ -8,7 +8,7 @@ use agenium_core::*;
 use agenium_orchestrator::app::{CreateAgent, CreateProject};
 use agenium_orchestrator::runtime::Approval;
 use agenium_orchestrator::CallCtx;
-use agenium_store::core::{comments, events, runs, workspaces};
+use agenium_store::core::{comments, events, runs, tickets, workspaces};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
@@ -265,9 +265,30 @@ pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
                           "body": c.body, "resolved": c.resolved, "created_at": c.created_at })
         })
         .collect();
+    // Links to other tickets (related, aggregates...), each with the other ticket's key and title and its direction.
+    let others: HashMap<_, _> = o
+        .app
+        .tickets(p)
+        .map_err(err)?
+        .into_iter()
+        .map(|x| (x.id, (x.key, x.title)))
+        .collect();
+    let links: Vec<Value> = o
+        .app
+        .store()
+        .read(|c| tickets::links_of(c, t.id))
+        .map_err(err)?
+        .into_iter()
+        .filter_map(|l| {
+            let out = l.src == t.id;
+            let (key, title) = others.get(if out { &l.dst } else { &l.src })?;
+            Some(json!({ "kind": l.kind, "out": out, "key": key, "title": title,
+                         "proposed_by": l.proposed_by, "confirmed": l.confirmed_by.is_some(), "note": l.note }))
+        })
+        .collect();
     Ok(json!({
         "ticket": t, "assignee_name": t.assignee.and_then(|a| names.get(&a).cloned()),
-        "comments": comments, "runs": rs, "workspace": ws,
+        "comments": comments, "runs": rs, "workspace": ws, "links": links,
         "audit": o.app.audit(p, Some(&k)).map_err(err)?,
     }))
 }

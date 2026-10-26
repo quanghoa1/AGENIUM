@@ -1,8 +1,9 @@
 // UI smoke test of the running desktop app (debug build, WebView2 DevTools port), on a fresh root:
 // setup -> project -> team -> every view renders without console errors -> provider form (preset, placeholder refusal,
-// save, delete through the confirm dialog). Run by devtools/scripts/ui-smoke.ps1; no model is called.
+// save, delete through the confirm dialog) -> agent export and import. Run by devtools/scripts/ui-smoke.ps1; no model is called.
 // Usage: node smoke.mjs <screenshot-dir> [devtools-port]
 import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const out = process.argv[2] ?? "ui-smoke";
 const port = process.argv[3] ?? "9222";
@@ -153,6 +154,29 @@ await shot("providers-confirm");
 await js(`[...document.querySelectorAll('.card')].find(c => c.querySelector('.btn-danger') && c.innerText.includes('Cancel'))?.querySelector('.btn-danger')?.click()`);
 const gone = await until("![...document.querySelectorAll('main td')].some(td => td.textContent.trim() === 'ollama')", 10000);
 check("a provider is deleted through the confirm dialog", opened && dialog && gone);
+
+// 6. Agent export and import: the team's Lead, exported, joins a new project as its Solo agent through the dialog.
+const all = JSON.parse((await invoke("agents")) || "[]");
+const lead = Array.isArray(all) ? all.find((a) => a.is_lead) : null;
+const exported = lead ? JSON.parse((await invoke("export_agent", { agent: lead.agent.id, out: resolve(out) })) || "null") : null;
+await invoke("create_project", { name: "import target" });
+await js("location.reload()");
+await until("!!document.querySelector('main')", 30000);
+await js(`window.location.hash = '/agents'`);
+await until("[...document.querySelectorAll('main button')].some(b => b.textContent.trim() === 'Import agent')");
+await clickText("Import agent", "document.querySelector('main')");
+const dlg = "[...document.querySelectorAll('.card')].find(c => /export file/i.test(c.innerText))";
+await until(`!!${dlg}`, 5000);
+const setInput = (n, v) =>
+  js(`(() => { const el = ${dlg}?.querySelectorAll('input')[${n}]; if (!el) return false;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(v)});
+    el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+await setInput(0, exported ?? "");
+await setInput(1, "lead-copy");
+await js(`[...(${dlg}?.querySelectorAll('button') ?? [])].find(b => b.textContent.trim() === 'Import agent')?.click()`);
+const imported = await until("location.hash.startsWith('#/agent/') && document.querySelector('main').innerText.includes('lead-copy')", 20000);
+await shot("agent-imported");
+check("an exported agent is imported through the dialog", !!exported && imported, String(exported));
 
 check("no console errors overall", errors.length === 0, errors.slice(0, 5).join(" | ").slice(0, 400));
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILED`);

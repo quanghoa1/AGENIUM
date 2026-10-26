@@ -11,6 +11,13 @@ import type { AgentEntry, CommentRow, TicketDetail } from "../lib/types";
 
 type Tab = "timeline" | "changes" | "runs" | "audit";
 
+/** A link's kind read from this ticket's side (`aggregates` seen from the part is "part of"). */
+function linkLabel(kind: string, out: boolean): string {
+  if (kind === "aggregates") return out ? "aggregates" : "part of";
+  if (kind === "blocks") return out ? "blocks" : "blocked by";
+  return kind.replace(/_/g, " ");
+}
+
 export function TicketView({ id }: { id: string }) {
   const app = useApp();
   const [d, setD] = useState<TicketDetail | null>(null);
@@ -74,6 +81,22 @@ export function TicketView({ id }: { id: string }) {
               {t.depends_on.map((k) => (
                 <button key={k} className="mr-1 font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.go("ticket", k)}>
                   {k}
+                </button>
+              ))}
+            </span>
+          )}
+          {(d.links ?? []).length > 0 && (
+            <span>
+              {app.t("ticket.links")}:{" "}
+              {d.links!.map((l) => (
+                <button
+                  key={`${l.kind}-${l.key}`}
+                  className={cn("mr-2 hover:underline", !l.confirmed && "opacity-60")}
+                  title={`${l.title}${l.note ? ` — ${l.note}` : ""} (${l.proposed_by}${l.confirmed ? "" : `, ${app.t("ticket.linkUnconfirmed")}`})`}
+                  onClick={() => app.go("ticket", l.key)}
+                >
+                  {linkLabel(l.kind, l.out)} <span className="font-mono text-cyan-600 dark:text-cyan-400">{l.key}</span>
+                  {!l.confirmed && "?"}
                 </button>
               ))}
             </span>

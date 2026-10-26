@@ -1,10 +1,10 @@
-import { AlertTriangle, ArrowLeft, Crown, Download, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
 import { isFree, priceLabel, priceOf, usePrices } from "../lib/prices";
-import { useApp } from "../lib/store";
+import { inTauri, useApp } from "../lib/store";
 import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, Capabilities, LeadSuggestion, LibrarySkill, McpServerRow, ModelInfo, RoleInfo, TeamTemplate, TeamsData } from "../lib/types";
 
 /** Provider (API) or CLI program, model and effort. The model list comes from the provider when it can list them. */
@@ -527,11 +527,85 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
   );
 }
 
+/** Imports an agent exported elsewhere (`.agenium.jsonl`: memory, skills, enablement; no secrets) as a project's
+ *  Solo agent. The file is named by its path or dropped on the window. */
+function AgentImport({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const app = useApp();
+  const free = app.projects.filter((p) => !p.team);
+  const [file, setFile] = useState("");
+  const [project, setProject] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) setProject((cur) => (free.some((p) => p.id === cur) ? cur : (free[0]?.id ?? "")));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, app.projects]);
+  // A file dropped on the window while the dialog is open (the listener lands asynchronously; one that lands after
+  // the dialog closed is removed at once).
+  useEffect(() => {
+    if (!open || !inTauri) return;
+    let un: (() => void) | undefined;
+    let gone = false;
+    import("@tauri-apps/api/webview").then(({ getCurrentWebview }) =>
+      getCurrentWebview()
+        .onDragDropEvent((e) => {
+          if (e.payload.type === "drop" && e.payload.paths[0]) setFile(e.payload.paths[0]);
+        })
+        .then((f) => (gone ? f() : (un = f))),
+    );
+    return () => {
+      gone = true;
+      un?.();
+    };
+  }, [open]);
+  const run = () => {
+    setBusy(true);
+    api
+      .importAgent(file.trim(), project, name.trim() || undefined)
+      .then((a) => (app.notify(`${app.t("agents.imported")} ${a.name}`), setFile(""), setName(""), onClose(), app.refresh(), app.go("agent", a.id)))
+      .catch((e) => app.notify(String(e)))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <Modal open={open} title={app.t("agents.import")} onClose={onClose}>
+      <p className="text-[11px] text-subtle">{app.t("agents.importNote")}</p>
+      <label className="mt-3 block text-xs">
+        <span className="label">{app.t("agents.importFile")}</span>
+        <input className="input mt-1 font-mono" value={file} placeholder="…\name.agenium.jsonl" onChange={(e) => setFile(e.target.value)} />
+      </label>
+      <label className="mt-3 block text-xs">
+        <span className="label">{app.t("nav.projects")}</span>
+        <select className="input mt-1" value={project} onChange={(e) => setProject(e.target.value)}>
+          {free.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.key_prefix} — {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {free.length === 0 && <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{app.t("agents.importNoProject")}</div>}
+      <label className="mt-3 block text-xs">
+        <span className="label">{app.t("agents.importName")}</span>
+        <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <div className="mt-4 flex justify-end gap-2">
+        <button className="btn" onClick={onClose}>
+          {app.t("common.cancel")}
+        </button>
+        <button className="btn-primary" disabled={busy || !file.trim() || !project} onClick={run}>
+          <FileUp className="h-3.5 w-3.5" /> {app.t("agents.import")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export function AgentsView() {
   const app = useApp();
   const [rows, setRows] = useState<AgentEntry[]>([]);
   const [edit, setEdit] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [filter, setFilter] = useState<"all" | "team" | "pool">("all");
   useEffect(() => {
     api.agents().then((r) => setRows(r ?? []));
@@ -550,6 +624,9 @@ export function AgentsView() {
             { value: "pool", label: app.t("agents.pool") },
           ]}
         />
+        <button className="btn" onClick={() => setImporting(true)}>
+          <FileUp className="h-3.5 w-3.5" /> {app.t("agents.import")}
+        </button>
         <button className="btn-primary" onClick={() => setCreating(true)}>
           <UserPlus className="h-3.5 w-3.5" /> {app.t("agents.create")}
         </button>
@@ -619,6 +696,7 @@ export function AgentsView() {
         </Empty>
       )}
       <AgentCreate open={creating} onClose={() => setCreating(false)} />
+      <AgentImport open={importing} onClose={() => setImporting(false)} />
     </div>
   );
 }
