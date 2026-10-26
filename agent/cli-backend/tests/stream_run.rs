@@ -144,6 +144,7 @@ async fn run_steered(
         chat,
         nudge: None,
         subagents: false,
+        read_only: false,
         on_limits: None,
         steer,
     };

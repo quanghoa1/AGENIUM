@@ -35,6 +35,9 @@ pub struct CheckCtx<'a> {
     pub mcp_name: &'a str,
     /// See [`Setup::subagents`].
     pub subagents: bool,
+    /// The run only reads (chat, review, inbox, plan): no file in the worktree may be written. A Lead's chat runs in
+    /// the project's main checkout, which only the merge queue changes.
+    pub read_only: bool,
 }
 
 /// Env names under which a hooked CLI's permission hook finds Agenium's endpoint and its per-run token.
@@ -78,6 +81,9 @@ pub(crate) fn file_access(
         ));
     }
     if inside(p, cx.worktree, cx.worktree) {
+        if write && cx.read_only {
+            return Err(read_only_refusal(p));
+        }
         return match write.then(|| git_refusal(p, cx.worktree)).flatten() {
             Some(r) => Err(r),
             None => Ok(()),
@@ -87,6 +93,14 @@ pub(crate) fn file_access(
         return Ok(());
     }
     Err(format!("{} is outside the ticket worktree", p.display()))
+}
+
+/// Why a write is refused in a run that only reads.
+pub(crate) fn read_only_refusal(p: &Path) -> String {
+    format!(
+        "{} cannot be changed in this run: it only reads (chat, review, inbox and plan runs); changes go through tickets",
+        p.display()
+    )
 }
 
 /// Why a write to `p` inside the worktree is refused, if it is: the API tools' rule (`agenium_tools::paths`).

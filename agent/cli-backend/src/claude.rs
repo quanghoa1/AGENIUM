@@ -502,12 +502,14 @@ mod tests {
             home: home.path(),
             mcp_name: "agenium",
             subagents: false,
+            read_only: false,
         };
         // Allowlist: subagents only for Solo; scheduling, notifications, plugins, worktrees... never.
         let task = json!({"tool_name": "Task", "tool_input": {"prompt": "x"}});
         assert_eq!(Claude.check(&task, &cx), Check::Deny(NO_SUBAGENTS.into()));
         let solo = CheckCtx {
             subagents: true,
+            read_only: false,
             ..cx
         };
         assert_eq!(Claude.check(&task, &solo), Check::Allow);
@@ -581,6 +583,7 @@ mod tests {
             home: home.path(),
             mcp_name: "agenium",
             subagents: false,
+            read_only: false,
         };
         let call = |name: &str, key: &str, p: &Path| {
             Claude.check(&json!({"tool_name": name, "tool_input": {key: p}}), &cx)
@@ -609,6 +612,32 @@ mod tests {
         ] {
             assert_eq!(call(name, key, &p), Check::Allow, "{name} {}", p.display());
         }
+        // A run that only reads (a Lead's chat in the main checkout, a review, an inbox or plan run): its Write and
+        // Edit tools change no file of the worktree; reading it, and its scratch home, stay open.
+        let reads = CheckCtx {
+            read_only: true,
+            ..cx
+        };
+        let call_ro = |name: &str, p: &Path| {
+            Claude.check(
+                &json!({"tool_name": name, "tool_input": {"file_path": p}}),
+                &reads,
+            )
+        };
+        for name in ["Write", "Edit"] {
+            assert!(
+                matches!(call_ro(name, &wt.path().join("src/main.rs")), Check::Deny(r) if r.contains("only reads")),
+                "{name}"
+            );
+        }
+        assert_eq!(
+            call_ro("Read", &wt.path().join("src/main.rs")),
+            Check::Allow
+        );
+        assert_eq!(
+            call_ro("Write", &h.join("projects").join("notes.md")),
+            Check::Allow
+        );
     }
 
     fn files_below(dir: &Path) -> Vec<PathBuf> {

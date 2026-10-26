@@ -98,6 +98,8 @@ pub struct CliRun<'a> {
     pub nudge: Option<String>,
     /// Solo agents may start the CLI's own subagents; team members never do.
     pub subagents: bool,
+    /// Only a work run writes files; chat, review, inbox and plan runs read ([`CheckCtx::read_only`]).
+    pub read_only: bool,
     /// Receives the vendor's subscription usage when the CLI reports it.
     pub on_limits: Option<Arc<dyn Fn(agenium_llm::vendor_usage::VendorUsage) + Send + Sync>>,
     /// The user's messages to this running Lead (ADR-104/110): handed over with the next result of an Agenium tool,
@@ -439,6 +441,7 @@ impl CliRun<'_> {
             home,
             mcp_name: MCP_SERVER,
             subagents: self.subagents,
+            read_only: self.read_only,
         };
         let turns = self.driver.turns();
         let mut first = render(order, &self.protocol_names(), self.driver.control());

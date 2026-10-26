@@ -495,9 +495,11 @@ mod tests {
             home: home.path(),
             mcp_name: "agenium",
             subagents: false,
+            read_only: false,
         };
         let solo = CheckCtx {
             subagents: true,
+            read_only: false,
             ..cx
         };
         // Team members never start agy's subagents; Solo agents may. agy's own scheduling, messaging and
@@ -583,6 +585,7 @@ mod tests {
             home: home.path(),
             mcp_name: "agenium",
             subagents: false,
+            read_only: false,
         };
         let call = |name: &str, p: std::path::PathBuf| {
             Agy.check(

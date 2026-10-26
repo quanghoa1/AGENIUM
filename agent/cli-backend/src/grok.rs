@@ -390,6 +390,7 @@ mod tests {
             home: home.path(),
             mcp_name: "agenium",
             subagents: false,
+            read_only: false,
         };
         let call = |name: &str, input: Value| json!({"hookEventName": "pre_tool_use", "toolName": name, "toolInput": input});
         assert_eq!(
@@ -522,6 +523,7 @@ mod tests {
             home: home.path(),
             mcp_name: "agenium",
             subagents: false,
+            read_only: false,
         };
         let call = |name: &str, p: PathBuf| {
             Grok.check(

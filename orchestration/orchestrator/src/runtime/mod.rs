@@ -1189,6 +1189,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             nudge: nudge_for(kind),
             // Only Solo agents may start the CLI's own subagents (the owner's rule; a team delegates by tickets).
             subagents: protocol.solo,
+            // Only a work run changes files: a Lead's chat in the main checkout, a review of the worktree it judges,
+            // an inbox or plan run must not edit them behind the tickets (the CLI's own Write/Edit tools included).
+            read_only: kind != RunKind::Work,
             on_limits: {
                 let app = self.app.clone();
                 Some(Arc::new(move |u| {

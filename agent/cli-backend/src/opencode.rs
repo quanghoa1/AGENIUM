@@ -27,7 +27,8 @@ use tokio::sync::mpsc;
 
 use crate::driver::HOOK_URL_ENV;
 use crate::driver::{
-    git_refusal, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
+    git_refusal, inside, read_only_refusal, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
+    NO_SUBAGENTS,
 };
 
 pub struct Opencode;
@@ -245,6 +246,8 @@ impl Driver for Opencode {
                 let p = Path::new(r);
                 if !inside(p, cx.worktree, cx.worktree) {
                     Some(format!("{r} is outside the ticket worktree"))
+                } else if cx.read_only {
+                    Some(read_only_refusal(p))
                 } else {
                     git_refusal(p, cx.worktree)
                 }
@@ -527,12 +530,26 @@ mod tests {
             home: Path::new("h"),
             mcp_name: "agenium",
             subagents,
+            read_only: false,
         };
         let ask = |action: &str, res: &[&str]| json!({"id": "per_1", "sessionID": "ses_1", "action": action, "resources": res});
         assert_eq!(
             Opencode.check(&ask("edit", &["src/a.rs"]), &cx(false)),
             Check::Allow
         );
+        // A run that only reads (chat, review, inbox, plan) edits nothing, though shell commands still go to the gate.
+        let reads = CheckCtx {
+            read_only: true,
+            ..cx(false)
+        };
+        assert!(matches!(
+            Opencode.check(&ask("edit", &["src/a.rs"]), &reads),
+            Check::Deny(r) if r.contains("only reads")
+        ));
+        assert!(matches!(
+            Opencode.check(&ask("bash", &["git status"]), &reads),
+            Check::Command(_)
+        ));
         assert!(matches!(
             Opencode.check(&ask("edit", &["../x.rs"]), &cx(false)),
             Check::Deny(_)
