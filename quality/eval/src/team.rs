@@ -300,6 +300,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
     } else {
         Arc::new(DenyApprover)
     };
+    crate::price_as_eval(&app, provider.as_ref())?;
     let rt = Arc::new(Runtime::new(
         app.clone(),
         Arc::new(StaticProviders(vec![("eval".into(), provider.clone())])),

@@ -74,6 +74,7 @@ fn usage() -> Usage {
         output: 20,
         cache_read: 0,
         cache_write: 0,
+        cache_write_1h: 0,
         reasoning: 0,
     }
 }

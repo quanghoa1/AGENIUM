@@ -183,6 +183,7 @@ impl Driver for Opencode {
                     output: n(&t["output"]),
                     cache_read: n(&t["cache"]["read"]),
                     cache_write: n(&t["cache"]["write"]),
+                    cache_write_1h: 0,
                     reasoning: n(&t["reasoning"]),
                 })]
             }
@@ -476,6 +477,7 @@ mod tests {
                 output: 54,
                 cache_read: 1792,
                 cache_write: 0,
+                cache_write_1h: 0,
                 reasoning: 2
             })]
         );

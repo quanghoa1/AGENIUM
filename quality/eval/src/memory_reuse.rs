@@ -389,6 +389,7 @@ pub async fn run(
     } else {
         Arc::new(DenyApprover)
     };
+    crate::price_as_eval(&app, providers[0].1.as_ref())?;
     let rt = Runtime::new(app.clone(), Arc::new(StaticProviders(providers)), approver);
 
     let memory = || {

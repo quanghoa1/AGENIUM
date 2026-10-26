@@ -192,6 +192,7 @@ impl Driver for Codex {
                         output: n("output_tokens"),
                         cache_read: cached,
                         cache_write: written,
+                        cache_write_1h: 0,
                         reasoning: n("reasoning_output_tokens"),
                     },
                     response: String::new(),

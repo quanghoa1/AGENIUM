@@ -500,6 +500,7 @@ impl StreamState {
                 output: u["completion_tokens"].as_u64().unwrap_or(0),
                 cache_read: cached,
                 cache_write: written,
+                cache_write_1h: 0,
                 reasoning: u["completion_tokens_details"]["reasoning_tokens"]
                     .as_u64()
                     .unwrap_or(0),

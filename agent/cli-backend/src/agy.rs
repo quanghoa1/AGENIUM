@@ -213,6 +213,7 @@ impl Driver for Agy {
                         output: n("output_tokens"),
                         cache_read: cached,
                         cache_write: 0,
+                        cache_write_1h: 0,
                         reasoning: n("thinking_tokens"),
                     },
                     response: r["response"].as_str().unwrap_or("").to_owned(),

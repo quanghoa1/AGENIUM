@@ -47,6 +47,8 @@ pub trait Observer: Send + Sync {
     /// A message appended to the conversation (assistant turn or tool results / nudges).
     fn message(&self, _m: &Message) {}
     fn tool(&self, _name: &str, _args: &serde_json::Value, _result: &Result<String, ToolError>) {}
+    /// One model response's own usage (each is priced on its own: a vendor's long-prompt tier is per request).
+    fn response(&self, _usage: &Usage) {}
     fn step(&self, _step: u32, _usage: &Usage) {}
     fn retry(&self, _attempt: u32, _delay_ms: u64, _error: &str) {}
     /// Agenium steered the run: `nudge` (a text-only answer), `steer` (the user's message delivered), `compact`
@@ -511,6 +513,7 @@ impl Run<'_> {
                 model = resp.model.clone();
             }
             usage.add(&resp.usage);
+            self.observer.response(&resp.usage);
             self.observer.step(step, &usage);
             if resp.dropped_thinking > 0 {
                 self.observer.control(
@@ -801,6 +804,7 @@ impl Run<'_> {
             None => self.cut_notes(order, &messages[..split]).await?,
         };
         usage.add(&r.usage);
+        self.observer.response(&r.usage);
         let notes = r.message.text();
         // Notes cut by the output limit are not notes to continue from.
         if notes.trim().is_empty() || r.stop == StopReason::MaxTokens {
@@ -888,6 +892,7 @@ impl Run<'_> {
         match self.turn(&self.notes_request(order, messages)).await {
             Ok(r) => {
                 usage.add(&r.usage);
+                self.observer.response(&r.usage);
                 let summary = r.message.text();
                 self.observer.message(&r.message);
                 messages.push(r.message);

@@ -589,6 +589,7 @@ impl Runtime {
             tokens_out: u.output,
             cache_read: u.cache_read,
             cache_write: u.cache_write,
+            cache_write_1h: u.cache_write_1h,
             ..Default::default()
         };
         self.app
@@ -742,6 +743,12 @@ impl Runtime {
             live,
             steps: Mutex::new(0),
             tool_started: Default::default(),
+            price: self.app.price_of(
+                &self.app.prices(),
+                &agent.model.provider,
+                &agent.model.model,
+            ),
+            cost: Mutex::new(0.0),
         };
         // Persist the work order's messages so a continuation sees the whole conversation.
         for m in &order.messages {
@@ -837,7 +844,11 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         };
         let report = r.run(&order).await;
         drop(steering);
-        let cost = self.cost(&agent.model.provider, &report.model, &report.usage);
+        // Priced request by request as the run went (exact for a per-request tier), else on the run's sum.
+        let cost = match observer.price {
+            Some(_) => *observer.cost.lock().unwrap_or_else(|p| p.into_inner()),
+            None => self.cost(&agent.model.provider, &report.model, &report.usage),
+        };
         Ok((report, cost))
     }
 

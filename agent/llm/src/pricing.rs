@@ -16,7 +16,15 @@ pub struct Price {
     pub input: f64,
     pub output: f64,
     pub cache_read: f64,
+    /// 5-minute cache writes.
     pub cache_write: f64,
+    /// 1-hour cache writes (Anthropic: 2x input); `None` = 2x input.
+    #[serde(default)]
+    pub cache_write_1h: Option<f64>,
+    /// Long-prompt tier: a request whose prompt (input, cache reads and writes) is over `.0` tokens pays every price
+    /// times `.1` (Claude Haiku 5.5: over 100 000 tokens, 5x). Priced per request.
+    #[serde(default)]
+    pub long_prompt: Option<(u64, f64)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -31,6 +39,8 @@ pub struct PriceEntry {
     pub cache_read: Option<f64>,
     #[serde(default)]
     pub cache_write: Option<f64>,
+    #[serde(default)]
+    pub long_prompt: Option<(u64, f64)>,
 }
 
 impl PriceEntry {
@@ -41,6 +51,8 @@ impl PriceEntry {
             // Typical vendor ratios when not given: cache reads 0.1x, 5-minute cache writes 1.25x input.
             cache_read: self.cache_read.unwrap_or(self.input * 0.1),
             cache_write: self.cache_write.unwrap_or(self.input * 1.25),
+            cache_write_1h: None,
+            long_prompt: self.long_prompt,
         }
     }
 
@@ -69,11 +81,17 @@ fn e(model: &str, input: f64, output: f64, cache_read: Option<f64>) -> PriceEntr
         output,
         cache_read,
         cache_write: None,
+        long_prompt: None,
     }
 }
 
 impl PriceTable {
     pub fn builtin() -> Self {
+        // Anthropic's price list (platform.claude.com/docs/en/about-claude/pricing, read 2026-10-26). Cache reads are
+        // 0.1x input except Fable 5.1 (0.025x) and Opus / Sonnet 5.5 (0.05x); cache writes 1.25x (5 min) and 2x
+        // (1 h); Haiku 5.5 costs 5x for a request whose prompt is over 100 000 tokens.
+        let mut haiku = e("claude-haiku-5-5", 0.10, 0.50, None);
+        haiku.long_prompt = Some((100_000, 5.0));
         Self {
             entries: vec![
                 e("claude-fable-5-1", 10.0, 50.0, Some(0.25)),
@@ -83,10 +101,13 @@ impl PriceTable {
                 e("claude-opus-4-8", 5.0, 25.0, None),
                 e("claude-opus-4-7", 5.0, 25.0, None),
                 e("claude-opus-4-6", 5.0, 25.0, None),
-                e("claude-sonnet-5-5", 2.0, 10.0, Some(0.20)),
+                e("claude-opus-4-5", 5.0, 25.0, None),
+                e("claude-opus-4-1", 15.0, 75.0, None),
+                e("claude-sonnet-5-5", 2.0, 10.0, Some(0.10)),
                 e("claude-sonnet-5", 2.0, 10.0, None),
                 e("claude-sonnet-4-6", 3.0, 15.0, None),
-                e("claude-haiku-5-5", 0.10, 0.50, None),
+                e("claude-sonnet-4-5", 3.0, 15.0, None),
+                haiku,
                 e("claude-haiku-4-5", 1.0, 5.0, None),
             ],
         }
@@ -166,6 +187,7 @@ impl Catalogue {
                     // No cache price listed: the provider bills cached tokens as plain input.
                     cache_read: c["cache_read"].as_f64().or(Some(input)),
                     cache_write: c["cache_write"].as_f64().or(Some(input)),
+                    long_prompt: None,
                 };
                 models.insert(mid.clone(), entry.price());
                 if m["status"] == "deprecated" {
@@ -279,13 +301,20 @@ impl Prices {
 }
 
 impl Price {
-    /// Cost in USD of `u` at this price.
+    /// Cost in USD of `u` at this price. Exact for one request (the long-prompt tier is decided per request); for a
+    /// sum of requests the tier is judged on the sum.
     pub fn cost(&self, u: &Usage) -> f64 {
-        (u.input as f64 * self.input
+        let w1h = u.cache_write_1h.min(u.cache_write);
+        let base = u.input as f64 * self.input
             + u.output as f64 * self.output
             + u.cache_read as f64 * self.cache_read
-            + u.cache_write as f64 * self.cache_write)
-            / 1_000_000.0
+            + (u.cache_write - w1h) as f64 * self.cache_write
+            + w1h as f64 * self.cache_write_1h.unwrap_or(self.input * 2.0);
+        let tier = match self.long_prompt {
+            Some((above, factor)) if u.total_input() > above => factor,
+            _ => 1.0,
+        };
+        base * tier / 1_000_000.0
     }
 
     pub fn is_free(&self) -> bool {
@@ -305,6 +334,7 @@ mod tests {
             output: 100_000,
             cache_read: 1_000_000,
             cache_write: 0,
+            cache_write_1h: 0,
             reasoning: 0,
         };
         let c = t.cost("anthropic", "claude-opus-5-5", &u).unwrap();
@@ -324,6 +354,41 @@ mod tests {
             "user entries win"
         );
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Anthropic's price list: 1-hour cache writes cost 2x input, Sonnet 5.5 reads its cache at 0.05x, and a Haiku 5.5
+    /// request whose prompt is over 100 000 tokens (cache included) pays 5x, judged per request.
+    #[test]
+    fn claude_cache_and_long_prompt_prices() {
+        let t = PriceTable::builtin();
+        let cost = |model: &str, u: Usage| t.cost("anthropic", model, &u).unwrap();
+        let writes = Usage {
+            cache_write: 1_000_000,
+            cache_write_1h: 400_000,
+            ..Default::default()
+        };
+        assert!((cost("claude-opus-5-5", writes) - (0.6 * 5.0 + 0.4 * 8.0)).abs() < 1e-9);
+        let read = Usage {
+            cache_read: 1_000_000,
+            ..Default::default()
+        };
+        assert!((cost("claude-sonnet-5-5", read) - 0.10).abs() < 1e-9);
+        let small = Usage {
+            input: 10_000,
+            cache_read: 90_000,
+            output: 1_000,
+            ..Default::default()
+        };
+        let base = 0.01 * 0.10 + 0.09 * 0.01 + 0.001 * 0.50;
+        assert!((cost("claude-haiku-5-5", small) - base).abs() < 1e-12);
+        let big = Usage {
+            cache_read: 90_001,
+            ..small
+        };
+        assert!(
+            (cost("claude-haiku-5-5", big) - 5.0 * (base + 1e-8)).abs() < 1e-12,
+            "over 100 000 prompt tokens, cache reads included"
+        );
     }
 
     #[test]
@@ -367,6 +432,7 @@ mod tests {
             output: 1_000_000,
             cache_read: 1_000_000,
             cache_write: 0,
+            cache_write_1h: 0,
             reasoning: 0,
         };
         let cost = prices

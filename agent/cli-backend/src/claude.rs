@@ -219,6 +219,7 @@ impl Driver for Claude {
                         output: n("output_tokens"),
                         cache_read: n("cache_read_input_tokens"),
                         cache_write: n("cache_creation_input_tokens"),
+                        cache_write_1h: 0,
                         reasoning: u["output_tokens_details"]["thinking_tokens"]
                             .as_u64()
                             .unwrap_or(0),

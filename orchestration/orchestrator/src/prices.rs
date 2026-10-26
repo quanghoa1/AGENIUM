@@ -57,8 +57,16 @@ impl App {
         p
     }
 
-    /// Cost in USD of `usage` on the configured API provider `provider`; `None` when the model has no price or
-    /// the provider is not an API provider (vendor CLIs run on subscriptions).
+    /// The price of `model` on the configured API provider `provider`; `None` when the model has no price or the
+    /// provider is not an API provider (vendor CLIs run on subscriptions).
+    pub fn price_of(&self, prices: &Prices, provider: &str, model: &str) -> Option<Price> {
+        let cfg = self.config().provider(provider)?.clone();
+        let kind = serde_json::to_value(cfg.kind).ok()?;
+        prices.lookup(&cfg.id, kind.as_str()?, cfg.base_url.as_deref(), model)
+    }
+
+    /// Cost in USD of a run's `usage` (see [`App::price_of`]). A run is priced per request as it goes
+    /// (`RunObserver`); this prices the sum, for runs priced later (a long-prompt tier is then judged on the sum).
     pub fn usage_cost(
         &self,
         prices: &Prices,
@@ -66,22 +74,17 @@ impl App {
         model: &str,
         u: &agenium_core::UsageSummary,
     ) -> Option<f64> {
-        let cfg = self.config().provider(provider)?.clone();
-        let kind = serde_json::to_value(cfg.kind).ok()?;
-        prices.cost(
-            &cfg.id,
-            kind.as_str()?,
-            cfg.base_url.as_deref(),
-            model,
-            &Usage {
+        self.price_of(prices, provider, model).map(|p| {
+            p.cost(&Usage {
                 // A run's `tokens_in` counts its cached input too; only the rest is billed at the input price.
                 input: u.tokens_in.saturating_sub(u.cache_read + u.cache_write),
                 output: u.tokens_out,
                 cache_read: u.cache_read,
                 cache_write: u.cache_write,
+                cache_write_1h: u.cache_write_1h,
                 reasoning: 0,
-            },
-        )
+            })
+        })
     }
 
     pub fn price_view(&self) -> PriceView {

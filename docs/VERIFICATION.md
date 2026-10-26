@@ -125,6 +125,12 @@ These runs found five defects, all fixed:
   neither rewrites nor retires trusted memory; it is stored beside it as untrusted.
 - **Cached tokens were billed twice when earlier runs were priced again** (after a price download). The run's
   input count includes its cached input; only the rest is billed at the input price.
+- **Costs were underestimated.** Agenium's runs write Anthropic's cache for an hour, which costs 2x input, but they
+  were priced at the 5-minute rate (1.25x). The price list also had Sonnet 5.5's cache reads at $0.20 instead of
+  $0.10, and no long-prompt tier for Haiku 5.5 (5x for a request over 100 000 prompt tokens). Runs are now priced
+  request by request from Anthropic's price list, with 1-hour writes counted apart. The eval reports each run's cost
+  (it showed $0 for an API key passed on the command line). Anthropic's balance and cost reports need an Admin or
+  organization key (a personal key gets 401), so the spend is computed from the tokens.
 - **Effort was one ladder for every model**, while models have two to six levels of their own (DeepSeek low/high/
   max, Gemini 3 Pro low/high, Codex up to `ultra`). The app also offered `xhigh`, which the core refused, and CLI
   agents never received the effort. Each model now has its own levels (ADR-114).

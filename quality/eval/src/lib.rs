@@ -215,6 +215,33 @@ pub enum Mode {
     },
 }
 
+/// Lets the app price the eval's runs. The model runs as provider `eval`, so a configured provider of that id and kind
+/// is needed to look its price up: Anthropic's and Gemini's prices. An OpenAI-compatible provider needs its endpoint,
+/// which the eval does not know, and stays unpriced.
+pub fn price_as_eval(
+    app: &agenium_orchestrator::App,
+    provider: &dyn Provider,
+) -> anyhow::Result<()> {
+    let kind = match provider.kind() {
+        "anthropic" => agenium_config::ProviderKind::Anthropic,
+        "gemini" => agenium_config::ProviderKind::Gemini,
+        _ => return Ok(()),
+    };
+    app.update_config(|c| {
+        c.providers.retain(|p| p.id != "eval");
+        c.providers.push(agenium_config::ProviderConfig {
+            id: "eval".into(),
+            kind,
+            base_url: None,
+            api_key_ref: String::new(),
+            max_concurrency: 8,
+            models: vec![],
+            model_caps: vec![],
+        });
+    })?;
+    Ok(())
+}
+
 fn scripted(task: &Task) -> Arc<ScriptedProvider> {
     let p = Arc::new(ScriptedProvider::new("eval"));
     for (name, args) in (task.solution)() {
@@ -400,6 +427,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     } else {
         Arc::new(DenyApprover)
     };
+    price_as_eval(&app, provider.as_ref())?;
     let rt = Runtime::new(
         app.clone(),
         Arc::new(StaticProviders(vec![("eval".into(), provider)])),

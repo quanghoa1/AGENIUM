@@ -128,6 +128,9 @@ pub struct UsageSummary {
     pub cache_read: u64,
     #[serde(default)]
     pub cache_write: u64,
+    /// Of `cache_write`, the tokens written for an hour (priced 2x input on Anthropic).
+    #[serde(default)]
+    pub cache_write_1h: u64,
     #[serde(default)]
     pub estimated_cost_usd: f64,
     #[serde(default)]
@@ -140,6 +143,7 @@ impl UsageSummary {
         self.tokens_out += o.tokens_out;
         self.cache_read += o.cache_read;
         self.cache_write += o.cache_write;
+        self.cache_write_1h += o.cache_write_1h;
         self.estimated_cost_usd += o.estimated_cost_usd;
         self.elapsed_ms += o.elapsed_ms;
     }

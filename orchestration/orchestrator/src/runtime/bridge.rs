@@ -386,6 +386,9 @@ pub struct RunObserver {
     pub steps: Mutex<u32>,
     /// When each pending tool call (by name) was emitted, for its duration in the run log.
     pub tool_started: Mutex<std::collections::HashMap<String, std::time::Instant>>,
+    /// The model's price (an API provider), and the run's cost so far, priced request by request.
+    pub price: Option<agenium_llm::pricing::Price>,
+    pub cost: Mutex<f64>,
 }
 
 impl Observer for RunObserver {
@@ -427,6 +430,12 @@ impl Observer for RunObserver {
         );
     }
 
+    fn response(&self, usage: &Usage) {
+        if let Some(p) = &self.price {
+            *self.cost.lock().unwrap_or_else(|e| e.into_inner()) += p.cost(usage);
+        }
+    }
+
     fn step(&self, step: u32, usage: &Usage) {
         *self.steps.lock().unwrap_or_else(|p| p.into_inner()) = step;
         let _ = self
@@ -457,6 +466,7 @@ pub fn summary(u: &Usage, cost: f64, elapsed_ms: u64) -> UsageSummary {
         tokens_out: u.output,
         cache_read: u.cache_read,
         cache_write: u.cache_write,
+        cache_write_1h: u.cache_write_1h,
         estimated_cost_usd: cost,
         elapsed_ms,
     }

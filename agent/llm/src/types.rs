@@ -165,6 +165,9 @@ pub struct Usage {
     pub output: u64,
     pub cache_read: u64,
     pub cache_write: u64,
+    /// Of `cache_write`, the tokens written for an hour (Anthropic bills them 2x input, 5-minute writes 1.25x).
+    #[serde(default)]
+    pub cache_write_1h: u64,
     /// Reasoning tokens when reported separately (part of `output`).
     pub reasoning: u64,
 }
@@ -175,6 +178,7 @@ impl Usage {
         self.output += o.output;
         self.cache_read += o.cache_read;
         self.cache_write += o.cache_write;
+        self.cache_write_1h += o.cache_write_1h;
         self.reasoning += o.reasoning;
     }
 

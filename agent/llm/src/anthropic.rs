@@ -435,6 +435,9 @@ impl StreamState {
         if let Some(n) = get("cache_creation_input_tokens") {
             self.usage.cache_write = n;
         }
+        if let Some(n) = u["cache_creation"]["ephemeral_1h_input_tokens"].as_u64() {
+            self.usage.cache_write_1h = n;
+        }
     }
 
     pub fn finish(self) -> Result<ChatResponse, LlmError> {

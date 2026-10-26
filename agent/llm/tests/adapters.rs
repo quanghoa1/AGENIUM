@@ -279,6 +279,7 @@ async fn anthropic_request_contract_and_stream_parsing() {
             output: 87,
             cache_read: 4096,
             cache_write: 0,
+            cache_write_1h: 0,
             reasoning: 0
         }
     );
@@ -468,6 +469,7 @@ async fn openai_compat_contract_and_usage() {
             output: 40,
             cache_read: 1536,
             cache_write: 0,
+            cache_write_1h: 0,
             reasoning: 12
         }
     );
@@ -578,6 +580,7 @@ async fn gemini_contract_schema_sanitising_and_signatures() {
             output: 50,
             cache_read: 512,
             cache_write: 0,
+            cache_write_1h: 0,
             reasoning: 30
         }
     );
