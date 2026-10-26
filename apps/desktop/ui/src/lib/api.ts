@@ -145,6 +145,7 @@ export const api = {
   enableJudge: () => call<void>("enable_judge"),
   judgeConfig: () => call<JudgeConfig>("judge_config"),
   judgeActivity: () => call<JudgeActivity[]>("judge_activity"),
+  setUiLanguage: (language: string) => call<void>("set_ui_language", { language }),
   /** `api_key` empty or null keeps the stored key; `clear_key` removes it. */
   setJudge: (form: JudgeForm) => call<void>("set_judge", { form }),
   exportAgent: (agent: string, out: string) => call<string>("export_agent", { agent, out }),

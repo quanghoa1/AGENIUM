@@ -2,6 +2,7 @@
 // `load`, a file can also be opened side by side in Monaco (loaded on demand).
 import { ChevronDown, ChevronRight, Columns2, FileDiff, Loader2 } from "lucide-react";
 import { Suspense, lazy, useMemo, useState } from "react";
+import { useApp } from "../lib/store";
 import { cn } from "./ui";
 
 const MonacoDiff = lazy(() => import("./MonacoDiff"));
@@ -41,6 +42,7 @@ function parse(diff: string): FileDiff_[] {
 }
 
 export function DiffView({ diff, load }: { diff: string; load?: (path: string) => Promise<FileSides> }) {
+  const app = useApp();
   const files = useMemo(() => parse(diff), [diff]);
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   /** Files shown side by side, with their two sides once loaded (or the reason they cannot be). */
@@ -53,14 +55,14 @@ export function DiffView({ diff, load }: { diff: string; load?: (path: string) =
     }
     setSides((s) => ({ ...s, [path]: "loading" }));
     load!(path)
-      .then((r) => setSides((s) => ({ ...s, [path]: r.binary ? "binary file" : r.too_big ? "file too large to show" : r })))
+      .then((r) => setSides((s) => ({ ...s, [path]: r.binary ? app.t("diff.binary") : r.too_big ? app.t("diff.tooBig") : r })))
       .catch((e) => setSides((s) => ({ ...s, [path]: String(e) })));
   };
-  if (!files.length) return <div className="rounded-lg border border-dashed border-line-strong p-6 text-center text-xs text-subtle">No changes.</div>;
+  if (!files.length) return <div className="rounded-lg border border-dashed border-line-strong p-6 text-center text-xs text-subtle">{app.t("diff.none")}</div>;
   return (
     <div className="space-y-3">
       <div className="text-[11px] text-subtle">
-        {files.length} file(s) · <span className="text-emerald-600 dark:text-emerald-400">+{files.reduce((s, f) => s + f.add, 0)}</span>{" "}
+        {files.length} {app.t(files.length === 1 ? "library.file" : "library.files")} · <span className="text-emerald-600 dark:text-emerald-400">+{files.reduce((s, f) => s + f.add, 0)}</span>{" "}
         <span className="text-rose-600 dark:text-rose-400">−{files.reduce((s, f) => s + f.del, 0)}</span>
       </div>
       {files.map((f) => (
@@ -75,8 +77,8 @@ export function DiffView({ diff, load }: { diff: string; load?: (path: string) =
               <span
                 role="button"
                 tabIndex={0}
-                title="Side by side"
-                aria-label="Side by side"
+                title={app.t("diff.sideBySide")}
+                aria-label={app.t("diff.sideBySide")}
                 className={cn("rounded p-0.5 text-subtle hover:bg-elevated hover:text-fg", sides[f.path] && "text-accent")}
                 onClick={(e) => (e.stopPropagation(), toggleSides(f.path))}
                 onKeyDown={(e) => e.key === "Enter" && (e.stopPropagation(), toggleSides(f.path))}

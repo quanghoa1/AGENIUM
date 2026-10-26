@@ -1,5 +1,6 @@
 // Team templates and their wizard (M4): the built-in templates, the user's own (saved under the root, a copy of a
 // built-in with the same id overrides it), a template made from a team as it is, import and export as TOML.
+import { Markdown } from "../components/Markdown";
 import { Download, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "../components/motion";
@@ -103,7 +104,9 @@ export function TemplatesView() {
                   </span>
                   {r.default_model && <span className="truncate font-mono text-[11px] text-subtle">{r.default_model}</span>}
                 </div>
-                <div className="mt-1.5 line-clamp-4 whitespace-pre-line text-[11px] text-subtle">{r.prompt}</div>
+                <div className="mt-1.5 line-clamp-4 text-[11px] text-subtle">
+                  <Markdown text={r.prompt} />
+                </div>
                 {r.allowed_paths.length > 0 && <div className="mt-2 font-mono text-[11px] text-muted">scope: {r.allowed_paths.join(", ")}</div>}
               </div>
             ))}

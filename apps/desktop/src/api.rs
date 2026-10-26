@@ -43,18 +43,21 @@ pub fn project_report(d: State<'_, Desktop>, project: String) -> R<String> {
 }
 
 #[tauri::command]
-pub fn support_bundle(d: State<'_, Desktop>, out: String) -> R<String> {
+pub async fn support_bundle(d: State<'_, Desktop>, out: String) -> R<String> {
     let o = d.opened()?;
     let dir = std::path::PathBuf::from(if out.trim().is_empty() {
         std::env::temp_dir().display().to_string()
     } else {
         out
     });
-    Ok(o.app
-        .support_bundle(&dir)
-        .map_err(err)?
-        .display()
-        .to_string())
+    blocking(move || {
+        Ok(o.app
+            .support_bundle(&dir)
+            .map_err(err)?
+            .display()
+            .to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -93,6 +96,10 @@ pub fn set_command_policy(
 
 #[tauri::command]
 pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R<Value> {
+    // A second click (or a second window) while the root is open: one App and one runtime per root.
+    if d.opened().is_ok() {
+        return Ok(status(d));
+    }
     let input = agenium_config::setup::SetupInput {
         root: Some(d.root.clone()),
         ui_language,
@@ -113,6 +120,21 @@ pub fn projects(d: State<'_, Desktop>) -> R<Vec<Value>> {
     let o = d.opened()?;
     let mut out = vec![];
     for p in o.app.projects().map_err(err)? {
+        // One project that cannot be read is listed with its error; the others stay usable.
+        match project_summary(&o, &p) {
+            Ok(v) => out.push(v),
+            Err(e) => out.push(json!({
+                "id": p.id, "name": p.name, "path": p.path, "key_prefix": p.key_prefix, "status": p.status,
+                "main_branch": p.main_branch, "team": null, "tickets": 0, "by_status": {}, "plan_items": 0,
+                "plan_done": 0, "needs_you": 0, "run_state": "Paused", "inbox": 0, "error": e,
+            })),
+        }
+    }
+    Ok(out)
+}
+
+fn project_summary(o: &Opened, p: &agenium_store::core::projects::Project) -> R<Value> {
+    {
         let tickets = o.app.tickets(p.id).map_err(err)?;
         let mut by_status: BTreeMap<String, usize> = BTreeMap::new();
         for t in &tickets {
@@ -123,7 +145,7 @@ pub fn projects(d: State<'_, Desktop>) -> R<Vec<Value>> {
                     "members": m.len() })
         });
         let pv = o.app.plan_view(p.id).map_err(err)?;
-        out.push(json!({
+        Ok(json!({
             "id": p.id, "name": p.name, "path": p.path, "key_prefix": p.key_prefix, "status": p.status,
             "main_branch": p.main_branch, "team": team, "tickets": tickets.len(), "by_status": by_status,
             "plan_items": pv.items.len(), "plan_done": pv.items.iter().filter(|i| i.done).count(),
@@ -131,9 +153,8 @@ pub fn projects(d: State<'_, Desktop>) -> R<Vec<Value>> {
             "needs_you": o.app.needs_you(p.id).map_err(err)?.len(),
             "run_state": o.app.run_state(p.id).map_err(err)?,
             "inbox": o.app.lead_inbox(p.id).map_err(err)?.len(),
-        }));
+        }))
     }
-    Ok(out)
 }
 
 #[tauri::command]
@@ -169,9 +190,9 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
         })
         .collect();
     let recent = o.app.store().read(|c| runs::recent(c, 400)).map_err(err)?;
-    let today = &now_iso()[..10];
+    let today = runs_today(&o)?;
     let mut usage = UsageSummary::default();
-    for r in recent.iter().filter(|r| r.started_at.starts_with(today)) {
+    for r in &today {
         usage.add(&r.usage);
     }
     let live: Vec<Value> = recent
@@ -186,7 +207,7 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
         .collect();
     Ok(json!({
         "needs": needs, "agents": agents, "live_runs": live, "recent_runs": last, "usage_today": usage,
-        "runs_today": recent.iter().filter(|r| r.started_at.starts_with(today)).count(),
+        "runs_today": today.len(),
         "command_approvals": d.approvals.pending(None),
     }))
 }
@@ -203,6 +224,31 @@ fn api_run(r: &runs::Run) -> bool {
 fn cache_hit(r: &runs::Run) -> Option<f64> {
     (api_run(r) && r.usage.tokens_in > 0)
         .then(|| r.usage.cache_read as f64 / r.usage.tokens_in as f64)
+}
+
+/// Today's runs: started since midnight on the user's clock (UTC's day turns at 07:00 in Vietnam), all of them (a
+/// busy day has more than the few hundred newest runs the lists read).
+pub(crate) fn runs_today(o: &Opened) -> R<Vec<runs::Run>> {
+    let midnight = chrono::Local::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .and_then(|t| t.and_local_timezone(chrono::Local).earliest())
+        .map(|t| t.with_timezone(&chrono::Utc))
+        .unwrap_or_else(chrono::Utc::now)
+        .format("%Y-%m-%dT%H:%M:%S")
+        .to_string();
+    let mut n = 500;
+    loop {
+        let rs = o.app.store().read(|c| runs::recent(c, n)).map_err(err)?;
+        let reaches_yesterday = rs.last().is_some_and(|r| r.started_at < midnight);
+        if rs.len() < n || reaches_yesterday || n >= 50_000 {
+            return Ok(rs
+                .into_iter()
+                .filter(|r| r.started_at >= midnight)
+                .collect());
+        }
+        n *= 4;
+    }
 }
 
 pub(crate) fn run_json(r: &runs::Run, names: &HashMap<AgentId, String>) -> Value {
@@ -517,7 +563,7 @@ pub fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
 /// Memory actions of the user: `retire` a fact, `remove_skill` (a skill the agent created), `revert` or `promote` a
 /// skill overlay, `rebase`, `tidy` (decay and consolidation now).
 #[tauri::command]
-pub fn memory_action(
+pub async fn memory_action(
     d: State<'_, Desktop>,
     agent: String,
     action: String,
@@ -525,6 +571,16 @@ pub fn memory_action(
     skill: Option<String>,
 ) -> R<Value> {
     let o = d.opened()?;
+    blocking(move || memory_action_now(&o, agent, action, fact, skill)).await
+}
+
+fn memory_action_now(
+    o: &Opened,
+    agent: String,
+    action: String,
+    fact: Option<i64>,
+    skill: Option<String>,
+) -> R<Value> {
     let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
     let mem = o
         .app
@@ -557,12 +613,26 @@ pub fn memory_action(
 pub fn runs(d: State<'_, Desktop>, limit: Option<usize>) -> R<Vec<Value>> {
     let o = d.opened()?;
     let names = names(&o)?;
+    // Each run's ticket key and project, so the list says what a run was about (one ticket list per project).
+    let mut keys: HashMap<TicketId, (TicketKey, String)> = HashMap::new();
+    for p in o.app.projects().map_err(err)? {
+        for t in o.app.tickets(p.id).map_err(err)? {
+            keys.insert(t.id, (t.key, p.name.clone()));
+        }
+    }
     Ok(o.app
         .store()
         .read(|c| runs::recent(c, limit.unwrap_or(100)))
         .map_err(err)?
         .iter()
-        .map(|r| run_json(r, &names))
+        .map(|r| {
+            let mut v = run_json(r, &names);
+            if let Some((k, p)) = r.ticket.and_then(|t| keys.get(&t)) {
+                v["ticket_key"] = json!(k);
+                v["project_name"] = json!(p);
+            }
+            v
+        })
         .collect())
 }
 
@@ -677,6 +747,19 @@ pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
     }))
 }
 
+/// The interface language chosen in Settings, kept in the config too (desktop notifications use it).
+#[tauri::command]
+pub fn set_ui_language(d: State<'_, Desktop>, language: String) -> R<()> {
+    if !matches!(language.as_str(), "en" | "vi") {
+        return Err(format!("unknown language {language:?}"));
+    }
+    d.opened()?
+        .app
+        .update_config(|c| c.app.language = language)
+        .map(|_| ())
+        .map_err(err)
+}
+
 /// What the judge was asked lately, newest first (the Settings page shows it).
 #[tauri::command]
 pub fn judge_activity(d: State<'_, Desktop>) -> R<Value> {
@@ -697,8 +780,12 @@ pub async fn enable_judge(d: State<'_, Desktop>) -> R<()> {
 
 /// Exports an agent (memory, skills and overlays, skill/MCP enablement; no secret values) to a file in `out`.
 #[tauri::command]
-pub fn export_agent(d: State<'_, Desktop>, agent: String, out: String) -> R<String> {
+pub async fn export_agent(d: State<'_, Desktop>, agent: String, out: String) -> R<String> {
     let o = d.opened()?;
+    blocking(move || export_agent_now(&o, agent, out)).await
+}
+
+fn export_agent_now(o: &Opened, agent: String, out: String) -> R<String> {
     let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
     let name = o.app.agent(id).map_err(err)?.name;
     let dir = std::path::PathBuf::from(if out.trim().is_empty() {
@@ -715,13 +802,17 @@ pub fn export_agent(d: State<'_, Desktop>, agent: String, out: String) -> R<Stri
 
 /// Imports an agent from a file into `project` as a Solo agent (renamed if `name` is given).
 #[tauri::command]
-pub fn import_agent(
+pub async fn import_agent(
     d: State<'_, Desktop>,
     file: String,
     project: String,
     name: Option<String>,
 ) -> R<Value> {
     let o = d.opened()?;
+    blocking(move || import_agent_now(&o, file, project, name)).await
+}
+
+fn import_agent_now(o: &Opened, file: String, project: String, name: Option<String>) -> R<Value> {
     let a = o
         .app
         .import_agent(
@@ -913,10 +1004,16 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
 }
 
 #[tauri::command]
-pub fn approve(d: State<'_, Desktop>, project: String, what: String, target: String) -> R<()> {
+pub async fn approve(
+    d: State<'_, Desktop>,
+    project: String,
+    what: String,
+    target: String,
+) -> R<()> {
     let o = d.opened()?;
     let p = pid(&project)?;
-    match what.as_str() {
+    // A merge rebases and runs the pre-merge check (minutes for a test suite): off the window's thread.
+    blocking(move || match what.as_str() {
         "spec" => o
             .app
             .approve_spec(p, target.parse().map_err(err)?)
@@ -931,7 +1028,16 @@ pub fn approve(d: State<'_, Desktop>, project: String, what: String, target: Str
             .map(|_| ())
             .map_err(err),
         other => Err(format!("unknown approval {other}")),
-    }
+    })
+    .await
+}
+
+/// Runs a command's slow work (git, the pre-merge check, embeddings, files) on the blocking pool. A command without
+/// `async` runs on the window's thread in Tauri 2: the whole window would freeze until it returns.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> R<T> + Send + 'static) -> R<T> {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -1334,10 +1440,28 @@ pub fn stop_all(d: State<'_, Desktop>) -> R<()> {
             o.rt.pause_project(p.id).map_err(err)?;
         }
     }
-    let rt = o.rt.clone();
+    let (rt, app) = (o.rt.clone(), o.app.clone());
     rt.cancel.cancel();
+    // The stop holds until the runs going at the click have ended: a run checks it between steps, and a model call
+    // or a tool can take minutes (a fixed 5 s reset let those runs go on). Lifted after 5 minutes at the latest,
+    // so a run row left open by a crash cannot block the next chat.
+    let going: std::collections::HashSet<RunId> = app
+        .store()
+        .read(runs::unfinished)
+        .map(|rs| rs.into_iter().map(|r| r.id).collect())
+        .unwrap_or_default();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        for _ in 0..300 {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            let still = app
+                .store()
+                .read(runs::unfinished)
+                .map(|rs| rs.iter().any(|r| going.contains(&r.id)))
+                .unwrap_or(false);
+            if !still {
+                break;
+            }
+        }
         rt.cancel.reset();
     });
     Ok(())

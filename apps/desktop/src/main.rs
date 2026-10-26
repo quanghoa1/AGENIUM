@@ -24,6 +24,7 @@ fn main() {
         .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".agenium"));
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(nav_guard())
         .manage(Desktop::new(root))
         .setup(|app| {
             let handle = app.handle().clone();
@@ -98,6 +99,7 @@ fn main() {
             api::enable_judge,
             api::judge_config,
             api::judge_activity,
+            api::set_ui_language,
             api::set_judge,
             api::export_agent,
             api::import_agent,
@@ -163,10 +165,15 @@ fn spawn_event_forwarder(handle: tauri::AppHandle) {
                 if e.kind == "NeedsUser" {
                     if let Some(reason) = e.payload.get("reason").and_then(|r| r.as_str()) {
                         use tauri_plugin_notification::NotificationExt;
+                        let title = if o.app.config().app.language == "vi" {
+                            "Agenium cần bạn"
+                        } else {
+                            "Agenium needs you"
+                        };
                         let _ = handle
                             .notification()
                             .builder()
-                            .title("Agenium needs you")
+                            .title(title)
                             .body(reason)
                             .show();
                     }
@@ -234,6 +241,59 @@ fn spawn_maintenance(handle: tauri::AppHandle) {
     });
 }
 
+/// The window never leaves the app: a link, a dropped URL or a debugger that would load another page in the webview is
+/// refused (that page has no way back, and every command from it is refused). Seen when a worker checking its own web
+/// page drove the first DevTools target it found, the app's window, which a test run had opened for automation.
+fn nav_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("nav-guard")
+        .on_navigation(|webview, url| {
+            let ok = app_page(
+                url,
+                webview
+                    .app_handle()
+                    .config()
+                    .build
+                    .dev_url
+                    .as_ref()
+                    .filter(|_| tauri::is_dev()),
+            );
+            if !ok {
+                tracing::warn!(%url, "a navigation away from the app was refused");
+            }
+            ok
+        })
+        .build()
+}
+
+/// The app's own pages: the bundled UI (`tauri://localhost`, `http(s)://tauri.localhost` on Windows), the dev
+/// server in development, and `about:blank`.
+fn app_page(url: &tauri::Url, dev: Option<&tauri::Url>) -> bool {
+    let same = |d: &tauri::Url| {
+        url.scheme() == d.scheme()
+            && url.host_str() == d.host_str()
+            && url.port_or_known_default() == d.port_or_known_default()
+    };
+    url.scheme() == "tauri"
+        || url.as_str() == "about:blank"
+        || (matches!(url.scheme(), "http" | "https") && url.host_str() == Some("tauri.localhost"))
+        || dev.is_some_and(same)
+}
+
+/// Frees a project for the next round when dropped.
+struct Free(
+    std::sync::Arc<std::sync::Mutex<std::collections::HashSet<agenium_core::ProjectId>>>,
+    agenium_core::ProjectId,
+);
+
+impl Drop for Free {
+    fn drop(&mut self) {
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.1);
+    }
+}
+
 /// The team loop (ADR-63): from the agreed requirements to the end, every project's team works on its own, round
 /// after round (one round per project at a time, projects side by side), until it is done, waits for the user or
 /// the user stops it.
@@ -255,18 +315,47 @@ fn spawn_team_loop(handle: tauri::AppHandle) {
                 {
                     continue;
                 }
-                let (o, h) = (o.clone(), handle.clone());
+                let (o, busy) = (o.clone(), d.busy.clone());
                 tauri::async_runtime::spawn(async move {
+                    // The project is freed on every way out, a panic included: one bad round must not stop its
+                    // team until the app restarts.
+                    let _free = Free(busy, p.id);
                     if let Err(e) = o.rt.work(p.id).await {
                         tracing::warn!(project = %p.name, error = %e, "team round failed");
                     }
-                    h.state::<Desktop>()
-                        .busy
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .remove(&p.id);
                 });
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::app_page;
+
+    #[test]
+    fn only_the_apps_own_pages_load_in_the_window() {
+        let u = |s: &str| tauri::Url::parse(s).unwrap();
+        let dev = u("http://localhost:5173");
+        for ok in [
+            "tauri://localhost/#/live",
+            "http://tauri.localhost/index.html",
+            "http://localhost:5173/#/ticket/AGN-1",
+            "about:blank",
+        ] {
+            assert!(app_page(&u(ok), Some(&dev)), "{ok}");
+        }
+        for no in [
+            "http://127.0.0.1:8765/web/index.html",
+            "http://localhost:5174/",
+            "https://example.com/",
+            "file:///C:/x.html",
+        ] {
+            assert!(!app_page(&u(no), Some(&dev)), "{no}");
+        }
+        assert!(
+            !app_page(&u("http://localhost:5173/"), None),
+            "no dev server in a release build"
+        );
+    }
 }

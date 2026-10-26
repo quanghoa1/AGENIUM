@@ -9,6 +9,7 @@ import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, Capabilities, L
 
 /** Provider (API) or CLI program, model and effort. The model list comes from the provider when it can list them. */
 export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChange: (m: ModelArg) => void; caps: Capabilities | null }) {
+  const app = useApp();
   const cli = value.backend === "cli";
   const [models, setModels] = useState<ModelInfo[]>([]);
   useEffect(() => {
@@ -21,10 +22,15 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
     if (!value.provider) return;
     const listed = caps?.providers.find((p) => p.id === value.provider)?.models ?? [];
     if (listed.length) setModels(listed.map((id) => ({ id })));
+    // A late answer for a provider the user already left is dropped.
+    let stale = false;
     api
       .providerModels(value.provider)
-      .then((ms) => ms.length && setModels(ms))
+      .then((ms) => !stale && ms.length && setModels(ms))
       .catch(() => undefined);
+    return () => {
+      stale = true;
+    };
   }, [value.provider, cli, caps]);
   const listId = `models-${value.provider || "none"}`;
   // Only the model's own effort levels (ADR-114): reported by its vendor or known per model. [] = the model has no
@@ -43,7 +49,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
       if (effort !== value.effort) onChange({ ...value, effort });
     }
   }, [value.model, levelKey]);
-  const prices = usePrices(useApp().tick);
+  const prices = usePrices(app.tick);
   // Only the opencode CLI's list is OpenCode's free models; the other CLIs list what their login can run.
   const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []).map((m) => m.id) : []);
   const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
@@ -54,7 +60,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
         <option value="cli">CLI</option>
       </select>
       <select className="input" value={value.provider} onChange={(e) => onChange({ ...value, provider: e.target.value, model: "" })}>
-        <option value="">{cli ? "CLI…" : "provider…"}</option>
+        <option value="">{cli ? "CLI…" : app.t("model.provider")}</option>
         {cli
           ? caps?.clis
               .filter((c) => c.compatible)
@@ -78,7 +84,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           const p = price(m.id);
           return (
             <option key={m.id} value={m.id}>
-              {[isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? "no tool calling" : ""].filter(Boolean).join(" · ")}
+              {[isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
             </option>
           );
         })}
@@ -87,13 +93,13 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
         <select className="input" value={value.effort} onChange={(e) => onChange({ ...value, effort: e.target.value })}>
           {levels.map((x) => (
             <option key={x} value={x}>
-              {x === info?.default_effort ? `${x} (default)` : x}
+              {x === info?.default_effort ? `${x} (${app.t("model.default")})` : x}
             </option>
           ))}
         </select>
       ) : (
-        <select className="input" disabled title={levels ? "this model has no effort setting" : "its vendor does not say this model's levels: its default applies"}>
-          <option>{levels ? "no effort" : "model default"}</option>
+        <select className="input" disabled title={levels ? app.t("model.noEffortTitle") : app.t("model.vendorDefaultTitle")}>
+          <option>{levels ? app.t("model.noEffort") : app.t("model.vendorDefault")}</option>
         </select>
       )}
     </div>
@@ -151,7 +157,7 @@ export function ProjectsView() {
             </div>
             <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
               {[
-                [app.t("nav.teams"), p.team ? (p.team.solo ? "solo" : p.team.members) : "–"],
+                [app.t("projects.team"), p.team ? (p.team.solo ? "solo" : `${p.team.members} ${app.t("projects.members")}`) : "–"],
                 [app.t("nav.tickets"), p.tickets],
                 ["plan", `${p.plan_done}/${p.plan_items}`],
                 [app.t("nav.needs"), p.needs_you],
@@ -1245,7 +1251,7 @@ export function TeamsView() {
   if (!data) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.teams")} sub={`${data.teams.length} team · ${data.pool.length} ${app.t("agents.pool")}`}>
+      <PageHeader title={app.t("nav.teams")} sub={`${data.teams.length} ${app.t(data.teams.length === 1 ? "teams.one" : "teams.many")} · ${data.pool.length} ${app.t("agents.pool")}`}>
         <button className={cn(mode === "compose" ? "btn-primary" : "btn")} onClick={() => setMode(mode === "compose" ? "none" : "compose")}>
           <Users className="h-3.5 w-3.5" /> {app.t("teams.compose")}
         </button>

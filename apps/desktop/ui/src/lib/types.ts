@@ -43,6 +43,8 @@ export interface Status {
 export interface ProjectSummary {
   id: string;
   name: string;
+  /** Set when the project could not be read (its other fields are then empty). */
+  error?: string | null;
   path: string;
   key_prefix: string;
   status: string;
@@ -106,6 +108,9 @@ export interface CommandApproval {
 export interface RunRow {
   id: string;
   ticket?: string | null;
+  /** The ticket's key and its project (the runs list only). */
+  ticket_key?: string | null;
+  project_name?: string | null;
   agent: string;
   agent_name?: string | null;
   provider: string;

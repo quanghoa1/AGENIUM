@@ -473,7 +473,7 @@ function SkillsPanel() {
               <span className="text-sm font-semibold">{s.name}</span>
               {s.version && <Mono className="text-subtle">v{s.version}</Mono>}
               <Mono className="ml-auto text-subtle">
-                {s.files} {app.t("library.files")}
+                {s.files} {app.t(s.files === 1 ? "library.file" : "library.files")}
               </Mono>
             </div>
             <div className="mt-1.5 line-clamp-3 flex-1 text-xs text-muted">{s.description}</div>

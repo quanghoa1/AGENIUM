@@ -64,6 +64,7 @@ export function TicketView({ id }: { id: string }) {
   const [diff, setDiff] = useState<{ diff: string; truncated?: boolean; note?: string } | null>(null);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
   const [reason, setReason] = useState("");
   const [feedback, setFeedback] = useState<Record<string, string>>({});
 
@@ -115,6 +116,18 @@ export function TicketView({ id }: { id: string }) {
   const act = (p: Promise<unknown>) =>
     p.then(() => (app.notify(app.t("common.done")), app.refresh())).catch((e) => app.notify(String(e)));
   const workers = agents.filter((a) => a.project === project && !a.is_planner && (a.solo || !a.is_lead));
+  // One comment per send: the box empties at once (text typed meanwhile is kept) and gets the text back on failure.
+  const send = () => {
+    const msg = text.trim();
+    if (!msg || sending) return;
+    setSending(true);
+    setText("");
+    api
+      .comment(project, t.key, msg)
+      .then(() => app.refresh())
+      .catch((e) => (setText((cur) => cur || msg), app.notify(String(e))))
+      .finally(() => setSending(false));
+  };
 
   const tabs: [Tab, string, number | undefined][] = [
     ["timeline", app.t("ticket.timeline"), d.comments.length],
@@ -306,16 +319,10 @@ export function TicketView({ id }: { id: string }) {
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.nativeEvent.isComposing && text.trim()) {
-                          act(api.comment(project, t.key, text).then(() => setText("")));
-                        }
+                        if (e.key === "Enter" && !e.nativeEvent.isComposing) send();
                       }}
                     />
-                    <button
-                      className="btn-primary shrink-0"
-                      disabled={!text.trim()}
-                      onClick={() => act(api.comment(project, t.key, text).then(() => setText("")))}
-                    >
+                    <button className="btn-primary shrink-0" disabled={!text.trim() || sending} onClick={send}>
                       <Send className="h-3.5 w-3.5" /> {app.t("common.send")}
                     </button>
                   </div>
@@ -688,7 +695,7 @@ function CommentCard({
         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-line-strong" />
         <Mono className="shrink-0 font-semibold text-muted">{c.author}</Mono>
         <div className="min-w-0 flex-1">
-          <Markdown className="text-xs text-muted" text={d.text ?? d.summary ?? JSON.stringify(d)} />
+          <Markdown className="text-xs text-muted" text={d.text ?? d.current ?? d.summary ?? JSON.stringify(d)} />
         </div>
         <Mono className="shrink-0 text-subtle">{ago(c.created_at)}</Mono>
       </div>

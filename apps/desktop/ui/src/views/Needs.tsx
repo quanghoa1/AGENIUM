@@ -114,11 +114,16 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
 
 export function CommandRow({ a }: { a: CommandApproval }) {
   const app = useApp();
+  // `false`: the request had already been answered or ran out of time (denied after 30 minutes): say so.
   const decide = (d: "allow" | "always" | "deny") =>
-    api.decideCommand(a.id, d).then(() => {
-      app.setApprovals(app.approvals.filter((x) => x.id !== a.id));
-      app.refresh();
-    });
+    api
+      .decideCommand(a.id, d)
+      .then((taken) => {
+        app.setApprovals((xs) => xs.filter((x) => x.id !== a.id));
+        if (!taken) app.notify(app.t("needs.commandGone"));
+        app.refresh();
+      })
+      .catch((e) => app.notify(String(e)));
   return (
     <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
       <Terminal className="mt-0.5 h-4 w-4 text-amber-500" />
@@ -159,7 +164,7 @@ export function NeedsView() {
   const total = items.reduce((n, r) => n + r.items.length, 0) + app.approvals.length;
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.needs")} sub={`${total}`} />
+      <PageHeader title={app.t("nav.needs")} sub={total ? `${total} ${app.t("needs.waiting")}` : undefined} />
       {items
         .map((r) => ({ ...r, cmds: app.approvals.filter((a) => a.project === r.id) }))
         .filter((r) => r.items.length || r.cmds.length)

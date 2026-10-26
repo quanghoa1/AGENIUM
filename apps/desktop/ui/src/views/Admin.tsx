@@ -34,6 +34,16 @@ export function AuditView() {
       </PageHeader>
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
+          <thead>
+            <tr className="label border-b border-line text-left">
+              <th className="px-3 py-2">{app.t("ticket.auditAt")}</th>
+              <th className="px-3">{app.t("ticket.auditActor")}</th>
+              <th className="px-3">Ticket</th>
+              <th className="px-3">{app.t("ticket.auditAction")}</th>
+              <th className="px-3">{app.t("ticket.auditResult")}</th>
+              <th className="px-3">{app.t("ticket.auditDetail")}</th>
+            </tr>
+          </thead>
           <tbody className="divide-y divide-line">
             {[...shown].reverse().map((e, i) => (
               <tr key={i}>
@@ -111,13 +121,13 @@ export function UsageView() {
         <table className="w-full text-xs">
           <thead>
             <tr className="label border-b border-line text-left">
-              <th className="px-4 py-2">agent</th>
-              <th className="px-3">model</th>
-              <th className="px-3">runs</th>
+              <th className="px-4 py-2">{app.t("runs.agent")}</th>
+              <th className="px-3">{app.t("common.model")}</th>
+              <th className="px-3">{app.t("usage.runs")}</th>
               <th className="px-3">{app.t("usage.completed")}</th>
-              <th className="px-3">tokens in</th>
-              <th className="px-3">tokens out</th>
-              <th className="px-3">est. cost</th>
+              <th className="px-3">{app.t("usage.tokensIn")}</th>
+              <th className="px-3">{app.t("usage.tokensOut")}</th>
+              <th className="px-3">{app.t("ticket.cost")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">

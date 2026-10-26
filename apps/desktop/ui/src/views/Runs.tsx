@@ -21,6 +21,7 @@ export function RunsView() {
             <tr className="label border-b border-line text-left">
               <th className="px-4 py-2">{app.t("runs.outcome")}</th>
               <th className="px-3">{app.t("runs.agent")}</th>
+              <th className="px-3">{app.t("runs.ticket")}</th>
               <th className="px-3">{app.t("common.model")}</th>
               <th className="px-3">{app.t("runs.steps")}</th>
               <th className="px-3">{app.t("ticket.tokens")}</th>
@@ -35,6 +36,15 @@ export function RunsView() {
                   <OutcomeBadge outcome={r.outcome} />
                 </td>
                 <td className="px-3 font-medium">{r.agent_name}</td>
+                <td className="px-3">
+                  {r.ticket_key ? (
+                    <>
+                      <Mono className="text-cyan-600 dark:text-cyan-400">{r.ticket_key}</Mono> <span className="text-subtle">{r.project_name}</span>
+                    </>
+                  ) : (
+                    <span className="text-subtle">{app.t("runs.noTicket")}</span>
+                  )}
+                </td>
                 <td className="px-3 text-muted">{r.model}</td>
                 <td className="px-3 font-mono">{r.steps}</td>
                 <td className="px-3 font-mono">{tokens(r.usage.tokens_in + r.usage.tokens_out)}</td>

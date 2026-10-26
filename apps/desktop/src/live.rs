@@ -56,11 +56,8 @@ pub fn live(d: State<'_, Desktop>) -> R<Value> {
     let teams = o.app.teams().map_err(err)?;
     let unfinished = o.app.store().read(runs::unfinished).map_err(err)?;
     let names = names(&o)?;
-    let today: String = now_iso().chars().take(10).collect();
-    let recent = o.app.store().read(|c| runs::recent(c, 500)).map_err(err)?;
-    let tokens_today: u64 = recent
+    let tokens_today: u64 = crate::api::runs_today(&o)?
         .iter()
-        .filter(|r| r.started_at.starts_with(&today))
         .map(|r| r.usage.tokens_in + r.usage.tokens_out)
         .sum();
     let mut by_agent: HashMap<AgentId, &runs::Run> = HashMap::new();

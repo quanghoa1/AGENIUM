@@ -1,13 +1,13 @@
 // A small Markdown renderer for agent text (chat replies, reports, comments). It builds React elements — never HTML
 // strings — so agent output cannot inject markup. Supported: headings, paragraphs, bullet/numbered lists, fenced
-// code, inline code, bold, italic, links (shown, not navigated), horizontal rules.
+// code, inline code, bold, italic, strikethrough, links (shown, not navigated), horizontal rules.
 import { Fragment, type ReactNode } from "react";
 import { cn } from "./ui";
 
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
-  // `code`, **bold**, *italic* / _italic_, [label](url)
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(_[^_\s][^_]*_)|(\[[^\]]+\]\([^)\s]+\))/g;
+  // `code`, **bold**, *italic* / _italic_, [label](url), ~~struck~~
+  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(_[^_\s][^_]*_)|(\[[^\]]+\]\([^)\s]+\))|(~~[^~]+~~)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
@@ -18,6 +18,7 @@ function inline(text: string, key = 0): ReactNode[] {
     if (m[1]) out.push(<code key={k} className="rounded bg-background px-1 py-0.5 font-mono text-[0.92em]">{t.slice(1, -1)}</code>);
     else if (m[2]) out.push(<strong key={k}>{inline(t.slice(2, -2), i)}</strong>);
     else if (m[3] || m[4]) out.push(<em key={k}>{inline(t.slice(1, -1), i)}</em>);
+    else if (m[6]) out.push(<del key={k} className="opacity-70">{inline(t.slice(2, -2), i)}</del>);
     else if (m[5]) {
       const label = t.slice(1, t.indexOf("]"));
       const url = t.slice(t.indexOf("(") + 1, -1);

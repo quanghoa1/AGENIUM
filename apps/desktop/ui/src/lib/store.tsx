@@ -101,6 +101,43 @@ export function useApp(): Ctx {
 }
 
 /** Live output of the runs in progress (and of those finished in the last minutes), by run id. */
+/** One streamed event of a run applied to the live runs. */
+function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agent: string | null): Record<string, LiveRun> {
+  let m = prev;
+  if (!m[run]) {
+    // A new run: forget the ones that finished a while ago.
+    const now = Date.now();
+    m = Object.fromEntries(Object.entries(m).filter(([, l]) => !l.done || now - l.at < KEEP_DONE));
+  }
+  const cur: LiveRun = m[run] ?? { agent, text: "", thinking: "", tools: [], phase: "idle", done: false, at: 0 };
+  const next: LiveRun = { ...cur, agent: cur.agent ?? agent, at: Date.now() };
+  if (ev.type === "text") {
+    next.text = (cur.text + ev.text).slice(-TAIL);
+    next.phase = "text";
+  } else if (ev.type === "thinking") {
+    next.thinking = (cur.thinking + ev.text).slice(-2000);
+    next.phase = "thinking";
+  } else if (ev.type === "restart") {
+    next.text = "";
+    next.phase = "thinking";
+  } else if (ev.type === "tool_start") {
+    next.phase = "tool";
+    next.tool = ev.name;
+  } else if (ev.type === "tool") {
+    next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
+    next.phase = "tool";
+    next.tool = ev.name;
+  } else if (ev.type === "usage") {
+    // A step ended: the next one starts by thinking.
+    next.phase = "thinking";
+    next.thinking = "";
+  } else if (ev.type === "done") {
+    next.done = true;
+    next.phase = "idle";
+  }
+  return { ...m, [run]: next };
+}
+
 export function useLive(): Record<string, LiveRun> {
   return useContext(L);
 }
@@ -162,15 +199,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(() => setTick((n) => n + 1), []);
 
+  // The project list is read on every refresh: a failure is told once (not on every tick), as is a project that
+  // cannot be read.
+  const projectsError = useRef("");
   useEffect(() => {
     if (!status?.ready) return;
+    const tell = (m: string) => {
+      if (m && m !== projectsError.current) notify(m);
+      projectsError.current = m;
+    };
     api
       .projects()
       .then((ps) => {
         setProjects(ps);
         setProjectState((cur) => (cur && ps.some((p) => p.id === cur) ? cur : (ps[0]?.id ?? null)));
+        tell(ps.filter((p) => p.error).map((p) => `${p.name}: ${p.error}`).join("; "));
       })
-      .catch(() => {});
+      .catch((e) => tell(String(e)));
   }, [status?.ready, tick]);
 
   // Domain events refresh the views (coalesced to at most one refresh per 400 ms).
@@ -189,44 +234,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Streamed tokens come many times a second: they are applied together every 50 ms, so the views showing live
+    // output (the office, the chat, the run page) re-render a few times a second, not once per token. A timer, not
+    // an animation frame: a hidden window still keeps up.
+    let queue: [string, any, string | null][] = [];
+    let timer: number | undefined;
+    const flush = () => {
+      timer = undefined;
+      const batch = queue;
+      queue = [];
+      setLive((prev) => batch.reduce((m, [run, ev, agent]) => applyRunEvent(m, run, ev, agent), prev));
+    };
     const un = onRun((run, ev, agent) => {
-      setLive((prev) => {
-        let m = prev;
-        if (!m[run]) {
-          // A new run: forget the ones that finished a while ago.
-          const now = Date.now();
-          m = Object.fromEntries(Object.entries(m).filter(([, l]) => !l.done || now - l.at < KEEP_DONE));
-        }
-        const cur: LiveRun = m[run] ?? { agent, text: "", thinking: "", tools: [], phase: "idle", done: false, at: 0 };
-        const next: LiveRun = { ...cur, agent: cur.agent ?? agent, at: Date.now() };
-        if (ev.type === "text") {
-          next.text = (cur.text + ev.text).slice(-TAIL);
-          next.phase = "text";
-        } else if (ev.type === "thinking") {
-          next.thinking = (cur.thinking + ev.text).slice(-2000);
-          next.phase = "thinking";
-        } else if (ev.type === "restart") {
-          next.text = "";
-          next.phase = "thinking";
-        } else if (ev.type === "tool_start") {
-          next.phase = "tool";
-          next.tool = ev.name;
-        } else if (ev.type === "tool") {
-          next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
-          next.phase = "tool";
-          next.tool = ev.name;
-        } else if (ev.type === "usage") {
-          // A step ended: the next one starts by thinking.
-          next.phase = "thinking";
-          next.thinking = "";
-        } else if (ev.type === "done") {
-          next.done = true;
-          next.phase = "idle";
-        }
-        return { ...m, [run]: next };
-      });
+      queue.push([run, ev, agent]);
+      if (timer === undefined) timer = window.setTimeout(flush, 50);
     });
     return () => {
+      window.clearTimeout(timer);
       un.then((f) => f());
     };
   }, []);
@@ -264,6 +288,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     writeLocal("agenium-lang", l);
+    // The config keeps it too, for what the app shows outside the window (desktop notifications).
+    if (inTauri) api.setUiLanguage(l).catch(() => undefined);
   }, []);
   const t = useCallback((k: Key) => dictionaries[lang][k] ?? k, [lang]);
   const setThemeMode = useCallback((m: ThemeMode) => {

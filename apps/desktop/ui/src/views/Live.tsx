@@ -324,7 +324,8 @@ function body(b: { type: string; data: any }): string {
     return lines.join("\n");
   }
   if (d.request) return `${d.request.kind ?? ""}: ${d.request.reason ?? ""}`;
-  return d.text ?? d.question ?? d.answer ?? d.summary ?? d.note ?? d.message ?? JSON.stringify(d, null, 2);
+  // Answer bodies carry `resolution`, progress notes `current`.
+  return d.text ?? d.question ?? d.resolution ?? d.answer ?? d.summary ?? d.current ?? d.note ?? d.message ?? JSON.stringify(d, null, 2);
 }
 
 /** A worker's message bus (read-only): assignments from the Lead, questions, answers, reports, reviews. */
@@ -388,14 +389,14 @@ function WorkerBus({ agent, lead, stream }: { agent: LiveAgent; lead?: string | 
                 {it.resolved && <CircleCheck className="h-3 w-3 text-emerald-500" />}
                 <span className="ml-auto text-[11px] text-subtle">{ago(it.at)}</span>
               </div>
-              {it.kind === "Report" && it.body.data?.criteria ? (
+              {it.kind === "Report" && Array.isArray(it.body.data?.acceptance) ? (
                 <div className="mt-1.5 space-y-1">
-                  {it.body.data.summary && <div className="text-[11px]">{it.body.data.summary}</div>}
-                  {it.body.data.criteria.map((c: any) => (
-                    <div key={c.id} className="flex gap-1.5 text-[11px]">
+                  {it.body.data.summary && <Markdown className="text-[11px]" text={it.body.data.summary} />}
+                  {it.body.data.acceptance.map((c: { ac_id: string; status: string; evidence: string }) => (
+                    <div key={c.ac_id} className="flex gap-1.5 text-[11px]">
                       {c.status === "Met" ? <CircleCheck className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" /> : <CircleX className="mt-0.5 h-3 w-3 shrink-0 text-rose-500" />}
-                      <Mono className="text-subtle">{c.id}</Mono>
-                      <span className="text-muted">{c.evidence}</span>
+                      <Mono className="text-subtle">{c.ac_id}</Mono>
+                      <Markdown className="min-w-0 flex-1 text-muted" text={c.evidence ?? ""} />
                     </div>
                   ))}
                 </div>
@@ -493,16 +494,16 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
   const task = a.run?.ticket_key ? a.open_tickets.find((x) => x.key === a.run!.ticket_key) : a.open_tickets[0];
   const status: [string, string] =
     act?.activity === "tool" || act?.activity === "shell"
-      ? ["CALLING TOOL", "text-purple-600 dark:text-purple-300"]
+      ? [app.t("live.stTool"), "text-purple-600 dark:text-purple-300"]
       : act?.activity === "thinking"
-        ? ["THINKING", "text-blue-600 dark:text-blue-300"]
+        ? [app.t("live.stThinking"), "text-blue-600 dark:text-blue-300"]
         : act?.activity === "text"
-          ? ["WRITING", "text-blue-600 dark:text-blue-300"]
+          ? [app.t("live.stWriting"), "text-blue-600 dark:text-blue-300"]
           : act?.activity === "waiting"
-            ? ["WAITING", "text-amber-600 dark:text-amber-300"]
+            ? [app.t("live.stWaiting"), "text-amber-600 dark:text-amber-300"]
             : act?.activity === "off"
-              ? ["OFFLINE", "text-rose-600 dark:text-rose-300"]
-              : ["IDLE", "text-subtle"];
+              ? [app.t("live.stOffline"), "text-rose-600 dark:text-rose-300"]
+              : [app.t("live.stIdle"), "text-subtle"];
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* who and what */}
@@ -527,7 +528,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
                       Lead: 👑 {lead.agent.name}
                     </button>
                   ) : (
-                    "Team Lead"
+                    app.t("live.teamLead")
                   )}
                 </>
               ) : k === "standalone" ? (
@@ -543,7 +544,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
           </button>
         </div>
         <div className="mt-2 flex items-center gap-2 text-[11px]">
-          <span className="label">Task</span>
+          <span className="label">{app.t("live.task")}</span>
           {task ? (
             <>
               <Mono className="text-cyan-600 dark:text-cyan-400">{task.key}</Mono>
@@ -601,7 +602,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
                   <Delegations project={a.project} data={data} onWatch={onPick} />
                 </div>
               )}
-              <ChatPane project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} className="border-t border-line" />
+              <ChatPane key={a.project} project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} className="border-t border-line" />
             </>
           ) : k === "worker" ? (
             <>
@@ -613,7 +614,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
                     <div className="min-w-0 flex-1 text-xs">
                       <div className="font-semibold">{app.t("live.readOnly")}</div>
                       <div className="text-muted">
-                        {app.t("live.readOnlyNote")} <b>👑 {lead?.agent.name ?? "Team Lead"}</b>.
+                        {app.t("live.readOnlyNote")} <b>👑 {lead?.agent.name ?? app.t("live.teamLead")}</b>.
                       </div>
                     </div>
                   </div>
@@ -786,6 +787,10 @@ export function LiveView() {
   dataRef.current = data;
   const tRef = useRef(app.t);
   tRef.current = app.t;
+  // Another project chosen in the header: its room comes up.
+  useEffect(() => {
+    setRoom((r) => (r === "cctv" ? r : null));
+  }, [app.project]);
 
   useEffect(() => {
     const load = () => api.live().then((d) => d && setData(d));
@@ -886,7 +891,9 @@ export function LiveView() {
   const live = useLive();
   const acts = useActivity(data, live, app.t);
   const rooms = data ? roomsOf(data, app.t("live.soloOffice")) : [];
-  const current = rooms.find((r) => r.id === room) ?? (room === "cctv" ? undefined : rooms.find((r) => r.id !== "solo") ?? rooms[0]);
+  // Until the user picks a room, the room of the project chosen in the header (then the first team's).
+  const current =
+    rooms.find((r) => r.id === room) ?? (room === "cctv" ? undefined : rooms.find((r) => r.id !== "solo" && r.project === app.project) ?? rooms.find((r) => r.id !== "solo") ?? rooms[0]);
   const cctv = room === "cctv";
 
   // Whiteboards: each team's plan progress.
@@ -897,7 +904,7 @@ export function LiveView() {
       api.plan(r.project).then((p) => {
         if (!p) return;
         const done = p.items.filter((i) => i.done).length;
-        const lines = p.plan ? [`PLAN v${p.plan.version}`, `${done}/${p.items.length} done`, p.items.find((i) => !i.done)?.id ?? ""] : p.spec ? [`SPEC v${p.spec.version}`, p.spec.approved_by ? "approved" : "to approve"] : [];
+        const lines = p.plan ? [`PLAN v${p.plan.version}`, `${done}/${p.items.length} ${app.t("live.boardDone")}`, p.items.find((i) => !i.done)?.id ?? ""] : p.spec ? [`SPEC v${p.spec.version}`, p.spec.approved_by ? app.t("live.boardApproved") : app.t("live.boardToApprove")] : [];
         setBoards((b) => ({ ...b, [r.id]: lines }));
       });
     }
