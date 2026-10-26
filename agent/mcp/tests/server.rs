@@ -63,6 +63,7 @@ fn spec(server: &Server, auth: Option<String>) -> ConnectSpec {
     ConnectSpec::Http {
         url: server.url(),
         headers,
+        bearer: None,
     }
 }
 

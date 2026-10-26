@@ -235,10 +235,7 @@ impl Runtime {
         };
         let k = app.config().memory.top_k as usize;
         let embedder = app.embedder();
-        let mcp = Arc::new(agenium_mcp::McpHub::new(
-            crate::mcp::secret_fn(app.clone()),
-            app.layout().mcp_work(),
-        ));
+        let mcp = Arc::new(crate::mcp::hub(app.clone()));
         Self {
             project_cancels: Mutex::default(),
             model_infos: Mutex::default(),

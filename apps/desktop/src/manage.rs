@@ -294,7 +294,9 @@ pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) ->
     notes.extend(o.app.library_skill_conflicts(&meta.name));
     // ADR-90: when the judge is on, a calibrated read of the skill against the methodology principles.
     let quality = o.app.skill_quality(&body).await.unwrap_or_default();
-    Ok(json!({ "name": meta.name, "description": meta.description, "shape_notes": notes, "quality": quality }))
+    Ok(
+        json!({ "name": meta.name, "description": meta.description, "shape_notes": notes, "quality": quality }),
+    )
 }
 
 /// The recommended empty SKILL.md body sections (ADR-88), for an authoring form.
@@ -334,6 +336,7 @@ pub fn skill_text(d: State<'_, Desktop>, name: String) -> R<Value> {
 pub fn mcp_servers(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let agents = o.app.agents().map_err(err)?;
+    let hub = agenium_orchestrator::mcp::hub(o.app.clone());
     let servers: Vec<Value> = o
         .app
         .config()
@@ -349,7 +352,7 @@ pub fn mcp_servers(d: State<'_, Desktop>) -> R<Value> {
                 })
                 .map(|a| a.name.as_str())
                 .collect();
-            json!({ "config": m, "users": users })
+            json!({ "config": m, "users": users, "signed_in": hub.signed_in(m) })
         })
         .collect();
     Ok(json!(servers))
@@ -378,6 +381,35 @@ pub fn remove_mcp(d: State<'_, Desktop>, id: String, force: bool) -> R<()> {
     .map_err(err)
 }
 
+/// Signs the user in to an HTTP server that asks for OAuth: the browser opens, the tokens go to the vault (ADR-97).
+#[tauri::command]
+pub async fn login_mcp(d: State<'_, Desktop>, id: String) -> R<Value> {
+    let o = d.opened()?;
+    let cfg = o
+        .app
+        .config()
+        .mcp_server(&id)
+        .cloned()
+        .ok_or_else(|| format!("no MCP server {id}"))?;
+    let hub = agenium_orchestrator::mcp::hub(o.app.clone());
+    let open = |url: &str| {
+        if !agenium_mcp::oauth::open_browser(url) {
+            tracing::warn!("could not open the browser for the MCP sign-in");
+        }
+    };
+    let t = hub.login(&cfg, &[], &open).await.map_err(err)?;
+    Ok(json!({ "client_id": t.client_id, "scope": t.scope }))
+}
+
+#[tauri::command]
+pub async fn logout_mcp(d: State<'_, Desktop>, id: String) -> R<()> {
+    let o = d.opened()?;
+    agenium_orchestrator::mcp::hub(o.app.clone())
+        .logout(&id)
+        .await
+        .map_err(err)
+}
+
 /// Connects, lists the tools, disconnects.
 #[tauri::command]
 pub async fn test_mcp(d: State<'_, Desktop>, id: String) -> R<Value> {
@@ -388,10 +420,7 @@ pub async fn test_mcp(d: State<'_, Desktop>, id: String) -> R<Value> {
         .mcp_server(&id)
         .cloned()
         .ok_or_else(|| format!("no MCP server {id}"))?;
-    let hub = agenium_mcp::McpHub::new(
-        agenium_orchestrator::mcp::secret_fn(o.app.clone()),
-        o.app.layout().mcp_work(),
-    );
+    let hub = agenium_orchestrator::mcp::hub(o.app.clone());
     let binding = agenium_mcp::Binding {
         server: id,
         credentials: Default::default(),

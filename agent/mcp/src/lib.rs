@@ -4,9 +4,11 @@
 //!
 //! Reliability: a stdio server that died is restarted on the next call; read-only tools (`readOnlyHint`) are
 //! retried once after a reconnect, tools with side effects are not (the error goes back to the model).
-//! Not built yet: the legacy HTTP+SSE transport (servers older than revision 2025-03-26) and OAuth.
+//! Remote servers that ask for a signed-in user get one OAuth token per server ([`oauth`], ADR-97).
+//! Not built yet: the legacy HTTP+SSE transport (servers older than revision 2025-03-26).
 
 pub mod client;
+pub mod oauth;
 pub mod server;
 
 use std::collections::{BTreeMap, HashMap};
@@ -21,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub use client::{CallResult, Client, ConnectSpec, McpError, ToolInfo};
+pub use oauth::{MemoryTokens, TokenStore, Tokens};
 
 /// Limits of tool names on the vendor side (OpenAI: 64, `[A-Za-z0-9_-]`).
 pub const MAX_TOOL_NAME: usize = 64;
@@ -184,6 +187,7 @@ pub fn connect_spec(
         (None, Some(url)) => Ok(ConnectSpec::Http {
             url: url.clone(),
             headers: map(&cfg.headers)?,
+            bearer: None,
         }),
         _ => Err(McpError::Config(format!(
             "server {:?} needs exactly one of command or url",
@@ -271,6 +275,10 @@ fn tool_error(e: McpError) -> ToolError {
         McpError::Rpc { code, message } => {
             ToolError::new("mcp_error", format!("{message} (code {code})"))
         }
+        McpError::AuthRequired(why) => ToolError::new(
+            "mcp_needs_sign_in",
+            format!("{why}; only the user can sign in, tell them"),
+        ),
         other => ToolError::new("mcp_unavailable", other.to_string()),
     }
 }
@@ -351,7 +359,7 @@ fn fingerprint(spec: &ConnectSpec) -> u64 {
                 s.push_str(&format!("\0{k}={v}"));
             }
         }
-        ConnectSpec::Http { url, headers } => {
+        ConnectSpec::Http { url, headers, .. } => {
             s.push_str(url);
             for (k, v) in headers {
                 s.push_str(&format!("\0{k}={v}"));
@@ -365,6 +373,9 @@ pub struct McpHub {
     secret: SecretFn,
     work_dir: PathBuf,
     sessions: tokio::sync::Mutex<HashMap<SessionKey, OpenSession>>,
+    tokens: Option<Arc<dyn TokenStore>>,
+    /// One OAuth token holder per server, shared by every agent's connection to it.
+    bearers: std::sync::Mutex<HashMap<String, Arc<oauth::Bearer>>>,
 }
 
 impl McpHub {
@@ -374,7 +385,116 @@ impl McpHub {
             secret,
             work_dir: work_dir.into(),
             sessions: tokio::sync::Mutex::new(HashMap::new()),
+            tokens: None,
+            bearers: std::sync::Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Where OAuth tokens are kept; without a store, servers that ask for sign-in cannot be used.
+    pub fn with_tokens(mut self, store: Arc<dyn TokenStore>) -> Self {
+        self.tokens = Some(store);
+        self
+    }
+
+    /// The server's OAuth token goes on its HTTP connection unless the config sends its own `Authorization`.
+    fn spec_for(
+        &self,
+        cfg: &McpServerConfig,
+        binding: &Binding,
+        work_dir: PathBuf,
+    ) -> Result<ConnectSpec, McpError> {
+        let mut spec = connect_spec(cfg, binding, self.secret.as_ref(), work_dir)?;
+        if let (
+            ConnectSpec::Http {
+                url,
+                headers,
+                bearer,
+            },
+            Some(store),
+        ) = (&mut spec, &self.tokens)
+        {
+            if !headers
+                .keys()
+                .any(|k| k.eq_ignore_ascii_case("authorization"))
+            {
+                let mut all = self.bearers.lock().unwrap_or_else(|e| e.into_inner());
+                let b = all
+                    .entry(cfg.id.clone())
+                    .or_insert_with(|| Arc::new(oauth::Bearer::new(&cfg.id, url, store.clone())));
+                if !b.matches(url) {
+                    *b = Arc::new(oauth::Bearer::new(&cfg.id, url, store.clone()));
+                }
+                *bearer = Some(b.clone());
+            }
+        }
+        Ok(spec)
+    }
+
+    /// Signs the user in to an HTTP server (`open` shows them the authorization URL) and keeps the tokens.
+    pub async fn login(
+        &self,
+        cfg: &McpServerConfig,
+        scopes: &[String],
+        open: &(dyn Fn(&str) + Send + Sync),
+    ) -> Result<Tokens, McpError> {
+        let store = self
+            .tokens
+            .clone()
+            .ok_or_else(|| McpError::Config("no token store".into()))?;
+        let url = cfg
+            .url
+            .as_deref()
+            .ok_or_else(|| McpError::Config(format!("server {:?} has no url", cfg.id)))?;
+        let o = cfg.oauth.clone().unwrap_or_default();
+        let client = match &o.client_id {
+            Some(id) => Some(oauth::OAuthClient {
+                client_id: id.clone(),
+                client_secret: o
+                    .client_secret
+                    .as_deref()
+                    .map(|s| resolve(s, self.secret.as_ref(), &|_| None))
+                    .transpose()?,
+            }),
+            None => None,
+        };
+        let opts = oauth::LoginOptions {
+            client,
+            scopes: if scopes.is_empty() {
+                o.scopes.clone()
+            } else {
+                scopes.to_vec()
+            },
+            callback_port: o.callback_port.unwrap_or(0),
+            timeout: None,
+        };
+        let t = oauth::login(&cfg.id, url, &opts, store.as_ref(), open).await?;
+        self.forget_server(&cfg.id).await;
+        Ok(t)
+    }
+
+    /// Forgets the server's tokens and drops its connections.
+    pub async fn logout(&self, server: &str) -> Result<(), McpError> {
+        if let Some(store) = &self.tokens {
+            store.remove(server).map_err(McpError::Auth)?;
+        }
+        self.forget_server(server).await;
+        Ok(())
+    }
+
+    /// Whether tokens for this server's URL are stored.
+    pub fn signed_in(&self, cfg: &McpServerConfig) -> bool {
+        match (&self.tokens, &cfg.url) {
+            (Some(store), Some(url)) => store.load(&cfg.id).is_some_and(|t| &t.server_url == url),
+            _ => false,
+        }
+    }
+
+    async fn forget_server(&self, server: &str) {
+        self.bearers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(server);
+        self.sessions.lock().await.retain(|(_, s), _| s != server);
     }
 
     /// Connects (once per agent and server) and lists the tools an agent may use.
@@ -392,12 +512,7 @@ impl McpHub {
                 continue;
             };
             let key = (agent.to_owned(), cfg.id.clone());
-            let spec = match connect_spec(
-                cfg,
-                b,
-                self.secret.as_ref(),
-                self.work_dir.join(agent).join(&cfg.id),
-            ) {
+            let spec = match self.spec_for(cfg, b, self.work_dir.join(agent).join(&cfg.id)) {
                 Ok(s) => s,
                 Err(e) => {
                     out.problems.push(format!("{}: {e}", cfg.id));
@@ -488,12 +603,7 @@ impl McpHub {
         cfg: &McpServerConfig,
         binding: &Binding,
     ) -> Result<(Value, String, Vec<ToolInfo>), McpError> {
-        let spec = connect_spec(
-            cfg,
-            binding,
-            self.secret.as_ref(),
-            self.work_dir.join("_test").join(&cfg.id),
-        )?;
+        let spec = self.spec_for(cfg, binding, self.work_dir.join("_test").join(&cfg.id))?;
         let c = Client::connect(&spec, CONNECT_TIMEOUT).await?;
         let tools = c.list_tools(CONNECT_TIMEOUT).await?;
         Ok((c.server_info.clone(), c.protocol.clone(), tools))

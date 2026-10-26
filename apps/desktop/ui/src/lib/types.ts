@@ -467,11 +467,14 @@ export interface McpServerConfig {
   url?: string | null;
   headers?: Record<string, string>;
   timeout_secs: number;
+  oauth?: { client_id?: string | null; client_secret?: string | null; scopes?: string[]; callback_port?: number | null } | null;
 }
 
 export interface McpServerRow {
   config: McpServerConfig;
   users: string[];
+  /** OAuth tokens are kept for this server's URL (ADR-97). */
+  signed_in: boolean;
 }
 
 export interface UsageWindow {

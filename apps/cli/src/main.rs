@@ -378,6 +378,33 @@ enum McpCmd {
         headers: Vec<String>,
         #[arg(long, default_value_t = 120)]
         timeout: u64,
+        /// OAuth client id registered for Agenium at the server's authorization server (only when it does not
+        /// register clients itself; then sign in with `agenium mcp login`).
+        #[arg(long)]
+        oauth_client_id: Option<String>,
+        /// Its secret, for a confidential client: `${secret:<name>}` (vault).
+        #[arg(long)]
+        oauth_client_secret: Option<String>,
+        /// Scope to ask for (repeatable).
+        #[arg(long = "oauth-scope")]
+        oauth_scopes: Vec<String>,
+        /// Fixed port of the sign-in redirect (http://127.0.0.1:<port>/callback).
+        #[arg(long)]
+        oauth_callback_port: Option<u16>,
+    },
+    /// Sign in to an HTTP server that asks for OAuth: opens the browser, keeps the tokens in the vault.
+    Login {
+        id: String,
+        /// Scope to ask for (repeatable); default: what the server asks for.
+        #[arg(long = "scope")]
+        scopes: Vec<String>,
+        /// Print the sign-in URL instead of opening the browser.
+        #[arg(long)]
+        no_browser: bool,
+    },
+    /// Forget the server's OAuth tokens.
+    Logout {
+        id: String,
     },
     /// Import pasted JSON ({"mcpServers": {...}}) from a file or "-" for stdin; secrets move to the vault.
     Import {
@@ -863,7 +890,21 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
             env,
             headers,
             timeout,
+            oauth_client_id,
+            oauth_client_secret,
+            oauth_scopes,
+            oauth_callback_port,
         } => {
+            let oauth = (oauth_client_id.is_some()
+                || oauth_client_secret.is_some()
+                || !oauth_scopes.is_empty()
+                || oauth_callback_port.is_some())
+            .then(|| agenium_config::McpOAuthConfig {
+                client_id: oauth_client_id.clone(),
+                client_secret: oauth_client_secret.clone(),
+                scopes: oauth_scopes.clone(),
+                callback_port: *oauth_callback_port,
+            });
             app.put_mcp_server(agenium_config::McpServerConfig {
                 id: id.clone(),
                 command: command.clone(),
@@ -872,6 +913,7 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
                 url: url.clone(),
                 headers: pairs(headers)?,
                 timeout_secs: *timeout,
+                oauth,
             })?;
             println!("MCP server {id} saved (test it: agenium mcp test {id})");
         }
@@ -887,9 +929,11 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
             println!("imported: {}", r.servers.join(", "));
         }
         McpCmd::List => {
+            let hub = agenium_orchestrator::mcp::hub(app.clone());
             for m in app.config().mcp {
                 let target = match (&m.command, &m.url) {
                     (Some(c), _) => format!("stdio: {c} {}", m.args.join(" ")),
+                    (_, Some(u)) if hub.signed_in(&m) => format!("http: {u} (signed in)"),
                     (_, Some(u)) => format!("http: {u}"),
                     _ => "?".into(),
                 };
@@ -899,6 +943,41 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
         McpCmd::Remove { id } => {
             app.remove_mcp_server(id)?;
             println!("removed {id}");
+        }
+        McpCmd::Login {
+            id,
+            scopes,
+            no_browser,
+        } => {
+            let cfg = app
+                .config()
+                .mcp_server(id)
+                .cloned()
+                .ok_or_else(|| anyhow!("no MCP server {id}"))?;
+            let hub = agenium_orchestrator::mcp::hub(app.clone());
+            let no_browser = *no_browser;
+            let open = move |url: &str| {
+                if no_browser || !agenium_mcp::oauth::open_browser(url) {
+                    println!("Open this URL to sign in:\n{url}");
+                } else {
+                    println!("Signing in through your browser… (if it did not open: {url})");
+                }
+            };
+            let t = hub.login(&cfg, scopes, &open).await?;
+            println!(
+                "signed in to {id} (client {}{})",
+                t.client_id,
+                t.scope
+                    .as_deref()
+                    .map(|s| format!(", scope {s}"))
+                    .unwrap_or_default()
+            );
+        }
+        McpCmd::Logout { id } => {
+            agenium_orchestrator::mcp::hub(app.clone())
+                .logout(id)
+                .await?;
+            println!("signed out of {id}");
         }
         McpCmd::Test { id, agent } => {
             let cfg = app
@@ -918,10 +997,7 @@ async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
                     tools: None,
                 },
             };
-            let hub = agenium_mcp::McpHub::new(
-                agenium_orchestrator::mcp::secret_fn(app.clone()),
-                app.layout().mcp_work(),
-            );
+            let hub = agenium_orchestrator::mcp::hub(app.clone());
             let (info, protocol, tools) = hub.test(&cfg, &binding).await?;
             println!(
                 "connected: {} {} (protocol {protocol})",

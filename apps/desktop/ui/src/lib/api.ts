@@ -173,6 +173,8 @@ export const api = {
   putMcp: (server: McpServerConfig) => call<void>("put_mcp", { server }),
   importMcpJson: (text: string) => call<{ servers: string[] }>("import_mcp_json", { text }),
   removeMcp: (id: string, force = false) => call<void>("remove_mcp", { id, force }),
+  loginMcp: (id: string) => call<{ client_id: string; scope?: string | null }>("login_mcp", { id }),
+  logoutMcp: (id: string) => call<void>("logout_mcp", { id }),
   testMcp: (id: string) =>
     call<{ server: any; protocol: string; tools: { name: string; description?: string | null; read_only: boolean }[] }>("test_mcp", { id }),
   putProvider: (form: { id: string; kind: string; base_url?: string | null; api_key?: string | null; clear_key?: boolean; max_concurrency?: number; models?: string[] }) =>

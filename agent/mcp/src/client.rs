@@ -32,6 +32,12 @@ pub enum McpError {
     Http { status: u16, body: String },
     #[error("no answer within {0:?}")]
     Timeout(Duration),
+    /// The server wants a signed-in user (OAuth, ADR-97); the text says how.
+    #[error("{0}")]
+    AuthRequired(String),
+    /// A sign-in step failed.
+    #[error("sign-in: {0}")]
+    Auth(String),
 }
 
 pub type Result<T> = std::result::Result<T, McpError>;
@@ -48,6 +54,8 @@ pub enum ConnectSpec {
     Http {
         url: String,
         headers: BTreeMap<String, String>,
+        /// The server's OAuth token, when it has no `Authorization` header of its own.
+        bearer: Option<Arc<crate::oauth::Bearer>>,
     },
 }
 
@@ -63,10 +71,15 @@ impl std::fmt::Debug for ConnectSpec {
                 .field("args", args)
                 .field("env", &env.keys().collect::<Vec<_>>())
                 .finish(),
-            ConnectSpec::Http { url, headers } => f
+            ConnectSpec::Http {
+                url,
+                headers,
+                bearer,
+            } => f
                 .debug_struct("Http")
                 .field("url", url)
                 .field("headers", &headers.keys().collect::<Vec<_>>())
+                .field("oauth", &bearer.is_some())
                 .finish(),
         }
     }
@@ -302,6 +315,7 @@ struct Http {
     protocol: Mutex<Option<String>>,
     next: AtomicI64,
     alive: AtomicBool,
+    bearer: Option<Arc<crate::oauth::Bearer>>,
 }
 
 /// Splits complete SSE events out of `buf`, returning the `data` payload of each.
@@ -329,7 +343,11 @@ fn sse_events(buf: &mut String) -> Vec<String> {
 }
 
 impl Http {
-    fn new(url: &str, headers: &BTreeMap<String, String>) -> Result<Http> {
+    fn new(
+        url: &str,
+        headers: &BTreeMap<String, String>,
+        bearer: Option<Arc<crate::oauth::Bearer>>,
+    ) -> Result<Http> {
         let mut map = reqwest::header::HeaderMap::new();
         for (k, v) in headers {
             let name = reqwest::header::HeaderName::from_bytes(k.as_bytes())
@@ -351,10 +369,11 @@ impl Http {
             protocol: Mutex::new(None),
             next: AtomicI64::new(1),
             alive: AtomicBool::new(true),
+            bearer,
         })
     }
 
-    fn post(&self, body: &Value) -> reqwest::RequestBuilder {
+    fn post(&self, body: &Value, token: Option<&str>) -> reqwest::RequestBuilder {
         let mut rb = self
             .client
             .post(&self.url)
@@ -378,7 +397,58 @@ impl Http {
         {
             rb = rb.header("MCP-Protocol-Version", p);
         }
+        if let Some(t) = token {
+            let mut v = reqwest::header::HeaderValue::from_str(&format!("Bearer {t}"))
+                .unwrap_or_else(|_| reqwest::header::HeaderValue::from_static("Bearer -"));
+            v.set_sensitive(true);
+            rb = rb.header(reqwest::header::AUTHORIZATION, v);
+        }
         rb
+    }
+
+    /// POSTs `body` with the OAuth token when the server has one: after a 401 the token is renewed once and the
+    /// body sent again; a 401 or a 403 asking for more scope after that means the user must sign in.
+    async fn send(&self, body: &Value) -> Result<reqwest::Response> {
+        let Some(bearer) = &self.bearer else {
+            return self
+                .post(body, None)
+                .send()
+                .await
+                .map_err(|e| McpError::Transport(e.to_string()));
+        };
+        let mut token = bearer.token().await;
+        for attempt in 0..2 {
+            let resp = self
+                .post(body, token.as_deref())
+                .send()
+                .await
+                .map_err(|e| McpError::Transport(e.to_string()))?;
+            match resp.status().as_u16() {
+                401 if attempt == 0 && bearer.recover(token.as_deref()).await => {
+                    token = bearer.token().await;
+                }
+                401 => return Err(McpError::AuthRequired(bearer.sign_in_hint())),
+                403 => {
+                    let c = resp
+                        .headers()
+                        .get("www-authenticate")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(crate::oauth::parse_challenge);
+                    if let Some(c) = c.filter(|c| c.error.as_deref() == Some("insufficient_scope"))
+                    {
+                        return Err(McpError::AuthRequired(format!(
+                            "MCP server {} asks for more access ({}): sign in again with `agenium mcp login {} --scope …`",
+                            bearer.server(),
+                            c.scope.unwrap_or_default(),
+                            bearer.server()
+                        )));
+                    }
+                    return Ok(resp);
+                }
+                _ => return Ok(resp),
+            }
+        }
+        Err(McpError::AuthRequired(bearer.sign_in_hint()))
     }
 
     async fn check(&self, resp: reqwest::Response) -> Result<reqwest::Response> {
@@ -407,11 +477,7 @@ impl Http {
     }
 
     async fn exchange(&self, id: i64, body: Value) -> Result<Value> {
-        let resp = self
-            .post(&body)
-            .send()
-            .await
-            .map_err(|e| McpError::Transport(e.to_string()))?;
+        let resp = self.send(&body).await?;
         let resp = self.check(resp).await?;
         if let Some(s) = resp
             .headers()
@@ -441,7 +507,7 @@ impl Http {
                     };
                     if msg.get("method").is_some() {
                         if msg.get("id").is_some() {
-                            let _ = self.post(&answer_server_request(&msg)).send().await;
+                            let _ = self.send(&answer_server_request(&msg)).await;
                         }
                         continue;
                     }
@@ -483,11 +549,7 @@ impl Wire for Http {
 
     async fn notify(&self, method: &str, params: Value) -> Result<()> {
         let body = json!({ "jsonrpc": "2.0", "method": method, "params": params });
-        let resp = self
-            .post(&body)
-            .send()
-            .await
-            .map_err(|e| McpError::Transport(e.to_string()))?;
+        let resp = self.send(&body).await?;
         self.check(resp).await.map(|_| ())
     }
 
@@ -551,7 +613,11 @@ impl Client {
                 env,
                 cwd,
             } => Box::new(Stdio::spawn(command, args, env, cwd)?),
-            ConnectSpec::Http { url, headers } => Box::new(Http::new(url, headers)?),
+            ConnectSpec::Http {
+                url,
+                headers,
+                bearer,
+            } => Box::new(Http::new(url, headers, bearer.clone())?),
         };
         let init = wire
             .request(

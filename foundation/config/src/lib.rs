@@ -9,8 +9,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 pub use config::{
-    valid_mcp_id, ApprovalPolicy, CliSection, Config, JudgeSection, McpServerConfig, ModelCaps,
-    ProviderConfig, ProviderKind, SecretsBackend,
+    valid_mcp_id, ApprovalPolicy, CliSection, Config, JudgeSection, McpOAuthConfig,
+    McpServerConfig, ModelCaps, ProviderConfig, ProviderKind, SecretsBackend,
 };
 pub use root::{resolve_root, resolve_root_with, Bootstrap, RootInputs, RootLayout, RootSource};
 

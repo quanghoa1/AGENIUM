@@ -408,6 +408,27 @@ pub struct McpServerConfig {
     /// Seconds a tool call may take.
     #[serde(default = "default_mcp_timeout")]
     pub timeout_secs: u64,
+    /// OAuth settings of a `url` server whose authorization server does not register clients itself. Without
+    /// them, `agenium mcp login` discovers the authorization server and registers Agenium (ADR-97).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth: Option<McpOAuthConfig>,
+}
+
+/// A pre-registered OAuth client for an MCP server (ADR-97).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct McpOAuthConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    /// Plain text or `${secret:<name>}`; only for confidential clients.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
+    /// Scopes to ask for; empty = what the server asks for.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scopes: Vec<String>,
+    /// Fixed port of the loopback redirect (`http://127.0.0.1:<port>/callback`), for clients registered with an
+    /// exact redirect URI; 0 or absent = any free port.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callback_port: Option<u16>,
 }
 
 fn default_mcp_timeout() -> u64 {

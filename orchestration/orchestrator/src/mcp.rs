@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use agenium_config::McpServerConfig;
 use agenium_core::*;
-use agenium_mcp::{Binding, SecretFn};
+use agenium_mcp::{Binding, McpHub, SecretFn, TokenStore, Tokens};
 use agenium_store::core::agents;
 use agenium_store::StoreError;
 
@@ -22,6 +22,58 @@ pub fn secret_fn(app: Arc<App>) -> SecretFn {
             .flatten()
             .and_then(|s| s.expose_str().ok().map(str::to_owned))
     })
+}
+
+/// OAuth tokens of MCP servers, one vault secret per server (`mcp-oauth/<server>`, JSON). Values read or written
+/// are registered with the redactor (ADR-97).
+pub struct VaultTokens(pub Arc<App>);
+
+fn token_name(server: &str) -> String {
+    format!("mcp-oauth/{server}")
+}
+
+impl VaultTokens {
+    fn mask(&self, t: &Tokens) {
+        let r = self.0.redactor();
+        r.register("mcp-oauth-access", &t.access_token);
+        if let Some(x) = &t.refresh_token {
+            r.register("mcp-oauth-refresh", x);
+        }
+        if let Some(x) = &t.client_secret {
+            r.register("mcp-oauth-client", x);
+        }
+    }
+}
+
+impl TokenStore for VaultTokens {
+    fn load(&self, server: &str) -> Option<Tokens> {
+        let s = self.0.secrets().get(&token_name(server)).ok()??;
+        let t: Tokens = serde_json::from_str(s.expose_str().ok()?).ok()?;
+        self.mask(&t);
+        Some(t)
+    }
+
+    fn save(&self, server: &str, tokens: &Tokens) -> std::result::Result<(), String> {
+        self.mask(tokens);
+        let json = serde_json::to_string(tokens).map_err(|e| e.to_string())?;
+        self.0
+            .secrets()
+            .set(&token_name(server), json.as_bytes())
+            .map_err(|e| e.to_string())
+    }
+
+    fn remove(&self, server: &str) -> std::result::Result<(), String> {
+        self.0
+            .secrets()
+            .delete(&token_name(server))
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// The MCP hub of this root: vault secrets for `${secret:…}`, vault-kept OAuth tokens.
+pub fn hub(app: Arc<App>) -> McpHub {
+    McpHub::new(secret_fn(app.clone()), app.layout().mcp_work())
+        .with_tokens(Arc::new(VaultTokens(app)))
 }
 
 fn looks_secret(key: &str, value: &str) -> bool {
@@ -126,6 +178,8 @@ impl App {
             return Err(OrchError::NotFound(format!("MCP server {id}")));
         }
         self.update_config(|c| c.mcp.retain(|m| m.id != id))?;
+        // Its OAuth tokens go with it.
+        self.secrets().delete(&token_name(id))?;
         Ok(())
     }
 
@@ -178,6 +232,7 @@ impl App {
                     .map(str::to_owned),
                 headers: strings("headers"),
                 timeout_secs: 120,
+                oauth: None,
             };
             out.servers.push(id);
             configs.push(cfg);

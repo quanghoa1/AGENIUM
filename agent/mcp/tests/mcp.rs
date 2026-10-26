@@ -26,6 +26,7 @@ fn stdio_cfg() -> McpServerConfig {
         url: None,
         headers: BTreeMap::new(),
         timeout_secs: 10,
+        oauth: None,
     }
 }
 
@@ -302,6 +303,7 @@ async fn streamable_http_server() {
         )]
         .into(),
         timeout_secs: 10,
+        oauth: None,
     };
     let b = Binding {
         server: "docs".into(),

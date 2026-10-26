@@ -533,7 +533,22 @@ function McpPanel() {
   const [form, setForm] = useState({ id: "", command: "", args: "", env: "", url: "", headers: "", timeout: 120, json: "" });
   const [tested, setTested] = useState<Record<string, { tools: { name: string; description?: string | null; read_only: boolean }[]; error?: string } | "busy">>({});
   const [del, setDel] = useState<McpServerRow | null>(null);
+  const [signing, setSigning] = useState<string | null>(null);
   const load = () => api.mcpServers().then(setRows);
+  const signIn = (id: string) => {
+    setSigning(id);
+    app.notify(app.t("library.signingIn"));
+    api
+      .loginMcp(id)
+      .then(() => (app.notify(`${id}: ${app.t("library.signedIn")}`), setTested((t) => ({ ...t, [id]: undefined as never })), load()))
+      .catch((e) => app.notify(String(e)))
+      .finally(() => setSigning(null));
+  };
+  const signOut = (id: string) =>
+    api
+      .logoutMcp(id)
+      .then(load)
+      .catch((e) => app.notify(String(e)));
   useEffect(() => {
     load();
   }, [app.tick]);
@@ -641,7 +656,18 @@ function McpPanel() {
                 <Plug className="h-4 w-4 text-purple-500" />
                 <span className="text-sm font-semibold">{r.config.id}</span>
                 <Mono className="truncate text-subtle">{r.config.url ?? [r.config.command, ...(r.config.args ?? [])].join(" ")}</Mono>
+                {r.signed_in && <span className="chip border-emerald-500/30 text-emerald-600">{app.t("library.signedIn")}</span>}
                 <div className="ml-auto flex gap-1.5">
+                  {r.config.url &&
+                    (r.signed_in ? (
+                      <button className="btn" onClick={() => signOut(r.config.id)}>
+                        {app.t("library.signOut")}
+                      </button>
+                    ) : (
+                      <button className="btn" disabled={signing === r.config.id} onClick={() => signIn(r.config.id)}>
+                        <RefreshCw className={cn("h-3.5 w-3.5", signing === r.config.id && "animate-spin")} /> {app.t("library.signIn")}
+                      </button>
+                    ))}
                   <button className="btn" disabled={t === "busy"} onClick={() => test(r.config.id)}>
                     <RefreshCw className={cn("h-3.5 w-3.5", t === "busy" && "animate-spin")} /> {app.t("library.test")}
                   </button>

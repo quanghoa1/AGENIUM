@@ -1011,6 +1011,7 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
         )]
         .into(),
         timeout_secs: 10,
+        oauth: None,
     })
     .unwrap();
     // A key written as a plain value is the server's system key (the owner's decision: shown in the app).
@@ -1022,6 +1023,7 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
         url: None,
         headers: Default::default(),
         timeout_secs: 10,
+        oauth: None,
     })
     .unwrap();
     app.remove_mcp_server("plain").unwrap();
