@@ -146,6 +146,7 @@ pub struct ToolCtx {
     pub capabilities: Vec<String>,
     /// Write scope inside the worktree (open by default).
     pub write_scope: paths::WriteScope,
+    /// The `fetch` client: it must not follow redirects (`fetch` checks every hop itself).
     pub http: reqwest::Client,
     ledger: Mutex<HashMap<PathBuf, [u8; 32]>>,
     todo: Mutex<Vec<TodoItem>>,
@@ -169,8 +170,11 @@ impl ToolCtx {
             fetch_allow: vec![],
             capabilities: vec![],
             write_scope: paths::WriteScope::default(),
+            // `fetch` follows redirects itself, checking every hop like the first URL (the allowlist, private
+            // addresses); a client that followed them would check the first one only.
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap_or_default(),
             ledger: Mutex::new(HashMap::new()),
