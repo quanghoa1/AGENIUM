@@ -186,6 +186,7 @@ impl App {
     /// Imports `{"mcpServers": {name: {command, args, env} | {url, headers}}}` (the format most MCP docs show).
     /// Values are kept as written.
     pub fn import_mcp_json(&self, text: &str) -> Result<JsonImport> {
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let v: serde_json::Value = serde_json::from_str(text)
             .map_err(|e| OrchError::Invalid(format!("not valid JSON: {e}")))?;
         let map = v

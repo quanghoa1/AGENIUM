@@ -468,6 +468,8 @@ impl Config {
     }
 
     pub fn parse(text: &str) -> Result<Config, String> {
+        // A byte-order mark (Windows PowerShell 5.1 writes one with `Set-Content -Encoding utf8`) is not TOML.
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let c: Config = toml::from_str(text).map_err(|e| e.to_string())?;
         c.check()?;
         Ok(c)
@@ -612,5 +614,17 @@ context_window = 32768
             "[[providers]]\nid=\"x\"\nkind=\"mock\"\n[[providers]]\nid=\"x\"\nkind=\"mock\""
         )
         .is_err());
+    }
+}
+
+#[cfg(test)]
+mod bom_tests {
+    use super::*;
+
+    /// Windows PowerShell 5.1 writes a byte-order mark; the file must still load.
+    #[test]
+    fn a_byte_order_mark_is_not_toml() {
+        let text = toml::to_string(&Config::default()).unwrap();
+        assert!(Config::parse(&format!("\u{feff}{text}")).is_ok());
     }
 }

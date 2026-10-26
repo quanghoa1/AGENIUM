@@ -74,6 +74,7 @@ fn slug_ok(s: &str) -> bool {
 
 impl TeamTemplate {
     pub fn parse(text: &str) -> Result<Self> {
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let t: TeamTemplate =
             toml::from_str(text).map_err(|e| OrchError::Invalid(format!("team template: {e}")))?;
         t.validate()?;
@@ -440,7 +441,7 @@ impl App {
     pub(crate) fn role_file(&self, role: &str) -> RoleFile {
         std::fs::read_to_string(self.layout().roles().join(role).join("role.toml"))
             .ok()
-            .and_then(|s| toml::from_str::<RoleFile>(&s).ok())
+            .and_then(|s| toml::from_str::<RoleFile>(s.strip_prefix('\u{feff}').unwrap_or(&s)).ok())
             .unwrap_or_default()
     }
 

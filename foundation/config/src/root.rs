@@ -32,7 +32,7 @@ impl Bootstrap {
 
     pub fn load(path: &Path) -> Result<Option<Bootstrap>, ConfigError> {
         match fs::read_to_string(path) {
-            Ok(s) => toml::from_str(&s)
+            Ok(s) => toml::from_str(s.strip_prefix('\u{feff}').unwrap_or(&s))
                 .map(Some)
                 .map_err(|e| ConfigError::Parse {
                     path: path.into(),

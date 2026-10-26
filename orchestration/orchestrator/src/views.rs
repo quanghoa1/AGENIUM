@@ -111,7 +111,7 @@ impl App {
                 return Ok(None);
             }
         };
-        let text = text.trim();
+        let text = text.trim_start_matches('\u{feff}').trim();
         if text.is_empty() {
             return Ok(None);
         }
