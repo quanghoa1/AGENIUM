@@ -817,6 +817,7 @@ async fn vendor_switch_keeps_memory_skills_and_conversation() {
                 signature: Some("sig-a".into()),
                 provider: "anthropic".into(),
                 redacted: false,
+                model: None,
             },
         );
         Ok(r)
@@ -873,11 +874,13 @@ async fn vendor_switch_keeps_memory_skills_and_conversation() {
                 .any(|m| m.tool_calls().iter().any(|c| c.name == "ask_question")),
             "the conversation from vendor A is kept"
         );
-        // Normalized history keeps the block; each adapter drops other vendors' thinking on the wire
-        // (agenium-llm adapter tests).
-        assert!(req.messages.iter().flat_map(|m| m.parts.iter()).any(
-            |p| matches!(p, agenium_llm::Part::Thinking { provider, .. } if provider == "anthropic")
-        ));
+        // The stored history keeps vendor A's thinking, but it is never sent to another model: its signature is
+        // valid for model-a only (ADR-101).
+        assert!(!req
+            .messages
+            .iter()
+            .flat_map(|m| m.parts.iter())
+            .any(|p| matches!(p, agenium_llm::Part::Thinking { .. })));
         Ok(calls_response(
             "",
             vec![(

@@ -311,6 +311,7 @@ impl StreamState {
                                 signature: sig,
                                 provider: KIND.into(),
                                 redacted: false,
+                                model: None,
                             }),
                         }
                     } else {
@@ -326,6 +327,7 @@ impl StreamState {
                                 signature: Some(s),
                                 provider: KIND.into(),
                                 redacted: false,
+                                model: None,
                             });
                         }
                     }

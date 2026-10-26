@@ -27,6 +27,10 @@ pub enum Part {
         provider: String,
         #[serde(default)]
         redacted: bool,
+        /// Model that wrote it (set by the agent loop). A signed block is valid for that model only, so it is not
+        /// replayed to another one (ADR-101); `None` (older history) replays as before.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
     },
     ToolCall {
         id: String,

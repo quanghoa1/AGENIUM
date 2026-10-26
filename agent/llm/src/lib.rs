@@ -6,6 +6,7 @@
 pub mod anthropic;
 pub mod error;
 pub mod gemini;
+pub mod history;
 pub mod http;
 pub mod local;
 pub mod mock;

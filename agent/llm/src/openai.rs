@@ -435,6 +435,7 @@ impl StreamState {
                 signature: None,
                 provider: KIND.into(),
                 redacted: false,
+                model: None,
             });
         }
         if !self.text.is_empty() {

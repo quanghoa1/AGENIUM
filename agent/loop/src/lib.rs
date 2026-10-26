@@ -306,7 +306,8 @@ impl Run<'_> {
         ChatRequest {
             model: self.cfg.model.clone(),
             system: order.system.clone(),
-            messages: messages.to_vec(),
+            // What the provider accepts (ADR-101); the stored history keeps everything.
+            messages: agenium_llm::history::prepare(messages, &self.cfg.model),
             tools: if tools { self.specs.clone() } else { vec![] },
             effort: self.cfg.effort,
             max_tokens: self.cfg.max_tokens,
@@ -408,8 +409,17 @@ impl Run<'_> {
             }
             usage.add(&resp.usage);
             self.observer.step(step, &usage);
-            let calls = resp.message.tool_calls();
-            push(&mut messages, resp.message.clone());
+            let mut message = resp.message.clone();
+            // Thinking is replayed to the model that wrote it only (ADR-101).
+            for p in &mut message.parts {
+                if let Part::Thinking { model, .. } = p {
+                    if model.is_none() {
+                        *model = Some(self.cfg.model.clone());
+                    }
+                }
+            }
+            let calls = message.tool_calls();
+            push(&mut messages, message);
             if resp.stop == StopReason::Refusal {
                 break Outcome::Refused;
             }
@@ -435,6 +445,35 @@ impl Run<'_> {
                 continue;
             }
             nudges = 0;
+            // Cut by the output limit: the last call's arguments may be incomplete, so none of the calls runs.
+            if resp.stop == StopReason::MaxTokens {
+                errors_in_row += 1;
+                let results = calls
+                    .iter()
+                    .map(|c| Part::ToolResult {
+                        call_id: c.id.clone(),
+                        name: c.name.clone(),
+                        content: serde_json::json!({"error": {"code": "truncated", "message":
+                            "your answer was cut by the output limit, so its tool calls were not run (their \
+                             arguments may be incomplete); send them again, writing large content in smaller pieces"}})
+                        .to_string(),
+                        is_error: true,
+                    })
+                    .collect();
+                push(
+                    &mut messages,
+                    Message {
+                        role: Role::User,
+                        parts: results,
+                    },
+                );
+                if errors_in_row >= self.cfg.error_limit {
+                    break Outcome::TooManyErrors {
+                        last: "tool calls cut by the output limit".into(),
+                    };
+                }
+                continue;
+            }
             let mut results = Vec::new();
             let mut effect = Effect::Continue;
             let mut stop: Option<Outcome> = None;

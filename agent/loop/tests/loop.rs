@@ -479,3 +479,70 @@ async fn after_two_compactions_the_run_checkpoints() {
     .await;
     assert!(matches!(r.outcome, Outcome::Checkpoint { .. }));
 }
+
+/// ADR-101: tool calls in an answer cut by the output limit are not run; the model is told to send them again.
+#[tokio::test]
+async fn calls_cut_by_the_output_limit_are_not_run() {
+    let (t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push(Box::new(|_| {
+        let mut r = agenium_llm::mock::calls_response(
+            "",
+            vec![("write_file", json!({"path": "half.txt", "content": "par"}))],
+        );
+        r.stop = StopReason::MaxTokens;
+        Ok(r)
+    }));
+    p.push(Box::new(|req: &ChatRequest| {
+        let last = req.messages.last().unwrap();
+        assert!(
+            matches!(&last.parts[0], Part::ToolResult { content, is_error: true, .. } if content.contains("truncated")),
+            "{last:?}"
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    assert!(
+        !t.path().join("half.txt").exists(),
+        "the cut call did not run"
+    );
+}
+
+/// ADR-101: thinking is stamped with the model that wrote it and replayed to it.
+#[tokio::test]
+async fn thinking_is_kept_for_the_model_that_wrote_it() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push(Box::new(|_| {
+        let mut r = agenium_llm::mock::calls_response("", vec![("list_dir", json!({}))]);
+        r.message.parts.insert(
+            0,
+            Part::Thinking {
+                text: "look first".into(),
+                signature: Some("sig".into()),
+                provider: "anthropic".into(),
+                redacted: false,
+                model: None,
+            },
+        );
+        Ok(r)
+    }));
+    p.push(Box::new(|req: &ChatRequest| {
+        let kept = req
+            .messages
+            .iter()
+            .flat_map(|m| m.parts.iter())
+            .any(|x| matches!(x, Part::Thinking { model: Some(m), .. } if m == "scripted"));
+        assert!(kept, "{:?}", req.messages);
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+}

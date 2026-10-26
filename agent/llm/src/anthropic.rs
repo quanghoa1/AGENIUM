@@ -167,7 +167,7 @@ pub fn build_body(req: &ChatRequest) -> Value {
             match p {
                 Part::Text { text } if !text.is_empty() => blocks.push(json!({"type": "text", "text": text})),
                 Part::Text { .. } => {}
-                Part::Thinking { text, signature, provider, redacted } if provider == KIND && m.role == Role::Assistant => {
+                Part::Thinking { text, signature, provider, redacted, .. } if provider == KIND && m.role == Role::Assistant => {
                     if *redacted {
                         blocks.push(json!({"type": "redacted_thinking", "data": signature.clone().unwrap_or_default()}));
                     } else {
@@ -410,12 +410,14 @@ impl StreamState {
                     signature: Some(signature),
                     provider: KIND.into(),
                     redacted: false,
+                    model: None,
                 },
                 Block::Redacted(data) => Part::Thinking {
                     text: String::new(),
                     signature: Some(data),
                     provider: KIND.into(),
                     redacted: true,
+                    model: None,
                 },
                 Block::Tool { id, name, json } => Part::ToolCall {
                     id,

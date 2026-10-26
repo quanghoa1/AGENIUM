@@ -158,6 +158,7 @@ fn request(model: &str) -> ChatRequest {
                         signature: Some("sig-1".into()),
                         provider: "anthropic".into(),
                         redacted: false,
+                        model: None,
                     },
                     Part::ToolCall {
                         id: "toolu_1".into(),
@@ -303,6 +304,7 @@ async fn anthropic_older_model_uses_budget_and_other_vendor_thinking_is_dropped(
         signature: None,
         provider: "gemini".into(),
         redacted: false,
+        model: None,
     };
     p.chat(&req, &|_| {}).await.unwrap();
     let b = seen.lock().unwrap()[0].body.clone();
@@ -491,6 +493,7 @@ async fn deepseek_reasoning_and_local_endpoint_without_done() {
         signature: None,
         provider: "openai_compat".into(),
         redacted: false,
+        model: None,
     };
     let r = p.chat(&req, &|_| {}).await.unwrap();
     let b = seen.lock().unwrap()[0].body.clone();
