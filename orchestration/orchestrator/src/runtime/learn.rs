@@ -431,8 +431,22 @@ pub(crate) fn chat_session(project: ProjectId) -> String {
     format!("chat:{project}")
 }
 
-/// The chat as plain text for extraction, without the turn's own context around each user message (the run context
-/// before it, the project state after it).
+/// What the user wrote in a chat turn, without the turn's own context around it: the run context before it and the
+/// project state after it (ADR-113).
+pub fn user_words(text: &str) -> &str {
+    let mut t = text;
+    if let Some(i) = t.find("\n\n<project_state>") {
+        t = &t[..i];
+    }
+    if t.starts_with("Run context\n") {
+        if let Some(i) = t.find("\n\n") {
+            t = &t[i + 2..];
+        }
+    }
+    t
+}
+
+/// The chat as plain text for extraction, each user message as the user wrote it ([`user_words`]).
 pub fn chat_transcript(messages: &[Message]) -> String {
     let own: Vec<Message> = messages
         .iter()
@@ -441,14 +455,7 @@ pub fn chat_transcript(messages: &[Message]) -> String {
             if m.role == agenium_llm::Role::User {
                 for p in &mut m.parts {
                     if let Part::Text { text } = p {
-                        if let Some(i) = text.find("\n\n<project_state>") {
-                            text.truncate(i);
-                        }
-                        if text.starts_with("Run context\n") {
-                            if let Some(i) = text.find("\n\n") {
-                                text.drain(..i + 2);
-                            }
-                        }
+                        *text = user_words(text).to_owned();
                     }
                 }
             }

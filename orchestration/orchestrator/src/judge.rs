@@ -18,6 +18,28 @@ use crate::{OrchError, Result};
 /// A Noul at or above this reads as "met", at or below `1 - this` as "not met", between as "unsure" (decision 35).
 const MET: f64 = 0.7;
 
+/// Vault name of the judge's API key.
+pub const JUDGE_SECRET: &str = "judge/typesafe";
+
+/// The judge as the user sets it in the app: endpoint, model, the key (kept as is when not given) and what it may do.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct JudgeInput {
+    pub base_url: String,
+    pub model: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub clear_key: bool,
+    #[serde(default)]
+    pub review_assist: bool,
+    #[serde(default)]
+    pub skill_hint: bool,
+    #[serde(default)]
+    pub memory_gate: bool,
+    #[serde(default)]
+    pub skill_quality: bool,
+}
+
 /// Whether the judge is usable now and, if not, why (persisted in `<root>/judge-health.json`).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct JudgeHealth {
@@ -102,6 +124,46 @@ impl App {
 
     /// Re-enables the judge and checks it with a trivial request; clears the disabled state on success. For the user
     /// after re-entering the key.
+    /// Sets the judge (ADR-75): an empty endpoint turns it off. A new key goes to the vault, never to the config; a
+    /// change clears an earlier failure so the judge is tried again.
+    pub fn set_judge(&self, j: &JudgeInput) -> Result<agenium_config::JudgeSection> {
+        let base_url = j.base_url.trim().trim_end_matches('/').to_owned();
+        let local =
+            base_url.starts_with("http://localhost") || base_url.starts_with("http://127.0.0.1");
+        if !base_url.is_empty() && !base_url.starts_with("https://") && !local {
+            return Err(OrchError::Invalid(format!(
+                "judge endpoint {base_url:?}: use https://"
+            )));
+        }
+        let old = self.config().judge;
+        let key_ref = match (&j.api_key, j.clear_key) {
+            (Some(k), _) if !k.trim().is_empty() => {
+                self.secrets().set(JUDGE_SECRET, k.trim().as_bytes())?;
+                JUDGE_SECRET.to_owned()
+            }
+            (_, true) => {
+                let _ = self.secrets().delete(JUDGE_SECRET);
+                String::new()
+            }
+            _ => old.api_key_ref.clone(),
+        };
+        let next = agenium_config::JudgeSection {
+            base_url,
+            model: j.model.trim().to_owned(),
+            api_key_ref: key_ref,
+            review_assist: j.review_assist,
+            skill_hint: j.skill_hint,
+            memory_gate: j.memory_gate,
+            skill_quality: j.skill_quality,
+        };
+        if next.enabled() && next.api_key_ref.is_empty() && !local {
+            return Err(OrchError::Invalid("the judge needs its API key".into()));
+        }
+        self.update_config(|c| c.judge = next.clone())?;
+        self.set_judge_health(&JudgeHealth::default())?;
+        Ok(next)
+    }
+
     pub async fn enable_judge(&self) -> Result<()> {
         self.set_judge_health(&JudgeHealth::default())?;
         let Some(judge) = self.judge()? else {

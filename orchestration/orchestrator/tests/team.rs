@@ -1525,6 +1525,60 @@ fn the_judge_is_optional_and_a_failure_turns_it_off() {
     );
 }
 
+/// The judge is set from the app: its key goes to the vault (never to config.toml), a saved key is kept when the form
+/// leaves the field empty, an https endpoint needs a key, and an empty endpoint turns it off.
+#[test]
+fn the_judge_is_set_from_the_app_with_its_key_in_the_vault() {
+    use agenium_orchestrator::judge::{JudgeInput, JUDGE_SECRET};
+    let f = fixture();
+    let form = |key: Option<&str>| JudgeInput {
+        base_url: "https://api.typesafe.ai/".into(),
+        model: "jev-1.14.0".into(),
+        api_key: key.map(str::to_owned),
+        review_assist: true,
+        skill_hint: true,
+        ..Default::default()
+    };
+    assert!(
+        f.app.set_judge(&form(None)).is_err(),
+        "an https endpoint needs a key"
+    );
+    let j = f.app.set_judge(&form(Some("ts-test-key"))).unwrap();
+    assert_eq!(
+        (j.base_url.as_str(), j.api_key_ref.as_str()),
+        ("https://api.typesafe.ai", JUDGE_SECRET)
+    );
+    assert!(j.review_assist && j.skill_hint && !j.memory_gate);
+    let stored = f.app.secret(JUDGE_SECRET).unwrap().unwrap();
+    assert_eq!(stored.expose_str().unwrap(), "ts-test-key");
+    let toml = std::fs::read_to_string(f.app.layout().config()).unwrap();
+    assert!(
+        toml.contains("judge/typesafe") && !toml.contains("ts-test-key"),
+        "{toml}"
+    );
+    assert!(f.app.judge().unwrap().is_some());
+    // Saved again without a key: the stored one stays.
+    assert_eq!(
+        f.app.set_judge(&form(None)).unwrap().api_key_ref,
+        JUDGE_SECRET
+    );
+    assert!(f
+        .app
+        .set_judge(&JudgeInput {
+            base_url: "http://example.com".into(),
+            ..form(None)
+        })
+        .is_err());
+    // Off.
+    f.app
+        .set_judge(&JudgeInput {
+            base_url: String::new(),
+            ..form(None)
+        })
+        .unwrap();
+    assert!(f.app.judge().unwrap().is_none());
+}
+
 /// ADR-82: the quick skill pick is fail-open. Off by default and with the flag off it returns nothing, and it never
 /// asks the judge when there are fewer than two skills to choose between — so the worker always runs.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

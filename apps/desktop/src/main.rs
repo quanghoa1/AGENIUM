@@ -96,6 +96,8 @@ fn main() {
             api::project_report,
             api::judge_status,
             api::enable_judge,
+            api::judge_config,
+            api::set_judge,
             api::export_agent,
             api::import_agent,
             manage::roles,

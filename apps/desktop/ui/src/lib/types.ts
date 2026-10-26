@@ -517,6 +517,30 @@ export interface PriceView {
   providers: Record<string, Record<string, Price>>;
 }
 
+/** The TypeSafe Jev judge's settings as the app shows them (the key itself never leaves the vault). */
+export interface JudgeUses {
+  review_assist: boolean;
+  skill_hint: boolean;
+  memory_gate: boolean;
+  skill_quality: boolean;
+}
+
+export interface JudgeConfig extends JudgeUses {
+  base_url: string;
+  model: string;
+  has_key: boolean;
+  configured: boolean;
+  disabled: boolean;
+  reason?: string | null;
+}
+
+export interface JudgeForm extends JudgeUses {
+  base_url: string;
+  model: string;
+  api_key?: string | null;
+  clear_key?: boolean;
+}
+
 export interface ModelInfo {
   id: string;
   display_name?: string | null;

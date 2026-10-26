@@ -102,17 +102,25 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
 
 const emptyModel: ModelArg = { provider: "", model: "", effort: "high", backend: "api" };
 
+/** The project name a folder or repository suggests (`https://github.com/o/my-site.git` -> `my-site`). */
+function nameFrom(source: string): string {
+  const last = source.trim().replace(/[\\/]+$/, "").split(/[\\/:]/).pop() ?? "";
+  return last.replace(/\.git$/i, "");
+}
+
 export function ProjectsView() {
   const app = useApp();
   const [name, setName] = useState("");
   const [source, setSource] = useState("");
+  const suggested = nameFrom(source);
+  const finalName = name.trim() || suggested;
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.projects")} />
       <div className="card flex flex-wrap items-end gap-2 p-4">
-        <label className="w-48">
+        <label className="w-64">
           <span className="label">{app.t("common.name")}</span>
-          <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="input mt-1" value={name} placeholder={suggested || app.t("projects.namePh")} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="min-w-[280px] flex-1">
           <span className="label">{app.t("projects.folder")}</span>
@@ -120,10 +128,11 @@ export function ProjectsView() {
         </label>
         <button
           className="btn-primary"
-          disabled={!name.trim()}
+          disabled={!finalName}
+          title={finalName ? undefined : app.t("projects.needName")}
           onClick={() =>
             api
-              .createProject(name.trim(), source.trim() || undefined)
+              .createProject(finalName, source.trim() || undefined)
               .then((p) => (app.setProject(p.id), setName(""), setSource(""), app.refresh(), app.go("teams")))
               .catch((e) => app.notify(String(e)))
           }

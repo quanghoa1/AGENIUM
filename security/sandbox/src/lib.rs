@@ -274,9 +274,10 @@ pub enum Shell {
     PowerShell(PathBuf),
 }
 
-/// Prelude of sandboxed PowerShell commands: UTF-8 output, no progress noise; the epilogue passes native exit
-/// codes through.
-const PS_PRELUDE: &str = "$ProgressPreference='SilentlyContinue'; $OutputEncoding=[Console]::OutputEncoding=New-Object System.Text.UTF8Encoding $false;\n";
+/// Prelude of sandboxed PowerShell commands: UTF-8 output, files read as UTF-8 (Windows PowerShell 5.1 reads them as
+/// ANSI: "xin chào" came back "xin chÃ o"), no progress noise; the epilogue passes native exit codes through. Writing
+/// keeps PowerShell's defaults: 5.1 would add a BOM to UTF-8.
+const PS_PRELUDE: &str = "$ProgressPreference='SilentlyContinue'; $OutputEncoding=[Console]::OutputEncoding=New-Object System.Text.UTF8Encoding $false; foreach ($c in 'Get-Content','Select-String','Import-Csv') { $PSDefaultParameterValues[\"${c}:Encoding\"]='UTF8' };\n";
 const PS_EPILOGUE: &str = "\n$__agenium_ok = $?; if ($LASTEXITCODE) { exit $LASTEXITCODE } elseif (-not $__agenium_ok) { exit 1 }";
 
 impl Shell {
@@ -334,6 +335,42 @@ impl Shell {
             }
         }
     }
+}
+
+/// A command's output as text. It is UTF-8 where the environment and the prelude could ask for it; bytes that are not
+/// (a Windows program writing in the ANSI code page) are decoded with that code page rather than shown as U+FFFD.
+pub fn decode_output(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len());
+    for chunk in bytes.utf8_chunks() {
+        out.push_str(chunk.valid());
+        let bad = chunk.invalid();
+        if !bad.is_empty() {
+            match ansi(bad) {
+                Some(s) => out.push_str(&s),
+                None => out.push('\u{fffd}'),
+            }
+        }
+    }
+    out
+}
+
+#[cfg(windows)]
+fn ansi(bytes: &[u8]) -> Option<String> {
+    use windows_sys::Win32::Globalization::{MultiByteToWideChar, CP_ACP};
+    let len = i32::try_from(bytes.len()).ok()?;
+    // SAFETY: the pointers and lengths describe `bytes` and `wide`, which outlive the calls.
+    let n = unsafe { MultiByteToWideChar(CP_ACP, 0, bytes.as_ptr(), len, std::ptr::null_mut(), 0) };
+    if n <= 0 {
+        return None;
+    }
+    let mut wide = vec![0u16; n as usize];
+    let m = unsafe { MultiByteToWideChar(CP_ACP, 0, bytes.as_ptr(), len, wide.as_mut_ptr(), n) };
+    (m > 0).then(|| String::from_utf16_lossy(&wide[..m as usize]))
+}
+
+#[cfg(not(windows))]
+fn ansi(_: &[u8]) -> Option<String> {
+    None
 }
 
 pub fn find_in_path(exe: &str) -> Option<PathBuf> {
@@ -402,6 +439,9 @@ pub fn clean_env(extra: &BTreeMap<String, String>) -> BTreeMap<String, String> {
         .collect();
     env.insert("NO_COLOR".into(), "1".into());
     env.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
+    // Python writes UTF-8 to a pipe (on Windows it used the ANSI code page: "xin ch\u{fffd}o").
+    env.insert("PYTHONUTF8".into(), "1".into());
+    env.insert("PYTHONIOENCODING".into(), "utf-8".into());
     env.extend(extra.iter().map(|(k, v)| (k.clone(), v.clone())));
     env
 }
@@ -634,8 +674,8 @@ impl Executor {
         drop(job);
         Ok(ExecOutput {
             exit_code: status,
-            stdout: String::from_utf8_lossy(&stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&stderr).into_owned(),
+            stdout: decode_output(&stdout),
+            stderr: decode_output(&stderr),
             timed_out,
             elapsed_ms: start.elapsed().as_millis() as u64,
         })
@@ -895,6 +935,45 @@ mod tests {
             !out.stdout.contains("CANARY"),
             "secrets never reach agent commands"
         );
+    }
+
+    /// Vietnamese text survives a command: a UTF-8 file read with the shell's own reader comes back as written
+    /// (Windows PowerShell 5.1 read it as ANSI: "xin chÃ o").
+    #[tokio::test]
+    async fn utf8_text_survives_the_shell() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _temp = RunTemp(tmp.path());
+        std::fs::write(tmp.path().join("greeting.txt"), "xin chào\n").unwrap();
+        let ex = Executor::new(Shell::detect());
+        let cmd = match ex.shell() {
+            Shell::Bash(_) => "cat greeting.txt",
+            Shell::Cmd => "type greeting.txt",
+            Shell::PowerShell(_) => "Get-Content greeting.txt",
+        };
+        let out = ex
+            .run(
+                &CommandSpec {
+                    command: cmd.into(),
+                    cwd: tmp.path().into(),
+                    timeout: Duration::from_secs(30),
+                    env: BTreeMap::new(),
+                },
+                &policy(tmp.path()),
+            )
+            .await
+            .unwrap();
+        assert!(out.stdout.contains("xin chào"), "{:?}", out.stdout);
+    }
+
+    /// Output that is not UTF-8 (a Windows program writing in the ANSI code page) is decoded with that code page;
+    /// the UTF-8 around it stays as it is.
+    #[test]
+    fn output_in_the_ansi_code_page_is_still_text() {
+        let s = decode_output(b"ok \xe0 \xc3\xa0");
+        assert!(s.starts_with("ok ") && s.ends_with('\u{e0}'), "{s:?}");
+        if cfg!(windows) {
+            assert!(!s.contains('\u{fffd}'), "{s:?}");
+        }
     }
 
     /// `[sandbox] network = true` is the default (ADR-84): a command must start with it. On Ubuntu 25.10 every such

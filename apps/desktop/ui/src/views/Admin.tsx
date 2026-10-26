@@ -1,11 +1,12 @@
 import { Copy, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Logo } from "../components/Logo";
-import { Empty, FreeTag, PageHeader, Section, ago, cn, tokens } from "../components/ui";
+import { Empty, FreeTag, Mono, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
-import type { AuditEntry, CommandPolicy, RunRow } from "../lib/types";
+import type { Key } from "../lib/i18n";
+import type { AuditEntry, CommandPolicy, JudgeConfig, JudgeForm, JudgeUses, RunRow } from "../lib/types";
 
 export function AuditView() {
   const app = useApp();
@@ -187,42 +188,110 @@ export function SettingsView() {
   );
 }
 
-/** The optional TypeSafe Jev judge: configured or not, disabled after a failure, re-enable after re-entering the key. */
+/** The optional TypeSafe Jev judge (ADR-75, ADR-81): endpoint, model, the key (kept in the vault) and what it may do;
+ *  its state (off, on, turned off after a failure) and a test. */
 function JudgeSection() {
   const app = useApp();
-  const [st, setSt] = useState<{ configured: boolean; disabled: boolean; reason?: string | null } | null>(null);
+  const [c, setC] = useState<JudgeConfig | null>(null);
+  const [form, setForm] = useState<JudgeForm | null>(null);
+  const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const load = () =>
+    api
+      .judgeConfig()
+      .then((j) => {
+        setC(j);
+        setForm({
+          base_url: j.base_url || "https://api.typesafe.ai",
+          model: j.model || "jev-1.14.0",
+          review_assist: j.configured ? j.review_assist : true,
+          skill_hint: j.configured ? j.skill_hint : true,
+          memory_gate: j.memory_gate,
+          skill_quality: j.skill_quality,
+        });
+        setKey("");
+      })
+      .catch(() => undefined);
   useEffect(() => {
-    api.judgeStatus().then(setSt).catch(() => undefined);
-  }, [app.tick]);
+    load();
+  }, []);
+  if (!c || !form) return null;
+  const run = (p: Promise<unknown>, done: string) => {
+    setBusy(true);
+    p.then(() => (app.notify(done), load(), app.refresh()))
+      .catch((e) => (app.notify(String(e)), load()))
+      .finally(() => setBusy(false));
+  };
+  const save = (test: boolean) =>
+    run(
+      api.setJudge({ ...form, api_key: key.trim() || null }).then(() => (test ? api.enableJudge() : undefined)),
+      app.t(test ? "settings.judgeEnabled" : "settings.judgeSaved"),
+    );
+  const uses: [keyof JudgeUses, Key][] = [
+    ["review_assist", "settings.judgeReview"],
+    ["skill_hint", "settings.judgeSkill"],
+    ["memory_gate", "settings.judgeMemory"],
+    ["skill_quality", "settings.judgeQuality"],
+  ];
   return (
     <Section title={app.t("settings.judge")}>
       <div className="text-[11px] text-subtle">{app.t("settings.judgeNote")}</div>
       <div className="mt-2 text-xs">
-        {!st ? null : !st.configured ? (
+        {!c.configured ? (
           <span className="text-muted">{app.t("settings.judgeOff")}</span>
-        ) : st.disabled ? (
-          <span className="text-rose-600 dark:text-rose-400">{app.t("settings.judgeDisabled")}{st.reason ? `: ${st.reason}` : ""}</span>
+        ) : c.disabled ? (
+          <span className="text-rose-600 dark:text-rose-400">
+            {app.t("settings.judgeDisabled")}
+            {c.reason ? `: ${c.reason}` : ""}
+          </span>
         ) : (
           <span className="text-emerald-600 dark:text-emerald-400">{app.t("settings.judgeOn")}</span>
         )}
       </div>
-      {st?.configured && (
-        <button
-          className="btn mt-2"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            api
-              .enableJudge()
-              .then(() => (app.notify(app.t("settings.judgeEnabled")), app.refresh()))
-              .catch((e) => app.notify(String(e)))
-              .finally(() => setBusy(false));
-          }}
-        >
-          {app.t("settings.judgeEnable")}
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        <label className="block text-xs">
+          <span className="label">{app.t("settings.judgeEndpoint")}</span>
+          <input className="input mt-1" value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
+        </label>
+        <label className="block text-xs">
+          <span className="label">{app.t("settings.judgeModel")}</span>
+          <input className="input mt-1" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+        </label>
+        <label className="block text-xs">
+          <span className="label">{app.t("settings.judgeKey")}</span>
+          <input
+            className="input mt-1"
+            type="password"
+            autoComplete="off"
+            value={key}
+            placeholder={c.has_key ? app.t("settings.judgeKeySaved") : ""}
+            onChange={(e) => setKey(e.target.value)}
+          />
+        </label>
+      </div>
+      <div className="mt-3 label">{app.t("settings.judgeUses")}</div>
+      <div className="mt-1 space-y-1">
+        {uses.map(([k, label]) => (
+          <label key={k} className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.checked })} />
+            <span>{app.t(label)}</span>
+            <Mono className="text-subtle">{k}</Mono>
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button className="btn-primary" disabled={busy || !form.base_url.trim() || !form.model.trim() || (!c.has_key && !key.trim())} onClick={() => save(true)}>
+          {app.t("settings.judgeSaveTest")}
         </button>
-      )}
+        <button className="btn" disabled={busy} onClick={() => save(false)}>
+          {app.t("settings.judgeSave")}
+        </button>
+        {c.configured && (
+          <button className="btn" disabled={busy} onClick={() => run(api.setJudge({ ...form, base_url: "" }), app.t("settings.judgeSaved"))}>
+            {app.t("settings.judgeTurnOff")}
+          </button>
+        )}
+      </div>
     </Section>
   );
 }

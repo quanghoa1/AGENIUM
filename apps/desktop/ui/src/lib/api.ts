@@ -41,6 +41,8 @@ import type {
   Status,
   TeamTemplate,
   TicketDetail,
+  JudgeConfig,
+  JudgeForm,
 } from "./types";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -140,6 +142,9 @@ export const api = {
   supportBundle: (out: string) => call<string>("support_bundle", { out }),
   judgeStatus: () => call<{ configured: boolean; disabled: boolean; reason?: string | null }>("judge_status"),
   enableJudge: () => call<void>("enable_judge"),
+  judgeConfig: () => call<JudgeConfig>("judge_config"),
+  /** `api_key` empty or null keeps the stored key; `clear_key` removes it. */
+  setJudge: (form: JudgeForm) => call<void>("set_judge", { form }),
   exportAgent: (agent: string, out: string) => call<string>("export_agent", { agent, out }),
   importAgent: (file: string, project: string, name?: string) => call<{ id: string; name: string }>("import_agent", { file, project, name: name ?? null }),
   projectReport: (project: string) => call<string>("project_report", { project }),

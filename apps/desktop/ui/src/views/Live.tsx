@@ -318,6 +318,14 @@ function Delegations({ project, data, onWatch }: { project: string; data: LiveDa
 function body(b: { type: string; data: any }): string {
   const d = b.data ?? {};
   if (typeof d === "string") return d;
+  // A review: the decision, then the reviewer's word on each criterion and the changes it asks for.
+  if (d.decision) {
+    const lines = [`**${d.decision}**`];
+    for (const f of d.ac_feedback ?? []) lines.push(`- \`${f.ac_id}\` ${f.feedback}`);
+    for (const c of d.required_changes ?? []) lines.push(`- ${c}`);
+    return lines.join("\n");
+  }
+  if (d.request) return `${d.request.kind ?? ""}: ${d.request.reason ?? ""}`;
   return d.text ?? d.question ?? d.answer ?? d.summary ?? d.note ?? d.message ?? JSON.stringify(d, null, 2);
 }
 
@@ -582,8 +590,8 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
               </div>
             )}
             <div className="min-h-0 space-y-1 overflow-y-auto">
-              {[...calls].reverse().map((e, i) => (
-                <CallRow key={e.n} e={e} open={i === 0 && !!trace?.live} />
+              {[...calls].reverse().map((e) => (
+                <CallRow key={e.n} e={e} />
               ))}
               {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
             </div>

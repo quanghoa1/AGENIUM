@@ -662,6 +662,27 @@ pub fn judge_status(d: State<'_, Desktop>) -> R<Value> {
     )
 }
 
+/// The judge's settings for the form (never the key: only whether one is stored).
+#[tauri::command]
+pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
+    let o = d.opened()?;
+    let j = o.app.config().judge;
+    let has_key = !j.api_key_ref.is_empty() && o.app.secret(&j.api_key_ref).map_err(err)?.is_some();
+    let h = o.app.judge_health();
+    Ok(json!({
+        "base_url": j.base_url, "model": j.model, "has_key": has_key,
+        "review_assist": j.review_assist, "skill_hint": j.skill_hint, "memory_gate": j.memory_gate,
+        "skill_quality": j.skill_quality,
+        "configured": j.enabled(), "disabled": h.disabled, "reason": h.reason,
+    }))
+}
+
+/// Saves the judge's settings (the key to the vault).
+#[tauri::command]
+pub fn set_judge(d: State<'_, Desktop>, form: agenium_orchestrator::judge::JudgeInput) -> R<()> {
+    d.opened()?.app.set_judge(&form).map(|_| ()).map_err(err)
+}
+
 /// Re-enables the judge and checks it (after the user re-entered the key).
 #[tauri::command]
 pub async fn enable_judge(d: State<'_, Desktop>) -> R<()> {
@@ -867,18 +888,18 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
         .agent_store(lead, o.rt.embedder.dim(), o.rt.embedder.model_id())
         .map_err(err)?;
     let msgs = mem.load_messages(&format!("chat:{p}")).map_err(err)?;
-    // User turns carry the project state after the request: show only what the user wrote.
+    // User turns carry the run context before the request and the project state after it: show what the user wrote.
     let out: Vec<Value> = msgs
         .into_iter()
         .filter_map(|m| serde_json::from_value::<agenium_llm::Message>(m).ok())
         .filter_map(|m| {
             let text = m.text();
-            let text = text
-                .split("\n\n<project_state>")
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_owned();
+            let text = match m.role {
+                agenium_llm::Role::User => agenium_orchestrator::runtime::learn::user_words(&text),
+                _ => &text,
+            }
+            .trim()
+            .to_owned();
             (!text.is_empty()).then(|| json!({ "role": m.role, "text": text }))
         })
         .collect();

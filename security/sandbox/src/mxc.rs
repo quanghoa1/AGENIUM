@@ -216,8 +216,8 @@ pub fn run(
     let stderr = join(err, &err_closer);
     Ok(ExecOutput {
         exit_code: code,
-        stdout: String::from_utf8_lossy(&stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        stdout: crate::decode_output(&stdout),
+        stderr: crate::decode_output(&stderr),
         timed_out,
         elapsed_ms: start.elapsed().as_millis() as u64,
     })
