@@ -44,6 +44,14 @@ pub fn wire_id(id: &str) -> String {
     format!("{}{suffix}", &clean[..clean.len().min(keep)])
 }
 
+/// A tool-call id for a provider that sent none: unique across responses, runs and restarts. A count within the
+/// response (`call_0`, `gemini_call_1`) repeats in the next one, and a repeated id is not a new call: the orchestrator
+/// keys an intent by `{run}:{call id}` and replays a key it has seen (a later `submit_report` got an earlier call's
+/// stored result and never ran), and [`prepare`] takes the earlier call's result as this one's.
+pub fn fallback_call_id(prefix: &str) -> String {
+    format!("{prefix}_{:032x}", rand::random::<u128>())
+}
+
 /// The history to send to `model`.
 pub fn prepare(messages: &[Message], model: &str) -> Vec<Message> {
     let results: HashSet<&str> = messages

@@ -301,10 +301,11 @@ impl StreamState {
                 text: std::mem::take(&mut self.text),
             });
         }
-        for (i, (id, name, args)) in std::mem::take(&mut self.calls) {
+        for (id, name, args) in std::mem::take(&mut self.calls).into_values() {
             parts.push(Part::ToolCall {
+                // A unique id, not the call's index in this response (`history::fallback_call_id`).
                 id: if id.is_empty() {
-                    format!("call_{i}")
+                    crate::history::fallback_call_id("call")
                 } else {
                     id
                 },

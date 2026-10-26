@@ -593,6 +593,71 @@ async fn gemini_contract_schema_sanitising_and_signatures() {
     );
 }
 
+/// Review of 2026-10-27: a tool call without an id got a count within its response (`gemini_call_1`, `call_0`),
+/// so the next response's call had the same id and the orchestrator replayed the first call's result for it.
+#[test]
+fn calls_without_an_id_get_ids_unique_across_responses() {
+    let ev = |data: &str| agenium_llm::sse::SseEvent {
+        event: None,
+        data: data.into(),
+    };
+    let gemini_ids: Vec<String> = (0..2)
+        .map(|_| {
+            let mut st = gemini::StreamState::default();
+            for chunk in GEMINI_STREAM.split("\n\n").filter(|c| !c.is_empty()) {
+                st.apply(&ev(chunk.trim_start_matches("data: ")), &|_| {})
+                    .unwrap();
+            }
+            st.finish().unwrap().message.tool_calls()[0].id.clone()
+        })
+        .collect();
+    let openai_ids: Vec<String> = (0..2)
+        .map(|_| {
+            let mut st = openai::StreamState::default();
+            for d in [
+                r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"read_file","arguments":"{\"path\":\"a\"}"}}]}}]}"#,
+                r#"{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}"#,
+                "[DONE]",
+            ] {
+                st.apply(&ev(d), &|_| {}).unwrap();
+            }
+            st.finish().unwrap().message.tool_calls()[0].id.clone()
+        })
+        .collect();
+    let responses_ids: Vec<String> = (0..2)
+        .map(|_| {
+            let mut st = responses::StreamState::default();
+            for d in [
+                r#"{"type":"response.output_item.done","output_index":0,"item":{"type":"function_call","name":"read_file","arguments":"{}"}}"#,
+                r#"{"type":"response.completed","response":{"status":"completed","usage":{}}}"#,
+            ] {
+                st.apply(&ev(d), &|_| {}).unwrap();
+            }
+            st.finish().unwrap().message.tool_calls()[0].id.clone()
+        })
+        .collect();
+    for ids in [&gemini_ids, &openai_ids, &responses_ids] {
+        assert!(!ids[0].is_empty() && ids[0] != ids[1], "{ids:?}");
+        assert_eq!(history::wire_id(&ids[0]), ids[0], "safe on every wire");
+    }
+}
+
+/// Review of 2026-10-27: an MCP schema whose non-null `anyOf` branch is not an object made the Gemini schema pass
+/// panic (`inner["nullable"] = ...` on a boolean).
+#[test]
+fn gemini_schema_pass_takes_any_anyof_branch() {
+    for branch in [json!(true), json!("string"), json!(3)] {
+        let s =
+            json!({"type": "object", "properties": {"x": {"anyOf": [branch, {"type": "null"}]}}});
+        let _ = gemini::sanitize_schema(&s);
+    }
+    let s = json!({"anyOf": [{"type": "string"}, {"type": "null"}], "description": "d"});
+    assert_eq!(
+        gemini::sanitize_schema(&s),
+        json!({"type": "string", "nullable": true, "description": "d"})
+    );
+}
+
 #[tokio::test]
 async fn limiter_bounds_concurrency() {
     let inner = Arc::new(mock::ScriptedProvider::new("m"));

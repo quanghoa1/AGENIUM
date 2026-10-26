@@ -530,9 +530,10 @@ impl StreamState {
                 text: std::mem::take(&mut self.text),
             });
         }
-        for (i, (id, name, args)) in std::mem::take(&mut self.calls) {
+        for (id, name, args) in std::mem::take(&mut self.calls).into_values() {
+            // A server that sends no id (some local ones): a unique one, not the call's index in this response.
             let id = if id.is_empty() {
-                format!("call_{i}")
+                crate::history::fallback_call_id("call")
             } else {
                 id
             };

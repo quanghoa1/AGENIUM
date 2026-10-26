@@ -82,12 +82,16 @@ pub fn sanitize_schema(v: &Value) -> Value {
             if let Some(any) = o.get("anyOf").and_then(Value::as_array) {
                 let non_null: Vec<&Value> = any.iter().filter(|s| s["type"] != "null").collect();
                 if non_null.len() == 1 && any.len() == 2 {
+                    // Only an object schema takes `nullable` (MCP schemas are untrusted: the branch may be `true`
+                    // or a string, and indexing those panics); anything else goes the plain way below.
                     let mut inner = sanitize_schema(non_null[0]);
-                    inner["nullable"] = json!(true);
-                    if let Some(d) = o.get("description") {
-                        inner["description"] = d.clone();
+                    if let Some(obj) = inner.as_object_mut() {
+                        obj.insert("nullable".into(), json!(true));
+                        if let Some(d) = o.get("description") {
+                            obj.insert("description".into(), d.clone());
+                        }
+                        return inner;
                     }
-                    return inner;
                 }
             }
             let mut out = serde_json::Map::new();
@@ -248,7 +252,6 @@ pub struct StreamState {
     finish: Option<StopReason>,
     usage: Usage,
     model: String,
-    calls: u32,
 }
 
 impl StreamState {
@@ -280,11 +283,11 @@ impl StreamState {
             for p in c["content"]["parts"].as_array().into_iter().flatten() {
                 let sig = p["thoughtSignature"].as_str().map(str::to_owned);
                 if let Some(fc) = p.get("functionCall") {
-                    self.calls += 1;
+                    // Gemini mostly sends no call id; a count within this response would repeat in the next one.
                     let id = fc["id"]
                         .as_str()
                         .map(str::to_owned)
-                        .unwrap_or_else(|| format!("gemini_call_{}", self.calls));
+                        .unwrap_or_else(|| crate::history::fallback_call_id("gemini_call"));
                     let name = fc["name"].as_str().unwrap_or_default().to_owned();
                     let args = fc["args"].clone();
                     let args = if args.is_null() { json!({}) } else { args };
