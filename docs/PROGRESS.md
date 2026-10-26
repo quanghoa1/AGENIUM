@@ -44,7 +44,7 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 -> chat "Hãy thêm file chào hỏi" -> run` produced spec v1, plan v1, AGN-1, a work run, a review run, merge into `main`
 (`AGN-1: Write the hello file`) and Closed.
 
-### M1.5 — Agent registry: DONE except the UI forms (M15-6) and parts of the graph benchmark plan
+### M1.5 — Agent registry: DONE except the UI forms (M15-6)
 | Item | Status | Evidence |
 |---|---|---|
 | M15-1 agent profile, model switch keeps memory/MCP/skills | DONE | `runtime.rs::vendor_switch_keeps_memory_skills_and_conversation` |
@@ -54,9 +54,9 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | M15-5 export/import JSONL, delete agent | DONE | `orchestrator/tests/agent_io.rs` (byte-identical memory round trip, tamper/secret refusal, delete rules), core_002 migration test |
 | M15-6 Settings forms (MCP, skill) | CLI equivalents only (UI later) | `agenium mcp add/import/test`, `agenium skill import/validate/show` |
 | M15-7 graph memory core (agent_002 migration, entity/alias/edge/fact_entity, merge log, tombstones) | DONE | `agenium-store/tests/graph.rs` (v1 -> v2 migration with data, identity/aliases, merge rewiring + log, plan uses `edge_out`/`edge_in`, property test vs reference BFS), backup round trip, export/import, **20 hard kills** during graph writes: integrity, FKs, degree cache, merge chains consistent |
-| M15-8 extraction + entity resolution | DONE (bands not calibrated) | `agenium-memory/src/{pipeline,resolve}.rs`, unit + pipeline tests; labelled 2 000-pair precision set NOT RUN |
+| M15-8 extraction + entity resolution | DONE | `agenium-memory/src/{pipeline,resolve}.rs`; labelled set of 2 152 mentions run (`docs/memory-eval.md` §1: auto-merge precision 1.000, with the model 0.996–0.998 / recall 0.92) |
 | M15-9 graph channel + RRF + re-rank + scope hard filter | DONE | `agenium-memory/src/retrieve.rs`, GM-3 (graph finds what text misses), GM-2 (scope leak 0) |
-| M15-10 benchmark | PARTLY: traversal latency at 100 k / 1 M edges RUN (targets met with the hub cap) | `docs/reference/STORE-SCALE.md` §8.1; QA golden set, concurrency, cold cache NOT RUN |
+| M15-10 benchmark | DONE except a cold disk | traversal at 100 k / 1 M edges (STORE-SCALE §8.1); 112-question graph QA (`docs/memory-eval.md` §2: recall@8 0.99, 0 scope leaks); 4 readers + 1 writer and a cold page cache (STORE-SCALE §12: depth-2 p95 8.5 ms at 1 M edges under load); a cold OS file cache needs administrator rights, not measured |
 | M15-11 golden scenarios GM-1..5, GM-7 | DONE (scripted model) | `agenium-memory/tests/graph_memory.rs`; "second ticket >= 20 % fewer steps" seen on the real model in the skill/MCP run (11 -> 5), not as a GM task |
 
 ### M2.5 — CLI backend: ACCEPTANCE MET with codex and agy ([ADR-56](adr/ADR-56-cli-backend-headless.md))
@@ -237,4 +237,4 @@ infrastructure, not mechanical work:
   audited `fetch`; no proxy/allowlist layer.
 - **cross-agent knowledge sharing** GM-6 — DONE ([ADR-87](adr/ADR-87-shared-lesson-pool.md)): a controlled shared pool of generalized lessons (promoted only after >=2 distinct contexts, non-project-scoped; recalled below own memory). The base-update 3-way rebase of skill overlays is also DONE ([ADR-86](adr/ADR-86-overlay-rebase.md)).
 2. **installer + signed updater** — deferred (core not finished yet); packaging/signing infrastructure per OS.
-3. **M2 on Linux/macOS** — needs those machines (sandbox attack suite, macOS Seatbelt backend); graph benchmark rest.
+3. **M2 on Linux/macOS** — needs those machines (sandbox attack suite, macOS Seatbelt backend).
