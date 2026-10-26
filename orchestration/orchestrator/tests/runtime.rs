@@ -2489,3 +2489,37 @@ async fn a_continuation_sees_comments_posted_during_the_last_run() {
     assert_eq!(s.outcome, "Completed");
     assert_eq!(p.remaining(), 0);
 }
+
+/// A diff that cannot be read reaches the reviewer as such, never as "no code changes".
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_reviewer_is_told_when_the_diff_cannot_be_read() {
+    use agenium_store::core::workspaces;
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    resolve(&app, project, agent, "AGN-1");
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    app.store()
+        .commit(None, "test", |w| {
+            let ws = workspaces::get(w.tx, t.id)?.unwrap();
+            workspaces::upsert(
+                w.tx,
+                &workspaces::TicketWorkspace {
+                    base_sha: "0123456789012345678901234567890123456789".into(),
+                    ..ws
+                },
+            )
+        })
+        .unwrap();
+    p.push(Box::new(|req| {
+        let task = req.messages[0].text();
+        assert!(
+            task.contains("(the diff could not be read:") && !task.contains("(no code changes)"),
+            "{task}"
+        );
+        Err(agenium_llm::LlmError::Unsupported("enough".into()))
+    }));
+    rt.review(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(p.remaining(), 0);
+}

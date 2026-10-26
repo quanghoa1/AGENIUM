@@ -1484,8 +1484,14 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .ok_or_else(|| OrchError::Invalid(format!("{key} has no worktree")))?;
         let root = PathBuf::from(&ws.worktree);
         let repo = self.app.repo(&self.app.project(project)?);
-        let diff = repo.diff(&root, &ws.base_sha).unwrap_or_default();
-        let (diff, _) = agenium_tools::text::truncate(&diff, 30_000, 600);
+        // A diff that cannot be read is said so: shown empty, it would read as "no code changes".
+        let diff = match repo.diff(&root, &ws.base_sha) {
+            Ok(d) if d.trim().is_empty() => "(no code changes)".to_owned(),
+            Ok(d) => agenium_tools::text::truncate(&d, 30_000, 600).0,
+            Err(e) => {
+                format!("(the diff could not be read: {e}; read the changes in the worktree)")
+            }
+        };
         let run = self
             .app
             .store()
@@ -1586,7 +1592,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 requirements,
                 evidence,
                 prompt::comments_text(&all_comments),
-                if diff.trim().is_empty() { "(no code changes)" } else { diff.as_str() }
+                diff
             );
             Ok(WorkOrder {
                 system,
