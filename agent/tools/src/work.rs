@@ -439,12 +439,13 @@ pub struct EditArgs {
     pub replace_all: bool,
 }
 
+/// Applies one edit to `doc`; `true` when the text was found only in the loose form (ADR-102).
 fn apply_edit(
-    content: &str,
+    doc: &mut crate::edit_match::Doc,
     e: &EditSpec,
     rel: &str,
     idx: Option<usize>,
-) -> Result<String, ToolError> {
+) -> Result<bool, ToolError> {
     let at = idx.map(|i| format!("edit {} ", i + 1)).unwrap_or_default();
     if e.old_string.is_empty() {
         return Err(ToolError::new(
@@ -458,10 +459,14 @@ fn apply_edit(
             format!("{at}old_string and new_string are identical"),
         ));
     }
-    let n = content.matches(&e.old_string).count();
-    match (n, e.replace_all) {
+    let (old, new) = (doc.input(&e.old_string), doc.input(&e.new_string));
+    let (ranges, loose) = crate::edit_match::find(&doc.text, &old);
+    match (ranges.len(), e.replace_all) {
         (0, _) => Err(ToolError::new("not_found", format!("{at}old_string not found in {rel}; read the file and copy the exact text"))),
-        (1, _) | (_, true) => Ok(content.replace(&e.old_string, &e.new_string)),
+        (1, _) | (_, true) => {
+            doc.text = crate::edit_match::splice(&doc.text, &ranges, &new);
+            Ok(loose)
+        }
         (n, false) => Err(ToolError::new("not_unique", format!("{at}old_string occurs {n} times in {rel}; add surrounding context or set replace_all"))),
     }
 }
@@ -476,16 +481,23 @@ fn edit_files(
     let rel = display(&ctx.root, &p);
     let bytes = read_text(&p, &rel)?;
     ctx.check_fresh(&p, &bytes, &rel)?;
-    let mut s = utf8(&bytes, &rel)?;
+    let mut doc = crate::edit_match::Doc::open(&utf8(&bytes, &rel)?);
+    let mut loose = false;
     for (i, e) in edits.iter().enumerate() {
-        s = apply_edit(&s, e, &rel, multi.then_some(i))?;
+        loose |= apply_edit(&mut doc, e, &rel, multi.then_some(i))?;
     }
+    let s = doc.save();
     write_file(&p, &rel, s.as_bytes())?;
     ctx.record_read(&p, s.as_bytes());
     Ok(ToolOutput::text(format!(
-        "edited {rel} ({} change{})",
+        "edited {rel} ({} change{}{})",
         edits.len(),
-        if edits.len() == 1 { "" } else { "s" }
+        if edits.len() == 1 { "" } else { "s" },
+        if loose {
+            "; matched after ignoring quote and dash styles and trailing spaces"
+        } else {
+            ""
+        }
     )))
 }
 

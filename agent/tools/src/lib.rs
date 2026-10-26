@@ -3,6 +3,7 @@
 //! unique match for edits, atomic multi-file patches, outputs cut to 30 000 characters / 256 lines with the full
 //! text saved as an artifact, shell commands through the command gate (approval or sandbox) with timeouts.
 
+pub mod edit_match;
 pub mod patch;
 pub mod paths;
 pub mod text;

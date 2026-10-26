@@ -401,3 +401,27 @@ async fn todo_replaces_checklist() {
     assert!(out.text.starts_with("1/2 done\n[x] read code\n[>] fix"));
     assert_eq!(c.todo().len(), 2);
 }
+
+/// ADR-102: a CRLF file with a byte-order mark is edited with the model's LF text and keeps both; typographic quotes
+/// match their ASCII form, and the result says so.
+#[tokio::test]
+async fn edits_keep_line_ends_and_bom_and_match_typographic_text() {
+    let (w, c) = setup();
+    let f = w.root.join("src/win.cs");
+    std::fs::write(&f, "\u{feff}var s = \u{201C}hi\u{201D};\r\nreturn s;\r\n").unwrap();
+    call(&c, "read_file", json!({"path": "src/win.cs"}))
+        .await
+        .unwrap();
+    let out = call(
+        &c,
+        "edit_file",
+        json!({"path": "src/win.cs", "old_string": "var s = \"hi\";\nreturn", "new_string": "var s = \"hello\";\nreturn"}),
+    )
+    .await
+    .unwrap();
+    assert!(out.text.contains("matched after ignoring"), "{}", out.text);
+    assert_eq!(
+        std::fs::read_to_string(&f).unwrap(),
+        "\u{feff}var s = \"hello\";\r\nreturn s;\r\n"
+    );
+}
