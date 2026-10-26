@@ -20,10 +20,10 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
-    copy_login, hand_back_login, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
-    NO_SUBAGENTS,
+    copy_login, file_access, hand_back_login, hook_call_secs, original, probe_dir, Check, CheckCtx,
+    Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
-use crate::driver::{HOOK_TOKEN_ENV, HOOK_URL_ENV};
+use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
 /// Claude Code tools an Agenium run may use: files, search, shell, and `ToolSearch` (loads the Agenium MCP tools).
 /// Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
@@ -69,6 +69,21 @@ pub fn user_claude_dir() -> Option<PathBuf> {
 fn posix(p: &Path) -> String {
     p.display().to_string().replace('\\', "/")
 }
+
+/// Agenium's files in the per-run home, out of reach of the model's file tools (`driver::file_access`).
+fn protected(home: &Path) -> Vec<PathBuf> {
+    let login = home.join(LOGIN);
+    vec![
+        home.join(HOOK_FILE),
+        home.join("settings.json"),
+        home.join(MCP_FILE),
+        original(&login),
+        login,
+    ]
+}
+
+/// Claude Code tools that write the file they name.
+const WRITE_TOOLS: [&str; 3] = ["Write", "Edit", "NotebookEdit"];
 
 impl Driver for Claude {
     fn control(&self) -> Control {
@@ -124,17 +139,20 @@ impl Driver for Claude {
             .ok_or_else(|| std::io::Error::other("cannot find the user's Claude Code folder"))?;
         copy_login(&user.join(LOGIN), &s.home.join(LOGIN))?;
         let script = s.home.join(HOOK_FILE);
+        // Claude Code goes on with the tool when it kills a hook that ran out of time: the call to Agenium gives up
+        // first (`--max-time`) and the hook exits 2, which blocks.
         std::fs::write(
             &script,
             format!(
-                "#!/bin/sh\ncurl -s -S --fail-with-body -X POST -H 'Content-Type: application/json' -H \"Authorization: Bearer ${HOOK_TOKEN_ENV}\" --data-binary @- \"${HOOK_URL_ENV}\" || exit 2\n"
+                "#!/bin/sh\ncurl -s -S --fail-with-body --max-time {} -X POST -H 'Content-Type: application/json' -H \"Authorization: Bearer ${HOOK_TOKEN_ENV}\" --data-binary @- \"${HOOK_URL_ENV}\" || exit 2\n",
+                hook_call_secs(HOOK_TIMEOUT)
             ),
         )?;
         std::fs::write(
             s.home.join("settings.json"),
             serde_json::to_vec_pretty(&json!({"hooks": {"PreToolUse": [{
                 "matcher": "*",
-                "hooks": [{"type": "command", "command": format!("sh {}", posix(&script)), "timeout": 900}],
+                "hooks": [{"type": "command", "command": format!("sh {}", posix(&script)), "timeout": HOOK_TIMEOUT}],
             }]}}))?,
         )?;
         std::fs::write(
@@ -272,9 +290,13 @@ impl Driver for Claude {
         }
         for key in ["file_path", "path", "notebook_path"] {
             if let Some(p) = input[key].as_str() {
-                let p = Path::new(p);
-                if !inside(p, cx.worktree, cx.worktree) && !inside(p, cx.worktree, cx.home) {
-                    return Check::Deny(format!("{} is outside the ticket worktree", p.display()));
+                if let Err(r) = file_access(
+                    Path::new(p),
+                    WRITE_TOOLS.contains(&name),
+                    cx,
+                    &protected(cx.home),
+                ) {
+                    return Check::Deny(r);
                 }
             }
         }
@@ -310,8 +332,10 @@ pub async fn rate_limits(
 ) -> Result<agenium_llm::vendor_usage::VendorUsage, String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let user = user_claude_dir().ok_or("cannot find the user's Claude Code folder")?;
-    let home = scratch.join("claude-home");
-    let cwd = scratch.join("cwd");
+    // Deleted with the login copy when this function returns, whichever way.
+    let dir = probe_dir(scratch, "claude-home")?;
+    let home = dir.path().join("claude-home");
+    let cwd = dir.path().join("cwd");
     for d in [&home, &cwd] {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
     }
@@ -542,6 +566,105 @@ mod tests {
             Claude.hook_answer(false, "no")["hookSpecificOutput"]["permissionDecision"],
             "deny"
         );
+    }
+
+    /// Review of 2026-10-27: the per-run home was open to the file tools, the hook script included (rewritten to
+    /// `exit 0`, every later shell call skips the gate), and a write into the worktree's `.git` (a hook runs on the host
+    /// at the next git call) was allowed.
+    #[test]
+    fn agenium_files_in_the_home_and_dot_git_are_out_of_reach() {
+        let wt = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(wt.path().join(".git").join("hooks")).unwrap();
+        let cx = CheckCtx {
+            worktree: wt.path(),
+            home: home.path(),
+            mcp_name: "agenium",
+            subagents: false,
+        };
+        let call = |name: &str, key: &str, p: &Path| {
+            Claude.check(&json!({"tool_name": name, "tool_input": {key: p}}), &cx)
+        };
+        let (h, git) = (home.path(), wt.path().join(".git"));
+        for (name, key, p) in [
+            ("Write", "file_path", h.join(HOOK_FILE)),
+            ("Edit", "file_path", h.join("settings.json")),
+            ("Write", "file_path", h.join(MCP_FILE)),
+            ("Read", "file_path", h.join(LOGIN)),
+            ("Grep", "path", h.to_path_buf()),
+            ("Write", "file_path", git.join("hooks").join("post-commit")),
+            ("Edit", "file_path", wt.path().join("sub/.GIT/config")),
+        ] {
+            assert!(
+                matches!(call(name, key, &p), Check::Deny(_)),
+                "{name} {}",
+                p.display()
+            );
+        }
+        for (name, key, p) in [
+            ("Read", "file_path", git.join("HEAD")),
+            ("Write", "file_path", h.join("projects").join("notes.md")),
+            ("Read", "file_path", h.join("projects/p/tool-results/1.txt")),
+            ("Grep", "path", h.join("projects")),
+        ] {
+            assert_eq!(call(name, key, &p), Check::Allow, "{name} {}", p.display());
+        }
+    }
+
+    fn files_below(dir: &Path) -> Vec<PathBuf> {
+        let mut out = vec![];
+        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            if e.path().is_dir() {
+                out.extend(files_below(&e.path()));
+            } else {
+                out.push(e.path());
+            }
+        }
+        out
+    }
+
+    /// Review of 2026-10-27: the usage probe left its copy of the user's login (an OAuth refresh token) in the
+    /// persistent scratch folder; the hook's call to Agenium had no deadline under the CLI's hook timeout, past which
+    /// Claude Code goes on with the tool.
+    #[tokio::test]
+    async fn no_login_stays_behind_and_the_hook_ends_before_the_cli_gives_up() {
+        let user = tempfile::tempdir().unwrap();
+        std::fs::write(user.path().join(LOGIN), "{\"refresh\":\"r\"}").unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let legacy = scratch.path().join("claude-home");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join(LOGIN), "left by an earlier version").unwrap();
+        let home = tempfile::tempdir().unwrap();
+        std::env::set_var("CLAUDE_CONFIG_DIR", user.path());
+        let probe = rate_limits(&scratch.path().join("no-such-claude"), scratch.path()).await;
+        let env = Claude.prepare(&Setup {
+            home: home.path(),
+            worktree: Path::new("."),
+            mcp_name: "agenium",
+            mcp_url: "http://127.0.0.1:9/mcp",
+            mcp_authorization: "Bearer t",
+            hook_url: "http://127.0.0.1:9/hook",
+            subagents: false,
+            model: "",
+        });
+        std::env::remove_var("CLAUDE_CONFIG_DIR");
+        assert!(probe.is_err());
+        let left = files_below(scratch.path());
+        assert!(left.is_empty(), "{left:?}");
+        env.unwrap();
+        let script = std::fs::read_to_string(home.path().join(HOOK_FILE)).unwrap();
+        assert!(
+            script.contains("--max-time 800") && script.contains("exit 2"),
+            "{script}"
+        );
+        let settings: Value =
+            serde_json::from_slice(&std::fs::read(home.path().join("settings.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            settings["hooks"]["PreToolUse"][0]["hooks"][0]["timeout"],
+            900
+        );
+        assert!(crate::driver::hook_deadline(&Claude) < std::time::Duration::from_secs(800));
     }
 
     #[test]

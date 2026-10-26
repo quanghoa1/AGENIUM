@@ -41,6 +41,60 @@ pub struct CheckCtx<'a> {
 pub(crate) const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
 pub(crate) const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
 
+/// Seconds Claude Code and agy wait for Agenium's permission hook ([`Driver::hook_timeout`]).
+pub(crate) const HOOK_TIMEOUT: u64 = 900;
+
+/// The hook script's own deadline for its call to Agenium: 100 s before the CLI's. A CLI that kills a slow hook goes
+/// on with the tool (Claude Code and Grok fail open on a hook timeout), so the hook must end first, with a deny.
+pub(crate) fn hook_call_secs(timeout: u64) -> u64 {
+    timeout.saturating_sub(100)
+}
+
+/// When Agenium answers a hook at the latest (a deny when the decision, e.g. the user's approval, is not there): 100 s
+/// before the hook's own call gives up, so the CLI gets Agenium's answer rather than a failed hook.
+pub fn hook_deadline(d: &dyn Driver) -> std::time::Duration {
+    std::time::Duration::from_secs(hook_call_secs(d.hook_timeout()).saturating_sub(100))
+}
+
+/// Whether a hooked CLI's file tool may touch `p` (relative paths from the worktree): inside the worktree, where a
+/// write follows the API tools' rule (`.git` is read-only under any name: a hook or `core.fsmonitor` written there
+/// runs on the host at the next git call), or inside the per-run home but never Agenium's own files there
+/// (`protected`: the hook script, the configuration that names it, the login copy — a model that rewrote the hook
+/// script to `exit 0` would skip every later check), nor a folder holding them (a search of the whole home would read
+/// the login). `Err` is the reason given to the model.
+pub(crate) fn file_access(
+    p: &Path,
+    write: bool,
+    cx: &CheckCtx,
+    protected: &[PathBuf],
+) -> Result<(), String> {
+    if protected
+        .iter()
+        .any(|f| inside(p, cx.worktree, f) || inside(f, cx.worktree, &normalize(p, cx.worktree)))
+    {
+        return Err(format!(
+            "{} is Agenium's own file for this run (its permission hook, configuration or login)",
+            p.display()
+        ));
+    }
+    if inside(p, cx.worktree, cx.worktree) {
+        return match write.then(|| git_refusal(p, cx.worktree)).flatten() {
+            Some(r) => Err(r),
+            None => Ok(()),
+        };
+    }
+    if inside(p, cx.worktree, cx.home) {
+        return Ok(());
+    }
+    Err(format!("{} is outside the ticket worktree", p.display()))
+}
+
+/// Why a write to `p` inside the worktree is refused, if it is: the API tools' rule (`agenium_tools::paths`).
+pub(crate) fn git_refusal(p: &Path, worktree: &Path) -> Option<String> {
+    agenium_tools::paths::write_refusal(&normalize(worktree, worktree), &normalize(p, worktree))
+        .map(|e| e.message)
+}
+
 /// A TOML basic string (JSON string escaping is valid TOML).
 pub(crate) fn toml_str(s: &str) -> String {
     serde_json::to_string(s).unwrap_or_default()
@@ -153,6 +207,10 @@ pub trait Driver: Send + Sync {
     fn command(&self, tool: &str, input: &Value) -> Option<String>;
     /// Whether a tool step is the CLI calling a tool of Agenium's own MCP server (Agenium logs those itself).
     fn is_agenium_call(&self, tool: &str, input: &Value, server: &str) -> bool;
+    /// `Control::Hook`: seconds the CLI waits for its permission hook (see [`hook_deadline`]).
+    fn hook_timeout(&self) -> u64 {
+        HOOK_TIMEOUT
+    }
     /// `Control::Hook`: Agenium's decision about the tool call in a hook payload.
     fn check(&self, _payload: &Value, _ctx: &CheckCtx) -> Check {
         Check::Deny("this CLI has no permission hook".into())
@@ -177,10 +235,23 @@ pub fn copy_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
     std::fs::write(original(home_file), &login)
 }
 
-fn original(home_file: &Path) -> PathBuf {
+/// The pristine copy of a login file copied into a per-run home.
+pub(crate) fn original(home_file: &Path) -> PathBuf {
     let mut name = home_file.file_name().unwrap_or_default().to_os_string();
     name.push(".agenium-original");
     home_file.with_file_name(name)
+}
+
+/// A fresh folder inside `scratch` for one usage or model-list probe of a CLI, deleted when dropped — on every path,
+/// errors included — with the copy of the user's login it holds. Probes used to share `scratch/<legacy>` and leave the
+/// login (OAuth refresh tokens) there in clear; that folder is removed too.
+pub(crate) fn probe_dir(scratch: &Path, legacy: &str) -> Result<tempfile::TempDir, String> {
+    let _ = std::fs::remove_dir_all(scratch.join(legacy));
+    std::fs::create_dir_all(scratch).map_err(|e| e.to_string())?;
+    tempfile::Builder::new()
+        .prefix("probe-")
+        .tempdir_in(scratch)
+        .map_err(|e| e.to_string())
 }
 
 /// After the run: when the CLI refreshed its login inside the per-run home, the new login goes back to the user's

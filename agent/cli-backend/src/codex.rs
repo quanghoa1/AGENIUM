@@ -229,8 +229,10 @@ impl Driver for Codex {
 async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Value, String> {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     let user = user_codex_home().ok_or("no codex home")?;
-    let home = scratch.join("codex-home");
-    let cwd = scratch.join("cwd");
+    // Deleted with the login copy when this function returns, whichever way.
+    let dir = crate::driver::probe_dir(scratch, "codex-home")?;
+    let home = dir.path().join("codex-home");
+    let cwd = dir.path().join("cwd");
     for d in [&home, &cwd] {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
     }
@@ -358,6 +360,34 @@ fn parse_model_list(r: &Value) -> Vec<agenium_llm::ModelInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Review of 2026-10-27: the usage and model-list probes left their copy of the user's `auth.json` (OAuth
+    /// tokens) in the persistent scratch folder, also when the probe failed.
+    #[tokio::test]
+    async fn the_probe_leaves_no_login_behind() {
+        let user = tempfile::tempdir().unwrap();
+        std::fs::write(user.path().join("auth.json"), "{\"tokens\":{}}").unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let legacy = scratch.path().join("codex-home");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join("auth.json"), "left by an earlier version").unwrap();
+        std::env::set_var("CODEX_HOME", user.path());
+        let r = models(&scratch.path().join("no-such-codex"), scratch.path()).await;
+        std::env::remove_var("CODEX_HOME");
+        assert!(r.is_err());
+        let mut left = vec![];
+        let mut dirs = vec![scratch.path().to_path_buf()];
+        while let Some(d) = dirs.pop() {
+            for e in std::fs::read_dir(d).unwrap().flatten() {
+                if e.path().is_dir() {
+                    dirs.push(e.path());
+                } else {
+                    left.push(e.path());
+                }
+            }
+        }
+        assert!(left.is_empty(), "{left:?}");
+    }
 
     /// Lines captured from codex 0.163.0 (shortened).
     #[test]

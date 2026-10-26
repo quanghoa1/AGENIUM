@@ -34,6 +34,9 @@ const END_GRACE: Duration = Duration::from_secs(30);
 /// A per-turn process gets this long to exit after its turn ended.
 const EXIT_GRACE: Duration = Duration::from_secs(15);
 const STDERR_TAIL: usize = 16 * 1024;
+/// The deny a hook gets when no decision came in time.
+const LATE: &str =
+    "no decision came in time (the approval was not given); ask again if the step is still needed";
 
 const NUDGE: &str = "Text alone does not finish the ticket. Continue with your tools; when you are done call \
 submit_report (MCP server \"agenium\") with one result per acceptance criterion, or ask_question if you are blocked.";
@@ -139,6 +142,12 @@ enum Call {
 struct Bridge {
     tools: Vec<ToolInfo>,
     tx: mpsc::Sender<Call>,
+    /// When a hook gets Agenium's answer at the latest (`driver::hook_deadline`).
+    hook_deadline: Duration,
+    /// The driver's deny answers: the run has ended / no decision in time. A deny in another CLI's shape would not
+    /// block the tool (Claude Code reads only its own `permissionDecision`).
+    ended: Value,
+    late: Value,
 }
 
 #[async_trait]
@@ -166,11 +175,17 @@ impl ToolHost for Bridge {
 
     async fn hook(&self, payload: Value) -> Value {
         let (tx, rx) = oneshot::channel();
-        let ended = json!({"decision": "deny", "reason": "the Agenium run has ended"});
-        if self.tx.send(Call::Hook(payload, tx)).await.is_err() {
-            return ended;
-        }
-        rx.await.unwrap_or(ended)
+        let answer = async {
+            if self.tx.send(Call::Hook(payload, tx)).await.is_err() {
+                return self.ended.clone();
+            }
+            rx.await.unwrap_or_else(|_| self.ended.clone())
+        };
+        // A deny before the hook's own deadline, whatever is still pending (a busy run loop, a user who has not
+        // answered): a hook the CLI kills lets the tool through.
+        tokio::time::timeout(self.hook_deadline, answer)
+            .await
+            .unwrap_or_else(|_| self.late.clone())
     }
 }
 
@@ -363,7 +378,14 @@ impl CliRun<'_> {
                 read_only: t.read_only(),
             }))
             .collect();
-        let server = Server::start(Arc::new(Bridge { tools, tx }), MCP_SERVER)
+        let bridge = Bridge {
+            tools,
+            tx,
+            hook_deadline: crate::driver::hook_deadline(self.driver),
+            ended: self.driver.hook_answer(false, "the Agenium run has ended"),
+            late: self.driver.hook_answer(false, LATE),
+        };
+        let server = Server::start(Arc::new(bridge), MCP_SERVER)
             .await
             .map_err(|e| failed(format!("cannot start the Agenium MCP server: {e}")))?;
         let mut home = tempfile::Builder::new()
@@ -863,9 +885,16 @@ ask_question if you are blocked.",
         let (allow, reason, command) = match check {
             Check::Allow => (true, String::new(), None),
             Check::Deny(r) => (false, r, None),
-            Check::Command(c) => match self.gate.check(&c, &self.cwd).await {
-                GateDecision::Allow => (true, String::new(), Some(c)),
-                GateDecision::Deny(r) => (false, r, Some(c)),
+            // The approval is waited for until the hook's deadline, not longer (the hook gets a deny then anyway).
+            Check::Command(c) => match tokio::time::timeout(
+                crate::driver::hook_deadline(self.driver),
+                self.gate.check(&c, &self.cwd),
+            )
+            .await
+            {
+                Ok(GateDecision::Allow) => (true, String::new(), Some(c)),
+                Ok(GateDecision::Deny(r)) => (false, r, Some(c)),
+                Err(_) => (false, LATE.to_owned(), Some(c)),
             },
         };
         if !allow {

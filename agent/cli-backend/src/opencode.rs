@@ -26,7 +26,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 
 use crate::driver::HOOK_URL_ENV;
-use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS};
+use crate::driver::{
+    git_refusal, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
+};
 
 pub struct Opencode;
 
@@ -52,6 +54,12 @@ impl Driver for Opencode {
 
     fn served(&self) -> bool {
         true
+    }
+
+    /// opencode waits for a permission answer as long as it takes (the bridge asks Agenium): an approval may take
+    /// the whole run.
+    fn hook_timeout(&self) -> u64 {
+        3600
     }
 
     fn program(&self, found: &Path) -> PathBuf {
@@ -232,15 +240,18 @@ impl Driver for Opencode {
             .filter_map(Value::as_str)
             .collect();
         match action {
-            "edit" | "write" | "patch" | "apply_patch" => {
-                match resources
-                    .iter()
-                    .find(|r| !inside(Path::new(r), cx.worktree, cx.worktree))
-                {
-                    None => Check::Allow,
-                    Some(r) => Check::Deny(format!("{r} is outside the ticket worktree")),
+            // Inside the worktree, and never `.git` (the API tools' rule).
+            "edit" | "write" | "patch" | "apply_patch" => match resources.iter().find_map(|r| {
+                let p = Path::new(r);
+                if !inside(p, cx.worktree, cx.worktree) {
+                    Some(format!("{r} is outside the ticket worktree"))
+                } else {
+                    git_refusal(p, cx.worktree)
                 }
-            }
+            }) {
+                None => Check::Allow,
+                Some(reason) => Check::Deny(reason),
+            },
             "shell" | "bash" => match resources.first() {
                 Some(c) => Check::Command((*c).to_owned()),
                 None => Check::Deny("empty shell command".into()),
@@ -342,7 +353,16 @@ pub(crate) fn bridge(
                         let Ok(mut v) = serde_json::from_str::<Value>(&e.data) else {
                             continue;
                         };
-                        if v["data"]["sessionID"].as_str().is_some_and(|s| s != sid) {
+                        let (ask, own) = route(&v, &sid);
+                        if ask {
+                            let (http, hook, token) = (http.clone(), hook.clone(), token.clone());
+                            let (base, password, data) =
+                                (api_base.clone(), password.clone(), v["data"].clone());
+                            tokio::spawn(async move {
+                                answer(&http, &hook, &token, &base, &password, data).await
+                            });
+                        }
+                        if !own {
                             continue;
                         }
                         let id = v["data"]["id"].as_str().unwrap_or("").to_owned();
@@ -363,15 +383,6 @@ pub(crate) fn bridge(
                                     v["data"]["name"] = json!(name);
                                     v["data"]["input"] = input.clone();
                                 }
-                            }
-                            "permission.asked" => {
-                                let (http, hook, token) =
-                                    (http.clone(), hook.clone(), token.clone());
-                                let (base, password, data) =
-                                    (api_base.clone(), password.clone(), v["data"].clone());
-                                tokio::spawn(async move {
-                                    answer(&http, &hook, &token, &base, &password, data).await
-                                });
                             }
                             _ => {}
                         }
@@ -398,6 +409,17 @@ pub(crate) fn bridge(
             }
         }
     });
+}
+
+/// What the bridge does with one server event of a run whose session is `sid`: `(ask, own)`. A permission request
+/// of any session is asked of Agenium and answered: the server is the run's own (its own home and password), so its
+/// sessions are the run's — its session, and the child sessions in which opencode's `task` tool runs a subagent,
+/// whose requests went unanswered and hung the run. Only the run's own session's events go on to the driver.
+fn route(v: &Value, sid: &str) -> (bool, bool) {
+    (
+        v["type"] == "permission.asked",
+        v["data"]["sessionID"].as_str().is_none_or(|s| s == sid),
+    )
 }
 
 /// Asks Agenium's hook endpoint about one permission request and replies to opencode (`once` or `reject` with the
@@ -532,6 +554,40 @@ mod tests {
             Opencode.check(&ask("codesearch", &[]), &cx(false)),
             Check::Deny(_)
         ));
+        assert!(
+            matches!(
+                Opencode.check(&ask("edit", &[".git/hooks/pre-commit"]), &cx(false)),
+                Check::Deny(_)
+            ),
+            "the API tools' .git rule"
+        );
+    }
+
+    /// Review of 2026-10-27: events of other sessions were dropped before the permission branch, so the requests of
+    /// a subagent (opencode's `task` tool runs it in a child session) were never answered and the run hung.
+    #[test]
+    fn permission_requests_of_child_sessions_are_answered() {
+        let ev = |t: &str, s: &str| json!({"type": t, "data": {"sessionID": s, "id": "x"}});
+        assert_eq!(
+            route(&ev("permission.asked", "ses_child"), "ses_1"),
+            (true, false)
+        );
+        assert_eq!(
+            route(&ev("permission.asked", "ses_1"), "ses_1"),
+            (true, true)
+        );
+        assert_eq!(
+            route(&ev("session.tool.called", "ses_child"), "ses_1"),
+            (false, false)
+        );
+        assert_eq!(
+            route(&ev("session.tool.called", "ses_1"), "ses_1"),
+            (false, true)
+        );
+        assert_eq!(
+            route(&json!({"type": "server.connected", "data": {}}), "ses_1"),
+            (false, true)
+        );
     }
 
     #[test]

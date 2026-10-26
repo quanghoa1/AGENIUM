@@ -18,8 +18,11 @@ use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS};
-use crate::driver::{HOOK_TOKEN_ENV, HOOK_URL_ENV};
+use crate::driver::{
+    file_access, hook_call_secs, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
+    NO_SUBAGENTS,
+};
+use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
 /// Name fragments of agy 1.4 tools an Agenium run never uses (matched on the lowercase tool name, since the hook and
 /// the init event spell some tools differently).
@@ -46,15 +49,17 @@ fn write_json(path: &Path, v: &Value) -> std::io::Result<()> {
 
 /// The hook: a script in the per-run config folder (the hook's working directory) that posts the hook payload
 /// (stdin) to Agenium and prints Agenium's answer; `--fail-with-body` makes a refused or failed request fail the
-/// hook, which blocks the tool. A script, because agy's own `cmd /c` call mangles quoted arguments. Returns the hook
-/// command and the script (file name, content).
+/// hook, which blocks the tool, and `--max-time` ends the call before agy's own hook timeout (a hook killed by the
+/// CLI must not let the tool through). A script, because agy's own `cmd /c` call mangles quoted arguments. Returns the
+/// hook command and the script (file name, content).
 fn hook_script() -> (&'static str, &'static str, String) {
+    let t = hook_call_secs(HOOK_TIMEOUT);
     if cfg!(windows) {
         (
             "agenium-hook.cmd",
             "agenium-hook.cmd",
             format!(
-                "@curl.exe -s -S --fail-with-body -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer %{HOOK_TOKEN_ENV}%\" --data-binary @- \"%{HOOK_URL_ENV}%\"\r\n"
+                "@curl.exe -s -S --fail-with-body --max-time {t} -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer %{HOOK_TOKEN_ENV}%\" --data-binary @- \"%{HOOK_URL_ENV}%\"\r\n"
             ),
         )
     } else {
@@ -62,10 +67,38 @@ fn hook_script() -> (&'static str, &'static str, String) {
             "sh ./agenium-hook.sh",
             "agenium-hook.sh",
             format!(
-                "#!/bin/sh\nexec curl -s -S --fail-with-body -X POST -H 'Content-Type: application/json' -H \"Authorization: Bearer ${HOOK_TOKEN_ENV}\" --data-binary @- \"${HOOK_URL_ENV}\"\n"
+                "#!/bin/sh\nexec curl -s -S --fail-with-body --max-time {t} -X POST -H 'Content-Type: application/json' -H \"Authorization: Bearer ${HOOK_TOKEN_ENV}\" --data-binary @- \"${HOOK_URL_ENV}\"\n"
             ),
         )
     }
+}
+
+/// Agenium's files in the per-run home, out of reach of the model's file tools (`driver::file_access`): the config
+/// folder (the hook script, `hooks.json`, `mcp_config.json`) and the workspace settings.
+fn protected(home: &Path) -> Vec<std::path::PathBuf> {
+    let gemini = home.join(".gemini");
+    vec![
+        gemini.join("config"),
+        gemini.join("antigravity-cli").join("settings.json"),
+    ]
+}
+
+/// agy tools that only read the paths they name (the command tools' folder is a working directory, and the command
+/// itself is checked). Every other tool may write: `.git` and Agenium's files are refused to them.
+fn reads_only(lower: &str) -> bool {
+    [
+        "view_",
+        "list_",
+        "read_",
+        "find_",
+        "grep",
+        "search",
+        "codebase_search",
+        "run_command",
+        "command_status",
+    ]
+    .iter()
+    .any(|p| lower.starts_with(p))
 }
 
 /// Argument names that hold file system paths.
@@ -151,7 +184,7 @@ impl Driver for Agy {
             &gemini.join("config").join("hooks.json"),
             &json!({"agenium-permissions": {"PreToolUse": [{
                 "matcher": "*",
-                "hooks": [{"type": "command", "command": command, "timeout": 900}],
+                "hooks": [{"type": "command", "command": command, "timeout": HOOK_TIMEOUT}],
             }]}}),
         )?;
         write_json(
@@ -283,9 +316,10 @@ impl Driver for Agy {
                 continue;
             }
             for p in path_values(v) {
-                let p = Path::new(&p);
-                if !inside(p, cx.worktree, cx.worktree) && !inside(p, cx.worktree, cx.home) {
-                    return Check::Deny(format!("{} is outside the ticket worktree", p.display()));
+                if let Err(r) =
+                    file_access(Path::new(&p), !reads_only(&lower), cx, &protected(cx.home))
+                {
+                    return Check::Deny(r);
                 }
             }
         }
@@ -536,6 +570,53 @@ mod tests {
             call("browser_click_element", json!({})),
             Check::Deny(_)
         ));
+    }
+
+    /// Review of 2026-10-27: the hook script and agy's config in the per-run home, and the worktree's `.git`, were
+    /// writable by the model's file tools; the hook's call had no deadline under agy's hook timeout.
+    #[test]
+    fn agenium_files_and_dot_git_are_out_of_reach() {
+        let wt = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let cx = CheckCtx {
+            worktree: wt.path(),
+            home: home.path(),
+            mcp_name: "agenium",
+            subagents: false,
+        };
+        let call = |name: &str, p: std::path::PathBuf| {
+            Agy.check(
+                &json!({"toolCall": {"name": name, "args": {"TargetFile": p}}}),
+                &cx,
+            )
+        };
+        let config = home.path().join(".gemini").join("config");
+        for (name, p) in [
+            ("write_to_file", config.join(hook_script().1)),
+            ("replace_file_content", config.join("hooks.json")),
+            ("view_file", config.join("mcp_config.json")),
+            (
+                "write_to_file",
+                home.path().join(".gemini/antigravity-cli/settings.json"),
+            ),
+            ("write_to_file", wt.path().join(".git/hooks/post-commit")),
+            ("some_new_tool", wt.path().join(".git/config")),
+        ] {
+            assert!(
+                matches!(call(name, p.clone()), Check::Deny(_)),
+                "{name} {}",
+                p.display()
+            );
+        }
+        assert_eq!(call("view_file", wt.path().join(".git/HEAD")), Check::Allow);
+        assert_eq!(
+            call(
+                "write_to_file",
+                home.path().join(".gemini/antigravity/brain/c1/task.md")
+            ),
+            Check::Allow
+        );
+        assert!(hook_script().2.contains("--max-time 800"));
     }
 
     #[test]

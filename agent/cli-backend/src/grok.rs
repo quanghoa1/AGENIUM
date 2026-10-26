@@ -20,8 +20,8 @@ use agenium_core::Effort;
 use serde_json::Value;
 
 use crate::driver::{
-    copy_login, hand_back_login, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
-    NO_SUBAGENTS,
+    copy_login, file_access, hand_back_login, hook_call_secs, original, Check, CheckCtx, Control,
+    Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
@@ -71,11 +71,25 @@ pub fn user_grok_dir() -> Option<PathBuf> {
         .map(|h| PathBuf::from(h).join(".grok"))
 }
 
-/// A TOML basic string.
+/// Agenium's files in the per-run home, out of reach of the model's file tools (`driver::file_access`): the hook
+/// script, `config.toml` (read again by every turn's process) and the login copy.
+fn protected(home: &Path) -> Vec<PathBuf> {
+    let login = home.join(LOGIN);
+    vec![
+        hook(home).0,
+        home.join("config.toml"),
+        original(&login),
+        login,
+    ]
+}
+
+/// Grok tools that write the file they name.
+const WRITE_TOOLS: [&str; 2] = ["write", "search_replace"];
+
 /// The hook script and the command that runs it (PowerShell on Windows, where Grok runs hooks through it; `sh`
 /// elsewhere).
 fn hook(home: &Path) -> (PathBuf, String, String) {
-    let t = HOOK_TIMEOUT - 100;
+    let t = hook_call_secs(HOOK_TIMEOUT);
     if cfg!(windows) {
         let script = home.join("agenium-hook.ps1");
         let body = format!(
@@ -151,6 +165,10 @@ impl Driver for Grok {
 
     fn turns(&self) -> Turns {
         Turns::ProcessPerTurn
+    }
+
+    fn hook_timeout(&self) -> u64 {
+        HOOK_TIMEOUT
     }
 
     fn prompt_file(&self, home: &Path) -> Option<PathBuf> {
@@ -338,9 +356,13 @@ impl Driver for Grok {
             "dir",
         ] {
             if let Some(p) = input[key].as_str() {
-                let p = Path::new(p);
-                if !inside(p, cx.worktree, cx.worktree) && !inside(p, cx.worktree, cx.home) {
-                    return Check::Deny(format!("{} is outside the ticket worktree", p.display()));
+                if let Err(r) = file_access(
+                    Path::new(p),
+                    WRITE_TOOLS.contains(&name),
+                    cx,
+                    &protected(cx.home),
+                ) {
+                    return Check::Deny(r);
                 }
             }
         }
@@ -487,6 +509,44 @@ mod tests {
             script.contains("exit 2") && script.contains("deny"),
             "fails closed: {script}"
         );
+    }
+
+    /// Review of 2026-10-27: `config.toml` (read again by every turn's process) and the hook script in the per-run
+    /// home, and the worktree's `.git`, were writable by the model's file tools.
+    #[test]
+    fn agenium_files_and_dot_git_are_out_of_reach() {
+        let wt = tempfile::tempdir().unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let cx = CheckCtx {
+            worktree: wt.path(),
+            home: home.path(),
+            mcp_name: "agenium",
+            subagents: false,
+        };
+        let call = |name: &str, p: PathBuf| {
+            Grok.check(
+                &json!({"toolName": name, "toolInput": {"file_path": p}}),
+                &cx,
+            )
+        };
+        for (name, p) in [
+            ("write", home.path().join("config.toml")),
+            ("search_replace", hook(home.path()).0),
+            ("read_file", home.path().join(LOGIN)),
+            ("write", wt.path().join(".git/hooks/pre-push")),
+        ] {
+            assert!(
+                matches!(call(name, p.clone()), Check::Deny(_)),
+                "{name} {}",
+                p.display()
+            );
+        }
+        assert_eq!(call("read_file", wt.path().join(".git/HEAD")), Check::Allow);
+        assert_eq!(
+            call("write", home.path().join("sessions/notes.md")),
+            Check::Allow
+        );
+        assert!(crate::driver::hook_deadline(&Grok) < std::time::Duration::from_secs(3500));
     }
 
     #[test]
