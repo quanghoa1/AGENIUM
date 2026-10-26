@@ -49,6 +49,9 @@ pub trait Observer: Send + Sync {
     fn tool(&self, _name: &str, _args: &serde_json::Value, _result: &Result<String, ToolError>) {}
     fn step(&self, _step: u32, _usage: &Usage) {}
     fn retry(&self, _attempt: u32, _delay_ms: u64, _error: &str) {}
+    /// Agenium steered the run: `nudge` (a text-only answer), `steer` (the user's message delivered), `compact`
+    /// (the context replaced by notes), `refused` (a CLI tool call Agenium refused). Kept in the run's log.
+    fn control(&self, _kind: &str, _text: &str) {}
 }
 
 pub struct NoopObserver;
@@ -421,6 +424,7 @@ impl Run<'_> {
                 let sent: Vec<String> =
                     std::mem::take(&mut *s.lock().unwrap_or_else(|e| e.into_inner()));
                 for text in sent {
+                    self.observer.control("steer", &text);
                     push(
                         &mut messages,
                         Message::user_text(format!("{STEERED}{text}")),
@@ -504,6 +508,7 @@ impl Run<'_> {
                 } else {
                     self.nudge.clone().unwrap_or_else(|| NUDGE.to_owned())
                 };
+                self.observer.control("nudge", &text);
                 push(&mut messages, Message::user_text(text));
                 continue;
             }
@@ -745,6 +750,10 @@ impl Run<'_> {
                 changed.join("\n")
             ));
         }
+        self.observer.control(
+            "compact",
+            &format!("{} characters of notes", notes.trim().len()),
+        );
         let m = Message::user_text(text);
         self.observer.message(&m);
         messages.push(m);

@@ -441,6 +441,14 @@ impl Observer for RunObserver {
             serde_json::json!({ "attempt": attempt, "delay_ms": delay_ms, "error": error }),
         );
     }
+
+    fn control(&self, kind: &str, text: &str) {
+        let _ = self.app.run_log(
+            self.run,
+            "control",
+            serde_json::json!({ "what": kind, "text": text.chars().take(500).collect::<String>() }),
+        );
+    }
 }
 
 pub fn summary(u: &Usage, cost: f64, elapsed_ms: u64) -> UsageSummary {

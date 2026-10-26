@@ -304,7 +304,15 @@ impl Tool for GrepTool {
             .case_insensitive(a.case_insensitive)
             .size_limit(1 << 22)
             .build()
-            .map_err(|e| ToolError::new("invalid_pattern", e.to_string()))?;
+            .map_err(|e| {
+                // Byte patterns (ripgrep's `(?-u)\xEF\xBB\xBF`) do not apply: files are searched as UTF-8 text.
+                let hint = if e.to_string().contains("invalid UTF-8") {
+                    " (patterns match UTF-8 text: write a character, e.g. a byte-order mark as \\x{FEFF}, not its bytes)"
+                } else {
+                    ""
+                };
+                ToolError::new("invalid_pattern", format!("{e}{hint}"))
+            })?;
         let filter = match &a.glob {
             Some(g) => Some(
                 globset::Glob::new(g)

@@ -499,7 +499,12 @@ pub async fn learn(
             let context = format!("{}/{}", ep.project.as_deref().unwrap_or("-"), ep.source);
             for id in &shown {
                 store.adjust_confidence(*id, HELPED_DELTA)?;
-                if store.get(*id).is_ok_and(|f| f.kind == FactKind::Lesson) {
+                // The ticket a lesson was learned on is not a second context: a lesson holds only where it was
+                // applied afresh (found by the learning chain: a lesson counted the ticket it came from).
+                if store.get(*id).is_ok_and(|f| {
+                    f.kind == FactKind::Lesson
+                        && !(f.source == ep.source && f.project == ep.project)
+                }) {
                     store.validate_in(*id, &context)?;
                     report.validated += 1;
                 }

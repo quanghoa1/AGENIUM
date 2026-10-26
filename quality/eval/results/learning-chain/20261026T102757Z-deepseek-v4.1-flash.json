@@ -1,0 +1,267 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 11 steps; recall showed 6 fact(s)",
+    "runs": 10,
+    "steps": 60,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 648456,
+    "tokens_out": 13013,
+    "cost_usd": 0.0,
+    "elapsed_ms": 236206,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "docs-team-document-with-owner-line (Agent)"
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 7,
+                "text": "When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket descr",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-1"
+                ],
+                "id": 2,
+                "text": "A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge ch",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-2"
+                ],
+                "id": 7,
+                "text": "When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket descr",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-1",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge ch",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-2",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-3"
+                ],
+                "id": 7,
+                "text": "When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket descr",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-1",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-2",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-3"
+                ],
+                "id": 2,
+                "text": "A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge ch",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [
+              {
+                "accepted": false,
+                "answer": "invalid: the new skill contradicts skill a11y-audit: \"Make sure every new or edited team document in the docs project starts with the `Owner: docs-team` line, so the owner-line pre-merge check passes and the document matches the project convention\" vs \"Do not mark a check passed you did not actually test\"; contradicts skill secure-coding: \"Evidence must be a command output, not a claim: show the n",
+                "args": {
+                  "body": "## Job\nMake sure every new or edited team document in the docs project starts with the `Owner: docs-team` line, so the owner-line pre-merge check passes and the document matches the project convention.\n\n## When to use\nWhenever a ticket asks you to create or fill a file under `deliverables/`, `reports/`, `handbook/` or `minutes/` in the docs project (README.md: \"Team documents live in deliverables/, reports/, handbook/ and minutes/\"). Applies even when the ticket description or acceptance criteria only specify the body content and never mention an owner line, and even when `agenium.toml` shows an empty `[checks] pre_merge` value.\n\n## Steps\n1. Read `README.md` to confirm which folders the project treats as team-document folders; treat any file created there as a team document.\n2. Read an existing team document (e.g. `deliverables/hello.txt` or `reports/weekly.txt`) to copy the exact convention: line 1 `Owner: docs-team`, then the requested body content on the following line(s).\n3. Write the new file with `Owner: docs-team` as the very first line, then the body the ticket asks for. Do not put a BOM or a blank line before it.\n4. Verify with a read-back: print the file line by line and check the first three bytes are `79,119,110` (`O`, `w`, `n`, i.e. no BOM) and that line 1 is exactly `Owner: docs-team`.\n5. Only then report the acceptance criteria, citing the read-back output as evidence.\n\n## Tools\n- `read_file` / `list_dir` to inspect README.md and existing team documents.\n- `write_file` (or the file tool, not `>` or `Set-Content -Encoding utf8`, which add a BOM/UTF-16) to create the file.\n- `shell` with PowerShell for the verification read-back: `Get-Content <file>` plus `[IO.File]::ReadAllBytes(<file>)`.\n- `grep` to confirm the required word is present.\n\n## Proof\nEvidence must be a command output, not a claim: show the numbered/printed lines of the new file (first line `Owner: docs-team`, body line containing the required word) and the byte check proving there is no BOM before `O`. A report that only says \"the file was created with the owner line\" without this read-back does not count.\n",
+                  "description": "Use when creating or editing a team document in the docs project (deliverables/, reports/, handbook/, minutes/) — the first line must be `Owner: docs-team`.",
+                  "lesson": 2,
+                  "name": "docs-team-owner-line",
+                  "reason": "Lesson #2 (team documents in the docs project must have `Owner: docs-team` as line 1) has now held in three contexts: deliverables/hello.txt (AGN-1), reports/weekly.txt (AGN-2) and handbook/onboarding.txt (AGN-3, where the ticket never mentions an owner line and README.md is the only place naming handbook/ as a team-document folder). No installed skill covers this, so it is captured as a reusable procedure with a verification step."
+                },
+                "tool": "propose_new_skill"
+              }
+            ],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-2",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-3",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-4"
+                ],
+                "id": 7,
+                "text": "When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket descr",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-1",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-2",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-3",
+                  "01M5VVT3VF4NWVJC0N7BCHDDAZ/ticket:AGN-4"
+                ],
+                "id": 2,
+                "text": "A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge ch",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [
+              {
+                "accepted": true,
+                "answer": "{\"note\":\"your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding\",\"skill\":\"docs-team-document-with-owner-line\",\"status\":\"created\"}",
+                "args": {
+                  "body": "## Job\nCreate or fill a team document in a docs project so that it satisfies the project's owner-line rule (first line exactly `Owner: <team>`) and contains the requested content, verified at byte level.\n\n## When to use\n- A ticket asks to add or fill a file under a team-document directory such as `deliverables/`, `reports/`, `handbook/` or `minutes/`.\n- The ticket description specifies only the body content and does not mention an owner line.\n- Use it whenever the project may run a pre-merge check on document format, even if `[checks] pre_merge` in `agenium.toml` looks empty.\n\n## Steps\n1. List the worktree and read the project `README.md` to learn which directories hold team documents.\n2. Read at least two existing documents in those directories. Copy the first line verbatim (in this project: `Owner: docs-team`) instead of guessing the team name.\n3. Write the file with the owner line as the very first line, followed by the requested content on its own line. Write LF line endings and no UTF-8 BOM (use the file tool, not PowerShell `>` or `Set-Content`, which add a BOM or UTF-16).\n4. Verify with a byte and regex check, not just by eyeballing: read the bytes, confirm the first bytes are `4F 77 6E 65 72 3A 20` (`Owner: `) and not `EF BB BF` (BOM), and confirm the content word matches as a whole word, e.g. `[IO.File]::ReadAllText((Resolve-Path path)) -match '(?m)^Owner: docs-team$'` and `-match '\\bstandup\\b'`.\n5. Run `git status --porcelain` to confirm the new path is the only change, then report the file path, the byte-level evidence and the regex results.\n\n## Tools\n- Directory listing and glob tools to find existing team documents.\n- File read/write/edit tools to create the document with UTF-8 (no BOM) content.\n- Shell (PowerShell on Windows) for `[IO.File]::ReadAllBytes` / `ReadAllText`, regex checks and `git status`.\n\n## Proof\nThe report must show evidence that anyone can re-run:\n- the full path of the created file,\n- the byte dump or at least the byte length plus the decoded first line proving `Owner: <team>` is line 1 with no BOM,\n- the output of the whole-word regex check for the required content word (e.g. `contains word standup OK`),\n- `git status --porcelain` output showing the change.\nA claim of \"file created\" without the byte/regex output does not satisfy this skill.\n",
+                  "description": "Use when a ticket asks to create or fill a team document (deliverables/, reports/, handbook/, minutes/) in a docs project that enforces an \"Owner: <team>\" first line.",
+                  "lesson": 7,
+                  "name": "docs-team-document-with-owner-line",
+                  "reason": "The owner-line requirement is a project convention that is not stated in ticket descriptions (lesson #7, held in 2 contexts: AGN-1 deliverables/hello.txt and AGN-3 handbook/onboarding.txt) and lesson #2 held in 3 contexts. It has now also been needed for AGN-4 minutes/standup.txt, and I had to rediscover the byte-level verification (BOM, line endings) each time. No existing skill covers it (no skills installed), so I am creating one that also encodes the verification step."
+                },
+                "tool": "propose_new_skill"
+              }
+            ],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 11,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_in": 123990,
+            "tokens_out": 3731
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 19,
+            "ticket": "AGN-4",
+            "tickets_in_project": 5,
+            "tokens_in": 218212,
+            "tokens_out": 4767
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) A personal skill 'docs-team-document-with-owner-line' exists for creating team documents in the docs project with the owner first line and byte-level verification.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project's agenium.toml sets template coding@1 and main_branch main, and has an empty [checks] pre_merge value, yet the owner-line pre-merge check is still enforced, so project rules apply regardless of that setting.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project root layout includes README.md, agenium.toml, artifacts/, deliverables/, handbook/, reports/, minutes/ and notes/.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/, reports/, handbook/, or minutes/ starts with the line 'Owner: docs-team' followed by its content line.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, existing team documents such as deliverables/hello.txt follow the pattern of an 'Owner: docs-team' first line followed by the requested content line.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket description omits it, because the pre-merge check enforces the project rule.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree shell runs on Windows, where PowerShell .NET APIs such as [IO.File]::ReadAllText/ReadAllBytes are available for byte and content verification.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, README.md states team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge check fails."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket description omits it, because the pre-merge check enforces the project rule.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree shell runs on Windows, where PowerShell .NET APIs such as [IO.File]::ReadAllText/ReadAllBytes are available for byte and content verification.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's agenium.toml has an empty [checks] pre_merge value, yet the owner-line pre-merge check is still enforced, so project rules apply regardless of that setting.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, README.md states team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project root layout includes README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge check fails.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line, exactly as 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 19,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 192140,
+        "tokens_out": 2981
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 11,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 114114,
+        "tokens_out": 1534
+      },
+      "ticket2_facts_shown": 6,
+      "ticket2_shown": [
+        "run 01M5VVWFSR5P12CXVS0ETFXMWK #1 hybrid: When a docs ticket asks to create a team document with specified content, include the 'Owner: docs-team' first line before that content even if the ticket description omits it, because the pre-merge check enforces the project rule.",
+        "run 01M5VVWFSR5P12CXVS0ETFXMWK #2 hybrid: A new team document in the docs project (deliverables/ or reports/) must have 'Owner: docs-team' as its very first line, before any content, or the pre-merge check fails.",
+        "run 01M5VVWFSR5P12CXVS0ETFXMWK #3 hybrid: In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line, exactly as 'Owner: docs-team'.",
+        "run 01M5VVWFSR5P12CXVS0ETFXMWK #4 graph: The docs project root layout includes README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+        "run 01M5VVWFSR5P12CXVS0ETFXMWK #5 graph: The docs project's agenium.toml has an empty [checks] pre_merge value, yet the owner-line pre-merge check is still enforced, so project rules apply regardless of that setting.",
+        "run 01M5VVWFSR5P12CXVS0ETFXMWK #6 graph: The docs project worktree shell runs on Windows, where PowerShell .NET APIs such as [IO.File]::ReadAllText/ReadAllBytes are available for byte and content verification."
+      ]
+    }
+  }
+]

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "team-greeting",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 7,
+    "steps": 38,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "work/submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 827) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 827)\"}]"
+    ],
+    "outcomes": [
+      "chat:t-lead::Completed",
+      "plan:t-planner::Completed",
+      "inbox:t-lead::Completed",
+      "work:t-backend:AGN-1:Completed",
+      "review:t-lead:AGN-1:Completed",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 372508,
+    "tokens_out": 26309,
+    "cost_usd": 0.0,
+    "elapsed_ms": 284360,
+    "discipline": {
+      "counts": {
+        "steer": 1
+      },
+      "lead_acknowledged_message": false,
+      "message_reached_lead": true,
+      "reports_with_evidence": 2,
+      "tickets": [
+        {
+          "assignee": "agent_01M5VWPNMJ6XBB2S4Q4Y1PZ5C1",
+          "close_reason": "All three acceptance criteria verified independently in the worktree: api/greeting.json exists in the new api/ directory, has no U+FEFF at the start (no BOM), is the expected 25-byte UTF-8 encoding of the 24-character line {\"greeting\": \"xin chào\"} with precomposed à and no CR or trailing content, so it parses as a single-key JSON object with value exactly \"xin chào\"; the diff contains only that new file and no other repository path was created or modified. Approved and merged into main.",
+          "depends_on": [],
+          "key": "AGN-1",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create the static backend data file api/greeting.json"
+        },
+        {
+          "assignee": "agent_01M5VWPNMJHYY32MC7TYJGAAA2",
+          "close_reason": "Support tag: ACK-42. Approved after independent verification of every criterion against the worktree and the diff: web/index.html is a self-contained HTML5 page (charset utf-8, one inline <script>, no external resources or absolute URLs); the script calls fetch('../api/greeting.json') on the exact relative path and renders data.greeting via textContent into the visible <p id=\"greeting\">; grep for xin|chào|chao finds no match, so no hard-coded greeting or fallback exists; both !response.ok (line 34) and .catch (line 40) route into showError() writing to that same element; '../api/greeting.json' from web/index.html resolves to the project-root api/greeting.json, which is present with the required content, and the diff adds only web/index.html (web/ contains nothing else). Merge into main succeeded.",
+          "depends_on": [
+            "AGN-1"
+          ],
+          "key": "AGN-2",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create web/index.html that fetches ../api/greeting.json and renders the greeting, with error handling"
+        }
+      ]
+    }
+  }
+]

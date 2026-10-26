@@ -363,6 +363,7 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             .collect(),
         reopened: t.reopen_count,
         tokens_in: t.usage.tokens_in,
+        tokens_cached: t.usage.cache_read,
         tokens_out: t.usage.tokens_out,
         cost_usd: t.usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
@@ -375,5 +376,6 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             "overlays": overlays,
             "violations": violations,
         })),
+        discipline: None,
     })
 }

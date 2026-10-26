@@ -489,12 +489,14 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
 ask_question if you are blocked.",
                     denied.join(", ")
                 );
+                self.observer.control("refused", &denied.join(", "));
                 match steered {
                     Some(s) => format!("{refused}\n\n{s}"),
                     None => refused,
                 }
             } else if let Some(s) = steered {
                 // The user wrote while the turn ran: the next turn carries the message (no nudge counted).
+                self.observer.control("steer", &s);
                 s
             } else if self.chat {
                 break Outcome::Completed;
@@ -503,7 +505,9 @@ ask_question if you are blocked.",
                 if nudges > self.limits.nudge_limit {
                     break Outcome::NoProgress;
                 }
-                self.nudge.clone().unwrap_or_else(|| NUDGE.to_owned())
+                let n = self.nudge.clone().unwrap_or_else(|| NUDGE.to_owned());
+                self.observer.control("nudge", &n);
+                n
             };
             let m = Message::user_text(next.clone());
             self.observer.message(&m);
@@ -871,6 +875,7 @@ ask_question if you are blocked.",
         // Mid-turn steering through the hook, for a CLI whose hook can add context to the model's next step.
         if allow && self.driver.hook_with_context(Value::Null, "").is_some() {
             if let Some(s) = self.take_steered(st) {
+                self.observer.control("steer", &s);
                 let m = Message::user_text(s.clone());
                 self.observer.message(&m);
                 st.messages.push(m);
@@ -929,6 +934,7 @@ ask_question if you are blocked.",
         // tool it calls (a run that is ending keeps the message for the project's next turn instead).
         if st.effect.is_none_or(|e| e == Effect::Continue) && st.stop.is_none() {
             if let Some(s) = self.take_steered(st) {
+                self.observer.control("steer", &s);
                 let m = Message::user_text(s.clone());
                 self.observer.message(&m);
                 st.messages.push(m);

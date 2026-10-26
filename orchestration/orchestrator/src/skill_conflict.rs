@@ -149,7 +149,21 @@ pub fn directives(body: &str) -> Vec<(bool, BTreeSet<String>, String)> {
             };
             let hit = find(&NEG, false).or_else(|| find(&POS, true));
             if let Some((pos, at)) = hit {
-                let stems = stems(&low[at.min(low.len())..]);
+                // The directive itself, without its purpose or reason ("..., so the check passes"): a reason shares
+                // words with other skills without saying the opposite (found by the learning chain, ADR-92).
+                let clause = &low[at.min(low.len())..];
+                let end = [
+                    ", so ",
+                    " so that ",
+                    " because ",
+                    " in order to ",
+                    " so the ",
+                ]
+                .iter()
+                .filter_map(|m| clause.find(m))
+                .min()
+                .unwrap_or(clause.len());
+                let stems = stems(&clause[..end]);
                 if stems.len() >= 2 {
                     out.push((pos, stems, s.to_owned()));
                 }
@@ -201,7 +215,9 @@ pub fn directive_conflicts(name: &str, body: &str, others: &[(String, String)]) 
                 }
                 let shared = s1.intersection(&s2).count();
                 let small = s1.len().min(s2.len()).max(1);
-                if shared >= 2 && shared * 3 >= small {
+                let large = s1.len().max(s2.len()).max(1);
+                // About the same thing: the shared words are a third of the shorter clause and of the longer one.
+                if shared >= 2 && shared * 3 >= small && shared * 3 >= large {
                     out.push(format!(
                         "contradicts skill {other}: \"{line1}\" vs \"{line2}\""
                     ));
@@ -405,6 +421,21 @@ mod tests {
             "## Steps\n1. Always log the full connection string so failures are easy to debug.\n";
         let c = directive_conflicts("debug-logging", secrets, &lib);
         assert!(c.iter().any(|n| n.contains("secure-coding")), "{c:?}");
+    }
+
+    /// Found by the learning chain (2026-10-26): a rule whose reason mentions a check passing is not the opposite
+    /// of "do not mark a check passed you did not test".
+    #[test]
+    fn a_shared_reason_is_not_an_opposite_directive() {
+        let lib = library();
+        let owner = "## Job\nMake sure every new or edited team document in the docs project starts with the \
+                     `Owner: docs-team` line, so the owner-line pre-merge check passes and the document matches the \
+                     project convention.\n";
+        assert!(
+            directive_conflicts("owner-line", owner, &lib).is_empty(),
+            "{:?}",
+            directive_conflicts("owner-line", owner, &lib)
+        );
     }
 
     #[test]

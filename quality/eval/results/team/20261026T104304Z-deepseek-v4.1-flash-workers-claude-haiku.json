@@ -1,0 +1,60 @@
+[
+  {
+    "id": "team-greeting",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 7,
+    "steps": 35,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "chat:t-lead::Completed",
+      "plan:t-planner::Completed",
+      "inbox:t-lead::Completed",
+      "work:t-backend:AGN-1:Completed",
+      "review:t-lead:AGN-1:Completed",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 508484,
+    "tokens_out": 23409,
+    "cost_usd": 0.0,
+    "elapsed_ms": 201073,
+    "discipline": {
+      "counts": {
+        "nudge": 1,
+        "steer": 1
+      },
+      "lead_acknowledged_message": false,
+      "message_reached_lead": true,
+      "reports_with_evidence": 2,
+      "tickets": [
+        {
+          "assignee": "agent_01M5VWPWK321PSGY2EANRSE5VD",
+          "close_reason": "Approved and merged into main. Verified independently in the worktree: api/greeting.json exists at the fixed path and is the only change; content is the single-line JSON object {\"greeting\": \"xin chào\"} with exactly one key \"greeting\" and the string value \"xin chào\"; the line starts with `{` at byte 0 (no BOM), has no \\u escapes and no content after the closing brace; no other file, build step, manifest, server or script was added. Report wording about the encoding is inaccurate (the value is the literal UTF-8 à, not a \\u00e0 escape, and the file is not ASCII-only), but the file matches AC-3 either way.",
+          "depends_on": [],
+          "key": "AGN-1",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create api/greeting.json with the exact greeting object {\"greeting\": \"xin chào\"}"
+        },
+        {
+          "assignee": "agent_01M5VWPWK3ERED7F21RDKSNS9A",
+          "close_reason": "ACK-42 Reviewed and approved; merge into main succeeded. Verified myself in the worktree: web/index.html (32 lines, added by this ticket) has doctype, html lang, head with meta charset=utf-8, body, and an inline script calling fetch(\"../api/greeting.json\") — relative, no leading slash, no absolute URL, no library, no build step, no server code (AC-6). Greeting value is written to the visible <h1 id=\"greeting\"> via textContent (line 23) after response.ok and a typeof-string check on data.greeting; report names the element id, the project root as served root and the URL, and shows the DOM dump <h1 id=\"greeting\">xin chào</h1> (AC-7). Failure branches are all present: non-200 throws \"HTTP <status>\", response.json() rejection and missing/wrong-typed greeting throw, and catch writes a readable message to the visible <p id=\"error\" role=\"alert\">; the 404 path was exercised once with the observed message and the temporary rename was reverted — no *.bak remains in the tree (AC-8). AGN-1 is the declared dependency and api/greeting.json in this branch contains exactly {\"greeting\": \"xin chào\"}, which the page was built against (AC-9). Glob over the whole tree shows only web/index.html plus the pre-existing files (README.md, agenium.toml, api/greeting.json, .gitkeep placeholders): no server, routing, deployment config, styling framework, package manifest or test tooling was added, and the diff against the base touches no other file, so api/greeting.json is unchanged (AC-10).",
+          "depends_on": [
+            "AGN-1"
+          ],
+          "key": "AGN-2",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create web/index.html that fetches api/greeting.json and renders the greeting with a visible error fallback"
+        }
+      ]
+    }
+  }
+]

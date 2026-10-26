@@ -183,11 +183,17 @@ pub struct TaskResult {
     pub reopened: u32,
     pub tokens_in: u64,
     pub tokens_out: u64,
+    /// Input tokens served from the provider's prompt cache (part of `tokens_in`).
+    #[serde(default)]
+    pub tokens_cached: u64,
     pub cost_usd: f64,
     pub elapsed_ms: u64,
     /// The learning-loop scenario's observations (`learning` module); absent for the other tasks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub learning: Option<Value>,
+    /// The team task's protocol checks and counts (ticket discipline, evidence, retries, nudges); absent elsewhere.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discipline: Option<Value>,
 }
 
 pub enum Mode {
@@ -464,16 +470,18 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             .collect(),
         reopened: t.reopen_count,
         tokens_in: t.usage.tokens_in,
+        tokens_cached: t.usage.cache_read,
         tokens_out: t.usage.tokens_out,
         cost_usd: t.usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
         learning: None,
+        discipline: None,
     })
 }
 
 pub fn table(results: &[TaskResult]) -> String {
     let mut s = format!(
-        "{:<16} {:<6} {:>4} {:>5} {:>6} {:>7} {:>9} {:>8} {:>8}  {}\n",
+        "{:<16} {:<6} {:>4} {:>5} {:>6} {:>7} {:>9} {:>6} {:>8} {:>8}  {}\n",
         "task",
         "result",
         "runs",
@@ -481,13 +489,14 @@ pub fn table(results: &[TaskResult]) -> String {
         "errors",
         "reopen",
         "tokens",
+        "cache%",
         "cost$",
         "time_s",
         "detail"
     );
     for r in results {
         s.push_str(&format!(
-            "{:<16} {:<6} {:>4} {:>5} {:>6} {:>7} {:>9} {:>8.4} {:>8.1}  {}\n",
+            "{:<16} {:<6} {:>4} {:>5} {:>6} {:>7} {:>9} {:>6.1} {:>8.4} {:>8.1}  {}\n",
             r.id,
             if r.passed { "PASS" } else { "FAIL" },
             r.runs,
@@ -495,12 +504,20 @@ pub fn table(results: &[TaskResult]) -> String {
             r.tool_errors,
             r.reopened,
             r.tokens_in + r.tokens_out,
+            100.0 * r.tokens_cached as f64 / r.tokens_in.max(1) as f64,
             r.cost_usd,
             r.elapsed_ms as f64 / 1000.0,
             r.detail
         ));
     }
     let passed = results.iter().filter(|r| r.passed).count();
-    s.push_str(&format!("score: {passed}/{} passed\n", results.len()));
+    let (cached, input) = results.iter().fold((0u64, 0u64), |(c, i), r| {
+        (c + r.tokens_cached, i + r.tokens_in)
+    });
+    s.push_str(&format!(
+        "score: {passed}/{} passed; prompt cache {:.1}% of {input} input tokens\n",
+        results.len(),
+        100.0 * cached as f64 / input.max(1) as f64
+    ));
     s
 }

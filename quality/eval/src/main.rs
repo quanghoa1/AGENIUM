@@ -71,7 +71,14 @@ async fn main() -> Result<()> {
     // `--team`: the team task (M4 acceptance) instead of the single-agent tasks.
     if args.iter().any(|a| a == "--team") {
         eprintln!("running {} ...", agenium_eval::team::ID);
-        results.push(agenium_eval::team::run(&mode).await?);
+        results.push(
+            agenium_eval::team::run(
+                &mode,
+                arg(&args, "--worker-cli")
+                    .map(|c| (c, arg(&args, "--worker-model").unwrap_or_default())),
+            )
+            .await?,
+        );
     }
     // `--learning`: the learning-loop scenario (ADR-91/92) instead of the single-agent tasks.
     if args.iter().any(|a| a == "--learning") {
@@ -105,7 +112,14 @@ async fn main() -> Result<()> {
         eprintln!("running {}-{on} ...", agenium_eval::memory_reuse::ID);
         let models = arg(&args, "--models").map(PathBuf::from);
         results.push(
-            agenium_eval::memory_reuse::run(&mode, on == "on", extract, models.as_deref()).await?,
+            agenium_eval::memory_reuse::run(
+                &mode,
+                on == "on",
+                extract,
+                models.as_deref(),
+                args.iter().any(|a| a == "--chain"),
+            )
+            .await?,
         );
     }
     for t in tasks()

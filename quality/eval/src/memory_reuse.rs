@@ -10,6 +10,11 @@
 //!
 //! A CLI agent extracts memories with the `[cli]` fallback API model (ADR-56); pass `--extract <provider> --extract-model
 //! <model>` with `--root` for those runs (DeepSeek on the OpenCode key).
+//!
+//! `--chain` (memory on) continues the same agent with tickets 3 and 4 in two more folders the rule covers
+//! (`handbook/`, `minutes/`): the whole learning chain. A lesson shown to a cleanly closed ticket holds in that
+//! context; after two contexts the skill-writing tools open (ADR-91), and ticket 4 shows whether the agent turns the
+//! proven lesson into a skill update or a new skill, and whether the gates accept it. Recorded under `chain`.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -32,20 +37,22 @@ pub const ID: &str = "memory-reuse";
 
 const OWNER_LINE: &str = "Owner: docs-team";
 
-/// The folders whose files are team documents.
+/// The folders whose files are team documents (the chain adds `handbook/` and `minutes/`).
 const TEAM_DIRS: [&str; 2] = ["deliverables", "reports"];
+const CHAIN_DIRS: [&str; 4] = ["deliverables", "reports", "handbook", "minutes"];
 
 /// The project's pre-merge check: every team document names its owning team on its first line. `seen` keeps, for the
 /// result file only, each rejected first line as written (a UTF-8 BOM or a joined line shows there); the agent sees the
 /// check's log alone.
 struct OwnerRule {
     seen: Arc<Mutex<Vec<String>>>,
+    dirs: &'static [&'static str],
 }
 impl CheckRunner for OwnerRule {
     fn run(&self, worktree: &Path) -> CheckOutcome {
         let mut bad = Vec::new();
         let wt = worktree.file_name().unwrap_or_default().to_string_lossy();
-        for dir in TEAM_DIRS {
+        for dir in self.dirs {
             let Ok(rd) = std::fs::read_dir(worktree.join(dir)) else {
                 continue;
             };
@@ -84,7 +91,7 @@ impl CheckRunner for OwnerRule {
     }
 }
 
-struct OwnerRuleFactory(Arc<Mutex<Vec<String>>>);
+struct OwnerRuleFactory(Arc<Mutex<Vec<String>>>, &'static [&'static str]);
 impl CheckFactory for OwnerRuleFactory {
     fn for_project(
         &self,
@@ -93,6 +100,7 @@ impl CheckFactory for OwnerRuleFactory {
     ) -> Arc<dyn CheckRunner> {
         Arc::new(OwnerRule {
             seen: self.0.clone(),
+            dirs: self.1,
         })
     }
 }
@@ -186,10 +194,40 @@ fn measure(
         "runs": rs.len(),
         "steps": rs.iter().map(|r| r.steps).sum::<u32>(),
         "tokens_in": t.usage.tokens_in,
+        "tokens_cached": t.usage.cache_read,
         "tokens_out": t.usage.tokens_out,
         "files_after": files(root),
         "tickets_in_project": app.store().read(|c| agenium_store::core::tickets::list(c, project, &Default::default()))?.len(),
     }))
+}
+
+/// The agent's lessons with the contexts each held in (`text` shortened).
+fn lessons(mem: &agenium_store::AgentStore) -> anyhow::Result<Vec<Value>> {
+    Ok(mem
+        .live(500)?
+        .into_iter()
+        .filter(|f| f.kind == agenium_store::FactKind::Lesson)
+        .map(|f| {
+            json!({ "id": f.id, "held_in": f.validated, "untrusted": f.untrusted,
+                    "text": f.text.chars().take(160).collect::<String>() })
+        })
+        .collect())
+}
+
+/// The skill-writing calls of a ticket's runs: tool, accepted or refused, and the answer.
+fn skill_calls(app: &App, project: ProjectId, key: &TicketKey) -> anyhow::Result<Vec<Value>> {
+    let t = app.ticket(project, key)?;
+    let mut out = vec![];
+    for r in app.store().read(|c| runs::for_ticket(c, t.id))? {
+        for e in app.store().read(|c| runs::log_entries(c, r.id))? {
+            let tool = e.data["tool"].as_str().unwrap_or_default();
+            if e.kind == "tool" && matches!(tool, "propose_skill_update" | "propose_new_skill") {
+                out.push(json!({ "tool": tool, "accepted": e.data["ok"], "args": e.data["args"],
+                                 "answer": e.data["result"].as_str().unwrap_or_default().chars().take(400).collect::<String>() }));
+            }
+        }
+    }
+    Ok(out)
 }
 
 pub async fn run(
@@ -197,6 +235,7 @@ pub async fn run(
     memory_on: bool,
     extract: Option<(Arc<dyn Provider>, String)>,
     models: Option<&Path>,
+    chain: bool,
 ) -> anyhow::Result<TaskResult> {
     let start = Instant::now();
     let tmp = tempfile::tempdir()?;
@@ -205,7 +244,10 @@ pub async fn run(
         &tmp.path().join("root"),
         AppOptions {
             keyring: Arc::new(agenium_secrets::MemoryKeyring::default()),
-            checks: Arc::new(OwnerRuleFactory(rejected.clone())),
+            checks: Arc::new(OwnerRuleFactory(
+                rejected.clone(),
+                if chain { &CHAIN_DIRS } else { &TEAM_DIRS },
+            )),
         },
     )?;
     // The local embedding model, as `agenium models download` installs it; without it memory uses the hashing embedder.
@@ -232,7 +274,11 @@ pub async fn run(
     let root = Path::new(&project.path).to_path_buf();
     std::fs::write(
         root.join("README.md"),
-        "# Docs\n\nTeam documents live in deliverables/ and reports/.\n",
+        if chain {
+            "# Docs\n\nTeam documents live in deliverables/, reports/, handbook/ and minutes/.\n"
+        } else {
+            "# Docs\n\nTeam documents live in deliverables/ and reports/.\n"
+        },
     )?;
     app.repo(&project)
         .commit_all(&root, "Eval fixture", ("eval", "eval@agenium.local"), &[])?;
@@ -345,26 +391,38 @@ pub async fn run(
     };
     let mut tickets = Vec::new();
     let mut before_t2 = Vec::new();
-    for (item, file, word) in [
-        ("PI-1", "deliverables/hello.txt", "hello"),
-        ("PI-2", "reports/weekly.txt", "weekly"),
-    ] {
+    let mut chain_steps = Vec::new();
+    let all: [(&str, &str, &str, &str); 4] = [
+        ("PI-1", "deliverables/hello.txt", "hello", "Hello note"),
+        ("PI-2", "reports/weekly.txt", "weekly", "Weekly report"),
+        (
+            "PI-3",
+            "handbook/onboarding.txt",
+            "onboarding",
+            "Onboarding page",
+        ),
+        ("PI-4", "minutes/standup.txt", "standup", "Standup minutes"),
+    ];
+    let count = if chain { 4 } else { 2 };
+    for (n, (item, file, word, _)) in all.iter().copied().enumerate().take(count) {
         // The weekly report enters the plan only now: with it in plan v1 the Lead ticketed it on its own after ticket 1
         // (as reports/weekly.md), so the measured ticket was its third and its first merge could copy a reports/ file
         // already on main (the 2026-10-25 v2 runs).
-        if item == "PI-2" {
-            // What recall could draw on: ticket 2's own learning may rewrite these texts afterwards.
-            before_t2 = held(memory()?.as_ref())?;
+        if n > 0 {
+            if item == "PI-2" {
+                // What recall could draw on: ticket 2's own learning may rewrite these texts afterwards.
+                before_t2 = held(memory()?.as_ref())?;
+            }
             app.apply(
                 &user,
                 Intent::RevisePlan(PlanRevision {
-                    base_version: 1,
-                    reason: "Add the weekly report".into(),
+                    base_version: n as u32,
+                    reason: format!("Add {file}"),
                     milestones: milestones(),
-                    items: vec![
-                        plan_item("PI-1", "Hello note", &ac("deliverables/hello.txt", "hello")),
-                        plan_item("PI-2", "Weekly report", &ac(file, word)),
-                    ],
+                    items: all[..=n]
+                        .iter()
+                        .map(|(i, f, w, title)| plan_item(i, title, &ac(f, w)))
+                        .collect(),
                 }),
             )?;
         }
@@ -396,6 +454,13 @@ pub async fn run(
         )?;
         rt.drive(project.id, 12).await?;
         tickets.push(measure(&app, project.id, &key, file, word, &root)?);
+        if chain {
+            chain_steps.push(json!({
+                "ticket": key.to_string(),
+                "skill_calls": skill_calls(&app, project.id, &key)?,
+                "lessons_after": lessons(memory()?.as_ref())?,
+            }));
+        }
     }
 
     // What memory held after ticket 1, and what recall showed ticket 2.
@@ -437,6 +502,7 @@ pub async fn run(
         outcomes: vec![],
         reopened: tickets.iter().map(|t| t["reopened"].as_u64().unwrap_or(0) as u32).sum(),
         tokens_in: tickets.iter().map(|t| t["tokens_in"].as_u64().unwrap_or(0)).sum(),
+        tokens_cached: tickets.iter().map(|t| t["tokens_cached"].as_u64().unwrap_or(0)).sum(),
         tokens_out: tickets.iter().map(|t| t["tokens_out"].as_u64().unwrap_or(0)).sum(),
         cost_usd: 0.0,
         elapsed_ms: start.elapsed().as_millis() as u64,
@@ -450,6 +516,13 @@ pub async fn run(
             "ticket2_facts_shown": shown,
             "ticket2_shown": shown_texts,
             "check_rejected": rejected.lock().unwrap().clone(),
+            "chain": chain.then(|| json!({
+                "steps": chain_steps,
+                "tickets": tickets.iter().skip(2).cloned().collect::<Vec<_>>(),
+                "agent_skills": app.agent(agent.id).ok().map(|a| rt.skills(&a).skills.iter()
+                    .map(|k| format!("{} ({:?})", k.meta.name, k.meta.origin)).collect::<Vec<_>>()),
+            })),
         })),
+        discipline: None,
     })
 }
