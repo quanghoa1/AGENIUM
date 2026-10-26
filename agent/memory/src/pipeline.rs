@@ -157,6 +157,9 @@ enum Op {
     },
     Delete {
         id: i64,
+        /// The new fact that contradicts the memory: its evidence.
+        #[serde(default)]
+        fact: Option<usize>,
     },
     Noop {
         #[serde(default)]
@@ -194,9 +197,9 @@ Answer with JSON only: {\"facts\": [{\"text\": \"...\", \"kind\": \"fact|prefere
 const DECIDE_RULES: &str = "You maintain your own long-term memory. For each NEW fact you see the most similar EXISTING \
 memories (with ids). Decide per new fact: ADD (new information), UPDATE (an existing memory about the same thing is \
 outdated or less precise: give its id and the merged text), DELETE (an existing memory is contradicted and the new fact \
-needs no record of its own: give its id), NOOP (already known or not worth keeping). Use only ids shown to you. Answer \
-with JSON only: {\"ops\": [{\"op\": \"ADD\", \"fact\": 0}, {\"op\": \"UPDATE\", \"fact\": 1, \"id\": 12, \"text\": \"...\"}, \
-{\"op\": \"DELETE\", \"id\": 7}, {\"op\": \"NOOP\", \"fact\": 2}]}";
+needs no record of its own: give its id and the new fact that contradicts it), NOOP (already known or not worth \
+keeping). Use only ids shown to you. Answer with JSON only: {\"ops\": [{\"op\": \"ADD\", \"fact\": 0}, {\"op\": \"UPDATE\", \
+\"fact\": 1, \"id\": 12, \"text\": \"...\"}, {\"op\": \"DELETE\", \"fact\": 3, \"id\": 7}, {\"op\": \"NOOP\", \"fact\": 2}]}";
 
 /// The entity-resolution question for the ambiguous band (public for `quality/eval/examples/entity_ask.rs`).
 pub const SAME_RULES: &str = "Entity resolution for your memory. For each numbered pair say whether both names denote the \
@@ -523,6 +526,8 @@ pub async fn learn(
         .embed(&facts.iter().map(|f| f.text.clone()).collect::<Vec<_>>())
         .map_err(MemoryError::Embedder)?;
     let mut shown: BTreeSet<i64> = BTreeSet::new();
+    // The memories shown under each new fact.
+    let mut shown_for: Vec<BTreeSet<i64>> = vec![BTreeSet::new(); facts.len()];
     let mut prompt = String::new();
     for (i, (f, v)) in facts.iter().zip(&vectors).enumerate() {
         prompt.push_str(&format!("NEW {i}: {}\n", f.text));
@@ -532,6 +537,7 @@ pub async fn learn(
         }
         for h in hits {
             shown.insert(h.fact.id);
+            shown_for[i].insert(h.fact.id);
             prompt.push_str(&format!("  EXISTING id={}: {}\n", h.fact.id, h.fact.text));
         }
     }
@@ -596,7 +602,17 @@ pub async fn learn(
     // planted (found on Claude Haiku: a project file read as "nothing enforces this" rewrote a proven lesson into an
     // untrusted one and retired its twin, so the next ticket was not reminded of the rule). It is kept beside it.
     let trusted = |id: i64| store.get(id).is_ok_and(|o| !o.untrusted);
-    let trusted_evidence = facts.iter().any(|f| !f.external);
+    // A DELETE retires trusted memory on trusted evidence only: the whole episode is when nothing in it is external;
+    // otherwise the DELETE names the new fact that contradicts the memory, and that fact must be trusted and have been
+    // shown the memory (review of 2026-10-27: one trusted fact in the episode unlocked every DELETE, those an
+    // external fact asked for included).
+    let all_trusted = facts.iter().all(|f| !f.external);
+    let delete_evidence = |id: i64, fact: Option<usize>| {
+        all_trusted
+            || fact.is_some_and(|i| {
+                facts.get(i).is_some_and(|f| !f.external) && shown_for[i].contains(&id)
+            })
+    };
     let mut touched: BTreeSet<i64> = BTreeSet::new();
     let mut stored: Vec<(usize, i64)> = Vec::new();
     for op in ops {
@@ -647,16 +663,16 @@ pub async fn learn(
                         .push(format!("UPDATE with unknown or unsafe fact {fact}")),
                 }
             }
-            Op::Delete { id } => {
+            Op::Delete { id, fact } => {
                 if !shown.contains(&id) || !touched.insert(id) {
                     report
                         .rejected
                         .push(format!("DELETE of id {id} that was not shown (or twice)"));
                     continue;
                 }
-                if !trusted_evidence && trusted(id) {
+                if !delete_evidence(id, fact) && trusted(id) {
                     report.rejected.push(format!(
-                        "DELETE of trusted memory {id} on external content alone"
+                        "DELETE of trusted memory {id} without a trusted new fact that contradicts it"
                     ));
                     continue;
                 }

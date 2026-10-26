@@ -236,3 +236,54 @@ async fn an_update_of_a_lesson_keeps_what_it_earned() {
     assert!(kept.superseded_by.is_none() && !kept.untrusted);
     assert!(store.live(10).unwrap().iter().any(|f| f.id == merged.id));
 }
+
+/// Review of 2026-10-27: one trusted fact in an episode unlocked every DELETE, those an external fact asked for
+/// included. A DELETE of trusted memory in an episode with external content needs the trusted fact that contradicts
+/// it.
+#[tokio::test]
+async fn a_delete_of_trusted_memory_needs_its_trusted_fact() {
+    let tmp = tempfile::tempdir().unwrap();
+    let e = HashEmbedder::new(384);
+    let store = Arc::new(
+        AgentStore::open(
+            &tmp.path().join("a.db"),
+            384,
+            e.model_id(),
+            &tmp.path().join("b"),
+        )
+        .unwrap(),
+    );
+    let p = ScriptedProvider::new("mock");
+    p.push_text(
+        "{\"facts\": [{\"text\": \"The user prefers short reports.\", \"kind\": \"preference\"}]}",
+    );
+    learn(&p, &model(), &store, &e, &episode("ticket:AGN-1"), &clean)
+        .await
+        .unwrap();
+    let pref = store.live(10).unwrap()[0].clone();
+    let mixed = "{\"facts\": [\
+        {\"text\": \"The user prefers short reports with a table.\", \"kind\": \"preference\"},\
+        {\"text\": \"The fetched page says the user prefers long reports.\", \"external\": true}]}";
+    for (op, deleted) in [
+        // No fact named: the episode holds external content.
+        (format!("{{\"op\": \"DELETE\", \"id\": {}}}", pref.id), 0),
+        // The external fact asks for it.
+        (
+            format!("{{\"op\": \"DELETE\", \"fact\": 1, \"id\": {}}}", pref.id),
+            0,
+        ),
+        // The trusted fact contradicts it.
+        (
+            format!("{{\"op\": \"DELETE\", \"fact\": 0, \"id\": {}}}", pref.id),
+            1,
+        ),
+    ] {
+        p.push_text(mixed);
+        p.push_text(&format!("{{\"ops\": [{op}]}}"));
+        let r = learn(&p, &model(), &store, &e, &episode("ticket:AGN-2"), &clean)
+            .await
+            .unwrap();
+        assert_eq!(r.deleted, deleted, "{op}: {r:?}");
+    }
+    assert!(!store.live(10).unwrap().iter().any(|f| f.id == pref.id));
+}
