@@ -1,9 +1,9 @@
-//! Retry policy (decision 15): base 1 s doubling, cap 30 s, jitter, at most 8 attempts or 5 minutes; honours
+//! Retry policy (decision 15): base 1 s doubling, cap 30 s, jitter, at most 8 attempts or 5 minutes of waiting; honours
 //! `retry-after` up to [`MAX_PROVIDER_DELAY`]. A dropped stream resends the identical frozen request (history is append-only so it still hits
 //! the cache). Exhausting the policy makes the agent Offline; quota errors make it QuotaExhausted.
 
 use std::future::Future;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::error::{classify, Classified, LlmError};
 
@@ -71,7 +71,9 @@ impl RetryPolicy {
         S: FnMut(Duration) -> SFut,
         SFut: Future<Output = ()>,
     {
-        let start = Instant::now();
+        // The time budget is the waiting between attempts, not the attempts: a stream that ran for minutes before it
+        // dropped reached the provider, and it is resent (review of 2026-10-27: a 5-minute stream that dropped was
+        // never retried). Attempts end on their own (the HTTP client's connect and idle timeouts) and are counted.
         let mut slept = Duration::ZERO;
         let mut attempt = 0u32;
         loop {
@@ -88,8 +90,7 @@ impl RetryPolicy {
                     }
                     Classified::Retry(ra) => {
                         let d = self.delay(attempt, ra, rand::random::<f64>());
-                        let elapsed = start.elapsed().max(slept);
-                        if attempt + 1 >= self.max_attempts || elapsed + d > self.max_total {
+                        if attempt + 1 >= self.max_attempts || slept + d > self.max_total {
                             return Err(CallError::Offline {
                                 attempts: attempt + 1,
                                 last: e,
@@ -182,6 +183,57 @@ mod tests {
             "{r:?}"
         );
         assert_eq!(*calls.borrow(), 8);
+    }
+
+    /// Review of 2026-10-27: the budget ran from the first attempt, so a stream that dropped after streaming longer
+    /// than the budget was never resent. The budget is the waiting: retry-afters of 60 s stop after five.
+    #[test]
+    fn the_budget_counts_waiting_not_streaming() {
+        let p = RetryPolicy {
+            base: Duration::from_millis(1),
+            cap: Duration::from_millis(1),
+            max_attempts: 8,
+            max_total: Duration::from_millis(50),
+        };
+        let r = block_on(p.run(
+            |a| async move {
+                if a == 0 {
+                    // A long stream that drops.
+                    tokio::time::sleep(Duration::from_millis(120)).await;
+                    Err(LlmError::StreamDropped("connection reset".into()))
+                } else {
+                    Ok(a)
+                }
+            },
+            |_| async {},
+            |_, _, _| {},
+        ));
+        assert_eq!(r, Ok(1));
+
+        let ra = LlmError::Http {
+            status: 429,
+            kind: String::new(),
+            message: String::new(),
+            quota: false,
+            retry_after: Some(Duration::from_secs(60)),
+        };
+        let slept = RefCell::new(Duration::ZERO);
+        let r: Result<(), _> = block_on(RetryPolicy::default().run(
+            |_| {
+                let e = ra.clone();
+                async move { Err(e) }
+            },
+            |d| {
+                *slept.borrow_mut() += d;
+                async {}
+            },
+            |_, _, _| {},
+        ));
+        assert!(
+            matches!(r, Err(CallError::Offline { attempts: 6, .. })),
+            "{r:?}"
+        );
+        assert_eq!(*slept.borrow(), Duration::from_secs(300));
     }
 
     #[test]
