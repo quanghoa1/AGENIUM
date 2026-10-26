@@ -373,8 +373,19 @@ impl Http {
             value.set_sensitive(true);
             map.insert(name, value);
         }
+        // Redirects stay on the server's origin: its configured headers (API keys) go with every request, and reqwest
+        // strips only `Authorization` and cookies when a redirect leaves the host.
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(15))
+            .redirect(reqwest::redirect::Policy::custom(|a| {
+                if !a.previous().first().is_some_and(|f| f.origin() == a.url().origin()) {
+                    a.error("the MCP server redirected to another origin; its headers are not sent there")
+                } else if a.previous().len() > 5 {
+                    a.error("too many redirects")
+                } else {
+                    a.follow()
+                }
+            }))
             .build()
             .map_err(|e| McpError::Config(e.to_string()))?;
         Ok(Http {
@@ -1149,6 +1160,93 @@ mod tests {
             vec!["{\"a\":1}".to_string(), "x\ny".into()]
         );
         assert_eq!(b, "data: part");
+    }
+
+    /// Review of 2026-10-27: the Streamable HTTP client followed a redirect to another host with the server's
+    /// configured headers (`X-API-Key`). A redirect within the origin is still followed.
+    #[tokio::test]
+    async fn headers_never_follow_a_redirect_to_another_origin() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        async fn serve(
+            reply: impl Fn(&str) -> String + Send + Sync + 'static,
+        ) -> (u16, Arc<Mutex<Vec<String>>>) {
+            let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = l.local_addr().unwrap().port();
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let s2 = seen.clone();
+            tokio::spawn(async move {
+                while let Ok((mut s, _)) = l.accept().await {
+                    // The head, then the body by its length.
+                    let mut b = Vec::new();
+                    let mut chunk = [0u8; 4096];
+                    loop {
+                        let n = s.read(&mut chunk).await.unwrap_or(0);
+                        b.extend_from_slice(&chunk[..n]);
+                        let text = String::from_utf8_lossy(&b).to_string();
+                        let done = text.split_once("\r\n\r\n").is_some_and(|(head, body)| {
+                            let len = head
+                                .lines()
+                                .find_map(|l| {
+                                    l.to_ascii_lowercase()
+                                        .strip_prefix("content-length:")
+                                        .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                                })
+                                .unwrap_or(0);
+                            body.len() >= len
+                        });
+                        if n == 0 || done {
+                            break;
+                        }
+                    }
+                    let req = String::from_utf8_lossy(&b).to_string();
+                    s2.lock().unwrap().push(req.clone());
+                    let _ = s.write_all(reply(&req).as_bytes()).await;
+                }
+            });
+            (port, seen)
+        }
+        let init = r#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"t"}}}"#;
+        let ok = move |req: &str| {
+            let body = if req.contains("\"initialize\"") {
+                init
+            } else {
+                ""
+            };
+            let status = if body.is_empty() {
+                "202 Accepted"
+            } else {
+                "200 OK"
+            };
+            format!("HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len())
+        };
+        let (other, other_seen) = serve(ok).await;
+        let (port, _) = serve(move |req: &str| {
+            if req.starts_with("POST /moved") {
+                ok(req)
+            } else if req.starts_with("POST /local") {
+                "HTTP/1.1 307 Temporary Redirect\r\nlocation: /moved\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".into()
+            } else {
+                // Another port is another origin.
+                format!("HTTP/1.1 307 Temporary Redirect\r\nlocation: http://127.0.0.1:{other}/mcp\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+            }
+        })
+        .await;
+        let spec = |path: &str| ConnectSpec::Http {
+            url: format!("http://127.0.0.1:{port}{path}"),
+            headers: [("X-API-Key".to_owned(), "k-secret".to_owned())].into(),
+            bearer: None,
+        };
+        assert!(Client::connect(&spec("/mcp"), Duration::from_secs(5))
+            .await
+            .is_err());
+        assert!(
+            other_seen.lock().unwrap().is_empty(),
+            "the other origin got {:?}",
+            other_seen.lock().unwrap()
+        );
+        assert!(Client::connect(&spec("/local"), Duration::from_secs(5))
+            .await
+            .is_ok());
     }
 
     #[test]
