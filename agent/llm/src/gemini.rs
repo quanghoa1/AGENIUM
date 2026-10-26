@@ -232,6 +232,9 @@ pub fn build_body(req: &ChatRequest) -> Value {
             .map(|t| json!({"name": t.name, "description": t.description, "parameters": sanitize_schema(&t.parameters)}))
             .collect();
         body["tools"] = json!([{"functionDeclarations": decls}]);
+        if req.tools_off {
+            body["toolConfig"] = json!({"functionCallingConfig": {"mode": "NONE"}});
+        }
     }
     body
 }

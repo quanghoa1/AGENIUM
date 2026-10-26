@@ -366,7 +366,7 @@ impl Runtime {
         tools: &[ToolSpec],
         team: Option<serde_json::Value>,
         allow: &[String],
-    ) -> String {
+    ) -> (String, String) {
         let sandbox = agenium_sandbox::detect();
         let approval = self.app.config().sandbox.approval;
         // What commands really get: on a Linux host without a private network they run without one (ADR-95).
@@ -384,7 +384,7 @@ impl Runtime {
             (_, agenium_config::ApprovalPolicy::Never) => format!("none: {}; shell commands are refused", sandbox.reason),
             (_, agenium_config::ApprovalPolicy::OnRequest) => "the user reviews commands for this project: every shell command that is not on the project allowlist is shown to the user for approval".into(),
         };
-        prompt::manifest_text(&Manifest {
+        let m = Manifest {
             agent: agent.name.clone(),
             role: agent.role.clone(),
             solo,
@@ -407,7 +407,8 @@ impl Runtime {
             tools: tools.iter().map(|t| t.name.clone()).collect(),
             team,
             extra: ctx.capabilities.clone(),
-        })
+        };
+        (prompt::manifest_text(&m), prompt::run_context_text(&m))
     }
 
     fn tool_ctx(
@@ -757,13 +758,9 @@ impl Runtime {
             ticket: ticket.map(|t| t.key.clone()),
             skills,
         };
-        let cache_key = format!(
-            "{}:{}",
-            agent.id,
-            ticket
-                .map(|t| t.key.to_string())
-                .unwrap_or_else(|| "chat".into())
-        );
+        // One prompt-cache route per agent (ADR-113): its runs share the stable prefix (rules, SOUL/ROLE, project
+        // guidance), so a new ticket starts on the server that already holds it instead of a cold one.
+        let cache_key = agent.id.to_string();
         if let Some((driver, program)) = cli_ready {
             // A CLI checked through its hook runs its commands on the host, outside Agenium's sandbox: YOLO does not
             // approve them, only the allowlist or the user does.
@@ -1164,7 +1161,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         });
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
-            let manifest = self.manifest(&agent, solo, ctx, specs, None, &ctx.fetch_allow);
+            let (manifest, _) = self.manifest(&agent, solo, ctx, specs, None, &ctx.fetch_allow);
             let mut system = vec![
                 SystemBlock {
                     text: prompt::system_rules(solo),
@@ -1179,11 +1176,15 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     cache: false,
                 },
             ];
+            // The project's guidance is stable across tickets: it goes before the per-run manifest (ADR-113).
             if let Some(g) = &guidance {
-                system.push(SystemBlock {
-                    text: g.clone(),
-                    cache: true,
-                });
+                system.insert(
+                    2,
+                    SystemBlock {
+                        text: g.clone(),
+                        cache: true,
+                    },
+                );
             }
             let mut messages = prev.clone();
             if messages.is_empty() {
@@ -1350,6 +1351,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let solo = team.solo;
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
+            let (manifest, run_context) =
+                self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow);
             let mut system = vec![
                 SystemBlock {
                     text: prompt::system_rules(true),
@@ -1360,15 +1363,19 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     cache: true,
                 },
                 SystemBlock {
-                    text: self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow),
+                    text: manifest,
                     cache: false,
                 },
             ];
+            // The project's guidance is stable across tickets: it goes before the per-run manifest (ADR-113).
             if let Some(g) = &guidance {
-                system.push(SystemBlock {
-                    text: g.clone(),
-                    cache: true,
-                });
+                system.insert(
+                    2,
+                    SystemBlock {
+                        text: g.clone(),
+                        cache: true,
+                    },
+                );
             }
             let text = format!(
                 "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
@@ -1383,7 +1390,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             );
             Ok(WorkOrder {
                 system,
-                messages: vec![Message::user_text(text)],
+                messages: vec![Message::user_text(format!("{run_context}\n\n{text}"))],
             })
         };
         let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
@@ -1546,13 +1553,23 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 )
                 .map(|o| o.result)
                 .ok();
+            let (manifest, run_context) =
+                self.manifest(&lead, solo, ctx, specs, roster, &ctx.fetch_allow);
             let system = vec![
                 SystemBlock { text: prompt::system_rules(true), cache: false },
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
-                SystemBlock { text: self.manifest(&lead, solo, ctx, specs, roster, &ctx.fetch_allow), cache: false },
+                SystemBlock { text: manifest, cache: false },
             ];
+            // The team's state of this turn rides on the new message, after the cached history (ADR-113).
             let mut messages = history.clone();
-            messages.push(msg.clone());
+            let mut newest = msg.clone();
+            newest.parts.insert(
+                0,
+                agenium_llm::Part::Text {
+                    text: format!("{run_context}\n\n"),
+                },
+            );
+            messages.push(newest);
             Ok(WorkOrder { system, messages })
         };
         let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
@@ -1722,6 +1739,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 )
                 .map(|o| o.result)
                 .ok();
+            let (manifest, run_context) =
+                self.manifest(&lead, false, ctx, specs, roster, &ctx.fetch_allow);
             Ok(WorkOrder {
                 system: vec![
                     SystemBlock {
@@ -1733,11 +1752,11 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                         cache: true,
                     },
                     SystemBlock {
-                        text: self.manifest(&lead, false, ctx, specs, roster, &ctx.fetch_allow),
+                        text: manifest,
                         cache: false,
                     },
                 ],
-                messages: vec![Message::user_text(task.clone())],
+                messages: vec![Message::user_text(format!("{run_context}\n\n{task}"))],
             })
         };
         let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
@@ -2209,6 +2228,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let soul = self.soul_and_role(planner);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
+            let (manifest, run_context) =
+                self.manifest(planner, false, ctx, specs, None, &ctx.fetch_allow);
             Ok(WorkOrder {
                 system: vec![
                     SystemBlock {
@@ -2220,11 +2241,11 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                         cache: true,
                     },
                     SystemBlock {
-                        text: self.manifest(planner, false, ctx, specs, None, &ctx.fetch_allow),
+                        text: manifest,
                         cache: false,
                     },
                 ],
-                messages: vec![Message::user_text(task.clone())],
+                messages: vec![Message::user_text(format!("{run_context}\n\n{task}"))],
             })
         };
         let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()

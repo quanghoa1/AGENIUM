@@ -1,0 +1,119 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_pattern": 1
+    },
+    "errors": [
+      "grep: invalid_pattern: regex parse error:\n    ^(?!hello$).*\n     ^^^\nerror: look-around, including look-ahead and look-behind, is not supported"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 109086,
+    "tokens_out": 1773,
+    "tokens_cached": 87808,
+    "cost_usd": 0.0,
+    "elapsed_ms": 36671
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 79784,
+    "tokens_out": 1533,
+    "tokens_cached": 58496,
+    "cost_usd": 0.0,
+    "elapsed_ms": 28673
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 1,
+    "error_codes": {
+      "not_found": 1
+    },
+    "errors": [
+      "read_file: not_found: .gitignore does not exist"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 152513,
+    "tokens_out": 3253,
+    "tokens_cached": 146048,
+    "cost_usd": 0.0,
+    "elapsed_ms": 57375
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 12,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 122651,
+    "tokens_out": 2260,
+    "tokens_cached": 118272,
+    "cost_usd": 0.0,
+    "elapsed_ms": 39880
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 12,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid": 1
+    },
+    "errors": [
+      "request_permission: invalid: AGN-1 is Resolved; permissions are requested while working on it"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 121802,
+    "tokens_out": 2281,
+    "tokens_cached": 118016,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41832
+  }
+]

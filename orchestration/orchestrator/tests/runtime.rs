@@ -193,7 +193,14 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         work.system[1].cache,
         "SOUL/ROLE block ends the cached prefix"
     );
-    assert!(work.system[2].text.contains("Capabilities for this run"));
+    // ADR-113: the system holds only what is the same across runs (the tools follow it in the prompt); the
+    // worktree is in the run's own message.
+    let caps = &work.system.last().unwrap().text;
+    assert!(
+        caps.starts_with("Capabilities") && !caps.contains("Worktree"),
+        "{caps}"
+    );
+    assert!(work.messages[0].text().contains("Your worktree is"));
     let names: Vec<&str> = work.tools.iter().map(|t| t.name.as_str()).collect();
     assert!(
         names.windows(2).all(|w| w[0] < w[1]),

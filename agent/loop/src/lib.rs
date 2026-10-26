@@ -211,6 +211,8 @@ what is done, what remains, and the next concrete step. Do not call tools.";
 const CLEAR_AT_PERCENT: u64 = 60;
 /// Share from which the run's conversation is replaced by the model's notes (or the run checkpoints).
 const COMPACT_AT_PERCENT: u64 = 85;
+/// Tokens kept free for the notes when the run's whole prefix is sent for them (ADR-113).
+const NOTES_ROOM: u64 = 4_096;
 /// Tool-result messages at the end of the conversation that are never cleared.
 const KEEP_RESULTS: usize = 4;
 /// A tool result shorter than this (characters) is never cleared.
@@ -332,6 +334,16 @@ impl Run<'_> {
             max_tokens: self.cfg.max_tokens,
             cache_key: self.cfg.cache_key.clone(),
             long_cache: self.cfg.long_cache,
+            tools_off: false,
+        }
+    }
+
+    /// A request for notes (compaction, checkpoint): the run's exact prefix with the tools listed but not callable,
+    /// so the prompt cache serves everything before the final instruction (ADR-113).
+    fn notes_request(&self, order: &WorkOrder, messages: &[Message]) -> ChatRequest {
+        ChatRequest {
+            tools_off: true,
+            ..self.request(order, messages, true)
         }
     }
 
@@ -412,6 +424,7 @@ impl Run<'_> {
         let mut compactions = 0u32;
         // One recovery per context overflow reported by the provider.
         let mut overflow_recovered = false;
+        let (mut prev_prompt, mut cache_seen) = (0u64, false);
         let push = |messages: &mut Vec<Message>, m: Message| {
             self.observer.message(&m);
             messages.push(m);
@@ -452,15 +465,20 @@ impl Run<'_> {
                     overflow_recovered = true;
                     tracing::info!(error = %e, "the provider reports a context overflow");
                     if clear_old_results(&mut messages, self.cfg.context_window, 2, true) > 0 {
+                        prev_prompt = 0;
                         continue;
                     }
                     if compactions < self.cfg.max_compactions {
                         compactions += 1;
                         match self
-                            .compact(order, &mut messages, start_len, &mut usage)
+                            .compact(order, &mut messages, start_len, &mut usage, true)
                             .await
                         {
-                            Ok(true) => continue,
+                            Ok(true) => {
+                                // The prefix was replaced on purpose: not a cache miss to report.
+                                prev_prompt = 0;
+                                continue;
+                            }
                             Ok(false) => {}
                             Err(o) => break o,
                         }
@@ -476,6 +494,23 @@ impl Run<'_> {
             }
             usage.add(&resp.usage);
             self.observer.step(step, &usage);
+            // Prompt-cache watch (ADR-113): history only grows, so a step served for less than half of the previous
+            // request's prompt means its prefix changed (or the cache was evicted). Recorded once the provider has
+            // shown it caches at all.
+            let prompt = resp.usage.total_input();
+            if resp.usage.cache_read > 0 {
+                cache_seen = true;
+            }
+            if cache_seen && prev_prompt >= 2048 && resp.usage.cache_read < prev_prompt / 2 {
+                self.observer.control(
+                    "cache_miss",
+                    &format!(
+                        "{} of {prompt} input tokens cached; the previous request had {prev_prompt}",
+                        resp.usage.cache_read
+                    ),
+                );
+            }
+            prev_prompt = prompt;
             let mut message = resp.message.clone();
             // Thinking is replayed to the model that wrote it only (ADR-101).
             for p in &mut message.parts {
@@ -660,10 +695,21 @@ impl Run<'_> {
                 if compactions < self.cfg.max_compactions {
                     compactions += 1;
                     match self
-                        .compact(order, &mut messages, start_len, &mut usage)
+                        .compact(
+                            order,
+                            &mut messages,
+                            start_len,
+                            &mut usage,
+                            // The whole prefix plus room for the notes must fit, else the smaller request at once.
+                            used + NOTES_ROOM > self.cfg.context_window,
+                        )
                         .await
                     {
-                        Ok(true) => continue,
+                        Ok(true) => {
+                            // The prefix was replaced on purpose: not a cache miss to report.
+                            prev_prompt = 0;
+                            continue;
+                        }
                         Ok(false) => {}
                         Err(o) => break o,
                     }
@@ -676,6 +722,7 @@ impl Run<'_> {
                 let n =
                     clear_old_results(&mut messages, self.cfg.context_window, KEEP_RESULTS, false);
                 if n > 0 {
+                    prev_prompt = 0;
                     tracing::info!(cleared = n, "old tool results cleared to save context");
                 }
             }
@@ -697,38 +744,29 @@ impl Run<'_> {
         messages: &mut Vec<Message>,
         start_len: usize,
         usage: &mut Usage,
+        overflowed: bool,
     ) -> Result<bool, Outcome> {
-        // The notes request must fit: no thinking, tool results cut short (ADR-103).
-        let mut ask: Vec<Message> = messages
-            .iter()
-            .map(|m| Message {
-                role: m.role,
-                parts: m
-                    .parts
-                    .iter()
-                    .filter(|p| !matches!(p, Part::Thinking { .. }))
-                    .map(|p| match p {
-                        Part::ToolResult {
-                            call_id,
-                            name,
-                            content,
-                            is_error,
-                        } if content.chars().count() > NOTES_RESULT_CHARS => Part::ToolResult {
-                            call_id: call_id.clone(),
-                            name: name.clone(),
-                            content: format!(
-                                "{}…[cut]",
-                                content.chars().take(NOTES_RESULT_CHARS).collect::<String>()
-                            ),
-                            is_error: *is_error,
-                        },
-                        other => other.clone(),
-                    })
-                    .collect(),
-            })
-            .collect();
-        ask.push(Message::user_text(COMPACT));
-        let r = self.turn(&self.request(order, &ask, false)).await?;
+        // First the run's exact prefix with the instruction appended, served by the prompt cache (ADR-113); after the
+        // provider said the request does not fit, or if this one does not, a smaller request.
+        let mut whole = messages.clone();
+        whole.push(Message::user_text(COMPACT));
+        let first = if overflowed {
+            None
+        } else {
+            match self.call(&self.notes_request(order, &whole)).await {
+                Ok(r) => Some(r),
+                Err(CallError::Fatal(e))
+                    if agenium_llm::is_context_overflow(&e) || bare_overflow(&e, &whole) =>
+                {
+                    None
+                }
+                Err(e) => return Err(call_outcome(e)),
+            }
+        };
+        let r = match first {
+            Some(r) => r,
+            None => self.cut_notes(order, messages).await?,
+        };
         usage.add(&r.usage);
         let notes = r.message.text();
         // Notes cut by the output limit are not notes to continue from.
@@ -761,6 +799,44 @@ impl Run<'_> {
         Ok(true)
     }
 
+    /// The notes request when the whole prefix does not fit: no thinking, tool results cut short (ADR-103).
+    async fn cut_notes(
+        &self,
+        order: &WorkOrder,
+        messages: &[Message],
+    ) -> Result<agenium_llm::ChatResponse, Outcome> {
+        let mut ask: Vec<Message> = messages
+            .iter()
+            .map(|m| Message {
+                role: m.role,
+                parts: m
+                    .parts
+                    .iter()
+                    .filter(|p| !matches!(p, Part::Thinking { .. }))
+                    .map(|p| match p {
+                        Part::ToolResult {
+                            call_id,
+                            name,
+                            content,
+                            is_error,
+                        } if content.chars().count() > NOTES_RESULT_CHARS => Part::ToolResult {
+                            call_id: call_id.clone(),
+                            name: name.clone(),
+                            content: format!(
+                                "{}…[cut]",
+                                content.chars().take(NOTES_RESULT_CHARS).collect::<String>()
+                            ),
+                            is_error: *is_error,
+                        },
+                        other => other.clone(),
+                    })
+                    .collect(),
+            })
+            .collect();
+        ask.push(Message::user_text(COMPACT));
+        self.turn(&self.notes_request(order, &ask)).await
+    }
+
     /// Asks for a progress note without tools; the next run resumes from it.
     async fn checkpoint(
         &self,
@@ -772,7 +848,7 @@ impl Run<'_> {
         let m = Message::user_text(CHECKPOINT);
         self.observer.message(&m);
         messages.push(m);
-        match self.turn(&self.request(order, messages, false)).await {
+        match self.turn(&self.notes_request(order, messages)).await {
             Ok(r) => {
                 usage.add(&r.usage);
                 let summary = r.message.text();

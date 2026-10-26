@@ -309,6 +309,7 @@ async fn ask(
         max_tokens: m.max_tokens,
         cache_key: None,
         long_cache: false,
+        tools_off: false,
     };
     let resp = m
         .retry

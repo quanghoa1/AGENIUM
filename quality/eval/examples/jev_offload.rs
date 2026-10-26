@@ -77,6 +77,7 @@ async fn main() -> Result<()> {
         max_tokens: 4000,
         cache_key: None,
         long_cache: false,
+        tools_off: false,
     };
     let t0 = std::time::Instant::now();
     let resp = provider

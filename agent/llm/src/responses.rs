@@ -139,6 +139,9 @@ pub fn build_body(req: &ChatRequest) -> Value {
     if let Some(k) = &req.cache_key {
         body["prompt_cache_key"] = json!(k);
     }
+    if !req.tools.is_empty() && req.tools_off {
+        body["tool_choice"] = json!("none");
+    }
     if !req.tools.is_empty() {
         body["tools"] = Value::Array(
             req.tools

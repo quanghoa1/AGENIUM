@@ -261,8 +261,8 @@ async fn max_steps_takes_a_checkpoint_without_tools() {
         }
     );
     assert!(
-        p.requests()[2].tools.is_empty(),
-        "the checkpoint request offers no tools"
+        p.requests()[2].tools_off,
+        "the checkpoint request lists the tools but they cannot be called"
     );
 }
 
@@ -363,6 +363,14 @@ fn small_window() -> LoopConfig {
     }
 }
 
+/// A window where the whole prefix plus room for notes still fits after crossing 85 % (ADR-113).
+fn roomy_window() -> LoopConfig {
+    LoopConfig {
+        context_window: 100_000,
+        ..cfg()
+    }
+}
+
 /// ADR-100: past 60 % of the window, long tool results older than the last four are cleared (no model call).
 #[tokio::test]
 async fn old_tool_results_are_cleared_when_the_context_fills() {
@@ -413,7 +421,7 @@ async fn old_tool_results_are_cleared_when_the_context_fills() {
 async fn a_full_context_is_summarised_and_the_run_goes_on() {
     let (_t, ctx, tools, proto) = harness();
     let p = ScriptedProvider::new("m");
-    p.push(using(9_000, vec![("list_dir", json!({}))]));
+    p.push(using(90_000, vec![("list_dir", json!({}))]));
     p.push_text("Task: AGN-1. Done: listed the files. Next: submit the report.");
     p.push(Box::new(|req: &ChatRequest| {
         assert!(!req.tools.is_empty(), "work goes on with tools");
@@ -427,15 +435,49 @@ async fn a_full_context_is_summarised_and_the_run_goes_on() {
             vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
         ))
     }));
-    let r = run(&p, &ctx, &tools, &proto, small_window())
+    let r = run(&p, &ctx, &tools, &proto, roomy_window())
         .run(&order())
         .await;
     assert_eq!(r.outcome, Outcome::Completed);
-    assert!(
-        p.requests()[1].tools.is_empty(),
-        "the notes are asked for without tools"
-    );
+    // ADR-113: the notes request is the run's exact prefix plus the instruction, tools listed but not callable, so
+    // the provider's prompt cache serves it.
+    let reqs = p.requests();
+    let (step, notes) = (&reqs[0], &reqs[1]);
+    assert!(!notes.tools.is_empty() && notes.tools_off);
+    assert_eq!(notes.tools, step.tools);
+    assert_eq!(notes.system, step.system);
+    assert_eq!(&notes.messages[..step.messages.len()], &step.messages[..]);
+    assert!(notes
+        .messages
+        .last()
+        .unwrap()
+        .text()
+        .starts_with("The context is nearly full"));
     // What the run keeps (and a later run resumes from) starts with the notes.
+    assert!(r.messages[0].text().starts_with("[Context compacted"));
+}
+
+/// ADR-113: when the whole prefix does not fit the notes request, the smaller request of ADR-103 is sent instead.
+#[tokio::test]
+async fn notes_fall_back_to_a_smaller_request_when_the_prefix_does_not_fit() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push(using(90_000, vec![("list_dir", json!({}))]));
+    p.push_error(too_long());
+    p.push_text("Task: AGN-1. Next: submit the report.");
+    p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1"}))]);
+    let r = run(&p, &ctx, &tools, &proto, roomy_window())
+        .run(&order())
+        .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    let reqs = p.requests();
+    assert!(reqs[1].tools_off && reqs[2].tools_off);
+    assert!(reqs[2]
+        .messages
+        .last()
+        .unwrap()
+        .text()
+        .starts_with("The context is nearly full"));
     assert!(r.messages[0].text().starts_with("[Context compacted"));
 }
 
@@ -671,7 +713,7 @@ async fn a_large_new_result_counts_before_the_next_request() {
     .await;
     assert_eq!(r.outcome, Outcome::Completed);
     assert!(
-        p.requests()[1].tools.is_empty(),
+        p.requests()[1].tools_off,
         "notes came before the big request"
     );
     let notes_ask = format!("{:?}", p.requests()[1].messages);

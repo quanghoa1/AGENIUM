@@ -139,6 +139,10 @@ pub struct ChatRequest {
     /// Long-running agent: use the 1 hour cache TTL where the provider offers one.
     #[serde(default)]
     pub long_cache: bool,
+    /// The tools are listed but may not be called (`tool_choice: none`): a notes request keeps the run's exact prefix
+    /// (system, tools, history) so the provider's prompt cache serves it (ADR-113).
+    #[serde(default)]
+    pub tools_off: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

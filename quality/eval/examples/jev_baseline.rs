@@ -63,6 +63,7 @@ async fn main() -> Result<()> {
             max_tokens: 800,
             cache_key: None,
             long_cache: false,
+            tools_off: false,
         };
         let t0 = Instant::now();
         let resp = match provider.chat(&req, &|_| {}).await {

@@ -117,6 +117,7 @@ impl Runtime {
             max_tokens: 6000,
             cache_key: None,
             long_cache: false,
+            tools_off: false,
         };
         match chat_with_retry(provider.as_ref(), &req, &self.retry, &|_| {}, |_, _, _| {}).await {
             Ok(r) if r.stop != StopReason::MaxTokens && !r.message.text().trim().is_empty() => {

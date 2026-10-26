@@ -101,9 +101,16 @@ Also from these runs:
 - Grep explains that patterns match UTF-8 text when a model sends byte patterns (`(?-u)ï»¿`).
 - Nudges, delivered messages, compactions and refused CLI calls are now in each run's log (`control`), next to retries.
 
+## Prompt cache (ADR-113)
+
+The golden tasks on DeepSeek went from 77.7 % to 90.2 % of input tokens served from the prompt cache. The learning
+chain went from 80.3 % to 90.3 %. Uncached input per run fell by 43–49 %. Each run logs a `cache_miss` when a step
+loses its cached prefix. The probe `cache_probe.rs` shows what a provider keeps.
+
 ## Not verified yet
 
-- Vendors other than OpenCode Go and OpenRouter on the API: contract tests only (no keys).
+- Vendors other than OpenCode Go and OpenRouter on the API: contract tests only (no keys). The prompt-cache rules
+  were measured on DeepSeek only; Anthropic, OpenAI, Gemini and xAI are contract-tested.
 - The team task at n = 1 per configuration; variance across repeated runs is not measured.
 - Stall nudges and the SLA escalation to the user: scripted tests only (no real run stalled long enough).
 - Skill update overlays from an experienced lesson (the chain created a new skill; the update path ran in the learning

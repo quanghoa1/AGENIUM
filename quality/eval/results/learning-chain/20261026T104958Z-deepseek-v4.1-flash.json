@@ -1,0 +1,257 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 12 steps; recall showed 5 fact(s)",
+    "runs": 10,
+    "steps": 53,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 556850,
+    "tokens_out": 10069,
+    "tokens_cached": 446976,
+    "cost_usd": 0.0,
+    "elapsed_ms": 235792,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "docs-owner-first-line-documents (Agent)"
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 9,
+                "text": "When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 8,
+                "text": "When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with ",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-2"
+                ],
+                "id": 9,
+                "text": "When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-2"
+                ],
+                "id": 8,
+                "text": "When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with ",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-2",
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-3"
+                ],
+                "id": 9,
+                "text": "When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-2",
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-3"
+                ],
+                "id": 8,
+                "text": "When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with ",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-2",
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-3",
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-4"
+                ],
+                "id": 9,
+                "text": "When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-2",
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-3",
+                  "01M5VX2EF79APZAZWJQDPVG360/ticket:AGN-4"
+                ],
+                "id": 8,
+                "text": "When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with ",
+                "untrusted": false
+              }
+            ],
+            "skill_calls": [
+              {
+                "accepted": true,
+                "answer": "{\"note\":\"your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding\",\"skill\":\"docs-owner-first-line-documents\",\"status\":\"created\"}",
+                "args": {
+                  "body": "## Job\nCreate a team document in the docs project (deliverables/, reports/, handbook/, minutes/) that satisfies both its content acceptance criteria and the mandatory document convention.\n\n## When to use\nA ticket asks for a file in deliverables/, reports/, handbook/ or minutes/ of the docs project and a pre-merge check enforces a document convention, even when agenium.toml [checks] pre_merge is empty.\n\n## Steps\n1. Read an existing reference document of the same repo (e.g. deliverables/hello.txt) to copy the exact convention instead of guessing; README.md names the document folders.\n2. Confirm the owning team name and write the first line exactly `Owner: <team>` (one space after the colon, no trailing spaces, no other prefix).\n3. Put the required ticket content on the following line(s); the Owner line does not replace or conflict with content criteria.\n4. Write the file with the file tool (write_file/edit_file) so parent directories are created and the text is UTF-8 without a BOM; never use PowerShell `>` (UTF-16) or Out-File/Set-Content -Encoding utf8 (adds a BOM) on Windows.\n5. Verify the raw leading bytes, not just the text: read the file back and check the first bytes are the ASCII of `Owner:` (first byte 0x4F, no EF BB BF), line endings are LF (0x0A) and no CR (0x0D) if the repo uses LF.\n6. Re-check the acceptance criterion literally (e.g. regex -match 'standup') on the file as stored.\n\n## Tools\n- read_file / list_dir to find and copy the reference document convention.\n- write_file (or edit_file) to create the document with LF endings and no BOM.\n- shell with PowerShell for byte-level proof: `[IO.File]::ReadAllBytes(path)` printed as hex and a `-match` content check.\n\n## Proof\nEvidence must show (a) the stored file's first 16 bytes in hex equal `4F 77 6E 65 72 3A 20 64 6F 63 73 2D 74 65 61 6D` (i.e. `Owner: docs-team`, no BOM) followed by 0A, and (b) an explicit check that the required content is present in the file. Paste the hex dump and the content-match output in the report; a statement that the line \"looks right\" in an editor is not proof.\n",
+                  "description": "When creating a document under deliverables/, reports/, handbook/ or minutes/ in the docs project, so it passes the exact-match Owner-first-line pre-merge check.",
+                  "lesson": 8,
+                  "name": "docs-owner-first-line-documents",
+                  "reason": "Lessons #8 and #9 held in two separate contexts (deliverables/reports and handbook) and describe a repeatable procedure: copy the reference document convention, write Owner-first-line with the file tool, then prove the raw bytes (no BOM, LF). No installed skill covers it, so it becomes a new skill."
+                },
+                "tool": "propose_new_skill"
+              }
+            ],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 9,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 70784,
+            "tokens_in": 92533,
+            "tokens_out": 1688
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 12,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 111232,
+            "tokens_in": 136657,
+            "tokens_out": 3356
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The submit_report tool requires a ticket_id field in addition to the acceptance evidence, otherwise it fails with invalid_arguments.",
+        "[Fact untrusted w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, handbook/ and minutes/ documents follow the same convention as deliverables/ and reports/: first line 'Owner: docs-team', content on the next line, LF endings, no BOM.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the reports/ directory may not exist initially and a report file is created by writing reports/<name>.txt directly with write_file.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, documents such as deliverables/hello.txt and reports/weekly.txt are written with LF line endings and no BOM.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, the shell is PowerShell, so content and raw-byte checks use commands such as Get-Content, Select-String and [IO.File]::ReadAllBytes.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt is the reference example of the document convention: first line 'Owner: docs-team', second line the document content.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A passing review approval does not guarantee merge: check README.md at the repo root before writing files to discover document conventions (such as where team documents live) that the ticket description may omit, and run through them before considering a deliverable ticket done.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-match pre-merge check.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with content acceptance criteria—the required content goes on the following line—because the pre-merge check rejects documents missing it even when acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value, yet the Owner-first-line document rule is still enforced at merge time, so the convention must be read from the repo docs/spec rather than from that field.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project stores team documents in deliverables/, reports/, handbook/ and minutes/ (deliverables in deliverables/, reports in reports/), and keeps project configuration in agenium.toml at the repo root.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"product\":\"agenium\"}) Agenium's pre-merge check validates project document rules (such as the Owner first line) in addition to the ticket's acceptance criteria, so work must satisfy both before merging.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team' (its owning team)."
+      ],
+      "memories_before_ticket2": [
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A passing review approval does not guarantee merge: check README.md at the repo root before writing files to discover document conventions (such as where team documents live) that the ticket description may omit, and run through them before considering a deliverable ticket done.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-match pre-merge check.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with content acceptance criteria—the required content goes on the following line—because the pre-merge check rejects documents missing it even when acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value, yet the Owner-first-line document rule is still enforced at merge time, so the convention must be read from the repo docs/spec rather than from that field.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project stores team documents in deliverables/, reports/, handbook/ and minutes/ (deliverables in deliverables/, reports in reports/), and keeps project configuration in agenium.toml at the repo root.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"product\":\"agenium\"}) Agenium's pre-merge check validates project document rules (such as the Owner first line) in addition to the ticket's acceptance criteria, so work must satisfy both before merging.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team' (its owning team)."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 20,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 172416,
+        "tokens_in": 205388,
+        "tokens_out": 2980
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 92544,
+        "tokens_in": 122272,
+        "tokens_out": 2045
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5VX5K4FKPG1BKZ8A2J5C5JP #1 hybrid: When creating a document under deliverables/ or reports/ in the docs project, add the 'Owner: <team>' first line before submitting; this does not conflict with content acceptance criteria—the required content goes on the following line—because the pre-merge check rejects documents missing it even when acceptance criteria are met.",
+        "run 01M5VX5K4FKPG1BKZ8A2J5C5JP #2 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team' (its owning team).",
+        "run 01M5VX5K4FKPG1BKZ8A2J5C5JP #3 hybrid: In the docs project, agenium.toml has an empty [checks] pre_merge value, yet the Owner-first-line document rule is still enforced at merge time, so the convention must be read from the repo docs/spec rather than from that field.",
+        "run 01M5VX5K4FKPG1BKZ8A2J5C5JP #4 graph: When a first line must match exactly, verify the raw leading bytes (no BOM) before submitting, since a BOM makes an otherwise correct first line fail the exact-match pre-merge check.",
+        "run 01M5VX5K4FKPG1BKZ8A2J5C5JP #5 graph: Agenium's pre-merge check validates project document rules (such as the Owner first line) in addition to the ticket's acceptance criteria, so work must satisfy both before merging."
+      ]
+    }
+  }
+]

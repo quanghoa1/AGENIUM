@@ -215,6 +215,9 @@ pub fn build_body(req: &ChatRequest) -> Value {
     }
     if !tools.is_empty() {
         body["tools"] = Value::Array(tools);
+        if req.tools_off {
+            body["tool_choice"] = json!({"type": "none"});
+        }
     }
     match thinking_mode(&req.model) {
         ThinkingMode::Adaptive { xhigh: _ } => {

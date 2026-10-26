@@ -70,6 +70,7 @@ async fn main() -> Result<()> {
             max_tokens: 2000,
             cache_key: None,
             long_cache: false,
+            tools_off: false,
         };
         let resp = provider.chat(&req, &|_| {}).await?;
         tokens_in += resp.usage.total_input();

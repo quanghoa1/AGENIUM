@@ -153,6 +153,7 @@ fn request(m: &Model, messages: Vec<Message>, tools: Vec<ToolSpec>) -> ChatReque
         max_tokens: 2000,
         cache_key: None,
         long_cache: false,
+        tools_off: false,
     }
 }
 

@@ -27,6 +27,8 @@ pub enum Flavor {
     /// OpenCode Zen / Go relay (opencode.ai): requires a per-conversation `x-opencode-session` affinity header (Go
     /// rejects requests without it; it keeps the upstream prompt cache warm). Serves several model families.
     OpenCode,
+    /// xAI (`api.x.ai`): automatic prompt caching per server; `x-grok-conv-id` keeps a conversation on one server.
+    Xai,
     /// Azure OpenAI's v1 API (`<resource>.openai.azure.com/openai/v1`): OpenAI's models under deployment names; the
     /// key also goes in Azure's own `api-key` header.
     Azure,
@@ -45,6 +47,8 @@ impl Flavor {
             Flavor::OpenRouter
         } else if u.contains("opencode.ai") {
             Flavor::OpenCode
+        } else if u.contains("api.x.ai") {
+            Flavor::Xai
         } else if u.contains(".openai.azure.com")
             || u.contains(".cognitiveservices.azure.com")
             || u.contains(".services.ai.azure.com")
@@ -66,7 +70,7 @@ fn is_reasoning_model(flavor: Flavor, model: &str) -> bool {
         Flavor::DeepSeek => m.contains("reasoner") || m.contains("v3.2") || m.contains("v4"),
         Flavor::OpenRouter => true,
         Flavor::OpenCode => m.starts_with("deepseek"),
-        Flavor::Generic => false,
+        Flavor::Generic | Flavor::Xai => false,
     }
 }
 
@@ -157,6 +161,14 @@ impl OpenAiCompat {
                 .unwrap_or_else(|| format!("oneshot-{:016x}", rand::random::<u64>()));
             h.push(("x-opencode-session", key));
         }
+        // Prompt-cache routing (ADR-113): one key keeps the agent's requests where its prefix is cached.
+        if let Some(k) = &req.cache_key {
+            match self.flavor {
+                Flavor::OpenRouter => h.push(("x-session-id", k.clone())),
+                Flavor::Xai => h.push(("x-grok-conv-id", k.clone())),
+                _ => {}
+            }
+        }
         h
     }
 }
@@ -199,6 +211,56 @@ pub fn map_error(status: u16, h: &HeaderMap, body: &str) -> LlmError {
         message,
         quota,
         retry_after: parse_retry_after(header(h, "retry-after").as_deref()),
+    }
+}
+
+/// Models behind OpenRouter that cache only at explicit `cache_control` breakpoints (Anthropic; Gemini's explicit cache).
+fn explicit_cache(model: &str) -> bool {
+    model.starts_with("anthropic/") || model.starts_with("google/gemini")
+}
+
+/// OpenRouter with an explicit-cache model (ADR-113): the system message becomes parts with a breakpoint after each
+/// stable block (at most two), and the last message's last part gets one, so the conversation so far is cached. Four
+/// breakpoints at most, as Anthropic allows.
+fn cache_breakpoints(messages: &mut [Value], req: &ChatRequest) {
+    let mark = || {
+        if req.long_cache && req.model.starts_with("anthropic/") {
+            json!({"type": "ephemeral", "ttl": "1h"})
+        } else {
+            json!({"type": "ephemeral"})
+        }
+    };
+    if messages.first().is_some_and(|m| m["role"] == "system") {
+        let mut marks = 0;
+        let parts: Vec<Value> = req
+            .system
+            .iter()
+            .filter(|b| !b.text.is_empty())
+            .map(|b| {
+                let mut v = json!({"type": "text", "text": b.text});
+                if b.cache && marks < 2 {
+                    marks += 1;
+                    v["cache_control"] = mark();
+                }
+                v
+            })
+            .collect();
+        messages[0]["content"] = Value::Array(parts);
+    }
+    if let Some(last) = messages.iter_mut().rev().find(|m| m["role"] != "system") {
+        match last["content"].take() {
+            Value::String(t) => {
+                last["content"] =
+                    json!([{"type": "text", "text": t, "cache_control": {"type": "ephemeral"}}]);
+            }
+            Value::Array(mut parts) => {
+                if let Some(p) = parts.last_mut() {
+                    p["cache_control"] = json!({"type": "ephemeral"});
+                }
+                last["content"] = Value::Array(parts);
+            }
+            other => last["content"] = other,
+        }
     }
 }
 
@@ -289,6 +351,9 @@ pub fn build_body(flavor: Flavor, req: &ChatRequest) -> Value {
             }
         }
     }
+    if flavor == Flavor::OpenRouter && explicit_cache(&req.model) {
+        cache_breakpoints(&mut messages, req);
+    }
     let mut body = json!({
         "model": req.model,
         "stream": true,
@@ -304,6 +369,9 @@ pub fn build_body(flavor: Flavor, req: &ChatRequest) -> Value {
         }
     } else {
         body["max_tokens"] = json!(req.max_tokens);
+    }
+    if !req.tools.is_empty() && req.tools_off {
+        body["tool_choice"] = json!("none");
     }
     if !req.tools.is_empty() {
         body["tools"] = Value::Array(

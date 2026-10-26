@@ -68,8 +68,11 @@ pub struct Manifest {
 }
 
 pub fn manifest_text(m: &Manifest) -> String {
+    // Only what stays the same across the agent's runs: in the prompt the tools come right after the system, so a
+    // per-run line here would keep them out of the prompt cache (measured on DeepSeek, ADR-113). The run's own lines
+    // are in [`run_context_text`], sent with the newest user message.
     let mut s = format!(
-        "Capabilities for this run\n- You: {} (role {}{})\n- OS: {}; shell tool runs {}\n- Sandbox: {}\n- Network: {}\n- Worktree: {}\n- Tools: {}",
+        "Capabilities\n- You: {} (role {}{})\n- OS: {}; shell tool runs {}\n- Sandbox: {}\n- Network: {}\n- Tools: {}",
         m.agent,
         m.role,
         if m.solo { ", Solo: you are your own Lead" } else { "" },
@@ -77,7 +80,6 @@ pub fn manifest_text(m: &Manifest) -> String {
         m.shell,
         m.sandbox,
         m.network,
-        m.worktree,
         m.tools.join(", ")
     );
     if !m.allowed_paths.is_empty() {
@@ -86,11 +88,17 @@ pub fn manifest_text(m: &Manifest) -> String {
             m.allowed_paths.join(", ")
         ));
     }
-    if let Some(t) = &m.team {
-        s.push_str(&format!("\n- Team: {t}"));
-    }
     for l in &m.extra {
         s.push_str(&format!("\n- {l}"));
+    }
+    s
+}
+
+/// The run's own context (worktree, team state), placed at the start of the run's newest user message (ADR-113).
+pub fn run_context_text(m: &Manifest) -> String {
+    let mut s = format!("Run context\n- Worktree: {}", m.worktree);
+    if let Some(t) = &m.team {
+        s.push_str(&format!("\n- Team: {t}"));
     }
     s
 }

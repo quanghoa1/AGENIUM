@@ -183,6 +183,7 @@ fn request(model: &str) -> ChatRequest {
         max_tokens: 64_000,
         cache_key: Some("agent_x:AGN-1".into()),
         long_cache: true,
+        tools_off: false,
     }
 }
 
@@ -861,4 +862,68 @@ async fn openrouter_cache_writes_are_not_input() {
         (500, 3000, 1500, 60, 20)
     );
     assert_eq!(r.usage.total_input(), 5000);
+}
+
+/// ADR-113: a notes request lists the tools but forbids calling them, in each wire's own words.
+#[test]
+fn tools_listed_but_not_callable_in_every_wire() {
+    let mut req = request("m");
+    req.tools_off = true;
+    assert_eq!(
+        anthropic::build_body(&req)["tool_choice"],
+        json!({"type": "none"})
+    );
+    assert_eq!(
+        openai::build_body(openai::Flavor::OpenAi, &req)["tool_choice"],
+        "none"
+    );
+    assert_eq!(responses::build_body(&req)["tool_choice"], "none");
+    assert_eq!(
+        gemini::build_body(&req)["toolConfig"]["functionCallingConfig"]["mode"],
+        "NONE"
+    );
+    for b in [
+        anthropic::build_body(&req),
+        openai::build_body(openai::Flavor::DeepSeek, &req),
+    ] {
+        assert!(b["tools"].as_array().is_some_and(|t| !t.is_empty()));
+    }
+    req.tools_off = false;
+    assert!(openai::build_body(openai::Flavor::OpenAi, &req)
+        .get("tool_choice")
+        .is_none());
+}
+
+/// ADR-113: through OpenRouter, Anthropic models cache only at explicit breakpoints: after the stable system block
+/// and on the last message; DeepSeek-style models need none.
+#[test]
+fn openrouter_marks_cache_breakpoints_for_anthropic_models() {
+    let req = request("anthropic/claude-sonnet-5.5");
+    let b = openai::build_body(openai::Flavor::OpenRouter, &req);
+    let sys = b["messages"][0]["content"].as_array().unwrap();
+    assert_eq!(sys.len(), 3);
+    assert!(sys[0].get("cache_control").is_none());
+    assert_eq!(sys[1]["cache_control"]["ttl"], "1h");
+    let last = b["messages"].as_array().unwrap().last().unwrap().clone();
+    assert_eq!(
+        last["content"].as_array().unwrap().last().unwrap()["cache_control"]["type"],
+        "ephemeral"
+    );
+    let plain = openai::build_body(openai::Flavor::OpenRouter, &request("deepseek/deepseek-v4"));
+    assert!(plain["messages"][0]["content"].is_string());
+}
+
+/// ADR-113: the cache route goes to OpenRouter as its session id and to xAI as the conversation id.
+#[tokio::test]
+async fn cache_routes_reach_openrouter_and_xai() {
+    for (host, header) in [
+        ("openrouter.ai/api/v1", "x-session-id"),
+        ("api.x.ai/v1", "x-grok-conv-id"),
+    ] {
+        let (base, seen) = server(vec![sse(200, OPENAI_STREAM)]).await;
+        let p = openai::OpenAiCompat::new("v", &format!("{base}/{host}"), Some("k"), http());
+        p.chat(&request("m"), &|_| {}).await.unwrap();
+        let s = seen.lock().unwrap().clone();
+        assert_eq!(s[0].header(header), Some("agent_x:AGN-1"), "{host}");
+    }
 }

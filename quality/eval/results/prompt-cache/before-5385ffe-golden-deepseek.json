@@ -1,0 +1,114 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 99457,
+    "tokens_out": 1645,
+    "tokens_cached": 78208,
+    "cost_usd": 0.0,
+    "elapsed_ms": 36057
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 90472,
+    "tokens_out": 1579,
+    "tokens_cached": 61824,
+    "cost_usd": 0.0,
+    "elapsed_ms": 30541
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 3,
+    "error_codes": {
+      "binary_file": 2,
+      "not_found": 1
+    },
+    "errors": [
+      "read_file: binary_file: src/__pycache__/mathlib.cpython-313.pyc looks binary",
+      "read_file: binary_file: src/__pycache__/report.cpython-313.pyc looks binary",
+      "read_file: not_found: .gitignore does not exist"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 144549,
+    "tokens_out": 5106,
+    "tokens_cached": 123008,
+    "cost_usd": 0.0,
+    "elapsed_ms": 54018
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 79008,
+    "tokens_out": 1033,
+    "tokens_cached": 58368,
+    "cost_usd": 0.0,
+    "elapsed_ms": 24268
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 91327,
+    "tokens_out": 2108,
+    "tokens_cached": 70656,
+    "cost_usd": 0.0,
+    "elapsed_ms": 39057
+  }
+]
