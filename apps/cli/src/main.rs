@@ -657,11 +657,14 @@ enum TicketCmd {
 }
 
 /// Interactive approval on the terminal (M1-7: no command runs without the user's approval).
-struct TerminalApprover {
-    lock: Mutex<()>,
-}
+struct TerminalApprover;
+
+/// One question on the terminal at a time: an agent's command and a pre-merge check asked together would otherwise
+/// both read the next line, and a "y" typed for one could approve the other.
+static PROMPT: Mutex<()> = Mutex::new(());
 
 fn ask(prompt: &str) -> String {
+    let _one = PROMPT.lock().unwrap_or_else(|e| e.into_inner());
     let mut out = std::io::stderr();
     let _ = write!(out, "{prompt}");
     let _ = out.flush();
@@ -693,10 +696,7 @@ impl Approver for TerminalApprover {
             ticket.map(|t| t.to_string()).unwrap_or_else(|| "-".into()),
             cwd.display()
         );
-        let answer = {
-            let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
-            tokio::task::block_in_place(|| ask(&prompt))
-        };
+        let answer = tokio::task::block_in_place(|| ask(&prompt));
         match answer.as_str() {
             "y" | "yes" => Approval::Allow,
             "a" | "always" => Approval::AllowAlways,
@@ -1170,9 +1170,7 @@ fn runtime(app: Arc<App>) -> Runtime {
     let mut rt = Runtime::new(
         app.clone(),
         Arc::new(ConfiguredProviders::new(app)),
-        Arc::new(TerminalApprover {
-            lock: Mutex::new(()),
-        }),
+        Arc::new(TerminalApprover),
     );
     rt.live = Some(Arc::new(
         |_run: &RunId, e: &agenium_llm::ChatEvent| match e {
