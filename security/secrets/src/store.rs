@@ -77,13 +77,16 @@ fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
+/// `None` for an odd length or a character that is not a hex digit. Checked byte by byte: slicing the text two bytes at
+/// a time panicked when a malformed keyring value or vault entry split a non-ASCII character.
 fn unhex(s: &str) -> Option<Vec<u8>> {
-    if !s.len().is_multiple_of(2) {
+    let digit = |c: u8| (c as char).to_digit(16);
+    let b = s.as_bytes();
+    if !b.len().is_multiple_of(2) {
         return None;
     }
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok())
+    b.chunks(2)
+        .map(|p| Some(((digit(p[0])? << 4) | digit(p[1])?) as u8))
         .collect()
 }
 

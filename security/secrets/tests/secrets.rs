@@ -100,6 +100,20 @@ fn keyring_errors_surface_and_names_are_checked() {
     assert_eq!(k.list().unwrap(), vec!["provider/y".to_string()]);
 }
 
+/// A malformed master key in the keyring (64 bytes, but a non-ASCII character where a hex pair should be) is reported
+/// as corrupt; decoding it used to panic on a slice that split the character.
+#[test]
+fn a_malformed_master_key_is_corrupt_not_a_panic() {
+    let tmp = tempfile::tempdir().unwrap();
+    let kr = Arc::new(MemoryKeyring::default());
+    let account = "vault-master/r";
+    let key = format!("a\u{e9}{}", "a".repeat(61));
+    assert_eq!(key.len(), 64);
+    kr.set(store::SERVICE, account, key.as_bytes()).unwrap();
+    let s = VaultStore::new(&tmp.path().join("vault.bin"), kr, account);
+    assert!(matches!(s.get("a"), Err(SecretError::Corrupt(_))));
+}
+
 /// Real OS keyring (Windows Credential Manager here). Touches the user's keyring, so opt-in:
 /// `AGENIUM_TEST_OS_KEYRING=1 cargo test -p agenium-secrets --test secrets os_keyring -- --nocapture`
 #[test]
