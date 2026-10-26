@@ -289,6 +289,8 @@ pub struct Discovery {
     pub registration_endpoint: Option<String>,
     /// What the server asks for (its challenge's `scope`, else the resource's `scopes_supported`).
     pub scopes: Option<String>,
+    /// The authorization server says it names itself in its answer (`iss`, RFC 9207): it must then be there.
+    pub iss_in_answer: bool,
 }
 
 fn http() -> Result<reqwest::Client> {
@@ -402,7 +404,12 @@ pub async fn discover(server_url: &str) -> Result<Discovery> {
             break;
         }
     }
-    let scopes = challenge.scope.clone().or(prm_scopes);
+    // An empty `scope=""` is no scope (learned from pi).
+    let scopes = challenge
+        .scope
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or(prm_scopes);
     let Some(m) = meta else {
         if prm.is_some() {
             return Err(auth(format!(
@@ -418,6 +425,7 @@ pub async fn discover(server_url: &str) -> Result<Discovery> {
             registration_endpoint: Some(format!("{base}/register")),
             issuer,
             scopes,
+            iss_in_answer: false,
         });
     };
     let methods: Vec<&str> = m["code_challenge_methods_supported"]
@@ -442,6 +450,7 @@ pub async fn discover(server_url: &str) -> Result<Discovery> {
         token_endpoint: endpoint("token_endpoint")?,
         registration_endpoint: endpoint("registration_endpoint").ok(),
         scopes,
+        iss_in_answer: m["authorization_response_iss_parameter_supported"] == json!(true),
     })
 }
 
@@ -549,7 +558,7 @@ async fn token_request(base: &Tokens, pairs: &[(&str, &str)]) -> Result<Tokens> 
         t.refresh_token = Some(r.to_owned());
     }
     t.expires_at = v["expires_in"].as_u64().map(|s| now() + s);
-    if let Some(s) = v["scope"].as_str() {
+    if let Some(s) = v["scope"].as_str().filter(|s| !s.trim().is_empty()) {
         t.scope = Some(s.to_owned());
     }
     Ok(t)
@@ -624,7 +633,7 @@ pub async fn login(
     open(url.as_str());
     let code = tokio::time::timeout(
         opts.timeout.unwrap_or(LOGIN_TIMEOUT),
-        wait_for_code(&listener, &state, server),
+        wait_for_code(&listener, &state, server, &d.issuer, d.iss_in_answer),
     )
     .await
     .map_err(|_| auth("sign-in was not finished in time"))??;
@@ -671,8 +680,16 @@ async fn respond(stream: &mut tokio::net::TcpStream, status: &str, body: &str) {
         .await;
 }
 
-/// Waits for the browser's redirect to `/callback` and returns the code (the state must match).
-async fn wait_for_code(listener: &TcpListener, state: &str, server: &str) -> Result<String> {
+/// Waits for the browser's redirect to `/callback` and returns the code. The state must match, and the answer's
+/// `iss`, when there is one (or when the server promised one), must name the authorization server Agenium asked
+/// (RFC 9207: an answer from another server, mixed up by an attacker, is refused).
+async fn wait_for_code(
+    listener: &TcpListener,
+    state: &str,
+    server: &str,
+    issuer: &str,
+    iss_required: bool,
+) -> Result<String> {
     loop {
         let (mut stream, _) = listener.accept().await.map_err(|e| auth(e.to_string()))?;
         let mut buf = vec![0u8; 16 * 1024];
@@ -713,6 +730,32 @@ async fn wait_for_code(listener: &TcpListener, state: &str, server: &str) -> Res
             )
             .await;
             return Err(auth("the sign-in answer had a wrong state (not ours)"));
+        }
+        let same = |a: &str| a.trim_end_matches('/') == issuer.trim_end_matches('/');
+        match q.get("iss") {
+            Some(iss) if !same(iss) => {
+                respond(
+                    &mut stream,
+                    "400 Bad Request",
+                    "This sign-in answer comes from another authorization server.",
+                )
+                .await;
+                return Err(auth(format!(
+                    "the sign-in answer came from {iss}, not from {issuer}"
+                )));
+            }
+            None if iss_required => {
+                respond(
+                    &mut stream,
+                    "400 Bad Request",
+                    "The answer does not name its server.",
+                )
+                .await;
+                return Err(auth(
+                    "the sign-in answer did not name its authorization server (iss)",
+                ));
+            }
+            _ => {}
         }
         if let Some(e) = q.get("error") {
             let d = q.get("error_description").cloned().unwrap_or_default();

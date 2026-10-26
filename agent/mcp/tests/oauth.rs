@@ -265,3 +265,38 @@ async fn a_server_without_sign_in_is_said_so() {
         .unwrap_err();
     assert!(e.to_string().contains("HTTPS"), "{e}");
 }
+
+/// RFC 9207 (learned from pi's OAuth fixes): an answer that names another authorization server is refused.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_answer_from_another_authorization_server_is_refused() {
+    let server = TestServer::start(true);
+    let tmp = tempfile::tempdir().unwrap();
+    let store = Arc::new(MemoryTokens::default());
+    let hub = McpHub::new(no_secrets(), tmp.path().join("mcp")).with_tokens(store.clone());
+    let tampering = |url: &str| {
+        let url = url.to_owned();
+        tokio::spawn(async move {
+            let c = reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .unwrap();
+            let r = c.get(&url).send().await.unwrap();
+            let location = r.headers()["location"].to_str().unwrap().to_owned();
+            assert!(
+                location.contains("iss="),
+                "the test server names itself: {location}"
+            );
+            let (head, _) = location.split_once("&iss=").unwrap();
+            let _ = c
+                .get(format!("{head}&iss=https%3A%2F%2Fevil.example"))
+                .send()
+                .await;
+        });
+    };
+    let e = hub
+        .login(&cfg(&server.url), &[], &tampering)
+        .await
+        .unwrap_err();
+    assert!(e.to_string().contains("evil.example"), "{e}");
+    assert!(store.load("oauthy").is_none());
+}

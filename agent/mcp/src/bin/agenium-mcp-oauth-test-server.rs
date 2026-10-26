@@ -220,6 +220,7 @@ impl Server {
                     "code_challenge_methods_supported": ["S256"],
                     "token_endpoint_auth_methods_supported": ["none"],
                     "scopes_supported": [SCOPE],
+                    "authorization_response_iss_parameter_supported": true,
                 }),
             ),
             ("POST", "/register") => self.register(&r.body),
@@ -298,7 +299,12 @@ impl Server {
             return page("400 Bad Request", "<p>Unknown client or redirect URI.</p>");
         }
         let state = get("state");
-        let fail = |e: &str| redirect(&with_query(&uri, &[("error", e), ("state", &state)]));
+        let fail = |e: &str| {
+            redirect(&with_query(
+                &uri,
+                &[("error", e), ("state", &state), ("iss", &self.base)],
+            ))
+        };
         if get("response_type") != "code" {
             return fail("unsupported_response_type");
         }
@@ -350,11 +356,18 @@ impl Server {
         if q.get("approve").map(String::as_str) != Some("1") {
             return redirect(&with_query(
                 &grant.redirect_uri,
-                &[("error", "access_denied"), ("state", &state)],
+                &[
+                    ("error", "access_denied"),
+                    ("state", &state),
+                    ("iss", &self.base),
+                ],
             ));
         }
         let code = random();
-        let to = with_query(&grant.redirect_uri, &[("code", &code), ("state", &state)]);
+        let to = with_query(
+            &grant.redirect_uri,
+            &[("code", &code), ("state", &state), ("iss", &self.base)],
+        );
         self.state.lock().unwrap().codes.insert(code, grant);
         redirect(&to)
     }

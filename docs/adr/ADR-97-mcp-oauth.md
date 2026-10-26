@@ -38,6 +38,10 @@ not be used. The MCP specification (revisions 2025-06-18 and 2025-11-25) fixes t
 5. **Servers of revision 2025-03-26** without resource metadata: the server's origin is the authorization server,
    and without its metadata the default endpoints (`/authorize`, `/token`, `/register`) are used.
 
+6. **The answer must come from the server Agenium asked** (RFC 9207, learned from pi): an `iss` in the sign-in answer
+   must name the discovered authorization server, and must be there when its metadata promises it
+   (`authorization_response_iss_parameter_supported`). An empty `scope` is treated as none.
+
 Not built: Client ID Metadata Documents (2025-11-25; dynamic registration or a configured client instead), step-up
 authorization in place (the user signs in again instead), per-agent sign-ins.
 
