@@ -199,7 +199,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   app (403 FreeTierError); unfunded Zen accounts return 402 (-> QuotaExhausted, verified).
 
 ## Not done / not run (honest list)
-- Real Anthropic, Gemini, OpenAI, DeepSeek-direct, the other preset vendors (ADR-107) and local endpoints: endpoints probed,
+- Real Anthropic, Gemini, OpenAI, DeepSeek-direct, the other preset vendors (ADR-107; Azure OpenAI, Bedrock and Cloudflare added
+  by ADR-111, contract-tested only; Vertex and Copilot not yet) and local endpoints: endpoints probed,
   not called with a key (OpenCode Go and OpenRouter free models were run: `real_checks` 7/7 on each). The OpenCode Anthropic and Responses wires are contract-tested, not run.
 - Graph memory: adjacency cache; (memory extraction after chat sessions: done, ADR-98, scripted model only).
   (The labelled resolution set — 2 152 mentions — and the 112-question multi-hop set are built and run:

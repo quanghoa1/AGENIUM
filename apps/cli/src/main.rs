@@ -1446,6 +1446,18 @@ async fn main() -> Result<()> {
                     let base_url = base_url
                         .clone()
                         .or_else(|| known.and_then(|pr| pr.base_url.map(str::to_owned)));
+                    if let Some(ph) = base_url
+                        .as_deref()
+                        .and_then(agenium_config::presets::placeholder)
+                    {
+                        bail!(
+                            "the base URL {} has {ph} to fill in: pass --base-url with your own value{}",
+                            base_url.as_deref().unwrap_or(""),
+                            known
+                                .map(|pr| format!(" ({})", pr.note))
+                                .unwrap_or_default()
+                        );
+                    }
                     // The vendor's usual variable is read only when it is set (its value is never printed).
                     let usual = known
                         .map(|pr| pr.key_env)

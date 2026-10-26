@@ -1,7 +1,8 @@
 //! Known model vendors (ADR-107): the adapter and endpoint each one needs, so the user picks a name and pastes a key
 //! instead of looking up base URLs. Endpoints as the vendors document them, cross-checked against the pi coding
-//! agent's provider list (2026-10-26). Vendors that need another sign-in (Azure OpenAI, Amazon Bedrock, Google Vertex,
-//! GitHub Copilot) are not here yet.
+//! agent's provider list (2026-10-26). Cloud vendors whose endpoint names the user's own resource (Azure OpenAI,
+//! Amazon Bedrock, Cloudflare) carry a `<placeholder>` in the URL that the user replaces; a URL that still has one is
+//! refused when saved. Google Vertex (hour-long OAuth tokens) and GitHub Copilot (its own sign-in) are not here.
 
 use crate::ProviderKind;
 
@@ -256,6 +257,30 @@ pub const PRESETS: &[ProviderPreset] = &[
         "many vendors behind one key",
     ),
     p(
+        "azure-openai",
+        "Azure OpenAI",
+        Compat,
+        Some("https://<resource>.openai.azure.com/openai/v1"),
+        "AZURE_OPENAI_API_KEY",
+        "replace <resource> with your resource name; models are your deployment names",
+    ),
+    p(
+        "bedrock",
+        "Amazon Bedrock",
+        Compat,
+        Some("https://bedrock-mantle.<region>.api.aws/v1"),
+        "AWS_BEARER_TOKEN_BEDROCK",
+        "a Bedrock API key; replace <region> (us-east-1, ...)",
+    ),
+    p(
+        "cloudflare",
+        "Cloudflare Workers AI",
+        Compat,
+        Some("https://api.cloudflare.com/client/v4/accounts/<account-id>/ai/v1"),
+        "CLOUDFLARE_API_TOKEN",
+        "replace <account-id> with your Cloudflare account id",
+    ),
+    p(
         "ollama",
         "Ollama (this machine)",
         Compat,
@@ -276,6 +301,13 @@ pub const PRESETS: &[ProviderPreset] = &[
 /// The preset named `id`.
 pub fn preset(id: &str) -> Option<&'static ProviderPreset> {
     PRESETS.iter().find(|p| p.id == id)
+}
+
+/// The first `<placeholder>` left in a base URL (`<resource>`), which the user must replace before saving.
+pub fn placeholder(url: &str) -> Option<&str> {
+    let start = url.find('<')?;
+    let end = url[start..].find('>')? + start;
+    Some(&url[start..=end])
 }
 
 #[cfg(test)]
@@ -306,5 +338,10 @@ mod tests {
             Some("https://api.groq.com/openai/v1")
         );
         assert!(preset("nope").is_none());
+        assert_eq!(
+            placeholder(preset("azure-openai").unwrap().base_url.unwrap()),
+            Some("<resource>")
+        );
+        assert_eq!(placeholder("https://api.openai.com/v1"), None);
     }
 }

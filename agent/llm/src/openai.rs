@@ -27,6 +27,9 @@ pub enum Flavor {
     /// OpenCode Zen / Go relay (opencode.ai): requires a per-conversation `x-opencode-session` affinity header (Go
     /// rejects requests without it; it keeps the upstream prompt cache warm). Serves several model families.
     OpenCode,
+    /// Azure OpenAI's v1 API (`<resource>.openai.azure.com/openai/v1`): OpenAI's models under deployment names; the
+    /// key also goes in Azure's own `api-key` header.
+    Azure,
     /// Local servers and anything else speaking the protocol.
     Generic,
 }
@@ -42,6 +45,11 @@ impl Flavor {
             Flavor::OpenRouter
         } else if u.contains("opencode.ai") {
             Flavor::OpenCode
+        } else if u.contains(".openai.azure.com")
+            || u.contains(".cognitiveservices.azure.com")
+            || u.contains(".services.ai.azure.com")
+        {
+            Flavor::Azure
         } else {
             Flavor::Generic
         }
@@ -52,7 +60,9 @@ impl Flavor {
 fn is_reasoning_model(flavor: Flavor, model: &str) -> bool {
     let m = model.to_ascii_lowercase();
     match flavor {
-        Flavor::OpenAi => m.starts_with('o') || m.starts_with("gpt-5") || m.starts_with("gpt-6"),
+        Flavor::OpenAi | Flavor::Azure => {
+            m.starts_with('o') || m.starts_with("gpt-5") || m.starts_with("gpt-6")
+        }
         Flavor::DeepSeek => m.contains("reasoner") || m.contains("v3.2") || m.contains("v4"),
         Flavor::OpenRouter => true,
         Flavor::OpenCode => m.starts_with("deepseek"),
@@ -74,7 +84,7 @@ pub fn effort_value(flavor: Flavor, e: Effort) -> &'static str {
         (Flavor::DeepSeek, Effort::Max) => "max",
         (_, Effort::Medium) => "medium",
         (_, Effort::High) => "high",
-        (Flavor::OpenAi, Effort::Max) => "xhigh",
+        (Flavor::OpenAi | Flavor::Azure, Effort::Max) => "xhigh",
         (_, Effort::Max) => "high",
     }
 }
@@ -128,6 +138,9 @@ impl OpenAiCompat {
         let mut h = Vec::new();
         if let Some(k) = &self.api_key {
             h.push(("authorization", format!("Bearer {k}")));
+            if self.flavor == Flavor::Azure {
+                h.push(("api-key", k.clone()));
+            }
         }
         if self.flavor == Flavor::OpenRouter {
             h.push(("x-title", "Agenium".into()));

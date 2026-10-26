@@ -635,6 +635,25 @@ async fn opencode_relay_sends_session_affinity_and_deepseek_effort() {
     assert!(s[1].body.get("reasoning_effort").is_none());
 }
 
+/// ADR-111: Azure OpenAI's v1 API gets the key in Azure's `api-key` header too, and OpenAI's effort levels.
+#[tokio::test]
+async fn azure_openai_sends_the_api_key_header() {
+    let (base, seen) = server(vec![sse(200, OPENAI_STREAM)]).await;
+    let p = openai::OpenAiCompat::new(
+        "azure-openai",
+        &format!("{base}/contoso.openai.azure.com/openai/v1"),
+        Some("az-key"),
+        http(),
+    );
+    let mut req = request("gpt-6-luna");
+    req.effort = Effort::Max;
+    p.chat(&req, &|_| {}).await.unwrap();
+    let s = seen.lock().unwrap().clone();
+    assert_eq!(s[0].header("api-key"), Some("az-key"));
+    assert_eq!(s[0].header("authorization"), Some("Bearer az-key"));
+    assert_eq!(s[0].body["reasoning_effort"], "xhigh");
+}
+
 const RESPONSES_STREAM: &str = concat!(
     "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"r1\",\"model\":\"gpt-6-luna\"}}\n\n",
     "event: response.reasoning_summary_text.delta\ndata: {\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"thinking\"}\n\n",

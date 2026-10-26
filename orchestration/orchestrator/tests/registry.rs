@@ -557,6 +557,12 @@ fn providers_keep_their_keys_in_the_vault() {
         Some("http://x/v1")
     )));
     assert!(bad(p("x", ProviderKind::OpenaiCompat, Some("ftp://x"))));
+    // A preset URL whose <placeholder> was not filled in (ADR-111).
+    assert!(bad(p(
+        "azure-openai",
+        ProviderKind::OpenaiCompat,
+        Some("https://<resource>.openai.azure.com/openai/v1")
+    )));
 
     // In use: refused; after the agent switches model: removed with its key.
     let ag = f

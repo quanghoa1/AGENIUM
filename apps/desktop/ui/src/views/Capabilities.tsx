@@ -102,6 +102,7 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
         <label>
           <span className="label">base URL</span>
           <input className="input mt-1 font-mono" value={d.base_url} placeholder={d.kind === "openai_compat" ? "https://…/v1" : app.t("providers.defaultUrl")} onChange={(e) => set({ base_url: e.target.value })} />
+          {/<[^>]+>/.test(d.base_url) && <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{app.t("providers.placeholder")}</div>}
         </label>
         {!d.local && (
           <label className="md:col-span-2">

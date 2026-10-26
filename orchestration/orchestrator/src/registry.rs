@@ -902,6 +902,11 @@ impl App {
                     "base URL {u:?} must start with http:// or https://"
                 )));
             }
+            if let Some(ph) = agenium_config::presets::placeholder(u) {
+                return Err(invalid(format!(
+                    "base URL {u:?}: replace {ph} with your own value"
+                )));
+            }
         }
         if p.kind == ProviderKind::OpenaiCompat && p.base_url.as_deref().unwrap_or("").is_empty() {
             return Err(invalid("an OpenAI-compatible provider needs a base URL"));
