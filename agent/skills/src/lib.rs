@@ -654,6 +654,13 @@ fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
+/// An entry's name for messages (an undecodable name is shown as `?`).
+fn entry_name<R: std::io::Read>(e: &zip::read::ZipFile<'_, R>) -> String {
+    e.name()
+        .map(|n| n.into_owned())
+        .unwrap_or_else(|_| "?".into())
+}
+
 fn extract_zip(src: &Path, dst: &Path) -> Result<()> {
     let f = std::fs::File::open(src)?;
     let mut z = zip::ZipArchive::new(f).map_err(|e| SkillError::Zip(e.to_string()))?;
@@ -669,13 +676,13 @@ fn extract_zip(src: &Path, dst: &Path) -> Result<()> {
         if e.is_symlink() {
             return Err(invalid(format!(
                 "symbolic links are not allowed: {}",
-                e.name()
+                entry_name(&e)
             )));
         }
         let Some(rel) = e.enclosed_name() else {
             return Err(invalid(format!(
                 "archive entry {:?} leaves the folder",
-                e.name()
+                entry_name(&e)
             )));
         };
         let out = dst.join(rel);

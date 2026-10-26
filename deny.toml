@@ -1,0 +1,53 @@
+# cargo-deny (run by devtools/scripts/ci-local.*): licenses, security advisories, duplicate and banned crates, sources.
+# `cargo deny check` here; the desktop app is its own workspace: `cargo deny --manifest-path apps/desktop/Cargo.toml check`.
+
+[graph]
+all-features = false
+
+[advisories]
+# RustSec advisory database (fetched from GitHub). Unmaintained crates are reported for crates Agenium depends on
+# directly; a vulnerability anywhere in the tree fails the check.
+unmaintained = "workspace"
+ignore = [
+    { id = "RUSTSEC-2026-0367", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); candle reads .npz/.pth model files and never calls extract(), which these advisories are about; drop when candle moves to zip >= 9" },
+    { id = "RUSTSEC-2026-0368", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); candle reads .npz/.pth model files and never calls extract(), which these advisories are about; drop when candle moves to zip >= 9" },
+    { id = "RUSTSEC-2026-0369", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); candle reads .npz/.pth model files and never calls extract(), which these advisories are about; drop when candle moves to zip >= 9" },
+]
+
+[licenses]
+# Agenium is Apache-2.0. Permissive licenses only; MPL-2.0 (file-level copyleft, unmodified use) is allowed for
+# option-ext (via dirs). A crate under several licenses passes when one of them is listed (r-efi: MIT OR Apache-2.0
+# OR LGPL-2.1-or-later).
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "Unicode-3.0",
+    "Unlicense",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+# The workspace's own crates are not published.
+ignore = true
+
+[bans]
+# Several versions of one crate are common in a tree this size: reported, not failed.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

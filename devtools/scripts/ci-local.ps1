@@ -1,4 +1,5 @@
-# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, scripted golden tasks.
+# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, vendor check, cargo-deny
+# (licenses, RustSec advisories, sources; deny.toml; install: cargo install cargo-deny --locked), scripted golden tasks.
 # Usage: .\devtools\scripts\ci-local.ps1 [-Quick] [-FailFast]     Logs: target\ci-local\<step>.log
 param([switch]$Quick, [switch]$FailFast)
 $ErrorActionPreference = "Continue"
@@ -12,7 +13,8 @@ $steps = @(
   @{ name = "clippy";  cmd = "cargo clippy --workspace --all-targets -- -D warnings" },
   @{ name = "test";    cmd = "cargo test --workspace" },
   @{ name = "schemas"; cmd = "cargo xtask schemas --check" },
-  @{ name = "vendor";  cmd = "cargo xtask vendor-check" }
+  @{ name = "vendor";  cmd = "cargo xtask vendor-check" },
+  @{ name = "deny";    cmd = "cargo deny check && cargo deny --manifest-path apps\desktop\Cargo.toml check" }
 )
 if (-not $Quick) { $steps += @{ name = "golden-scripted"; cmd = "cargo run -q -p agenium-eval -- --out target\ci-local\eval" } }
 $results = @()

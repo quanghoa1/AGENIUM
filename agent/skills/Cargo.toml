@@ -10,7 +10,7 @@ publish.workspace = true
 [dependencies]
 serde.workspace = true
 thiserror.workspace = true
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -10,7 +10,7 @@ Front-ends: the headless CLI `agenium` and the desktop app `apps/desktop` (Tauri
 ### M0 — scaffolding (backend): DONE
 | Item | Status | Evidence |
 |---|---|---|
-| M0-1 workspace, LICENSE/NOTICE, local CI | DONE | `Cargo.toml`, `devtools/scripts/ci-local.{ps1,sh}`; cargo-deny not installed (not run) |
+| M0-1 workspace, LICENSE/NOTICE, local CI | DONE | `Cargo.toml`, `devtools/scripts/ci-local.{ps1,sh}`; cargo-deny step since 2026-10-26 (`deny.toml`, ADR-99) |
 | M0-2 config (`resolve_root`, layout, `config.toml`) | DONE | `agenium-config` tests (3 priority branches, layout, round trip) |
 | M0-3 setup wizard backend + system requirements | DONE (backend) | `setup.rs`, `sysreq.rs`; `agenium setup`, `agenium doctor` |
 | M0-4 core: ids, ticket, state machine, `dep_satisfied` | DONE | `agenium-core`: permission table test + property tests (no illegal transition, terminal states, dep rule) |
@@ -213,11 +213,11 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.)
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
   tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
-- Sandbox on macOS (containment runs 2026-10-26, ADR-55; confirmed again by the third run): a daemon outlives the command; with network on a host unix socket was reachable (mxc-sdk emits an unfiltered `network-outbound`), now narrowed by Agenium (`seatbelt.rs`) and confirmed blocked by the fourth Mac run (52f1c12: 301 passed, 0 failed, DNS and internet still work). File escapes are blocked. (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
+- Sandbox on macOS (containment runs 2026-10-26, ADR-55; confirmed again by the third run): a daemon outlives the command (now killed by its environment token, to be confirmed by the fifth Mac run); with network on a host unix socket was reachable (mxc-sdk emits an unfiltered `network-outbound`), now narrowed by Agenium (`seatbelt.rs`) and confirmed blocked by the fourth Mac run (52f1c12: 301 passed, 0 failed, DNS and internet still work). File escapes are blocked. (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
   VM, 0 escapes, ADR-95; Windows MXC: ADR-53/S2). An AppArmor profile shipped with a Linux installer (until then,
   Ubuntu 24.04+ hosts run sandboxed commands without network unless the user allows user namespaces, ADR-95).
 - Context compaction beyond the checkpoint-and-continue approach.
-- cargo-deny, GitHub workflows. **Real Ubuntu 25.10 (VMware VM, 2026-10-26): 296 passed, 0 failed** after the ADR-95
+- GitHub workflows (cargo-deny runs in local CI since 2026-10-26, ADR-99). **Real Ubuntu 25.10 (VMware VM, 2026-10-26): 296 passed, 0 failed** after the ADR-95
   fixes — the first run found that no sandboxed command could start with the network on. **macOS: first run 2026-10-25** (virtual M4 Pro): build OK, 289 passed / 1 failed /
   2 ignored — the failure was a real path-confinement defect (a worktree reached through `/private/var`), fixed and
   reproduced on Windows (8.3 short names); benchmarks in STORE-SCALE §10. Linux: first run 2026-10-24 on WSL2 Ubuntu 24.04 (kernel

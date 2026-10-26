@@ -1,0 +1,38 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/propose_new_skill.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Create a new skill in your own skills folder from a lesson that held in two contexts. Only when no skill you have covers it (otherwise use propose_skill_update); it must have every section filled (Job, When to use, Steps, Tools, Proof). Checked strictly; the user can review or delete it.",
+  "properties": {
+    "body": {
+      "description": "The SKILL.md body with the sections ## Job, ## When to use, ## Steps, ## Tools and ## Proof, each filled.",
+      "type": "string"
+    },
+    "description": {
+      "description": "One line: when this skill applies (its cue).",
+      "type": "string"
+    },
+    "lesson": {
+      "description": "Memory id of the lesson this skill distils (`lesson #<id>` in your memory); it must have held in two contexts.",
+      "format": "int64",
+      "type": "integer"
+    },
+    "name": {
+      "description": "1-64 characters of a-z, 0-9 and single hyphens; must not be the name of a skill you already have.",
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "description",
+    "body",
+    "reason",
+    "lesson"
+  ],
+  "title": "propose_new_skill",
+  "type": "object",
+  "x-agenium-role": "Shared"
+}

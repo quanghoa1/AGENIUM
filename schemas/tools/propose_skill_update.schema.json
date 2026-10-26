@@ -2,15 +2,24 @@
   "$id": "https://agenium.dev/schemas/v1/tools/propose_skill_update.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Propose an update to your own copy of a skill, backed by validated lessons.",
+  "description": "Propose an update to your own copy of a skill, backed by a lesson that held in two contexts: either the complete new body as content (simplest), or a unified diff as patch.",
   "properties": {
+    "content": {
+      "default": null,
+      "description": "Or the complete new body of the skill (everything after its frontmatter, which stays as it is) — simpler and\nsafer than a diff. Give this or `patch`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "lesson": {
       "description": "Memory id of the lesson this change writes down (shown as `lesson #<id>` in your memory); it must have held\nin two different contexts.",
       "format": "int64",
       "type": "integer"
     },
     "patch": {
-      "description": "Unified diff against the current SKILL.md (paths `a/SKILL.md` and `b/SKILL.md`).",
+      "default": "",
+      "description": "Unified diff against the current SKILL.md (paths `a/SKILL.md` and `b/SKILL.md`; context lines copied exactly).\nGive this or `content`.",
       "type": "string"
     },
     "reason": {
@@ -22,7 +31,6 @@
   },
   "required": [
     "skill",
-    "patch",
     "reason",
     "lesson"
   ],

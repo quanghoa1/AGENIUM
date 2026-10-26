@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, scripted golden tasks.
+# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, vendor check, cargo-deny
+# (licenses, RustSec advisories, sources; deny.toml), scripted golden tasks.
 # Usage: devtools/scripts/ci-local.sh [--quick] [--fail-fast]     Logs: target/ci-local/<step>.log
 set -u
 cd "$(dirname "$0")/../.."
@@ -7,7 +8,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 mkdir -p target/ci-local
 quick=0; failfast=0
 for a in "$@"; do case "$a" in --quick) quick=1;; --fail-fast) failfast=1;; esac; done
-steps=("fmt|cargo fmt --all --check" "clippy|cargo clippy --workspace --all-targets -- -D warnings" "test|cargo test --workspace" "schemas|cargo xtask schemas --check" "vendor|cargo xtask vendor-check")
+steps=("fmt|cargo fmt --all --check" "clippy|cargo clippy --workspace --all-targets -- -D warnings" "test|cargo test --workspace" "schemas|cargo xtask schemas --check" "vendor|cargo xtask vendor-check" "deny|cargo deny --version >/dev/null 2>&1 || { echo 'cargo-deny is missing: cargo install cargo-deny --locked'; exit 1; }; cargo deny check && cargo deny --manifest-path apps/desktop/Cargo.toml check")
 [ $quick -eq 0 ] && steps+=("golden-scripted|cargo run -q -p agenium-eval -- --out target/ci-local/eval")
 fail=0; summary=""
 for s in "${steps[@]}"; do
