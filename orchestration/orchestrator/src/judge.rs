@@ -20,6 +20,33 @@ use crate::{OrchError, Result};
 /// A Noul at or above this reads as "met", at or below `1 - this` as "not met", between as "unsure" (decision 35).
 const MET: f64 = 0.7;
 
+/// Whether `url` is plain HTTP to this machine (localhost, 127.0.0.1 or [::1], any port): the only endpoint the judge
+/// may use without TLS. The host is compared whole, so `http://localhost.example.com` or `http://localhost@host` is not
+/// local.
+fn local_http(url: &str) -> bool {
+    let Some(rest) = url
+        .get(..7)
+        .filter(|s| s.eq_ignore_ascii_case("http://"))
+        .map(|_| &url[7..])
+    else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.contains('@') {
+        return false;
+    }
+    let host = match authority.strip_prefix('[') {
+        Some(v6) => match v6.split_once(']') {
+            Some((h, port)) if port.is_empty() || port.starts_with(':') => h,
+            _ => return false,
+        },
+        None => authority.split(':').next().unwrap_or_default(),
+    };
+    ["localhost", "127.0.0.1", "::1"]
+        .iter()
+        .any(|l| host.eq_ignore_ascii_case(l))
+}
+
 /// Vault name of the judge's API key.
 pub const JUDGE_SECRET: &str = "judge/typesafe";
 
@@ -216,8 +243,7 @@ impl App {
     /// change clears an earlier failure so the judge is tried again.
     pub fn set_judge(&self, j: &JudgeInput) -> Result<agenium_config::JudgeSection> {
         let base_url = j.base_url.trim().trim_end_matches('/').to_owned();
-        let local =
-            base_url.starts_with("http://localhost") || base_url.starts_with("http://127.0.0.1");
+        let local = local_http(&base_url);
         if !base_url.is_empty() && !base_url.starts_with("https://") && !local {
             return Err(OrchError::Invalid(format!(
                 "judge endpoint {base_url:?}: use https://"

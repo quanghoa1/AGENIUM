@@ -314,6 +314,15 @@ impl App {
             .join(name)
     }
 
+    /// [`overlay_dir`](Self::overlay_dir) for a skill name from outside (the UI): a name that is not a skill name
+    /// (`..`, a path) would point the removal at another folder.
+    fn overlay_dir_checked(&self, agent: AgentId, name: &str) -> Result<PathBuf> {
+        if !agenium_skills::valid_name(name) {
+            return Err(invalid(format!("{name:?} is not a skill name")));
+        }
+        Ok(self.overlay_dir(agent, name))
+    }
+
     pub(crate) fn agent_memory_store(
         &self,
         agent: AgentId,
@@ -618,7 +627,7 @@ impl App {
 
     /// The user reverts an overlay: the agent uses the base again (the changelog goes with it).
     pub fn revert_skill_overlay(&self, agent: AgentId, skill: &str) -> Result<()> {
-        let dir = self.overlay_dir(agent, skill);
+        let dir = self.overlay_dir_checked(agent, skill)?;
         if dir.is_dir() {
             std::fs::remove_dir_all(&dir)?;
         }
@@ -636,11 +645,11 @@ impl App {
     /// The user promotes an overlay to the base (the role's or the library's skill), which every agent then uses;
     /// the overlay is dropped.
     pub fn promote_skill_overlay(&self, agent: AgentId, skill: &str) -> Result<()> {
+        let dir = self.overlay_dir_checked(agent, skill)?;
         let a = self.agent(agent)?;
         let base = self
             .base_skill(&a, skill)
             .ok_or_else(|| OrchError::NotFound(format!("base skill {skill}")))?;
-        let dir = self.overlay_dir(agent, skill);
         let text = std::fs::read_to_string(dir.join("SKILL.md"))
             .map_err(|_| OrchError::NotFound(format!("overlay {skill}")))?;
         std::fs::write(base.meta.dir.join("SKILL.md"), text)?;

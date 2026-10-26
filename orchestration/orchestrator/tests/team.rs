@@ -1352,6 +1352,16 @@ fn a_validated_lesson_updates_the_agents_overlay_of_a_skill() {
     );
     assert_eq!(views[0].changelog[0]["lesson"], lesson);
 
+    // A name from the UI that is not a skill name never reaches the file system (`..` was the agent's own folder).
+    let own = f
+        .app
+        .skill_registry()
+        .dir_of(&agenium_skills::Owner::Agent(t.web.to_string()));
+    for bad in ["..", "../..", "x/../..", ""] {
+        assert!(f.app.revert_skill_overlay(t.web, bad).is_err(), "{bad}");
+        assert!(f.app.promote_skill_overlay(t.web, bad).is_err(), "{bad}");
+    }
+    assert!(own.join("release-notes").join("SKILL.md").is_file());
     f.app.revert_skill_overlay(t.web, "release-notes").unwrap();
     assert!(f.app.skill_overlays(t.web).unwrap().is_empty());
     f.app
@@ -1569,6 +1579,30 @@ fn the_judge_is_set_from_the_app_with_its_key_in_the_vault() {
             ..form(None)
         })
         .is_err());
+    // Plain HTTP only to this machine: the host is compared whole (the key would go to another host in clear).
+    for remote in [
+        "http://localhost.evil.example",
+        "http://127.0.0.1.evil.example/v1",
+        "http://localhost@evil.example",
+        "http://[::1].evil.example",
+    ] {
+        let j = JudgeInput {
+            base_url: remote.into(),
+            ..form(None)
+        };
+        assert!(f.app.set_judge(&j).is_err(), "{remote}");
+    }
+    for local in [
+        "http://localhost:8080",
+        "http://127.0.0.1:9000/v1",
+        "http://[::1]:8080",
+    ] {
+        let j = JudgeInput {
+            base_url: local.into(),
+            ..form(None)
+        };
+        assert_eq!(f.app.set_judge(&j).unwrap().base_url, local);
+    }
     // Off.
     f.app
         .set_judge(&JudgeInput {
