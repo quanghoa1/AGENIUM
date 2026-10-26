@@ -142,6 +142,8 @@ impl Repo {
         }
     }
 
+    /// The git runner for the repository root. Never run it in a worktree: there git would trust the worktree's own
+    /// `.git` file; [`Repo::git_for`] gives the runner for a worktree.
     pub fn git(&self) -> &Git {
         &self.git
     }
@@ -203,16 +205,63 @@ impl Repo {
         Ok(())
     }
 
-    fn exclude_agenium_dir(&self) -> Result<(), VcsError> {
-        let git_dir = self
+    /// The main repository's git directory (the one its worktrees share), absolute.
+    fn common_dir(&self) -> Result<PathBuf, VcsError> {
+        let out = self
             .git
             .check(&self.root, ["rev-parse", "--git-common-dir"])?;
-        let git_dir = PathBuf::from(git_dir.trim());
-        let git_dir = if git_dir.is_absolute() {
-            git_dir
+        let dir = PathBuf::from(out.trim());
+        let dir = if dir.is_absolute() {
+            dir
         } else {
-            self.root.join(git_dir)
+            self.root.join(dir)
         };
+        Ok(std::path::absolute(&dir).unwrap_or(dir))
+    }
+
+    /// The git directory the main repository keeps for the linked worktree at `dir`: the `<common>/worktrees/<name>`
+    /// whose `gitdir` file points back to `dir/.git`. Read from the main repository only, never from `dir` (its `.git`
+    /// file is the agent's to rewrite). `None` when no worktree is registered at `dir`.
+    fn worktree_git_dir(&self, dir: &Path) -> Result<Option<PathBuf>, VcsError> {
+        let admin = self.common_dir()?.join("worktrees");
+        let entries = match std::fs::read_dir(&admin) {
+            Ok(e) => e,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(io(&admin, e)),
+        };
+        for e in entries.flatten() {
+            let git_dir = e.path();
+            let Ok(back) = std::fs::read_to_string(git_dir.join("gitdir")) else {
+                continue;
+            };
+            // Relative (relative to this directory) with `worktree.useRelativePaths`, git 2.48+.
+            let back = git_dir.join(back.trim());
+            if back.parent().is_some_and(|wt| Self::same_path(wt, dir)) {
+                return Ok(Some(git_dir));
+            }
+        }
+        Ok(None)
+    }
+
+    /// The git runner for `dir`: the repository's own working tree as it is; a registered linked worktree bound to the
+    /// git directory the main repository keeps for it ([`Git::bound`]). Any other directory is refused rather than
+    /// left to git's discovery, which trusts whatever `.git` it finds there.
+    pub fn git_for(&self, dir: &Path) -> Result<Git, VcsError> {
+        if Self::same_path(dir, &self.root) {
+            return Ok(self.git.clone());
+        }
+        match self.worktree_git_dir(dir)? {
+            Some(git_dir) => Ok(self.git.bound(git_dir)),
+            None => Err(VcsError::Invalid(format!(
+                "{} is not a worktree of the repository {}",
+                dir.display(),
+                self.root.display()
+            ))),
+        }
+    }
+
+    fn exclude_agenium_dir(&self) -> Result<(), VcsError> {
+        let git_dir = self.common_dir()?;
         let info = git_dir.join("info");
         std::fs::create_dir_all(&info).map_err(|e| io(&info, e))?;
         let exclude = info.join("exclude");
@@ -310,21 +359,40 @@ impl Repo {
         norm(a) == norm(b)
     }
 
-    /// Creates (or finds) the worktree of ticket `key` branched from `base`. Idempotent.
+    /// Creates (or finds) the worktree of ticket `key` branched from `base`. Idempotent, also after a crash: a
+    /// registered worktree is matched by its path (one left in the middle of a rebase shows a detached HEAD, not its
+    /// branch), its rebase is aborted, and its directory is never deleted. Treating it as unregistered once deleted the
+    /// directory and then failed for good ("missing but already registered worktree").
     pub fn add_worktree(&self, key: &str, base: &str) -> Result<WorktreeInfo, VcsError> {
         let path = self.worktree_path(key);
         let branch = ticket_branch(key);
         let registered = self
             .worktrees()?
             .into_iter()
-            .any(|(p, b)| Self::same_path(&p, &path) && b.as_deref() == Some(&branch));
-        if !registered {
-            if path.exists() {
-                // Stale directory from a crash between `worktree add` and its registration, or a removed
-                // registration: prune and recreate.
-                self.git.check(&self.root, ["worktree", "prune"])?;
-                std::fs::remove_dir_all(&path).map_err(|e| io(&path, e))?;
+            .find(|(p, _)| Self::same_path(p, &path));
+        let add = match registered {
+            Some((_, on)) if path.exists() => {
+                if on.as_deref() != Some(branch.as_str()) {
+                    self.recover_worktree(&path, &branch)?;
+                }
+                false
             }
+            Some(_) => {
+                // Registered, but its directory is gone: drop the stale registration and add it again.
+                self.git.check(&self.root, ["worktree", "prune"])?;
+                true
+            }
+            None => {
+                if path.exists() {
+                    // Not a worktree (a crash between creating the directory and registering it, or a removed
+                    // registration): recreate it.
+                    self.git.check(&self.root, ["worktree", "prune"])?;
+                    std::fs::remove_dir_all(&path).map_err(|e| io(&path, e))?;
+                }
+                true
+            }
+        };
+        if add {
             std::fs::create_dir_all(self.worktrees_dir())
                 .map_err(|e| io(&self.worktrees_dir(), e))?;
             let p = path.to_string_lossy().into_owned();
@@ -350,6 +418,27 @@ impl Repo {
         })
     }
 
+    /// A registered worktree that is not on its branch: a rebase interrupted by a crash (the merge queue's) is aborted,
+    /// which puts the branch back where it was. Anything else is reported, never repaired by deleting the work.
+    fn recover_worktree(&self, path: &Path, branch: &str) -> Result<(), VcsError> {
+        let git_dir = self
+            .worktree_git_dir(path)?
+            .ok_or_else(|| VcsError::Invalid(format!("{} is not registered", path.display())))?;
+        let g = self.git.bound(git_dir.clone());
+        if git_dir.join("rebase-merge").exists() || git_dir.join("rebase-apply").exists() {
+            g.check(path, ["rebase", "--abort"])?;
+        }
+        let on = g.run(path, ["symbolic-ref", "-q", "--short", "HEAD"])?;
+        if on.stdout.trim() != branch {
+            return Err(VcsError::Invalid(format!(
+                "the worktree {} is on {:?}, not on {branch}; resolve it by hand",
+                path.display(),
+                on.stdout.trim()
+            )));
+        }
+        Ok(())
+    }
+
     /// Brings the worktree of ticket `key` up to date with main when its branch has no commits of its own and no
     /// uncommitted changes (a dependent ticket assigned before its dependencies merged). Returns the new base.
     /// A branch with work of its own is left alone: the merge queue rebases it.
@@ -362,7 +451,7 @@ impl Repo {
         if head == main || !self.is_ancestor(&head, &self.main)? || !self.status(&wt)?.is_empty() {
             return Ok(None);
         }
-        self.git
+        self.git_for(&wt)?
             .check(&wt, ["merge", "-q", "--ff-only", &self.main])?;
         Ok(Some(main))
     }
@@ -400,15 +489,16 @@ impl Repo {
         author: (&str, &str),
         trailers: &[(&str, &str)],
     ) -> Result<Option<String>, VcsError> {
-        self.git.check(worktree, ["add", "-A"])?;
-        let staged = self.git.run(worktree, ["diff", "--cached", "--quiet"])?;
+        let g = self.git_for(worktree)?;
+        g.check(worktree, ["add", "-A"])?;
+        let staged = g.run(worktree, ["diff", "--cached", "--quiet"])?;
         if staged.ok() {
             return Ok(None);
         }
-        let findings = self.scan_staged(worktree)?;
+        let findings = Self::staged_findings(&g, worktree)?;
         if !findings.is_empty() {
             // Leave the work in the tree but unstaged so nothing half-scanned is committed later by accident.
-            self.git.check(worktree, ["reset", "-q"])?;
+            g.check(worktree, ["reset", "-q"])?;
             return Err(VcsError::SecretsFound(findings));
         }
         let mut msg = message.trim().to_owned();
@@ -418,7 +508,7 @@ impl Repo {
                 msg.push_str(&format!("{k}: {v}\n"));
             }
         }
-        self.git.check_env(
+        g.check_env(
             worktree,
             ["commit", "-q", "--no-verify", "-m", &msg],
             &[
@@ -427,16 +517,17 @@ impl Repo {
             ],
         )?;
         Ok(Some(
-            self.git
-                .check(worktree, ["rev-parse", "HEAD"])?
-                .trim()
-                .to_owned(),
+            g.check(worktree, ["rev-parse", "HEAD"])?.trim().to_owned(),
         ))
     }
 
     /// Scans the added lines of the staged diff.
     pub fn scan_staged(&self, worktree: &Path) -> Result<Vec<StagedFinding>, VcsError> {
-        let diff = self.git.check(
+        Self::staged_findings(&self.git_for(worktree)?, worktree)
+    }
+
+    fn staged_findings(g: &Git, worktree: &Path) -> Result<Vec<StagedFinding>, VcsError> {
+        let diff = g.check(
             worktree,
             [
                 "diff",
@@ -451,7 +542,7 @@ impl Repo {
 
     /// Unified diff of the branch since `base` (what the reviewer sees).
     pub fn diff(&self, worktree: &Path, base: &str) -> Result<String, VcsError> {
-        self.git.check(
+        self.git_for(worktree)?.check(
             worktree,
             [
                 "diff",
@@ -463,7 +554,7 @@ impl Repo {
     }
 
     pub fn changed_files(&self, dir: &Path, from: &str, to: &str) -> Result<Vec<String>, VcsError> {
-        let out = self.git.check(
+        let out = self.git_for(dir)?.check(
             dir,
             [
                 "diff",
@@ -482,30 +573,28 @@ impl Repo {
     /// What a worktree holds: its HEAD and the tree of all its files (committed, changed, and untracked files that
     /// are not ignored), written with a scratch index in the worktree's git dir so the real index is untouched.
     pub fn worktree_state(&self, worktree: &Path) -> Result<WorktreeState, VcsError> {
-        let head = self
-            .git
-            .check(worktree, ["rev-parse", "HEAD"])?
-            .trim()
-            .to_owned();
-        let tree = self.scratch_tree(worktree)?;
+        Self::state(&self.git_for(worktree)?, worktree)
+    }
+
+    fn state(g: &Git, worktree: &Path) -> Result<WorktreeState, VcsError> {
+        let head = g.check(worktree, ["rev-parse", "HEAD"])?.trim().to_owned();
+        let tree = Self::scratch_tree(g, worktree)?;
         Ok(WorktreeState { head, tree })
     }
 
-    fn scratch_index(&self, worktree: &Path) -> Result<PathBuf, VcsError> {
-        let dir = self
-            .git
-            .check(worktree, ["rev-parse", "--absolute-git-dir"])?;
+    fn scratch_index(g: &Git, worktree: &Path) -> Result<PathBuf, VcsError> {
+        let dir = g.check(worktree, ["rev-parse", "--absolute-git-dir"])?;
         Ok(PathBuf::from(dir.trim()).join("agenium-scratch.index"))
     }
 
-    fn scratch_tree(&self, worktree: &Path) -> Result<String, VcsError> {
-        let index = self.scratch_index(worktree)?;
+    fn scratch_tree(g: &Git, worktree: &Path) -> Result<String, VcsError> {
+        let index = Self::scratch_index(g, worktree)?;
         let idx = index.to_string_lossy().into_owned();
         let env = [("GIT_INDEX_FILE", idx.as_str())];
         let tree = (|| {
-            self.git.check_env(worktree, ["read-tree", "HEAD"], &env)?;
-            self.git.check_env(worktree, ["add", "-A"], &env)?;
-            self.git.check_env(worktree, ["write-tree"], &env)
+            g.check_env(worktree, ["read-tree", "HEAD"], &env)?;
+            g.check_env(worktree, ["add", "-A"], &env)?;
+            g.check_env(worktree, ["write-tree"], &env)
         })();
         let _ = std::fs::remove_file(&index);
         Ok(tree?.trim().to_owned())
@@ -514,7 +603,7 @@ impl Repo {
     /// Commits on the worktree's branch since `from` that Agenium did not make (no `Agenium-Intent` trailer) and that
     /// `main` does not hold (a catch-up with main is Agenium's).
     pub fn foreign_commits(&self, worktree: &Path, from: &str) -> Result<Vec<String>, VcsError> {
-        let out = self.git.check(
+        let out = self.git_for(worktree)?.check(
             worktree,
             [
                 "log",
@@ -540,11 +629,10 @@ impl Repo {
         worktree: &Path,
         to: &WorktreeState,
     ) -> Result<String, VcsError> {
-        let now = self.worktree_state(worktree)?;
-        let patch = self
-            .git
-            .check(worktree, ["diff", "--binary", &to.tree, &now.tree])?;
-        let added = self.git.check(
+        let g = self.git_for(worktree)?;
+        let now = Self::state(&g, worktree)?;
+        let patch = g.check(worktree, ["diff", "--binary", &to.tree, &now.tree])?;
+        let added = g.check(
             worktree,
             [
                 "diff",
@@ -556,32 +644,37 @@ impl Repo {
             ],
         )?;
         if now.head != to.head {
-            self.git
-                .check(worktree, ["reset", "-q", "--soft", &to.head])?;
+            g.check(worktree, ["reset", "-q", "--soft", &to.head])?;
         }
-        let index = self.scratch_index(worktree)?;
+        let index = Self::scratch_index(&g, worktree)?;
         let idx = index.to_string_lossy().into_owned();
         let env = [("GIT_INDEX_FILE", idx.as_str())];
         let written = (|| {
-            self.git
-                .check_env(worktree, ["read-tree", &to.tree], &env)?;
-            self.git
-                .check_env(worktree, ["checkout-index", "-a", "-f"], &env)
+            g.check_env(worktree, ["read-tree", &to.tree], &env)?;
+            g.check_env(worktree, ["checkout-index", "-a", "-f"], &env)
         })();
         let _ = std::fs::remove_file(&index);
         written?;
         for f in added.split('\0').filter(|f| !f.is_empty()) {
             let _ = std::fs::remove_file(worktree.join(f));
         }
-        self.git.check(worktree, ["reset", "-q"])?;
+        g.check(worktree, ["reset", "-q"])?;
         Ok(patch)
     }
 
-    /// Uncommitted changes in a worktree (porcelain lines).
+    /// Uncommitted changes in a worktree (porcelain lines). Nested repositories count by the commit they are on, not by
+    /// their own uncommitted changes: looking for those runs git inside them, with their config (the
+    /// `--ignore-submodules` option, unlike the config, also outranks a `.gitmodules` the agent wrote).
     pub fn status(&self, worktree: &Path) -> Result<Vec<String>, VcsError> {
-        let out = self
-            .git
-            .check(worktree, ["status", "--porcelain", "--untracked-files=all"])?;
+        let out = self.git_for(worktree)?.check(
+            worktree,
+            [
+                "status",
+                "--porcelain",
+                "--untracked-files=all",
+                "--ignore-submodules=dirty",
+            ],
+        )?;
         Ok(out
             .lines()
             .filter(|l| !l.is_empty())
@@ -591,38 +684,34 @@ impl Repo {
 
     /// Rebases the worktree's branch onto `onto`. On conflict the rebase is aborted and the files are listed.
     pub fn rebase(&self, worktree: &Path, onto: &str) -> Result<RebaseOutcome, VcsError> {
-        let head = self
-            .git
-            .check(worktree, ["rev-parse", "HEAD"])?
-            .trim()
-            .to_owned();
-        let onto_sha = self
-            .git
-            .check(worktree, ["rev-parse", onto])?
-            .trim()
-            .to_owned();
+        let g = self.git_for(worktree)?;
+        let head = g.check(worktree, ["rev-parse", "HEAD"])?.trim().to_owned();
+        let onto_sha = g.check(worktree, ["rev-parse", onto])?.trim().to_owned();
         if self.is_ancestor(&onto_sha, &head)? {
             return Ok(RebaseOutcome::Rebased { head });
         }
-        let out = self.git.run(worktree, ["rebase", "-q", onto])?;
+        let out = g.run(worktree, ["rebase", "-q", onto])?;
         if out.ok() {
-            let head = self
-                .git
-                .check(worktree, ["rev-parse", "HEAD"])?
-                .trim()
-                .to_owned();
+            let head = g.check(worktree, ["rev-parse", "HEAD"])?.trim().to_owned();
             return Ok(RebaseOutcome::Rebased { head });
         }
-        let files = self
-            .git
-            .run(worktree, ["diff", "--name-only", "--diff-filter=U"])?
+        let files = g
+            .run(
+                worktree,
+                [
+                    "diff",
+                    "--name-only",
+                    "--diff-filter=U",
+                    "--ignore-submodules=dirty",
+                ],
+            )?
             .stdout;
         let files: Vec<String> = files
             .lines()
             .filter(|l| !l.is_empty())
             .map(str::to_owned)
             .collect();
-        let _ = self.git.run(worktree, ["rebase", "--abort"])?;
+        let _ = g.run(worktree, ["rebase", "--abort"])?;
         if files.is_empty() {
             return Err(VcsError::Git {
                 args: format!("rebase {onto}"),

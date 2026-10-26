@@ -1,6 +1,6 @@
 //! Thin, testable runner around the `git` executable.
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
@@ -13,15 +13,25 @@ pub const COMMITTER_EMAIL: &str = "agenium@localhost";
 #[derive(Debug, Clone)]
 pub struct Git {
     exe: PathBuf,
+    /// A linked worktree's git directory, found through the main repository ([`Git::bound`]).
+    git_dir: Option<PathBuf>,
 }
 
 impl Default for Git {
     fn default() -> Self {
         Self {
             exe: PathBuf::from("git"),
+            git_dir: None,
         }
     }
 }
+
+/// A `core.hooksPath` that holds no hooks.
+const NO_HOOKS: &str = if cfg!(windows) {
+    "core.hooksPath=NUL"
+} else {
+    "core.hooksPath=/dev/null"
+};
 
 #[derive(Debug, Clone)]
 pub struct GitOutput {
@@ -37,9 +47,39 @@ impl GitOutput {
 }
 
 impl Git {
+    /// This runner for a linked worktree whose git directory is `git_dir` (taken from the main repository, see
+    /// `Repo::git_for`). Host git must never take it from the worktree: the worktree's `.git` file is inside the
+    /// sandbox's writable root, and the agent could point it at a repository whose config runs commands
+    /// (`core.fsmonitor`, hooks, filter drivers) — run here, outside the sandbox. Every call passes `--git-dir` and
+    /// `--work-tree`, and turns off what would still run the worktree's own content: fsmonitor, hooks (a relative
+    /// `core.hooksPath` such as husky's `.husky` resolves inside the worktree) and the dirty check of nested
+    /// repositories (it runs git, with their config, inside them). Command-line config reaches child gits too.
+    pub fn bound(&self, git_dir: PathBuf) -> Git {
+        Git {
+            exe: self.exe.clone(),
+            git_dir: Some(git_dir),
+        }
+    }
+
     fn command(&self, dir: &Path) -> Command {
         let mut c = Command::new(&self.exe);
         c.arg("-C").arg(dir);
+        if let Some(git_dir) = &self.git_dir {
+            let mut gd = OsString::from("--git-dir=");
+            gd.push(git_dir);
+            let mut wt = OsString::from("--work-tree=");
+            wt.push(std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf()));
+            c.arg(gd).arg(wt);
+            // Empty `core.fsmonitor` is "off" for every git since MIN_GIT (2.30 reads `false` as a hook path).
+            c.args([
+                "-c",
+                "core.fsmonitor=",
+                "-c",
+                NO_HOOKS,
+                "-c",
+                "diff.ignoreSubmodules=dirty",
+            ]);
+        }
         // Deterministic, non-interactive behaviour: no pager, no prompts, no editor, C locale for parsing, long
         // paths on Windows, no CRLF rewriting of agent output.
         c.args([

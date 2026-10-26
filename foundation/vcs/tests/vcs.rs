@@ -349,3 +349,126 @@ fn remote_url_detects_origin_and_push_lands() {
         .unwrap();
     assert!(heads.contains("refs/heads/main"), "{heads}");
 }
+
+/// An executable hook script.
+fn hook(path: &Path, body: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+/// A worktree's `.git` file is inside the sandbox's writable root: the agent can point it at a repository whose config
+/// runs commands (`core.fsmonitor`, hooks). Agenium's git calls on the worktree run on the host, so they take the git
+/// directory from the main repository and run none of it, and the work still lands on the ticket branch. Hooks that
+/// the main repository's own config finds inside the worktree (a relative `core.hooksPath`, as husky sets) do not run
+/// either.
+#[test]
+fn a_rewritten_dot_git_file_runs_nothing_on_the_host() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    let marker = tmp.path().join("ran-on-host");
+    let m = marker.to_string_lossy().replace('\\', "/");
+    let evil = tmp.path().join("evil");
+    Git::default()
+        .check(tmp.path(), ["init", "-q", evil.to_str().unwrap()])
+        .unwrap();
+    Git::default()
+        .check(
+            &evil,
+            [
+                "config",
+                "core.fsmonitor",
+                &format!("echo fsmonitor >> '{m}'"),
+            ],
+        )
+        .unwrap();
+    hook(
+        &evil.join(".git/hooks/post-commit"),
+        &format!("echo evil-hook >> '{m}'"),
+    );
+    std::fs::write(
+        w.path.join(".git"),
+        format!(
+            "gitdir: {}\n",
+            evil.join(".git").to_string_lossy().replace('\\', "/")
+        ),
+    )
+    .unwrap();
+    Git::default()
+        .check(&r.root, ["config", "core.hooksPath", ".hooks"])
+        .unwrap();
+    hook(
+        &w.path.join(".hooks/post-commit"),
+        &format!("echo worktree-hook >> '{m}'"),
+    );
+
+    write(&w.path, "src/a.txt", "a\n");
+    assert!(!r.status(&w.path).unwrap().is_empty());
+    let sha = r
+        .commit_all(&w.path, "Add a", AUTHOR, &[])
+        .unwrap()
+        .unwrap();
+    r.worktree_state(&w.path).unwrap();
+    assert!(
+        !marker.exists(),
+        "ran on the host: {}",
+        std::fs::read_to_string(&marker).unwrap_or_default()
+    );
+    assert!(r.diff(&w.path, &w.base_sha).unwrap().contains("+a"));
+    assert_eq!(r.head_sha("agenium/AGN-1").unwrap(), Some(sha));
+    assert!(
+        r.git_for(&evil).is_err(),
+        "a directory that is not one of the repository's worktrees is refused"
+    );
+}
+
+/// A crash in the middle of the merge queue's rebase leaves the worktree on a detached HEAD with the rebase in
+/// progress. Opening the worktree again aborts the rebase and keeps the directory and its work: it was deleted, and
+/// every later attempt failed ("missing but already registered worktree"). A registered worktree whose directory is
+/// gone is added again.
+#[test]
+fn a_worktree_left_mid_rebase_is_recovered_not_deleted() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    write(&r.root, "f.txt", "base\n");
+    r.commit_all(&r.root, "base", AUTHOR, &[]).unwrap();
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    write(&w.path, "f.txt", "ticket\n");
+    let ticket = r
+        .commit_all(&w.path, "ticket", AUTHOR, &[])
+        .unwrap()
+        .unwrap();
+    write(&r.root, "f.txt", "main\n");
+    r.commit_all(&r.root, "main moves", AUTHOR, &[]).unwrap();
+    // The crash: a rebase stopped on its conflict and never aborted.
+    let stopped = Git::default()
+        .run(&w.path, ["rebase", "-q", "main"])
+        .unwrap();
+    assert!(!stopped.ok(), "{stopped:?}");
+
+    let again = r.add_worktree("AGN-1", "main").unwrap();
+    assert_eq!(again.path, w.path);
+    assert_eq!(r.head_sha("agenium/AGN-1").unwrap(), Some(ticket));
+    assert_eq!(
+        std::fs::read_to_string(w.path.join("f.txt")).unwrap(),
+        "ticket\n"
+    );
+    assert!(
+        r.status(&w.path).unwrap().is_empty(),
+        "no rebase left in progress"
+    );
+    assert_eq!(r.add_worktree("AGN-1", "main").unwrap(), again);
+
+    // The directory is gone but still registered: added again from the branch.
+    std::fs::remove_dir_all(&w.path).unwrap();
+    let back = r.add_worktree("AGN-1", "main").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(back.path.join("f.txt")).unwrap(),
+        "ticket\n"
+    );
+}
