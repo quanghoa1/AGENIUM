@@ -577,7 +577,14 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
       // The conversation, by role, like a CLI chat (thinking folded in).
       <div className="flex min-h-0 flex-1 flex-col">
         {(k === "lead" || k === "standalone") && a.project ? (
-            <ChatPane project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} after={k === "lead" ? <Delegations project={a.project} data={data} onWatch={onPick} /> : undefined} className="border-t border-line" />
+            <>
+              {k === "lead" && (
+                <div className="max-h-[34%] shrink-0 overflow-y-auto border-t border-line px-4 py-2.5 empty:hidden">
+                  <Delegations project={a.project} data={data} onWatch={onPick} />
+                </div>
+              )}
+              <ChatPane project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} className="border-t border-line" />
+            </>
           ) : k === "worker" ? (
             <>
               <WorkerBus agent={a} lead={lead?.agent.name} stream={stream} />

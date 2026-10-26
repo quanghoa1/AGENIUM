@@ -2,7 +2,7 @@
 // reasoning folded in an expandable "thinking" block, the tool being called, the text as it streams), the input.
 // Used by the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
 import { Brain, ChevronDown, ChevronRight, Loader2, Send, Wrench } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine } from "../lib/types";
@@ -68,7 +68,6 @@ export function ChatPane({
   agentId,
   enabled = true,
   prefill,
-  after,
   stream,
   className,
 }: {
@@ -78,8 +77,6 @@ export function ChatPane({
   agentId?: string | null;
   enabled?: boolean;
   prefill?: Prefill | null;
-  /** Rendered after the conversation (the Lead's delegation cards in the Live tab). */
-  after?: ReactNode;
   /** The agent's run in progress (Live tab); shown as the turn in progress even when another window started it. */
   stream?: LiveRun;
   className?: string;
@@ -128,6 +125,25 @@ export function ChatPane({
     const el = end.current?.parentElement;
     el?.scrollTo({ top: el.scrollHeight });
   }, [lines.length]);
+  useEffect(() => {
+    // The pane can shrink after the conversation is shown (the Lead's delegations above it arrive later): a
+    // conversation read at its end stays at its end; one scrolled back stays where it is.
+    const el = end.current?.parentElement;
+    if (!el) return;
+    let atEnd = true;
+    const onScroll = () => {
+      atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    };
+    const ro = new ResizeObserver(() => {
+      if (atEnd) el.scrollTo({ top: el.scrollHeight });
+    });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
+  }, []);
 
   const send = () => {
     if (!text.trim() || !enabled) return;
@@ -164,7 +180,6 @@ export function ChatPane({
         ))}
         {(busy || current) && <LiveTurn name={agentName} stream={current} />}
         {lines.length === 0 && !busy && <Empty>{app.t("chat.placeholder")}</Empty>}
-        {after}
         <div ref={end} />
       </div>
       <div className="flex gap-2 border-t border-line p-3">
