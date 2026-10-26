@@ -1,6 +1,6 @@
 //! Local embedding model (decision 2b, ADR-47): `bge-small-en-v1.5` (384-d, CLS pooling, L2-normalised) run on the
 //! CPU with candle (pure Rust, no ONNX Runtime). Model files live in `<root>/models/<id>/`, pinned to one upstream
-//! revision and verified by sha256; `agenium models download` fetches them.
+//! revision and verified by sha256; [`install`] fetches them (`agenium models download`, the app's Memory page).
 
 use std::path::{Path, PathBuf};
 
@@ -88,6 +88,73 @@ pub fn installed(spec: &ModelSpec, models_root: &Path) -> bool {
             .map(|m| m.len() == f.bytes)
             .unwrap_or(false)
     })
+}
+
+/// Downloads the model's files into `<models_root>/<id>/` (resumable per file: a verified file is kept), checking size
+/// and sha256 before a file is moved into place. `progress` hears each step.
+pub async fn install(
+    spec: &ModelSpec,
+    models_root: &Path,
+    http: &agenium_llm::http::Http,
+    progress: &(dyn Fn(&str) + Send + Sync),
+) -> Result<(), String> {
+    use std::io::Write;
+    let dir = spec.dir(models_root);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    for f in spec.files {
+        let dst = dir.join(f.name);
+        if matches!(sha256_file(&dst), Ok(h) if h == f.sha256) {
+            progress(&format!("{}: ok", f.name));
+            continue;
+        }
+        progress(&format!("{}: downloading {} KB", f.name, f.bytes >> 10));
+        let part = dir.join(format!("{}.partial", f.name));
+        let fail = |m: String| {
+            let _ = std::fs::remove_file(&part);
+            Err(format!("{}: {m}", f.name))
+        };
+        let mut resp = match http
+            .client()
+            .get(spec.url(f))
+            .send()
+            .await
+            .and_then(|r| r.error_for_status())
+        {
+            Ok(r) => r,
+            Err(e) => return fail(e.to_string()),
+        };
+        let mut out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
+        let mut n = 0u64;
+        loop {
+            match resp.chunk().await {
+                Ok(Some(chunk)) => {
+                    n += chunk.len() as u64;
+                    if n > f.bytes {
+                        drop(out);
+                        return fail("larger than expected".into());
+                    }
+                    if let Err(e) = out.write_all(&chunk) {
+                        drop(out);
+                        return fail(e.to_string());
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    drop(out);
+                    return fail(e.to_string());
+                }
+            }
+        }
+        out.sync_all().map_err(|e| e.to_string())?;
+        drop(out);
+        let h = sha256_file(&part).map_err(|e| e.to_string())?;
+        if n != f.bytes || h != f.sha256 {
+            return fail(format!("checksum mismatch (got {h}, {n} bytes)"));
+        }
+        std::fs::rename(&part, &dst).map_err(|e| e.to_string())?;
+        progress(&format!("{}: verified", f.name));
+    }
+    Ok(())
 }
 
 /// Full check: sizes and sha256 of every file. Returns the names that fail.

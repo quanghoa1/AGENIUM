@@ -106,6 +106,7 @@ dependencies = [
  "agenium-core",
  "agenium-llm",
  "agenium-mcp",
+ "agenium-memory",
  "agenium-orchestrator",
  "agenium-sandbox",
  "agenium-secrets",

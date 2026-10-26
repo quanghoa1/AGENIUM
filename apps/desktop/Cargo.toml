@@ -19,6 +19,7 @@ agenium-config = { path = "../../foundation/config" }
 agenium-core = { path = "../../foundation/core" }
 agenium-llm = { path = "../../agent/llm" }
 agenium-mcp = { path = "../../agent/mcp" }
+agenium-memory = { path = "../../agent/memory" }
 agenium-orchestrator = { path = "../../orchestration/orchestrator" }
 agenium-sandbox = { path = "../../security/sandbox" }
 agenium-secrets = { path = "../../security/secrets" }

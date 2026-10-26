@@ -1,0 +1,462 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 2 fact(s)",
+    "runs": 12,
+    "steps": 32,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 455626,
+    "tokens_out": 7060,
+    "tokens_cached": 420165,
+    "cost_usd": 0.0,
+    "elapsed_ms": 122388,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 2,
+                "text": "Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'."
+            ],
+            "memory_ops": [
+              {
+                "added": 2,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 1,
+                "entities_new": 4,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1987,
+                "tokens_out": 453,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 2,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 3718,
+                "tokens_out": 856,
+                "updated": 0,
+                "validated": 0
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCFJW9K044C68KX8RKQ7Y0",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCFQGN11V6BQV1F0QKN0E1",
+                "shown": 0,
+                "steps": 1
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCFWGY6PRT1FYRDT58Z91Z",
+                "shown": 2,
+                "steps": 3
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCG53T46MKYFTHNT9ABANB",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WCFWGY6PRT1FYRDT58Z91Z #1 graph Some(Lesson): Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "run 01M5WCFWGY6PRT1FYRDT58Z91Z #2 hybrid Some(Fact): Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'."
+            ],
+            "memory_ops": [
+              {
+                "added": 2,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 3,
+                "entities_new": 4,
+                "extracted": 3,
+                "helped": 2,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "relation docs-team -applies_to-> docs names an entity the fact does not list"
+                ],
+                "tokens_in": 3970,
+                "tokens_out": 1547,
+                "updated": 0,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCGJ4KX16MMYY78080YXYS",
+                "shown": 2,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCH1D6E5V3QDW3NW065QNF",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WCGJ4KX16MMYY78080YXYS #1 graph Some(Lesson): Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "run 01M5WCGJ4KX16MMYY78080YXYS #2 hybrid Some(Fact): Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first li",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-2",
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-3"
+                ],
+                "id": 2,
+                "text": "Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first line, as 'Owner: <team>'. A handbook/ file failed the pre-merge check for this reason.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 1,
+                "entities_new": 2,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [
+                  2
+                ],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3108,
+                "tokens_out": 1419,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 3,
+                "misleading": [],
+                "noop": 3,
+                "rejected": [],
+                "tokens_in": 4698,
+                "tokens_out": 1108,
+                "updated": 0,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCHJ401325FM0WXB6FYQY3",
+                "shown": 3,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCHPY1T9E14HP2HX94DH7C",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCJ2Z4N3H89BWVPTY958FQ",
+                "shown": 3,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCJFEDJ360ET9RFR8A4210",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WCHJ401325FM0WXB6FYQY3 #1 graph Some(Lesson): Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "run 01M5WCHJ401325FM0WXB6FYQY3 #2 hybrid Some(Fact): In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'.",
+              "run 01M5WCHJ401325FM0WXB6FYQY3 #3 graph Some(Fact): Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'.",
+              "run 01M5WCJ2Z4N3H89BWVPTY958FQ #1 graph Some(Lesson): Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "run 01M5WCJ2Z4N3H89BWVPTY958FQ #2 hybrid Some(Lesson): Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first line, as 'Owner: <team>'. A handbook/ file failed the pre-merge check for this reason.",
+              "run 01M5WCJ2Z4N3H89BWVPTY958FQ #3 hybrid Some(Fact): In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-4"
+                ],
+                "id": 5,
+                "text": "Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first li",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-2",
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-3",
+                  "01M5WCFJ9XNEWFAXBEXSCX6VRV/ticket:AGN-4"
+                ],
+                "id": 2,
+                "text": "Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first line, as 'Owner: <team>'. A handbook/ file failed the pre-merge check for this reason.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 3,
+                "misleading": [],
+                "noop": 3,
+                "rejected": [],
+                "tokens_in": 3608,
+                "tokens_out": 592,
+                "updated": 0,
+                "validated": 2
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCJTADNR8R6DA6G7AEYJAR",
+                "shown": 3,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WCFJRA5D06F6GJY9T0DNTB",
+                "outcome": "Completed",
+                "run": "01M5WCK0AF7KQA1HFBPSWCSN66",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WCJTADNR8R6DA6G7AEYJAR #1 graph Some(Lesson): Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+              "run 01M5WCJTADNR8R6DA6G7AEYJAR #2 hybrid Some(Lesson): Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first line, as 'Owner: <team>'. A handbook/ file failed the pre-merge check for this reason.",
+              "run 01M5WCJTADNR8R6DA6G7AEYJAR #3 hybrid Some(Fact): In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": false,
+            "merge_failures": 1,
+            "reopened": 1,
+            "runs": 4,
+            "status": "Closed",
+            "steps": 11,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 149234,
+            "tokens_in": 156152,
+            "tokens_out": 2345
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 5,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 53929,
+            "tokens_in": 71876,
+            "tokens_out": 1288
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\"",
+        "AGN-3: handbook/onboarding.txt: \"onboarding\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Project docs requires every team document, in any directory (including deliverables/, reports/, handbook/ and minutes/), to name its owning team on its first line, as 'Owner: <team>'. A handbook/ file failed the pre-merge check for this reason.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the owning-team line used for existing documents is 'Owner: docs-team'.",
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 120439,
+        "tokens_in": 126473,
+        "tokens_out": 1746
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 96563,
+        "tokens_in": 101125,
+        "tokens_out": 1681
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5WCGJ4KX16MMYY78080YXYS #1 graph: Pre-merge check in the docs project rejects team documents whose first line is not exactly 'Owner: <team>'; verify it before submitting.",
+        "run 01M5WCGJ4KX16MMYY78080YXYS #2 hybrid: Project docs requires every team document in deliverables/ or reports/ to name its owning team on its first line, as 'Owner: <team>'."
+      ]
+    }
+  }
+]

@@ -67,6 +67,8 @@ export const api = {
   decideRoleProposal: (project: string, proposal: string, approve: boolean, note?: string) =>
     call<unknown>("decide_role_proposal", { project, proposal, approve, note: note ?? null }),
   refreshPrices: () => call<{ priced: number | null; view: PriceView }>("refresh_prices"),
+  embeddingModel: () => call<{ id: string; mb: number; installed: boolean; active: string }>("embedding_model"),
+  installEmbeddingModel: () => call<void>("install_embedding_model"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),

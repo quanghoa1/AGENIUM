@@ -144,6 +144,9 @@ pub enum Via {
     Hybrid,
     Graph,
     Recent,
+    /// A rule of the work's context: a proven lesson whose scope matches it (decision 35), shown whatever the
+    /// text channels find.
+    Rule,
 }
 
 impl Via {
@@ -154,6 +157,7 @@ impl Via {
             Via::Hybrid => "hybrid",
             Via::Graph => "graph",
             Via::Recent => "recent",
+            Via::Rule => "rule",
         }
     }
 }
@@ -545,6 +549,38 @@ impl AgentStore {
             let rows = st.query_map([limit as i64], map_fact)?;
             rows.map(|r| decode_fact(r?)).collect()
         })
+    }
+
+    /// Live, trusted lessons whose scope holds in `ctx`: the lesson has a scope, and each of its keys has the same
+    /// value in `ctx` (decision 35: the rules of that context). The most proven first: held in more contexts, then
+    /// more confident, then newer.
+    pub fn rules_in(&self, ctx: &serde_json::Value, limit: usize) -> Result<Vec<Fact>, StoreError> {
+        let ctx = crate::graph::normalize_scope(ctx);
+        let Some(c) = ctx.as_object().filter(|c| !c.is_empty()) else {
+            return Ok(vec![]);
+        };
+        let mut out: Vec<Fact> = self.db.read(|db| {
+            let mut st = db.prepare_cached(&format!(
+                "SELECT {FACT_COLS} FROM fact WHERE superseded_by IS NULL AND kind = 'lesson' AND untrusted = 0"
+            ))?;
+            let rows = st.query_map([], map_fact)?;
+            rows.map(|r| decode_fact(r?)).collect::<Result<Vec<_>, StoreError>>()
+        })?;
+        out.retain(|f| {
+            f.weight >= HIDE_BELOW_WEIGHT
+                && crate::graph::normalize_scope(&f.scope)
+                    .as_object()
+                    .is_some_and(|o| !o.is_empty() && o.iter().all(|(k, v)| c.get(k) == Some(v)))
+        });
+        out.sort_by(|a, b| {
+            b.validated
+                .len()
+                .cmp(&a.validated.len())
+                .then(b.confidence.total_cmp(&a.confidence))
+                .then(b.id.cmp(&a.id))
+        });
+        out.truncate(limit);
+        Ok(out)
     }
 
     /// Maintenance tick for this agent's database: passive checkpoint, and the WAL gate past the limit. Returns the WAL

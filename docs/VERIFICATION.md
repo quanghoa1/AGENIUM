@@ -109,6 +109,7 @@ Also from these runs:
 | golden tasks | Haiku 5.5 (high), Sonnet 5.5 (medium), Opus 5.5 (medium) | 5/5 PASS each |
 | team task | Haiku 5.5 | PASS (after the review rule below) |
 | learning chain | Haiku 5.5 | PASS; tickets 2 and 4 passed their first merge with the lesson recalled |
+| learning chain (effort low, hashing embedder) | Opus 5.5 | PASS; tickets 2, 3 and 4 passed their first merge, the lesson held in 3 contexts |
 | CLI agents at effort low (ADR-114) | Claude Code `haiku`, Codex `gpt-6-luna`, Antigravity `gemini-3.8-flash` | `hello-file` PASS |
 | the agent form offers each model's own effort levels (ADR-114) | Codex, Claude Code, Antigravity, Grok, DeepSeek API | 7/7 in the desktop app |
 
@@ -128,11 +129,19 @@ These runs found five defects, all fixed:
   max, Gemini 3 Pro low/high, Codex up to `ultra`). The app also offered `xhigh`, which the core refused, and CLI
   agents never received the effort. Each model now has its own levels (ADR-114).
 
-Also observed, not changed:
-- The hashing embedder (no local model installed) recalls by shared words only. A ticket for `handbook/` was not
-  reminded of a lesson about `deliverables/ or reports/`. With the local model (bge-small) it was.
-- Haiku did not generalise the lesson to folders the check message did not name (DeepSeek did), and it did not write
-  a skill at ticket 4 although the tools were open.
+Two observations followed up:
+- **The hashing embedder recalls by shared words only.** This is the default when the local model is not installed.
+  A ticket for `handbook/` was not reminded of a lesson about `deliverables/ or reports/`; with the local model
+  (bge-small) it was. Two changes:
+  - A context's rules (up to three proven, trusted lessons of the project's scope) now open every work order there,
+    whatever the text channels find (ADR-51 amendment; `a_projects_rules_reach_its_tickets_whatever_their_words`).
+  - The desktop app's Memory page says when the local model is missing and installs it (127 MB, sha256-checked).
+    Checked in the app: the note, the install, and after a restart the model in use.
+- **Generalising and writing skills are the model's.** Haiku kept the lesson to the folders the check message named
+  and failed the first merge of ticket 3 even with the lesson shown. The lesson was then corrected ("any directory")
+  and ticket 4 passed. Opus generalised from the README and passed tickets 2–4 at once. Neither Haiku nor Opus wrote
+  a skill when the tools opened. By design they write one only for a reusable procedure (ADR-91, the gate against
+  sprawl), and a one-line project rule stays a lesson, shown as a rule in every work order.
 
 ## Prompt cache (ADR-113)
 

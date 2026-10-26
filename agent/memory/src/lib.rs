@@ -236,7 +236,14 @@ impl MemoryRetriever {
             r.score *= 0.6;
         }
         own.append(&mut shared);
-        own.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));
+        // The agent's own rules stay first (`retrieve::recall` put them there); the rest by score.
+        let rule = |r: &Recalled| !r.shared && r.kind == agenium_store::FactKind::Lesson && r.exact;
+        own.sort_by(|a, b| {
+            rule(b)
+                .cmp(&rule(a))
+                .then(b.score.total_cmp(&a.score))
+                .then(a.id.cmp(&b.id))
+        });
         own.truncate(k);
         Ok(own)
     }

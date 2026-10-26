@@ -1,0 +1,371 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 3 fact(s)",
+    "runs": 10,
+    "steps": 28,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 393178,
+    "tokens_out": 3977,
+    "tokens_cached": 338510,
+    "cost_usd": 0.0,
+    "elapsed_ms": 130922,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 3,
+                "text": "When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval th",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 2,
+                "text": "When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge chec",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "memory_ops": [
+              {
+                "added": 3,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 3,
+                "entities_new": 2,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1934,
+                "tokens_out": 557,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 3,
+                "misleading": [],
+                "noop": 3,
+                "rejected": [],
+                "tokens_in": 4173,
+                "tokens_out": 670,
+                "updated": 0,
+                "validated": 0
+              }
+            ],
+            "shown": [
+              "run 01M5WC7NX5TK02F1T61NA0X7NX #1 hybrid Some(Lesson): When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "run 01M5WC7NX5TK02F1T61NA0X7NX #2 hybrid Some(Lesson): When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "run 01M5WC7NX5TK02F1T61NA0X7NX #3 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-2"
+                ],
+                "id": 3,
+                "text": "When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval th",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge chec",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/ (per the README). Every team document must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this for deliverables/ and reports/, and likely applies to handbook/ and minutes/ too.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "memory_ops": [
+              {
+                "added": 1,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 1,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "external content may not rewrite trusted memory 1; stored beside it as untrusted"
+                ],
+                "tokens_in": 3454,
+                "tokens_out": 637,
+                "updated": 0,
+                "validated": 2
+              }
+            ],
+            "shown": [
+              "run 01M5WC8BS5384FF0XQ4ZW7769C #1 graph Some(Lesson): When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "run 01M5WC8BS5384FF0XQ4ZW7769C #2 hybrid Some(Lesson): When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "run 01M5WC8BS5384FF0XQ4ZW7769C #3 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-2",
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-3"
+                ],
+                "id": 3,
+                "text": "When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval th",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-2",
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-3"
+                ],
+                "id": 2,
+                "text": "When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge chec",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/ (per the README). Every team document must have exactly 'Owner: docs-team' as its first line. The pre-merge check enforces this for deliverables/ and reports/. A handbook/ file starting with that line passed the check and merged, but whether the check requires the line for handbook/ (or minutes/) is unconfi",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 2,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3776,
+                "tokens_out": 620,
+                "updated": 1,
+                "validated": 2
+              }
+            ],
+            "shown": [
+              "run 01M5WC99P76E4TB6E3NBH203P0 #1 graph Some(Lesson): When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "run 01M5WC99P76E4TB6E3NBH203P0 #2 hybrid Some(Lesson): When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "run 01M5WC99P76E4TB6E3NBH203P0 #3 graph Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-2",
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-3",
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-4"
+                ],
+                "id": 3,
+                "text": "When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval th",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-2",
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-3",
+                  "01M5WC72BMTKVFNND5HHNC1TFE/ticket:AGN-4"
+                ],
+                "id": 2,
+                "text": "When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge chec",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/ (per the README). Every team document must have exactly 'Owner: docs-team' as its first line. The pre-merge check enforces this for deliverables/ and reports/. A handbook/ file and a minutes/ file each starting with that line passed the check and merged, but whether the check requires the line for handbook/",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 2,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 4,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 4212,
+                "tokens_out": 558,
+                "updated": 1,
+                "validated": 2
+              }
+            ],
+            "shown": [
+              "run 01M5WCA6ZRQE5WX10J3YSN12N7 #1 graph Some(Lesson): When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+              "run 01M5WCA6ZRQE5WX10J3YSN12N7 #2 hybrid Some(Lesson): When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+              "run 01M5WCA6ZRQE5WX10J3YSN12N7 #3 hybrid Some(Fact): In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/ (per the README). Every team document must have exactly 'Owner: docs-team' as its first line. The pre-merge check enforces this for deliverables/ and reports/. A handbook/ file starting with that line passed the check and merged, but whether the check requires the line for handbook/ (or minutes/) is unconfi",
+              "run 01M5WCA6ZRQE5WX10J3YSN12N7 #4 graph Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 6,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 80351,
+            "tokens_in": 83429,
+            "tokens_out": 979
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 6,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 69725,
+            "tokens_in": 87530,
+            "tokens_out": 886
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, team documents live in deliverables/, reports/, handbook/ and minutes/ (per the README). Every team document must have exactly 'Owner: docs-team' as its first line. The pre-merge check enforces this for deliverables/ and reports/. A handbook/ file and a minutes/ file each starting with that line passed the check and merged, but whether the check requires the line for handbook/",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 93573,
+        "tokens_in": 124253,
+        "tokens_out": 1266
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 94861,
+        "tokens_in": 97966,
+        "tokens_out": 846
+      },
+      "ticket2_facts_shown": 3,
+      "ticket2_shown": [
+        "run 01M5WC8BS5384FF0XQ4ZW7769C #1 graph: When reviewing docs project work, check the project rules (such as the 'Owner: docs-team' first line) as well as the acceptance criteria, because an approval that skips them leads to a failed merge.",
+        "run 01M5WC8BS5384FF0XQ4ZW7769C #2 hybrid: When creating a file in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the first line before the content, because the pre-merge check rejects files without it even if the acceptance criteria are met.",
+        "run 01M5WC8BS5384FF0XQ4ZW7769C #3 hybrid: In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line; the pre-merge check enforces this."
+      ]
+    }
+  }
+]

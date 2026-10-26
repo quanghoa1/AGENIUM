@@ -467,7 +467,15 @@ pub async fn run(
             let mem = memory()?;
             let mut memory_ops = Vec::new();
             let mut shown = Vec::new();
+            let mut run_list = Vec::new();
             for r in app.store().read(|c| runs::for_ticket(c, t.id))? {
+                run_list.push(json!({
+                    "run": r.id.to_string(),
+                    "agent": r.agent.to_string(),
+                    "outcome": r.outcome,
+                    "steps": r.steps,
+                    "shown": mem.usage_for_run(&r.id.to_string())?.len(),
+                }));
                 for e in app.store().read(|c| runs::log_entries(c, r.id))? {
                     if e.kind == "memory" {
                         memory_ops.push(e.data);
@@ -489,6 +497,7 @@ pub async fn run(
                 "lessons_after": lessons(memory()?.as_ref())?,
                 "memory_ops": memory_ops,
                 "shown": shown,
+                "runs": run_list,
                 "memories_after": held(memory()?.as_ref())?,
             }));
         }

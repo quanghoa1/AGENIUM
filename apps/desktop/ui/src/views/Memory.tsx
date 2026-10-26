@@ -77,6 +77,36 @@ function FactRow({ f, hideBelow, onRetire }: { f: Fact; hideBelow: number; onRet
   );
 }
 
+/** Memory recalls by meaning only with the local embedding model; without it, by shared words (ADR-47). */
+function EmbedderNote() {
+  const app = useApp();
+  const [m, setM] = useState<{ id: string; mb: number; installed: boolean; active: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api.embeddingModel().then(setM).catch(() => undefined);
+  }, []);
+  if (!m || m.active === m.id) return null;
+  const install = () => {
+    setBusy(true);
+    api
+      .installEmbeddingModel()
+      .then(() => api.embeddingModel().then(setM))
+      .catch((e) => app.notify(String(e)))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-line bg-elevated/40 p-3 text-xs">
+      <Brain className="h-4 w-4 shrink-0 text-accent" />
+      <div className="min-w-0 flex-1">{m.installed ? app.t("memory.embedRestart") : app.t("memory.embedMissing").replace("{mb}", String(m.mb))}</div>
+      {!m.installed && (
+        <button className="btn" disabled={busy} onClick={install}>
+          {busy ? app.t("memory.embedInstalling") : app.t("memory.embedInstall")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function MemoryView() {
   const app = useApp();
   const [agents, setAgents] = useState<AgentEntry[]>([]);
@@ -122,6 +152,7 @@ export function MemoryView() {
           <Wand2 className="h-3.5 w-3.5" /> {app.t("memory.tidy")}
         </button>
       </PageHeader>
+      <EmbedderNote />
       <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
         <Section title={app.t("nav.agents")}>
           <div className="space-y-1">

@@ -215,3 +215,15 @@ Feasibility probe (`docs/bench-raw/linux-graph-cte-probe.txt`; python `sqlite3` 
 - The retrieval path gains a channel and a re-rank step; with no entities linked it behaves exactly as ADR-50 hybrid.
 - Risk: entity-resolution mistakes and LLM extraction noise → mitigated by tombstone merges, scope hard-filters, untrusted flag, outcome signals and the golden set; the similarity bands are guesses until benchmarked.
 - Open for the owner: approve §10 options B/C (privacy model), the default lesson scope rule (§3.3), and the hub cap/time-limit defaults.
+
+## Amendment (2026-10-26): a context's rules open every work order
+
+A lesson whose scope matches the work's context is a rule there (decision 35). Recall used to reach a rule only through
+the text channels. With the hashing embedder (no local model installed) a rule that shared no words with the ticket
+never reached it. On Claude Haiku, a lesson about `deliverables/ or reports/` missed the ticket for `handbook/`.
+
+Recall now puts up to three of the context's rules first in every work order, before the fused hits: live, trusted
+lessons whose every scope key matches. The most proven come first: more contexts held, then confidence, then newest.
+They are logged with the channel `rule` when no text channel found them. Lessons are few, since they need signals and
+two contexts, so the cost is small. A work order without a context scope gets no rules.
+

@@ -76,6 +76,8 @@ fn main() {
             api::rename_agent,
             api::prices,
             api::refresh_prices,
+            api::embedding_model,
+            api::install_embedding_model,
             api::vendor_usage,
             api::refresh_vendor_usage,
             api::read_claude_usage,

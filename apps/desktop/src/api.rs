@@ -1231,6 +1231,33 @@ pub fn prices(d: State<'_, Desktop>) -> R<Value> {
     Ok(json!(d.opened()?.app.price_view()))
 }
 
+/// The embedding model memory recalls with: the local model (meaning-level recall) when installed, else keyword-level
+/// hashing. `active` is what this session uses (a model installed during it is used after a restart).
+#[tauri::command]
+pub fn embedding_model(d: State<'_, Desktop>) -> R<Value> {
+    use agenium_memory::local::{installed, BGE_SMALL_EN as SPEC};
+    let o = d.opened()?;
+    let models = o.app.layout().models();
+    Ok(json!({
+        "id": SPEC.id,
+        "mb": SPEC.total_bytes() >> 20,
+        "installed": installed(&SPEC, &models),
+        "active": o.rt.embedder.model_id(),
+    }))
+}
+
+/// Downloads the local embedding model (pinned revision, sha256-checked).
+#[tauri::command]
+pub async fn install_embedding_model(d: State<'_, Desktop>) -> R<()> {
+    use agenium_memory::local::{install, BGE_SMALL_EN as SPEC};
+    let o = d.opened()?;
+    let http = agenium_llm::http::Http::default_client().map_err(err)?;
+    install(&SPEC, &o.app.layout().models(), &http, &|m| {
+        tracing::info!(step = m, "embedding model")
+    })
+    .await
+}
+
 /// Downloads the price catalogue now; returns how many earlier runs got a price.
 #[tauri::command]
 pub async fn refresh_prices(d: State<'_, Desktop>) -> R<Value> {

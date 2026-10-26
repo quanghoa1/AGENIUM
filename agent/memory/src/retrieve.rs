@@ -17,6 +17,8 @@ pub const RRF_K: f64 = 60.0;
 const POOL: usize = 50;
 /// Vector hits farther than this cosine distance are not evidence (similarity < 0.2).
 pub const MAX_VEC_DISTANCE: f64 = 0.8;
+/// At most this many of the context's rules (proven lessons of its scope) join every recall.
+pub const RULES: usize = 3;
 /// Entity types whose canonical name becomes a context scope key when the ticket mentions them.
 const SCOPE_TYPES: &[&str] = &["vendor", "product", "language", "os", "project"];
 
@@ -204,8 +206,32 @@ pub fn recall(
             .then(pb.cmp(&pa))
             .then(a.id.cmp(&b.id))
     });
-    out.truncate(k);
-    Ok(out)
+    // The context's rules come first, whatever the text channels found: a lesson scoped to this project is one of
+    // its rules (decision 35). Lessons are few (signals, two contexts), so this costs little; without it a rule
+    // reached a ticket only when the ticket shared its words (the hashing embedder; found on Claude Haiku: a lesson
+    // about `deliverables/ or reports/` never reached the ticket for `handbook/`).
+    let rules = store.rules_in(&ctx.scope, RULES.min(k))?;
+    let mut first: Vec<Recalled> = Vec::new();
+    for f in rules {
+        match out.iter().position(|r| r.id == f.id) {
+            Some(i) => first.push(out.remove(i)),
+            None => first.push(Recalled {
+                id: f.id,
+                via: Via::Rule,
+                score: 0.0,
+                project: f.project.clone(),
+                kind: f.kind,
+                cue: f.cue.clone(),
+                exact: true,
+                validated: f.validated.len(),
+                shared: false,
+                text: f.text,
+            }),
+        }
+    }
+    out.truncate(k - first.len());
+    first.append(&mut out);
+    Ok(first)
 }
 
 /// How a recalled memory is shown to the work (decision 35): a lesson whose scope matches the work exactly is a rule,

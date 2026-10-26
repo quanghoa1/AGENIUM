@@ -811,38 +811,10 @@ async fn models_cmd(cli: &Cli, action: &str) -> Result<()> {
             }
         }
         _ => {
-            std::fs::create_dir_all(&dir)?;
-            let client = reqwest::Client::builder()
-                .connect_timeout(std::time::Duration::from_secs(30))
-                .build()?;
-            for f in SPEC.files {
-                let dst = dir.join(f.name);
-                if matches!(local::sha256_file(&dst), Ok(h) if h == f.sha256) {
-                    println!("{}: ok", f.name);
-                    continue;
-                }
-                println!("{}: downloading {} KB ...", f.name, f.bytes >> 10);
-                let part = dir.join(format!("{}.partial", f.name));
-                let mut resp = client.get(SPEC.url(f)).send().await?.error_for_status()?;
-                let mut out = std::fs::File::create(&part)?;
-                let mut n = 0u64;
-                while let Some(chunk) = resp.chunk().await? {
-                    n += chunk.len() as u64;
-                    if n > f.bytes {
-                        bail!("{}: larger than expected", f.name);
-                    }
-                    out.write_all(&chunk)?;
-                }
-                out.sync_all()?;
-                drop(out);
-                let h = local::sha256_file(&part)?;
-                if n != f.bytes || h != f.sha256 {
-                    let _ = std::fs::remove_file(&part);
-                    bail!("{}: checksum mismatch (got {h}, {n} bytes)", f.name);
-                }
-                std::fs::rename(&part, &dst)?;
-                println!("{}: verified", f.name);
-            }
+            let http = agenium_llm::http::Http::default_client()?;
+            local::install(&SPEC, &models, &http, &|m| println!("{m}"))
+                .await
+                .map_err(|e| anyhow!(e))?;
             println!(
                 "{} installed; agent memories are re-embedded on their next run",
                 SPEC.id
