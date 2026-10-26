@@ -165,13 +165,26 @@ impl App {
                 });
             }
         }
-        let (spec, any_plan) = self.store.read(|c| {
+        let (spec, latest) = self.store.read(|c| {
             Ok((
                 plans::latest_spec(c, project)?,
-                plans::latest_plan(c, project)?.is_some(),
+                plans::latest_plan(c, project)?,
             ))
         })?;
-        if let Some(spec) = spec.filter(|s| s.locked_at.is_some() && !any_plan) {
+        let spec = spec.filter(|s| s.locked_at.is_some());
+        // A team Lead takes no tickets: every plan item gets one of its workers' roles.
+        let roles_note = (!team.solo).then(|| {
+            let roles: std::collections::BTreeSet<&str> = members
+                .iter()
+                .filter(|m| m.id != lead)
+                .map(|m| m.role.as_str())
+                .collect();
+            format!(
+                "\nYou take no tickets: give every plan item one of your workers' roles ({}).",
+                roles.into_iter().collect::<Vec<_>>().join(", ")
+            )
+        });
+        if let Some(spec) = spec.as_ref().filter(|_| latest.is_none()) {
             let text = match (self.planner(project)?, self.plan_draft(project, spec.version)?) {
                 (Some(p), Some(d)) => Some(format!(
                     "Spec v{v} is approved and your planner {} drafted plan v1. Review the draft against the spec and the team, adjust what you disagree with, then create_plan (you approve it: the user agreed on the spec).\nPlanner's rationale: {}\nDraft: {}",
@@ -185,24 +198,33 @@ impl App {
                 (None, _) => Some(format!("Spec v{} is approved and has no plan yet: create_plan (you approve it: the user agreed on the spec).", spec.version)),
             };
             if let Some(mut text) = text {
-                if !team.solo {
-                    let roles: std::collections::BTreeSet<&str> = members
-                        .iter()
-                        .filter(|m| m.id != lead)
-                        .map(|m| m.role.as_str())
-                        .collect();
-                    text.push_str(&format!(
-                        "
-You take no tickets: give every plan item one of your workers' roles ({}).",
-                        roles.into_iter().collect::<Vec<_>>().join(", ")
-                    ));
-                }
+                text.push_str(roles_note.as_deref().unwrap_or_default());
                 out.push(InboxItem {
                     kind: InboxKind::Planning,
                     ticket: None,
                     comment: None,
                     created_at: spec.locked_at.clone().unwrap_or_default(),
                     text,
+                });
+            }
+        }
+        // A spec agreed after the plan was made (the user's next request): the Lead revises the plan to follow it
+        // (ADR-59: a later spec is the Lead's to plan, not the planner's).
+        if let (Some(spec), Some(plan)) = (&spec, &latest) {
+            if plan.spec_version < spec.version {
+                out.push(InboxItem {
+                    kind: InboxKind::Planning,
+                    ticket: None,
+                    comment: None,
+                    created_at: spec.locked_at.clone().unwrap_or_default(),
+                    text: format!(
+                        "Spec v{} is approved and plan v{} still follows spec v{}: revise_plan (base_version {}) so every requirement of the new spec has an item; items with open tickets stay (you approve it: the user agreed on the spec).{}",
+                        spec.version,
+                        plan.version,
+                        plan.spec_version,
+                        plan.version,
+                        roles_note.as_deref().unwrap_or_default()
+                    ),
                 });
             }
         }

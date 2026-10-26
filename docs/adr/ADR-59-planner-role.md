@@ -38,4 +38,6 @@ a declared team member started by the scheduler, not a subagent an agent spawns.
   `team.rs::approved_spec_without_planner_asks_the_lead_for_a_plan`,
   `runtime.rs::planner_drafts_then_the_lead_creates_the_plan`, `protocol.rs::catalogue_matches_design_index`.
 - Only the initial plan is drafted by the planner: a new spec version on a project that already has a plan is the
-  Lead's to revise.
+  Lead's to revise. Once agreed, it is a Planning item in the Lead's inbox (`revise_plan` from the latest plan) and
+  the project runs until the plan follows it (2026-10-27: a done project used to stay Done, so nothing planned the
+  user's next request; `runtime.rs::solo_agent_takes_a_request_to_a_closed_merged_ticket`).

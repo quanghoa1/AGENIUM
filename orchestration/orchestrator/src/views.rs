@@ -177,12 +177,18 @@ impl App {
         }
         let spec_open = v.spec.as_ref().is_some_and(|s| s.locked_at.is_none());
         let plan_open = v.plan.as_ref().is_some_and(|p| p.approved_by.is_none());
+        // A spec agreed after the plan (the user's next request on a done project) runs until the plan follows it.
+        let plan_behind = agreed
+            && v.plan
+                .as_ref()
+                .zip(v.spec.as_ref())
+                .is_some_and(|(p, s)| p.spec_version < s.version);
         let open_tickets = self
             .tickets(project)?
             .iter()
             .any(|t| !t.status.is_terminal());
         let all_done = !v.items.is_empty() && v.items.iter().all(|i| i.done);
-        if all_done && !open_tickets && !spec_open && !plan_open {
+        if all_done && !open_tickets && !spec_open && !plan_open && !plan_behind {
             return Ok(RunState::Done);
         }
         Ok(RunState::Running)

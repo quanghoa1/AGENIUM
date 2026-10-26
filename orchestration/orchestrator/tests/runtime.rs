@@ -184,6 +184,57 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         app.project(project).unwrap().status,
         ProjectStatus::Completed
     );
+    // The user's next request on the done project: a newer agreed spec makes it run again and asks the Lead to revise
+    // the plan (it stayed Done before, and nothing planned the new spec).
+    use agenium_core::plan::{PlanRevision, Requirement};
+    let lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(agent),
+        intent_id: None,
+        run: None,
+    };
+    let mut next = spec();
+    next.requirements.push(Requirement {
+        id: "REQ-2".into(),
+        text: "A farewell file exists".into(),
+        acceptance: vec![AcceptanceCriterion {
+            id: "AC-1".into(),
+            text: "bye.txt says bye".into(),
+        }],
+    });
+    app.apply(&lead, Intent::ProposeSpec(next)).unwrap();
+    assert_eq!(app.run_state(project).unwrap(), RunState::Running);
+    let inbox = app.lead_inbox(project).unwrap();
+    assert!(
+        inbox.iter().any(|i| i.text.contains(
+            "Spec v2 is approved and plan v1 still follows spec v1: revise_plan (base_version 1)"
+        )),
+        "{inbox:?}"
+    );
+    let mut items = plan(&[("PI-1", &[]), ("PI-2", &[])]).items;
+    items[1].trace_to = vec!["REQ-2".into()];
+    app.apply(
+        &lead,
+        Intent::RevisePlan(PlanRevision {
+            base_version: 1,
+            reason: "the farewell of spec v2".into(),
+            milestones: plan(&[]).milestones,
+            items,
+        }),
+    )
+    .unwrap();
+    assert!(
+        !app.lead_inbox(project)
+            .unwrap()
+            .iter()
+            .any(|i| i.text.contains("revise_plan (base_version")),
+        "the plan follows the spec again"
+    );
+    assert_eq!(
+        app.run_state(project).unwrap(),
+        RunState::Running,
+        "PI-2 waits for its ticket"
+    );
 
     // Work order structure: cache-stable order, protocol + work tools, no sampling knobs.
     let reqs = p.requests();
