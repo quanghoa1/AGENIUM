@@ -3,7 +3,9 @@
 // their gaps, numbers roll; the whole app sits inside MotionConfig reducedMotion="user" (under the OS "reduce motion"
 // setting fades and blurs stay, movement goes).
 import { AnimatePresence, animate, motion, useAnimate, useMotionValue, useReducedMotion, useTransform, type Transition } from "motion/react";
+import { Trash2 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
+import { useApp } from "../lib/store";
 import { cn } from "./ui";
 
 /** Springs, by job. Higher stiffness = quicker; damping close to critical = no visible overshoot. */
@@ -284,6 +286,39 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
         {children}
       </div>
     </Overlay>
+  );
+}
+
+/** A delete/remove confirmation: a note, Cancel, and a danger button that runs `onConfirm` (closed either way). */
+export function ConfirmModal({
+  open,
+  title,
+  note,
+  confirm,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean;
+  title: ReactNode;
+  note: ReactNode;
+  /** The danger button's label. */
+  confirm: ReactNode;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const app = useApp();
+  return (
+    <Modal open={open} title={title} onClose={onClose}>
+      <p className="text-xs text-muted">{note}</p>
+      <div className="mt-4 flex justify-end gap-2">
+        <button className="btn" onClick={onClose}>
+          {app.t("common.cancel")}
+        </button>
+        <button className="btn-danger" onClick={onConfirm}>
+          <Trash2 className="h-3.5 w-3.5" /> {confirm}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

@@ -1,6 +1,18 @@
 // App-wide state: route (hash based, so reload keeps the place), language, theme, selected project, a refresh
-// counter bumped by domain events, live run output, command approvals and toasts.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+// counter bumped by domain events, command approvals and toasts. Live run output has its own context (`useLive`):
+// it changes on every streamed token, and only the views that show it should re-render.
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { api, inTauri, onApproval, onEvent, onRun } from "./api";
 import { dictionaries, type Key, type Lang } from "./i18n";
 import type { CommandApproval, ProjectSummary, Status } from "./types";
@@ -40,6 +52,8 @@ export type ThemeMode = "dark" | "light" | "system";
 
 /** Live output of one run: streamed text, the tail of its thinking, tool calls, and what it does right now. */
 export interface LiveRun {
+  /** The run's agent (id), when the backend named it. */
+  agent?: string | null;
   text: string;
   thinking: string;
   tools: { name: string; args?: unknown }[];
@@ -52,6 +66,8 @@ export interface LiveRun {
 }
 
 const TAIL = 20_000;
+/** Finished runs are dropped from the live map after this long (ms). */
+const KEEP_DONE = 10 * 60_000;
 
 interface Ctx {
   status: Status | null;
@@ -68,20 +84,25 @@ interface Ctx {
   /** Bumped on every committed event: views reload what they show. */
   tick: number;
   refresh: () => void;
-  live: Record<string, LiveRun>;
   approvals: CommandApproval[];
-  setApprovals: (a: CommandApproval[]) => void;
+  setApprovals: Dispatch<SetStateAction<CommandApproval[]>>;
   toast: string | null;
   notify: (m: string) => void;
   reloadStatus: () => void;
 }
 
 const C = createContext<Ctx | null>(null);
+const L = createContext<Record<string, LiveRun>>({});
 
 export function useApp(): Ctx {
   const c = useContext(C);
   if (!c) throw new Error("useApp outside the provider");
   return c;
+}
+
+/** Live output of the runs in progress (and of those finished in the last minutes), by run id. */
+export function useLive(): Record<string, LiveRun> {
+  return useContext(L);
 }
 
 function readLocal(k: string): string | null {
@@ -114,7 +135,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toastTimer = useRef<number | undefined>(undefined);
 
   const reloadStatus = useCallback(() => {
-    api.status().then(setStatus);
+    // A failed status read is tried again rather than leaving the window on its loading screen.
+    api.status().then(setStatus, () => window.setTimeout(() => api.status().then(setStatus, () => {}), 2000));
   }, []);
   useEffect(reloadStatus, [reloadStatus]);
 
@@ -142,10 +164,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!status?.ready) return;
-    api.projects().then((ps) => {
-      setProjects(ps);
-      setProjectState((cur) => (cur && ps.some((p) => p.id === cur) ? cur : (ps[0]?.id ?? null)));
-    });
+    api
+      .projects()
+      .then((ps) => {
+        setProjects(ps);
+        setProjectState((cur) => (cur && ps.some((p) => p.id === cur) ? cur : (ps[0]?.id ?? null)));
+      })
+      .catch(() => {});
   }, [status?.ready, tick]);
 
   // Domain events refresh the views (coalesced to at most one refresh per 400 ms).
@@ -164,10 +189,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const un = onRun((run, ev) => {
-      setLive((m) => {
-        const cur: LiveRun = m[run] ?? { text: "", thinking: "", tools: [], phase: "idle", done: false, at: 0 };
-        const next: LiveRun = { ...cur, at: Date.now() };
+    const un = onRun((run, ev, agent) => {
+      setLive((prev) => {
+        let m = prev;
+        if (!m[run]) {
+          // A new run: forget the ones that finished a while ago.
+          const now = Date.now();
+          m = Object.fromEntries(Object.entries(m).filter(([, l]) => !l.done || now - l.at < KEEP_DONE));
+        }
+        const cur: LiveRun = m[run] ?? { agent, text: "", thinking: "", tools: [], phase: "idle", done: false, at: 0 };
+        const next: LiveRun = { ...cur, agent: cur.agent ?? agent, at: Date.now() };
         if (ev.type === "text") {
           next.text = (cur.text + ev.text).slice(-TAIL);
           next.phase = "text";
@@ -206,6 +237,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastTimer.current = window.setTimeout(() => setToast(null), 5000);
   }, []);
 
+  // A failed backend call nobody caught still reaches the user (as a toast), instead of a view waiting silently.
+  useEffect(() => {
+    const f = (e: PromiseRejectionEvent) => {
+      e.preventDefault();
+      const r = e.reason;
+      notify(typeof r === "string" ? r : r instanceof Error ? r.message : String(r));
+    };
+    window.addEventListener("unhandledrejection", f);
+    return () => window.removeEventListener("unhandledrejection", f);
+  }, [notify]);
+
   useEffect(() => {
     const un = onApproval((a) => {
       setApprovals((xs) => [...xs.filter((x) => x.id !== a.id), a]);
@@ -216,42 +258,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [notify]);
 
+  const go = useCallback((view: View, id?: string) => {
+    window.location.hash = "/" + view + (id ? "/" + encodeURIComponent(id) : "");
+  }, []);
+  const setLang = useCallback((l: Lang) => {
+    setLangState(l);
+    writeLocal("agenium-lang", l);
+  }, []);
+  const t = useCallback((k: Key) => dictionaries[lang][k] ?? k, [lang]);
+  const setThemeMode = useCallback((m: ThemeMode) => {
+    setThemeModeState(m);
+    writeLocal("agenium-theme", m);
+  }, []);
+  const setProject = useCallback((id: string | null) => {
+    setProjectState(id);
+    if (id) writeLocal("agenium-project", id);
+  }, []);
+
   const value = useMemo<Ctx>(
     () => ({
       status,
       route,
-      go: (view, id) => {
-        window.location.hash = "/" + view + (id ? "/" + encodeURIComponent(id) : "");
-      },
+      go,
       lang,
-      setLang: (l) => {
-        setLangState(l);
-        writeLocal("agenium-lang", l);
-      },
-      t: (k) => dictionaries[lang][k] ?? k,
+      setLang,
+      t,
       themeMode,
-      setThemeMode: (m) => {
-        setThemeModeState(m);
-        writeLocal("agenium-theme", m);
-      },
+      setThemeMode,
       projects,
       project,
-      setProject: (id) => {
-        setProjectState(id);
-        if (id) writeLocal("agenium-project", id);
-      },
+      setProject,
       tick,
       refresh,
-      live,
       approvals,
       setApprovals,
       toast,
       notify,
       reloadStatus,
     }),
-    [status, route, lang, themeMode, projects, project, tick, refresh, live, approvals, toast, notify, reloadStatus],
+    [status, route, go, lang, setLang, t, themeMode, setThemeMode, projects, project, setProject, tick, refresh, approvals, toast, notify, reloadStatus],
   );
-  return <C.Provider value={value}>{children}</C.Provider>;
+  return (
+    <C.Provider value={value}>
+      <L.Provider value={live}>{children}</L.Provider>
+    </C.Provider>
+  );
 }
 
 export { inTauri };

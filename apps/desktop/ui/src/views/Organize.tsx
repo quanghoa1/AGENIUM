@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowLeft, Crown, Download, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
+import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
 import { isFree, priceLabel, priceOf, usePrices } from "../lib/prices";
@@ -1247,17 +1247,14 @@ export function TeamsView() {
         )}
       </Section>
       {data.teams.length === 0 && mode === "none" && <Empty>{app.t("teams.none")}</Empty>}
-      <Modal open={!!dissolve} title={app.t("teams.dissolve")} onClose={() => setDissolve(null)}>
-        <p className="text-xs text-muted">{app.t("teams.dissolveNote")}</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="btn" onClick={() => setDissolve(null)}>
-            {app.t("common.cancel")}
-          </button>
-          <button className="btn-danger" onClick={() => act(api.dissolveTeam(dissolve!)).finally(() => setDissolve(null))}>
-            <Trash2 className="h-3.5 w-3.5" /> {app.t("teams.dissolve")}
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        open={!!dissolve}
+        title={app.t("teams.dissolve")}
+        note={app.t("teams.dissolveNote")}
+        confirm={app.t("teams.dissolve")}
+        onClose={() => setDissolve(null)}
+        onConfirm={() => act(api.dissolveTeam(dissolve!)).finally(() => setDissolve(null))}
+      />
     </div>
   );
 }

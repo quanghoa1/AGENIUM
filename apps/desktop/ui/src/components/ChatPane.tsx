@@ -4,7 +4,7 @@
 import { Brain, ChevronDown, ChevronRight, Loader2, Send, Wrench } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
-import { useApp, type LiveRun } from "../lib/store";
+import { useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine } from "../lib/types";
 import { Markdown } from "./Markdown";
 import { ListItem } from "./motion";
@@ -65,6 +65,7 @@ export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
 export function ChatPane({
   project,
   agentName,
+  agentId,
   enabled = true,
   prefill,
   after,
@@ -73,6 +74,8 @@ export function ChatPane({
 }: {
   project: string;
   agentName: string;
+  /** The agent's id: on the chat page its newest live run is the turn in progress (never another agent's). */
+  agentId?: string | null;
   enabled?: boolean;
   prefill?: Prefill | null;
   /** Rendered after the conversation (the Lead's delegation cards in the Live tab). */
@@ -82,11 +85,22 @@ export function ChatPane({
   className?: string;
 }) {
   const app = useApp();
+  const live = useLive();
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  // The turn in progress: the agent's run when known, else (chat page) this agent's newest live run while we wait.
+  const current =
+    stream && !stream.done
+      ? stream
+      : busy && agentId
+        ? Object.values(live)
+            .filter((l) => !l.done && l.agent === agentId)
+            .sort((a, b) => a.at - b.at)
+            .slice(-1)[0]
+        : undefined;
   useEffect(() => {
     setLines([]);
     api.chatHistory(project).then(setLines);
@@ -103,21 +117,17 @@ export function ChatPane({
     }, 60);
   }, [prefill]);
   useEffect(() => {
-    // Scroll the conversation only (scrollIntoView would also scroll the page or pane around it).
+    // Scroll the conversation only (scrollIntoView would also scroll the page or pane around it), and only when
+    // the user is at the bottom already: reading an earlier message is not interrupted by the streaming turn.
     const el = end.current?.parentElement;
-    el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [lines, busy, app.live]);
-
-  // The turn in progress: the agent's run when known, else (chat page) the newest live run while we wait.
-  const current =
-    stream && !stream.done
-      ? stream
-      : busy
-        ? Object.values(app.live)
-            .filter((l) => !l.done)
-            .sort((a, b) => a.at - b.at)
-            .slice(-1)[0]
-        : undefined;
+    if (!el) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [lines, busy, current?.text.length, current?.thinking.length]);
+  useEffect(() => {
+    // A message the user sends always brings the conversation to its end.
+    const el = end.current?.parentElement;
+    el?.scrollTo({ top: el.scrollHeight });
+  }, [lines.length]);
 
   const send = () => {
     if (!text.trim() || !enabled) return;

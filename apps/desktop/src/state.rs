@@ -180,13 +180,26 @@ impl Desktop {
             }),
         );
         let h = handle.clone();
+        // Each event names the run's agent (looked up once per run) so a chat shows only its own agent's turn.
+        let store = app.store().clone();
+        let agents = std::sync::Mutex::new(std::collections::HashMap::<RunId, String>::new());
         rt.live = Some(Arc::new(move |run: &RunId, e: &agenium_llm::ChatEvent| {
-            if let Some(v) = live_json(e) {
-                let _ = h.emit(
-                    "agenium://run",
-                    serde_json::json!({ "run": run, "event": v }),
-                );
+            let Some(v) = live_json(e) else { return };
+            let mut known = agents.lock().unwrap_or_else(|p| p.into_inner());
+            if !known.contains_key(run) {
+                if let Ok(r) = store.read(|c| agenium_store::core::runs::get(c, *run)) {
+                    if known.len() > 512 {
+                        known.clear();
+                    }
+                    known.insert(*run, r.agent.to_string());
+                }
             }
+            let agent = known.get(run).cloned();
+            drop(known);
+            let _ = h.emit(
+                "agenium://run",
+                serde_json::json!({ "run": run, "agent": agent, "event": v }),
+            );
         }));
         let o = Arc::new(Opened {
             app,

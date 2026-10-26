@@ -129,7 +129,7 @@ export function UsageFooter() {
     const b = setInterval(() => setNow((n) => n + 1), 30_000);
     const off = onUsage(load);
     return () => (clearInterval(a), clearInterval(b), void off.then((f) => f()));
-  }, [app.tick]);
+  }, []);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(null);

@@ -456,13 +456,6 @@ pub fn memory_action(
 }
 
 #[tauri::command]
-pub fn set_team_lead(d: State<'_, Desktop>, project: String, agent: String) -> R<()> {
-    let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
-    o.app.set_team_lead(pid(&project)?, id).map_err(err)
-}
-
-#[tauri::command]
 pub fn runs(d: State<'_, Desktop>, limit: Option<usize>) -> R<Vec<Value>> {
     let o = d.opened()?;
     let names = names(&o)?;

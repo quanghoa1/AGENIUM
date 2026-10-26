@@ -297,18 +297,6 @@ pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) ->
     )
 }
 
-/// The recommended empty SKILL.md body sections (ADR-88), for an authoring form.
-#[tauri::command]
-pub fn skill_skeleton(d: State<'_, Desktop>) -> R<String> {
-    Ok(d.opened()?.app.skill_skeleton())
-}
-
-/// Advisory skill-shape checks on a body (ADR-88): missing/empty sections, too long, near-duplicate. Never blocks.
-#[tauri::command]
-pub fn lint_skill(d: State<'_, Desktop>, name: String, body: String) -> R<Vec<String>> {
-    Ok(d.opened()?.app.lint_skill(&name, &body))
-}
-
 #[tauri::command]
 pub fn remove_skill(d: State<'_, Desktop>, name: String, force: bool) -> R<()> {
     d.opened()?

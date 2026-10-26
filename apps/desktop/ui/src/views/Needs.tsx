@@ -152,7 +152,7 @@ export function NeedsView() {
     Promise.all(app.projects.map((p) => api.needsYou(p.id).then((r) => ({ id: p.id, project: p.name, items: r.needs, cmds: r.command_approvals })))).then((rs) => {
       setItems(rs);
       const cmds = rs.flatMap((r) => r.cmds);
-      if (cmds.length) app.setApprovals(cmds.filter((c, i) => cmds.findIndex((x) => x.id === c.id) === i));
+      app.setApprovals(cmds.filter((c, i) => cmds.findIndex((x) => x.id === c.id) === i));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app.projects, app.tick]);

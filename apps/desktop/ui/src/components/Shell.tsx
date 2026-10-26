@@ -30,7 +30,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
-import { inTauri, useApp, type View } from "../lib/store";
+import { inTauri, useApp, useLive, type View } from "../lib/store";
 import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
 import { CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
@@ -47,6 +47,7 @@ interface NavItem {
 
 export function Shell({ children }: { children: ReactNode }) {
   const app = useApp();
+  const live = useLive();
   const { t, route, go } = app;
   const [collapsed, setCollapsed] = useState(false);
   const glide = spring.selection;
@@ -54,7 +55,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const current = app.projects.find((p) => p.id === app.project);
   const needs = app.projects.reduce((n, p) => n + p.needs_you, 0) + app.approvals.length;
   // Runs streaming right now (the Live tab's badge).
-  const working = Object.values(app.live).filter((l) => !l.done && Date.now() - l.at < 120_000).length;
+  const working = Object.values(live).filter((l) => !l.done && Date.now() - l.at < 120_000).length;
   useEffect(() => {
     const f = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {

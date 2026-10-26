@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
 import { Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
-import { useApp } from "../lib/store";
+import { useApp, useLive } from "../lib/store";
 import type { LogEntry, RunDetail, RunRow } from "../lib/types";
 
 export function RunsView() {
@@ -98,11 +98,11 @@ export function RunView({ id }: { id: string }) {
   const app = useApp();
   const [d, setD] = useState<RunDetail | null>(null);
   const [raw, setRaw] = useState(false);
+  const live = useLive()[id];
   useEffect(() => {
     api.runDetail(id).then(setD).catch((e) => app.notify(String(e)));
   }, [id, app.tick]);
   if (!d) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
-  const live = app.live[id];
   const r = d.run;
   return (
     <div className="space-y-4">

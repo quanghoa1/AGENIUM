@@ -49,7 +49,7 @@ import { PixelOffice, type Activity, type CallKind, type OfficeAgent } from "../
 import { Avatar, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
 import { VendorBadge } from "../components/VendorBadge";
 import { api, onEvent, onRun } from "../lib/api";
-import { useApp, type LiveRun as Stream } from "../lib/store";
+import { useApp, useLive, type LiveRun as Stream } from "../lib/store";
 import type { AgentTrace, BusItem, Column, EventRecord, LiveAgent, LiveData, LogEntry, PlanView, TicketStatus } from "../lib/types";
 
 const SHELL = new Set(["shell", "Bash", "PowerShell", "run_command"]);
@@ -876,7 +876,8 @@ export function LiveView() {
     };
   }, []);
 
-  const acts = useActivity(data, app.live, app.t);
+  const live = useLive();
+  const acts = useActivity(data, live, app.t);
   const rooms = data ? roomsOf(data, app.t("live.soloOffice")) : [];
   const current = rooms.find((r) => r.id === room) ?? (room === "cctv" ? undefined : rooms.find((r) => r.id !== "solo") ?? rooms[0]);
   const cctv = room === "cctv";

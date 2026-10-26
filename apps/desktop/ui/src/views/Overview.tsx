@@ -14,7 +14,8 @@ export function OverviewView() {
   useEffect(() => {
     api.overview().then((x) => {
       setO(x);
-      if (x.command_approvals.length) app.setApprovals(x.command_approvals);
+      // The backend's list is the truth: answered or expired approvals leave it.
+      app.setApprovals(x.command_approvals);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app.tick]);

@@ -80,7 +80,6 @@ export const api = {
   ticketDiff: (project: string, key: string) =>
     call<{ diff: string; truncated?: boolean; branch?: string; merged?: string | null; note?: string }>("ticket_diff", { project, key }),
   agentDetail: (agent: string) => call<AgentDetail>("agent_detail", { agent }),
-  setTeamLead: (project: string, agent: string) => call<void>("set_team_lead", { project, agent }),
   audit: (project: string, key?: string, format?: "md") =>
     call<AuditEntry[] | string>("audit", { project, key, format }),
   agents: () => call<AgentEntry[]>("agents"),
@@ -165,8 +164,6 @@ export const api = {
   skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),
   importSkill: (path: string, replace = false) =>
     call<{ name: string; description: string; shape_notes: string[]; quality: string[] }>("import_skill", { path, replace }),
-  skillSkeleton: () => call<string>("skill_skeleton", {}),
-  lintSkill: (name: string, body: string) => call<string[]>("lint_skill", { name, body }),
   removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),
   skillText: (name: string) => call<{ name: string; body: string; files: string[] }>("skill_text", { name }),
   mcpServers: () => call<McpServerRow[]>("mcp_servers"),
@@ -199,9 +196,11 @@ export async function onEvent(f: (e: EventRecord) => void): Promise<UnlistenFn> 
   return listen<EventRecord>("agenium://event", (e) => f(e.payload));
 }
 
-export async function onRun(f: (run: string, ev: any) => void): Promise<UnlistenFn> {
+export async function onRun(f: (run: string, ev: any, agent: string | null) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => {};
-  return listen<{ run: string; event: any }>("agenium://run", (e) => f(e.payload.run, e.payload.event));
+  return listen<{ run: string; agent?: string | null; event: any }>("agenium://run", (e) =>
+    f(e.payload.run, e.payload.event, e.payload.agent ?? null),
+  );
 }
 
 /** The vendors' usage was read again (`agenium://usage`). */

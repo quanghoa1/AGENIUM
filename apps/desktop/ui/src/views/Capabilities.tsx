@@ -1,9 +1,9 @@
 // Capabilities the user manages (ADR-61): model providers (API key or local model; agent CLIs are detected), and the
 // system's skill library and MCP servers that each agent switches on or off.
 import { CheckCircle2, Eye, FileUp, KeyRound, Laptop, ListTree, Pencil, Plug, Plus, RefreshCw, Search, Trash2, Wrench, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
-import { Modal, PanelSwap, Segmented } from "../components/motion";
+import { ConfirmModal, Modal, PanelSwap, Segmented } from "../components/motion";
 import { Empty, Mono, PageHeader, Section, cn } from "../components/ui";
 import { api, inTauri } from "../lib/api";
 import { useApp } from "../lib/store";
@@ -280,8 +280,8 @@ export function ProvidersView() {
           </thead>
           <tbody className="divide-y divide-line">
             {c.providers.map((p) => (
-              <>
-                <tr key={p.id}>
+              <Fragment key={p.id}>
+                <tr>
                   <td className="py-2 font-medium">{p.id}</td>
                   <td className="text-muted">{p.kind}</td>
                   <td className="font-mono text-[11px] text-subtle">{p.base_url ?? "default"}</td>
@@ -294,6 +294,8 @@ export function ProvidersView() {
                       </button>
                       <button
                         className="btn"
+                        title={app.t("common.edit")}
+                        aria-label={app.t("common.edit")}
                         onClick={() =>
                           setDraft({
                             editing: true,
@@ -311,7 +313,7 @@ export function ProvidersView() {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button className="btn" onClick={() => setDel(p.id)}>
+                      <button className="btn" title={app.t("providers.remove")} aria-label={app.t("providers.remove")} onClick={() => setDel(p.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -324,7 +326,7 @@ export function ProvidersView() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -372,25 +374,19 @@ export function ProvidersView() {
           {app.t("providers.fallback")}: {c.cli_fallback.provider ? <Mono>{c.cli_fallback.provider}/{c.cli_fallback.model}</Mono> : app.t("providers.notSet")}
         </div>
       </Section>
-      <Modal open={!!del} title={`${app.t("providers.remove")} ${del ?? ""}`} onClose={() => setDel(null)}>
-        <p className="text-xs text-muted">{app.t("providers.removeNote")}</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="btn" onClick={() => setDel(null)}>
-            {app.t("common.cancel")}
-          </button>
-          <button
-            className="btn-danger"
-            onClick={() =>
-              api
-                .removeProvider(del!)
-                .then(() => (setDel(null), load(), app.notify(app.t("common.done"))))
-                .catch((e) => (setDel(null), app.notify(String(e))))
-            }
-          >
-            <Trash2 className="h-3.5 w-3.5" /> {app.t("common.delete")}
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        open={!!del}
+        title={`${app.t("providers.remove")} ${del ?? ""}`}
+        note={app.t("providers.removeNote")}
+        confirm={app.t("common.delete")}
+        onClose={() => setDel(null)}
+        onConfirm={() =>
+          api
+            .removeProvider(del!)
+            .then(() => (setDel(null), load(), app.notify(app.t("common.done"))))
+            .catch((e) => (setDel(null), app.notify(String(e))))
+        }
+      />
     </div>
   );
 }
@@ -429,7 +425,9 @@ function SkillsPanel() {
   // Drop a skill folder or .zip on the window (Tauri gives the paths).
   useEffect(() => {
     if (!inTauri) return;
+    // The listener arrives asynchronously: one that lands after cleanup is removed at once (no stacked listeners).
     let un: (() => void) | undefined;
+    let gone = false;
     import("@tauri-apps/api/webview").then(({ getCurrentWebview }) =>
       getCurrentWebview()
         .onDragDropEvent((e) => {
@@ -441,9 +439,12 @@ function SkillsPanel() {
             if (p.paths[0]) doImport(p.paths[0]);
           }
         })
-        .then((f) => (un = f)),
+        .then((f) => (gone ? f() : (un = f))),
     );
-    return () => un?.();
+    return () => {
+      gone = true;
+      un?.();
+    };
   }, [replace]);
   return (
     <div className="space-y-4">
@@ -512,25 +513,19 @@ function SkillsPanel() {
         <div className="max-h-[60vh] overflow-y-auto text-xs">{view && <Markdown text={view.body} />}</div>
         {view && view.files.length > 0 && <div className="mt-3 font-mono text-[10px] text-subtle">{view.files.join(" · ")}</div>}
       </Modal>
-      <Modal open={!!del} title={`${app.t("common.delete")} ${del?.name ?? ""}`} onClose={() => setDel(null)}>
-        <p className="text-xs text-muted">{del?.users.length ? `${app.t("library.inUse")} ${del.users.join(", ")}.` : app.t("library.deleteNote")}</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="btn" onClick={() => setDel(null)}>
-            {app.t("common.cancel")}
-          </button>
-          <button
-            className="btn-danger"
-            onClick={() =>
-              api
-                .removeSkill(del!.name, del!.users.length > 0)
-                .then(() => (setDel(null), load()))
-                .catch((e) => (setDel(null), app.notify(String(e))))
-            }
-          >
-            <Trash2 className="h-3.5 w-3.5" /> {del?.users.length ? app.t("library.deleteForce") : app.t("common.delete")}
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        open={!!del}
+        title={`${app.t("common.delete")} ${del?.name ?? ""}`}
+        note={del?.users.length ? `${app.t("library.inUse")} ${del.users.join(", ")}.` : app.t("library.deleteNote")}
+        confirm={del?.users.length ? app.t("library.deleteForce") : app.t("common.delete")}
+        onClose={() => setDel(null)}
+        onConfirm={() =>
+          api
+            .removeSkill(del!.name, del!.users.length > 0)
+            .then(() => (setDel(null), load()))
+            .catch((e) => (setDel(null), app.notify(String(e))))
+        }
+      />
     </div>
   );
 }
@@ -747,25 +742,19 @@ function McpPanel() {
         })}
       </div>
       {rows && rows.length === 0 && <Empty>{app.t("library.noMcp")}</Empty>}
-      <Modal open={!!del} title={`${app.t("common.delete")} ${del?.config.id ?? ""}`} onClose={() => setDel(null)}>
-        <p className="text-xs text-muted">{del?.users.length ? `${app.t("library.inUse")} ${del.users.join(", ")}.` : app.t("library.deleteMcpNote")}</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="btn" onClick={() => setDel(null)}>
-            {app.t("common.cancel")}
-          </button>
-          <button
-            className="btn-danger"
-            onClick={() =>
-              api
-                .removeMcp(del!.config.id, del!.users.length > 0)
-                .then(() => (setDel(null), load()))
-                .catch((e) => (setDel(null), app.notify(String(e))))
-            }
-          >
-            <Trash2 className="h-3.5 w-3.5" /> {del?.users.length ? app.t("library.deleteForce") : app.t("common.delete")}
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        open={!!del}
+        title={`${app.t("common.delete")} ${del?.config.id ?? ""}`}
+        note={del?.users.length ? `${app.t("library.inUse")} ${del.users.join(", ")}.` : app.t("library.deleteMcpNote")}
+        confirm={del?.users.length ? app.t("library.deleteForce") : app.t("common.delete")}
+        onClose={() => setDel(null)}
+        onConfirm={() =>
+          api
+            .removeMcp(del!.config.id, del!.users.length > 0)
+            .then(() => (setDel(null), load()))
+            .catch((e) => (setDel(null), app.notify(String(e))))
+        }
+      />
     </div>
   );
 }
