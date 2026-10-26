@@ -171,12 +171,12 @@ pub struct RunReport {
     pub model: String,
 }
 
-/// Cancellation flag shared with the runtime (kill switch). A child (one project's runs) is cancelled by its own
-/// flag or by its parent's.
+/// Cancellation flag shared with the runtime (kill switch). A child (one project's runs, one ticket's run) is
+/// cancelled by its own flag or by any of its ancestors'.
 #[derive(Clone, Default)]
 pub struct Cancel {
     me: Arc<AtomicBool>,
-    parent: Option<Arc<AtomicBool>>,
+    parent: Option<Arc<Cancel>>,
 }
 
 impl Cancel {
@@ -184,11 +184,7 @@ impl Cancel {
         self.me.store(true, Ordering::SeqCst);
     }
     pub fn is_cancelled(&self) -> bool {
-        self.me.load(Ordering::SeqCst)
-            || self
-                .parent
-                .as_ref()
-                .is_some_and(|p| p.load(Ordering::SeqCst))
+        self.me.load(Ordering::SeqCst) || self.parent.as_ref().is_some_and(|p| p.is_cancelled())
     }
     /// Lets new runs start again after a kill switch (the stopped runs have seen the flag by then).
     pub fn reset(&self) {
@@ -198,7 +194,7 @@ impl Cancel {
     pub fn child(&self) -> Cancel {
         Cancel {
             me: Arc::default(),
-            parent: Some(self.me.clone()),
+            parent: Some(Arc::new(self.clone())),
         }
     }
 }

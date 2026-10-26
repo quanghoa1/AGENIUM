@@ -1392,18 +1392,20 @@ impl App {
                 &Guards::default(),
             )?;
             system_comment(w, &t, format!("Cancelled: {}", c.reason.trim()))?;
+            // A run still working on the ticket stops (the runtime watches its ticket) and keeps the worktree until it
+            // ends; its agent stays busy until then (`finish_run` sets it Idle), or the scheduler could start a
+            // second run of the same agent beside it.
+            let live_run = runs::unfinished(w.tx)?
+                .iter()
+                .any(|r| r.ticket == Some(t.id));
             if let Some(a) = t.assignee {
-                if matches!(was, TicketStatus::InProgress | TicketStatus::Pending) {
+                if !live_run && matches!(was, TicketStatus::InProgress | TicketStatus::Pending) {
                     set_agent_status(w, a, AgentStatus::Idle)?;
                 }
             }
             // A merge decided before the cancel must not land the cancelled work in main.
             crate::effects::drop_pending_merges(w, &t, "the ticket was cancelled")?;
             let mut ops = vec![];
-            // A run still working in the worktree keeps it until it ends (`finish_run` removes it then).
-            let live_run = runs::unfinished(w.tx)?
-                .iter()
-                .any(|r| r.ticket == Some(t.id));
             if !live_run && workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed) {
                 // Keep the unmerged branch (decision 11: delete the worktree, keep branches that were not merged).
                 ops.push(crate::effects::journal(

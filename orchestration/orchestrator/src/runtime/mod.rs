@@ -132,6 +132,18 @@ impl ProviderSource for ConfiguredProviders {
 /// How long an agent CLI's detection is reused (a login or upgrade shows up within this).
 const CLI_INFO_TTL: std::time::Duration = std::time::Duration::from_secs(60);
 
+/// How often a work run's ticket is checked for having ended under it.
+const TICKET_WATCH: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Stops a background task when dropped.
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 /// Fixed providers by id (tests, evals).
 pub struct StaticProviders(pub Vec<(String, Arc<dyn Provider>)>);
 
@@ -706,6 +718,16 @@ impl Runtime {
             self.cancel.clone()
         } else {
             self.project_cancel(project)
+        };
+        // A work run stops once its ticket ends under it (the Lead or the user cancelled it): it would go on with work
+        // nobody wants, and its agent stays busy until it ends.
+        let (cancel, _watch) = match (kind, ticket) {
+            (RunKind::Work, Some(t)) => {
+                let c = cancel.child();
+                let w = self.stop_when_ended(t.id, c.clone());
+                (c, Some(w))
+            }
+            _ => (cancel, None),
         };
         // A CLI agent whose CLI cannot be used runs through the configured API fallback, or not at all (ADR-30).
         let mut fallback_note = None;
@@ -2654,6 +2676,25 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
 
     /// Repeats [`tick`](Self::tick) until nothing runs (or `max_rounds`).
     /// The stop flag of a project's work.
+    /// Cancels `cancel` once the ticket is in a terminal state; the watch ends when the returned guard is dropped.
+    fn stop_when_ended(&self, ticket: TicketId, cancel: Cancel) -> AbortOnDrop {
+        let app = self.app.clone();
+        AbortOnDrop(tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(TICKET_WATCH).await;
+                match app.store().read(|c| tickets::get(c, ticket)) {
+                    Ok(t) if t.status.is_terminal() => {
+                        tracing::info!(ticket = %t.key, status = %t.status, "the ticket ended: its run stops");
+                        cancel.cancel();
+                        return;
+                    }
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!(error = %e, "the ticket of a run could not be read"),
+                }
+            }
+        }))
+    }
+
     pub fn project_cancel(&self, project: ProjectId) -> Cancel {
         self.project_cancels
             .lock()
