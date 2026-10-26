@@ -203,7 +203,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   owner allows DeepSeek models only). The OpenCode Anthropic and Responses wires are contract-tested, not run.
 - Graph memory: adjacency cache; memory extraction after chat sessions (only Closed/Reopened tickets trigger it now).
   (The labelled resolution set — 2 152 mentions — and the 112-question multi-hop set are built and run:
-  docs/memory-eval.md, ADR-94. Memory reuse ran on DeepSeek, n = 5; not yet on the CLI models.) (Consolidation/forgetting, lessons with cue/decay, skill
+  docs/memory-eval.md, ADR-94. Memory reuse ran on DeepSeek, n = 5, and on the CLI models, n = 3: §4, ADR-96.) (Consolidation/forgetting, lessons with cue/decay, skill
   overlays, sharing between agents and agent-created skills are done: ADR-73, 86, 87, 91, 92.) The skill-writing
   tools ran on six real models (docs/learning-loop-eval.md); no model tried to get a duplicate or contradicting skill
   past the ADR-92 gates, so those are verified by tests only.
