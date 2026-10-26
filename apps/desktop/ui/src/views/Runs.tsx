@@ -1,5 +1,5 @@
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, CheckCircle2, SquareTerminal, XCircle } from "lucide-react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
 import { Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
@@ -56,6 +56,23 @@ export function RunsView() {
 
 const SHELL = new Set(["shell", "cli:Bash", "cli:PowerShell", "cli:run_command", "cli:shell"]);
 
+const TerminalView = lazy(() => import("../components/Terminal"));
+
+/** The run's shell session as terminal text: each command (green prompt), its output, a red line when it failed. */
+function session(log: LogEntry[]): string {
+  const out: string[] = [];
+  for (const e of log) {
+    if (e.kind !== "tool" || !SHELL.has(e.data.tool)) continue;
+    const cmd = e.data.args?.command ?? e.data.args?.CommandLine;
+    if (!cmd) continue;
+    out.push(`\x1b[32m$\x1b[0m \x1b[1m${cmd}\x1b[0m\n`);
+    if (e.data.result) out.push(String(e.data.result).replace(/\n?$/, "\n"));
+    if (!e.data.ok) out.push("\x1b[31m[failed]\x1b[0m\n");
+    out.push("\n");
+  }
+  return out.join("");
+}
+
 function Step({ e }: { e: LogEntry }) {
   if (e.kind !== "tool") {
     return (
@@ -98,6 +115,7 @@ export function RunView({ id }: { id: string }) {
   const app = useApp();
   const [d, setD] = useState<RunDetail | null>(null);
   const [raw, setRaw] = useState(false);
+  const [term, setTerm] = useState(false);
   const live = useLive()[id];
   useEffect(() => {
     api.runDetail(id).then(setD).catch((e) => app.notify(String(e)));
@@ -162,11 +180,25 @@ export function RunView({ id }: { id: string }) {
       <Section
         title={app.t("runs.steps")}
         right={
-          <button className="btn" onClick={() => setRaw(!raw)}>
-            {raw ? app.t("runs.readable") : "JSON"}
-          </button>
+          <div className="flex gap-1.5">
+            {d.log.some((e) => e.kind === "tool" && SHELL.has(e.data.tool)) && (
+              <button className={cn("btn", term && "border-accent text-accent")} onClick={() => setTerm(!term)}>
+                <SquareTerminal className="h-3.5 w-3.5" /> {app.t("runs.terminal")}
+              </button>
+            )}
+            <button className="btn" onClick={() => setRaw(!raw)}>
+              {raw ? app.t("runs.readable") : "JSON"}
+            </button>
+          </div>
         }
       >
+        {term && (
+          <div className="mb-3">
+            <Suspense fallback={<div className="text-xs text-subtle">{app.t("common.loading")}</div>}>
+              <TerminalView text={session(d.log)} />
+            </Suspense>
+          </div>
+        )}
         <div className="space-y-2">
           {d.log.map((e) =>
             raw ? (

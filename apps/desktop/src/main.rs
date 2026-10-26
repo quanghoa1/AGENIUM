@@ -52,6 +52,7 @@ fn main() {
             api::plan,
             api::ticket,
             api::ticket_diff,
+            api::ticket_file,
             api::agent_detail,
             api::audit,
             api::agents,

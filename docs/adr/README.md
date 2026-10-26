@@ -79,3 +79,4 @@ ADR-52 records this fresh implementation.
 | [109](ADR-109-mcp-legacy-sse-resources-prompts.md) | MCP: legacy HTTP+SSE when a server refuses Streamable HTTP; resources and prompts as read-only tools; SSE text decoded across chunks; checked against the official reference server |
 | [110](ADR-110-messaging-a-running-cli-lead.md) | A running CLI Lead is messaged: the queue reaches it with the next Agenium tool result, a Claude hook's added context, or its next turn; each message carries the run's tag so files cannot pose as the user |
 | [111](ADR-111-cloud-vendor-presets.md) | Azure OpenAI (v1 API, `api-key` header), Amazon Bedrock (bedrock-mantle, API key) and Cloudflare Workers AI as presets with a `<placeholder>` the user fills in; Vertex and Copilot wait for refreshed tokens |
+| [112](ADR-112-monaco-and-xterm.md) | Monaco side-by-side diff per changed file and an xterm.js view of a run's shell session, bundled and loaded on demand (pinned, MIT) |

@@ -213,7 +213,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.) (Messaging a running
   Lead: API backend ADR-104, vendor CLIs ADR-110 — real runs on Claude Haiku, Grok and Codex followed the message.)
-- UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office. (UI tests in local CI: done —
+- UI: (Monaco side-by-side diff and xterm.js run terminal: done, ADR-112; Monaco skill-file editing not yet), mini-map and room editor of the Live office. (UI tests in local CI: done —
   `ci-local.ps1 -Ui` runs `ui-smoke.ps1`, 25 checks on a throwaway root; it found that a team made from a template with a CLI
   model got the API backend, fixed.) (Ticket links shown on the ticket page and agent import in the app: done, 2026-10-26;
   the smoke test now exports and imports an agent.) CLI backend: codex, agy, claude, opencode (free models, ADR-68) and grok (ADR-108: 5/5 golden tasks) driven; devin not drivable (ADR-56). UI checked on the running app through the DevTools port on 2026-10-26: MCP sign-in/test/sign-out and the vendor presets, 8/8, no console errors; grok listed as usable. After the code review (2026-10-26): all 16 views without console errors, the

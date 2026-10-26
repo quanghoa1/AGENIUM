@@ -336,6 +336,59 @@ pub fn ticket_diff(d: State<'_, Desktop>, project: String, key: String) -> R<Val
     Ok(json!({ "diff": diff, "truncated": cut, "branch": ws.branch, "merged": ws.merged_sha }))
 }
 
+/// One changed file of a ticket, before and after (for a side-by-side diff): the content at the ticket's base, and
+/// the worktree's file (or, once merged, the merge's). `null` = the file does not exist on that side.
+#[tauri::command]
+pub fn ticket_file(d: State<'_, Desktop>, project: String, key: String, path: String) -> R<Value> {
+    const MAX: usize = 2_000_000;
+    let o = d.opened()?;
+    let p = o.app.project(pid(&project)?).map_err(err)?;
+    let t = o.app.ticket(p.id, &self::key(&key)?).map_err(err)?;
+    let rel = std::path::Path::new(&path);
+    if path.is_empty()
+        || rel.is_absolute()
+        || rel
+            .components()
+            .any(|c| !matches!(c, std::path::Component::Normal(_)))
+    {
+        return Err(format!("{path:?} is not a path inside the project"));
+    }
+    let ws = o
+        .app
+        .store()
+        .read(|c| workspaces::get(c, t.id))
+        .map_err(err)?
+        .ok_or("no worktree yet")?;
+    let repo = o.app.repo(&p);
+    let root = std::path::Path::new(&p.path);
+    let at = |rev: &str| -> Option<String> {
+        repo.git()
+            .check(
+                root,
+                ["show", &format!("{rev}:{}", path.replace('\\', "/"))],
+            )
+            .ok()
+    };
+    let original = at(&ws.base_sha);
+    let modified = if !ws.removed {
+        std::fs::read(std::path::Path::new(&ws.worktree).join(rel))
+            .ok()
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+    } else {
+        ws.merged_sha.as_deref().and_then(at)
+    };
+    let binary = [&original, &modified]
+        .iter()
+        .any(|s| s.as_deref().is_some_and(|s| s.contains('\0')));
+    let big = [&original, &modified]
+        .iter()
+        .any(|s| s.as_ref().is_some_and(|s| s.len() > MAX));
+    if binary || big {
+        return Ok(json!({ "original": null, "modified": null, "binary": binary, "too_big": big }));
+    }
+    Ok(json!({ "original": original, "modified": modified, "binary": false, "too_big": false }))
+}
+
 #[tauri::command]
 pub fn audit(
     d: State<'_, Desktop>,

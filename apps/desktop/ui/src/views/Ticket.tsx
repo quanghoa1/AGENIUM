@@ -148,7 +148,7 @@ export function TicketView({ id }: { id: string }) {
               </div>
             </div>
           )}
-          {tab === "changes" && (diff ? <DiffView diff={diff.diff} /> : <div className="text-xs text-subtle">{app.t("common.loading")}</div>)}
+          {tab === "changes" && (diff ? <DiffView diff={diff.diff} load={(path) => api.ticketFile(app.project!, id, path)} /> : <div className="text-xs text-subtle">{app.t("common.loading")}</div>)}
           {tab === "runs" && (
             <div className="card divide-y divide-line">
               {d.runs.map((r) => (

@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   server: { port: 5173, strictPort: true },
-  // motion makes one ~570 kB chunk; a desktop app loads it from disk.
-  build: { target: "es2022", outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 800 },
+  // A desktop app loads its chunks from disk: the main one (~740 kB, motion included) and, on demand, Monaco (~2.7 MB,
+  // the side-by-side diff) and xterm.
+  build: { target: "es2022", outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 3000 },
 });
