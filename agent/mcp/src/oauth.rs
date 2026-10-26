@@ -316,6 +316,19 @@ async fn get_json(c: &reqwest::Client, u: &Url) -> Option<Value> {
     r.json::<Value>().await.ok().filter(Value::is_object)
 }
 
+/// Whether the `resource` named by protected-resource metadata covers `server` (RFC 9728 §3.3): the same origin, and
+/// the server's path or a parent of it on a segment boundary (`/mcp` covers `/mcp` and `/mcp/x`, not `/mcpx`). A
+/// string prefix let `https://victim.com` cover `https://victim.com.evil.net/mcp`, so a token for the victim's
+/// resource was asked for on the other server's behalf.
+fn resource_covers(resource: &str, server: &Url) -> bool {
+    let Ok(r) = Url::parse(resource) else {
+        return false;
+    };
+    let (rp, sp) = (r.path().trim_end_matches('/'), server.path());
+    r.origin() == server.origin()
+        && (sp.trim_end_matches('/') == rp || sp.starts_with(&format!("{rp}/")))
+}
+
 /// Asks the server how to sign in: an unauthenticated `initialize` must come back 401 with a Bearer challenge.
 pub async fn discover(server_url: &str) -> Result<Discovery> {
     let server = parse_allowed(server_url, "MCP server URL")?;
@@ -372,7 +385,7 @@ pub async fn discover(server_url: &str) -> Result<Discovery> {
         Some(p) => {
             let resource = p["resource"].as_str().unwrap_or(&canonical).to_owned();
             // The metadata must describe this server (RFC 9728 §3.3), not another one.
-            if !canonical.starts_with(resource.trim_end_matches('/')) {
+            if !resource_covers(&resource, &server) {
                 return Err(auth(format!(
                     "the resource metadata names {resource}, not this server ({canonical})"
                 )));
@@ -976,6 +989,37 @@ mod tests {
         );
         let i = Url::parse("https://auth.example.com").unwrap();
         assert_eq!(authorization_metadata_urls(&i).len(), 2);
+    }
+
+    /// Review of 2026-10-27: the check was a string prefix, so `https://victim.com` covered
+    /// `https://victim.com.evil.net/mcp`.
+    #[test]
+    fn the_resource_must_be_this_server_or_a_parent_path_of_it() {
+        let s = Url::parse("https://mcp.example.com/api/mcp").unwrap();
+        for ok in [
+            "https://mcp.example.com/api/mcp",
+            "https://mcp.example.com/api/mcp/",
+            "https://mcp.example.com/api",
+            "https://mcp.example.com",
+            "https://mcp.example.com/",
+            "https://MCP.example.com:443/api",
+        ] {
+            assert!(resource_covers(ok, &s), "{ok}");
+        }
+        for bad in [
+            "https://mcp.example.co",
+            "https://mcp.example.com.evil.net/api/mcp",
+            "https://mcp.example.com/ap",
+            "https://mcp.example.com/api/mcpx",
+            "http://mcp.example.com/api/mcp",
+            "https://mcp.example.com:8443/api/mcp",
+            "https://evil.net/api/mcp",
+            "not a url",
+        ] {
+            assert!(!resource_covers(bad, &s), "{bad}");
+        }
+        let evil = Url::parse("https://victim.com.evil.net/mcp").unwrap();
+        assert!(!resource_covers("https://victim.com", &evil));
     }
 
     #[test]
