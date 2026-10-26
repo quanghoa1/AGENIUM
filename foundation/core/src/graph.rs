@@ -34,19 +34,27 @@ pub fn find_cycle<K: Eq + Hash + Clone>(
     None
 }
 
-/// The literal part of a glob before its first metacharacter, with `\` normalised to `/`.
+/// The literal part of a glob before its first metacharacter, with `\` normalised to `/` (a pattern without
+/// metacharacters loses its trailing `/`: `src/` is the folder `src`).
 fn literal_prefix(glob: &str) -> (String, bool) {
-    let g = glob.replace('\\', "/");
+    let g = glob.trim().replace('\\', "/");
     let g = g.trim_start_matches("./");
     match g.find(['*', '?', '[', '{']) {
         Some(i) => (g[..i].to_owned(), true),
-        None => (g.to_owned(), false),
+        None => (g.trim_end_matches('/').to_owned(), false),
     }
 }
 
+/// `path` is the literal `dir` or lies below it.
+fn under(path: &str, dir: &str) -> bool {
+    path.strip_prefix(dir)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
 /// Conservative test whether two scope glob lists can touch the same file. Over-approximates (two globs whose
-/// literal directory prefixes nest are treated as overlapping); never misses a real overlap of literal paths or
-/// of a literal path inside a `dir/**` glob.
+/// literal directory prefixes nest are treated as overlapping); never misses a real overlap. A literal path is read
+/// as the write scope reads it (agenium-tools `WriteScope`): `p` covers `p` and everything below it, so `src` and
+/// `src/main.rs` overlap.
 pub fn scopes_overlap(a: &[String], b: &[String]) -> bool {
     a.iter().any(|x| b.iter().any(|y| glob_pair_overlaps(x, y)))
 }
@@ -55,9 +63,9 @@ fn glob_pair_overlaps(x: &str, y: &str) -> bool {
     let (px, gx) = literal_prefix(x);
     let (py, gy) = literal_prefix(y);
     match (gx, gy) {
-        (false, false) => px == py,
-        (true, false) => py.starts_with(&px),
-        (false, true) => px.starts_with(&py),
+        (false, false) => under(&px, &py) || under(&py, &px),
+        (true, false) => py.starts_with(&px) || under(&px, &py),
+        (false, true) => px.starts_with(&py) || under(&py, &px),
         (true, true) => px.starts_with(&py) || py.starts_with(&px),
     }
 }
@@ -90,5 +98,20 @@ mod tests {
         assert!(!scopes_overlap(&s(&["src/auth/**"]), &s(&["docs/**"])));
         assert!(!scopes_overlap(&s(&[]), &s(&["**"])));
         assert!(scopes_overlap(&s(&["**"]), &s(&["docs/x.md"])));
+    }
+
+    /// A literal scope is a folder too (the write scope lets `src` write `src/main.rs`): two tickets scoped `src` and
+    /// `src/main.rs` can touch the same file. A sibling with the same leading letters is not inside it.
+    #[test]
+    fn a_literal_scope_covers_what_is_below_it() {
+        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        assert!(scopes_overlap(&s(&["src"]), &s(&["src/main.rs"])));
+        assert!(scopes_overlap(&s(&["src/main.rs"]), &s(&["src/"])));
+        assert!(scopes_overlap(&s(&["src\\"]), &s(&["./src/lib.rs"])));
+        assert!(scopes_overlap(&s(&["src"]), &s(&["src/auth/**"])));
+        assert!(scopes_overlap(&s(&["src/auth/**"]), &s(&["src"])));
+        assert!(!scopes_overlap(&s(&["src"]), &s(&["src2/main.rs"])));
+        assert!(!scopes_overlap(&s(&["src"]), &s(&["srcx/**"])));
+        assert!(!scopes_overlap(&s(&["src/a"]), &s(&["src/ab.rs"])));
     }
 }
