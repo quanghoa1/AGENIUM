@@ -221,16 +221,19 @@ const COMPACTED: &str =
     "[Context compacted: the conversation of this run so far was replaced by your notes below. \
 Changes you made to files are still there. Continue from the next step.]";
 
-/// Clears the content of long tool results, all but the last `KEEP_RESULTS` tool-result messages, when together they
-/// free at least a tenth of the window (fewer edits keep the prompt cache). Returns how many were cleared.
-fn clear_old_results(messages: &mut [Message], window: u64) -> usize {
+/// Characters of a tool result shown to the model that writes compaction notes.
+const NOTES_RESULT_CHARS: usize = 2000;
+
+/// Clears the content of long tool results, all but the last `keep` tool-result messages. Unless `force`, only when
+/// together they free at least a tenth of the window (fewer edits keep the prompt cache). Returns how many.
+fn clear_old_results(messages: &mut [Message], window: u64, keep: usize, force: bool) -> usize {
     let with_results: Vec<usize> = messages
         .iter()
         .enumerate()
         .filter(|(_, m)| m.parts.iter().any(|p| matches!(p, Part::ToolResult { .. })))
         .map(|(i, _)| i)
         .collect();
-    let old = &with_results[..with_results.len().saturating_sub(KEEP_RESULTS)];
+    let old = &with_results[..with_results.len().saturating_sub(keep)];
     let clearable = |p: &Part| match p {
         Part::ToolResult { content, .. } => {
             content.len() >= CLEAR_MIN_CHARS && !content.starts_with(CLEARED)
@@ -247,7 +250,7 @@ fn clear_old_results(messages: &mut [Message], window: u64) -> usize {
         })
         .sum();
     // About four characters a token.
-    if (chars as u64) / 4 < window / 10 {
+    if chars == 0 || (!force && (chars as u64) / 4 < window / 10) {
         return 0;
     }
     let mut n = 0;
@@ -316,23 +319,16 @@ impl Run<'_> {
         }
     }
 
-    async fn turn(&self, req: &ChatRequest) -> Result<agenium_llm::ChatResponse, Outcome> {
+    async fn call(&self, req: &ChatRequest) -> Result<agenium_llm::ChatResponse, CallError> {
         let emit = |e: ChatEvent| self.observer.event(&e);
         chat_with_retry(self.provider, req, &self.cfg.retry, &emit, |a, d, e| {
             self.observer.retry(a, d.as_millis() as u64, &e.to_string())
         })
         .await
-        .map_err(|e| match e {
-            CallError::Quota(e) => Outcome::QuotaExhausted {
-                message: e.to_string(),
-            },
-            CallError::Offline { last, .. } => Outcome::Offline {
-                message: last.to_string(),
-            },
-            CallError::Fatal(e) => Outcome::Failed {
-                message: e.to_string(),
-            },
-        })
+    }
+
+    async fn turn(&self, req: &ChatRequest) -> Result<agenium_llm::ChatResponse, Outcome> {
+        self.call(req).await.map_err(call_outcome)
     }
 
     async fn exec(
@@ -386,6 +382,8 @@ impl Run<'_> {
         let mut nudges = 0u32;
         let mut step = 0u32;
         let mut compactions = 0u32;
+        // One recovery per context overflow reported by the provider.
+        let mut overflow_recovered = false;
         let push = |messages: &mut Vec<Message>, m: Message| {
             self.observer.message(&m);
             messages.push(m);
@@ -400,9 +398,37 @@ impl Run<'_> {
                     .await;
             }
             step += 1;
-            let resp = match self.turn(&self.request(order, &messages, true)).await {
-                Ok(r) => r,
-                Err(o) => break o,
+            let resp = match self.call(&self.request(order, &messages, true)).await {
+                Ok(r) => {
+                    overflow_recovered = false;
+                    r
+                }
+                // The provider says the request did not fit (ADR-103): free old tool results, else write notes, and
+                // send again once.
+                Err(CallError::Fatal(e))
+                    if agenium_llm::is_context_overflow(&e) && !overflow_recovered =>
+                {
+                    overflow_recovered = true;
+                    tracing::info!(error = %e, "the provider reports a context overflow");
+                    if clear_old_results(&mut messages, self.cfg.context_window, 2, true) > 0 {
+                        continue;
+                    }
+                    if compactions < self.cfg.max_compactions {
+                        compactions += 1;
+                        match self
+                            .compact(order, &mut messages, start_len, &mut usage)
+                            .await
+                        {
+                            Ok(true) => continue,
+                            Ok(false) => {}
+                            Err(o) => break o,
+                        }
+                    }
+                    break Outcome::Failed {
+                        message: e.to_string(),
+                    };
+                }
+                Err(e) => break call_outcome(e),
             };
             if !resp.model.is_empty() {
                 model = resp.model.clone();
@@ -543,6 +569,14 @@ impl Run<'_> {
                     is_error,
                 });
             }
+            // The results just added are not in the last request's usage yet: about four characters a token.
+            let added: usize = results
+                .iter()
+                .map(|p| match p {
+                    Part::ToolResult { content, .. } => content.len(),
+                    _ => 0,
+                })
+                .sum();
             push(
                 &mut messages,
                 Message {
@@ -558,7 +592,7 @@ impl Run<'_> {
                 Effect::Park => break Outcome::Parked,
                 Effect::Continue => {}
             }
-            let used = usage_window(&resp.usage);
+            let used = usage_window(&resp.usage) + added as u64 / 4;
             if used > self.cfg.context_window * COMPACT_AT_PERCENT / 100 {
                 if compactions < self.cfg.max_compactions {
                     compactions += 1;
@@ -576,7 +610,8 @@ impl Run<'_> {
                     .await;
             }
             if used > self.cfg.context_window * CLEAR_AT_PERCENT / 100 {
-                let n = clear_old_results(&mut messages, self.cfg.context_window);
+                let n =
+                    clear_old_results(&mut messages, self.cfg.context_window, KEEP_RESULTS, false);
                 if n > 0 {
                     tracing::info!(cleared = n, "old tool results cleared to save context");
                 }
@@ -600,12 +635,41 @@ impl Run<'_> {
         start_len: usize,
         usage: &mut Usage,
     ) -> Result<bool, Outcome> {
-        let mut ask = messages.clone();
+        // The notes request must fit: no thinking, tool results cut short (ADR-103).
+        let mut ask: Vec<Message> = messages
+            .iter()
+            .map(|m| Message {
+                role: m.role,
+                parts: m
+                    .parts
+                    .iter()
+                    .filter(|p| !matches!(p, Part::Thinking { .. }))
+                    .map(|p| match p {
+                        Part::ToolResult {
+                            call_id,
+                            name,
+                            content,
+                            is_error,
+                        } if content.chars().count() > NOTES_RESULT_CHARS => Part::ToolResult {
+                            call_id: call_id.clone(),
+                            name: name.clone(),
+                            content: format!(
+                                "{}…[cut]",
+                                content.chars().take(NOTES_RESULT_CHARS).collect::<String>()
+                            ),
+                            is_error: *is_error,
+                        },
+                        other => other.clone(),
+                    })
+                    .collect(),
+            })
+            .collect();
         ask.push(Message::user_text(COMPACT));
         let r = self.turn(&self.request(order, &ask, false)).await?;
         usage.add(&r.usage);
         let notes = r.message.text();
-        if notes.trim().is_empty() {
+        // Notes cut by the output limit are not notes to continue from.
+        if notes.trim().is_empty() || r.stop == StopReason::MaxTokens {
             return Ok(false);
         }
         messages.truncate(start_len);
@@ -640,6 +704,20 @@ impl Run<'_> {
             }
             Err(o) => o,
         }
+    }
+}
+
+fn call_outcome(e: CallError) -> Outcome {
+    match e {
+        CallError::Quota(e) => Outcome::QuotaExhausted {
+            message: e.to_string(),
+        },
+        CallError::Offline { last, .. } => Outcome::Offline {
+            message: last.to_string(),
+        },
+        CallError::Fatal(e) => Outcome::Failed {
+            message: e.to_string(),
+        },
     }
 }
 

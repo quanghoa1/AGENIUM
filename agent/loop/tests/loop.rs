@@ -546,3 +546,136 @@ async fn thinking_is_kept_for_the_model_that_wrote_it() {
     let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
     assert_eq!(r.outcome, Outcome::Completed);
 }
+
+fn too_long() -> LlmError {
+    LlmError::Http {
+        status: 400,
+        kind: "invalid_request_error".into(),
+        message: "prompt is too long: 210000 tokens > 200000 maximum".into(),
+        quota: false,
+        retry_after: None,
+    }
+}
+
+/// ADR-103: a provider's context overflow frees old tool results and sends again.
+#[tokio::test]
+async fn an_overflow_clears_old_results_and_sends_again() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push_calls(
+        "",
+        vec![(
+            "write_file",
+            json!({"path": "big.txt", "content": "y".repeat(3000)}),
+        )],
+    );
+    p.push_calls("", vec![("read_file", json!({"path": "big.txt"}))]);
+    p.push_calls("", vec![("list_dir", json!({"depth": 1}))]);
+    p.push_calls("", vec![("list_dir", json!({"depth": 2}))]);
+    p.push_error(too_long());
+    p.push(Box::new(|req: &ChatRequest| {
+        // Only results are cleared (the write call's own arguments stay).
+        let results: String = req
+            .messages
+            .iter()
+            .flat_map(|m| m.parts.iter())
+            .filter_map(|p| match p {
+                Part::ToolResult { content, .. } => Some(content.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(results.contains("[cleared to save context"), "{results}");
+        assert!(!results.contains(&"y".repeat(500)));
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+}
+
+/// ADR-103: with nothing to clear, the overflow is answered with notes; a second overflow in a row is reported.
+#[tokio::test]
+async fn an_overflow_with_nothing_to_clear_compacts_then_gives_up() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push_calls("", vec![("list_dir", json!({}))]);
+    p.push_error(too_long());
+    p.push_text("Notes: listed. Next: submit.");
+    p.push(Box::new(|req: &ChatRequest| {
+        assert!(req.messages[1].text().starts_with("[Context compacted"));
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+
+    let p = ScriptedProvider::new("m");
+    p.push_error(too_long());
+    p.push_text("Notes.");
+    p.push_error(too_long());
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert!(
+        matches!(&r.outcome, Outcome::Failed { message } if message.contains("prompt is too long")),
+        "{:?}",
+        r.outcome
+    );
+}
+
+/// ADR-103: notes cut by the output limit are not used; the run checkpoints.
+#[tokio::test]
+async fn notes_cut_by_the_output_limit_are_not_used() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push(using(9_000, vec![("list_dir", json!({}))]));
+    p.push(Box::new(|_| {
+        let mut r = agenium_llm::mock::calls_response("Notes that stop mid", vec![]);
+        r.stop = StopReason::MaxTokens;
+        Ok(r)
+    }));
+    p.push_text("Progress: listed.");
+    let r = run(&p, &ctx, &tools, &proto, small_window())
+        .run(&order())
+        .await;
+    assert!(
+        matches!(&r.outcome, Outcome::Checkpoint { reason, .. } if reason == "context"),
+        "{:?}",
+        r.outcome
+    );
+}
+
+/// ADR-103: a large tool result counts before the next request, so notes are written before it is sent.
+#[tokio::test]
+async fn a_large_new_result_counts_before_the_next_request() {
+    let (t, ctx, tools, proto) = harness();
+    std::fs::write(t.path().join("huge.txt"), "z".repeat(40_000)).unwrap();
+    let p = ScriptedProvider::new("m");
+    p.push(using(100, vec![("read_file", json!({"path": "huge.txt"}))]));
+    p.push_text("Notes: read huge.txt. Next: submit.");
+    p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1"}))]);
+    let r = run(
+        &p,
+        &ctx,
+        &tools,
+        &proto,
+        LoopConfig {
+            context_window: 4_000,
+            ..cfg()
+        },
+    )
+    .run(&order())
+    .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    assert!(
+        p.requests()[1].tools.is_empty(),
+        "notes came before the big request"
+    );
+    let notes_ask = format!("{:?}", p.requests()[1].messages);
+    assert!(
+        !notes_ask.contains(&"z".repeat(2500)),
+        "results are cut for the notes request"
+    );
+}

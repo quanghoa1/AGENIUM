@@ -26,7 +26,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::Semaphore;
 
-pub use error::{classify, Classified, LlmError};
+pub use error::{classify, is_context_overflow, Classified, LlmError};
 pub use retry::{CallError, RetryPolicy};
 pub use types::*;
 
