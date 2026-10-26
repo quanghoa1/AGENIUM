@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowLeft, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
-import { AgentStatusBadge, Avatar, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
+import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
 import { isFree, priceLabel, priceOf, usePrices } from "../lib/prices";
 import { inTauri, useApp } from "../lib/store";
@@ -881,6 +881,14 @@ export function AgentView({ id }: { id: string }) {
           <div className="grid gap-4 md:grid-cols-2">
             <Section title={app.t("common.model")}>
               <AgentModel id={a.id} backend={a.backend} model={a.model} onSaved={() => undefined} />
+              {d.cache && (
+                <div className="mt-3 flex items-center gap-2 text-[11px] text-subtle">
+                  <CacheHit value={d.cache.hit} title={app.t("agents.cacheNote")} />
+                  <span>
+                    {app.t("agents.cacheOver")} {d.cache.runs} API run · {tokens(d.cache.cached)} / {tokens(d.cache.input)} tok
+                  </span>
+                </div>
+              )}
             </Section>
             <Section title="role">
               <AgentRole agent={a} />
@@ -911,7 +919,10 @@ export function AgentView({ id }: { id: string }) {
               <button key={r.id} onClick={() => app.go("run", r.id)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs hover:bg-elevated/60">
                 <OutcomeBadge outcome={r.outcome} />
                 <span className="text-muted">{r.model}</span>
-                <Mono className="ml-auto text-subtle">
+                <span className="ml-auto">
+                  <CacheHit value={r.cache_hit} />
+                </span>
+                <Mono className="text-subtle">
                   {r.steps} · {tokens(r.usage.tokens_in + r.usage.tokens_out)} · {ago(r.started_at)}
                 </Mono>
               </button>

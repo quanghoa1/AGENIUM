@@ -65,7 +65,11 @@ effect" notes of its packages and its `compaction-basic`), and the same rules ap
    keeps a recent tail verbatim. The older part is replaced by notes. The newest steps stay as they were: about 15 %
    of the window, starting at an assistant turn so a tool call stays with its results. Agenium used to replace the
    whole run with notes. The notes request now carries only the older part, which is a prefix of the last request.
-6. **A cache break is visible.** A step served from the cache for less than half of the previous request's prompt is
+6. **The app shows the cache hit of API agents.** It shows the share of input tokens served from the provider's
+   cache in three places: the Live inspector next to the run's steps and tokens, the run page, and the agent page
+   (each run, plus the average over the last API runs). The chip is green from 80 %, amber from 50 %, red below. CLI
+   agents show none, because their CLI caches its own prompt and Agenium does not shape it.
+7. **A cache break is visible.** A step served from the cache for less than half of the previous request's prompt is
    logged in the run's log (`control: cache_miss`). The log starts once the provider has shown it caches at all. A
    compaction or a clearing resets it, because those change the prefix on purpose.
 

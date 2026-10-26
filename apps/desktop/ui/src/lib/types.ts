@@ -114,6 +114,10 @@ export interface RunRow {
   outcome?: string | null;
   steps: number;
   usage: Usage;
+  /** Run through a provider's API (not a vendor CLI). */
+  api?: boolean;
+  /** Share of input tokens served from the provider's prompt cache (API runs only). */
+  cache_hit?: number | null;
 }
 
 export interface AgentRow {
@@ -406,6 +410,8 @@ export interface AgentDetail {
   facts_total: number;
   skills: { name: string; description: string; version?: string | null; origin: string }[];
   mcp: any;
+  /** Prompt cache over the agent's recent API runs (absent for CLI agents). */
+  cache?: { hit: number; runs: number; input: number; cached: number } | null;
 }
 
 export interface ChatLine {

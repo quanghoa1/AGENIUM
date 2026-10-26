@@ -191,10 +191,25 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
     }))
 }
 
+/// Whether a run went through a provider's API (its key), not through a vendor CLI: only then is the prompt cache
+/// Agenium's to show (a CLI caches its own prompt; ADR-113).
+fn api_run(r: &runs::Run) -> bool {
+    !agenium_cli_backend::CliKind::ALL
+        .iter()
+        .any(|k| k.program() == r.provider)
+}
+
+/// Share of an API run's input tokens served from the provider's prompt cache (`None` for CLI runs or no input yet).
+fn cache_hit(r: &runs::Run) -> Option<f64> {
+    (api_run(r) && r.usage.tokens_in > 0)
+        .then(|| r.usage.cache_read as f64 / r.usage.tokens_in as f64)
+}
+
 pub(crate) fn run_json(r: &runs::Run, names: &HashMap<AgentId, String>) -> Value {
     json!({ "id": r.id, "ticket": r.ticket, "agent": r.agent, "agent_name": names.get(&r.agent),
             "provider": r.provider, "model": r.model, "started_at": r.started_at, "ended_at": r.ended_at,
-            "outcome": r.outcome, "steps": r.steps, "usage": r.usage })
+            "outcome": r.outcome, "steps": r.steps, "usage": r.usage,
+            "api": api_run(r), "cache_hit": cache_hit(r) })
 }
 
 #[tauri::command]
@@ -447,14 +462,22 @@ pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
     let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
     let a = o.app.agent(id).map_err(err)?;
     let names = names(&o)?;
-    let runs: Vec<Value> = o
+    let recent = o
         .app
         .store()
         .read(|c| runs::for_agent(c, id, 50))
-        .map_err(err)?
+        .map_err(err)?;
+    // The prompt cache over the agent's recent API runs (its CLI runs are not counted).
+    let (cached, input, api_runs) = recent
         .iter()
-        .map(|r| run_json(r, &names))
-        .collect();
+        .filter(|r| api_run(r))
+        .fold((0u64, 0u64, 0usize), |(c, i, n), r| {
+            (c + r.usage.cache_read, i + r.usage.tokens_in, n + 1)
+        });
+    let cache = (input > 0).then(|| {
+        json!({ "hit": cached as f64 / input as f64, "runs": api_runs, "input": input, "cached": cached })
+    });
+    let runs: Vec<Value> = recent.iter().map(|r| run_json(r, &names)).collect();
     let mem = o
         .app
         .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
@@ -469,6 +492,7 @@ pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
     Ok(json!({
         "agent": a, "planner": o.app.is_planner_role(&a.role), "runs": runs, "facts": facts,
         "facts_total": mem.count_live().map_err(err)?, "skills": skills, "mcp": a.mcp,
+        "cache": cache,
     }))
 }
 

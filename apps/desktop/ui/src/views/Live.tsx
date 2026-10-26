@@ -46,7 +46,7 @@ import { ChatPane, LiveTurn, type Prefill } from "../components/ChatPane";
 import { Markdown } from "../components/Markdown";
 import { ListItem, PanelSwap, ProgressBar, Segmented } from "../components/motion";
 import { PixelOffice, type Activity, type CallKind, type OfficeAgent } from "../components/PixelOffice";
-import { Avatar, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
+import { Avatar, CacheHit, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
 import { VendorBadge } from "../components/VendorBadge";
 import { api, onEvent, onRun } from "../lib/api";
 import { useApp, useLive, type LiveRun as Stream } from "../lib/store";
@@ -560,6 +560,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
                 <Mono className="text-subtle">
                   {trace.run.steps} step · {tokens(trace.run.usage.tokens_in + trace.run.usage.tokens_out)} tok · {ago(trace.run.started_at)}
                 </Mono>
+                <CacheHit value={trace.run.cache_hit} />
               </>
             )}
             <button

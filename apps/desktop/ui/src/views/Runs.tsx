@@ -1,7 +1,7 @@
 import { ArrowLeft, CheckCircle2, SquareTerminal, XCircle } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
-import { Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
+import { CacheHit, Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp, useLive } from "../lib/store";
 import type { LogEntry, RunDetail, RunRow } from "../lib/types";
@@ -157,6 +157,11 @@ export function RunView({ id }: { id: string }) {
           <Mono>
             {r.steps} · {tokens(r.usage.tokens_in)} in / {tokens(r.usage.tokens_out)} out
           </Mono>
+          {r.cache_hit != null && (
+            <div className="mt-1">
+              <CacheHit value={r.cache_hit} />
+            </div>
+          )}
         </div>
         <div>
           <div className="label">{app.t("runs.outcome")}</div>

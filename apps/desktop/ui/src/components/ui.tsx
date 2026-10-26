@@ -197,3 +197,21 @@ export function Mono({ children, className }: { children: ReactNode; className?:
   return <span className={cn("font-mono text-[11px]", className)}>{children}</span>;
 }
 
+
+/** Prompt-cache hit of an API run or agent: the share of input tokens the provider served from its cache (ADR-113).
+ *  Not shown for vendor CLIs, which cache their own prompt. */
+export function CacheHit({ value, title }: { value?: number | null; title?: string }) {
+  if (value === undefined || value === null) return null;
+  const pct = Math.round(value * 100);
+  return (
+    <span
+      title={title ?? "Prompt cache: share of input tokens served from the provider's cache"}
+      className={cn(
+        "chip font-mono",
+        pct >= 80 ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "border-amber-500/30 text-amber-600 dark:text-amber-400" : "border-rose-500/30 text-rose-600 dark:text-rose-400",
+      )}
+    >
+      cache {pct}%
+    </span>
+  );
+}
