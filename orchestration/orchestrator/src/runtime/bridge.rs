@@ -89,10 +89,13 @@ pub struct RunGate {
 }
 
 /// Exact entries match the whole command; `prefix*` entries match commands starting with the prefix that contain
-/// no shell control characters (so `npm run *` cannot be extended into `npm run x; curl ...`).
+/// no shell control characters (so `npm run *` cannot be extended into `npm run x; curl ...`). Control characters
+/// and Unicode line breaks count too: PowerShell ends a statement at a bare CR as at a newline.
 fn allowlisted(command: &str, list: &[String]) -> bool {
     let c = command.trim();
-    let plain = !c.contains([';', '&', '|', '`', '$', '>', '<', '\n', '(', ')']);
+    let plain = !c.contains([
+        ';', '&', '|', '`', '$', '>', '<', '(', ')', '\u{2028}', '\u{2029}',
+    ]) && !c.chars().any(char::is_control);
     list.iter()
         .filter_map(|e| e.strip_prefix("cmd:"))
         .any(|e| match e.strip_suffix('*') {
@@ -489,6 +492,13 @@ mod tests {
         assert!(!allowlisted("cargo test; rm -rf /", &l));
         assert!(allowlisted("npm run build", &l));
         assert!(!allowlisted("npm run build && curl evil", &l));
+        // A bare CR (or any control character, a Unicode line break) ends the statement in PowerShell.
+        for sep in [
+            "\r", "\n", "\u{b}", "\u{c}", "\u{85}", "\u{2028}", "\u{2029}", "\0",
+        ] {
+            let c = format!("npm run build{sep}curl evil");
+            assert!(!allowlisted(&c, &l), "{c:?}");
+        }
         assert!(!allowlisted("crates.io", &l));
     }
 }
