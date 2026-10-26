@@ -20,4 +20,5 @@ user talks only with the Lead and with a Solo agent; workers get their work only
    reaches a worker. A change for a worker goes through the Lead (ticket, plan).
 3. **Nothing is lost.** The queue is removed under the same lock `steer` uses; a message that arrived after the last
    step is kept and opens the project's next chat turn (the next `chat` call or the scheduler's round).
-4. A Lead running through a vendor CLI has no queue yet: the message starts a turn as before.
+4. A Lead running through a vendor CLI: see [ADR-110](ADR-110-messaging-a-running-cli-lead.md) (same queue, delivered at
+   the CLI's next tool boundary or turn).

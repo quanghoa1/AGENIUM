@@ -247,6 +247,15 @@ fn main() {
                 }
                 a.end();
             }
+            // The Lead is messaged while it works: an Agenium tool result, then a shell command (whose permission
+            // check is where the test sends a second message), then the turn ends.
+            "steer" if turn == 1 => {
+                let r = a.call_mcp("note", json!({}));
+                log(&format!("note: {}", r.replace('\n', " ")));
+                a.tool("run_command", json!({"CommandLine": "echo hi"}));
+                a.say("Working on it.");
+                a.end();
+            }
             _ => {
                 a.say("I think it is done.");
                 a.end();

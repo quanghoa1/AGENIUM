@@ -152,6 +152,11 @@ pub trait Driver: Send + Sync {
     fn hook_answer(&self, allow: bool, reason: &str) -> Value {
         serde_json::json!({"decision": if allow { "allow" } else { "deny" }, "reason": reason})
     }
+    /// `Control::Hook`: `answer` (an allow) carrying `text` to the model as added context, when the CLI's hook can
+    /// do that (`None`: it cannot; the text waits for the next Agenium tool or turn).
+    fn hook_with_context(&self, _answer: Value, _text: &str) -> Option<Value> {
+        None
+    }
 }
 
 /// Copies the user's login file into the per-run home, with a pristine copy to compare against afterwards.

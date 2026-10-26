@@ -287,6 +287,11 @@ impl Driver for Claude {
             "permissionDecisionReason": reason,
         }})
     }
+
+    fn hook_with_context(&self, mut answer: Value, text: &str) -> Option<Value> {
+        answer["hookSpecificOutput"]["additionalContext"] = Value::String(text.to_owned());
+        Some(answer)
+    }
 }
 
 /// Claude's subscription usage, read on the user's request: one tiny Haiku turn without tools (it costs a little

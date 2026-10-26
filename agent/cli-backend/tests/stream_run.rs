@@ -31,17 +31,25 @@ impl Protocol for Proto {
             .push((name.into(), args.clone(), call_id.into()));
         match name {
             "submit_report" => Ok((json!("report accepted"), Effect::End)),
+            "note" => Ok((json!("noted"), Effect::Continue)),
             _ => Err(ToolError::new("unknown_tool", name)),
         }
     }
 }
 
-/// Stands for the run's command gate: only `echo hi` is approved.
-struct Gate;
+/// Stands for the run's command gate: only `echo hi` is approved. With a steer queue, approving it is also the
+/// moment the user sends a message (after the CLI's last Agenium tool of the turn).
+#[derive(Default)]
+struct Gate {
+    steer: Option<agenium_backend::Steer>,
+}
 
 #[async_trait]
 impl CommandGate for Gate {
     async fn check(&self, command: &str, _: &Path) -> GateDecision {
+        if let Some(q) = &self.steer {
+            q.lock().unwrap().push("Also add a test.".into());
+        }
         if command == "echo hi" {
             GateDecision::Allow
         } else {
@@ -76,11 +84,18 @@ fn order() -> WorkOrder {
 }
 
 fn specs() -> Vec<ToolSpec> {
-    vec![ToolSpec {
-        name: "submit_report".into(),
-        description: "Report.".into(),
-        parameters: json!({"type": "object"}),
-    }]
+    vec![
+        ToolSpec {
+            name: "submit_report".into(),
+            description: "Report.".into(),
+            parameters: json!({"type": "object"}),
+        },
+        ToolSpec {
+            name: "note".into(),
+            description: "Note.".into(),
+            parameters: json!({"type": "object"}),
+        },
+    ]
 }
 
 async fn run(
@@ -89,6 +104,17 @@ async fn run(
     limits: Limits,
     chat: bool,
     program: PathBuf,
+) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
+    run_steered(scenario, dir, limits, chat, program, None).await
+}
+
+async fn run_steered(
+    scenario: &str,
+    dir: &Path,
+    limits: Limits,
+    chat: bool,
+    program: PathBuf,
+    steer: Option<agenium_backend::Steer>,
 ) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
     let proto = Arc::new(Proto::default());
     let obs = Arc::new(Obs::default());
@@ -108,7 +134,9 @@ async fn run(
         protocol_specs: specs(),
         tools: vec![],
         ctx: &ctx,
-        gate: Arc::new(Gate),
+        gate: Arc::new(Gate {
+            steer: steer.clone(),
+        }),
         observer: obs.as_ref(),
         cancel: Cancel::default(),
         limits,
@@ -116,6 +144,7 @@ async fn run(
         nudge: None,
         subagents: false,
         on_limits: None,
+        steer,
     };
     let report = r.run(&order()).await;
     let log = std::fs::read_to_string(dir.join("fake-agy.log")).unwrap_or_default();
@@ -231,6 +260,46 @@ async fn text_only_turns_are_nudged_then_stopped() {
         .count();
     assert_eq!(nudges, 2);
     assert_eq!(report.usage.output, 30, "three turns");
+}
+
+/// ADR-110: a running CLI Lead gets the user's messages — one sent before its next Agenium tool rides on that
+/// tool's result; one sent after it opens the next turn — and none is lost.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_user_messages_a_running_cli_lead() {
+    let (_parent, wt) = worktree();
+    let q: agenium_backend::Steer = Default::default();
+    q.lock().unwrap().push("Use blue.".into());
+    let (report, _, obs, log) = run_steered(
+        "steer",
+        &wt,
+        Limits::default(),
+        true,
+        fake(),
+        Some(q.clone()),
+    )
+    .await;
+    assert_eq!(report.outcome, Outcome::Completed, "{log}");
+    // Relayed messages carry the run's tag (named in the instructions), so text claiming to be the user's is not.
+    let mark = "[Message from the user while you work · ";
+    let note = log
+        .lines()
+        .find_map(|l| l.strip_prefix(&format!("note: noted  {mark}")))
+        .unwrap_or_else(|| panic!("{log}"));
+    let (tag, rest) = note.split_once("] ").unwrap();
+    assert_eq!(rest, "Use blue.");
+    assert!(
+        tag.len() >= 4 && tag.chars().all(|c| c.is_ascii_alphanumeric()),
+        "{tag}"
+    );
+    assert!(
+        log.contains(&format!("turn 2: {mark}{tag}] Also add")),
+        "{log}"
+    );
+    assert!(q.lock().unwrap().is_empty());
+    let msgs = obs.messages.lock().unwrap().clone();
+    for m in ["Use blue.", "Also add a test."] {
+        assert!(msgs.iter().any(|x| x.ends_with(m)), "{msgs:?}");
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -775,12 +775,21 @@ impl Runtime {
                 approver: self.approver.clone(),
                 contained: false,
             });
+            // The project's Lead can be messaged while its CLI runs, as on the API backend (ADR-104, ADR-110).
+            let is_lead =
+                self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) == Some(agent.id);
+            let steer: Option<agenium_backend::Steer> = is_lead.then(Default::default);
+            let steering = steer
+                .as_ref()
+                .map(|s| SteerGuard::register(self, project, agent.id, s.clone()));
             let report = self
                 .cli_run(
                     agent, driver, program, kind, &ctx, gate, &protocol, pspecs, work, &observer,
-                    &order, cancel,
+                    &order, cancel, steer,
                 )
-                .await?;
+                .await;
+            drop(steering);
+            let report = report?;
             // Subscription plans: tokens are recorded, no per-token price is known.
             return Ok((report, 0.0));
         }
@@ -986,6 +995,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         observer: &RunObserver,
         order: &WorkOrder,
         cancel: Cancel,
+        steer: Option<agenium_backend::Steer>,
     ) -> Result<RunReport> {
         use agenium_cli_backend::{CliRun, Limits};
         let name = agent.model.provider.as_str();
@@ -1026,6 +1036,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     }
                 }))
             },
+            steer,
         };
         Ok(r.run(order).await)
     }
