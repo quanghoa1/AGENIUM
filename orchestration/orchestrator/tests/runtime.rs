@@ -1991,3 +1991,107 @@ async fn a_long_chat_is_summarised_once_and_kept() {
         "the stored conversation stays whole"
     );
 }
+
+/// A Solo project with spec, plan and one ticket per plan item (AGN-1, AGN-2, ...) assigned to its agent.
+fn solo_with_tickets(app: &agenium_orchestrator::App, items: &[&str]) -> (ProjectId, AgentId) {
+    let (project, agent) = solo(app);
+    let lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(agent),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&lead, Intent::ProposeSpec(spec())).unwrap();
+    let items: Vec<(&str, &[&str])> = items.iter().map(|i| (*i, &[][..])).collect();
+    app.apply(&lead, Intent::CreatePlan(plan(&items))).unwrap();
+    for (n, (item, _)) in items.iter().enumerate() {
+        app.apply(&lead, Intent::CreateTicket(new_ticket(item, "t", &[], &[])))
+            .unwrap();
+        app.apply(
+            &lead,
+            Intent::AssignTicket(agenium_core::forms::AssignTicket {
+                ticket_id: key(&format!("AGN-{}", n + 1)),
+                worker: agent,
+                note: None,
+            }),
+        )
+        .unwrap();
+    }
+    (project, agent)
+}
+
+/// An agent CLI Agenium does not drive (ADR-56): every run of an agent bound to it fails before its loop.
+fn devin() -> ModelBinding {
+    ModelBinding {
+        provider: "devin".into(),
+        model: "some-model".into(),
+        effort: Effort::LOW,
+        max_tokens: None,
+    }
+}
+
+/// A run that fails between its start and its outcome is ended with an Error, and a ticket without its worktree
+/// starts no run: neither leaves a run open, the ticket InProgress or the agent Working until a restart.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_run_that_cannot_go_on_leaves_nothing_open() {
+    use agenium_store::core::workspaces;
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let open = |app: &agenium_orchestrator::App| app.store().read(runs::unfinished).unwrap();
+
+    // The worktree's git operation has not succeeded yet: no run starts.
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    let ws = app
+        .store()
+        .read(|c| workspaces::get(c, t.id))
+        .unwrap()
+        .unwrap();
+    let set_removed = |removed: bool| {
+        app.store()
+            .commit(None, "test", |w| {
+                workspaces::upsert(
+                    w.tx,
+                    &workspaces::TicketWorkspace {
+                        removed,
+                        ..ws.clone()
+                    },
+                )
+            })
+            .unwrap();
+    };
+    set_removed(true);
+    let err = rt.run_ticket(project, &key("AGN-1")).await.unwrap_err();
+    assert!(err.to_string().contains("has no worktree"), "{err}");
+    assert!(open(&app).is_empty(), "no run was left open");
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Assigned
+    );
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    set_removed(false);
+
+    // A run that fails after its start (here: its CLI cannot run) is ended with the error.
+    app.set_agent_backend(agent, BackendKind::Cli, &devin())
+        .unwrap();
+    for err in [
+        rt.run_ticket(project, &key("AGN-1")).await.unwrap_err(),
+        rt.chat(project, "hello").await.unwrap_err(),
+    ] {
+        assert!(err.to_string().contains("does not drive devin"), "{err}");
+        assert!(open(&app).is_empty(), "the failed run was ended");
+        assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    }
+    let rs = app.store().read(|c| runs::for_ticket(c, t.id)).unwrap();
+    assert_eq!(rs.len(), 1);
+    assert!(
+        rs[0]
+            .outcome
+            .as_deref()
+            .is_some_and(|o| o.starts_with("Error:")),
+        "{:?}",
+        rs[0].outcome
+    );
+    assert_eq!(p.requests().len(), 0);
+}

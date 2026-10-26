@@ -1052,8 +1052,34 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         Ok(r.run(order).await)
     }
 
+    /// Ends the run a failed `r` opened with an Error outcome, so a failure between a run's start and its outcome
+    /// never leaves the run open, its ticket InProgress and its agent Working until a restart. A run that ended
+    /// already stays as it is (finish_run ends a run once).
+    fn end_on_error<T>(&self, opened: Option<RunId>, r: Result<T>) -> Result<T> {
+        if let (Some(run), Err(e)) = (opened, &r) {
+            if let Err(f) =
+                self.app
+                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())
+            {
+                tracing::warn!(%run, error = %f, "the failed run could not be ended");
+            }
+        }
+        r
+    }
+
     /// Runs the assignee on a ready ticket (start -> loop -> outcome handling).
     pub async fn run_ticket(&self, project: ProjectId, key: &TicketKey) -> Result<RunSummary> {
+        let mut opened = None;
+        let r = self.work_run(project, key, &mut opened).await;
+        self.end_on_error(opened, r)
+    }
+
+    async fn work_run(
+        &self,
+        project: ProjectId,
+        key: &TicketKey,
+        opened: &mut Option<RunId>,
+    ) -> Result<RunSummary> {
         // Decision 19: changes made to the worktree outside Agenium are undone before the agent continues.
         if let Err(e) = self.app.guard_worktree(project, key) {
             tracing::warn!(ticket = %key, error = %e, "worktree guard failed");
@@ -1070,16 +1096,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .app
             .store()
             .read(|c| agenium_store::core::agents::get_team(c, team_id))?;
-        let start = self
-            .app
-            .start_run(project, key, &agent.model.provider, &agent.model.model)?;
-        if !start.continuation {
-            // A dependent ticket starts from the main that contains its dependencies' merged work.
-            if let Err(e) = self.app.catch_up_worktree(project, key) {
-                tracing::warn!(ticket = %key, error = %e, "worktree not brought up to date");
-            }
-        }
-        let t = self.app.ticket(project, key)?;
+        // The worktree is made when the ticket is assigned (its git operation is retried every round): without it no
+        // run starts.
         let ws = self
             .app
             .store()
@@ -1087,6 +1105,17 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .filter(|w| !w.removed)
             .ok_or_else(|| OrchError::Invalid(format!("{key} has no worktree")))?;
         let root = PathBuf::from(&ws.worktree);
+        let start = self
+            .app
+            .start_run(project, key, &agent.model.provider, &agent.model.model)?;
+        *opened = Some(start.run);
+        if !start.continuation {
+            // A dependent ticket starts from the main that contains its dependencies' merged work.
+            if let Err(e) = self.app.catch_up_worktree(project, key) {
+                tracing::warn!(ticket = %key, error = %e, "worktree not brought up to date");
+            }
+        }
+        let t = self.app.ticket(project, key)?;
         let mem = self.agent_memory(agent.id)?;
         let (prev, note, prev_end) = if start.continuation {
             self.previous(agent.id, t.id, &mem)?
@@ -1268,18 +1297,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 skill_tools_off,
             )
             .await;
-        let (report, cost) = match res {
-            Ok(x) => x,
-            Err(e) => {
-                self.app.finish_run(
-                    start.run,
-                    &format!("Error:{e}"),
-                    0,
-                    &UsageSummary::default(),
-                )?;
-                return Err(e);
-            }
-        };
+        let (report, cost) = res?;
         self.finish(
             project,
             &t,
@@ -1294,6 +1312,17 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
 
     /// Lead review of a Resolved ticket: report + diff -> review_ticket (approve merges) -> close_ticket.
     pub async fn review(&self, project: ProjectId, key: &TicketKey) -> Result<RunSummary> {
+        let mut opened = None;
+        let r = self.review_run(project, key, &mut opened).await;
+        self.end_on_error(opened, r)
+    }
+
+    async fn review_run(
+        &self,
+        project: ProjectId,
+        key: &TicketKey,
+        opened: &mut Option<RunId>,
+    ) -> Result<RunSummary> {
         if let Err(e) = self.app.guard_worktree(project, key) {
             tracing::warn!(ticket = %key, error = %e, "worktree guard failed");
         }
@@ -1345,6 +1374,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 Ok(id)
             })?
             .value;
+        *opened = Some(run);
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;
@@ -1443,14 +1473,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 ],
             )
             .await;
-        let (report, cost) = match res {
-            Ok(x) => x,
-            Err(e) => {
-                self.app
-                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())?;
-                return Err(e);
-            }
-        };
+        let (report, cost) = res?;
         let summary = self.finish(
             project,
             &t,
@@ -1488,6 +1511,17 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     /// One chat turn of the user with the Lead/Solo (discovery, spec, plan, ticket creation). The conversation is kept
     /// per project in the Lead's private database. When the Lead is running already, the message goes to that run.
     pub async fn chat(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
+        let mut opened = None;
+        let r = self.chat_run(project, user_text, &mut opened).await;
+        self.end_on_error(opened, r)
+    }
+
+    async fn chat_run(
+        &self,
+        project: ProjectId,
+        user_text: &str,
+        opened: &mut Option<RunId>,
+    ) -> Result<RunSummary> {
         let left = self
             .steer_left
             .lock()
@@ -1561,6 +1595,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 Ok(id)
             })?
             .value;
+        *opened = Some(run);
         let state = self.project_state_text(project)?;
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
@@ -1626,14 +1661,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 ],
             )
             .await;
-        let (report, cost) = match res {
-            Ok(x) => x,
-            Err(e) => {
-                self.app
-                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())?;
-                return Err(e);
-            }
-        };
+        let (report, cost) = res?;
         for m in std::iter::once(&msg).chain(report.messages.iter()) {
             if let Ok(v) = serde_json::to_value(m) {
                 mem.append_message(&session, &v)?;
@@ -1677,6 +1705,16 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     /// Lead run on its inbox (team mode): answer or escalate worker questions, decide permission requests inside the
     /// allowlist, turn approved plan items into tickets and assign them. `None` when the inbox is empty.
     pub async fn inbox(&self, project: ProjectId) -> Result<Option<RunSummary>> {
+        let mut opened = None;
+        let r = self.inbox_run(project, &mut opened).await;
+        self.end_on_error(opened, r)
+    }
+
+    async fn inbox_run(
+        &self,
+        project: ProjectId,
+        opened: &mut Option<RunId>,
+    ) -> Result<Option<RunSummary>> {
         let items = self.app.lead_inbox(project)?;
         if items.is_empty() {
             return Ok(None);
@@ -1720,6 +1758,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 Ok(id)
             })?
             .value;
+        *opened = Some(run);
         // The tickets the items are about, with their comments (questions need the ticket's context).
         let mut seen = std::collections::HashSet::new();
         let mut tickets_text = String::new();
@@ -1810,14 +1849,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 ],
             )
             .await;
-        let (report, cost) = match res {
-            Ok(x) => x,
-            Err(e) => {
-                self.app
-                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())?;
-                return Err(e);
-            }
-        };
+        let (report, cost) = res?;
         let usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
         let label = report.outcome.label();
         self.app.finish_run(run, &label, report.steps, &usage)?;
@@ -2201,6 +2233,18 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         planner: &agenium_store::core::agents::Agent,
         spec: &agenium_store::core::plans::SpecRow,
     ) -> Result<RunSummary> {
+        let mut opened = None;
+        let r = self.plan_draft(project, planner, spec, &mut opened).await;
+        self.end_on_error(opened, r)
+    }
+
+    async fn plan_draft(
+        &self,
+        project: ProjectId,
+        planner: &agenium_store::core::agents::Agent,
+        spec: &agenium_store::core::plans::SpecRow,
+        opened: &mut Option<RunId>,
+    ) -> Result<RunSummary> {
         let p = self.app.project(project)?;
         let root = PathBuf::from(&p.path);
         let run = self
@@ -2232,6 +2276,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 Ok(id)
             })?
             .value;
+        *opened = Some(run);
         // The roles the plan can use: the team's workers except the planner.
         let roles: Vec<String> = self
             .app
@@ -2298,14 +2343,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 &others,
             )
             .await;
-        let (report, cost) = match res {
-            Ok(x) => x,
-            Err(e) => {
-                self.app
-                    .finish_run(run, &format!("Error:{e}"), 0, &UsageSummary::default())?;
-                return Err(e);
-            }
-        };
+        let (report, cost) = res?;
         let usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
         let label = report.outcome.label();
         self.app.finish_run(run, &label, report.steps, &usage)?;
