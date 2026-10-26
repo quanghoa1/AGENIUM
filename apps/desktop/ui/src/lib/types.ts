@@ -534,6 +534,16 @@ export interface JudgeConfig extends JudgeUses {
   reason?: string | null;
 }
 
+/** One time the judge was asked. */
+export interface JudgeActivity {
+  at: string;
+  use: string;
+  ticket?: string | null;
+  outcome: string;
+  ok: boolean;
+  ms: number;
+}
+
 export interface JudgeForm extends JudgeUses {
   base_url: string;
   model: string;

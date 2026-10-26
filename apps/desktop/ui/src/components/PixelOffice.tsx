@@ -4,7 +4,7 @@
 // writing, violet while thinking, amber while waiting); an agent without a task walks to the lounge and sits on
 // the sofa or an armchair; offline agents sleep at the desk. Every character carries its name. Bubbles: "..."
 // thinking, "?" waiting, a wrench/prompt while calling a tool, Zz. Dashed lines from the Lead's desk to a worker's
-// desk are delegations (labelled with the ticket); messages between them fly across as envelopes.
+// desk are delegations (labelled with the ticket); a comment one of them adds to a ticket flies across as an envelope.
 // The look follows pixel-agents (https://github.com/pixel-agents-hq/pixel-agents); the art and the code are our own:
 // every sprite below is a hand-made character map, every piece of furniture is drawn from rectangles.
 import { useEffect, useRef, useState } from "react";
@@ -921,7 +921,7 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
         // The vendor behind this agent's model, as a small chip left of the name, centred on the pill.
         vendorChip(g, lx - 1, ly + 3, oa.agent.agent.model.provider, oa.agent.agent.model.model);
       }
-      // envelopes between a Lead and a worker
+      // envelopes: ticket comments between a Lead and a worker
       const now = performance.now();
       flying.current = flying.current.filter((f) => now - f.start < 1500);
       for (const f of flying.current) {

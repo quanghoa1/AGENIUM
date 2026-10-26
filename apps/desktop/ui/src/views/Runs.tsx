@@ -79,8 +79,14 @@ function Step({ e }: { e: LogEntry }) {
       <div className="flex gap-3 rounded-lg border border-line p-2.5">
         <Mono className="w-6 text-subtle">{e.n}</Mono>
         <div className="min-w-0 flex-1">
-          <div className="label">{e.kind}</div>
-          {typeof e.data?.summary === "string" ? <Markdown className="mt-1 text-xs" text={e.data.summary} /> : <div className="mt-1 font-mono text-[11px] text-subtle">{JSON.stringify(e.data).slice(0, 400)}</div>}
+          <div className="label">{e.kind === "judge" ? `Jev · ${e.data?.use ?? ""}` : e.kind}</div>
+          {e.kind === "judge" && typeof e.data?.text === "string" ? (
+            <Markdown className="mt-1 text-xs" text={e.data.text} />
+          ) : typeof e.data?.summary === "string" ? (
+            <Markdown className="mt-1 text-xs" text={e.data.summary} />
+          ) : (
+            <div className="mt-1 font-mono text-[11px] text-subtle">{JSON.stringify(e.data).slice(0, 400)}</div>
+          )}
         </div>
         <Mono className="text-subtle">{ago(e.at)}</Mono>
       </div>

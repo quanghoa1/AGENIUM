@@ -41,6 +41,7 @@ import type {
   Status,
   TeamTemplate,
   TicketDetail,
+  JudgeActivity,
   JudgeConfig,
   JudgeForm,
 } from "./types";
@@ -143,6 +144,7 @@ export const api = {
   judgeStatus: () => call<{ configured: boolean; disabled: boolean; reason?: string | null }>("judge_status"),
   enableJudge: () => call<void>("enable_judge"),
   judgeConfig: () => call<JudgeConfig>("judge_config"),
+  judgeActivity: () => call<JudgeActivity[]>("judge_activity"),
   /** `api_key` empty or null keeps the stored key; `clear_key` removes it. */
   setJudge: (form: JudgeForm) => call<void>("set_judge", { form }),
   exportAgent: (agent: string, out: string) => call<string>("export_agent", { agent, out }),

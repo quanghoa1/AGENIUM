@@ -110,6 +110,10 @@ impl RootLayout {
     pub fn judge_health(&self) -> PathBuf {
         self.root.join("judge-health.json")
     }
+    /// Each time the judge was asked (JSON lines, the newest last).
+    pub fn judge_activity(&self) -> PathBuf {
+        self.root.join("judge-activity.jsonl")
+    }
     pub fn vendor_usage(&self) -> PathBuf {
         self.root.join("vendor-usage.json")
     }

@@ -281,6 +281,7 @@ impl Protocol for RunProtocol {
             // agent sees. Fail-open: without the judge (or on any failure) the result is just the shape check.
             if let Some(body) = app.agent_overlay_body(agent, &skill) {
                 if let Some(quality) = app.skill_quality(&body).await {
+                    let _ = app.run_log(self.run, "judge", serde_json::json!({ "use": "skill_quality", "skill": skill, "text": quality.join("; ") }));
                     if let Some(obj) = v.as_object_mut() {
                         obj.insert("quality".into(), serde_json::json!(quality));
                     }

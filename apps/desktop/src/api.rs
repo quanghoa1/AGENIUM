@@ -677,6 +677,12 @@ pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
     }))
 }
 
+/// What the judge was asked lately, newest first (the Settings page shows it).
+#[tauri::command]
+pub fn judge_activity(d: State<'_, Desktop>) -> R<Value> {
+    Ok(json!(d.opened()?.app.judge_activity(40)))
+}
+
 /// Saves the judge's settings (the key to the vault).
 #[tauri::command]
 pub fn set_judge(d: State<'_, Desktop>, form: agenium_orchestrator::judge::JudgeInput) -> R<()> {

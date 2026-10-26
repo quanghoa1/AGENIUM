@@ -97,6 +97,7 @@ fn main() {
             api::judge_status,
             api::enable_judge,
             api::judge_config,
+            api::judge_activity,
             api::set_judge,
             api::export_agent,
             api::import_agent,

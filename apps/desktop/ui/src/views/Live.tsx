@@ -415,6 +415,25 @@ function WorkerBus({ agent, lead, stream }: { agent: LiveAgent; lead?: string | 
   );
 }
 
+/** What the Jev judge said for this run (ADR-75): what it was asked, and its answer when opened. */
+function JudgeRow({ e }: { e: LogEntry }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg border border-fuchsia-500/30">
+      <button className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left" onClick={() => setOpen(!open)}>
+        {open ? <ChevronDown className="h-3 w-3 shrink-0 text-subtle" /> : <ChevronRight className="h-3 w-3 shrink-0 text-subtle" />}
+        <span className="chip shrink-0 border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300">Jev</span>
+        <span className="truncate font-mono text-[11px]">{e.data.use}</span>
+      </button>
+      {open && (
+        <div className="border-t border-line p-2.5 text-[11px]">
+          <Markdown text={String(e.data.text ?? "")} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** One call of the trace: badge, label, duration, ok; arguments and output when opened. */
 function CallRow({ e, open: start = false }: { e: LogEntry; open?: boolean }) {
   const [open, setOpen] = useState(start);
@@ -468,7 +487,8 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
       if (h) window.clearInterval(h);
     };
   }, [a.agent.id, live, app.tick]);
-  const calls = (trace?.steps ?? []).filter((e) => e.kind === "tool");
+  // The run's tool, skill and MCP calls, and what the Jev judge said for it (a skill pick, an evidence read).
+  const calls = (trace?.steps ?? []).filter((e) => e.kind === "tool" || e.kind === "judge");
   const stream = act?.stream && !act.stream.done ? act.stream : undefined;
   const task = a.run?.ticket_key ? a.open_tickets.find((x) => x.key === a.run!.ticket_key) : a.open_tickets[0];
   const status: [string, string] =
@@ -567,9 +587,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
             </div>
           )}
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {[...calls].reverse().map((e) => (
-              <CallRow key={e.n} e={e} />
-            ))}
+            {[...calls].reverse().map((e) => (e.kind === "judge" ? <JudgeRow key={e.n} e={e} /> : <CallRow key={e.n} e={e} />))}
             {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
           </div>
         </div>
@@ -825,7 +843,8 @@ export function LiveView() {
     const un = onEvent((e) => {
       const l = lineOf(e);
       if (l) setLog((cur) => [...cur.slice(-299), l]);
-      // Comments between a Lead and a worker fly across the office as envelopes.
+      // A comment a Lead or a worker adds to a ticket flies to the other as an envelope (Agenium hands it on through
+      // the ticket: the worker's next run reads it, a question goes to the Lead's inbox).
       const d = dataRef.current;
       if (!d || e.kind !== "CommentAdded" || !String(e.actor).startsWith("agent:")) return;
       const from = String(e.actor).slice(6);
@@ -1043,7 +1062,6 @@ export function LiveView() {
                   </div>
                   <div className="min-h-0 flex-1 overflow-auto p-3">
                     <PixelOffice key={current.id} agents={officeOf(current)} lead={current.lead} deskless={current.deskless} selected={focus} onSelect={pick} flights={flights} reduceMotion={!!reduce} zoom={zoom ?? undefined} signs={signsOf(current)} flows={flowsOf(current)} board={boards[current.id]} />
-                    <div className="mt-1.5 text-center text-[11px] leading-snug text-subtle">{app.t("live.officeNote")}</div>
                   </div>
                 </>
               )

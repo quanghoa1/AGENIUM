@@ -1673,6 +1673,15 @@ async fn skill_hint_prepends_the_judges_pick() {
         .unwrap();
     let hint = f.app.skill_hint(&t, &two).await.expect("a confident pick");
     assert!(hint.contains("refactor"), "names the picked skill: {hint}");
+    // Each ask is in the judge's activity, for the user to see.
+    let seen = &f.app.judge_activity(5)[0];
+    assert_eq!((seen.use_.as_str(), seen.ok), ("skill_hint", true));
+    assert_eq!(seen.ticket.as_deref(), Some(k.as_str()));
+    assert!(
+        seen.outcome.contains("suggested `refactor` (95%)"),
+        "{}",
+        seen.outcome
+    );
 
     // "none" (or a low-confidence pick) adds no hint.
     let base =
@@ -1740,6 +1749,9 @@ async fn review_assist_reads_each_criterion_only_when_on() {
     let read = f.app.review_evidence(&t, report).await.expect("a read");
     assert_eq!(ac, "AC-1");
     assert!(read.contains("- AC-1: evidence found (92%)"), "{read}");
+    let seen = &f.app.judge_activity(5)[0];
+    assert_eq!(seen.use_, "review_assist");
+    assert_eq!(seen.outcome, "AC-1: evidence found (92%)");
 
     let base = mock(r#"{"answers":{"AC-1":{"type":"noul","noul":0.5}}}"#).await;
     f.app.update_config(|c| c.judge.base_url = base).unwrap();

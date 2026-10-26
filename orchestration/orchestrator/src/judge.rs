@@ -7,8 +7,10 @@
 //! Its wired use is an independent evidence read before a review run (`review_assist`): one batched request, a Noul
 //! per acceptance criterion, a token-light first opinion for the Lead's expensive model.
 
+use std::collections::BTreeMap;
+
 use agenium_core::{DomainEvent, Ticket};
-use agenium_llm::systemone::{Judge, Judging, Question};
+use agenium_llm::systemone::{Answer, Judge, Judging, Question};
 use agenium_llm::LlmError;
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +22,23 @@ const MET: f64 = 0.7;
 
 /// Vault name of the judge's API key.
 pub const JUDGE_SECRET: &str = "judge/typesafe";
+
+/// The judge's activity kept: the newest this many asks.
+const ACTIVITY_KEEP: usize = 300;
+
+/// One time the judge was asked: what for, about which ticket, what it answered (or why it could not).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JudgeActivity {
+    pub at: String,
+    /// `skill_hint`, `memory_gate`, `review_assist`, `skill_quality`, `skill_contradiction` or `test`.
+    #[serde(rename = "use")]
+    pub use_: String,
+    #[serde(default)]
+    pub ticket: Option<String>,
+    pub outcome: String,
+    pub ok: bool,
+    pub ms: u64,
+}
 
 /// The judge as the user sets it in the app: endpoint, model, the key (kept as is when not given) and what it may do.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -77,6 +96,75 @@ impl App {
             serde_json::to_string_pretty(h).map_err(|e| OrchError::Invalid(e.to_string()))?,
         )
         .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))
+    }
+
+    /// Asks the judge for `use_` and records the ask (`record` adds what the answer meant). A key/quota failure
+    /// disables the judge; any failure returns `None` (fail-open).
+    async fn ask(
+        &self,
+        judge: &Judge,
+        j: &Judging,
+        use_: &str,
+        ticket: Option<&str>,
+    ) -> Option<(BTreeMap<String, Answer>, u64)> {
+        let started = std::time::Instant::now();
+        let r = judge.ask(j).await;
+        let ms = started.elapsed().as_millis() as u64;
+        match r {
+            Ok(a) => Some((a, ms)),
+            Err(e) => {
+                if is_credential_or_quota(&e) {
+                    let _ = self.disable_judge(e.to_string());
+                } else {
+                    tracing::warn!(error = %e, use_, "judge call failed");
+                }
+                self.record(use_, ticket, format!("failed: {e}"), false, ms);
+                None
+            }
+        }
+    }
+
+    /// Appends one ask to the judge's activity (best effort: the activity is for the user to see, never a gate).
+    fn record(&self, use_: &str, ticket: Option<&str>, outcome: String, ok: bool, ms: u64) {
+        use std::io::Write;
+        let a = JudgeActivity {
+            at: agenium_core::now_iso(),
+            use_: use_.to_owned(),
+            ticket: ticket.map(str::to_owned),
+            outcome,
+            ok,
+            ms,
+        };
+        let path = self.layout().judge_activity();
+        let Ok(line) = serde_json::to_string(&a) else {
+            return;
+        };
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
+            let _ = writeln!(f, "{line}");
+        }
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            let lines: Vec<&str> = text.lines().collect();
+            if lines.len() > 2 * ACTIVITY_KEEP {
+                let _ = std::fs::write(
+                    &path,
+                    lines[lines.len() - ACTIVITY_KEEP..].join("\n") + "\n",
+                );
+            }
+        }
+    }
+
+    /// The judge's newest asks, newest first.
+    pub fn judge_activity(&self, limit: usize) -> Vec<JudgeActivity> {
+        let text = std::fs::read_to_string(self.layout().judge_activity()).unwrap_or_default();
+        text.lines()
+            .rev()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .take(limit)
+            .collect()
     }
 
     /// Turns the judge off after a key/quota failure and tells the user to re-enter the key and re-enable it.
@@ -174,9 +262,16 @@ impl App {
         let probe = Judging::default()
             .state_text("x", "ok")
             .noul("q", "Does `x` say ok?");
-        match judge.ask(&probe).await {
-            Ok(_) => Ok(()),
+        let started = std::time::Instant::now();
+        let r = judge.ask(&probe).await;
+        let ms = started.elapsed().as_millis() as u64;
+        match r {
+            Ok(_) => {
+                self.record("test", None, "answered the test question".into(), true, ms);
+                Ok(())
+            }
             Err(e) => {
+                self.record("test", None, format!("failed: {e}"), false, ms);
                 self.set_judge_health(&JudgeHealth {
                     disabled: true,
                     reason: Some(e.to_string()),
@@ -219,20 +314,29 @@ impl App {
                 criteria,
             },
         );
-        let answers = match judge.ask(&j).await {
-            Ok(a) => a,
-            Err(e) => {
-                if is_credential_or_quota(&e) {
-                    let _ = self.disable_judge(e.to_string());
-                }
-                return None;
-            }
-        };
-        let a = answers.get("skill")?;
-        let pick = a.choice.as_deref()?;
-        if pick == "none" || a.confidence.is_some_and(|c| c < MET) {
+        let key = t.key.to_string();
+        let (answers, ms) = self.ask(&judge, &j, "skill_hint", Some(&key)).await?;
+        let a = answers.get("skill");
+        let pick = a.and_then(|a| a.choice.as_deref()).unwrap_or("none");
+        let conf = a.and_then(|a| a.confidence);
+        let pct = conf
+            .map(|c| format!(" ({:.0}%)", c * 100.0))
+            .unwrap_or_default();
+        if pick == "none" || conf.is_some_and(|c| c < MET) {
+            let outcome = format!(
+                "no skill suggested (answer: {pick}{pct}) among {}",
+                skills.len()
+            );
+            self.record("skill_hint", Some(&key), outcome, true, ms);
             return None;
         }
+        self.record(
+            "skill_hint",
+            Some(&key),
+            format!("suggested `{pick}`{pct} among {} skills", skills.len()),
+            true,
+            ms,
+        );
         Some(format!(
             "\nSuggested skill (TypeSafe Jev, a hint — load it only if it fits): `{pick}`. Call load_skill to read it before the work it covers.\n"
         ))
@@ -256,23 +360,23 @@ impl App {
              convention, path/command, or (if it names a signal like a reopen or correction) a lesson — as opposed to \
              only routine work with nothing new?",
         );
-        let answers = match judge.ask(&j).await {
-            Ok(a) => a,
-            Err(e) => {
-                if is_credential_or_quota(&e) {
-                    let _ = self.disable_judge(e.to_string());
-                }
-                return None;
-            }
-        };
+        let (answers, ms) = self.ask(&judge, &j, "memory_gate", None).await?;
         let p = answers.get("worth").and_then(|a| a.noul)?;
-        if p >= MET {
-            Some(true)
+        let (verdict, outcome) = if p >= MET {
+            (Some(true), "worth remembering: memory is extracted")
         } else if p <= 1.0 - MET {
-            Some(false)
+            (Some(false), "nothing worth remembering: extraction skipped")
         } else {
-            None
-        }
+            (None, "unsure: memory is extracted")
+        };
+        self.record(
+            "memory_gate",
+            None,
+            format!("{outcome} ({:.0}%)", p * 100.0),
+            true,
+            ms,
+        );
+        verdict
     }
 
     /// A calibrated read of a skill `body` against the methodology principles (ADR-90): one job, actionable steps, a
@@ -298,15 +402,7 @@ impl App {
         for (id, q) in &qs {
             j = j.noul(id, q);
         }
-        let answers = match judge.ask(&j).await {
-            Ok(a) => a,
-            Err(e) => {
-                if is_credential_or_quota(&e) {
-                    let _ = self.disable_judge(e.to_string());
-                }
-                return None;
-            }
-        };
+        let (answers, ms) = self.ask(&judge, &j, "skill_quality", None).await?;
         let notes: Vec<String> = qs
             .iter()
             .filter_map(|(id, _)| {
@@ -321,6 +417,7 @@ impl App {
                 Some(format!("{id}: {verdict} ({:.0}%)", p * 100.0))
             })
             .collect();
+        self.record("skill_quality", None, notes.join("; "), true, ms);
         (!notes.is_empty()).then_some(notes)
     }
 
@@ -353,28 +450,25 @@ impl App {
                 ),
             );
         }
-        let answers = match judge.ask(&j).await {
-            Ok(a) => a,
-            Err(e) => {
-                if is_credential_or_quota(&e) {
-                    let _ = self.disable_judge(e.to_string());
-                }
-                return None;
-            }
+        let (answers, ms) = self.ask(&judge, &j, "skill_contradiction", None).await?;
+        let found: Vec<String> = related
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                answers
+                    .get(&format!("c{i}"))
+                    .and_then(|a| a.noul)
+                    .is_some_and(|p| p >= MET)
+            })
+            .map(|(_, (name, _))| name.clone())
+            .collect();
+        let outcome = if found.is_empty() {
+            format!("no contradiction with {} related skill(s)", related.len())
+        } else {
+            format!("contradicts {}", found.join(", "))
         };
-        Some(
-            related
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| {
-                    answers
-                        .get(&format!("c{i}"))
-                        .and_then(|a| a.noul)
-                        .is_some_and(|p| p >= MET)
-                })
-                .map(|(_, (name, _))| name.clone())
-                .collect(),
-        )
+        self.record("skill_contradiction", None, outcome, true, ms);
+        Some(found)
     }
 
     /// An independent first read of `report` against `t`'s acceptance criteria, for the review task (ADR-75).
@@ -399,17 +493,8 @@ impl App {
                 &format!("Does the work described in `report` provide evidence that this criterion is met: {}", ac.text),
             );
         }
-        let answers = match judge.ask(&j).await {
-            Ok(a) => a,
-            Err(e) => {
-                if is_credential_or_quota(&e) {
-                    let _ = self.disable_judge(e.to_string());
-                } else {
-                    tracing::warn!(error = %e, "judge evidence read failed");
-                }
-                return None;
-            }
-        };
+        let key = t.key.to_string();
+        let (answers, ms) = self.ask(&judge, &j, "review_assist", Some(&key)).await?;
         let mut lines = Vec::new();
         for ac in &t.acceptance {
             if let Some(p) = answers.get(&ac.id).and_then(|a| a.noul) {
@@ -423,6 +508,16 @@ impl App {
                 lines.push(format!("- {}: {verdict} ({:.0}%)", ac.id, p * 100.0));
             }
         }
+        let outcome = if lines.is_empty() {
+            "no criterion answered".to_owned()
+        } else {
+            lines
+                .iter()
+                .map(|l| l.trim_start_matches("- "))
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        self.record("review_assist", Some(&key), outcome, true, ms);
         if lines.is_empty() {
             return None;
         }

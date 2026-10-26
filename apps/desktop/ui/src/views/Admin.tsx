@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 import { isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
 import type { Key } from "../lib/i18n";
-import type { AuditEntry, CommandPolicy, JudgeConfig, JudgeForm, JudgeUses, RunRow } from "../lib/types";
+import type { AuditEntry, CommandPolicy, JudgeActivity, JudgeConfig, JudgeForm, JudgeUses, RunRow } from "../lib/types";
 
 export function AuditView() {
   const app = useApp();
@@ -196,6 +196,10 @@ function JudgeSection() {
   const [form, setForm] = useState<JudgeForm | null>(null);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activity, setActivity] = useState<JudgeActivity[]>([]);
+  useEffect(() => {
+    api.judgeActivity().then((a) => setActivity(a ?? [])).catch(() => undefined);
+  }, [app.tick, busy]);
   const load = () =>
     api
       .judgeConfig()
@@ -293,6 +297,24 @@ function JudgeSection() {
           </button>
         )}
       </div>
+      <div className="mt-4 label">{app.t("settings.judgeActivity")}</div>
+      {activity.length === 0 ? (
+        <div className="mt-1 text-[11px] text-subtle">{app.t("settings.judgeNoActivity")}</div>
+      ) : (
+        <div className="mt-1 max-h-72 space-y-1 overflow-y-auto">
+          {activity.map((x, i) => (
+            <div key={i} className={cn("flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]", x.ok ? "border-line" : "border-rose-500/40 bg-rose-500/5")}>
+              <span className="chip shrink-0 border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300">Jev</span>
+              <Mono className="shrink-0 text-subtle">{x.use}</Mono>
+              {x.ticket && <Mono className="shrink-0 text-cyan-600 dark:text-cyan-400">{x.ticket}</Mono>}
+              <span className={cn("min-w-0 flex-1", !x.ok && "text-rose-600 dark:text-rose-300")}>{x.outcome}</span>
+              <Mono className="shrink-0 text-subtle">
+                {x.ms} ms · {ago(x.at)}
+              </Mono>
+            </div>
+          ))}
+        </div>
+      )}
     </Section>
   );
 }

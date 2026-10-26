@@ -161,6 +161,11 @@ impl Runtime {
                 "memory",
                 serde_json::json!({ "skipped": "judge: nothing worth remembering" }),
             );
+            let _ = self.app.run_log(
+                log_run,
+                "judge",
+                serde_json::json!({ "use": "memory_gate", "text": "nothing worth remembering: memory extraction skipped" }),
+            );
             return Ok(None);
         }
         match self.extract(&agent, &mem, &ep).await {

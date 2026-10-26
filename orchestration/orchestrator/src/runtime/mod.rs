@@ -1139,7 +1139,15 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 .iter()
                 .map(|s| (s.meta.name.clone(), s.meta.description.clone()))
                 .collect();
-            self.app.skill_hint(&t, &skills).await
+            let hint = self.app.skill_hint(&t, &skills).await;
+            if let Some(h) = &hint {
+                let _ = self.app.run_log(
+                    start.run,
+                    "judge",
+                    serde_json::json!({ "use": "skill_hint", "text": h.trim() }),
+                );
+            }
+            hint
         };
         // ADR-91: the skill-writing tools (propose_skill_update, propose_new_skill) are offered only when the agent
         // holds a lesson that may become skill knowledge — live, trusted, held in two distinct contexts. Without one
@@ -1361,6 +1369,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             Some(rep) => self.app.review_evidence(&t, rep).await.unwrap_or_default(),
             None => String::new(),
         };
+        if !evidence.is_empty() {
+            let _ = self.app.run_log(
+                run,
+                "judge",
+                serde_json::json!({ "use": "review_assist", "text": evidence.trim() }),
+            );
+        }
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
