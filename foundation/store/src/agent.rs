@@ -29,6 +29,10 @@ pub const AGENT_MIGRATIONS: &[Migration] = &[
         version: 3,
         sql: include_str!("schema/agent_003.sql"),
     },
+    Migration {
+        version: 4,
+        sql: include_str!("schema/agent_004.sql"),
+    },
 ];
 
 /// Tables carried by an agent export (in dependency order). `agent_meta`, vectors and the ANN journal are
@@ -717,7 +721,9 @@ impl AgentStore {
         Ok(hits)
     }
 
-    /// Logs facts injected into a work order (M1-11) and touches `used_at`.
+    /// Logs facts injected into a work order (M1-11) and touches `used_at`. A fact logged twice for one run keeps its
+    /// first row; any other failure is an error (`INSERT OR IGNORE` also swallowed CHECK failures: rule-injected
+    /// lessons were dropped without a word, see agent_004.sql).
     pub fn record_usage(
         &self,
         run: &str,
@@ -727,7 +733,8 @@ impl AgentStore {
         self.db.write(|tx| {
             for (fact, rank, via) in used {
                 tx.execute(
-                    "INSERT OR IGNORE INTO fact_usage(fact, ticket, run, rank, via) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    "INSERT INTO fact_usage(fact, ticket, run, rank, via) VALUES (?1, ?2, ?3, ?4, ?5)
+                     ON CONFLICT(run, fact) DO NOTHING",
                     params![fact, ticket, run, *rank as i64, via.as_str()],
                 )?;
                 tx.execute("UPDATE fact SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1", [fact])?;
@@ -795,37 +802,80 @@ impl AgentStore {
         })
     }
 
-    /// Consolidation (decision 35): live facts that say the same thing (same kind, scope and text up to case and
-    /// spacing) become one: the most trusted (then the newest) stays, the others are superseded by it and keep
-    /// their history. Returns how many were folded.
+    /// Consolidation (decision 35): live facts that say the same thing (same kind, scope, project, trust and text up
+    /// to case and spacing) become one: the most confident (then the newest) stays, the others are superseded by it
+    /// and keep their history; the contexts they were validated in move to the one that stays. Trust and project are
+    /// part of the key: an untrusted copy (made from tool output or another agent's words) never replaces a trusted
+    /// fact, and a fact learned in one project is not folded into another's. Returns how many were folded.
     pub fn consolidate(&self) -> Result<u64, StoreError> {
+        // (kind, scope, project, untrusted, normalised text) and (id, text, kind, scope, project, untrusted,
+        // confidence, validated).
+        type Key = (String, String, Option<String>, bool, String);
+        type Row = (
+            i64,
+            String,
+            String,
+            String,
+            Option<String>,
+            bool,
+            f64,
+            String,
+        );
         self.db.write(|tx| {
-            let rows: Vec<(i64, String, String, String, f64)> = {
+            let rows: Vec<Row> = {
                 let mut st = tx.prepare(
-                    "SELECT id, text, kind, scope, confidence FROM fact WHERE superseded_by IS NULL AND id IS NOT NULL",
+                    "SELECT id, text, kind, scope, project, untrusted, confidence, validated FROM fact
+                     WHERE superseded_by IS NULL AND id IS NOT NULL",
                 )?;
                 let rows = st
-                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+                    .query_map([], |r| {
+                        Ok((
+                            r.get(0)?,
+                            r.get(1)?,
+                            r.get(2)?,
+                            r.get(3)?,
+                            r.get(4)?,
+                            r.get(5)?,
+                            r.get(6)?,
+                            r.get(7)?,
+                        ))
+                    })?
                     .collect::<rusqlite::Result<Vec<_>>>()?;
                 rows
             };
             let norm = |t: &str| t.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
-            let mut groups: std::collections::BTreeMap<(String, String, String), Vec<(i64, f64)>> =
+            let mut groups: std::collections::BTreeMap<Key, Vec<(i64, f64, String)>> =
                 std::collections::BTreeMap::new();
-            for (id, text, kind, scope, conf) in rows {
-                groups.entry((kind, scope, norm(&text))).or_default().push((id, conf));
+            for (id, text, kind, scope, project, untrusted, conf, validated) in rows {
+                groups
+                    .entry((kind, scope, project, untrusted, norm(&text)))
+                    .or_default()
+                    .push((id, conf, validated));
             }
             let mut n = 0;
             for (_, mut ids) in groups.into_iter().filter(|(_, v)| v.len() > 1) {
                 ids.sort_by(|a, b| b.1.total_cmp(&a.1).then(b.0.cmp(&a.0)));
                 let keep = ids[0].0;
-                for (id, _) in &ids[1..] {
+                let contexts = |raw: &str| serde_json::from_str::<Vec<String>>(raw).unwrap_or_default();
+                let mut validated = contexts(&ids[0].2);
+                for (id, _, other) in &ids[1..] {
+                    for c in contexts(other) {
+                        if !validated.contains(&c) {
+                            validated.push(c);
+                        }
+                    }
                     tx.execute(
                         "UPDATE fact SET superseded_by = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1",
                         params![id, keep],
                     )?;
                     Self::drop_vector(tx, *id)?;
                     n += 1;
+                }
+                if validated != contexts(&ids[0].2) {
+                    tx.execute(
+                        "UPDATE fact SET validated = ?2 WHERE id = ?1",
+                        params![keep, serde_json::to_string(&validated)?],
+                    )?;
                 }
             }
             Ok(n)

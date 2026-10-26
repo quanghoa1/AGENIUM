@@ -198,6 +198,108 @@ fn validation_decay_and_consolidation() {
     assert_eq!(s.consolidate().unwrap(), 0);
 }
 
+/// Consolidation keeps trust and project apart: an untrusted copy of a trusted fact (even a more confident one) does
+/// not replace it, copies learned in two projects stay two, and the contexts a folded copy was validated in move to
+/// the one that stays.
+#[test]
+fn consolidation_respects_trust_and_projects_and_keeps_validations() {
+    let tmp = tempfile::tempdir().unwrap();
+    let s = open(tmp.path());
+    let fact = |text: &str, untrusted: bool, project: Option<&str>, confidence: f64| {
+        let mut f = NewFact::fact(text, "ticket:AGN-1");
+        f.untrusted = untrusted;
+        f.project = project.map(str::to_owned);
+        f.confidence = confidence;
+        s.add(&f, Some(&embed(text, DIM))).unwrap()
+    };
+    let trusted = fact("Deploy with the blue-green script", false, None, 0.5);
+    let untrusted = fact("deploy with the  blue-green script", true, None, 0.9);
+    let p1 = fact("Use port 8080", false, Some("p1"), 0.5);
+    let p2 = fact("use port 8080", false, Some("p2"), 0.5);
+    assert_eq!(s.consolidate().unwrap(), 0);
+    for id in [trusted, untrusted, p1, p2] {
+        assert!(s.get(id).unwrap().is_live(), "{id}");
+    }
+
+    let older = fact("Run migrations first", false, Some("p1"), 0.5);
+    let newer = fact("run migrations  first", false, Some("p1"), 0.5);
+    s.validate_in(older, "ticket:AGN-2").unwrap();
+    s.validate_in(newer, "ticket:AGN-3").unwrap();
+    assert_eq!(s.consolidate().unwrap(), 1);
+    let kept = s.get(newer).unwrap();
+    assert!(kept.is_live() && !s.get(older).unwrap().is_live());
+    assert_eq!(kept.validated, ["ticket:AGN-3", "ticket:AGN-2"]);
+}
+
+/// A lesson injected as a rule of the work's context is logged as used: the CHECK on `fact_usage.via` did not allow
+/// 'rule' and `INSERT OR IGNORE` dropped the row without a word. A fact logged twice for one run keeps one row.
+#[test]
+fn rule_injected_lessons_are_recorded_as_used() {
+    let tmp = tempfile::tempdir().unwrap();
+    let s = open(tmp.path());
+    let a = add(&s, "Use the staging database for migrations");
+    let b = add(&s, "Run cargo fmt before committing");
+    s.record_usage(
+        "run-1",
+        Some("AGN-1"),
+        &[(a, 0, Via::Rule), (b, 1, Via::Vector), (b, 2, Via::Keyword)],
+    )
+    .unwrap();
+    assert_eq!(
+        s.usage_for_run("run-1").unwrap(),
+        vec![(a, 0, "rule".to_owned()), (b, 1, "vector".to_owned())]
+    );
+    assert!(s.get(a).unwrap().used_at.is_some());
+}
+
+/// Migration 4 rebuilds `fact_usage` (a CHECK cannot be altered): the rows of a v3 database survive with their outcome
+/// signals, and a rule can be logged afterwards.
+#[test]
+fn v3_usage_log_survives_the_rule_migration() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = tmp.path().join("agents/a.db");
+    std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+    {
+        let c = rusqlite::Connection::open(&db).unwrap();
+        for sql in [
+            include_str!("../src/schema/agent_001.sql"),
+            include_str!("../src/schema/agent_002.sql"),
+            include_str!("../src/schema/agent_003.sql"),
+        ] {
+            c.execute_batch(sql).unwrap();
+        }
+        c.execute_batch(&format!(
+            "PRAGMA user_version = 3;
+             INSERT INTO agent_meta(key, value) VALUES ('embedding_dim', '{DIM}');
+             INSERT INTO fact(id, text, kind, source) VALUES (7, 'Run the linter', 'lesson', 'ticket:AGN-1');
+             INSERT INTO fact_usage(fact, ticket, run, rank, via, outcome, signal)
+               VALUES (7, 'AGN-1', 'run-0', 0, 'hybrid', 'helped', 'closed');"
+        ))
+        .unwrap();
+    }
+    let s = open(tmp.path());
+    assert_eq!(
+        s.usage_for_run("run-0").unwrap(),
+        vec![(7, 0, "hybrid".to_owned())]
+    );
+    let (outcome, signal): (String, String) = s
+        .db()
+        .read(|c| -> Result<_, StoreError> {
+            Ok(c.query_row(
+                "SELECT outcome, signal FROM fact_usage WHERE run = 'run-0'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        })
+        .unwrap();
+    assert_eq!((outcome.as_str(), signal.as_str()), ("helped", "closed"));
+    s.record_usage("run-1", None, &[(7, 0, Via::Rule)]).unwrap();
+    assert_eq!(
+        s.usage_for_run("run-1").unwrap(),
+        vec![(7, 0, "rule".to_owned())]
+    );
+}
+
 /// A zero vector has no direction (cosine distance undefined; sqlite-vec returns NULL). The hashing embedder produces one
 /// for text without a word of two or more letters ("C#", "C++"): it must neither be stored nor break searches, whether
 /// it is the query or a stored vector.
