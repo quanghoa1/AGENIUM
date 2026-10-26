@@ -16,6 +16,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use agenium_core::Effort;
 use serde_json::Value;
 
 use crate::driver::{
@@ -156,7 +157,14 @@ impl Driver for Grok {
         Some(home.join(TURN_FILE))
     }
 
-    fn args(&self, model: &str, home: &Path, resume: Option<&str>, subagents: bool) -> Vec<String> {
+    fn args(
+        &self,
+        model: &str,
+        effort: Option<&Effort>,
+        home: &Path,
+        resume: Option<&str>,
+        subagents: bool,
+    ) -> Vec<String> {
         let mut a: Vec<String> = vec![
             "--prompt-file".into(),
             home.join(TURN_FILE).display().to_string(),
@@ -175,6 +183,11 @@ impl Driver for Grok {
         }
         if !model.is_empty() {
             a.extend(["--model".into(), model.into()]);
+        }
+        // The CLI runs xAI's models: their own level (ADR-114). Its `--reasoning-effort` names no levels, so a model
+        // the table does not know keeps the CLI's setting.
+        if let Some(l) = effort.and_then(|e| agenium_llm::effort::level_for(model, e)) {
+            a.extend(["--reasoning-effort".into(), l.as_str().into()]);
         }
         if let Some(id) = resume {
             a.extend(["--resume".into(), id.into()]);
@@ -412,7 +425,20 @@ mod tests {
 
     #[test]
     fn args_and_isolated_home() {
-        let a = Grok.args("grok-4.7", Path::new("/h"), None, false);
+        let a = Grok.args("grok-4.7", Some(&Effort::MAX), Path::new("/h"), None, false);
+        assert!(
+            a.windows(2).any(|w| w == ["--reasoning-effort", "xhigh"]),
+            "grok-4.7 ends at xhigh: {a:?}"
+        );
+        assert!(!Grok
+            .args(
+                "grok-4.7-build-fast",
+                Some(&Effort::MAX),
+                Path::new("/h"),
+                None,
+                false
+            )
+            .contains(&"--reasoning-effort".to_owned()));
         assert!(a
             .windows(2)
             .any(|w| w == ["--permission-mode", "bypassPermissions"]));
@@ -421,7 +447,7 @@ mod tests {
                 && a.contains(&"--disable-web-search".to_owned())
         );
         assert!(!a.iter().any(|x| x.contains("spawn_subagent")));
-        let r = Grok.args("", Path::new("/h"), Some("s1"), true);
+        let r = Grok.args("", None, Path::new("/h"), Some("s1"), true);
         assert!(r.ends_with(&["--resume".to_owned(), "s1".to_owned()]));
         assert!(r.iter().any(|x| x.contains("spawn_subagent")));
 

@@ -20,13 +20,15 @@ use crate::types::*;
 use crate::Provider;
 
 pub const API_VERSION: &str = "2026-10-21";
+/// Lets a request say what to do with a replayed thinking block whose earlier history changed (preserved thinking).
+pub const BINDING_BETA: &str = "thinking-binding-controls-2026-08-01";
 pub const KIND: &str = "anthropic";
 
 /// How a model takes reasoning settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThinkingMode {
     /// `thinking: {type: "adaptive"}` + `output_config.effort` (Claude 4.6 and later).
-    Adaptive { xhigh: bool },
+    Adaptive,
     /// `thinking: {type: "enabled", budget_tokens}`; effort only where `effort` is true (Opus 4.5).
     Budget { effort: bool },
 }
@@ -49,17 +51,17 @@ pub fn thinking_mode(model: &str) -> ThinkingMode {
     if old.iter().any(|p| m.starts_with(p)) {
         return ThinkingMode::Budget { effort: false };
     }
-    ThinkingMode::Adaptive {
-        xhigh: !(m.starts_with("claude-opus-4-6") || m.starts_with("claude-sonnet-4-6")),
-    }
+    ThinkingMode::Adaptive
 }
 
-fn budget(effort: Effort, max_tokens: u32) -> u32 {
-    let b = match effort {
-        Effort::Low => 1024,
-        Effort::Medium => 8192,
-        Effort::High => 24_576,
-        Effort::Max => 32_000,
+/// Agenium's thinking budget for a level of a model that thinks within a budget.
+fn budget(level: &Effort, max_tokens: u32) -> u32 {
+    let b = match level.as_str() {
+        "low" => 1024,
+        "high" => 24_576,
+        "xhigh" => 28_672,
+        "max" => 32_000,
+        _ => 8192,
     };
     // budget_tokens must be below max_tokens.
     b.min(max_tokens.saturating_sub(1024)).max(1024)
@@ -92,11 +94,21 @@ impl Anthropic {
         ]
     }
 
+    /// Anthropic's own API (not a relay that speaks the same wire).
+    fn first_party(&self) -> bool {
+        self.base_url
+            .to_ascii_lowercase()
+            .contains("api.anthropic.com")
+    }
+
     /// Per-request headers: the OpenCode relay needs a per-conversation affinity header.
     fn request_headers(&self, req: &ChatRequest) -> Vec<(&'static str, String)> {
         let mut h = self.headers();
         if self.base_url.to_ascii_lowercase().contains("opencode.ai") {
             h.push(("x-opencode-session", crate::openai::session_key(req)));
+        }
+        if self.first_party() {
+            h.push(("anthropic-beta", BINDING_BETA.to_owned()));
         }
         h
     }
@@ -132,6 +144,12 @@ fn cache_control(ttl_1h: bool) -> Value {
 
 /// Builds the request body (pure; covered by contract tests).
 pub fn build_body(req: &ChatRequest) -> Value {
+    build_body_with(req, false)
+}
+
+/// The request body; with `binding`, a replayed thinking block whose earlier history changed is dropped rather than
+/// rejected with a 400 (accounts created from 2026-08-31 enforce the check; ADR-113). Needs [`BINDING_BETA`].
+pub fn build_body_with(req: &ChatRequest, binding: bool) -> Value {
     let long = req.long_cache;
     let mut tools: Vec<Value> = req
         .tools
@@ -219,21 +237,25 @@ pub fn build_body(req: &ChatRequest) -> Value {
             body["tool_choice"] = json!({"type": "none"});
         }
     }
+    // The model's own level (ADR-114).
+    let level = crate::effort::level_for(&req.model, &req.effort);
     match thinking_mode(&req.model) {
-        ThinkingMode::Adaptive { xhigh: _ } => {
+        ThinkingMode::Adaptive => {
             body["thinking"] = json!({"type": "adaptive", "display": "summarized"});
-            body["output_config"] = json!({"effort": req.effort.as_str()});
+            if binding {
+                body["thinking"]["block_binding"] =
+                    json!({"prefix_mismatch_behavior": "drop_block"});
+            }
+            if let Some(l) = &level {
+                body["output_config"] = json!({"effort": l.as_str()});
+            }
         }
         ThinkingMode::Budget { effort } => {
+            let l = level.unwrap_or_default();
             body["thinking"] =
-                json!({"type": "enabled", "budget_tokens": budget(req.effort, req.max_tokens)});
+                json!({"type": "enabled", "budget_tokens": budget(&l, req.max_tokens)});
             if effort {
-                let e = if req.effort == Effort::Max {
-                    "high"
-                } else {
-                    req.effort.as_str()
-                };
-                body["output_config"] = json!({"effort": e});
+                body["output_config"] = json!({"effort": l.as_str()});
             }
         }
     }
@@ -263,6 +285,8 @@ pub struct StreamState {
     stop: Option<StopReason>,
     model: String,
     done: bool,
+    /// Replayed thinking blocks the API dropped or flagged for a changed history (`input_transformations`).
+    dropped: u32,
 }
 
 impl StreamState {
@@ -285,6 +309,19 @@ impl StreamState {
                     .unwrap_or_default()
                     .to_owned();
                 self.read_usage(&v["message"]["usage"]);
+                self.dropped = v["message"]["input_transformations"]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .filter(|t| {
+                                matches!(
+                                    t["type"].as_str(),
+                                    Some("thinking_dropped" | "thinking_mismatch_allowed")
+                                )
+                            })
+                            .count() as u32
+                    })
+                    .unwrap_or(0);
             }
             "content_block_start" => {
                 let cb = &v["content_block"];
@@ -439,6 +476,7 @@ impl StreamState {
             stop,
             usage: self.usage,
             model: self.model,
+            dropped_thinking: self.dropped,
         })
     }
 }
@@ -450,6 +488,21 @@ pub fn parse_args(json: &str) -> Value {
         return json!({});
     }
     serde_json::from_str(json).unwrap_or_else(|_| json!({ crate::INVALID_JSON_KEY: json }))
+}
+
+/// The effort levels a model takes, as the Models API reports them (`capabilities.effort`), lowest first; `None` when
+/// it does not say, empty when the model has no effort control.
+fn efforts(caps: &Value) -> Option<Vec<Effort>> {
+    let supported = caps["supported"].as_bool()?;
+    let mut out: Vec<Effort> = caps
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(k, v)| supported && k.as_str() != "supported" && v["supported"] == true)
+        .filter_map(|(k, _)| k.parse().ok())
+        .collect();
+    out.sort_by_key(|e| e.rank().unwrap_or(usize::MAX));
+    Some(out)
 }
 
 #[async_trait]
@@ -482,6 +535,12 @@ impl Provider for Anthropic {
                 max_output: m["max_tokens"].as_u64(),
                 supports_tools: Some(true),
                 supports_vision: Some(true),
+                efforts: efforts(&m["capabilities"]["effort"]),
+                default_effort: None,
+            })
+            .map(|mut i| {
+                crate::effort::fill(&mut i);
+                i
             })
             .collect())
     }
@@ -491,7 +550,7 @@ impl Provider for Anthropic {
         req: &ChatRequest,
         emit: &(dyn Fn(ChatEvent) + Send + Sync),
     ) -> Result<ChatResponse, LlmError> {
-        let body = build_body(req);
+        let body = build_body_with(req, self.first_party());
         let mut st = StreamState::default();
         self.http
             .post_sse(

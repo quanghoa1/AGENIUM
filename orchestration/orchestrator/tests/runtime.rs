@@ -851,7 +851,7 @@ async fn vendor_switch_keeps_memory_skills_and_conversation() {
         &ModelBinding {
             provider: "vendor-b".into(),
             model: "model-b".into(),
-            effort: Effort::Medium,
+            effort: Effort::MEDIUM,
             max_tokens: None,
         },
     )
@@ -1265,7 +1265,7 @@ async fn cli_agent_falls_back_to_the_api_when_configured() {
     let cli_model = ModelBinding {
         provider: "devin".into(),
         model: "some-model".into(),
-        effort: Effort::Low,
+        effort: Effort::LOW,
         max_tokens: None,
     };
     app.set_agent_backend(agent, BackendKind::Cli, &cli_model)

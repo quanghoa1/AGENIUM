@@ -101,6 +101,39 @@ Also from these runs:
 - Grep explains that patterns match UTF-8 text when a model sends byte patterns (`(?-u)ï»¿`).
 - Nudges, delivered messages, compactions and refused CLI calls are now in each run's log (`control`), next to retries.
 
+**Claude through Anthropic's API** (2026-10-26, a $5 test key; `results/claude-api/`). Every check passed:
+
+| Check | Model | Result |
+|---|---|---|
+| `real_checks`: compaction, steering, overflow wording, MCP behind OAuth, BOM/CRLF edit, chat learning, dangling tool call | Haiku 5.5 | 7/7 PASS |
+| golden tasks | Haiku 5.5 (high), Sonnet 5.5 (medium), Opus 5.5 (medium) | 5/5 PASS each |
+| team task | Haiku 5.5 | PASS (after the review rule below) |
+| learning chain | Haiku 5.5 | PASS; tickets 2 and 4 passed their first merge with the lesson recalled |
+| CLI agents at effort low (ADR-114) | Claude Code `haiku`, Codex `gpt-6-luna`, Antigravity `gemini-3.8-flash` | `hello-file` PASS |
+| the agent form offers each model's own effort levels (ADR-114) | Codex, Claude Code, Antigravity, Grok, DeepSeek API | 7/7 in the desktop app |
+
+These runs found five defects, all fixed:
+- **The Lead approved a criterion the worker had reported Partial**, without a word on it. An approval now needs
+  `ac_feedback` saying how the reviewer verified each criterion the report left Partial or NotMet; otherwise the
+  engine refuses it and the Lead verifies or reopens (`approving_a_partial_criterion_needs_the_reviewers_word`).
+- **A lesson became a plain fact.** A clean ticket that refined a lesson yields only facts, so its update turned the
+  lesson into a fact and reset what it had earned. An update of a lesson now keeps its kind, its cue, its trust and
+  the contexts it held in (`an_update_of_a_lesson_keeps_what_it_earned`).
+- **A project file rewrote a proven lesson.** It read "nothing enforces this", which made the lesson untrusted, and
+  retired its twin. The next ticket was not reminded and failed its merge. External content (web, MCP, files) now
+  neither rewrites nor retires trusted memory; it is stored beside it as untrusted.
+- **Cached tokens were billed twice when earlier runs were priced again** (after a price download). The run's
+  input count includes its cached input; only the rest is billed at the input price.
+- **Effort was one ladder for every model**, while models have two to six levels of their own (DeepSeek low/high/
+  max, Gemini 3 Pro low/high, Codex up to `ultra`). The app also offered `xhigh`, which the core refused, and CLI
+  agents never received the effort. Each model now has its own levels (ADR-114).
+
+Also observed, not changed:
+- The hashing embedder (no local model installed) recalls by shared words only. A ticket for `handbook/` was not
+  reminded of a lesson about `deliverables/ or reports/`. With the local model (bge-small) it was.
+- Haiku did not generalise the lesson to folders the check message did not name (DeepSeek did), and it did not write
+  a skill at ticket 4 although the tools were open.
+
 ## Prompt cache (ADR-113)
 
 The golden tasks on DeepSeek went from 77.7 % to 90.2 % of input tokens served from the prompt cache. The learning
@@ -109,8 +142,8 @@ loses its cached prefix. The probe `cache_probe.rs` shows what a provider keeps.
 
 ## Not verified yet
 
-- Vendors other than OpenCode Go and OpenRouter on the API: contract tests only (no keys). The prompt-cache rules
-  were measured on DeepSeek only; Anthropic, OpenAI, Gemini and xAI are contract-tested.
+- Vendors other than OpenCode Go, OpenRouter and Anthropic on the API: contract tests only (no keys). The
+  prompt-cache rules were measured on DeepSeek and Claude; OpenAI, Gemini and xAI are contract-tested.
 - The team task at n = 1 per configuration; variance across repeated runs is not measured.
 - Stall nudges and the SLA escalation to the user: scripted tests only (no real run stalled long enough).
 - Skill update overlays from an experienced lesson (the chain created a new skill; the update path ran in the learning

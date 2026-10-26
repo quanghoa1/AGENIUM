@@ -1,0 +1,370 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 2 fact(s)",
+    "runs": 12,
+    "steps": 35,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 504376,
+    "tokens_out": 8991,
+    "tokens_cached": 466272,
+    "cost_usd": 0.0,
+    "elapsed_ms": 185600,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 2,
+                "text": "Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team')."
+            ],
+            "memory_ops": [
+              {
+                "added": 2,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 1,
+                "entities_new": 4,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 2000,
+                "tokens_out": 864,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 2,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 3809,
+                "tokens_out": 1001,
+                "updated": 0,
+                "validated": 0
+              }
+            ],
+            "shown": [
+              "run 01M5W5246P19BYQG17YCFCKHE4 #1 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+              "run 01M5W5246P19BYQG17YCFCKHE4 #2 hybrid Some(Lesson): Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team')."
+            ],
+            "memory_ops": [
+              {
+                "added": 1,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 1,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 2,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3752,
+                "tokens_out": 816,
+                "updated": 0,
+                "validated": 1
+              }
+            ],
+            "shown": [
+              "run 01M5W52VQK0SBDKWS636XK92HM #1 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+              "run 01M5W52VQK0SBDKWS636XK92HM #2 hybrid Some(Lesson): Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-2",
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-3"
+                ],
+                "id": 5,
+                "text": "Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval, so",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 4,
+                "text": "In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval, so verify the first line of team documents in handbook/, deliverables/ and reports/ before submitting.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 2,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [
+                  1
+                ],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 3471,
+                "tokens_out": 1542,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 1,
+                "entities_new": 2,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "relation pre-merge check -causes-> merge failure after review approval names an entity the fact does not list"
+                ],
+                "tokens_in": 4204,
+                "tokens_out": 1431,
+                "updated": 1,
+                "validated": 1
+              }
+            ],
+            "shown": [
+              "run 01M5W53Z80MZY41BFNDMC0NTMJ #1 hybrid Some(Fact): The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M5W53Z80MZY41BFNDMC0NTMJ #2 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+              "run 01M5W53Z80MZY41BFNDMC0NTMJ #3 hybrid Some(Lesson): Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval.",
+              "run 01M5W55FFQKECTY8MSQAXRZPH3 #1 hybrid Some(Lesson): In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+              "run 01M5W55FFQKECTY8MSQAXRZPH3 #2 hybrid Some(Fact): The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M5W55FFQKECTY8MSQAXRZPH3 #3 hybrid Some(Lesson): Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-2",
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-3",
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-4"
+                ],
+                "id": 5,
+                "text": "Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval, so",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5W51MV9T6EGJGK3N4WV1W8H/ticket:AGN-4"
+                ],
+                "id": 4,
+                "text": "In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project's agenium.toml sets an empty pre_merge check, so no pre-merge check runs on merges there.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval, so verify the first line of team documents in handbook/, deliverables/ and reports/ before submitting.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/."
+            ],
+            "memory_ops": [
+              {
+                "added": 1,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 1,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "unreadable operation {\"id\":5,\"op\":\"UPDATE\",\"text\":\"Acceptance-criteria checks alone do not catch the docs project's owner-line rule. The docs project's pre-merge check is designed to enforce it and can fail a merge after review approval, so verify the first line of team documents in handbook/, deliverables/ and reports/ before submitting. Note: agenium.toml currently sets an empty pre_merge check, so no pre-merge check runs there and the owner-line rule is not enforced by tooling at present.\"}: missing field `fact`"
+                ],
+                "tokens_in": 4361,
+                "tokens_out": 1599,
+                "updated": 0,
+                "validated": 2
+              }
+            ],
+            "shown": [
+              "run 01M5W568ZJRYN0A0E9B0PQ4Q5D #1 hybrid Some(Fact): The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M5W568ZJRYN0A0E9B0PQ4Q5D #2 hybrid Some(Lesson): Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval, so verify the first line of team documents in handbook/, deliverables/ and reports/ before submitting.",
+              "run 01M5W568ZJRYN0A0E9B0PQ4Q5D #3 hybrid Some(Lesson): In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team')."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": false,
+            "merge_failures": 1,
+            "reopened": 1,
+            "runs": 4,
+            "status": "Closed",
+            "steps": 11,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 149411,
+            "tokens_in": 157434,
+            "tokens_out": 2972
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 7,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 86965,
+            "tokens_in": 105924,
+            "tokens_out": 1729
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\"",
+        "AGN-3: handbook/onboarding.txt: \"onboarding\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project's agenium.toml sets an empty pre_merge check, so no pre-merge check runs on merges there.",
+        "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval, so verify the first line of team documents in handbook/, deliverables/ and reports/ before submitting.",
+        "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, the pre-merge check requires every team document in handbook/, deliverables/ or reports/ to have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's README says team documents live in deliverables/, reports/, handbook/ and minutes/."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team')."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 133776,
+        "tokens_in": 140267,
+        "tokens_out": 2226
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 96120,
+        "tokens_in": 100751,
+        "tokens_out": 2064
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5W52VQK0SBDKWS636XK92HM #1 hybrid: In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line (e.g. 'Owner: docs-team').",
+        "run 01M5W52VQK0SBDKWS636XK92HM #2 hybrid: Acceptance-criteria checks alone do not catch the docs project's owner-line rule; the pre-merge check enforces it and can fail a merge after review approval."
+      ]
+    }
+  }
+]

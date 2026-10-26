@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -72,6 +73,7 @@ impl Driver for Opencode {
     fn args(
         &self,
         _model: &str,
+        _effort: Option<&Effort>,
         _home: &Path,
         _resume: Option<&str>,
         _subagents: bool,

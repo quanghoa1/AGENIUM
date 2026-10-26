@@ -1,6 +1,7 @@
 //! `cargo run -p agenium-eval -- [--task ID] [--out DIR]` runs the golden tasks with the scripted model.
 //! With a real model: `--root <agenium root> --provider <id> --model <model> [--effort high] [--approve-commands]`
-//! (uses the provider and API key configured in that root; costs tokens).
+//! (uses the provider and API key configured in that root; costs tokens). Or `--provider <id> --kind anthropic
+//! --base-url default --key-env <VAR> --model <model>`: a provider built from a test key in the environment.
 //! With a vendor CLI (CliBackend): `--cli codex --model gpt-6-luna` or `--cli agy --model gemini-3.8-flash-low`
 //! (uses the CLI's own login and quota; codex runs inside the sandbox, agy's commands need approval).
 //! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--memory-reuse on|off` (memory
@@ -34,26 +35,46 @@ async fn main() -> Result<()> {
         None if arg(&args, "--cli").is_some() => Mode::Cli {
             cli: arg(&args, "--cli").unwrap_or_default(),
             model: arg(&args, "--model").unwrap_or_default(),
+            effort: arg(&args, "--effort")
+                .unwrap_or_else(|| "high".into())
+                .parse()
+                .map_err(|e: String| anyhow!(e))?,
             approve_commands: args.iter().any(|a| a == "--approve-commands"),
         },
         None => Mode::Scripted,
         Some(provider_id) => {
-            let root = PathBuf::from(
-                arg(&args, "--root")
-                    .ok_or_else(|| anyhow!("--root is required with --provider"))?,
-            );
-            let keyring: Arc<dyn agenium_secrets::KeyringBackend> =
-                Arc::new(agenium_secrets::OsKeyring::default());
-            let (app, _) = agenium_orchestrator::App::open(
-                &root,
-                agenium_orchestrator::AppOptions {
-                    keyring,
-                    checks: Arc::new(agenium_orchestrator::NoCheckFactory),
-                },
-            )?;
-            let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
-            let provider =
-                agenium_orchestrator::runtime::ProviderSource::provider(&source, &provider_id)?;
+            // Either a root's configured provider (key in its vault), or one built from `--kind`, `--base-url`
+            // (`default` = the vendor's) and the key in the environment variable `--key-env` (a test key that must
+            // not be stored).
+            let provider: Arc<dyn agenium_llm::Provider> = match arg(&args, "--key-env") {
+                Some(var) => {
+                    let key = std::env::var(&var).map_err(|_| anyhow!("{var} is not set"))?;
+                    agenium_llm::build_provider(&agenium_llm::ProviderSpec {
+                        id: provider_id.clone(),
+                        kind: arg(&args, "--kind").unwrap_or_else(|| "openai_compat".into()),
+                        base_url: arg(&args, "--base-url").filter(|b| b != "default"),
+                        api_key: Some(key),
+                        max_concurrency: 2,
+                    })?
+                }
+                None => {
+                    let root = PathBuf::from(arg(&args, "--root").ok_or_else(|| {
+                        anyhow!("--root or --key-env is required with --provider")
+                    })?);
+                    let keyring: Arc<dyn agenium_secrets::KeyringBackend> =
+                        Arc::new(agenium_secrets::OsKeyring::default());
+                    let (app, _) = agenium_orchestrator::App::open(
+                        &root,
+                        agenium_orchestrator::AppOptions {
+                            keyring,
+                            checks: Arc::new(agenium_orchestrator::NoCheckFactory),
+                        },
+                    )?;
+                    let source =
+                        agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
+                    agenium_orchestrator::runtime::ProviderSource::provider(&source, &provider_id)?
+                }
+            };
             Mode::Model {
                 provider,
                 model: arg(&args, "--model")

@@ -406,7 +406,8 @@ pub struct AcFeedback {
     pub feedback: String,
 }
 
-/// Review a Resolved ticket. Approve sets approved=true (code tickets then enter the merge queue);
+/// Review a Resolved ticket. Approve sets approved=true (code tickets then enter the merge queue); a criterion the
+/// report left Partial or NotMet is approved only with ac_feedback on it saying how the reviewer verified it.
 /// Reopen sends it back to the assignee and needs feedback for each criterion that is not met.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

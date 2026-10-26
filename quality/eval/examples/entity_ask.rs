@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
             }],
             messages: vec![Message::user_text(q)],
             tools: vec![],
-            effort: Effort::Low,
+            effort: Effort::LOW,
             max_tokens: 2000,
             cache_key: None,
             long_cache: false,

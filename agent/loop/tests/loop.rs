@@ -968,3 +968,72 @@ async fn a_compaction_keeps_the_most_recent_steps() {
         .await;
     assert_eq!(r.outcome, Outcome::Completed);
 }
+
+/// ADR-113: clearing an old result changes the history the later thinking was written on, so those thinking blocks go
+/// (Claude rejects or drops them otherwise); thinking from before the cleared result stays.
+#[tokio::test]
+async fn clearing_an_old_result_drops_the_thinking_written_after_it() {
+    let (_t, ctx, tools, proto) = harness();
+    let big = "x".repeat(6000);
+    let thought = |tokens: u64,
+                   label: &'static str,
+                   call: (&'static str, serde_json::Value)|
+     -> agenium_llm::mock::Responder {
+        Box::new(move |_| {
+            let mut r = agenium_llm::mock::calls_response("", vec![call.clone()]);
+            r.usage.input = tokens;
+            r.message.parts.insert(
+                0,
+                Part::Thinking {
+                    text: label.into(),
+                    signature: Some("sig".into()),
+                    provider: "mock".into(),
+                    redacted: false,
+                    model: None,
+                },
+            );
+            Ok(r)
+        })
+    };
+
+    let p = ScriptedProvider::new("m");
+    p.push(thought(
+        100,
+        "before",
+        ("write_file", json!({"path": "big.txt", "content": big})),
+    ));
+    p.push(thought(
+        100,
+        "reading",
+        ("read_file", json!({"path": "big.txt"})),
+    ));
+    for (d, label) in [
+        (1, "after-1"),
+        (2, "after-2"),
+        (3, "after-3"),
+        (4, "after-4"),
+    ] {
+        p.push(thought(100, label, ("list_dir", json!({"depth": d}))));
+    }
+    p.push(thought(7_000, "after-5", ("list_dir", json!({"depth": 5}))));
+    p.push(Box::new(|req: &ChatRequest| {
+        let thinking: Vec<String> = req
+            .messages
+            .iter()
+            .flat_map(|m| m.parts.iter())
+            .filter_map(|p| match p {
+                Part::Thinking { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(thinking, vec!["before", "reading"], "{thinking:?}");
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, small_window())
+        .run(&order())
+        .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+}

@@ -110,5 +110,30 @@ new tool results, which no cache can serve.
 | NVIDIA Nemotron 3.5 Lightning via OpenRouter (free) | `cache_probe` | 67 % on an unchanged prefix, 67 % with one tool replaced, **0 %** after one line appended to the system or the second system block changed | OpenRouter routes by a hash of the opening messages, so a per-run line in the system loses the cache entirely. This confirms decision 1. |
 | Cohere North Mini via OpenRouter (free) | `cache_probe` | 0 % | the free route reports no caching |
 
-Not measured, no key: Anthropic, OpenAI, Gemini and xAI through their APIs (contract tests only).
+### Claude through Anthropic's API (2026-10-26, `quality/eval/results/claude-api/`)
+
+| Model | Scenario | Prompt cache | Note |
+|---|---|---|---|
+| Claude Haiku 5.5 | `cache_probe` | 99 % unchanged prefix; 100 % across turns, also with `tool_choice: none` (notes); 99 % with a block appended to the system; **0 %** with one tool replaced or the tools left out | tools come first on Anthropic's wire, so a changed tool costs the whole prompt |
+| Claude Haiku 5.5 (effort high) | golden tasks, 5/5 PASS | **92.5 %** of 864 k input tokens | |
+| Claude Sonnet 5.5 (medium) | golden tasks, 5/5 PASS | **90.2 %** of 400 k | 2 runs and 6 steps per task |
+| Claude Opus 5.5 (medium) | golden tasks, 5/5 PASS | **92.3 %** of 652 k | |
+| Claude Haiku 5.5 | team task, PASS | 84.8 % of 272 k | Lead and three workers, 7 runs |
+| Claude Haiku 5.5 | learning chain, PASS | 90.9–95.6 % of 0.5 M | one agent, 4 tickets |
+
+The first task of each set is cold (59–66 %); the following ones are served 95–97 % from the cache.
+
+**Preserved thinking.** Claude binds each replayed thinking block to the history before it. Agenium edits the
+history on purpose: it clears old tool results, keeps a tail at compaction, and summarises a long chat. On accounts
+created from 2026-08-31 such a request is refused (400). Agenium does two things:
+- It removes the thinking written after the first edited turn (clearing, compaction and the chat summary).
+- On Anthropic's own API it sends the `thinking-binding-controls-2026-08-01` beta with
+  `prefix_mismatch_behavior: drop_block`, so a block that still does not match is dropped, not refused. Each drop is
+  logged in the run (`control: thinking_dropped`).
+
+`thinking_probe.rs` measured it. On Haiku 5.5 (effort high) and Sonnet 5.5 (max), an edited history with the thinking
+replayed had one block dropped or flagged; with the later thinking removed, none. Opus 5.5 ended the lookup chain
+after one call, so it gave no block to check.
+
+Not measured, no key: OpenAI, Gemini and xAI through their APIs (contract tests only).
 

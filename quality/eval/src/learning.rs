@@ -82,15 +82,21 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             model,
             effort,
             approve_commands,
-        } => (provider.clone(), model.clone(), *effort, *approve_commands),
+        } => (
+            provider.clone(),
+            model.clone(),
+            effort.clone(),
+            *approve_commands,
+        ),
         Mode::Cli {
             model,
+            effort,
             approve_commands,
             ..
         } => (
             Arc::new(agenium_llm::mock::ScriptedProvider::new("unused")) as Arc<dyn Provider>,
             model.clone(),
-            Effort::High,
+            effort.clone(),
             *approve_commands,
         ),
     };
@@ -104,7 +110,7 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             model: ModelBinding {
                 provider: "eval".into(),
                 model: model.clone(),
-                effort,
+                effort: effort.clone(),
                 max_tokens: None,
             },
         },

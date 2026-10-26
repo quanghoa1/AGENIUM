@@ -268,7 +268,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
     let binding = ModelBinding {
         provider: "eval".into(),
         model: model.clone(),
-        effort: *effort,
+        effort: effort.clone(),
         max_tokens: None,
     };
     app.create_team_from_template(project.id, "coding", &binding, None, None, "t")?;
@@ -289,7 +289,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
                 &ModelBinding {
                     provider: cli.clone(),
                     model: cli_model.clone(),
-                    effort: *effort,
+                    effort: effort.clone(),
                     max_tokens: None,
                 },
             )?;

@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowLeft, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
@@ -15,7 +15,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
     setModels([]);
     if (cli) {
       // What this CLI runs with the user's login (codex model/list, agy models, Claude aliases, OpenCode's free models).
-      setModels((caps?.cli_models?.[value.provider] ?? []).map((id) => ({ id })));
+      setModels(caps?.cli_models?.[value.provider] ?? []);
       return;
     }
     if (!value.provider) return;
@@ -27,9 +27,25 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
       .catch(() => undefined);
   }, [value.provider, cli, caps]);
   const listId = `models-${value.provider || "none"}`;
+  // Only the model's own effort levels (ADR-114): reported by its vendor or known per model. [] = the model has no
+  // effort setting; unknown = its vendor's default applies.
+  const info = models.find((m) => m.id === value.model);
+  const levels = info?.efforts ?? null;
+  const levelKey = levels?.join(",");
+  const shownModel = useRef(value.model);
+  useEffect(() => {
+    // A newly chosen model starts at its own default level; a level the model does not have becomes its default too.
+    const changed = shownModel.current !== value.model;
+    shownModel.current = value.model;
+    if (levels?.length && (changed || !levels.includes(value.effort))) {
+      const d = info?.default_effort;
+      const effort = d && levels.includes(d) ? d : levels.includes(value.effort) ? value.effort : levels[0];
+      if (effort !== value.effort) onChange({ ...value, effort });
+    }
+  }, [value.model, levelKey]);
   const prices = usePrices(useApp().tick);
   // Only the opencode CLI's list is OpenCode's free models; the other CLIs list what their login can run.
-  const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []) : []);
+  const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []).map((m) => m.id) : []);
   const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
   return (
     <div className="grid grid-cols-4 gap-2">
@@ -67,11 +83,19 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           );
         })}
       </datalist>
-      <select className="input" value={value.effort} onChange={(e) => onChange({ ...value, effort: e.target.value })}>
-        {["low", "medium", "high", "xhigh", "max"].map((x) => (
-          <option key={x}>{x}</option>
-        ))}
-      </select>
+      {levels?.length ? (
+        <select className="input" value={value.effort} onChange={(e) => onChange({ ...value, effort: e.target.value })}>
+          {levels.map((x) => (
+            <option key={x} value={x}>
+              {x === info?.default_effort ? `${x} (default)` : x}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <select className="input" disabled title={levels ? "this model has no effort setting" : "its vendor does not say this model's levels: its default applies"}>
+          <option>{levels ? "no effort" : "model default"}</option>
+        </select>
+      )}
     </div>
   );
 }

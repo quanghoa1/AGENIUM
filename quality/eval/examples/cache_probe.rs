@@ -3,7 +3,7 @@
 //! read from the cache. Costs a few small requests.
 //!
 //! cargo run -p agenium-eval --example cache_probe -- --root <root> --provider <id> --model <model>
-//! cargo run -p agenium-eval --example cache_probe -- --base-url <url> --key-env <VAR> --provider <id> --model <model>
+//! cargo run -p agenium-eval --example cache_probe -- --base-url <url|default> --key-env <VAR> [--kind anthropic] --provider <id> --model <model>
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -43,7 +43,7 @@ fn req(model: &str, system: &[&str], tools: Vec<ToolSpec>, user: &str, key: &str
             .collect(),
         messages: vec![Message::user_text(user)],
         tools,
-        effort: Effort::Low,
+        effort: Effort::LOW,
         max_tokens: 64,
         cache_key: Some(key.into()),
         long_cache: false,
@@ -65,8 +65,8 @@ async fn main() -> Result<()> {
             let key = std::env::var(&var).map_err(|_| anyhow!("{var} is not set"))?;
             build_provider(&ProviderSpec {
                 id: provider_id.clone(),
-                kind: "openai_compat".into(),
-                base_url: Some(base),
+                kind: arg(&args, "--kind").unwrap_or_else(|| "openai_compat".into()),
+                base_url: (base != "default").then_some(base),
                 api_key: Some(key),
                 max_concurrency: 1,
             })?
@@ -166,6 +166,55 @@ async fn main() -> Result<()> {
     ))
     .await?;
     println!("warm-up: {cached} of {inp} input tokens cached");
+    // A growing conversation (the messages part of the cache): the same history with one more turn, sent with the
+    // tools callable and then with the tools listed but not callable (a notes request, ADR-113).
+    let long = format!(
+        "{stem}Context: {}",
+        "The service keeps its records in a ledger. ".repeat(300)
+    );
+    let conv = |turns: &[(&str, &str)], tools_off: bool| {
+        let mut r = req(&model, &[&rules, &role], tools_a.clone(), &long, "k1");
+        for (a, u) in turns {
+            r.messages.push(Message {
+                role: Role::Assistant,
+                parts: vec![Part::Text { text: (*a).into() }],
+            });
+            r.messages.push(Message::user_text(*u));
+        }
+        r.tools_off = tools_off;
+        r
+    };
+    let (i1, c1) = send(conv(&[], false)).await?;
+    println!("conversation, turn 1: {c1} of {i1} input tokens cached");
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let (i2, c2) = send(conv(&[("Noted.", "Say ok.")], false)).await?;
+    println!(
+        "conversation, turn 2 (tools callable): {c2} of {i2} cached ({:.0} %)",
+        100.0 * c2 as f64 / i2.max(1) as f64
+    );
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let (i3, c3) = send(conv(
+        &[("Noted.", "Say ok."), ("ok", "Write one line of notes.")],
+        true,
+    ))
+    .await?;
+    println!(
+        "conversation, turn 3 (tools listed, not callable): {c3} of {i3} cached ({:.0} %)",
+        100.0 * c3 as f64 / i3.max(1) as f64
+    );
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let (i4, c4) = send(conv(
+        &[
+            ("Noted.", "Say ok."),
+            ("ok", "Write one line of notes, no tools."),
+        ],
+        false,
+    ))
+    .await?;
+    println!(
+        "conversation, turn 3' (tools callable, told not to call): {c4} of {i4} cached ({:.0} %)",
+        100.0 * c4 as f64 / i4.max(1) as f64
+    );
     for (name, r) in cases {
         tokio::time::sleep(Duration::from_secs(3)).await;
         let (inp, cached) = send(r).await?;

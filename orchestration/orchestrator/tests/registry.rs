@@ -27,7 +27,7 @@ fn binding(model: &str) -> ModelBinding {
     ModelBinding {
         provider: "local".into(),
         model: model.into(),
-        effort: Effort::Medium,
+        effort: Effort::MEDIUM,
         max_tokens: None,
     }
 }
@@ -156,7 +156,7 @@ fn agents_start_in_the_pool_with_their_own_model() {
             model: ModelBinding {
                 provider: "codex".into(),
                 model: "gpt-6-luna".into(),
-                effort: Effort::Medium,
+                effort: Effort::MEDIUM,
                 max_tokens: None,
             },
             backend: BackendKind::Cli,
@@ -574,7 +574,7 @@ fn providers_keep_their_keys_in_the_vault() {
             model: ModelBinding {
                 provider: "deepseek".into(),
                 model: "deepseek-v4.1-flash".into(),
-                effort: Effort::Medium,
+                effort: Effort::MEDIUM,
                 max_tokens: None,
             },
             backend: BackendKind::Api,

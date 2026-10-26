@@ -222,6 +222,49 @@ fn research_ticket_without_code_closes_after_review() {
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Closed);
 }
 
+/// A criterion the worker reported Partial is approved only on the reviewer's own word about it.
+#[test]
+fn approving_a_partial_criterion_needs_the_reviewers_word() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Look something up", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let mut rep = report(k.as_str());
+    rep.acceptance[0].status = AcStatus::Partial;
+    rep.acceptance[0].evidence = "could not run the browser check here".into();
+    f.app
+        .apply(&ctx(&f, Actor::Worker(a.id)), Intent::SubmitReport(rep))
+        .unwrap();
+    let approve = |feedback: &str| {
+        f.app.apply(
+            &ctx(&f, Actor::Lead(a.id)),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: (!feedback.is_empty())
+                    .then(|| AcFeedback {
+                        ac_id: "AC-1".into(),
+                        feedback: feedback.into(),
+                    })
+                    .into_iter()
+                    .collect(),
+                required_changes: vec![],
+            }),
+        )
+    };
+    match approve("") {
+        Err(OrchError::Invalid(m)) => assert!(m.contains("AC-1"), "{m}"),
+        other => panic!("approved a Partial criterion silently: {other:?}"),
+    }
+    assert!(
+        matches!(approve("ok"), Err(OrchError::Invalid(_))),
+        "a word is not a check"
+    );
+    assert!(!ticket(&f, k.as_str()).approved);
+    approve("Opened deliverables/hello.txt myself; it holds the answer.").unwrap();
+    assert!(ticket(&f, k.as_str()).approved);
+}
+
 #[test]
 fn blocking_question_parks_and_answer_resumes() {
     let f = fixture();

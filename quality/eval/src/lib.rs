@@ -209,6 +209,8 @@ pub enum Mode {
     Cli {
         cli: String,
         model: String,
+        /// Passed to the CLI as its own effort flag (`--effort high` by default).
+        effort: Effort,
         approve_commands: bool,
     },
 }
@@ -270,21 +272,27 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     repo.commit_all(&root, "Eval fixture", ("eval", "eval@agenium.local"), &[])?;
 
     let (provider, model, effort, approve): (Arc<dyn Provider>, String, Effort, bool) = match mode {
-        Mode::Scripted => (scripted(task), "scripted".into(), Effort::Low, false),
+        Mode::Scripted => (scripted(task), "scripted".into(), Effort::LOW, false),
         Mode::Model {
             provider,
             model,
             effort,
             approve_commands,
-        } => (provider.clone(), model.clone(), *effort, *approve_commands),
+        } => (
+            provider.clone(),
+            model.clone(),
+            effort.clone(),
+            *approve_commands,
+        ),
         Mode::Cli {
             model,
+            effort,
             approve_commands,
             ..
         } => (
             Arc::new(ScriptedProvider::new("unused")) as Arc<dyn Provider>,
             model.clone(),
-            Effort::High,
+            effort.clone(),
             *approve_commands,
         ),
     };
@@ -298,7 +306,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             model: ModelBinding {
                 provider: "eval".into(),
                 model: model.clone(),
-                effort,
+                effort: effort.clone(),
                 max_tokens: None,
             },
         },

@@ -1,0 +1,121 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 81419,
+    "tokens_out": 1095,
+    "tokens_cached": 53503,
+    "cost_usd": 0.0,
+    "elapsed_ms": 20294
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 97647,
+    "tokens_out": 1193,
+    "tokens_cached": 94334,
+    "cost_usd": 0.0,
+    "elapsed_ms": 17331
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 4,
+    "steps": 29,
+    "tool_errors": 6,
+    "error_codes": {
+      "binary_file": 1,
+      "invalid_arguments": 2,
+      "not_a_directory": 1,
+      "not_found": 2
+    },
+    "errors": [
+      "read_file: binary_file: src/__pycache__/mathlib.cpython-313.pyc looks binary",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 896) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 896)\"}]",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: summary: must have at most 800 characters (got 823) | detail: [{\"field\":\"summary\",\"message\":\"must have at most 800 characters (got 823)\"}]",
+      "read_file: not_found: src/__pycache__/mathlib.cpython-313.pyc does not exist",
+      "read_file: not_found: src/__pycache__/report.cpython-313.pyc does not exist",
+      "list_dir: not_a_directory: src/__pycache__ is not a directory"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 1,
+    "tokens_in": 503477,
+    "tokens_out": 15450,
+    "tokens_cached": 477589,
+    "cost_usd": 0.0,
+    "elapsed_ms": 117484
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 82988,
+    "tokens_out": 1296,
+    "tokens_cached": 79633,
+    "cost_usd": 0.0,
+    "elapsed_ms": 18013
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 98272,
+    "tokens_out": 1702,
+    "tokens_cached": 93933,
+    "cost_usd": 0.0,
+    "elapsed_ms": 24424
+  }
+]

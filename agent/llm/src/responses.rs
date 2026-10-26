@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 
 use crate::error::LlmError;
 use crate::http::Http;
-use crate::openai::{effort_value, map_error, session_key, Flavor};
+use crate::openai::{map_error, session_key};
 use crate::sse::SseEvent;
 use crate::types::*;
 use crate::Provider;
@@ -58,12 +58,6 @@ impl Responses {
         }
         h
     }
-}
-
-/// Reasoning models take `reasoning.effort`.
-fn is_reasoning_model(model: &str) -> bool {
-    let m = model.to_ascii_lowercase();
-    m.starts_with("gpt-5") || m.starts_with("gpt-6") || m.starts_with('o')
 }
 
 pub fn build_body(req: &ChatRequest) -> Value {
@@ -153,8 +147,9 @@ pub fn build_body(req: &ChatRequest) -> Value {
                 .collect(),
         );
     }
-    if is_reasoning_model(&req.model) {
-        body["reasoning"] = json!({"effort": effort_value(Flavor::OpenAi, req.effort)});
+    // The model's own level (ADR-114); none for a model whose levels are unknown.
+    if let Some(e) = crate::effort::level_for(&req.model, &req.effort) {
+        body["reasoning"] = json!({"effort": e.as_str()});
     }
     body
 }
@@ -336,6 +331,7 @@ impl StreamState {
             stop,
             usage: self.usage,
             model: self.model,
+            dropped_thinking: 0,
         })
     }
 }
@@ -371,6 +367,12 @@ impl Provider for Responses {
                 max_output: None,
                 supports_tools: Some(true),
                 supports_vision: None,
+                efforts: None,
+                default_effort: None,
+            })
+            .map(|mut i| {
+                crate::effort::fill(&mut i);
+                i
             })
             .collect())
     }

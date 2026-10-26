@@ -1,0 +1,355 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 2 fact(s)",
+    "runs": 14,
+    "steps": 39,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 3,
+    "tokens_in": 549655,
+    "tokens_out": 9126,
+    "tokens_cached": 525434,
+    "cost_usd": 0.0,
+    "elapsed_ms": 169398,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 2,
+                "text": "A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line."
+            ],
+            "memory_ops": [
+              {
+                "added": 2,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 1,
+                "entities_new": 5,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 2024,
+                "tokens_out": 672,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 2,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 3562,
+                "tokens_out": 929,
+                "updated": 0,
+                "validated": 0
+              }
+            ],
+            "shown": [
+              "run 01M5W4SAC3R50AMAQRVR9KXZAV #1 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line.",
+              "run 01M5W4SAC3R50AMAQRVR9KXZAV #2 hybrid Some(Lesson): A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5W4RX31BX0GEZ91RHZ5BDP0/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, a document in deliverables/ or reports/ must have 'Owner: <team>' as its first line, but no automated check enforces this: agenium.toml's pre_merge check is empty, so a document without the line does not block the merge.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line."
+            ],
+            "memory_ops": [
+              {
+                "added": 1,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 2,
+                "extracted": 2,
+                "helped": 2,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "external content may not rewrite trusted memory 2; stored beside it as untrusted",
+                  "relation docs -configured_with-> agenium.toml names an entity the fact does not list"
+                ],
+                "tokens_in": 3722,
+                "tokens_out": 1481,
+                "updated": 0,
+                "validated": 1
+              }
+            ],
+            "shown": [
+              "run 01M5W4T3RADKNCKM70M8XZNKS4 #1 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line.",
+              "run 01M5W4T3RADKNCKM70M8XZNKS4 #2 hybrid Some(Lesson): A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line. For the docs team, this is 'Owner: docs",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M5W4RX31BX0GEZ91RHZ5BDP0/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked.",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line. For the docs team, this is 'Owner: docs-team'. The pre-merge check enforces this line and blocks the merge of any document without it, so verify the owner line before submitting.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 1,
+                "edges": 1,
+                "entities_linked": 0,
+                "entities_new": 3,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 2804,
+                "tokens_out": 1404,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 2,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3650,
+                "tokens_out": 803,
+                "updated": 1,
+                "validated": 0
+              }
+            ],
+            "shown": [],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 6,
+                "text": "In the docs project, every text document must have 'Owner: docs-team' as its exact first line, with no BOM or leading content. This applies to all documents, no",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every text document must have 'Owner: docs-team' as its exact first line, with no BOM or leading content. This applies to all documents, not only those in deliverables/ or reports/. The pre-merge check enforces this line and blocks the merge of any document without it, so verify the owner line before submitting."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 1,
+                "edges": 1,
+                "entities_linked": 2,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 2686,
+                "tokens_out": 1508,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [],
+                "noop": 3,
+                "rejected": [],
+                "tokens_in": 3520,
+                "tokens_out": 1382,
+                "updated": 0,
+                "validated": 0
+              }
+            ],
+            "shown": [],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": false,
+            "merge_failures": 1,
+            "reopened": 1,
+            "runs": 4,
+            "status": "Closed",
+            "steps": 10,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 133716,
+            "tokens_in": 140445,
+            "tokens_out": 2381
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": false,
+            "merge_failures": 1,
+            "reopened": 1,
+            "runs": 4,
+            "status": "Closed",
+            "steps": 10,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 133175,
+            "tokens_in": 139584,
+            "tokens_out": 2508
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\"",
+        "AGN-3: handbook/onboarding.txt: \"onboarding\"",
+        "AGN-4: minutes/standup.txt: \"standup\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every text document must have 'Owner: docs-team' as its exact first line, with no BOM or leading content. This applies to all documents, not only those in deliverables/ or reports/. The pre-merge check enforces this line and blocks the merge of any document without it, so verify the owner line before submitting."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 162375,
+        "tokens_in": 168907,
+        "tokens_out": 2300
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 96168,
+        "tokens_in": 100719,
+        "tokens_out": 1937
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5W4T3RADKNCKM70M8XZNKS4 #1 hybrid: In the docs project, every team document in deliverables/ or reports/ must have 'Owner: <team>' as its exact first line.",
+        "run 01M5W4T3RADKNCKM70M8XZNKS4 #2 hybrid: A docs-project document in deliverables/ or reports/ without an 'Owner: <team>' first line fails the pre-merge check and the merge is blocked."
+      ]
+    }
+  }
+]

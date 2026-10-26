@@ -69,6 +69,8 @@ pub struct CliRun<'a> {
     pub program: PathBuf,
     /// The CLI's model (empty = its default).
     pub model: String,
+    /// The agent's reasoning effort (`None`: the CLI's own setting).
+    pub effort: Option<agenium_core::Effort>,
     /// Added to the clean environment (the driver's home variables win).
     pub env: BTreeMap<String, String>,
     /// The ticket worktree.
@@ -566,7 +568,13 @@ ask_question if you are blocked.",
         home: &std::path::Path,
         resume: Option<&str>,
     ) -> Result<Proc, Outcome> {
-        let args = self.driver.args(&self.model, home, resume, self.subagents);
+        let args = self.driver.args(
+            &self.model,
+            self.effort.as_ref(),
+            home,
+            resume,
+            self.subagents,
+        );
         let name = self.program.display().to_string();
         let (in_tx, in_rx) = mpsc::unbounded_channel::<String>();
         let (out_tx, lines) = mpsc::unbounded_channel::<Value>();

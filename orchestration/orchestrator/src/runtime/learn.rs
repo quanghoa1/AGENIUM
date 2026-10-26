@@ -232,7 +232,7 @@ impl Runtime {
         let (provider, model_id) = self.side_model(agent)?;
         let model = PipelineModel {
             model: model_id,
-            effort: Effort::Low,
+            effort: Effort::LOW,
             // Twelve facts with entities and relations, plus a reasoning model's thinking: 4 000 cut answers off.
             max_tokens: 8000,
             retry: self.retry,
@@ -431,7 +431,8 @@ pub(crate) fn chat_session(project: ProjectId) -> String {
     format!("chat:{project}")
 }
 
-/// The chat as plain text for extraction, without the project state appended to each user message.
+/// The chat as plain text for extraction, without the turn's own context around each user message (the run context
+/// before it, the project state after it).
 pub fn chat_transcript(messages: &[Message]) -> String {
     let own: Vec<Message> = messages
         .iter()
@@ -442,6 +443,11 @@ pub fn chat_transcript(messages: &[Message]) -> String {
                     if let Part::Text { text } = p {
                         if let Some(i) = text.find("\n\n<project_state>") {
                             text.truncate(i);
+                        }
+                        if text.starts_with("Run context\n") {
+                            if let Some(i) = text.find("\n\n") {
+                                text.drain(..i + 2);
+                            }
                         }
                     }
                 }
@@ -485,7 +491,7 @@ mod tests {
     fn the_chat_transcript_leaves_out_the_project_state() {
         let t = super::chat_transcript(&[
             Message::user_text(
-                "Always answer me in Vietnamese.\n\n<project_state>\n3 tickets\n</project_state>",
+                "Run context\n- Worktree: /p\n- Team: {}\n\nAlways answer me in Vietnamese.\n\n<project_state>\n3 tickets\n</project_state>",
             ),
             Message {
                 role: Role::Assistant,
@@ -496,7 +502,7 @@ mod tests {
         ]);
         assert!(t.contains("[User] Always answer me in Vietnamese."), "{t}");
         assert!(
-            !t.contains("project_state") && !t.contains("3 tickets"),
+            !t.contains("project_state") && !t.contains("3 tickets") && !t.contains("Run context"),
             "{t}"
         );
         assert!(t.contains("[Assistant] Noted."), "{t}");

@@ -305,7 +305,7 @@ async fn ask(
         }],
         messages: vec![Message::user_text(user)],
         tools: vec![],
-        effort: m.effort,
+        effort: m.effort.clone(),
         max_tokens: m.max_tokens,
         cache_key: None,
         long_cache: false,
@@ -592,6 +592,11 @@ pub async fn learn(
             v,
         ))
     };
+    // External content (web, MCP, files) neither rewrites nor retires trusted memory: what a file says can be stale or
+    // planted (found on Claude Haiku: a project file read as "nothing enforces this" rewrote a proven lesson into an
+    // untrusted one and retired its twin, so the next ticket was not reminded of the rule). It is kept beside it.
+    let trusted = |id: i64| store.get(id).is_ok_and(|o| !o.untrusted);
+    let trusted_evidence = facts.iter().any(|f| !f.external);
     let mut touched: BTreeSet<i64> = BTreeSet::new();
     let mut stored: Vec<(usize, i64)> = Vec::new();
     for op in ops {
@@ -613,8 +618,28 @@ pub async fn learn(
                     continue;
                 }
                 match new_fact(fact, text) {
-                    Some((nf, v)) => {
-                        stored.push((fact, store.supersede(id, &nf, Some(&v))?));
+                    Some((nf, v)) if nf.untrusted && trusted(id) => {
+                        stored.push((fact, store.add(&nf, Some(&v))?));
+                        report.added += 1;
+                        report.rejected.push(format!(
+                            "external content may not rewrite trusted memory {id}; stored beside it as untrusted"
+                        ));
+                    }
+                    Some((mut nf, v)) => {
+                        // A lesson refined by a later episode stays a lesson: its kind, cue, trust and the contexts it
+                        // held in carry over (a clean episode yields only facts, so its merged text would otherwise
+                        // turn a proven lesson into a plain fact and reset what it earned; found on Claude Haiku).
+                        let old = store.get(id).ok().filter(|o| o.kind == FactKind::Lesson);
+                        if let Some(o) = &old {
+                            nf.kind = FactKind::Lesson;
+                            nf.cue = nf.cue.or_else(|| o.cue.clone());
+                            nf.confidence = nf.confidence.max(o.confidence);
+                        }
+                        let new_id = store.supersede(id, &nf, Some(&v))?;
+                        for context in old.iter().flat_map(|o| o.validated.iter()) {
+                            store.validate_in(new_id, context)?;
+                        }
+                        stored.push((fact, new_id));
                         report.updated += 1;
                     }
                     None => report
@@ -627,6 +652,12 @@ pub async fn learn(
                     report
                         .rejected
                         .push(format!("DELETE of id {id} that was not shown (or twice)"));
+                    continue;
+                }
+                if !trusted_evidence && trusted(id) {
+                    report.rejected.push(format!(
+                        "DELETE of trusted memory {id} on external content alone"
+                    ));
                     continue;
                 }
                 store.retire(id)?;

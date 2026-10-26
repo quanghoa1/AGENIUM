@@ -127,6 +127,7 @@ async fn run_steered(
         driver: &Agy,
         program,
         model: "fake".into(),
+        effort: None,
         env: [("FAKE_AGY_SCENARIO".to_owned(), scenario.to_owned())].into(),
         cwd: dir.to_path_buf(),
         label: "agy:fake".into(),

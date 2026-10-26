@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::Value;
 
@@ -109,9 +110,17 @@ pub enum Event {
 pub trait Driver: Send + Sync {
     fn control(&self) -> Control;
     fn turns(&self) -> Turns;
-    /// Arguments of a headless run; `home` = the per-run home, `resume` = the CLI's conversation id for a later
-    /// turn (`ProcessPerTurn`), `subagents` = whether the CLI may start its own subagents (Solo only).
-    fn args(&self, model: &str, home: &Path, resume: Option<&str>, subagents: bool) -> Vec<String>;
+    /// Arguments of a headless run; `effort` = the agent's reasoning effort (`None`: the CLI's own setting), `home` =
+    /// the per-run home, `resume` = the CLI's conversation id for a later turn (`ProcessPerTurn`), `subagents` =
+    /// whether the CLI may start its own subagents (Solo only).
+    fn args(
+        &self,
+        model: &str,
+        effort: Option<&Effort>,
+        home: &Path,
+        resume: Option<&str>,
+        subagents: bool,
+    ) -> Vec<String>;
     /// Writes the per-run configuration into `setup.home` and returns the environment that makes the CLI use it.
     fn prepare(&self, setup: &Setup) -> std::io::Result<BTreeMap<String, String>>;
     /// The binary to start, given what was found on PATH (e.g. the real binary behind an npm shim).

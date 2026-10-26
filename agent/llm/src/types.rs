@@ -189,6 +189,10 @@ pub struct ChatResponse {
     pub stop: StopReason,
     pub usage: Usage,
     pub model: String,
+    /// Replayed thinking blocks the provider dropped, or flagged, because the history before them changed (Claude's
+    /// preserved thinking; ADR-113). 0 where the provider has no such check.
+    #[serde(default)]
+    pub dropped_thinking: u32,
 }
 
 /// Streaming notifications for live views. The final [`ChatResponse`] is authoritative.
@@ -207,7 +211,7 @@ pub enum ChatEvent {
     Done,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ModelInfo {
     pub id: String,
     #[serde(default)]
@@ -220,4 +224,11 @@ pub struct ModelInfo {
     pub supports_tools: Option<bool>,
     #[serde(default)]
     pub supports_vision: Option<bool>,
+    /// The model's effort levels, lowest first, by the vendor's names (reported, or known per model: `effort`);
+    /// `None` = unknown, empty = the model has no effort control.
+    #[serde(default)]
+    pub efforts: Option<Vec<agenium_core::Effort>>,
+    /// The level the vendor uses when none is sent.
+    #[serde(default)]
+    pub default_effort: Option<agenium_core::Effort>,
 }

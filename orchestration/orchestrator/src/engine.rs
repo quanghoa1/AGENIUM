@@ -1251,6 +1251,34 @@ impl App {
                     return Err(invalid(format!("{} has no acceptance criterion {}", t.key, f.ac_id)));
                 }
             }
+            if r.decision == ReviewVerdict::Approve {
+                // An approval answers the worker's report: a criterion it left Partial or NotMet is approved only on
+                // the reviewer's own word (what they checked), otherwise it is a reopen (found on Claude Haiku: a
+                // Partial criterion was approved without a word on it).
+                let cs = comments::for_ticket(w.tx, t.id)?;
+                let report = cs.iter().rev().find_map(|c| match (&c.body, &c.author) {
+                    (CommentBody::Report(rep), Author::Agent(a)) if Some(*a) == t.assignee => Some(rep),
+                    _ => None,
+                });
+                if let Some(rep) = report {
+                    let unverified: Vec<&str> = t
+                        .acceptance
+                        .iter()
+                        .filter(|ac| {
+                            rep.acceptance.iter().find(|x| x.ac_id == ac.id).is_none_or(|x| x.status != AcStatus::Met)
+                                && !r.ac_feedback.iter().any(|f| f.ac_id == ac.id && f.feedback.trim().len() >= 10)
+                        })
+                        .map(|ac| ac.id.as_str())
+                        .collect();
+                    if !unverified.is_empty() {
+                        return Err(invalid(format!(
+                            "the report of {} leaves {} not Met: approve with ac_feedback saying how you verified each, or reopen",
+                            t.key,
+                            unverified.join(", ")
+                        )));
+                    }
+                }
+            }
             let decision = r.decision;
             add_comment(w, &t, author_of(&ctx.actor), None, CommentBody::Review(r))?;
             let mut ops = vec![];

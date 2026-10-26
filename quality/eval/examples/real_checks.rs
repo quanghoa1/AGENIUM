@@ -74,7 +74,7 @@ impl Model {
     fn cfg(&self) -> LoopConfig {
         LoopConfig {
             model: self.model.clone(),
-            effort: Effort::Low,
+            effort: Effort::LOW,
             max_tokens: 8000,
             max_steps: 30,
             ..Default::default()
@@ -149,7 +149,7 @@ fn request(m: &Model, messages: Vec<Message>, tools: Vec<ToolSpec>) -> ChatReque
         system: vec![],
         messages,
         tools,
-        effort: Effort::Low,
+        effort: Effort::LOW,
         max_tokens: 2000,
         cache_key: None,
         long_cache: false,
@@ -522,7 +522,7 @@ async fn main() -> Result<()> {
                 model: agenium_core::ModelBinding {
                     provider: provider_id.clone(),
                     model: model_id.clone(),
-                    effort: Effort::Low,
+                    effort: Effort::LOW,
                     max_tokens: None,
                 },
             },

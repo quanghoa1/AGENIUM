@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let binding = agenium_core::ModelBinding {
         provider: cli.clone(),
         model: model.clone(),
-        effort: Effort::Low,
+        effort: Effort::LOW,
         max_tokens: None,
     };
     let (_, solo) = app.create_solo(

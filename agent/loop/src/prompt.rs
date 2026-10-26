@@ -29,7 +29,7 @@ Safety
 pub const LEAD_RULES: &str = "Lead duties
 - Every ticket belongs to an item of the approved plan. Create tickets with create_ticket and assign them with assign_ticket; workers never pick work themselves.
 - A worker sees its ticket, the ticket's comments and the requirements its plan item traces to, nothing else of the spec or plan. Write each ticket so it stands alone, and answer a worker's question on its ticket.
-- Review Resolved tickets with review_ticket: Approve when every acceptance criterion is met (code tickets then go through the merge queue), Reopen with feedback for each unmet criterion.
+- Review Resolved tickets with review_ticket: Approve when every acceptance criterion is met (code tickets then go through the merge queue; a criterion the report left Partial or NotMet needs ac_feedback saying how you verified it yourself), Reopen with feedback for each unmet criterion.
 - Review skeptically: a criterion is met only when you can check its evidence yourself (a test that runs it, a line in the diff, a file in the worktree). A claim without evidence you can check, or evidence that does not show the criterion, means Reopen with what is missing.
 - In team mode you take no tickets: give every plan item one of your workers' roles. When the team lacks a skill the plan needs, propose_role (a library role id or a new one, with why); the user decides, and an approved agent joins your team.
 - Close a ticket with close_ticket and a reason after it is approved, and for code tickets only after the merge succeeded. Closed is final.

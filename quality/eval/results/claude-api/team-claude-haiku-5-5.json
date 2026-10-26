@@ -1,0 +1,64 @@
+[
+  {
+    "id": "team-greeting",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 7,
+    "steps": 25,
+    "tool_errors": 1,
+    "error_codes": {
+      "not_found": 1
+    },
+    "errors": [
+      "inbox/assign_ticket: not_found: not found: ticket PI-1 does not exist in this project"
+    ],
+    "outcomes": [
+      "chat:t-lead::Completed",
+      "plan:t-planner::Completed",
+      "inbox:t-lead::Completed",
+      "work:t-backend:AGN-1:Completed",
+      "review:t-lead:AGN-1:Completed",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 272050,
+    "tokens_out": 16261,
+    "tokens_cached": 230699,
+    "cost_usd": 0.0,
+    "elapsed_ms": 118266,
+    "discipline": {
+      "counts": {
+        "steer": 1
+      },
+      "lead_acknowledged_message": true,
+      "message_reached_lead": true,
+      "reports_with_evidence": 2,
+      "tickets": [
+        {
+          "assignee": "agent_01M5W4EYTWR3ZPMRYVXZ6M1429",
+          "close_reason": "Approved and merged into main. api/greeting.json exists with the single key \"greeting\" = \"xin chào\" (UTF-8, no BOM, 26 bytes including trailing newline); checked in the worktree.",
+          "depends_on": [],
+          "key": "AGN-1",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create api/greeting.json with the greeting object"
+        },
+        {
+          "assignee": "agent_01M5W4EYTWKVAC0RH8BVCHZ28T",
+          "close_reason": "ACK-42. Approved and merged into main. Checked web/index.html directly: valid HTML5 with meta charset utf-8, fetch(\"../api/greeting.json\") reading data.greeting into <p id=\"greeting\"> via textContent, and no \"xin ch\" string present. AC-6 dependency on AGN-1 recorded in the ticket.",
+          "depends_on": [
+            "AGN-1"
+          ],
+          "key": "AGN-2",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create web/index.html that fetches api/greeting.json and renders the greeting"
+        }
+      ]
+    }
+  }
+]

@@ -252,7 +252,15 @@ const capabilities: Capabilities = {
   ],
   templates: [],
   cli_fallback: { provider: "opencode-go", model: "deepseek-v4.1-flash" },
-  cli_models: { opencode: ["deepseek-v4.1-flash-free", "glm-5.3-flash-free"], codex: ["gpt-6.1-sol", "gpt-6-luna"], claude: ["haiku", "sonnet", "opus"], agy: ["gemini-3.8-flash-low"] },
+  cli_models: {
+    opencode: [{ id: "deepseek-v4.1-flash-free" }, { id: "glm-5.3-flash-free" }],
+    codex: [
+      { id: "gpt-6.1-sol", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"], default_effort: "low" },
+      { id: "gpt-6-luna", efforts: ["low", "medium", "high", "xhigh", "max"], default_effort: "medium" },
+    ],
+    claude: ["haiku", "sonnet", "opus"].map((id) => ({ id, efforts: ["low", "medium", "high", "xhigh", "max"], default_effort: id === "sonnet" ? "high" : "medium" })),
+    agy: [{ id: "gemini-3.8-flash", efforts: ["low", "medium", "high"] }],
+  },
 };
 
 const chat: ChatLine[] = [

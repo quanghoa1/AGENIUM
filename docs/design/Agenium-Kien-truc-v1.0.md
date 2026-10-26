@@ -135,7 +135,7 @@
 | 10 | Bảo mật & báo cáo | Secret chỉ trong keyring của OS; log là event log có cấu trúc (mức info/debug, che secret). Export báo cáo Markdown từ WorkReport/Plan có cấu trúc (PDF sau). Export audit trail theo project |
 | 11 | Workspace theo ticket & Git | Một cấu trúc thống nhất cho mọi domain. Mọi project là git repo (không có remote thì `git init` local; remote tùy chọn với SSH key ed25519 + Test repo). Mọi ticket có git worktree + branch `agenium/<ticket-id>`; cùng luồng review diff → merge queue tuần tự. Layout chuẩn: `deliverables/`, `artifacts/`, `notes/`, `.agenium/`. Khác biệt domain chỉ nằm trong template (role, skill, report template, network allowlist, pre-merge check). File nhị phân lớn qua Git LFS hoặc store theo content hash ngoài git, commit tham chiếu |
 | 12 | Agenium root (nơi lưu) | Người dùng chọn thư mục gốc trong setup wizard lần chạy đầu. Không chọn thì mặc định `~/.agenium` trên mọi OS (Windows `%USERPROFILE%\.agenium`), giống Hermes agent (`~/.hermes`), Codex (`~/.codex`), Claude (`~/.claude`). Thứ tự: env `AGENIUM_HOME` > root chọn lúc setup > mặc định. Root chứa `config.toml`, `db/`, `models/`, `logs/`, `projects/`, `agents/<id>/` (SOUL.md, `skills/`), `roles/<role>/` (ROLE.md, `skills/`), `templates/`, `backups/`. Secret luôn trong OS keyring, không bao giờ trong root. Đổi root sau trong Settings qua bước di chuyển/migrate **[CẬP NHẬT ADR-39: Windows hoãn khỏi bản đầu (chỉ Linux + macOS); phần Windows/3 OS ở đây là thiết kế hoãn hoặc lịch sử]** |
-| 13 | Vendor API layer | 3 adapter M1 (Anthropic, Gemini, OpenAI-compatible cho OpenAI/OpenRouter/Opencode/DeepSeek/Local), tổng 6 vendor cloud + Local. Người dùng chọn model + effort (low/medium/high/max), không có công tắc thinking riêng. Prefix ổn định + history append-only để tối đa cache; Anthropic đặt `cache_control` cuối tools, cuối system tĩnh và message cuối. `max_steps` 200/run, chạm giới hạn thì tóm tắt + checkpoint + run mới. Danh sách model lấy từ API + cache, giá chỉ hiển thị từ file cấu hình; đếm token theo usage + ước lượng delta; ảnh/PDF khi model hỗ trợ; limiter theo API key; tool call sai 3 lần liên tiếp thì dừng run; thinking giữ trong history, không vào memory, ẩn mặc định. Layer hoàn tất cho M1 |
+| 13 | Vendor API layer | 3 adapter M1 (Anthropic, Gemini, OpenAI-compatible cho OpenAI/OpenRouter/Opencode/DeepSeek/Local), tổng 6 vendor cloud + Local. Người dùng chọn model + effort (một trong các mức của chính model đó, ADR-114), không có công tắc thinking riêng. Prefix ổn định + history append-only để tối đa cache; Anthropic đặt `cache_control` cuối tools, cuối system tĩnh và message cuối. `max_steps` 200/run, chạm giới hạn thì tóm tắt + checkpoint + run mới. Danh sách model lấy từ API + cache, giá chỉ hiển thị từ file cấu hình; đếm token theo usage + ước lượng delta; ảnh/PDF khi model hỗ trợ; limiter theo API key; tool call sai 3 lần liên tiếp thì dừng run; thinking giữ trong history, không vào memory, ẩn mặc định. Layer hoàn tất cho M1 |
 | 14 | Bản đồ lưu trữ | Dữ liệu điều phối/truy vấn ở DB (`core`, `agent_<ulid>`), sản phẩm công việc trong git của project, cấu hình/tài nguyên ở root, secret chỉ ở OS keyring |
 | 15 | Retry & MCP transport | Retry: lỗi mạng, timeout, 5xx, 529, 429 tạm thời (theo `retry-after`), đứt stream; backoff 1s nhân đôi, trần 30s, jitter, tối đa 8 lần hoặc 5 phút, rồi agent → Offline + probe nền + tự resume. Đứt stream: bỏ output dở, gửi lại request y hệt, tool đã xong không chạy lại. 400/401 báo lỗi; 402/429 quota → QuotaExhausted. MCP: stdio (local, sandbox, tự restart) và Streamable HTTP (fallback SSE), OAuth/header token trong keyring, domain trong allowlist; tool chỉ đọc được retry, tool ghi trả lỗi về model |
 | 16 | Tool set | Tool lõi: read_file, list_dir, glob, grep, write_file, edit_file, multi_edit, apply_patch, shell, fetch, todo, ticket intents, MCP. Read-before-edit, khớp duy nhất, apply_patch cho nhiều file, cắt output 30.000 ký tự / 256 dòng (bản đầy đủ lưu artifact), shell timeout 120 giây / tối đa 10 phút, path giới hạn trong worktree. Port từ Codex (Apache-2.0) có attribution; Claude Code chỉ học hành vi (clean-room) |
@@ -220,7 +220,7 @@ Máy yếu hơn mức khuyến nghị: tự giảm số agent chạy song song.
 | AgentProfile | id (ULID), name, role_id (role kind Lead/Worker; solo = Lead không có worker), soul (`SOUL.md`), team (đúng một, qua edge `member_of`), memory_db (`agent_<ulid>`), mcp_bindings, skill_bindings, model_binding (đổi được), sandbox_policy, status (Idle / Working / Waiting / QuotaExhausted / Offline) |
 | TeamTemplate | id, version, name, roles[], report_template mặc định; file YAML/JSON, built-in hoặc custom |
 | Role | id, kind (lead/worker), prompt chuyên gia (ROLE.md), capability tags, allowed tools/MCP/skills, allowed_paths, report_template, default_model, network allowlist |
-| ModelBinding | provider_id, model, effort (low/medium/high/max), params (max_tokens); đổi bất cứ lúc nào, không chạm memory/MCP/skill |
+| ModelBinding | provider_id, model, effort (một mức của model, ADR-114), params (max_tokens); đổi bất cứ lúc nào, không chạm memory/MCP/skill |
 | Fact (memory) | id, kind (fact / lesson; lesson thêm cue, scope, evidence, confidence, validated_contexts, last_used — quyết định 35), project_id (ưu tiên project hiện tại khi truy xuất), text (nguồn sự thật), embedding[384], model_id, source_ticket, created_at, updated_at, superseded_by |
 | McpServer | id, name, transport (stdio / Streamable HTTP), command/url, env template |
 | McpBinding | agent_id, server_id, credential_ref, tool allowlist; mỗi agent một kết nối riêng |
@@ -1012,14 +1012,18 @@ Tool MCP chỉ đọc được retry an toàn; tool có ghi (side effect) không
 
 ### Ánh xạ effort
 
-| Effort Agenium | Anthropic | OpenAI | Gemini 3/4 | Gemini 2.5 | DeepSeek |
-|---|---|---|---|---|---|
-| low | `effort: low` | `reasoning_effort: low` | `thinkingLevel: low` | `thinkingBudget` 1024 | `reasoning_effort: low` |
-| medium | `effort: medium` | `medium` | `medium` | `thinkingBudget` 8192 | `high` |
-| high | `effort: high` | `high` | `high` | `thinkingBudget` 24576 / -1 | `high` |
-| max | `max` (hoặc `xhigh` tùy model) | `xhigh` nếu model hỗ trợ, không thì `high` | `high` | budget tối đa của model | `max` |
+Mỗi model có các mức effort riêng, theo tên của vendor (ADR-114). Có model chỉ có 2–3 mức: DeepSeek V4 low/high/max, Gemini 3 Pro low/high, GPT-5.5 Pro medium/high/xhigh; Codex có tới `ultra`. Mức lấy từ vendor khi vendor cho biết (Models API của Anthropic, danh sách model của OpenRouter, `model/list` của Codex, tên biến thể của Antigravity), nếu không thì từ bảng theo từng model (`agenium_llm::effort`: OpenAI, Gemini, xAI, DeepSeek, theo tài liệu của họ). Form agent chỉ hiện các mức đó, model mới chọn bắt đầu ở mức mặc định của nó; model không rõ mức thì không gửi effort (dùng mặc định của vendor).
 
-Model đời mới của Anthropic dùng adaptive thinking và từ chối `budget_tokens`; model cũ chỉ có extended thinking thì đổi effort thành `budget_tokens`. Mỗi model khai báo trong registry các mức được hỗ trợ; adapter chọn mức gần nhất và ghi lại mức thực tế dùng. `max_tokens` vẫn là giới hạn cứng riêng.
+| Đường | Tham số |
+|---|---|
+| Anthropic | `output_config.effort`; model đời cũ (budget) → `budget_tokens` |
+| OpenAI / Azure, DeepSeek (cả qua OpenCode), xAI | `reasoning_effort` |
+| Responses API | `reasoning.effort` |
+| OpenRouter | `reasoning.effort` (mức của OpenRouter theo danh sách model) |
+| Gemini 3+ / 2.5 | `thinkingLevel` / `thinkingBudget` |
+| Claude Code, Codex, Antigravity, Grok CLI | `--effort`, `model_reasoning_effort`, biến thể model, `--reasoning-effort` |
+
+Mức không có ở model thì đổi sang mức gần nhất (bằng nhau thì lấy mức cao hơn). `max_tokens` vẫn là giới hạn cứng riêng.
 
 ### Agent loop, tools & context
 

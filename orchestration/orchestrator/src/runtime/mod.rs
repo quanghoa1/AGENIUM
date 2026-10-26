@@ -448,7 +448,7 @@ impl Runtime {
         let rt = self.app.config().runtime;
         LoopConfig {
             model: agent.model.model.clone(),
-            effort: agent.model.effort,
+            effort: agent.model.effort.clone(),
             max_tokens: agent.model.max_tokens.unwrap_or(32_000),
             max_steps: rt.max_steps_per_run,
             same_call_limit: rt.loop_detect_same_call,
@@ -585,7 +585,7 @@ impl Runtime {
     /// is refreshed).
     fn cost(&self, provider: &str, model: &str, u: &agenium_llm::Usage) -> f64 {
         let usage = agenium_core::UsageSummary {
-            tokens_in: u.input,
+            tokens_in: u.total_input(),
             tokens_out: u.output,
             cache_read: u.cache_read,
             cache_write: u.cache_write,
@@ -878,6 +878,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     max_output: None,
                     supports_tools: None,
                     supports_vision: None,
+                    efforts: None,
+                    default_effort: None,
                 });
             }
             if let Some(i) = info.as_mut() {
@@ -1002,6 +1004,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             driver,
             program,
             model: agent.model.model.clone(),
+            effort: Some(agent.model.effort.clone()),
             env: ctx.env.clone(),
             cwd: ctx.root.clone(),
             label: format!("{name}:{}", agent.model.model),
@@ -1380,7 +1383,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             let text = format!(
                 "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
                  Treat the report as a claim: check each criterion's evidence yourself (the test, the changed lines, the file) before you count it as met.\n\
-                 Then call review_ticket: Approve if every criterion is met, otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
+                 Then call review_ticket: Approve if every criterion is met (one the report left Partial or NotMet needs ac_feedback saying how you verified it), otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
                  Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
                 prompt::ticket_text(&t, None),
                 requirements,
@@ -1536,40 +1539,38 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
+        // The turn's own context (worktree, the team's state now) opens the user's message, which is stored exactly as
+        // sent: the next turn replays the same bytes, so the reply's thinking stays valid and the history stays a
+        // cached prefix (ADR-113).
+        let roster = self
+            .app
+            .apply(
+                &crate::engine::CallCtx {
+                    project,
+                    actor: Actor::User,
+                    intent_id: None,
+                    run: None,
+                },
+                Intent::GetTeam(Default::default()),
+            )
+            .map(|o| o.result)
+            .ok();
+        let mut run_context = format!("Run context\n- Worktree: {}", root.display());
+        if let Some(t) = &roster {
+            run_context.push_str(&format!("\n- Team: {t}"));
+        }
         let msg = Message::user_text(format!(
-            "{user_text}\n\n<project_state>\n{state}\n</project_state>"
+            "{run_context}\n\n{user_text}\n\n<project_state>\n{state}\n</project_state>"
         ));
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
-            let roster = self
-                .app
-                .apply(
-                    &crate::engine::CallCtx {
-                        project,
-                        actor: Actor::User,
-                        intent_id: None,
-                        run: None,
-                    },
-                    Intent::GetTeam(Default::default()),
-                )
-                .map(|o| o.result)
-                .ok();
-            let (manifest, run_context) =
-                self.manifest(&lead, solo, ctx, specs, roster, &ctx.fetch_allow);
+            let (manifest, _) = self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow);
             let system = vec![
                 SystemBlock { text: prompt::system_rules(true), cache: false },
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
                 SystemBlock { text: manifest, cache: false },
             ];
-            // The team's state of this turn rides on the new message, after the cached history (ADR-113).
             let mut messages = history.clone();
-            let mut newest = msg.clone();
-            newest.parts.insert(
-                0,
-                agenium_llm::Part::Text {
-                    text: format!("{run_context}\n\n"),
-                },
-            );
-            messages.push(newest);
+            messages.push(msg.clone());
             Ok(WorkOrder { system, messages })
         };
         let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()

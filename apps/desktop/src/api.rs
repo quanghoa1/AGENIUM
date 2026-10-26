@@ -635,7 +635,7 @@ async fn cli_models(
     o: &crate::state::Opened,
     clis: &[agenium_cli_backend::CliInfo],
     refresh: bool,
-) -> std::collections::BTreeMap<String, Vec<String>> {
+) -> crate::state::CliModels {
     let cached = d
         .cli_models
         .lock()

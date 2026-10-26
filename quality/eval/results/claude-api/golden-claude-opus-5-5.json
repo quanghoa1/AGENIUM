@@ -1,0 +1,109 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 82819,
+    "tokens_out": 1059,
+    "tokens_cached": 54747,
+    "cost_usd": 0.0,
+    "elapsed_ms": 28626
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 97111,
+    "tokens_out": 1145,
+    "tokens_cached": 93694,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25754
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 4,
+    "steps": 19,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 1,
+    "tokens_in": 290959,
+    "tokens_out": 4729,
+    "tokens_cached": 278316,
+    "cost_usd": 0.0,
+    "elapsed_ms": 93083
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 97593,
+    "tokens_out": 1009,
+    "tokens_cached": 94477,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25100
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 83291,
+    "tokens_out": 1186,
+    "tokens_cached": 80061,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25340
+  }
+]

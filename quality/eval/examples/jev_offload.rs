@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
         }],
         messages: vec![Message::user_text(transcript.clone())],
         tools: vec![],
-        effort: Effort::Low,
+        effort: Effort::LOW,
         max_tokens: 4000,
         cache_key: None,
         long_cache: false,

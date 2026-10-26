@@ -74,7 +74,8 @@ impl App {
             cfg.base_url.as_deref(),
             model,
             &Usage {
-                input: u.tokens_in,
+                // A run's `tokens_in` counts its cached input too; only the rest is billed at the input price.
+                input: u.tokens_in.saturating_sub(u.cache_read + u.cache_write),
                 output: u.tokens_out,
                 cache_read: u.cache_read,
                 cache_write: u.cache_write,

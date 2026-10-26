@@ -120,7 +120,7 @@ pub struct Opened {
 }
 
 /// Models per CLI program (ADR-68 follow-up).
-pub type CliModels = std::collections::BTreeMap<String, Vec<String>>;
+pub type CliModels = std::collections::BTreeMap<String, Vec<agenium_llm::ModelInfo>>;
 
 pub struct Desktop {
     pub root: PathBuf,

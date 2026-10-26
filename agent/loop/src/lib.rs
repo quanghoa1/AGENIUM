@@ -83,7 +83,7 @@ impl Default for LoopConfig {
     fn default() -> Self {
         Self {
             model: String::new(),
-            effort: Effort::High,
+            effort: Effort::HIGH,
             max_tokens: 32_000,
             max_steps: 200,
             same_call_limit: 3,
@@ -265,6 +265,7 @@ fn clear_old_results(messages: &mut [Message], window: u64, keep: usize, force: 
         return 0;
     }
     let mut n = 0;
+    let mut first = None;
     for &i in old {
         for p in &mut messages[i].parts {
             if clearable(p) {
@@ -274,11 +275,24 @@ fn clear_old_results(messages: &mut [Message], window: u64, keep: usize, force: 
                         content.chars().count()
                     );
                     n += 1;
+                    first.get_or_insert(i);
                 }
             }
         }
     }
+    // A thinking block is valid only after the history it was written on: those after an edited result go (Claude
+    // rejects or drops them otherwise; ADR-113).
+    if let Some(i) = first {
+        strip_thinking(&mut messages[i + 1..]);
+    }
     n
+}
+
+/// Removes the thinking blocks of `messages` (their text and tool calls stay).
+fn strip_thinking(messages: &mut [Message]) {
+    for m in messages {
+        m.parts.retain(|p| !matches!(p, Part::Thinking { .. }));
+    }
 }
 
 /// A tool call's result, its effect on the run, and whether its output is untrusted.
@@ -334,7 +348,7 @@ impl Run<'_> {
             // What the provider accepts (ADR-101); the stored history keeps everything.
             messages: agenium_llm::history::prepare(messages, &self.cfg.model),
             tools: if tools { self.specs.clone() } else { vec![] },
-            effort: self.cfg.effort,
+            effort: self.cfg.effort.clone(),
             max_tokens: self.cfg.max_tokens,
             cache_key: self.cfg.cache_key.clone(),
             long_cache: self.cfg.long_cache,
@@ -498,6 +512,15 @@ impl Run<'_> {
             }
             usage.add(&resp.usage);
             self.observer.step(step, &usage);
+            if resp.dropped_thinking > 0 {
+                self.observer.control(
+                    "thinking_dropped",
+                    &format!(
+                        "{} replayed thinking block(s) dropped: the history before them changed",
+                        resp.dropped_thinking
+                    ),
+                );
+            }
             // Prompt-cache watch (ADR-113): history only grows, so a step served for less than half of the previous
             // request's prompt means its prefix changed (or the cache was evicted). Recorded once the provider has
             // shown it caches at all.
@@ -784,7 +807,9 @@ impl Run<'_> {
             return Ok(false);
         }
         let (read, changed) = files_touched(&messages[start_len..split]);
-        let tail = messages.split_off(split);
+        let mut tail = messages.split_off(split);
+        // The kept steps' thinking was written on the full history; after the notes it would not match (ADR-113).
+        strip_thinking(&mut tail);
         messages.truncate(start_len);
         let mut text = format!("{COMPACTED}\n\n{}", notes.trim());
         if !read.is_empty() {

@@ -292,15 +292,21 @@ pub async fn run(
             model,
             effort,
             approve_commands,
-        } => (provider.clone(), model.clone(), *effort, *approve_commands),
+        } => (
+            provider.clone(),
+            model.clone(),
+            effort.clone(),
+            *approve_commands,
+        ),
         Mode::Cli {
             model,
+            effort,
             approve_commands,
             ..
         } => (
             Arc::new(agenium_llm::mock::ScriptedProvider::new("unused")) as Arc<dyn Provider>,
             model.clone(),
-            Effort::High,
+            effort.clone(),
             *approve_commands,
         ),
     };
@@ -327,7 +333,7 @@ pub async fn run(
             model: ModelBinding {
                 provider: "eval".into(),
                 model: model.clone(),
-                effort,
+                effort: effort.clone(),
                 max_tokens: None,
             },
         },
@@ -455,10 +461,35 @@ pub async fn run(
         rt.drive(project.id, 12).await?;
         tickets.push(measure(&app, project.id, &key, file, word, &root)?);
         if chain {
+            // What the memory pipeline decided after this ticket (added / updated / deleted, what it refused).
+            // And what recall put in this ticket's work orders.
+            let t = app.ticket(project.id, &key)?;
+            let mem = memory()?;
+            let mut memory_ops = Vec::new();
+            let mut shown = Vec::new();
+            for r in app.store().read(|c| runs::for_ticket(c, t.id))? {
+                for e in app.store().read(|c| runs::log_entries(c, r.id))? {
+                    if e.kind == "memory" {
+                        memory_ops.push(e.data);
+                    }
+                }
+                for (fact, rank, via) in mem.usage_for_run(&r.id.to_string())? {
+                    let f = mem.get(fact).ok();
+                    shown.push(format!(
+                        "run {} #{rank} {via} {:?}: {}",
+                        r.id,
+                        f.as_ref().map(|f| f.kind),
+                        f.map(|f| f.text).unwrap_or_default()
+                    ));
+                }
+            }
             chain_steps.push(json!({
                 "ticket": key.to_string(),
                 "skill_calls": skill_calls(&app, project.id, &key)?,
                 "lessons_after": lessons(memory()?.as_ref())?,
+                "memory_ops": memory_ops,
+                "shown": shown,
+                "memories_after": held(memory()?.as_ref())?,
             }));
         }
     }

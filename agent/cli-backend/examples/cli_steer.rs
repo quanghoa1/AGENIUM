@@ -114,6 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         driver,
         program,
         model: model.clone(),
+        effort: None,
         env: Default::default(),
         cwd: wt.clone(),
         label: format!("{}:{model}", kind.program()),

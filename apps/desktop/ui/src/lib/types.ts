@@ -13,7 +13,8 @@ export type TicketStatus =
 export type AgentStatus = "Idle" | "Working" | "Waiting" | "QuotaExhausted" | "Offline";
 export type RoleKind = "lead" | "worker";
 export type BackendKind = "Api" | "Cli";
-export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+/** A reasoning-effort level by the vendor's own name ("low", "high", "max", Codex's "ultra", ...); each model has its own (ADR-114). */
+export type Effort = string;
 export type TicketKind = "Epic" | "Story" | "Task" | "Bug" | "Requirement";
 
 export interface Usage {
@@ -350,8 +351,8 @@ export interface Capabilities {
   clis: CliInfo[];
   templates: TeamTemplate[];
   cli_fallback: { provider: string; model: string };
-  /** Models a CLI backend can run that Agenium knows of (opencode: OpenCode's free models). */
-  cli_models?: Record<string, string[]>;
+  /** Models a CLI backend can run that Agenium knows of (opencode: OpenCode's free models), with their effort levels. */
+  cli_models?: Record<string, ModelInfo[]>;
 }
 
 export interface Fact {
@@ -522,6 +523,10 @@ export interface ModelInfo {
   context_window?: number | null;
   supports_tools?: boolean | null;
   supports_vision?: boolean | null;
+  /** The model's effort levels, lowest first (reported by its vendor or known per model); [] = no effort setting, null = unknown. */
+  efforts?: Effort[] | null;
+  /** The level the vendor uses when none is sent. */
+  default_effort?: Effort | null;
 }
 
 export interface LocalServer {

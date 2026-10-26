@@ -82,8 +82,14 @@ impl Runtime {
             let mut v = Vec::new();
             if !summary.is_empty() {
                 v.push(Message::user_text(format!("{SUMMARISED}\n{summary}")));
+                // Their thinking was written on the whole conversation: after the summary it would not match (ADR-113).
+                v.extend(all[from..].iter().cloned().map(|mut m| {
+                    m.parts.retain(|p| !matches!(p, Part::Thinking { .. }));
+                    m
+                }));
+            } else {
+                v.extend(all[from..].iter().cloned());
             }
-            v.extend(all[from..].iter().cloned());
             v
         };
         let current = view(from, &summary);
@@ -113,7 +119,7 @@ impl Runtime {
             }],
             messages: vec![Message::user_text(text)],
             tools: vec![],
-            effort: Effort::Low,
+            effort: Effort::LOW,
             max_tokens: 6000,
             cache_key: None,
             long_cache: false,

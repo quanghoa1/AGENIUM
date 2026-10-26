@@ -60,37 +60,31 @@ impl Flavor {
     }
 }
 
-/// Reasoning models take `reasoning_effort`; others reject it.
-fn is_reasoning_model(flavor: Flavor, model: &str) -> bool {
-    let m = model.to_ascii_lowercase();
+/// The effort to send, by the vendor's name (ADR-114): the model's own level from the per-model table (OpenAI,
+/// DeepSeek, also behind OpenCode, xAI); OpenRouter takes its own levels (`reasoning.effort`, offered from its model
+/// list), so the chosen one goes as it is. Nothing for a model whose levels are unknown or a local server.
+pub fn effort_for(flavor: Flavor, model: &str, chosen: &Effort) -> Option<Effort> {
     match flavor {
-        Flavor::OpenAi | Flavor::Azure => {
-            m.starts_with('o') || m.starts_with("gpt-5") || m.starts_with("gpt-6")
-        }
-        Flavor::DeepSeek => m.contains("reasoner") || m.contains("v3.2") || m.contains("v4"),
-        Flavor::OpenRouter => true,
-        Flavor::OpenCode => m.starts_with("deepseek"),
-        Flavor::Generic | Flavor::Xai => false,
+        Flavor::OpenRouter => Some(chosen.clone()),
+        Flavor::Generic => None,
+        _ => crate::effort::level_for(model, chosen),
     }
 }
 
-/// Effort mapping of the architecture table: OpenAI low/medium/high/xhigh(max), DeepSeek low/high/high/max.
-pub fn effort_value(flavor: Flavor, e: Effort) -> &'static str {
-    // DeepSeek models behind OpenCode take DeepSeek's levels.
-    let flavor = if flavor == Flavor::OpenCode {
-        Flavor::DeepSeek
-    } else {
-        flavor
-    };
-    match (flavor, e) {
-        (_, Effort::Low) => "low",
-        (Flavor::DeepSeek, Effort::Medium | Effort::High) => "high",
-        (Flavor::DeepSeek, Effort::Max) => "max",
-        (_, Effort::Medium) => "medium",
-        (_, Effort::High) => "high",
-        (Flavor::OpenAi | Flavor::Azure, Effort::Max) => "xhigh",
-        (_, Effort::Max) => "high",
+/// OpenRouter's model list names each model's effort levels (`reasoning.supported_efforts`, highest first) and its
+/// default; empty when the model takes none.
+fn openrouter_efforts(m: &Value) -> (Option<Vec<Effort>>, Option<Effort>) {
+    let r = &m["reasoning"];
+    let mut levels: Option<Vec<Effort>> = r["supported_efforts"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|e| e.as_str()?.parse().ok()).collect());
+    if let Some(l) = levels.as_mut() {
+        l.sort_by_key(|e: &Effort| e.rank().unwrap_or(usize::MAX));
     }
+    (
+        levels,
+        r["default_effort"].as_str().and_then(|e| e.parse().ok()),
+    )
 }
 
 pub struct OpenAiCompat {
@@ -127,13 +121,21 @@ impl OpenAiCompat {
             .as_array()
             .into_iter()
             .flatten()
-            .map(|m| ModelInfo {
-                id: m["id"].as_str().unwrap_or_default().to_owned(),
-                display_name: m["name"].as_str().map(str::to_owned),
-                context_window: m["context_length"].as_u64(),
-                max_output: None,
-                supports_tools: None,
-                supports_vision: None,
+            .map(|m| {
+                let mut info = ModelInfo {
+                    id: m["id"].as_str().unwrap_or_default().to_owned(),
+                    display_name: m["name"].as_str().map(str::to_owned),
+                    context_window: m["context_length"].as_u64(),
+                    ..Default::default()
+                };
+                match self.flavor {
+                    Flavor::OpenRouter => {
+                        (info.efforts, info.default_effort) = openrouter_efforts(m)
+                    }
+                    Flavor::Generic => {}
+                    _ => crate::effort::fill(&mut info),
+                }
+                info
             })
             .collect())
     }
@@ -381,12 +383,11 @@ pub fn build_body(flavor: Flavor, req: &ChatRequest) -> Value {
                 .collect(),
         );
     }
-    if is_reasoning_model(flavor, &req.model) {
-        let e = effort_value(flavor, req.effort);
+    if let Some(e) = effort_for(flavor, &req.model, &req.effort) {
         if flavor == Flavor::OpenRouter {
-            body["reasoning"] = json!({"effort": e});
+            body["reasoning"] = json!({"effort": e.as_str()});
         } else {
-            body["reasoning_effort"] = json!(e);
+            body["reasoning_effort"] = json!(e.as_str());
         }
     }
     body
@@ -561,6 +562,7 @@ impl StreamState {
             stop,
             usage: self.usage,
             model: self.model,
+            dropped_thinking: 0,
         })
     }
 }

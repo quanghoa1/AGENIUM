@@ -127,23 +127,26 @@ pub fn sanitize_schema(v: &Value) -> Value {
     }
 }
 
-fn thinking_config(model: &str, e: Effort) -> Value {
+/// Gemini 2.x thinks within a budget (Agenium's budgets; `max` = dynamic); Gemini 3 and later take the model's own
+/// `thinkingLevel` (ADR-114), none for a model whose levels are unknown.
+fn thinking_config(model: &str, e: &Effort) -> Value {
     let m = model.to_ascii_lowercase();
     if m.contains("gemini-2.5") || m.contains("gemini-2.0") {
-        let budget = match e {
-            Effort::Low => 1024,
-            Effort::Medium => 8192,
-            Effort::High => 24_576,
-            Effort::Max => -1,
+        let budget = match crate::effort::level_for(model, e)
+            .unwrap_or_default()
+            .as_str()
+        {
+            "low" => 1024,
+            "high" => 24_576,
+            "max" => -1,
+            _ => 8192,
         };
         json!({"thinkingBudget": budget, "includeThoughts": true})
     } else {
-        let level = match e {
-            Effort::Low => "low",
-            Effort::Medium => "medium",
-            Effort::High | Effort::Max => "high",
-        };
-        json!({"thinkingLevel": level, "includeThoughts": true})
+        match crate::effort::level_for(model, e) {
+            Some(l) => json!({"thinkingLevel": l.as_str(), "includeThoughts": true}),
+            None => json!({"includeThoughts": true}),
+        }
     }
 }
 
@@ -214,7 +217,7 @@ pub fn build_body(req: &ChatRequest) -> Value {
     }
     let mut body = json!({
         "contents": contents,
-        "generationConfig": {"maxOutputTokens": req.max_tokens, "thinkingConfig": thinking_config(&req.model, req.effort)},
+        "generationConfig": {"maxOutputTokens": req.max_tokens, "thinkingConfig": thinking_config(&req.model, &req.effort)},
     });
     let system: Vec<Value> = req
         .system
@@ -386,6 +389,7 @@ impl StreamState {
             stop,
             usage: self.usage,
             model: self.model,
+            dropped_thinking: 0,
         })
     }
 }
@@ -429,6 +433,12 @@ impl Provider for Gemini {
                 max_output: m["outputTokenLimit"].as_u64(),
                 supports_tools: Some(true),
                 supports_vision: Some(true),
+                efforts: None,
+                default_effort: None,
+            })
+            .map(|mut i| {
+                crate::effort::fill(&mut i);
+                i
             })
             .collect())
     }

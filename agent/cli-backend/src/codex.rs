@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
@@ -57,6 +58,7 @@ impl Driver for Codex {
     fn args(
         &self,
         model: &str,
+        effort: Option<&Effort>,
         _home: &Path,
         resume: Option<&str>,
         _subagents: bool,
@@ -76,6 +78,10 @@ impl Driver for Codex {
         );
         if !model.is_empty() {
             a.extend(["-m".to_owned(), model.to_owned()]);
+        }
+        // The level as Codex's `model/list` names it for the model (ADR-114: the app offers only those).
+        if let Some(e) = effort {
+            a.extend(["-c".to_owned(), format!("model_reasoning_effort=\"{e}\"")]);
         }
         a.push("-".to_owned());
         a
@@ -307,18 +313,45 @@ pub async fn rate_limits(
         .map(|r| agenium_llm::vendor_usage::from_codex_rate_limits(&r, now))
 }
 
-/// The models this codex login can use (`model/list`, hidden ones left out), default first.
-pub async fn models(program: &Path, scratch: &Path) -> Result<Vec<String>, String> {
-    let r = app_server(program, scratch, "model/list").await?;
-    let mut out: Vec<(bool, String)> = r["data"]
+/// Codex's `model/list` answer as it came (no model turn).
+pub async fn model_list(program: &Path, scratch: &Path) -> Result<Value, String> {
+    app_server(program, scratch, "model/list").await
+}
+
+/// The models this codex login can use (`model/list`, hidden ones left out), default first, each with its reasoning
+/// efforts and the one Codex uses by default.
+pub async fn models(program: &Path, scratch: &Path) -> Result<Vec<agenium_llm::ModelInfo>, String> {
+    Ok(parse_model_list(&model_list(program, scratch).await?))
+}
+
+fn parse_model_list(r: &Value) -> Vec<agenium_llm::ModelInfo> {
+    let mut out: Vec<(bool, agenium_llm::ModelInfo)> = r["data"]
         .as_array()
         .into_iter()
         .flatten()
         .filter(|m| m["hidden"] != true)
-        .filter_map(|m| Some((m["isDefault"] == true, m["id"].as_str()?.to_owned())))
+        .filter_map(|m| {
+            let efforts = m["supportedReasoningEfforts"].as_array().map(|a| {
+                a.iter()
+                    .filter_map(|e| e["reasoningEffort"].as_str()?.parse().ok())
+                    .collect()
+            });
+            Some((
+                m["isDefault"] == true,
+                agenium_llm::ModelInfo {
+                    id: m["id"].as_str()?.to_owned(),
+                    display_name: m["displayName"].as_str().map(str::to_owned),
+                    efforts,
+                    default_effort: m["defaultReasoningEffort"]
+                        .as_str()
+                        .and_then(|e| e.parse().ok()),
+                    ..Default::default()
+                },
+            ))
+        })
         .collect();
     out.sort_by_key(|(default, _)| !*default);
-    Ok(out.into_iter().map(|(_, id)| id).collect())
+    out.into_iter().map(|(_, m)| m).collect()
 }
 
 #[cfg(test)]
@@ -383,13 +416,47 @@ mod tests {
         ));
     }
 
+    /// `model/list` of codex 0.163 (shortened): each model names its efforts and its default.
+    #[test]
+    fn lists_models_with_their_efforts() {
+        let r = json!({"data": [
+            {"id": "gpt-6-luna", "displayName": "GPT-6-Luna", "isDefault": false, "hidden": false,
+             "defaultReasoningEffort": "medium",
+             "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "medium"},
+                 {"reasoningEffort": "high"}, {"reasoningEffort": "xhigh"}, {"reasoningEffort": "max"}]},
+            {"id": "gpt-6.1-sol", "isDefault": true, "defaultReasoningEffort": "low",
+             "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "ultra"}]},
+            {"id": "hidden-one", "hidden": true}
+        ]});
+        let m = parse_model_list(&r);
+        assert_eq!(m.len(), 2);
+        assert_eq!(m[0].id, "gpt-6.1-sol", "default first");
+        let names = |i: usize| {
+            m[i].efforts
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|e| e.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        assert_eq!(names(0), "low,ultra");
+        assert_eq!(names(1), "low,medium,high,xhigh,max");
+        assert_eq!(m[1].default_effort, Some(Effort::MEDIUM));
+    }
+
     #[test]
     fn args_for_new_and_resumed_turns() {
-        let a = Codex.args("gpt-6-luna", Path::new("/h"), None, false);
+        let ultra: Effort = "ultra".parse().unwrap();
+        let a = Codex.args("gpt-6.1-sol", Some(&ultra), Path::new("/h"), None, false);
+        assert!(
+            a.contains(&"model_reasoning_effort=\"ultra\"".to_owned()),
+            "{a:?}"
+        );
         assert_eq!(a[0], "exec");
         assert!(a.contains(&"--dangerously-bypass-approvals-and-sandbox".to_owned()));
         assert_eq!(a.last().unwrap(), "-");
-        let r = Codex.args("gpt-6-luna", Path::new("/h"), Some("t1"), false);
+        let r = Codex.args("gpt-6-luna", None, Path::new("/h"), Some("t1"), false);
         assert_eq!(&r[..3], ["exec", "resume", "t1"]);
     }
 }

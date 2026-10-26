@@ -79,7 +79,7 @@ pub fn model() -> ModelBinding {
     ModelBinding {
         provider: "mock".into(),
         model: "scripted".into(),
-        effort: Effort::Medium,
+        effort: Effort::MEDIUM,
         max_tokens: None,
     }
 }

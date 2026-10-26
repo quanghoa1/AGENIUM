@@ -1,0 +1,72 @@
+[
+  {
+    "id": "team-greeting",
+    "passed": false,
+    "closed": true,
+    "detail": "AGN-2 AC-7: Partial with evidence \"api/greeting.json (AGN-1 output) is present in the worktree and the Lead started this ticket after AGN-1. I cannot query AGN-1's resolved/approved status, so it is not independently verified.\", approved without the reviewer's own word on it",
+    "runs": 10,
+    "steps": 37,
+    "tool_errors": 4,
+    "error_codes": {
+      "invalid": 1,
+      "not_a_directory": 2,
+      "not_found": 1
+    },
+    "errors": [
+      "inbox/create_ticket: not_found: not found: ticket PI-1 does not exist in this project",
+      "work/list_dir: not_a_directory: api is not a directory",
+      "work/submit_report: invalid: AGN-2 changes files outside the write scope of the ticket and your role: notes/_check.js. Restore them, or request_permission (kind=path) for them, then submit again",
+      "inbox/list_dir: not_a_directory: web is not a directory"
+    ],
+    "outcomes": [
+      "chat:t-lead::Completed",
+      "plan:t-planner::Completed",
+      "inbox:t-lead::Completed",
+      "work:t-backend:AGN-1:Completed",
+      "review:t-lead:AGN-1:Completed",
+      "work:t-frontend:AGN-2:Parked",
+      "work:t-frontend:AGN-2:Parked",
+      "inbox:t-lead::Completed",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 419225,
+    "tokens_out": 20272,
+    "tokens_cached": 358489,
+    "cost_usd": 0.0,
+    "elapsed_ms": 197563,
+    "discipline": {
+      "counts": {
+        "steer": 1
+      },
+      "lead_acknowledged_message": true,
+      "message_reached_lead": true,
+      "reports_with_evidence": 2,
+      "tickets": [
+        {
+          "assignee": "agent_01M5W38WHX25KCVFQGMXCD95E2",
+          "close_reason": "Approved and merged into main. api/greeting.json exists at the project root with {\"greeting\": \"xin chào\"} as UTF-8 without BOM (AC-1, AC-2 verified by grep on the worktree file); no other files changed.",
+          "depends_on": [],
+          "key": "AGN-1",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create api/greeting.json with the greeting object"
+        },
+        {
+          "assignee": "agent_01M5W38WHXASZF9Q8FY3G7BQ1T",
+          "close_reason": "Approved and merged into main. web/index.html checked in the worktree: UTF-8 meta charset, no BOM, fetch(\"../api/greeting.json\") reads data.greeting and sets it via textContent on #greeting. api/greeting.json holds \"xin chào\". Only web/index.html is new; notes/_check.js is absent. AC-7 rests on the ticket's Depends on: AGN-1 header; AGN-1 status was not independently queried.",
+          "depends_on": [
+            "AGN-1"
+          ],
+          "key": "AGN-2",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create web/index.html that fetches ../api/greeting.json and renders the greeting"
+        }
+      ]
+    }
+  }
+]

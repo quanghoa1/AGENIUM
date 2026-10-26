@@ -15,7 +15,7 @@ use serde_json::json;
 fn model() -> PipelineModel {
     PipelineModel {
         model: "m".into(),
-        effort: agenium_core::Effort::Low,
+        effort: agenium_core::Effort::LOW,
         max_tokens: 2000,
         retry: RetryPolicy {
             max_attempts: 1,

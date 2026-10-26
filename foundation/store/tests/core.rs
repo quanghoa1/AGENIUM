@@ -62,7 +62,7 @@ fn solo_agent(s: &CoreStore) -> agents::Agent {
         model: ModelBinding {
             provider: "mock".into(),
             model: "m".into(),
-            effort: Effort::High,
+            effort: Effort::HIGH,
             max_tokens: None,
         },
         mcp: serde_json::json!([]),

@@ -179,7 +179,7 @@ fn request(model: &str) -> ChatRequest {
             },
         ],
         tools: vec![tool()],
-        effort: Effort::High,
+        effort: Effort::HIGH,
         max_tokens: 64_000,
         cache_key: Some("agent_x:AGN-1".into()),
         long_cache: true,
@@ -487,8 +487,8 @@ async fn deepseek_reasoning_and_local_endpoint_without_done() {
         Some("k"),
         http(),
     );
-    let mut req = request("deepseek-reasoner");
-    req.effort = Effort::Medium;
+    let mut req = request("deepseek-v4-pro");
+    req.effort = Effort::MEDIUM;
     req.messages[1].parts[0] = Part::Thinking {
         text: "earlier".into(),
         signature: None,
@@ -498,7 +498,10 @@ async fn deepseek_reasoning_and_local_endpoint_without_done() {
     };
     let r = p.chat(&req, &|_| {}).await.unwrap();
     let b = seen.lock().unwrap()[0].body.clone();
-    assert_eq!(b["reasoning_effort"], "high", "DeepSeek medium -> high");
+    assert_eq!(
+        b["reasoning_effort"], "high",
+        "DeepSeek has no medium: the nearest, the higher on a tie"
+    );
     assert_eq!(b["messages"][2]["reasoning_content"], "earlier");
     assert_eq!(b["max_tokens"], 64000);
     assert!(matches!(&r.message.parts[0], Part::Thinking { text, .. } if text == "think"));
@@ -580,7 +583,7 @@ async fn gemini_contract_schema_sanitising_and_signatures() {
     );
     // Gemini 2.5 uses thinkingBudget.
     let mut req = request("gemini-2.5-flash");
-    req.effort = Effort::Low;
+    req.effort = Effort::LOW;
     assert_eq!(
         gemini::build_body(&req)["generationConfig"]["thinkingConfig"]["thinkingBudget"],
         1024
@@ -618,7 +621,7 @@ async fn opencode_relay_sends_session_affinity_and_deepseek_effort() {
         http(),
     );
     let mut req = request("deepseek-v4.1-flash");
-    req.effort = Effort::Medium;
+    req.effort = Effort::MEDIUM;
     p.chat(&req, &|_| {}).await.unwrap();
     req.cache_key = None;
     req.model = "glm-5.3".into();
@@ -647,12 +650,12 @@ async fn azure_openai_sends_the_api_key_header() {
         http(),
     );
     let mut req = request("gpt-6-luna");
-    req.effort = Effort::Max;
+    req.effort = Effort::MAX;
     p.chat(&req, &|_| {}).await.unwrap();
     let s = seen.lock().unwrap().clone();
     assert_eq!(s[0].header("api-key"), Some("az-key"));
     assert_eq!(s[0].header("authorization"), Some("Bearer az-key"));
-    assert_eq!(s[0].body["reasoning_effort"], "xhigh");
+    assert_eq!(s[0].body["reasoning_effort"], "max", "GPT-6 Luna has max");
 }
 
 const RESPONSES_STREAM: &str = concat!(
@@ -926,4 +929,155 @@ async fn cache_routes_reach_openrouter_and_xai() {
         let s = seen.lock().unwrap().clone();
         assert_eq!(s[0].header(header), Some("agent_x:AGN-1"), "{host}");
     }
+}
+
+/// ADR-113: on Anthropic's own API a replayed thinking block whose earlier history changed is dropped, not a 400
+/// (accounts from 2026-08-31 enforce the check), and the response says how many were dropped.
+#[tokio::test]
+async fn claude_drops_thinking_after_an_edit_instead_of_failing() {
+    let req = request("claude-haiku-5-5");
+    let b = anthropic::build_body_with(&req, true);
+    assert_eq!(
+        b["thinking"]["block_binding"]["prefix_mismatch_behavior"],
+        "drop_block"
+    );
+    assert!(anthropic::build_body(&req)["thinking"]
+        .get("block_binding")
+        .is_none());
+    let stream = ANTHROPIC_STREAM.replacen(
+        "\"content\":[],",
+        "\"content\":[],\"input_transformations\":[{\"type\":\"thinking_dropped\",\"path\":\"messages.1.content.0\",\"reason\":\"prefix_binding_mismatch\"},{\"type\":\"something_new\"}],",
+        1,
+    );
+    let (base, _) = server(vec![sse(200, &stream)]).await;
+    let p = anthropic::Anthropic::new("a", Some(&base), "k", http());
+    let r = p.chat(&req, &|_| {}).await.unwrap();
+    assert_eq!(r.dropped_thinking, 1, "unknown entries are ignored");
+}
+
+/// Each model gets its own level under the vendor's name (ADR-114): a level the model lacks becomes its nearest (the
+/// higher on a tie), and a model whose levels are unknown gets none (its vendor's default).
+#[test]
+fn each_model_gets_its_own_effort_level_on_the_wire() {
+    let lv = |s: &str| s.parse::<Effort>().unwrap();
+    let claude = |model: &str, e: Effort| {
+        let mut r = request(model);
+        r.effort = e;
+        anthropic::build_body(&r)["output_config"]["effort"].clone()
+    };
+    assert_eq!(claude("claude-haiku-5-5", Effort::XHIGH), "xhigh");
+    assert_eq!(claude("claude-sonnet-4-6", Effort::XHIGH), "max");
+    assert_eq!(claude("claude-opus-4-5-20251101", Effort::MAX), "high");
+    use agenium_llm::openai::{effort_for, Flavor};
+    let level = |f: Flavor, model: &str, e: &str| {
+        effort_for(f, model, &lv(e)).map(|l| l.as_str().to_owned())
+    };
+    assert_eq!(
+        level(Flavor::DeepSeek, "deepseek-v4-pro", "medium").as_deref(),
+        Some("high")
+    );
+    assert_eq!(
+        level(Flavor::OpenCode, "deepseek-v4.1-flash", "low").as_deref(),
+        Some("low")
+    );
+    assert_eq!(
+        level(Flavor::OpenAi, "gpt-5.5-pro", "low").as_deref(),
+        Some("medium")
+    );
+    assert_eq!(
+        level(Flavor::OpenAi, "gpt-6.1-sol", "max").as_deref(),
+        Some("max")
+    );
+    assert_eq!(
+        level(Flavor::Xai, "grok-4.7", "max").as_deref(),
+        Some("xhigh")
+    );
+    assert_eq!(
+        level(Flavor::OpenRouter, "openai/gpt-5.5", "minimal").as_deref(),
+        Some("minimal")
+    );
+    assert_eq!(
+        level(Flavor::OpenAi, "gpt-4o", "high"),
+        None,
+        "not a reasoning model we know"
+    );
+    assert_eq!(level(Flavor::Generic, "llama-4-scout", "high"), None);
+    let mut g = request("gemini-3-pro-preview");
+    g.effort = Effort::MEDIUM;
+    let tc = gemini::build_body(&g)["generationConfig"]["thinkingConfig"].clone();
+    assert_eq!(tc["thinkingLevel"], "high", "Gemini 3 Pro has low and high");
+    g.model = "gemini-9-ultra".into();
+    let tc = gemini::build_body(&g)["generationConfig"]["thinkingConfig"].clone();
+    assert!(tc.get("thinkingLevel").is_none(), "{tc}");
+    let mut r = request("gpt-6-astra");
+    r.effort = lv("none");
+    assert_eq!(
+        responses::build_body(&r)["reasoning"]["effort"],
+        "low",
+        "Astra cannot turn reasoning off"
+    );
+}
+
+/// Anthropic's Models API says which effort levels each model takes (`capabilities.effort`); the list keeps them,
+/// and the table fills a model it does not describe.
+#[tokio::test]
+async fn claude_models_carry_their_effort_levels() {
+    let lvl = |l: &[&str]| {
+        let mut e = json!({"supported": true});
+        for x in ["low", "medium", "high", "xhigh", "max"] {
+            e[x] = json!({"supported": l.contains(&x)});
+        }
+        e
+    };
+    let body = json!({"data": [
+        {"id": "claude-haiku-5-5", "capabilities": {"effort": lvl(&["low", "medium", "high", "xhigh", "max"])}},
+        {"id": "claude-sonnet-4-6", "capabilities": {"effort": lvl(&["low", "medium", "high", "max"])}},
+        {"id": "claude-haiku-4-5-20251001", "capabilities": {"effort": {"supported": false}}},
+        {"id": "claude-next"}
+    ]});
+    let (base, _) = server(vec![json_reply(200, body, &[])]).await;
+    let p = anthropic::Anthropic::new("a", Some(&base), "k", http());
+    let m = p.list_models().await.unwrap();
+    let names = |i: usize| {
+        m[i].efforts
+            .as_ref()
+            .map(|l| l.iter().map(|e| e.as_str()).collect::<Vec<_>>().join(","))
+    };
+    assert_eq!(names(0).as_deref(), Some("low,medium,high,xhigh,max"));
+    assert_eq!(m[0].default_effort, Some(Effort::MEDIUM));
+    assert_eq!(names(1).as_deref(), Some("low,medium,high,max"));
+    assert_eq!(names(2).as_deref(), Some(""), "no effort control");
+    assert_eq!(
+        names(3).as_deref(),
+        Some("low,medium,high,xhigh,max"),
+        "from the table"
+    );
+}
+
+/// OpenRouter's model list names each model's levels (`reasoning.supported_efforts`, highest first) and its default.
+#[tokio::test]
+async fn openrouter_models_carry_their_effort_levels() {
+    let body = json!({"data": [
+        {"id": "openai/gpt-5.5", "reasoning": {"supported_efforts": ["xhigh", "high", "medium", "low", "none"],
+            "default_effort": "medium"}},
+        {"id": "meta-llama/llama-4-scout", "reasoning": null}
+    ]});
+    let (base, _) = server(vec![json_reply(200, body, &[])]).await;
+    let p = openai::OpenAiCompat::new(
+        "or",
+        &format!("{base}/openrouter.ai/api/v1"),
+        Some("k"),
+        http(),
+    );
+    let m = p.list_models().await.unwrap();
+    let names: Vec<&str> = m[0]
+        .efforts
+        .as_ref()
+        .unwrap()
+        .iter()
+        .map(|e| e.as_str())
+        .collect();
+    assert_eq!(names, ["none", "low", "medium", "high", "xhigh"]);
+    assert_eq!(m[0].default_effort, Some(Effort::MEDIUM));
+    assert_eq!(m[1].efforts, None);
 }

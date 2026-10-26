@@ -976,16 +976,18 @@ fn the_price_catalogue_prices_earlier_runs() {
         .app
         .start_run(f.project.id, &k, "go", "deepseek-v4.1-flash")
         .unwrap();
+    // Half of the input was served from the cache: it is billed once, at the cache price.
     let usage = UsageSummary {
-        tokens_in: 1_000_000,
+        tokens_in: 2_000_000,
         tokens_out: 1_000_000,
+        cache_read: 1_000_000,
         ..Default::default()
     };
     f.app.finish_run(run.run, "Completed", 3, &usage).unwrap();
     assert!(f.app.price_view().providers["go"].is_empty());
     let c = Catalogue::from_models_dev(
         &serde_json::json!({"opencode-go": {"api": "https://opencode.ai/inference/go/openai/v1", "models": {
-            "deepseek-v4.1-flash": {"cost": {"input": 0.15, "output": 0.6}},
+            "deepseek-v4.1-flash": {"cost": {"input": 0.15, "output": 0.6, "cache_read": 0.015}},
             "beam-free": {"cost": {"input": 0, "output": 0}}
         }}}),
         "test",
@@ -994,7 +996,7 @@ fn the_price_catalogue_prices_earlier_runs() {
     assert_eq!(f.app.save_price_catalogue(&c).unwrap(), 1);
     let r = f.app.store().read(|c| runs::get(c, run.run)).unwrap();
     assert!(
-        (r.usage.estimated_cost_usd - 0.75).abs() < 1e-9,
+        (r.usage.estimated_cost_usd - 0.765).abs() < 1e-9,
         "{:?}",
         r.usage
     );

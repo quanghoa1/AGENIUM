@@ -1,0 +1,8 @@
+PASS overflow wording recognised: HTTP 400 (invalid_request_error): prompt is too long: 2500059 tokens > 1000000 maximum
+PASS dangling tool call sent after the history pass: as stored: refused (HTTP 400 (invalid_request_error): messages.1.content.0.tool_use.id: String should match pattern '^[a-zA-Z0-9_-]+$'); prepared: answered "OK"
+PASS compaction keeps the work going: outcome Completed, steps 8, compactions 1, answer Some("92") (expected 92)
+PASS edit keeps BOM and CRLF: outcome Completed, file now "\u{feff}class Greeter\r\n{\r\n    string Hi() => “Xin chao, the world”;\r\n}\r\n"
+PASS MCP tool behind OAuth used by the model: login ok, problems [], outcome Completed, answer Some("client dyn-c283fbc5b1fb62d878e0e457c404de2f, token #1")
+PASS a message sent during the run is followed: outcome Completed, tools ["read_file", "read_file", "read_file", "submit_report"], answer Some("Each of the three files (a.txt, b.txt, c.txt) contains only a single line reading \"<filename> content\", with no other data. BANANA")
+PASS the Lead learns from the chat: chat Completed, learn added 2, facts ["The shop project is deployed with the make ship command.", "The user prefers that the assistant always answers in Vietnamese."]
+7/7 passed (claude-haiku-5-5)

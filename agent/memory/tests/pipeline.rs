@@ -11,7 +11,7 @@ use agenium_store::AgentStore;
 fn model() -> PipelineModel {
     PipelineModel {
         model: "m".into(),
-        effort: agenium_core::Effort::Low,
+        effort: agenium_core::Effort::LOW,
         max_tokens: 2000,
         retry: RetryPolicy::default(),
     }
@@ -148,4 +148,91 @@ async fn add_update_delete_noop_with_guards() {
         .await
         .is_err());
     assert_eq!(store.live(100).unwrap().len(), before);
+}
+
+/// A clean episode that refines a lesson yields only a fact; its UPDATE keeps the lesson a lesson, with its cue, its
+/// trust and the contexts it held in (found by the learning chain on Claude Haiku: the lesson became a plain fact).
+#[tokio::test]
+async fn an_update_of_a_lesson_keeps_what_it_earned() {
+    let tmp = tempfile::tempdir().unwrap();
+    let e = HashEmbedder::new(384);
+    let store = Arc::new(
+        AgentStore::open(
+            &tmp.path().join("a.db"),
+            384,
+            e.model_id(),
+            &tmp.path().join("b"),
+        )
+        .unwrap(),
+    );
+    let p = ScriptedProvider::new("mock");
+
+    let mut first = episode("ticket:AGN-1");
+    first.signals = vec!["reopened: the edit dropped the BOM".into()];
+    p.push_text(
+        "{\"facts\": [{\"text\": \"Edits to files with a BOM must keep the BOM.\", \"kind\": \"lesson\", \
+         \"cue\": \"when editing a file that starts with a BOM\"}]}",
+    );
+    let r = learn(&p, &model(), &store, &e, &first, &clean)
+        .await
+        .unwrap();
+    assert_eq!(r.added, 1, "{r:?}");
+    let lesson = store.live(10).unwrap()[0].clone();
+    assert_eq!(lesson.kind, agenium_store::FactKind::Lesson);
+    store.validate_in(lesson.id, "p1/ticket:AGN-3").unwrap();
+    store.adjust_confidence(lesson.id, 0.2).unwrap();
+    let earned = store.get(lesson.id).unwrap().confidence;
+
+    // A clean close: no signals, so the refinement comes back as a fact and the model merges it into the lesson.
+    p.push_text(
+        "{\"facts\": [{\"text\": \"Edits to files with a BOM must keep the BOM and the line endings.\", \"kind\": \"fact\"}]}",
+    );
+    p.push_text(&format!(
+        "{{\"ops\": [{{\"op\": \"UPDATE\", \"fact\": 0, \"id\": {}}}]}}",
+        lesson.id
+    ));
+    let r = learn(&p, &model(), &store, &e, &episode("ticket:AGN-4"), &clean)
+        .await
+        .unwrap();
+    assert_eq!(r.updated, 1, "{r:?}");
+    let now = store.live(10).unwrap();
+    assert_eq!(now.len(), 1);
+    let merged = &now[0];
+    assert_ne!(merged.id, lesson.id, "UPDATE keeps history");
+    assert!(merged.text.contains("line endings"));
+    assert_eq!(merged.kind, agenium_store::FactKind::Lesson);
+    assert_eq!(merged.cue, lesson.cue);
+    assert!(
+        merged.confidence >= earned,
+        "{} < {earned}",
+        merged.confidence
+    );
+    assert_eq!(merged.validated, vec!["p1/ticket:AGN-3".to_owned()]);
+
+    // A project file read later says the opposite: external content neither rewrites nor retires the lesson.
+    p.push_text(
+        "{\"facts\": [{\"text\": \"Edits to files with a BOM may drop the BOM; nothing checks it.\", \"external\": true}]}",
+    );
+    p.push_text(&format!(
+        "{{\"ops\": [{{\"op\": \"UPDATE\", \"fact\": 0, \"id\": {0}}}]}}",
+        merged.id
+    ));
+    let r = learn(&p, &model(), &store, &e, &episode("ticket:AGN-5"), &clean)
+        .await
+        .unwrap();
+    assert_eq!((r.updated, r.added), (0, 1), "{r:?}");
+    p.push_text(
+        "{\"facts\": [{\"text\": \"The BOM rule was dropped from the project.\", \"external\": true}]}",
+    );
+    p.push_text(&format!(
+        "{{\"ops\": [{{\"op\": \"DELETE\", \"id\": {0}}}]}}",
+        merged.id
+    ));
+    let r = learn(&p, &model(), &store, &e, &episode("ticket:AGN-6"), &clean)
+        .await
+        .unwrap();
+    assert_eq!(r.deleted, 0, "{r:?}");
+    let kept = store.get(merged.id).unwrap();
+    assert!(kept.superseded_by.is_none() && !kept.untrusted);
+    assert!(store.live(10).unwrap().iter().any(|f| f.id == merged.id));
 }

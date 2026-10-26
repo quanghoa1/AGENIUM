@@ -53,6 +53,7 @@ fn responder(current: Arc<Mutex<String>>) -> agenium_llm::mock::Responder {
             stop: StopReason::EndTurn,
             usage: Usage::default(),
             model: "stub".into(),
+            dropped_thinking: 0,
         })
     })
 }
@@ -69,7 +70,7 @@ async fn build(
     let p = ScriptedProvider::new("stub");
     let model = PipelineModel {
         model: "stub".into(),
-        effort: agenium_core::Effort::Low,
+        effort: agenium_core::Effort::LOW,
         max_tokens: 2000,
         retry: RetryPolicy {
             max_attempts: 1,

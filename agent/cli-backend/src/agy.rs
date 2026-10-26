@@ -14,6 +14,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
@@ -104,6 +105,7 @@ impl Driver for Agy {
     fn args(
         &self,
         model: &str,
+        effort: Option<&Effort>,
         _home: &Path,
         _resume: Option<&str>,
         _subagents: bool,
@@ -119,8 +121,14 @@ impl Driver for Agy {
         ]
         .map(str::to_owned)
         .to_vec();
+        // Antigravity's models name their level (`gemini-3.8-flash-low`); `models` lists each once with its levels,
+        // so the level picks the variant. A model chosen with its level in the name runs as it is.
         if !model.is_empty() {
-            a.extend(["--model".to_owned(), model.to_owned()]);
+            let model = match effort {
+                Some(e) if level_of(model).is_none() => format!("{model}-{e}"),
+                _ => model.to_owned(),
+            };
+            a.extend(["--model".to_owned(), model]);
         }
         // `-p` takes a value; the prompts come from stdin.
         a.push("-p=".to_owned());
@@ -290,8 +298,9 @@ impl Driver for Agy {
     }
 }
 
-/// The models this Antigravity login can use (`agy models`: `id<TAB>name` lines; no model turn).
-pub async fn models(program: &Path) -> Result<Vec<String>, String> {
+/// The models this Antigravity login can use (`agy models`: `id<TAB>name` lines; no model turn), one entry per model
+/// with the levels its variants name.
+pub async fn models(program: &Path) -> Result<Vec<agenium_llm::ModelInfo>, String> {
     let mut cmd = tokio::process::Command::new(program);
     cmd.arg("models")
         .env("AGY_CLI_DISABLE_AUTO_UPDATE", "true")
@@ -305,7 +314,7 @@ pub async fn models(program: &Path) -> Result<Vec<String>, String> {
         .await
         .map_err(|_| "agy models did not answer in 40 s".to_owned())?
         .map_err(|e| format!("cannot start agy: {e}"))?;
-    Ok(parse_models(&String::from_utf8_lossy(&out.stdout)))
+    Ok(group(parse_models(&String::from_utf8_lossy(&out.stdout))))
 }
 
 fn parse_models(text: &str) -> Vec<String> {
@@ -316,9 +325,84 @@ fn parse_models(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// The level a model id names (`gemini-3.8-flash-low` -> `low`).
+fn level_of(id: &str) -> Option<(&str, Effort)> {
+    let (base, level) = id.rsplit_once('-')?;
+    Effort::ORDER
+        .contains(&level)
+        .then(|| (base, level.parse().ok()))
+        .and_then(|(b, l)| Some((b, l?)))
+}
+
+/// One entry per model, with the levels its variants name, lowest first (`gpt-oss-120b-medium` has one).
+fn group(ids: Vec<String>) -> Vec<agenium_llm::ModelInfo> {
+    let mut out: Vec<agenium_llm::ModelInfo> = Vec::new();
+    for id in ids {
+        let (base, level) = match level_of(&id) {
+            Some((b, l)) => (b.to_owned(), Some(l)),
+            None => (id.clone(), None),
+        };
+        let i = match out.iter().position(|m| m.id == base) {
+            Some(i) => i,
+            None => {
+                out.push(agenium_llm::ModelInfo {
+                    id: base,
+                    efforts: level.as_ref().map(|_| vec![]),
+                    ..Default::default()
+                });
+                out.len() - 1
+            }
+        };
+        if let (Some(l), Some(levels)) = (level, out[i].efforts.as_mut()) {
+            levels.push(l);
+            levels.sort_by_key(|e| e.rank());
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_level_picks_the_models_variant() {
+        let model = |id: &str, e: Option<&Effort>| {
+            let a = Agy.args(id, e, Path::new("/h"), None, false);
+            let i = a.iter().position(|x| x == "--model").unwrap();
+            assert!(!a.contains(&"--effort".to_owned()));
+            a[i + 1].clone()
+        };
+        assert_eq!(
+            model("gemini-3.8-flash", Some(&Effort::LOW)),
+            "gemini-3.8-flash-low"
+        );
+        assert_eq!(
+            model("gemini-3.8-flash-high", Some(&Effort::LOW)),
+            "gemini-3.8-flash-high"
+        );
+        assert_eq!(model("gemini-4-argon", None), "gemini-4-argon");
+        let g = group(parse_models(
+            "x\ngemini-4-argon-medium\tA\ngemini-4-argon-high\tA\ngemini-4-argon-low\tA\ngpt-oss-120b-medium\tG\n",
+        ));
+        let names = |i: usize| {
+            g[i].efforts
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|e| e.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        assert_eq!(
+            (g[0].id.as_str(), names(0).as_str()),
+            ("gemini-4-argon", "low,medium,high")
+        );
+        assert_eq!(
+            (g[1].id.as_str(), names(1).as_str()),
+            ("gpt-oss-120b", "medium")
+        );
+    }
 
     /// Lines captured from agy 1.4.4 (shortened).
     #[test]

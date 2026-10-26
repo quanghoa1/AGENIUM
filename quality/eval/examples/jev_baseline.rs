@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
                 "STATEMENT:\n{state}\n\nQUESTION: {q}"
             ))],
             tools: vec![],
-            effort: Effort::Low,
+            effort: Effort::LOW,
             max_tokens: 800,
             cache_key: None,
             long_cache: false,

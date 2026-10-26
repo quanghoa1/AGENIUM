@@ -47,6 +47,7 @@ impl ScriptedProvider {
             stop: StopReason::EndTurn,
             usage: usage(),
             model: "scripted".into(),
+            dropped_thinking: 0,
         };
         self.push(Box::new(move |_| Ok(resp.clone())))
     }
@@ -105,6 +106,7 @@ pub fn calls_response(text: &str, calls: Vec<(&str, serde_json::Value)>) -> Chat
         stop,
         usage: usage(),
         model: "scripted".into(),
+        dropped_thinking: 0,
     }
 }
 
@@ -126,6 +128,8 @@ impl Provider for ScriptedProvider {
             max_output: Some(8192),
             supports_tools: Some(true),
             supports_vision: None,
+            efforts: None,
+            default_effort: None,
         }])
     }
 

@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
@@ -81,6 +82,7 @@ impl Driver for Claude {
     fn args(
         &self,
         model: &str,
+        effort: Option<&Effort>,
         home: &Path,
         _resume: Option<&str>,
         subagents: bool,
@@ -109,6 +111,10 @@ impl Driver for Claude {
         ]);
         if !model.is_empty() {
             a.extend(["--model".to_owned(), model.to_owned()]);
+        }
+        // Claude Code takes the API's level names (`--effort`); the model's own level (ADR-114).
+        if let Some(l) = effort.and_then(|e| agenium_llm::effort::level_for(model, e)) {
+            a.extend(["--effort".to_owned(), l.as_str().to_owned()]);
         }
         a
     }
@@ -539,14 +545,28 @@ mod tests {
 
     #[test]
     fn args_point_at_the_per_run_home() {
-        let a = Claude.args("haiku", Path::new("/h"), None, false);
+        let a = Claude.args("haiku", Some(&Effort::LOW), Path::new("/h"), None, false);
+        let at = a.iter().position(|x| x == "--effort").unwrap();
+        assert_eq!(a[at + 1], "low");
+        let o = Claude.args(
+            "claude-opus-4-5",
+            Some(&Effort::MAX),
+            Path::new("/h"),
+            None,
+            false,
+        );
+        let at = o.iter().position(|x| x == "--effort").unwrap();
+        assert_eq!(o[at + 1], "high", "Opus 4.5 ends at high");
+        assert!(!Claude
+            .args("haiku", None, Path::new("/h"), None, false)
+            .contains(&"--effort".to_owned()));
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
         let i = a.iter().position(|x| x == "--tools").unwrap();
         assert_eq!(
             a[i + 1],
             "Bash,PowerShell,Read,Write,Edit,NotebookEdit,Glob,Grep,ToolSearch"
         );
-        let s = Claude.args("haiku", Path::new("/h"), None, true);
+        let s = Claude.args("haiku", None, Path::new("/h"), None, true);
         let i = s.iter().position(|x| x == "--tools").unwrap();
         assert!(s[i + 1].ends_with(",Task,SendMessage,ListAgents,TaskStop"));
         let i = a.iter().position(|x| x == "--setting-sources").unwrap();
