@@ -424,8 +424,6 @@ const en = {
   "library.deleteMcpNote": "The server leaves config.toml.",
   "live.active": "Active agents",
   "live.toolsNow": "Running tools",
-  "live.toolsExpand": "Expand the tool list",
-  "live.toolsShrink": "Back to normal size",
   "live.tokensToday": "Tokens today",
   "live.pauseAll": "Pause all agents",
   "live.paused": "All paused",
@@ -467,7 +465,6 @@ const en = {
   "live.allRooms": "all rooms",
   "live.pickAgent": "Click someone in the office.",
   "live.noCalls": "No calls in this run.",
-  "live.comm": "Conversation (by role)",
 } as const;
 
 export type Key = keyof typeof en;
@@ -894,8 +891,6 @@ const vi: Record<Key, string> = {
   "library.deleteMcpNote": "Server sẽ bị xóa khỏi config.toml.",
   "live.active": "Agent đang chạy",
   "live.toolsNow": "Tool đang gọi",
-  "live.toolsExpand": "Mở rộng danh sách tool",
-  "live.toolsShrink": "Thu về kích thước thường",
   "live.tokensToday": "Token hôm nay",
   "live.pauseAll": "Tạm dừng tất cả",
   "live.paused": "Đã dừng hết",
@@ -937,7 +932,6 @@ const vi: Record<Key, string> = {
   "live.allRooms": "mọi phòng",
   "live.pickAgent": "Bấm vào một người trong văn phòng.",
   "live.noCalls": "Run này chưa gọi tool nào.",
-  "live.comm": "Giao tiếp (theo vai trò)",
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { en, vi };

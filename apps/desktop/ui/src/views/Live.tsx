@@ -27,9 +27,7 @@ import {
   Link2,
   ListChecks,
   Lock,
-  Maximize2,
   MessageSquareReply,
-  Minimize2,
   MonitorPlay,
   OctagonPause,
   Pause,
@@ -447,15 +445,14 @@ function CallRow({ e, open: start = false }: { e: LogEntry; open?: boolean }) {
   );
 }
 
-function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data: LiveData; act?: Act; prefill: Prefill | null; onPick: (id: string) => void; onAskLead: (w: LiveAgent) => void }) {
+/** The selected agent: who it is and what it works on, then its conversation (`view` agent) or its tool, skill and MCP
+ *  calls (`view` tools), each with the whole panel. */
+function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent; data: LiveData; act?: Act; prefill: Prefill | null; onPick: (id: string) => void; onAskLead: (w: LiveAgent) => void; view: "agent" | "tools" }) {
   const app = useApp();
   const k = kindOf(a);
   const team = data.teams.find((t) => t.id === a.team);
   const lead = team?.lead ? data.agents.find((x) => x.agent.id === team.lead) : undefined;
   const [trace, setTrace] = useState<AgentTrace | null>(null);
-  const [comm, setComm] = useState(true);
-  // Tool / skill / MCP list: folded, normal (a third of the panel next to the conversation) or expanded.
-  const [tools, setTools] = useState<"folded" | "normal" | "expanded">("normal");
   const live = !!a.run;
   useEffect(() => {
     setTrace(null);
@@ -551,61 +548,35 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
           </span>
         </div>
       </div>
-      {/* 1. tool / skill / MCP */}
-      <div
-        className="flex min-h-0 flex-col border-b border-line px-4 py-2.5"
-        style={tools === "folded" ? undefined : { maxHeight: comm ? (tools === "expanded" ? "72%" : "34%") : undefined, flex: comm && tools === "normal" ? undefined : 1 }}
-      >
-        <div className={cn("label flex items-center gap-1.5", tools !== "folded" && "mb-1.5")}>
-          <button className="flex items-center gap-1.5" onClick={() => setTools(tools === "folded" ? "normal" : "folded")}>
-            {tools === "folded" ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            <Wrench className="h-3 w-3" /> 1 · Tool / Skill / MCP
-          </button>
-          <span className="ml-auto flex items-center gap-1.5 normal-case">
-            {trace?.run && (
-              <>
-                <OutcomeBadge outcome={trace.run.outcome} />
-                <Mono className="text-subtle">
-                  {trace.run.steps} step · {tokens(trace.run.usage.tokens_in + trace.run.usage.tokens_out)} tok · {ago(trace.run.started_at)}
-                </Mono>
-                <CacheHit value={trace.run.cache_hit} />
-              </>
-            )}
-            <button
-              className="rounded p-0.5 text-subtle hover:bg-elevated hover:text-fg"
-              title={app.t(tools === "expanded" ? "live.toolsShrink" : "live.toolsExpand")}
-              onClick={() => setTools(tools === "expanded" ? "normal" : "expanded")}
-            >
-              {tools === "expanded" ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-            </button>
-          </span>
-        </div>
-        {tools !== "folded" && (
-          <>
-            {stream?.phase === "tool" && act?.call && (
-              <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1.5 text-[11px]">
-                <span className="h-2 w-2 animate-ping rounded-full bg-purple-500" />
-                <CallBadge kind={act.call.kind} />
-                <span className="truncate font-mono">{act.call.label}</span>
-              </div>
-            )}
-            <div className="min-h-0 space-y-1 overflow-y-auto">
-              {[...calls].reverse().map((e) => (
-                <CallRow key={e.n} e={e} />
-              ))}
-              {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
+      {view === "tools" ? (
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-2.5">
+          {trace?.run && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <OutcomeBadge outcome={trace.run.outcome} />
+              <Mono className="text-subtle">
+                {trace.run.steps} step · {tokens(trace.run.usage.tokens_in + trace.run.usage.tokens_out)} tok · {ago(trace.run.started_at)}
+              </Mono>
+              <CacheHit value={trace.run.cache_hit} />
             </div>
-          </>
-        )}
-      </div>
-      {/* 2. conversation, by role, like a CLI chat (thinking folded in) */}
-      <div className={cn("flex min-h-0 flex-col", comm ? "flex-1" : "")}>
-        <button className="label flex items-center gap-1.5 px-4 py-2 text-left" onClick={() => setComm(!comm)}>
-          {comm ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          <MessageSquareReply className="h-3 w-3" /> 2 · {app.t("live.comm")}
-        </button>
-        {comm &&
-          ((k === "lead" || k === "standalone") && a.project ? (
+          )}
+          {stream?.phase === "tool" && act?.call && (
+            <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1.5 text-[11px]">
+              <span className="h-2 w-2 animate-ping rounded-full bg-purple-500" />
+              <CallBadge kind={act.call.kind} />
+              <span className="truncate font-mono">{act.call.label}</span>
+            </div>
+          )}
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {[...calls].reverse().map((e) => (
+              <CallRow key={e.n} e={e} />
+            ))}
+            {calls.length === 0 && <div className="text-[11px] text-subtle">{trace?.run ? app.t("live.noCalls") : app.t("live.noRun")}</div>}
+          </div>
+        </div>
+      ) : (
+      // The conversation, by role, like a CLI chat (thinking folded in).
+      <div className="flex min-h-0 flex-1 flex-col">
+        {(k === "lead" || k === "standalone") && a.project ? (
             <ChatPane project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} after={k === "lead" ? <Delegations project={a.project} data={data} onWatch={onPick} /> : undefined} className="border-t border-line" />
           ) : k === "worker" ? (
             <>
@@ -640,8 +611,9 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
                 </div>
               </Empty>
             </div>
-          ))}
+          )}
       </div>
+      )}
     </div>
   );
 }
@@ -781,7 +753,7 @@ export function LiveView() {
   const [focus, setFocus] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<Prefill | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
-  const [side, setSide] = useState<"agent" | "plan">("agent");
+  const [side, setSide] = useState<"agent" | "tools" | "plan">("agent");
   const [flights, setFlights] = useState<{ id: number; from: string; to: string; kind: string }[]>([]);
   const [log, setLog] = useState<LogLine[]>([]);
   const [boards, setBoards] = useState<Record<string, string[]>>({});
@@ -1089,16 +1061,17 @@ export function LiveView() {
                 onChange={setSide}
                 items={[
                   { value: "agent", label: <><Bot className="h-3 w-3" /> {app.t("live.agentTab")}</> },
+                  { value: "tools", label: <><Wrench className="h-3 w-3" /> Tool / Skill / MCP</> },
                   { value: "plan", label: <><ListChecks className="h-3 w-3" /> Plan</> },
                 ]}
               />
-              <span className="truncate text-[11px] text-subtle">{side === "agent" ? selected?.agent.name : (current?.name ?? selected?.project_name)}</span>
+              <span className="truncate text-[11px] text-subtle">{side === "plan" ? (current?.name ?? selected?.project_name) : selected?.agent.name}</span>
             </div>
             <PanelSwap id={side} className="flex min-h-0 flex-1 flex-col">
               {side === "plan" ? (
                 <PlanList project={current?.project ?? selected?.project} data={data} />
               ) : selected ? (
-                <Dock key={selected.agent.id} a={selected} data={data} act={acts.get(selected.agent.id)} prefill={prefill} onPick={pick} onAskLead={askLead} />
+                <Dock key={selected.agent.id} a={selected} data={data} act={acts.get(selected.agent.id)} prefill={prefill} onPick={pick} onAskLead={askLead} view={side} />
               ) : (
                 <Empty>{app.t("live.pickAgent")}</Empty>
               )}
