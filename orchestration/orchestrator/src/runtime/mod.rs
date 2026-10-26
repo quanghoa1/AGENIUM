@@ -212,9 +212,13 @@ const MAX_FAILED_RUNS: usize = 2;
 /// Prefixes of the System comments of the stall-nudge.
 const STALL_NOTE: &str = "Stall nudge";
 const STALL_ESCALATED: &str = "Stall: escalated to the user.";
+/// Prefix of the System comment that hands a ticket whose reviews keep stopping at a checkpoint to the user.
+const REVIEW_STALLED: &str = "Review stall:";
 
+/// A run that stopped or failed. A Cancelled run is the user's pause or stop (ADR-63), not a failure: it never stops
+/// the ticket's restarts nor counts against a planner or an inbox.
 fn failed(outcome: &str) -> bool {
-    outcome.starts_with("Stopped") || outcome.starts_with("Error") || outcome == "Cancelled"
+    outcome.starts_with("Stopped") || outcome.starts_with("Error")
 }
 
 /// The work order's shell line. Windows PowerShell 5.1 puts a byte-order mark before UTF-8 text and writes UTF-16 by
@@ -578,6 +582,50 @@ impl Runtime {
             crate::engine::system_comment(w, &tk, format!("{STALL_NOTE} {}/{}: your last runs on {} stopped ({outcome}). Resume the work from where it is, in small verified steps.", given + 1, rt.stall_nudges, t.key))?;
             Ok(())
         })?;
+        Ok(true)
+    }
+
+    /// Whether the Lead's reviews of `t` keep ending at a checkpoint (max_steps, context) without a decision. A review
+    /// starts fresh each time, so it would run again every round: after MAX_FAILED_RUNS in a row since the user's last
+    /// comment on the ticket (a hint gives the Lead another try) it waits for the user, who is told once.
+    fn review_stalled(&self, t: &Ticket) -> Result<bool> {
+        let rs = self.app.store().read(|c| runs::for_ticket(c, t.id))?;
+        let cs = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
+        let hint = cs
+            .iter()
+            .rev()
+            .find(|c| c.author == Author::User)
+            .map(|c| c.created_at.as_str())
+            .unwrap_or_default();
+        let undecided: Vec<&runs::Run> = rs
+            .iter()
+            .rev()
+            .take_while(|r| {
+                r.started_at.as_str() > hint
+                    && r.outcome
+                        .as_deref()
+                        .is_some_and(|o| o.starts_with("Checkpoint"))
+                    && self.is_review_run(r)
+            })
+            .collect();
+        if undecided.len() < MAX_FAILED_RUNS {
+            return Ok(false);
+        }
+        // The earliest review of the row: the user was told once since it.
+        let since = &undecided[undecided.len() - 1].started_at;
+        let told = cs.iter().any(|c| {
+            c.created_at > *since
+                && matches!(&c.body, CommentBody::System { text } if text.starts_with(REVIEW_STALLED))
+        });
+        if !told {
+            let outcome = undecided[0].outcome.clone().unwrap_or_default();
+            self.app.store().commit(None, "system", |w| -> Result<()> {
+                let tk = tickets::get(w.tx, t.id)?;
+                crate::engine::system_comment(w, &tk, format!("{REVIEW_STALLED} {} reviews of {} in a row stopped at a checkpoint ({outcome}) without a decision; it waits for you (comment on the ticket to give the Lead another try with a hint, or give the Lead more steps or another model).", undecided.len(), t.key))?;
+                w.emit(DomainEvent::NeedsUser { ticket: Some(t.id), reason: format!("{}: the Lead's reviews keep stopping at a checkpoint ({outcome}); look at the run log", t.key) })?;
+                Ok(())
+            })?;
+        }
         Ok(true)
     }
 
@@ -2115,11 +2163,22 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         // Team mode: the SLA of blocking questions, then the Lead's inbox (before work, so answers and new
         // assignments are picked up by this round's work runs).
         self.app.check_sla(project, chrono::Utc::now())?;
+        // The user can stop the project while a phase runs: no later phase starts then (ADR-63).
+        let paused = || self.project_cancel(project).is_cancelled();
+        if paused() {
+            return Ok(out);
+        }
         if let Some(s) = self.planner_round(project).await? {
             out.push(s);
         }
+        if paused() {
+            return Ok(out);
+        }
         if let Some(s) = self.inbox_round(project).await? {
             out.push(s);
+        }
+        if paused() {
+            return Ok(out);
         }
         let max = self.app.config().runtime.max_parallel_agents.max(1) as usize;
         let mut ready = Vec::new();
@@ -2148,14 +2207,20 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let Some(lead) = team.lead else {
             return Ok(out);
         };
-        if self.app.agent(lead)?.status != AgentStatus::Idle {
-            return Ok(out);
-        }
         for t in self.app.tickets(project)? {
+            // Checked before each review: one that left the Lead out of quota or offline (or a pause) would make every
+            // further review of this round fail the same way.
+            if paused() || self.app.agent(lead)?.status != AgentStatus::Idle {
+                break;
+            }
             let needs_review =
                 t.status == TicketStatus::Resolved && (!t.approved || (t.merged || !t.has_code));
             let gated = t.status == TicketStatus::Resolved && t.approved && t.has_code && !t.merged;
-            if needs_review && !gated && (self.ready_to_autostart(t.id)? || self.stall_nudge(&t)?) {
+            if needs_review
+                && !gated
+                && !self.review_stalled(&t)?
+                && (self.ready_to_autostart(t.id)? || self.stall_nudge(&t)?)
+            {
                 match self.review(project, &t.key).await {
                     Ok(s) => out.push(s),
                     Err(e) => tracing::warn!(error = %e, "review run failed"),
@@ -2197,14 +2262,19 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         if failures >= MAX_FAILED_RUNS {
             return Ok(None);
         }
-        let s = match self.plan_draft_run(project, &planner, &spec).await {
-            Ok(s) => s,
+        // A run that fails before its loop counts like one without a draft (else it is retried every round); one the
+        // user stopped does not count.
+        let (s, outcome) = match self.plan_draft_run(project, &planner, &spec).await {
+            Ok(s) => {
+                let o = s.outcome.clone();
+                (Some(s), o)
+            }
             Err(e) => {
                 tracing::warn!(error = %e, "planner run failed");
-                return Ok(None);
+                (None, format!("Error:{e}"))
             }
         };
-        if self.app.plan_draft(project, spec.version)?.is_none() {
+        if outcome != "Cancelled" && self.app.plan_draft(project, spec.version)?.is_none() {
             let n = failures + 1;
             self.planner_failures
                 .lock()
@@ -2216,14 +2286,14 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                         ticket: None,
                         reason: format!(
                             "the planner {} could not draft plan v1 for spec v{} ({}); the Lead can create the plan in chat",
-                            planner.name, spec.version, s.outcome
+                            planner.name, spec.version, outcome
                         ),
                     })
                     .map_err(OrchError::from)
                 })?;
             }
         }
-        Ok(Some(s))
+        Ok(s)
     }
 
     /// The planner's run: read the locked spec and the repository, submit a plan draft with its rationale.
@@ -2392,21 +2462,26 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         if failures(&self.inbox_failures) >= MAX_FAILED_RUNS {
             return Ok(None);
         }
-        let s = match self.inbox(project).await {
-            Ok(Some(s)) => s,
+        // A run that fails before its loop counts like one that did not empty the inbox (else it is retried every
+        // round); one the user stopped does not count.
+        let (s, outcome) = match self.inbox(project).await {
+            Ok(Some(s)) => {
+                let o = s.outcome.clone();
+                (Some(s), o)
+            }
             Ok(None) => return Ok(None),
             Err(e) => {
                 tracing::warn!(error = %e, "Lead inbox run failed");
-                return Ok(None);
+                (None, format!("Error:{e}"))
             }
         };
         let mut m = self
             .inbox_failures
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        if s.outcome == "Completed" {
+        if outcome == "Completed" {
             m.remove(&project);
-        } else {
+        } else if outcome != "Cancelled" {
             let n = m
                 .get(&project)
                 .filter(|(sig, _)| *sig == signature)
@@ -2421,14 +2496,14 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                         reason: format!(
                             "the Lead could not handle its inbox ({} item(s)) in {n} runs ({}); look at the run log",
                             items.len(),
-                            s.outcome
+                            outcome
                         ),
                     })
                     .map_err(OrchError::from)
                 })?;
             }
         }
-        Ok(Some(s))
+        Ok(s)
     }
 
     /// Repeats [`tick`](Self::tick) until nothing runs (or `max_rounds`).

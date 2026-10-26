@@ -419,7 +419,7 @@ impl Runtime {
         Ok(n)
     }
 
-    fn is_review_run(&self, r: &runs::Run) -> bool {
+    pub(super) fn is_review_run(&self, r: &runs::Run) -> bool {
         self.app
             .store()
             .read(|c| runs::log_entries(c, r.id))

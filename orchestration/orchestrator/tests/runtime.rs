@@ -2020,6 +2020,47 @@ fn solo_with_tickets(app: &agenium_orchestrator::App, items: &[&str]) -> (Projec
     (project, agent)
 }
 
+/// Resolves `k` as its assignee would: a run, the report, the run's end.
+fn resolve(app: &agenium_orchestrator::App, project: ProjectId, agent: AgentId, k: &str) {
+    let run = app.start_run(project, &key(k), "mock", "scripted").unwrap();
+    app.apply(
+        &agenium_orchestrator::CallCtx {
+            project,
+            actor: Actor::Worker(agent),
+            intent_id: None,
+            run: None,
+        },
+        Intent::SubmitReport(report(k)),
+    )
+    .unwrap();
+    app.finish_run(run.run, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+}
+
+/// A team of a Lead and one worker (api-1).
+fn team_project(app: &agenium_orchestrator::App, name: &str) -> (ProjectId, AgentId, AgentId) {
+    let project = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: name.into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    let (_, members) = app
+        .create_team(
+            project,
+            "duo team",
+            &agent_spec("lead", "lead", RoleKind::Lead, &[]),
+            &[agent_spec("api-1", "api", RoleKind::Worker, &["rust"])],
+        )
+        .unwrap();
+    (project, members[0].id, members[1].id)
+}
+
 /// An agent CLI Agenium does not drive (ADR-56): every run of an agent bound to it fails before its loop.
 fn devin() -> ModelBinding {
     ModelBinding {
@@ -2028,6 +2069,20 @@ fn devin() -> ModelBinding {
         effort: Effort::LOW,
         max_tokens: None,
     }
+}
+
+fn needs_user(app: &agenium_orchestrator::App, what: &str) -> usize {
+    app.store()
+        .read(|c| events::recent_of_kind(c, "NeedsUser", 50))
+        .unwrap()
+        .iter()
+        .filter(|e| {
+            e.payload["reason"]
+                .as_str()
+                .unwrap_or_default()
+                .contains(what)
+        })
+        .count()
 }
 
 /// A run that fails between its start and its outcome is ended with an Error, and a ticket without its worktree
@@ -2094,4 +2149,188 @@ async fn a_run_that_cannot_go_on_leaves_nothing_open() {
         rs[0].outcome
     );
     assert_eq!(p.requests().len(), 0);
+}
+
+/// A planner or Lead inbox run that fails before its loop (here: its CLI cannot run) counts as a failed run: after
+/// MAX_FAILED_RUNS the user is asked once, instead of a failing run every round.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn failing_planner_and_inbox_runs_go_to_the_user() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, lead, _) = team_project(&app, "duo");
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(lead),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+    app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    assert!(!app.lead_inbox(project).unwrap().is_empty());
+    app.set_agent_backend(lead, BackendKind::Cli, &devin())
+        .unwrap();
+    for _ in 0..4 {
+        assert!(rt.tick(project).await.unwrap().is_empty());
+    }
+    let lead_runs = app.store().read(|c| runs::for_agent(c, lead, 50)).unwrap();
+    assert_eq!(lead_runs.len(), 2, "two failed inbox runs, then none");
+    assert!(lead_runs.iter().all(|r| r.ended_at.is_some()));
+    assert_eq!(needs_user(&app, "could not handle its inbox"), 1);
+
+    // The planner (coding template) the same way.
+    let project = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "planned".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    app.create_team_from_template(project, "coding", &model(), None, None, "pl")
+        .unwrap();
+    let (team, members) = app.team_of_project(project).unwrap().unwrap();
+    let planner = members.iter().find(|m| m.name == "pl-planner").unwrap().id;
+    app.set_agent_backend(planner, BackendKind::Cli, &devin())
+        .unwrap();
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(team.lead.unwrap()),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+    for _ in 0..4 {
+        rt.tick(project).await.unwrap();
+    }
+    let planner_runs = app
+        .store()
+        .read(|c| runs::for_agent(c, planner, 50))
+        .unwrap();
+    assert_eq!(planner_runs.len(), 2, "two failed planner runs, then none");
+    assert_eq!(needs_user(&app, "could not draft plan v1"), 1);
+    assert_eq!(p.requests().len(), 0);
+}
+
+/// ADR-63: a run the user stopped (paused project) is not a failed run, and a pause during a round starts nothing
+/// after it: no later phase, no further review.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_pause_is_not_a_failure_and_ends_the_round() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let rt = Arc::new(rt);
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, agent) = solo_with_tickets(&app, &["PI-1", "PI-2", "PI-3"]);
+    resolve(&app, project, agent, "AGN-1");
+    resolve(&app, project, agent, "AGN-2");
+    let pausing = |rt: &Arc<Runtime>| -> agenium_llm::mock::Responder {
+        let r = rt.clone();
+        Box::new(move |_| {
+            r.pause_project(project).unwrap();
+            Ok(calls_response("", vec![("list_dir", json!({}))]))
+        })
+    };
+    let kinds = |runs: Vec<agenium_orchestrator::runtime::RunSummary>| -> Vec<(String, String)> {
+        runs.iter()
+            .map(|r| (r.kind.clone(), r.outcome.clone()))
+            .collect()
+    };
+    // Paused during the work on AGN-3: the round reviews nothing after it.
+    p.push(pausing(&rt));
+    let runs = rt.tick(project).await.unwrap();
+    assert_eq!(kinds(runs), vec![("work".into(), "Cancelled".into())]);
+    // Paused again: two stopped runs in a row on AGN-3.
+    rt.resume_project(project).unwrap();
+    p.push(pausing(&rt));
+    let s = rt.run_ticket(project, &key("AGN-3")).await.unwrap();
+    assert_eq!(s.outcome, "Cancelled");
+    // Resumed, AGN-3 goes on at once (a pause is no failure: no stall wait); a pause during the review of AGN-1
+    // leaves AGN-2's review for later.
+    rt.resume_project(project).unwrap();
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-3")).unwrap(),
+        )],
+    );
+    p.push(pausing(&rt));
+    let runs = rt.tick(project).await.unwrap();
+    assert_eq!(
+        kinds(runs),
+        vec![
+            ("work".into(), "Completed".into()),
+            ("review".into(), "Cancelled".into())
+        ]
+    );
+    assert_eq!(p.remaining(), 0);
+    assert_eq!(needs_user(&app, ""), 0);
+}
+
+/// A review that leaves the Lead out of quota ends the round's reviews (each would fail the same way).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lead_out_of_quota_reviews_nothing_more() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1", "PI-2"]);
+    resolve(&app, project, agent, "AGN-1");
+    resolve(&app, project, agent, "AGN-2");
+    p.push_error(agenium_llm::LlmError::Http {
+        status: 429,
+        kind: "insufficient_quota".into(),
+        message: "quota".into(),
+        quota: true,
+        retry_after: None,
+    });
+    let runs = rt.tick(project).await.unwrap();
+    let outcomes: Vec<&str> = runs.iter().map(|r| r.outcome.as_str()).collect();
+    assert_eq!(outcomes, vec!["QuotaExhausted"]);
+    assert_eq!(p.requests().len(), 1, "no second review was tried");
+}
+
+/// Reviews that keep ending at a checkpoint (each starts fresh) stop after MAX_FAILED_RUNS and the user is asked once;
+/// the user's comment on the ticket gives the Lead another try.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reviews_stopping_at_a_checkpoint_go_to_the_user() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    resolve(&app, project, agent, "AGN-1");
+    app.update_config(|c| c.runtime.max_steps_per_run = 1)
+        .unwrap();
+    let review = |p: &ScriptedProvider| {
+        p.push_calls("", vec![("list_dir", json!({}))]);
+        p.push_text("Checked the report; the diff is next.");
+    };
+    for _ in 0..2 {
+        review(&p);
+        let runs = rt.tick(project).await.unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].outcome, "Checkpoint:max_steps");
+    }
+    assert!(
+        rt.tick(project).await.unwrap().is_empty(),
+        "no third fresh review"
+    );
+    assert!(rt.tick(project).await.unwrap().is_empty());
+    assert_eq!(
+        needs_user(&app, "reviews keep stopping"),
+        1,
+        "the user is asked once"
+    );
+    app.user_comment(project, &key("AGN-1"), "Only check AC-1.")
+        .unwrap();
+    review(&p);
+    assert_eq!(rt.tick(project).await.unwrap().len(), 1, "another try");
+    assert_eq!(p.remaining(), 0);
 }
