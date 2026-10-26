@@ -1,0 +1,118 @@
+   Compiling stable_deref_trait v1.2.1
+   Compiling zerocopy v0.8.63
+   Compiling zerofrom v0.1.8
+   Compiling getrandom v0.4.3
+   Compiling num-traits v0.2.19
+   Compiling syn v2.0.119
+   Compiling tracing-core v0.1.36
+   Compiling log v0.4.34
+   Compiling crossbeam-utils v0.8.23
+   Compiling regex-automata v0.4.18
+   Compiling crypto-common v0.1.7
+   Compiling yoke v0.8.4
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling tempfile v3.27.0
+   Compiling uuid v1.29.0
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling digest v0.10.7
+   Compiling tinystr v0.8.5
+   Compiling potential_utf v0.1.6
+   Compiling mxc-sdk v1.0.1
+   Compiling icu_locale_core v2.4.0
+   Compiling icu_collections v2.4.0
+   Compiling chrono v0.4.45
+   Compiling crossbeam-epoch v0.9.21
+   Compiling sha2 v0.10.9
+   Compiling crossbeam-deque v0.8.8
+   Compiling icu_provider v2.4.0
+   Compiling schemars v1.2.3
+   Compiling icu_normalizer v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling globset v0.4.20
+   Compiling regex v1.13.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling ignore v0.4.33
+   Compiling rand_chacha v0.9.0
+   Compiling rand_chacha v0.3.1
+   Compiling rand v0.9.5
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling rand v0.8.8
+   Compiling url v2.5.8
+   Compiling ulid v1.2.1
+   Compiling tracing-attributes v0.1.31
+   Compiling tower-http v0.6.11
+   Compiling agenium-core v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/foundation/core)
+   Compiling tracing v0.1.44
+   Compiling hyper-util v0.1.21
+   Compiling agenium-config v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/foundation/config)
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling agenium-llm v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/agent/llm)
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/security/sandbox)
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/agent/tools)
+   Compiling agenium-mcp v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/agent/mcp)
+   Compiling agenium-backend v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/agent/loop)
+   Compiling agenium-cli-backend v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/agent/cli-backend)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.21s
+     Running unittests src/lib.rs (target/debug/deps/agenium_cli_backend-489ee224e7986c0b)
+
+running 1 test
+test opencode::tests::permission_requests_follow_agenium_rules ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+   Compiling libc v0.2.191
+   Compiling smallvec v1.16.3
+   Compiling syn v3.0.9
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling memchr v2.8.3
+   Compiling percent-encoding v2.3.2
+   Compiling once_cell v1.21.4
+   Compiling chrono v0.4.45
+   Compiling getrandom v0.2.17
+   Compiling form_urlencoded v1.2.2
+   Compiling tempfile v3.27.0
+   Compiling parking_lot_core v0.9.12
+   Compiling parking_lot v0.12.5
+   Compiling cpufeatures v0.3.1
+   Compiling getrandom v0.4.3
+   Compiling sha2 v0.11.1
+   Compiling uuid v1.29.0
+   Compiling synstructure v0.14.0
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.7
+   Compiling displaydoc v0.2.7
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling zerofrom v0.1.8
+   Compiling thiserror v2.0.21
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling mxc-sdk v1.0.1
+   Compiling tinystr v0.8.5
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.4.0
+   Compiling icu_locale_core v2.4.0
+   Compiling icu_provider v2.4.0
+   Compiling icu_normalizer v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v4/agenium-macos-test-kit-v4/work/agenium-52f1c12/security/sandbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.36s
+     Running unittests src/lib.rs (target/debug/deps/agenium_sandbox-5cd3f40bbb06fac9)
+
+running 1 test
+test seatbelt::tests::the_open_outbound_rule_is_narrowed_to_ip_and_the_resolver ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+exit=0 seconds=86

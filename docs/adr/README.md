@@ -22,7 +22,7 @@ ADR-52 records this fresh implementation.
 | [52](ADR-52-fresh-implementation.md) | Fresh implementation; Windows verification; deviations |
 | [53](ADR-53-windows-sandbox-mxc.md) | Windows sandbox backend: MXC process containers via `mxc-sdk` (amends ADR-39) |
 | [54](ADR-54-linux-sandbox-bubblewrap-mxc-sdk.md) | Linux sandbox backend: bubblewrap via `mxc-sdk` (S3 matrix not run yet) |
-| [55](ADR-55-macos-sandbox-seatbelt-mxc-sdk.md) | macOS sandbox backend: Seatbelt via `mxc-sdk` (experimental; containment on a Mac 2026-10-26: file escapes blocked, a daemon outlives the command; a host unix socket reachable with network on, narrowed by Agenium 2026-10-26) |
+| [55](ADR-55-macos-sandbox-seatbelt-mxc-sdk.md) | macOS sandbox backend: Seatbelt via `mxc-sdk` (experimental; containment on a Mac 2026-10-26: file escapes blocked, a daemon outlives the command; a host unix socket reachable with network on, narrowed by Agenium and confirmed blocked on the fourth run; 301 passed, 0 failed) |
 | [56](ADR-56-cli-backend-headless.md) | CliBackend: headless JSON stream in an Agenium-owned per-run home; agy driven |
 | [57](ADR-57-team-mode-lead-inbox.md) | Team mode: Lead inbox (derived view), inbox runs per round, SLA, escalation flag |
 | [58](ADR-58-team-templates-and-write-scope.md) | Team templates in TOML (4 built-in + user overrides); write scope = ticket scope AND role paths, checked at write and at submit |

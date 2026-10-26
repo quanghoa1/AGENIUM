@@ -6,7 +6,10 @@
   2026-10-26** (same machine, commit bc3bb60): every file escape blocked; three open items, see "Containment on a
   Mac". Raw: `docs/reference/bench-raw/macos-2026-10-26/`. **Third run 2026-10-26** (commit 9f1ce7a, mxc-sdk
   1.0.1): both fixes confirmed, file escapes still all blocked; two items open (the unix socket one mitigated since, see below). Raw:
-  `docs/reference/bench-raw/macos-2026-10-26-run3/`.
+  `docs/reference/bench-raw/macos-2026-10-26-run3/`. **Fourth run 2026-10-26** (commit 52f1c12): 301 passed, 0
+  failed; with the narrowed profile `net.unix_host_socket` is blocked in both sandboxed modes while `net.dns` and
+  `net.tcp_internet` still pass with the network on; only `daemon.outlives_*` remains. Raw:
+  `docs/reference/bench-raw/macos-2026-10-26-run4/`.
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Amends:** ADR-43 (macOS Seatbelt v2, experimental) — implementation choice only.
 
@@ -68,7 +71,7 @@ Open:
   Docker's `/var/run/docker.sock` is therefore reachable from a sandboxed command when the network is on. The SDK has no
   rule for scoping unix sockets: `profile_override` replaces the whole profile, the typed request's conversion is
   crate-private, and the proposed `deniedUnixSocketPaths` (issue microsoft/mxc#1277, PR #1278 closed unmerged on
-  2026-10-24) would be a deny list. **Mitigation (2026-10-26, to be confirmed by the fourth Mac run):**
+  2026-10-24) would be a deny list. **Mitigation (2026-10-26, confirmed by the fourth Mac run):**
   `security/sandbox/src/seatbelt.rs` asks mxc-sdk for the profile it would build, through its published 1.0.0 request
   contract (`load_mxc_request_from_json`) and its own builder (`build_profile_with_proxy`), replaces that one rule with
   `(allow network-outbound (remote ip "*:*"))` plus the resolver's socket `/private/var/run/mDNSResponder`, and passes

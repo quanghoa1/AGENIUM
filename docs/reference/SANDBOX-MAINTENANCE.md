@@ -62,7 +62,7 @@ Rules:
 |---|---|---|---|
 | Windows | MXC process container (`mxc-sdk`) | a Windows build with the process security environment API (seen on 11 build 26300) | no admin, no extra users; shell = PowerShell (MSYS/Git Bash cannot start in the container); build needs `RC_PATH` (`devtools/scripts/rc-windres.cmd`) on the GNU toolchain |
 | Linux | bubblewrap (`mxc-sdk` v1, allow-list binds) | `bwrap` + unprivileged user namespaces | verified on WSL2 Ubuntu 24.04; Ubuntu hosts may need `kernel.apparmor_restrict_unprivileged_userns=0` |
-| macOS | Seatbelt (`mxc-sdk` v1, ADR-55) | `sandbox-exec` | experimental; containment run on a Mac 2026-10-26: file escapes blocked, a daemon outlives the command, a host unix socket was reachable with network on: narrowed by `seatbelt.rs` (Agenium's edit of mxc-sdk's profile; drop it once mxc #1277 lands), to be confirmed on a Mac |
+| macOS | Seatbelt (`mxc-sdk` v1, ADR-55) | `sandbox-exec` | experimental; containment run on a Mac 2026-10-26: file escapes blocked, a daemon outlives the command, a host unix socket was reachable with network on: narrowed by `seatbelt.rs` (Agenium's edit of mxc-sdk's profile; drop it once mxc #1277 lands), confirmed blocked on the fourth Mac run (301 passed, 0 failed) |
 
 ## 4. Design invariants (do not break)
 
