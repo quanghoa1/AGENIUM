@@ -773,6 +773,13 @@ impl Runtime {
         // home, cleared environment) is the boundary, not the network switch; default on so agents can install
         // dependencies. For an in-sandbox vendor CLI the container keeps network for its own API regardless.
         ctx.policy.network = self.app.config().sandbox.network;
+        // Only a work run changes files (its ticket's worktree). In any other run a CLI contained in Agenium's sandbox
+        // gets the run's root read-only, its own file tools included; a hooked CLI's own write tools are not stopped
+        // from here (that needs a read-only flag in the CLI backend's permission check).
+        if kind != RunKind::Work {
+            ctx.policy.writable_roots.clear();
+            ctx.policy.read_roots.push(root.to_path_buf());
+        }
         let mut mcp_tools: Vec<Arc<dyn Tool>> = Vec::new();
         let bindings = agenium_mcp::parse_bindings(&agent.mcp)
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
