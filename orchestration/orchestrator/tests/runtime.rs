@@ -2523,3 +2523,29 @@ async fn the_reviewer_is_told_when_the_diff_cannot_be_read() {
     rt.review(project, &key("AGN-1")).await.unwrap();
     assert_eq!(p.remaining(), 0);
 }
+
+/// A chat turn's run keeps only its own messages: the history it replays lives in the chat session already.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_chat_turn_stores_only_its_own_messages() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let mut sizes = vec![];
+    for (ask, answer) in [
+        ("Hello.", "Hi."),
+        ("Plan an API.", "Sure."),
+        ("Thanks.", "Welcome."),
+    ] {
+        p.push_text(answer);
+        let s = rt.chat(project, ask).await.unwrap();
+        sizes.push(mem.load_messages(&s.run.to_string()).unwrap().len());
+    }
+    assert_eq!(sizes, vec![2, 2, 2], "the user's message and the reply");
+    assert_eq!(
+        mem.load_messages(&format!("chat:{project}")).unwrap().len(),
+        6
+    );
+}

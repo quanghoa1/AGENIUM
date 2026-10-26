@@ -840,8 +840,13 @@ impl Runtime {
             ),
             cost: Mutex::new(0.0),
         };
-        // Persist the work order's messages so a continuation sees the whole conversation.
-        for m in &order.messages {
+        // Persist the work order's messages so a continuation sees the whole conversation. A chat turn replays the
+        // chat, which lives in the chat session: its run keeps only the turn's new message (never read back to resume).
+        let replayed = match kind {
+            RunKind::Chat => order.messages.len().saturating_sub(1),
+            _ => 0,
+        };
+        for m in &order.messages[replayed..] {
             agenium_backend::Observer::message(&observer, m);
         }
         let protocol = RunProtocol {
