@@ -8,6 +8,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+futures.workspace = true
 agenium-core.workspace = true
 agenium-llm.workspace = true
 agenium-tools.workspace = true

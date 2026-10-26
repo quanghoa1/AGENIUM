@@ -36,15 +36,15 @@ macOS); MCP tool names that collide after sanitising get a hash suffix; endpoint
 
 ## Still missing — proposed, by value
 
-1. **Steering a running agent.** pi lets the user send a message that the running agent reads at its next turn (and
+1. **Steering a running agent** — done for the Lead and Solo agents (ADR-104; never workers, the owner's rule). pi lets the user send a message that the running agent reads at its next turn (and
    a follow-up queue for after it stops). In Agenium a user comment on a ticket reaches the agent only at its next
    run. Proposal: comments by the user (and the Lead) on a ticket whose run is active are injected before the next
    model request, as `[user, during your run]: …`.
-2. **Lenient tool arguments.** pi coerces harmless shapes (a number sent as a string, one object where an array was
+2. **Lenient tool arguments** — done (ADR-105). pi coerces harmless shapes (a number sent as a string, one object where an array was
    expected, an array sent as a JSON string) and reports malformed JSON with what the model sent. Agenium's
    `deny_unknown_fields` + strict types turn these into `invalid_arguments`, which costs a step and counts towards
    the three-errors stop.
-3. **Parallel read-only tools.** pi runs a turn's tool calls in parallel by default (results in call order; writes
+3. **Parallel read-only tools** — done (ADR-105). pi runs a turn's tool calls in parallel by default (results in call order; writes
    to the same file serialised). Agenium runs them one by one; read-only calls (read, grep, list, glob, fetch) could
    run together.
 4. **Retry-After cap.** pi caps a provider-requested delay (60 s). Agenium waits the full `retry-after` (bounded only

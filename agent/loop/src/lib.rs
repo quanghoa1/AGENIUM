@@ -270,6 +270,9 @@ fn clear_old_results(messages: &mut [Message], window: u64, keep: usize, force: 
     n
 }
 
+/// A tool call's result, its effect on the run, and whether its output is untrusted.
+type Executed = (Result<String, ToolError>, Effect, bool);
+
 /// Validation-type error codes: three in a row stop the run.
 fn is_invalid_call(code: &str) -> bool {
     matches!(
@@ -285,6 +288,12 @@ fn is_invalid_call(code: &str) -> bool {
             | "invalid"
     )
 }
+
+/// Messages the user sends to a running Lead or Solo agent (ADR-104): read before each model request.
+pub type Steer = Arc<std::sync::Mutex<Vec<String>>>;
+
+/// How a message the user sent during the run reaches the model.
+pub const STEERED: &str = "[Message from the user while you work] ";
 
 pub struct Run<'a> {
     pub provider: &'a dyn Provider,
@@ -302,6 +311,8 @@ pub struct Run<'a> {
     pub chat: bool,
     /// Nudge for a text-only answer outside chat mode (`None`: the work-run nudge).
     pub nudge: Option<String>,
+    /// Messages from the user during the run (Lead and Solo only); `None` for workers.
+    pub steer: Option<Steer>,
 }
 
 impl Run<'_> {
@@ -331,6 +342,12 @@ impl Run<'_> {
         self.call(req).await.map_err(call_outcome)
     }
 
+    /// A work tool without side effects (never a protocol tool).
+    fn read_only(&self, name: &str) -> bool {
+        !self.protocol_names.iter().any(|n| n == name)
+            && self.tools.iter().any(|t| t.name() == name && t.read_only())
+    }
+
     async fn exec(
         &self,
         name: &str,
@@ -348,6 +365,11 @@ impl Run<'_> {
                 false,
             );
         }
+        // Harmless shape mistakes are repaired against the tool's schema (ADR-105).
+        let args = match self.specs.iter().find(|s| s.name == name) {
+            Some(spec) => agenium_tools::coerce::coerce(&spec.parameters, args),
+            None => args,
+        };
         if self.protocol_names.iter().any(|n| n == name) {
             return match self.protocol.call(name, args, call_id).await {
                 Ok((serde_json::Value::String(text), eff)) => (Ok(text), eff, false),
@@ -391,6 +413,17 @@ impl Run<'_> {
         let outcome = loop {
             if self.cancel.is_cancelled() {
                 break Outcome::Cancelled;
+            }
+            if let Some(s) = &self.steer {
+                let sent: Vec<String> =
+                    std::mem::take(&mut *s.lock().unwrap_or_else(|e| e.into_inner()));
+                for text in sent {
+                    push(
+                        &mut messages,
+                        Message::user_text(format!("{STEERED}{text}")),
+                    );
+                    nudges = 0;
+                }
             }
             if step >= self.cfg.max_steps {
                 break self
@@ -503,7 +536,23 @@ impl Run<'_> {
             let mut results = Vec::new();
             let mut effect = Effect::Continue;
             let mut stop: Option<Outcome> = None;
-            for c in &calls {
+            // Several read-only work tools in one turn run together (ADR-105); results stay in call order and the
+            // checks below apply as before.
+            let mut ready: Vec<Option<Executed>> =
+                if calls.len() > 1 && calls.iter().all(|c| self.read_only(&c.name)) {
+                    futures::future::join_all(
+                        calls
+                            .iter()
+                            .map(|c| self.exec(&c.name, c.args.clone(), &c.id)),
+                    )
+                    .await
+                    .into_iter()
+                    .map(Some)
+                    .collect()
+                } else {
+                    calls.iter().map(|_| None).collect()
+                };
+            for (i, c) in calls.iter().enumerate() {
                 let key = (c.name.clone(), c.args.to_string());
                 last_calls.push(key.clone());
                 let n = last_calls.len();
@@ -524,6 +573,8 @@ impl Run<'_> {
                         Effect::Continue,
                         false,
                     )
+                } else if let Some(done) = ready[i].take() {
+                    done
                 } else {
                     self.exec(&c.name, c.args.clone(), &c.id).await
                 };

@@ -178,6 +178,11 @@ pub struct Runtime {
     inbox_failures: Mutex<std::collections::HashMap<ProjectId, (String, usize)>>,
     /// Failed planner runs per (project, spec version).
     planner_failures: Mutex<std::collections::HashMap<(ProjectId, u32), usize>>,
+    /// The message queue of each Lead or Solo agent while it runs (ADR-104). Workers are never here: they get work
+    /// through tickets and the Lead's plan only.
+    steering: Mutex<std::collections::HashMap<AgentId, agenium_backend::Steer>>,
+    /// Messages that reached a Lead's queue after its last step: the next chat turn of the project starts with them.
+    steer_left: Mutex<std::collections::HashMap<ProjectId, Vec<String>>>,
 }
 
 /// `info` with the hand-set capabilities of the provider's configuration applied (they win, ADR-31).
@@ -220,6 +225,53 @@ fn shell_text(shell: &agenium_sandbox::Shell) -> String {
     s
 }
 
+/// Keeps a Lead's message queue registered while its run lasts. Messages that arrive after its last step are kept
+/// for the project's next chat turn.
+struct SteerGuard<'a> {
+    rt: &'a Runtime,
+    project: ProjectId,
+    agent: AgentId,
+}
+
+impl<'a> SteerGuard<'a> {
+    fn register(
+        rt: &'a Runtime,
+        project: ProjectId,
+        agent: AgentId,
+        q: agenium_backend::Steer,
+    ) -> Self {
+        rt.steering
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(agent, q);
+        SteerGuard { rt, project, agent }
+    }
+}
+
+impl Drop for SteerGuard<'_> {
+    fn drop(&mut self) {
+        // Removing the queue and taking what is left happen under the same lock as `steer`, so no message is lost.
+        let q = self
+            .rt
+            .steering
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.agent);
+        let left = q
+            .map(|q| std::mem::take(&mut *q.lock().unwrap_or_else(|e| e.into_inner())))
+            .unwrap_or_default();
+        if !left.is_empty() {
+            self.rt
+                .steer_left
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(self.project)
+                .or_default()
+                .extend(left);
+        }
+    }
+}
+
 impl Runtime {
     pub fn new(
         app: Arc<App>,
@@ -241,6 +293,8 @@ impl Runtime {
             model_infos: Mutex::default(),
             inbox_failures: Mutex::default(),
             planner_failures: Mutex::default(),
+            steering: Mutex::default(),
+            steer_left: Mutex::default(),
             mcp,
             app,
             providers,
@@ -742,6 +796,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         if let Some(c) = info.and_then(|i| i.context_window) {
             cfg.context_window = c;
         }
+        // Only the project's Lead (a Solo agent is its own team's Lead) can be messaged while it runs (ADR-104).
+        let is_lead =
+            self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) == Some(agent.id);
+        let steer: Option<agenium_backend::Steer> = is_lead.then(Default::default);
+        let steering = steer
+            .as_ref()
+            .map(|s| SteerGuard::register(self, project, agent.id, s.clone()));
         let r = Run {
             provider: provider.as_ref(),
             tools: &work,
@@ -754,8 +815,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             cancel,
             chat: kind == RunKind::Chat,
             nudge: nudge_for(kind),
+            steer,
         };
         let report = r.run(&order).await;
+        drop(steering);
         let cost = self.cost(&agent.model.provider, &report.model, &report.usage);
         Ok((report, cost))
     }
@@ -1297,9 +1360,56 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         Ok(summary)
     }
 
+    /// Delivers `text` to the project's Lead (or Solo agent) if it is running now: it reads it before its next model
+    /// request (ADR-104). `false` when it is not running (or runs through a vendor CLI), so a new turn is needed.
+    pub fn steer(&self, project: ProjectId, text: &str) -> Result<bool> {
+        let Some(lead) = self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) else {
+            return Ok(false);
+        };
+        let map = self.steering.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(q) = map.get(&lead) else {
+            return Ok(false);
+        };
+        q.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(text.to_owned());
+        tracing::info!(%project, "message delivered to the running Lead");
+        Ok(true)
+    }
+
     /// One chat turn of the user with the Lead/Solo (discovery, spec, plan, ticket creation). The conversation is kept
-    /// per project in the Lead's private database.
+    /// per project in the Lead's private database. When the Lead is running already, the message goes to that run.
     pub async fn chat(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
+        let left = self
+            .steer_left
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&project)
+            .unwrap_or_default();
+        let joined;
+        let user_text = if left.is_empty() {
+            user_text
+        } else {
+            joined = format!("{}\n\n{user_text}", left.join("\n\n"));
+            joined.as_str()
+        };
+        if self.steer(project, user_text)? {
+            let lead = self.app.team_of_project(project)?.and_then(|(t, _)| t.lead);
+            let name = match lead {
+                Some(id) => self.app.agent(id)?.name,
+                None => String::new(),
+            };
+            return Ok(RunSummary {
+                run: RunId::new(),
+                kind: "steer".into(),
+                ticket: None,
+                agent: name.clone(),
+                outcome: "Delivered".into(),
+                steps: 0,
+                usage: Default::default(),
+                text: format!("{name} is working; your message reaches it before its next step."),
+            });
+        }
         let (team, _) = self
             .app
             .team_of_project(project)?
@@ -1828,7 +1938,20 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     /// tickets awaiting the Lead, then learn from the chat with the Lead if it has gone quiet. Returns the runs
     /// executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
-        let out = self.tick_runs(project).await?;
+        let mut out = self.tick_runs(project).await?;
+        // Messages that reached the Lead after its last step get their own turn (ADR-104).
+        let pending = self
+            .steer_left
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&project)
+            .is_some_and(|v| !v.is_empty());
+        if pending {
+            match self.chat(project, "").await {
+                Ok(s) => out.push(s),
+                Err(e) => tracing::warn!(error = %e, "answering messages sent during a run failed"),
+            }
+        }
         if let Err(e) = self.learn_from_chat(project, false).await {
             tracing::warn!(error = %e, "learning from the chat failed");
         }

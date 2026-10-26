@@ -109,6 +109,7 @@ fn run<'a>(
         cancel: Cancel::default(),
         chat: false,
         nudge: None,
+        steer: None,
     }
 }
 
@@ -678,4 +679,118 @@ async fn a_large_new_result_counts_before_the_next_request() {
         !notes_ask.contains(&"z".repeat(2500)),
         "results are cut for the notes request"
     );
+}
+
+/// ADR-104: messages put in the run's queue reach the model before its next request.
+#[tokio::test]
+async fn messages_sent_during_the_run_reach_the_next_request() {
+    let (_t, ctx, tools, proto) = harness();
+    let q: Steer = Default::default();
+    let p = ScriptedProvider::new("m");
+    let q2 = q.clone();
+    p.push(Box::new(move |_| {
+        q2.lock().unwrap().push("Use tabs.".into());
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("list_dir", json!({}))],
+        ))
+    }));
+    p.push(Box::new(|req: &ChatRequest| {
+        assert_eq!(
+            req.messages.last().unwrap().text(),
+            format!("{STEERED}Use tabs.")
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let mut r = run(&p, &ctx, &tools, &proto, cfg());
+    r.steer = Some(q.clone());
+    assert_eq!(r.run(&order()).await.outcome, Outcome::Completed);
+    assert!(q.lock().unwrap().is_empty());
+}
+
+/// A read-only tool that takes a while (and counts how many run at once).
+struct Slow(
+    Arc<std::sync::atomic::AtomicUsize>,
+    Arc<std::sync::atomic::AtomicUsize>,
+);
+
+#[async_trait]
+impl agenium_tools::Tool for Slow {
+    fn name(&self) -> &str {
+        "slow_look"
+    }
+    fn description(&self) -> &str {
+        "x"
+    }
+    fn parameters(&self) -> serde_json::Value {
+        json!({"type": "object", "properties": {"n": {"type": "integer"}}})
+    }
+    fn read_only(&self) -> bool {
+        true
+    }
+    async fn call(
+        &self,
+        _ctx: &ToolCtx,
+        args: serde_json::Value,
+    ) -> Result<agenium_tools::ToolOutput, ToolError> {
+        use std::sync::atomic::Ordering::SeqCst;
+        let now = self.0.fetch_add(1, SeqCst) + 1;
+        self.1.fetch_max(now, SeqCst);
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        self.0.fetch_sub(1, SeqCst);
+        // The argument arrived as a number although the model sent a string (ADR-105).
+        assert!(args["n"].is_i64(), "{args}");
+        Ok(agenium_tools::ToolOutput::text(format!(
+            "looked {}",
+            args["n"]
+        )))
+    }
+}
+
+/// ADR-105: read-only calls of one turn run together, results stay in call order; a number sent as a string arrives
+/// as a number.
+#[tokio::test]
+async fn read_only_calls_run_together_and_arguments_are_repaired() {
+    let (_t, ctx, mut tools, proto) = harness();
+    let (now, peak) = (Arc::default(), Arc::default());
+    tools.push(Arc::new(Slow(Arc::clone(&now), Arc::clone(&peak))));
+    let p = ScriptedProvider::new("m");
+    p.push_calls(
+        "",
+        vec![
+            ("slow_look", json!({"n": "1"})),
+            ("slow_look", json!({"n": "2"})),
+            ("slow_look", json!({"n": "3"})),
+        ],
+    );
+    p.push(Box::new(|req: &ChatRequest| {
+        let results: Vec<String> = req
+            .messages
+            .last()
+            .unwrap()
+            .parts
+            .iter()
+            .filter_map(|p| match p {
+                Part::ToolResult { content, .. } => Some(content.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(results, ["looked 1", "looked 2", "looked 3"]);
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let started = std::time::Instant::now();
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    assert_eq!(
+        peak.load(std::sync::atomic::Ordering::SeqCst),
+        3,
+        "all three at once"
+    );
+    assert!(started.elapsed() < Duration::from_millis(400));
 }

@@ -1724,3 +1724,101 @@ async fn a_failed_chat_extraction_waits_before_the_next_try() {
     assert!(rt.learn_from_chat(project, true).await.unwrap().is_some());
     assert_eq!(p.remaining(), 0);
 }
+
+/// ADR-104: a message to a running Lead reaches it before its next step; a worker is never messaged; a message that
+/// arrives after the Lead's last step opens its next chat turn.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_user_messages_a_running_lead_and_never_a_worker() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let rt = Arc::new(rt);
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let project = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "duo".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    let (_, members) = app
+        .create_team(
+            project,
+            "duo team",
+            &agent_spec("lead", "lead", RoleKind::Lead, &[]),
+            &[agent_spec("api-1", "api", RoleKind::Worker, &["rust"])],
+        )
+        .unwrap();
+    let (lead, api) = (members[0].id, members[1].id);
+    assert!(!rt.steer(project, "nobody runs").unwrap());
+
+    // The Lead's chat turn: the user writes again while it works.
+    let r2 = rt.clone();
+    p.push(Box::new(move |_| {
+        assert!(r2.steer(project, "Also keep the API in Rust.").unwrap());
+        Ok(calls_response("", vec![("list_dir", json!({}))]))
+    }));
+    let r3 = rt.clone();
+    p.push(Box::new(move |req| {
+        let last = req.messages.last().unwrap().text();
+        assert!(
+            last.starts_with("[Message from the user while you work] Also keep the API in Rust."),
+            "{last}"
+        );
+        // A message after the last step: kept for the next turn.
+        assert!(r3.steer(project, "And add a README.").unwrap());
+        Ok(calls_response("Noted both.", vec![]))
+    }));
+    let s = rt.chat(project, "Plan an API.").await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap().text();
+        assert!(
+            last.contains("And add a README.") && last.contains("Thanks."),
+            "{last}"
+        );
+        Ok(calls_response("Will do.", vec![]))
+    }));
+    rt.chat(project, "Thanks.").await.unwrap();
+
+    // A worker's run: the user cannot reach it (only its ticket and the Lead's plan give it work).
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(lead),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+    app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    app.apply(
+        &as_lead,
+        Intent::CreateTicket(new_ticket("PI-1", "API file", &[], &[])),
+    )
+    .unwrap();
+    app.apply(
+        &as_lead,
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: api,
+            note: None,
+        }),
+    )
+    .unwrap();
+    let r4 = rt.clone();
+    p.push(Box::new(move |req| {
+        assert!(
+            !r4.steer(project, "worker, listen").unwrap(),
+            "workers are not messaged"
+        );
+        assert!(!format!("{:?}", req.messages).contains("while you work"));
+        Err(agenium_llm::LlmError::Unsupported("stop here".into()))
+    }));
+    let _ = rt.run_ticket(project, &key("AGN-1")).await;
+    assert_eq!(p.remaining(), 0);
+}

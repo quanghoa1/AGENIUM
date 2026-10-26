@@ -71,3 +71,5 @@ ADR-52 records this fresh implementation.
 | [101](ADR-101-history-sent-as-providers-accept-it.md) | Every request's history is made acceptable: thinking only to the model that wrote it, unanswered calls closed, stray results dropped, empty blocks gone, safe tool-call ids; calls in an answer cut by max_tokens are not run (from pi's bug history) |
 | [102](ADR-102-edit-matching.md) | `edit_file` keeps CRLF and the BOM, matches typographic quotes, dashes and trailing spaces loosely, and replaces only the matched bytes |
 | [103](ADR-103-context-overflow-recovery.md) | A provider's context overflow is recognised per vendor and recovered once (clear old results or compact); compaction notes must be whole and fit; new tool results count before the next request |
+| [104](ADR-104-messaging-a-running-lead.md) | The user's message to a running Lead/Solo reaches it before its next step (never a worker: workers get work through tickets and the plan); late messages open the next turn |
+| [105](ADR-105-lenient-arguments-parallel-reads.md) | Harmless tool-argument shape mistakes are repaired against the schema; read-only calls of one turn run together, results in order |
