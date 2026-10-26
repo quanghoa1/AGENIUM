@@ -250,11 +250,57 @@ fn projects_keys_tickets_and_deps() {
     assert!(back.updated_at >= t.updated_at);
     let open = s.read(|c| tickets::open_for_agent(c, agent.id)).unwrap();
     assert_eq!(open.len(), 1);
+    assert_eq!(open[0].depends_on, vec![a.key.clone()]);
     let f = tickets::TicketFilter {
         statuses: vec![TicketStatus::New],
         ..Default::default()
     };
     assert_eq!(s.read(|c| tickets::list(c, p.id, &f)).unwrap().len(), 1);
+
+    // Filters run in SQL; every listed ticket still carries its dependencies, in the author's order.
+    let c3 = ticket_insert(&s, &p, vec![b.id, a.id]);
+    let other = new_project(&s, "D:/p2");
+    ticket_insert(&s, &other, vec![]);
+    let keys = |f: &tickets::TicketFilter| -> Vec<(String, Vec<String>)> {
+        s.read(|c| tickets::list(c, p.id, f))
+            .unwrap()
+            .into_iter()
+            .map(|t| {
+                (
+                    t.key.to_string(),
+                    t.depends_on.iter().map(|k| k.to_string()).collect(),
+                )
+            })
+            .collect()
+    };
+    let all = keys(&Default::default());
+    assert_eq!(
+        all,
+        [
+            ("AGN-1".to_owned(), vec![]),
+            ("AGN-2".to_owned(), vec!["AGN-1".to_owned()]),
+            (
+                c3.key.to_string(),
+                vec!["AGN-2".to_owned(), "AGN-1".to_owned()]
+            ),
+        ]
+    );
+    let two_statuses = tickets::TicketFilter {
+        statuses: vec![TicketStatus::New, TicketStatus::Assigned],
+        ..Default::default()
+    };
+    assert_eq!(keys(&two_statuses), all);
+    let mine = tickets::TicketFilter {
+        statuses: vec![TicketStatus::Assigned],
+        assignee: Some(agent.id),
+        plan_item: Some("PI-1".into()),
+    };
+    assert_eq!(keys(&mine), all[1..2]);
+    let none = tickets::TicketFilter {
+        plan_item: Some("PI-9".into()),
+        ..Default::default()
+    };
+    assert!(keys(&none).is_empty());
 }
 
 #[test]

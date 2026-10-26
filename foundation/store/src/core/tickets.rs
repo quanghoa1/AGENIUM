@@ -7,7 +7,7 @@ use agenium_core::{
     AcceptanceCriterion, AgentId, ProjectId, Ticket, TicketId, TicketKey, TicketKind, TicketStatus,
     UsageSummary,
 };
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Row};
 
 use super::{from_json, parse, to_json};
 use crate::StoreError;
@@ -76,9 +76,13 @@ fn map(r: &Row<'_>) -> rusqlite::Result<RawTicket> {
 }
 
 fn decode(c: &Connection, r: RawTicket) -> Result<Ticket, StoreError> {
-    let id: TicketId = parse(&r.id, "ticket id")?;
+    let deps = dep_keys(c, parse(&r.id, "ticket id")?)?;
+    decode_with(r, deps)
+}
+
+fn decode_with(r: RawTicket, depends_on: Vec<TicketKey>) -> Result<Ticket, StoreError> {
     Ok(Ticket {
-        id,
+        id: parse(&r.id, "ticket id")?,
         key: parse(&r.key, "ticket key")?,
         project: parse(&r.project, "project id")?,
         parent: r
@@ -98,7 +102,7 @@ fn decode(c: &Connection, r: RawTicket) -> Result<Ticket, StoreError> {
             .transpose()?,
         plan_item: r.plan_item,
         priority: r.priority as u8,
-        depends_on: dep_keys(c, id)?,
+        depends_on,
         reopen_count: r.reopen_count as u32,
         escalated: r.escalated,
         required_role: r.required_role,
@@ -121,6 +125,46 @@ fn dep_keys(c: &Connection, id: TicketId) -> Result<Vec<TicketKey>, StoreError> 
     )?;
     let rows = st.query_map([id.to_string()], |r| r.get::<_, String>(0))?;
     rows.map(|k| parse(&k?, "ticket key")).collect()
+}
+
+/// The tickets matching `filter` (a condition on `t` with positional parameters `args`) in `order`, with the
+/// dependencies of all of them read by one query. (Listing loaded every ticket of the project, filtered in Rust, and
+/// ran one dependency query per ticket, also inside write transactions.)
+fn select(
+    c: &Connection,
+    filter: &str,
+    args: &[String],
+    order: &str,
+) -> Result<Vec<Ticket>, StoreError> {
+    let raws: Vec<RawTicket> = c
+        .prepare_cached(&format!(
+            "SELECT {COLS} {FROM} WHERE {filter} ORDER BY {order}"
+        ))?
+        .query_map(params_from_iter(args), map)?
+        .collect::<Result<_, _>>()?;
+    if raws.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut deps: HashMap<String, Vec<TicketKey>> = HashMap::new();
+    let mut st = c.prepare_cached(&format!(
+        "SELECT td.ticket, d.key FROM ticket_dep td JOIN ticket t ON t.id = td.ticket \
+         JOIN ticket d ON d.id = td.depends_on WHERE {filter} ORDER BY td.ticket, td.pos"
+    ))?;
+    let rows = st.query_map(params_from_iter(args), |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    for row in rows {
+        let (ticket, key) = row?;
+        deps.entry(ticket)
+            .or_default()
+            .push(parse(&key, "ticket key")?);
+    }
+    raws.into_iter()
+        .map(|r| {
+            let d = deps.remove(&r.id).unwrap_or_default();
+            decode_with(r, d)
+        })
+        .collect()
 }
 
 /// Fields of a ticket that does not exist yet (key allocated by [`super::projects::next_ticket_key`]).
@@ -269,41 +313,35 @@ pub fn list(
     project: ProjectId,
     f: &TicketFilter,
 ) -> Result<Vec<Ticket>, StoreError> {
-    let mut st = c.prepare_cached(&format!(
-        "SELECT {COLS} {FROM} WHERE t.project = ?1 ORDER BY t.created_at, t.rowid"
-    ))?;
-    let raws: Vec<RawTicket> = st
-        .query_map([project.to_string()], map)?
-        .collect::<Result<_, _>>()?;
-    let mut out = Vec::new();
-    for r in raws {
-        if !f.statuses.is_empty() && !f.statuses.iter().any(|s| s.as_str() == r.status) {
-            continue;
-        }
-        if let Some(a) = f.assignee {
-            if r.assignee.as_deref() != Some(a.to_string().as_str()) {
-                continue;
-            }
-        }
-        if let Some(pi) = &f.plan_item {
-            if &r.plan_item != pi {
-                continue;
-            }
-        }
-        out.push(decode(c, r)?);
+    // The filters run in SQL (indexes `ticket_status`, `ticket_plan`).
+    let mut filter = String::from("t.project = ?");
+    let mut args = vec![project.to_string()];
+    if !f.statuses.is_empty() {
+        filter.push_str(&format!(
+            " AND t.status IN ({})",
+            vec!["?"; f.statuses.len()].join(", ")
+        ));
+        args.extend(f.statuses.iter().map(|s| s.as_str().to_owned()));
     }
-    Ok(out)
+    if let Some(a) = f.assignee {
+        filter.push_str(" AND t.assignee = ?");
+        args.push(a.to_string());
+    }
+    if let Some(pi) = &f.plan_item {
+        filter.push_str(" AND t.plan_item = ?");
+        args.push(pi.clone());
+    }
+    select(c, &filter, &args, "t.created_at, t.rowid")
 }
 
 /// Tickets assigned to `agent` that are not terminal.
 pub fn open_for_agent(c: &Connection, agent: AgentId) -> Result<Vec<Ticket>, StoreError> {
-    let mut st = c.prepare_cached(&format!(
-        "SELECT {COLS} {FROM} WHERE t.assignee = ?1 AND t.status NOT IN ('Closed','Cancelled') ORDER BY t.priority, t.created_at"
-    ))?;
-    let raws: Vec<RawTicket> = st
-        .query_map([agent.to_string()], map)?
-        .collect::<Result<_, _>>()?;
-    raws.into_iter().map(|r| decode(c, r)).collect()
+    select(
+        c,
+        "t.assignee = ? AND t.status NOT IN ('Closed','Cancelled')",
+        &[agent.to_string()],
+        "t.priority, t.created_at",
+    )
 }
 
 /// Ids of tickets that depend on `id`.
