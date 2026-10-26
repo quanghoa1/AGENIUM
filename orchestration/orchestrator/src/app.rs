@@ -64,6 +64,8 @@ pub struct App {
     pub(crate) checks: Arc<dyn CheckFactory>,
     pub(crate) merge_locks: Mutex<HashMap<ProjectId, Arc<Mutex<()>>>>,
     pub(crate) faults: FaultPlan,
+    /// Journaled operations whose replays keep failing (`replay_pending_ops` backs off on them).
+    pub(crate) op_retries: Mutex<HashMap<i64, crate::effects::OpRetry>>,
     agent_stores: Mutex<HashMap<AgentId, Arc<AgentStore>>>,
     /// Serializes writes of `<root>/vendor-usage.json`.
     pub(crate) vendor_usage_lock: Mutex<()>,
@@ -161,6 +163,7 @@ impl App {
             checks: opts.checks,
             merge_locks: Mutex::new(HashMap::new()),
             faults: Arc::new(Mutex::new(Vec::new())),
+            op_retries: Mutex::new(HashMap::new()),
             agent_stores: Mutex::new(HashMap::new()),
             vendor_usage_lock: Mutex::new(()),
             prices_cache: Mutex::default(),

@@ -281,3 +281,71 @@ fn failed_merge_is_retried_without_a_restart() {
     let t = ticket(&f, "AGN-1");
     assert!(t.merged && t.approved && t.status == TicketStatus::Resolved);
 }
+
+/// A merge that keeps failing (git itself, not a conflict or a failed check) is not re-run at every tick forever in
+/// silence: after a few failed tries in a row the ticket says so and the user is asked to look (once), and the tries
+/// back off. It still merges once git works again.
+#[test]
+fn a_merge_that_keeps_failing_tells_the_user_once_and_backs_off() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "t", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-1"), "deliverables/a.txt", "work");
+    f.app
+        .apply(
+            &ctx(&f, Actor::Worker(a.id)),
+            Intent::SubmitReport(report("AGN-1")),
+        )
+        .unwrap();
+    let n = agenium_orchestrator::effects::OP_FAILURES_BEFORE_USER;
+    // The try at approval, then `n` replays, all fail.
+    for _ in 0..=n {
+        inject(&f, "before:merge");
+    }
+    f.app
+        .apply(
+            &ctx(&f, Actor::Lead(a.id)),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    let notes = || {
+        f.app
+            .store()
+            .read(|c| agenium_store::core::comments::for_ticket(c, ticket(&f, "AGN-1").id))
+            .unwrap()
+            .iter()
+            .filter(|c| matches!(&c.body, CommentBody::System { text } if text.contains("keeps failing")))
+            .count()
+    };
+    for i in 1..=n {
+        assert_eq!(f.app.replay_pending_ops(f.project.id).unwrap(), 0);
+        assert_eq!(notes(), usize::from(i == n), "after {i} failed replays");
+    }
+    let asked = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::events::recent_of_kind(c, "NeedsUser", 50))
+        .unwrap()
+        .into_iter()
+        .filter(|e| {
+            e.payload["reason"]
+                .as_str()
+                .is_some_and(|r| r.contains("keeps failing"))
+        })
+        .count();
+    assert_eq!(asked, 1);
+    // Backing off: the next two replays do not try it.
+    for _ in 0..2 {
+        assert_eq!(f.app.replay_pending_ops(f.project.id).unwrap(), 0);
+        assert_eq!(pending(&f), 1);
+    }
+    assert_eq!(f.app.replay_pending_ops(f.project.id).unwrap(), 1);
+    assert!(ticket(&f, "AGN-1").merged);
+    assert_eq!(notes(), 1, "told once");
+}

@@ -59,6 +59,18 @@ pub(crate) fn journal(w: &mut WriteCtx<'_, '_>, t: &Ticket, op: Op) -> Result<i6
     Ok(rec.seq as i64)
 }
 
+/// Ends the pending merges of `t` without running them (it was reopened or cancelled: its branch is not the approved
+/// work any more). Recorded as failed with the reason.
+pub(crate) fn drop_pending_merges(w: &mut WriteCtx<'_, '_>, t: &Ticket, why: &str) -> Result<()> {
+    for row in ops::for_ticket(w.tx, t.id)?
+        .into_iter()
+        .filter(|o| o.state == "pending" && o.op == Op::Merge.name())
+    {
+        complete(w, &row, t, "failed", serde_json::json!({ "obsolete": why }))?;
+    }
+    Ok(())
+}
+
 fn complete(
     w: &mut WriteCtx<'_, '_>,
     row: &ops::VcsOpRow,
@@ -111,6 +123,19 @@ pub struct ReconcileReport {
 const LARGE_CONFLICT_FILES: usize = 5;
 const MAX_LOG_CHARS: usize = 4000;
 
+/// Failed replays of a journaled operation in a row before the user is told (once) and the replays back off.
+pub const OP_FAILURES_BEFORE_USER: u32 = 5;
+/// Replays skipped between two tries of an operation that keeps failing, at most (10 minutes at a 3-second tick).
+const OP_BACKOFF_MAX_SKIPS: u32 = 200;
+
+/// Retry state of a pending operation that failed (in memory: a restart retries every pending operation once).
+#[derive(Debug, Default)]
+pub(crate) struct OpRetry {
+    failures: u32,
+    /// Replays to skip before the next try.
+    skip: u32,
+}
+
 fn tail(s: &str, max: usize) -> String {
     let n = s.chars().count();
     if n <= max {
@@ -148,18 +173,126 @@ impl App {
     /// completed.
     pub fn replay_pending_ops(&self, project: ProjectId) -> Result<usize> {
         let mut done = 0;
-        for row in self.store.read(ops::pending)? {
-            if self.store.read(|c| tickets::get(c, row.ticket))?.project != project {
+        let pending = self.store.read(ops::pending)?;
+        // Operations ended elsewhere (a merge dropped by a reopen) leave the retry state.
+        self.op_retries
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .retain(|seq, _| pending.iter().any(|r| r.seq == *seq));
+        for row in pending {
+            let t = self.store.read(|c| tickets::get(c, row.ticket))?;
+            if t.project != project {
+                continue;
+            }
+            // An operation that keeps failing is retried less and less often (a merge re-runs the pre-merge check).
+            let waiting = {
+                let mut m = self.op_retries.lock().unwrap_or_else(|p| p.into_inner());
+                m.get_mut(&row.seq).is_some_and(|r| {
+                    let wait = r.skip > 0;
+                    r.skip = r.skip.saturating_sub(1);
+                    wait
+                })
+            };
+            if waiting {
                 continue;
             }
             match self.run_op(row.seq) {
-                Ok(()) => done += 1,
+                Ok(()) => {
+                    self.op_retries
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                        .remove(&row.seq);
+                    done += 1;
+                }
                 Err(e) => {
-                    tracing::warn!(op = row.seq, error = %e, "journaled git operation still failing")
+                    tracing::warn!(op = row.seq, error = %e, "journaled git operation still failing");
+                    self.op_failed(&row, &t, &e)?;
                 }
             }
         }
         Ok(done)
+    }
+
+    /// Counts a failed replay; at [`OP_FAILURES_BEFORE_USER`] in a row the ticket gets a System comment and the user
+    /// is asked to look (once), and the replays back off.
+    fn op_failed(&self, row: &ops::VcsOpRow, t: &Ticket, e: &OrchError) -> Result<()> {
+        let failures = {
+            let mut m = self.op_retries.lock().unwrap_or_else(|p| p.into_inner());
+            let r = m.entry(row.seq).or_default();
+            r.failures += 1;
+            if r.failures >= OP_FAILURES_BEFORE_USER {
+                r.skip = 1u32
+                    .checked_shl(r.failures - OP_FAILURES_BEFORE_USER + 1)
+                    .unwrap_or(u32::MAX)
+                    .min(OP_BACKOFF_MAX_SKIPS);
+            }
+            r.failures
+        };
+        if failures != OP_FAILURES_BEFORE_USER {
+            return Ok(());
+        }
+        let what = if row.op == Op::Merge.name() {
+            format!(
+                "The merge of {} keeps failing ({failures} tries): {e}. The ticket stays Resolved and approved and its dependents wait; Agenium retries less often now. Look at the project folder (main changed by hand, a locked file).",
+                t.key
+            )
+        } else {
+            format!(
+                "The git operation {} of {} keeps failing ({failures} tries): {e}. Agenium retries less often now.",
+                row.op, t.key
+            )
+        };
+        self.store.commit(None, "system", |w| -> Result<()> {
+            let t = tickets::get(w.tx, t.id)?;
+            crate::engine::system_comment(w, &t, &what)?;
+            w.emit_as(
+                "system",
+                DomainEvent::NeedsUser {
+                    ticket: Some(t.id),
+                    reason: format!("{}: {} keeps failing", t.key, row.op),
+                },
+            )?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    /// The worktree of a ticket that ended (Cancelled) while a run still worked in it: removed once no run is live on
+    /// the ticket and no removal is journaled yet (`finish_run`).
+    pub(crate) fn remove_ended_worktree(&self, ticket: TicketId) -> Result<()> {
+        let seq = self
+            .store
+            .commit(None, "system", |w| -> Result<Option<i64>> {
+                let t = tickets::get(w.tx, ticket)?;
+                let live_ws = workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed);
+                if !t.status.is_terminal() || !live_ws {
+                    return Ok(None);
+                }
+                let live_run = runs::unfinished(w.tx)?
+                    .iter()
+                    .any(|r| r.ticket == Some(t.id));
+                let journaled = ops::for_ticket(w.tx, t.id)?
+                    .iter()
+                    .any(|o| o.state == "pending" && o.op == "remove_worktree");
+                if live_run || journaled {
+                    return Ok(None);
+                }
+                journal(
+                    w,
+                    &t,
+                    Op::RemoveWorktree {
+                        delete_branch: t.merged,
+                    },
+                )
+                .map(Some)
+            })?
+            .value;
+        if let Some(seq) = seq {
+            if let Err(e) = self.run_op(seq) {
+                tracing::warn!(op = seq, error = %e, "worktree removal failed; it is retried later");
+            }
+        }
+        Ok(())
     }
 
     /// Fast-forwards a ticket worktree without work of its own to the latest main and records the new base (the
@@ -310,6 +443,21 @@ impl App {
     ) -> Result<()> {
         let lock = self.merge_lock(p.id);
         let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
+        // The ticket may have changed since the merge was decided (a retry runs later): merge only approved work that
+        // is not merged yet, never a reopened or cancelled ticket's branch.
+        let now = self.store.read(|c| tickets::get(c, t.id))?;
+        if !(now.status == TicketStatus::Resolved && now.approved && !now.merged) {
+            let (state, result) = if now.merged {
+                ("done", serde_json::json!({ "already_merged": true }))
+            } else {
+                let why = format!("{} is {} and not approved for a merge", now.key, now.status);
+                ("failed", serde_json::json!({ "obsolete": why }))
+            };
+            self.store.commit(None, "system", |w| {
+                complete(w, row, &now, state, result.clone())
+            })?;
+            return Ok(());
+        }
         let manifest = self.manifest(p)?;
         let check = self.checks.for_project(p, &manifest);
         let outcome = repo.merge_ticket(t.key.as_str(), check.as_ref())?;

@@ -992,3 +992,86 @@ fn a_rebased_branch_is_measured_from_main() {
         "{diff}"
     );
 }
+
+/// A merge left pending by a failure runs later, when the ticket may have changed: the Lead's reopen or cancel in
+/// the meantime drops it (it merged the work sent back, marking the ticket merged so its rework was never merged, or
+/// a cancelled ticket's branch).
+#[test]
+fn a_pending_merge_never_lands_reopened_or_cancelled_work() {
+    let f = fixture();
+    let root = std::path::Path::new(&f.project.path);
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    for (item, file) in [
+        ("PI-1", "deliverables/one.txt"),
+        ("PI-2", "deliverables/two.txt"),
+    ] {
+        let k = started(&f, a.id, item, "Work", &[], &[]);
+        let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+        write(&worktree(&f, k.as_str()), file, "x");
+        f.app
+            .apply(&ctx(&f, worker), Intent::SubmitReport(report(k.as_str())))
+            .unwrap();
+        f.app
+            .finish_run(run.run, "Completed", 1, &UsageSummary::default())
+            .unwrap();
+        // A transient failure leaves the merge pending.
+        f.app.faults().lock().unwrap().push("before:merge".into());
+        f.app
+            .apply(&ctx(&f, lead), Intent::ReviewTicket(approve(&k)))
+            .unwrap();
+        assert!(!ticket(&f, k.as_str()).merged);
+    }
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: key("AGN-1"),
+                decision: ReviewVerdict::Reopen,
+                ac_feedback: vec![AcFeedback {
+                    ac_id: "AC-1".into(),
+                    feedback: "Greet in English too".into(),
+                }],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    f.app.apply(&ctx(&f, lead), cancel("AGN-2")).unwrap();
+    f.app.replay_pending_ops(f.project.id).unwrap();
+    assert!(f.app.store().read(ops::pending).unwrap().is_empty());
+    for (k, file) in [
+        ("AGN-1", "deliverables/one.txt"),
+        ("AGN-2", "deliverables/two.txt"),
+    ] {
+        assert!(!ticket(&f, k).merged, "{k}");
+        assert!(!root.join(file).exists(), "{file} stays out of main");
+    }
+}
+
+/// Cancelling a ticket while a run works in it keeps the worktree until the run ends (it was removed under the
+/// running agent); the run's end removes it and keeps the unmerged branch.
+#[test]
+fn a_cancelled_tickets_worktree_goes_when_its_run_ends() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Work", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wt = worktree(&f, "AGN-1");
+    f.app
+        .apply(&ctx(&f, Actor::Lead(a.id)), cancel("AGN-1"))
+        .unwrap();
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::Cancelled);
+    assert!(wt.is_dir(), "the live run keeps its worktree");
+    f.app
+        .finish_run(run.run, "Cancelled", 1, &UsageSummary::default())
+        .unwrap();
+    assert!(!wt.exists(), "removed when the run ended");
+    assert!(f.app.store().read(ops::pending).unwrap().is_empty());
+    assert!(
+        f.app
+            .repo(&f.project)
+            .branch_exists("agenium/AGN-1")
+            .unwrap(),
+        "the unmerged branch stays"
+    );
+}

@@ -235,6 +235,8 @@ impl App {
         if let Some(t) = ticket.value {
             let project = self.store.read(|c| tickets::get(c, t))?.project;
             self.record_worktree_state(project, run)?;
+            // A ticket cancelled during this run kept its worktree for the run: it goes now.
+            self.remove_ended_worktree(t)?;
         }
         Ok(())
     }

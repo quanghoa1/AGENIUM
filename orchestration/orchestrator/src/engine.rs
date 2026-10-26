@@ -1287,6 +1287,8 @@ impl App {
                 }
                 ReviewVerdict::Reopen => {
                     transition(w, &mut t, &ctx.actor, TicketStatus::Reopened, &Guards { per_ac_feedback: true, ..Default::default() })?;
+                    // A merge still pending from an earlier approval would land the work the reviewer sent back.
+                    crate::effects::drop_pending_merges(w, &t, "the ticket was reopened")?;
                 }
             }
             let next = if t.status == TicketStatus::Resolved && t.approved && t.has_code && !t.merged && ops.is_empty() {
@@ -1395,8 +1397,14 @@ impl App {
                     set_agent_status(w, a, AgentStatus::Idle)?;
                 }
             }
+            // A merge decided before the cancel must not land the cancelled work in main.
+            crate::effects::drop_pending_merges(w, &t, "the ticket was cancelled")?;
             let mut ops = vec![];
-            if workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed) {
+            // A run still working in the worktree keeps it until it ends (`finish_run` removes it then).
+            let live_run = runs::unfinished(w.tx)?
+                .iter()
+                .any(|r| r.ticket == Some(t.id));
+            if !live_run && workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed) {
                 // Keep the unmerged branch (decision 11: delete the worktree, keep branches that were not merged).
                 ops.push(crate::effects::journal(
                     w,
