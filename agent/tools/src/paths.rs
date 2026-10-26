@@ -65,9 +65,10 @@ fn resolve_existing(p: &Path) -> PathBuf {
 /// `true` when the absolute, lexically normalised `p` is inside `root`. The root has two names when a symlink or a
 /// short name leads to it (macOS: /var -> /private/var; Windows: QUANGH~1 -> the long name), and a CLI that asks the
 /// OS for its working directory writes the canonical one: both name the root. The resolved path must still be inside
-/// it, so a link cannot escape.
+/// it, so a link cannot escape. A root that does not exist yet is resolved like the path, through its deepest
+/// existing ancestor.
 pub fn confined(p: &Path, root: &Path) -> bool {
-    let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let canon_root = resolve_existing(root);
     (within(p, root) || within(p, &canon_root)) && within(&resolve_existing(p), &canon_root)
 }
 
@@ -298,6 +299,19 @@ mod tests {
                 .code,
             "out_of_scope"
         );
+    }
+
+    /// macOS run 3: a worktree that did not exist yet, under /var (a link to /private/var), refused `src/a.rs`. The
+    /// path resolved through /private/var, the root kept its /var name.
+    #[cfg(unix)]
+    #[test]
+    fn a_root_not_created_yet_under_a_link_holds_its_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("real")).unwrap();
+        std::os::unix::fs::symlink(tmp.path().join("real"), tmp.path().join("link")).unwrap();
+        let root = tmp.path().join("link").join("wt");
+        assert!(confined(&root.join("src").join("a.rs"), &root));
+        assert!(!confined(&tmp.path().join("real").join("x.rs"), &root));
     }
 
     #[cfg(unix)]

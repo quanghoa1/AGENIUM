@@ -1,0 +1,12 @@
+== machine  (23:34:15)
+== build (cargo build --workspace --all-targets)  (23:34:15)
+   exit=0 seconds=161
+== tests (cargo test --workspace --no-fail-fast)  (23:36:56)
+   exit=101 seconds=26
+== stream_run alone, with a backtrace (failed in runs 1 and 2)  (23:37:22)
+   exit=0 seconds=32
+== doctor  (23:37:54)
+   exit=0 seconds=59
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (23:38:53)
+   exit=1 seconds=68
+== summary  (23:40:01)

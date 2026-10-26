@@ -1,0 +1,9 @@
+commit: 9f1ce7a
+tests: passed 298, failed 1, ignored 2
+failing tests:
+test opencode::tests::permission_requests_follow_agenium_rules ... FAILED
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+sandbox network: private network (outbound only; no inbound, no host loopback)
+sandboxed modes: 5 escape(s) or broken must-work item(s)
+stream_run: test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+ok.git_status: no failure line

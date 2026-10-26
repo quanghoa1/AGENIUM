@@ -4,7 +4,9 @@
   Seatbelt, and the sandbox tests that need a backend pass inside it (live stdin/stdout round trip, clean environment,
   timeout kills the process tree). Raw: `docs/reference/bench-raw/macos-2026-10-25/`. **Containment matrix run
   2026-10-26** (same machine, commit bc3bb60): every file escape blocked; three open items, see "Containment on a
-  Mac". Raw: `docs/reference/bench-raw/macos-2026-10-26/`.
+  Mac". Raw: `docs/reference/bench-raw/macos-2026-10-26/`. **Third run 2026-10-26** (commit 9f1ce7a, mxc-sdk
+  1.0.1): both fixes confirmed, file escapes still all blocked; two items open. Raw:
+  `docs/reference/bench-raw/macos-2026-10-26-run3/`.
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Amends:** ADR-43 (macOS Seatbelt v2, experimental) — implementation choice only.
 
@@ -44,7 +46,17 @@ Found and fixed:
   stderr. The likely cause is that HOME stays the user's, and `~/.gitconfig` is outside the sandbox. Seatbelt answers
   EPERM there, not ENOENT as bubblewrap does, and git dies on an unreadable config. Sandboxed commands on Linux and macOS
   now get a git config of their own (`GIT_CONFIG_GLOBAL` in the run's temp dir, `GIT_CONFIG_NOSYSTEM`), as on Windows.
-  The probe now reports git's stderr. To be confirmed on the next Mac run.
+  The probe now reports git's stderr. Confirmed by the third run: `ok.git_status` is ok in every column.
+
+**Third run** (commit 9f1ce7a, mxc-sdk 1.0.1; a virtual M4, 8 cores, so timings do not compare with runs 1–2). Tests:
+298 passed, 1 failed, 2 ignored. `stream_run` passes. `doctor` still reports Seatbelt, and the containment matrix is
+the same as in run 2 except `ok.git_status`, now ok. The SDK update changed nothing in containment.
+
+The failing test was new: `opencode` `permission_requests_follow_agenium_rules` refused `src/a.rs` for a worktree under
+the temp dir that did not exist yet. `confined` canonicalized the root only if it existed, so the root kept its `/var`
+name while the path resolved through `/private/var`. The root is now resolved like the path, through its deepest
+existing ancestor. A unix test with a root not created yet under a link reproduces it (fails before the fix, on Linux).
+In a real run the worktree exists, so the hook was not affected.
 
 Open:
 - **A daemon outlives the command** (double fork + `setsid`, both modes). macOS has no PID namespace or job object.
@@ -58,4 +70,4 @@ Open:
   rule for scoping unix sockets. A `profile_override` replaces the whole profile, and the request-to-profile conversion is
   crate-private. Upstream: issue microsoft/mxc#1277 is open; the PR adding `deniedUnixSocketPaths` (#1278) was closed
   unmerged on 2026-10-24. Tracked by `devtools/scripts/upstream-watch.sh`. mxc-sdk 1.0.1 (adopted 2026-10-26) does not
-  change this; its Seatbelt changes are metadata of denied paths and the launch method (the third Mac run checks it).
+  change this; its Seatbelt changes are metadata of denied paths and the launch method (the third Mac run confirmed: unix socket still reachable with network on, launch works).

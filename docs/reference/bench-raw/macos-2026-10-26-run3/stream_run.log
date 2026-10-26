@@ -1,0 +1,71 @@
+   Compiling stable_deref_trait v1.2.1
+   Compiling zerofrom v0.1.8
+   Compiling zerocopy v0.8.63
+   Compiling getrandom v0.4.3
+   Compiling num-traits v0.2.19
+   Compiling syn v2.0.119
+   Compiling tracing-core v0.1.36
+   Compiling crossbeam-utils v0.8.23
+   Compiling log v0.4.34
+   Compiling yoke v0.8.4
+   Compiling uuid v1.29.0
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling regex-automata v0.4.18
+   Compiling tinystr v0.8.5
+   Compiling potential_utf v0.1.6
+   Compiling mxc-sdk v1.0.1
+   Compiling icu_locale_core v2.4.0
+   Compiling icu_collections v2.4.0
+   Compiling chrono v0.4.45
+   Compiling tempfile v3.27.0
+   Compiling icu_provider v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling icu_normalizer v2.4.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling ppv-lite86 v0.2.21
+   Compiling schemars v1.2.3
+   Compiling url v2.5.8
+   Compiling rand_chacha v0.9.0
+   Compiling rand v0.9.5
+   Compiling tower-http v0.6.11
+   Compiling ulid v1.2.1
+   Compiling agenium-core v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/foundation/core)
+   Compiling crossbeam-epoch v0.9.21
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling crypto-common v0.1.7
+   Compiling globset v0.4.20
+   Compiling rand_chacha v0.3.1
+   Compiling digest v0.10.7
+   Compiling crossbeam-deque v0.8.8
+   Compiling sha2 v0.10.9
+   Compiling ignore v0.4.33
+   Compiling rand v0.8.8
+   Compiling regex v1.13.1
+   Compiling agenium-config v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/foundation/config)
+   Compiling tracing-attributes v0.1.31
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/security/sandbox)
+   Compiling tracing v0.1.44
+   Compiling hyper-util v0.1.21
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/agent/tools)
+   Compiling agenium-llm v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/agent/llm)
+   Compiling agenium-mcp v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/agent/mcp)
+   Compiling agenium-backend v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/agent/loop)
+   Compiling agenium-cli-backend v0.1.0 (/Users/devin/agenium-macos-test-v3/agenium-macos-test-kit-v3/work/agenium-9f1ce7a/agent/cli-backend)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.47s
+     Running tests/stream_run.rs (target/debug/deps/stream_run-9fa292b1d6617a84)
+
+running 6 tests
+test missing_cli_fails_cleanly ... ok
+test chat_run_completes_on_text ... ok
+test text_only_turns_are_nudged_then_stopped ... ok
+test agenium_decides_every_tool_call_and_the_run_ends_through_submit_report ... ok
+test step_limit_stops_with_a_checkpoint ... ok
+test repeated_step_is_a_loop ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+exit=0 seconds=32

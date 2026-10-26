@@ -1,0 +1,31 @@
+test claude::tests::parses_the_stream ... ok
+test detect::tests::not_installed_is_reported_not_guessed ... ok
+test codex::tests::parses_the_stream ... ok
+test driver::tests::allowlist_rules ... ok
+test detect::tests::versions ... ok
+test driver::tests::paths_inside_a_root ... ok
+test opencode::tests::parses_the_event_stream ... ok
+test claude::tests::checks_tool_calls_and_answers_like_claude_code ... ok
+test opencode::tests::permission_requests_follow_agenium_rules ... FAILED
+test driver::tests::the_canonical_name_of_the_worktree_is_inside_it ... ok
+test agy::tests::checks_tool_calls ... ok
+test agy::tests::writes_an_isolated_home ... ok
+test opencode::tests::the_home_isolates_opencode ... ok
+test driver::tests::refreshed_login_goes_back_only_when_the_user_file_is_unchanged ... ok
+
+failures:
+
+---- opencode::tests::permission_requests_follow_agenium_rules stdout ----
+
+thread 'opencode::tests::permission_requests_follow_agenium_rules' (203416) panicked at agent/cli-backend/src/opencode.rs:506:9:
+assertion `left == right` failed
+  left: Deny("src/a.rs is outside the ticket worktree")
+ right: Allow
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    opencode::tests::permission_requests_follow_agenium_rules
+
+test result: FAILED. 17 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
