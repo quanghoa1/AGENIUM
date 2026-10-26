@@ -37,11 +37,14 @@ pub fn available() -> bool {
 /// Can a command with the network on get a private network here? `Err` says why not, in words for the user (cached).
 /// Linux: bubblewrap gives it its own network namespace reached through slirp4netns, which needs slirp4netns and
 /// unprivileged user + network namespaces — Ubuntu 24.04+ refuses those by default (AppArmor). macOS: Seatbelt opens
-/// the network in place, so it always can.
+/// the network in place, through Agenium's narrowing of mxc-sdk's profile ([`crate::seatbelt`]), which must hold.
 pub fn private_network() -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        Ok(())
+        static STATE: OnceLock<Result<(), String>> = OnceLock::new();
+        STATE
+            .get_or_init(|| crate::seatbelt::network_on_profile(&[], &[]).map(drop))
+            .clone()
     }
     #[cfg(target_os = "linux")]
     {
@@ -94,15 +97,25 @@ fn effective(policy: &SandboxPolicy) -> (SandboxPolicy, Option<String>) {
     }
 }
 
-fn containment() -> Containment {
+/// The backend for one command. macOS: no GUI, no keychain; with the network on, the profile is mxc-sdk's own with
+/// its open outbound rule narrowed (no host unix sockets, [`crate::seatbelt`]). If that cannot be built the command
+/// runs without network: never with more access than asked for.
+#[cfg_attr(target_os = "linux", allow(unused_variables))]
+fn containment(write: &[String], read: &[String], network: &mut bool) -> Containment {
     #[cfg(target_os = "linux")]
     {
         Containment::Bubblewrap
     }
     #[cfg(target_os = "macos")]
     {
-        // No GUI, no keychain, no nested PTYs.
-        Containment::Seatbelt(mxc_sdk::v1::configs::SeatbeltConfig::default())
+        let mut config = mxc_sdk::v1::configs::SeatbeltConfig::default();
+        if *network {
+            match crate::seatbelt::network_on_profile(write, read) {
+                Ok(profile) => config.profile_override = Some(profile),
+                Err(_) => *network = false,
+            }
+        }
+        Containment::Seatbelt(config)
     }
 }
 
@@ -215,7 +228,9 @@ pub fn request(
     // `network` opens the way out only. Nothing reaches into the sandbox and it cannot reach the host's loopback
     // (local databases, Agenium's own ports): bubblewrap refuses an accepting ingress posture outright, and with it
     // every command ran with the default `[sandbox] network = true` failed to start (Ubuntu 25.10, 2026-10-26).
-    let action = if policy.network {
+    let mut network = policy.network;
+    let containment = containment(&write, &read, &mut network);
+    let action = if network {
         NetworkAction::Allow
     } else {
         NetworkAction::Deny
@@ -237,7 +252,7 @@ pub fn request(
             }),
             ..Default::default()
         }),
-        containment: containment(),
+        containment,
         working_directory: Some(
             std::fs::canonicalize(cwd)
                 .unwrap_or(cwd.to_path_buf())

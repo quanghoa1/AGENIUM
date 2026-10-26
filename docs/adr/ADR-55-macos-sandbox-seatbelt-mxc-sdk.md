@@ -5,7 +5,7 @@
   timeout kills the process tree). Raw: `docs/reference/bench-raw/macos-2026-10-25/`. **Containment matrix run
   2026-10-26** (same machine, commit bc3bb60): every file escape blocked; three open items, see "Containment on a
   Mac". Raw: `docs/reference/bench-raw/macos-2026-10-26/`. **Third run 2026-10-26** (commit 9f1ce7a, mxc-sdk
-  1.0.1): both fixes confirmed, file escapes still all blocked; two items open. Raw:
+  1.0.1): both fixes confirmed, file escapes still all blocked; two items open (the unix socket one mitigated since, see below). Raw:
   `docs/reference/bench-raw/macos-2026-10-26-run3/`.
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Amends:** ADR-43 (macOS Seatbelt v2, experimental) — implementation choice only.
@@ -63,11 +63,16 @@ Open:
   Seatbelt still confines the daemon (it cannot write outside the worktree or read the home). But it
   keeps running after the run and after a timeout. Bubblewrap's PID namespace kills it on Linux, and MXC's job object
   does on Windows.
-- **With network on, a host unix socket is reachable.** `mxc-sdk` 1.0.0 emits an unfiltered `(allow network-outbound)`,
-  which in Seatbelt also covers AF_UNIX `connect()` to any path. A fixed-path socket such as Docker's
-  `/var/run/docker.sock` is therefore reachable from a sandboxed command when the network is on. Listing directories
-  outside the read roots is still denied, so sockets at random paths (the ssh-agent's) are hard to find. The SDK has no
-  rule for scoping unix sockets. A `profile_override` replaces the whole profile, and the request-to-profile conversion is
-  crate-private. Upstream: issue microsoft/mxc#1277 is open; the PR adding `deniedUnixSocketPaths` (#1278) was closed
-  unmerged on 2026-10-24. Tracked by `devtools/scripts/upstream-watch.sh`. mxc-sdk 1.0.1 (adopted 2026-10-26) does not
-  change this; its Seatbelt changes are metadata of denied paths and the launch method (the third Mac run confirmed: unix socket still reachable with network on, launch works).
+- **With network on, a host unix socket is reachable** (runs 2 and 3). `mxc-sdk` 1.0.0 and 1.0.1 emit an unfiltered
+  `(allow network-outbound)`, which in Seatbelt also covers AF_UNIX `connect()` to any path. A fixed-path socket such as
+  Docker's `/var/run/docker.sock` is therefore reachable from a sandboxed command when the network is on. The SDK has no
+  rule for scoping unix sockets: `profile_override` replaces the whole profile, the typed request's conversion is
+  crate-private, and the proposed `deniedUnixSocketPaths` (issue microsoft/mxc#1277, PR #1278 closed unmerged on
+  2026-10-24) would be a deny list. **Mitigation (2026-10-26, to be confirmed by the fourth Mac run):**
+  `security/sandbox/src/seatbelt.rs` asks mxc-sdk for the profile it would build, through its published 1.0.0 request
+  contract (`load_mxc_request_from_json`) and its own builder (`build_profile_with_proxy`), replaces that one rule with
+  `(allow network-outbound (remote ip "*:*"))` plus the resolver's socket `/private/var/run/mDNSResponder`, and passes
+  the result as the profile override. Everything else stays mxc-sdk's. A test on every OS fails if an SDK update no
+  longer emits exactly one such rule; if the narrowing cannot be built at run time, commands run without network
+  (`doctor` says why). Once upstream scopes unix sockets, the module goes. Tracked by
+  `devtools/scripts/upstream-watch.sh`.

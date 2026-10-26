@@ -12,6 +12,8 @@
 pub mod codex_derived;
 #[cfg(windows)]
 pub mod mxc;
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+pub mod seatbelt;
 pub mod service;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod unix;
