@@ -207,7 +207,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   overlays, sharing between agents and agent-created skills are done: ADR-73, 86, 87, 91, 92.) The skill-writing
   tools ran on six real models (docs/learning-loop-eval.md); no model tried to get a duplicate or contradicting skill
   past the ADR-92 gates, so those are verified by tests only.
-- MCP: (OAuth done, ADR-97: tested against Agenium's own OAuth test server, not yet against a real provider.) The legacy HTTP+SSE transport, protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
+- MCP: (OAuth done, ADR-97: tested against Agenium's own OAuth test server, not yet against a real provider.) (Legacy HTTP+SSE, resources and prompts: done, ADR-109.) Protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.)

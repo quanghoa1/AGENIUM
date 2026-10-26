@@ -1,5 +1,7 @@
-//! MCP client: JSON-RPC 2.0 over stdio (newline-delimited) or Streamable HTTP (POST, JSON or SSE responses,
-//! `Mcp-Session-Id`). Only the client side Agenium needs: initialize, tools/list, tools/call, ping.
+//! MCP client: JSON-RPC 2.0 over stdio (newline-delimited), Streamable HTTP (POST, JSON or SSE responses,
+//! `Mcp-Session-Id`), or the legacy HTTP+SSE transport of revision 2024-11-05 (a GET event stream that names the POST
+//! endpoint and carries the answers), used when a server refuses Streamable HTTP. Only the client side Agenium needs:
+//! initialize, tools, resources, prompts, ping.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::PathBuf;
@@ -318,6 +320,20 @@ struct Http {
     bearer: Option<Arc<crate::oauth::Bearer>>,
 }
 
+/// Appends `chunk` to `buf` as text. A character split between two network chunks is kept in `partial` until its
+/// last byte arrives (decoding each chunk alone would turn it into U+FFFD).
+fn push_utf8(buf: &mut String, partial: &mut Vec<u8>, chunk: &[u8]) {
+    partial.extend_from_slice(chunk);
+    let valid = match std::str::from_utf8(partial) {
+        Ok(s) => s.len(),
+        Err(e) if e.error_len().is_none() => e.valid_up_to(),
+        // An invalid sequence (not just an unfinished one): keep what can be read, replaced as usual.
+        Err(_) => partial.len(),
+    };
+    buf.push_str(&String::from_utf8_lossy(&partial[..valid]));
+    partial.drain(..valid);
+}
+
 /// Splits complete SSE events out of `buf`, returning the `data` payload of each.
 fn sse_events(buf: &mut String) -> Vec<String> {
     let mut out = Vec::new();
@@ -495,12 +511,13 @@ impl Http {
         if ctype.starts_with("text/event-stream") {
             let mut resp = resp;
             let mut buf = String::new();
+            let mut partial = Vec::new();
             while let Some(chunk) = resp
                 .chunk()
                 .await
                 .map_err(|e| McpError::Transport(e.to_string()))?
             {
-                buf.push_str(&String::from_utf8_lossy(&chunk));
+                push_utf8(&mut buf, &mut partial, &chunk);
                 for data in sse_events(&mut buf) {
                     let Ok(msg) = serde_json::from_str::<Value>(&data) else {
                         continue;
@@ -562,6 +579,235 @@ impl Wire for Http {
     }
 }
 
+// ---------------------------------------------------------------- legacy HTTP+SSE (revision 2024-11-05)
+
+/// Complete SSE events out of `buf`: (event name, data).
+fn sse_frames(buf: &mut String) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    loop {
+        let norm = buf.replace("\r\n", "\n");
+        let Some(end) = norm.find("\n\n") else {
+            *buf = norm;
+            return out;
+        };
+        let event = &norm[..end];
+        let mut name = String::from("message");
+        let mut data = Vec::new();
+        for l in event.lines() {
+            if let Some(v) = l.strip_prefix("event:") {
+                name = v.trim().to_owned();
+            } else if let Some(v) = l.strip_prefix("data:") {
+                data.push(v.strip_prefix(' ').unwrap_or(v).to_owned());
+            }
+        }
+        if !data.is_empty() {
+            out.push((name, data.join("\n")));
+        }
+        *buf = norm[end + 2..].to_owned();
+    }
+}
+
+struct SseShared {
+    client: reqwest::Client,
+    headers: reqwest::header::HeaderMap,
+    post_url: Mutex<Option<String>>,
+    pending: Pending,
+    alive: AtomicBool,
+}
+
+impl SseShared {
+    async fn post(&self, body: &Value) -> Result<()> {
+        let url = self
+            .post_url
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+            .ok_or_else(|| McpError::Transport("no endpoint yet".into()))?;
+        let resp = self
+            .client
+            .post(url)
+            .headers(self.headers.clone())
+            .header("Content-Type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(|e| McpError::Transport(e.to_string()))?;
+        let status = resp.status().as_u16();
+        if !(200..300).contains(&status) {
+            let body: String = resp
+                .text()
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(500)
+                .collect();
+            return Err(McpError::Http { status, body });
+        }
+        Ok(())
+    }
+}
+
+struct Sse {
+    shared: Arc<SseShared>,
+    next: AtomicI64,
+    reader: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for Sse {
+    fn drop(&mut self) {
+        self.reader.abort();
+    }
+}
+
+impl Sse {
+    /// Opens the event stream and waits for the `endpoint` event that names where requests go.
+    async fn connect(
+        url: &str,
+        headers: &BTreeMap<String, String>,
+        token: Option<String>,
+        timeout: Duration,
+    ) -> Result<Sse> {
+        let http = Http::new(url, headers, None)?;
+        let mut map = http.headers.clone();
+        if let Some(t) = token {
+            let mut v = reqwest::header::HeaderValue::from_str(&format!("Bearer {t}"))
+                .map_err(|_| McpError::Config("invalid token".into()))?;
+            v.set_sensitive(true);
+            map.insert(reqwest::header::AUTHORIZATION, v);
+        }
+        let resp = http
+            .client
+            .get(url)
+            .headers(map.clone())
+            .header("Accept", "text/event-stream")
+            .send()
+            .await
+            .map_err(|e| McpError::Transport(e.to_string()))?;
+        let status = resp.status().as_u16();
+        if !(200..300).contains(&status) {
+            return Err(McpError::Http {
+                status,
+                body: "the legacy SSE endpoint refused the stream".into(),
+            });
+        }
+        let shared = Arc::new(SseShared {
+            client: http.client.clone(),
+            headers: map,
+            post_url: Mutex::new(None),
+            pending: Arc::new(Mutex::new(HashMap::new())),
+            alive: AtomicBool::new(true),
+        });
+        let (ready_tx, ready_rx) = oneshot::channel::<String>();
+        let base = reqwest::Url::parse(url).map_err(|e| McpError::Config(e.to_string()))?;
+        let sh = shared.clone();
+        let stream_base = base.clone();
+        let reader = tokio::spawn(async move {
+            let mut resp = resp;
+            let mut ready = Some(ready_tx);
+            let mut buf = String::new();
+            let mut partial = Vec::new();
+            while let Ok(Some(chunk)) = resp.chunk().await {
+                push_utf8(&mut buf, &mut partial, &chunk);
+                for (event, data) in sse_frames(&mut buf) {
+                    if event == "endpoint" {
+                        if let (Ok(u), Some(tx)) = (stream_base.join(data.trim()), ready.take()) {
+                            let _ = tx.send(u.to_string());
+                        }
+                        continue;
+                    }
+                    let Ok(msg) = serde_json::from_str::<Value>(&data) else {
+                        continue;
+                    };
+                    if msg.get("method").is_some() {
+                        if msg.get("id").is_some() {
+                            let _ = sh.post(&answer_server_request(&msg)).await;
+                        }
+                        continue;
+                    }
+                    if let Some(id) = msg["id"].as_i64() {
+                        let tx = sh
+                            .pending
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .remove(&id);
+                        if let Some(tx) = tx {
+                            let _ = tx.send(rpc_result(msg));
+                        }
+                    }
+                }
+            }
+            sh.alive.store(false, Ordering::SeqCst);
+            for (_, tx) in sh.pending.lock().unwrap_or_else(|e| e.into_inner()).drain() {
+                let _ = tx.send(Err(McpError::Transport("the event stream ended".into())));
+            }
+        });
+        let endpoint = tokio::time::timeout(timeout, ready_rx)
+            .await
+            .map_err(|_| McpError::Timeout(timeout))?
+            .map_err(|_| {
+                McpError::Transport("the event stream ended before naming its endpoint".into())
+            })?;
+        // The endpoint must stay on the server's origin.
+        let e = reqwest::Url::parse(&endpoint).map_err(|e| McpError::Protocol(e.to_string()))?;
+        if e.origin() != base.origin() {
+            reader.abort();
+            return Err(McpError::Protocol(format!(
+                "the server named an endpoint on another origin ({endpoint})"
+            )));
+        }
+        *shared.post_url.lock().unwrap_or_else(|e| e.into_inner()) = Some(endpoint);
+        Ok(Sse {
+            shared,
+            next: AtomicI64::new(1),
+            reader,
+        })
+    }
+}
+
+#[async_trait]
+impl Wire for Sse {
+    async fn request(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
+        let id = self.next.fetch_add(1, Ordering::SeqCst);
+        let (tx, rx) = oneshot::channel();
+        self.shared
+            .pending
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id, tx);
+        let body = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
+        if let Err(e) = self.shared.post(&body).await {
+            self.shared
+                .pending
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&id);
+            return Err(e);
+        }
+        match tokio::time::timeout(timeout, rx).await {
+            Ok(Ok(r)) => r,
+            Ok(Err(_)) => Err(McpError::Transport("the event stream ended".into())),
+            Err(_) => {
+                self.shared
+                    .pending
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(&id);
+                Err(McpError::Timeout(timeout))
+            }
+        }
+    }
+
+    async fn notify(&self, method: &str, params: Value) -> Result<()> {
+        self.shared
+            .post(&json!({ "jsonrpc": "2.0", "method": method, "params": params }))
+            .await
+    }
+
+    fn alive(&self) -> bool {
+        self.shared.alive.load(Ordering::SeqCst)
+    }
+}
+
 // ---------------------------------------------------------------- client
 
 pub struct Client {
@@ -569,6 +815,8 @@ pub struct Client {
     pub protocol: String,
     pub server_info: Value,
     pub instructions: Option<String>,
+    /// The server's declared capabilities (`tools`, `resources`, `prompts`, ...).
+    pub capabilities: Value,
 }
 
 /// Text of an MCP content list: text parts verbatim, other parts as short placeholders.
@@ -606,30 +854,49 @@ pub fn render_content(result: &Value) -> String {
 
 impl Client {
     pub async fn connect(spec: &ConnectSpec, timeout: Duration) -> Result<Client> {
-        let wire: Box<dyn Wire> = match spec {
+        let hello = json!({
+            "protocolVersion": PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": { "name": "agenium", "version": env!("CARGO_PKG_VERSION") },
+        });
+        let (wire, init): (Box<dyn Wire>, Value) = match spec {
             ConnectSpec::Stdio {
                 command,
                 args,
                 env,
                 cwd,
-            } => Box::new(Stdio::spawn(command, args, env, cwd)?),
+            } => {
+                let w: Box<dyn Wire> = Box::new(Stdio::spawn(command, args, env, cwd)?);
+                let init = w.request("initialize", hello, timeout).await?;
+                (w, init)
+            }
             ConnectSpec::Http {
                 url,
                 headers,
                 bearer,
-            } => Box::new(Http::new(url, headers, bearer.clone())?),
+            } => {
+                let w: Box<dyn Wire> = Box::new(Http::new(url, headers, bearer.clone())?);
+                match w.request("initialize", hello.clone(), timeout).await {
+                    Ok(init) => (w, init),
+                    // A server of revision 2024-11-05 refuses the POST: its URL is the legacy event stream.
+                    Err(McpError::Http {
+                        status: 400 | 404 | 405,
+                        ..
+                    }) => {
+                        let token = match bearer {
+                            Some(b) => b.token().await,
+                            None => None,
+                        };
+                        let s: Box<dyn Wire> =
+                            Box::new(Sse::connect(url, headers, token, timeout).await?);
+                        let init = s.request("initialize", hello, timeout).await?;
+                        tracing::info!(%url, "MCP server uses the legacy HTTP+SSE transport");
+                        (s, init)
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
         };
-        let init = wire
-            .request(
-                "initialize",
-                json!({
-                    "protocolVersion": PROTOCOL_VERSION,
-                    "capabilities": {},
-                    "clientInfo": { "name": "agenium", "version": env!("CARGO_PKG_VERSION") },
-                }),
-                timeout,
-            )
-            .await?;
         let protocol = init["protocolVersion"].as_str().unwrap_or("").to_owned();
         if !KNOWN_VERSIONS.contains(&protocol.as_str()) {
             // Newer revisions keep tools/list and tools/call compatible so far; note it and continue.
@@ -648,6 +915,7 @@ impl Client {
             protocol,
             server_info: init["serverInfo"].clone(),
             instructions: init["instructions"].as_str().map(str::to_owned),
+            capabilities: init["capabilities"].clone(),
         };
         client
             .wire
@@ -665,6 +933,132 @@ impl Client {
             .request("ping", json!({}), timeout)
             .await
             .map(|_| ())
+    }
+
+    /// Every page of a paginated list method, `key` naming the items (`resources`, `prompts`).
+    async fn list_all(&self, method: &str, key: &str, timeout: Duration) -> Result<Vec<Value>> {
+        let mut out = Vec::new();
+        let mut cursor: Option<String> = None;
+        for _ in 0..50 {
+            let params = match &cursor {
+                Some(c) => json!({ "cursor": c }),
+                None => json!({}),
+            };
+            let r = self.wire.request(method, params, timeout).await?;
+            out.extend(r[key].as_array().into_iter().flatten().cloned());
+            match r["nextCursor"].as_str() {
+                Some(c) if !c.is_empty() => cursor = Some(c.to_owned()),
+                _ => return Ok(out),
+            }
+        }
+        Err(McpError::Protocol(format!(
+            "{method} pagination does not end"
+        )))
+    }
+
+    /// `resources/list` as text: one line per resource (`uri — name: description [mimeType]`).
+    pub async fn list_resources(&self, timeout: Duration) -> Result<String> {
+        let items = self
+            .list_all("resources/list", "resources", timeout)
+            .await?;
+        Ok(items
+            .iter()
+            .map(|r| {
+                let mut line = format!(
+                    "{} — {}",
+                    r["uri"].as_str().unwrap_or("?"),
+                    r["name"].as_str().or(r["title"].as_str()).unwrap_or("")
+                );
+                if let Some(d) = r["description"].as_str() {
+                    line.push_str(&format!(": {d}"));
+                }
+                if let Some(m) = r["mimeType"].as_str() {
+                    line.push_str(&format!(" [{m}]"));
+                }
+                line
+            })
+            .collect::<Vec<_>>()
+            .join("\n"))
+    }
+
+    /// `resources/read`: text contents verbatim, binary ones as a placeholder.
+    pub async fn read_resource(&self, uri: &str, timeout: Duration) -> Result<String> {
+        let r = self
+            .wire
+            .request("resources/read", json!({ "uri": uri }), timeout)
+            .await?;
+        Ok(r["contents"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|c| match c["text"].as_str() {
+                Some(t) => t.to_owned(),
+                None => format!(
+                    "[binary content of {} ({})]",
+                    c["uri"].as_str().unwrap_or(uri),
+                    c["mimeType"].as_str().unwrap_or("unknown type")
+                ),
+            })
+            .collect::<Vec<_>>()
+            .join("\n"))
+    }
+
+    /// `prompts/list` as text: one line per prompt with its arguments.
+    pub async fn list_prompts(&self, timeout: Duration) -> Result<String> {
+        let items = self.list_all("prompts/list", "prompts", timeout).await?;
+        Ok(items
+            .iter()
+            .map(|p| {
+                let args: Vec<String> = p["arguments"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|a| {
+                        format!(
+                            "{}{}",
+                            a["name"].as_str().unwrap_or("?"),
+                            if a["required"] == true { "" } else { "?" }
+                        )
+                    })
+                    .collect();
+                format!(
+                    "{}({}){}",
+                    p["name"].as_str().unwrap_or("?"),
+                    args.join(", "),
+                    p["description"]
+                        .as_str()
+                        .map(|d| format!(": {d}"))
+                        .unwrap_or_default()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n"))
+    }
+
+    /// `prompts/get`: the prompt's messages as text (`[role] text`).
+    pub async fn get_prompt(&self, name: &str, args: Value, timeout: Duration) -> Result<String> {
+        let args = if args.is_object() { args } else { json!({}) };
+        let r = self
+            .wire
+            .request(
+                "prompts/get",
+                json!({ "name": name, "arguments": args }),
+                timeout,
+            )
+            .await?;
+        Ok(r["messages"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|m| {
+                let text = match m["content"]["type"].as_str() {
+                    Some("text") => m["content"]["text"].as_str().unwrap_or("").to_owned(),
+                    _ => render_content(&json!({ "content": [m["content"].clone()] })),
+                };
+                format!("[{}] {text}", m["role"].as_str().unwrap_or("user"))
+            })
+            .collect::<Vec<_>>()
+            .join("\n"))
     }
 
     pub async fn list_tools(&self, timeout: Duration) -> Result<Vec<ToolInfo>> {
@@ -730,6 +1124,21 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_character_split_between_chunks_survives() {
+        let text = "data: Xin chào thế giới
+
+"
+        .as_bytes();
+        let (mut buf, mut partial) = (String::new(), Vec::new());
+        // Split inside the two-byte "à".
+        let cut = text.iter().position(|&b| b == 0xC3).unwrap() + 1;
+        push_utf8(&mut buf, &mut partial, &text[..cut]);
+        push_utf8(&mut buf, &mut partial, &text[cut..]);
+        assert_eq!(sse_events(&mut buf), ["Xin chào thế giới"]);
+        assert!(partial.is_empty());
+    }
 
     #[test]
     fn sse_splitting() {

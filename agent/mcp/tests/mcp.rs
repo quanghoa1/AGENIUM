@@ -70,11 +70,15 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
             "mcp__fake__crash",
             "mcp__fake__echo",
             "mcp__fake__fail",
+            "mcp__fake__get_prompt",
+            "mcp__fake__list_prompts",
+            "mcp__fake__list_resources",
             "mcp__fake__note_then_crash",
+            "mcp__fake__read_resource",
             "mcp__fake__whoami",
             "mcp__fake__write_note"
         ],
-        "both pages of tools/list, sorted"
+        "both pages of tools/list and the resources/prompts tools, sorted"
     );
     let b = hub
         .tools_for(
@@ -353,4 +357,60 @@ async fn streamable_http_server() {
         .insert("Authorization".into(), "Bearer ${secret:tok-dev}".into());
     let e = hub.test(&bad, &b).await.unwrap_err().to_string();
     assert!(e.contains("401") && !e.contains("dev-secret-2"), "{e}");
+}
+
+/// A server that declares resources and prompts offers them as read-only tools.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn resources_and_prompts_are_read_only_tools() {
+    let tmp = tempfile::tempdir().unwrap();
+    let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
+    let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
+    let t = hub
+        .tools_for("agent-a", &[binding("tok-admin", None)], &[stdio_cfg()])
+        .await;
+    let list = tool(&t, "mcp__fake__list_resources");
+    assert!(list.read_only());
+    let text = list.call(&ctx, json!({})).await.unwrap().text;
+    assert!(
+        text.contains("memo://style — style: House style. [text/plain]"),
+        "{text}"
+    );
+    let read = tool(&t, "mcp__fake__read_resource");
+    let text = read
+        .call(&ctx, json!({"uri": "memo://style"}))
+        .await
+        .unwrap()
+        .text;
+    assert!(text.contains("Use short sentences."), "{text}");
+    let text = read
+        .call(&ctx, json!({"uri": "memo://logo"}))
+        .await
+        .unwrap()
+        .text;
+    assert!(
+        text.contains("[binary content of memo://logo (image/png)]"),
+        "{text}"
+    );
+    assert_eq!(
+        read.call(&ctx, json!({})).await.unwrap_err().code,
+        "invalid_arguments"
+    );
+    let text = tool(&t, "mcp__fake__list_prompts")
+        .call(&ctx, json!({}))
+        .await
+        .unwrap()
+        .text;
+    assert!(
+        text.contains("review(path, tone?): Review a file."),
+        "{text}"
+    );
+    let text = tool(&t, "mcp__fake__get_prompt")
+        .call(
+            &ctx,
+            json!({"name": "review", "arguments": {"path": "src/a.rs"}}),
+        )
+        .await
+        .unwrap()
+        .text;
+    assert!(text.contains("[user] Review src/a.rs carefully."), "{text}");
 }

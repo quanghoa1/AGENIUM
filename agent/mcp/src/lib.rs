@@ -5,7 +5,8 @@
 //! Reliability: a stdio server that died is restarted on the next call; read-only tools (`readOnlyHint`) are
 //! retried once after a reconnect, tools with side effects are not (the error goes back to the model).
 //! Remote servers that ask for a signed-in user get one OAuth token per server ([`oauth`], ADR-97).
-//! Not built yet: the legacy HTTP+SSE transport (servers older than revision 2025-03-26).
+//! Servers of revision 2024-11-05 are reached through the legacy HTTP+SSE transport when they refuse Streamable HTTP;
+//! a server's resources and prompts are offered as read-only tools.
 
 pub mod client;
 pub mod oauth;
@@ -252,12 +253,68 @@ impl Session {
     }
 }
 
+/// The server's resources and prompts, offered as read-only tools when it declares them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Extra {
+    ListResources,
+    ReadResource,
+    ListPrompts,
+    GetPrompt,
+}
+
+impl Extra {
+    /// The extras a server's declared capabilities allow.
+    pub fn of(capabilities: &Value) -> Vec<Extra> {
+        let mut v = Vec::new();
+        if capabilities.get("resources").is_some() {
+            v.extend([Extra::ListResources, Extra::ReadResource]);
+        }
+        if capabilities.get("prompts").is_some() {
+            v.extend([Extra::ListPrompts, Extra::GetPrompt]);
+        }
+        v
+    }
+
+    fn info(self) -> ToolInfo {
+        let (name, description, schema) = match self {
+            Extra::ListResources => (
+                "list_resources",
+                "List the server's resources (uri, name, description).",
+                serde_json::json!({"type": "object", "properties": {}}),
+            ),
+            Extra::ReadResource => (
+                "read_resource",
+                "Read one of the server's resources by its uri.",
+                serde_json::json!({"type": "object", "properties": {"uri": {"type": "string"}}, "required": ["uri"]}),
+            ),
+            Extra::ListPrompts => (
+                "list_prompts",
+                "List the server's prompt templates and their arguments.",
+                serde_json::json!({"type": "object", "properties": {}}),
+            ),
+            Extra::GetPrompt => (
+                "get_prompt",
+                "Get one of the server's prompt templates filled with arguments.",
+                serde_json::json!({"type": "object", "properties": {"name": {"type": "string"}, "arguments": {"type": "object"}}, "required": ["name"]}),
+            ),
+        };
+        ToolInfo {
+            name: name.into(),
+            description: description.into(),
+            input_schema: schema,
+            read_only: true,
+        }
+    }
+}
+
 /// An MCP tool offered to the model.
 pub struct McpTool {
     session: Arc<Session>,
     info: ToolInfo,
     name: String,
     description: String,
+    /// A resources/prompts tool rather than one of the server's own tools.
+    extra: Option<Extra>,
 }
 
 impl McpTool {
@@ -298,6 +355,24 @@ impl Tool for McpTool {
         self.info.read_only
     }
     async fn call(&self, ctx: &ToolCtx, args: Value) -> Result<ToolOutput, ToolError> {
+        if let Some(extra) = self.extra {
+            let c = self.session.client().await.map_err(tool_error)?;
+            let t = self.session.timeout;
+            let text = match extra {
+                Extra::ListResources => c.list_resources(t).await,
+                Extra::ReadResource => match args["uri"].as_str() {
+                    Some(uri) => c.read_resource(uri, t).await,
+                    None => return Err(ToolError::new("invalid_arguments", "uri is required")),
+                },
+                Extra::ListPrompts => c.list_prompts(t).await,
+                Extra::GetPrompt => match args["name"].as_str() {
+                    Some(name) => c.get_prompt(name, args["arguments"].clone(), t).await,
+                    None => return Err(ToolError::new("invalid_arguments", "name is required")),
+                },
+            }
+            .map_err(tool_error)?;
+            return Ok(ctx.finish_output(text, true));
+        }
         let attempt = |c: Arc<Client>, a: Value| async move {
             c.call_tool(&self.info.name, a, self.session.timeout).await
         };
@@ -341,7 +416,7 @@ pub struct AgentTools {
 /// (agent, server)
 type SessionKey = (String, String);
 /// The session, its tools and the fingerprint of the resolved connection (a changed key reconnects).
-type OpenSession = (Arc<Session>, Vec<ToolInfo>, u64);
+type OpenSession = (Arc<Session>, Vec<ToolInfo>, u64, Vec<Extra>);
 
 /// In-memory fingerprint of a resolved connection (values included, never stored or printed).
 fn fingerprint(spec: &ConnectSpec) -> u64 {
@@ -528,7 +603,7 @@ impl McpHub {
                 }
                 sessions.get(&key).cloned()
             };
-            let (session, tools, _) = match entry {
+            let (session, tools, _, extras) = match entry {
                 Some(e) => e,
                 None => match self.open(cfg, spec, print).await {
                     Ok(e) => {
@@ -543,7 +618,11 @@ impl McpHub {
             };
             out.servers.push(cfg.id.clone());
             let mut used = std::collections::HashSet::new();
-            for t in tools {
+            let listed = tools
+                .into_iter()
+                .map(|t| (t, None))
+                .chain(extras.into_iter().map(|e| (e.info(), Some(e))));
+            for (t, extra) in listed {
                 if let Some(allow) = &b.tools {
                     if !allow.contains(&t.name) {
                         continue;
@@ -573,6 +652,7 @@ impl McpHub {
                     info: t,
                     name,
                     description,
+                    extra,
                 }));
             }
         }
@@ -594,7 +674,8 @@ impl McpHub {
         });
         let c = session.client().await?;
         let tools = c.list_tools(CONNECT_TIMEOUT).await?;
-        Ok((session, tools, print))
+        let extras = Extra::of(&c.capabilities);
+        Ok((session, tools, print, extras))
     }
 
     /// "Test connection": connect, list tools, disconnect.

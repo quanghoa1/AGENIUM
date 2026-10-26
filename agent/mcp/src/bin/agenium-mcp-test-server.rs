@@ -1,5 +1,5 @@
 //! Minimal MCP stdio server used by agenium-mcp's integration tests (not shipped to users).
-//! Tools: `echo` (read-only), `whoami` (returns env FAKE_TOKEN), `write_note` (side effect, appends to
+//! Also resources (`memo://style`, `memo://logo`) and a prompt (`review`). Tools: `echo` (read-only), `whoami` (returns env FAKE_TOKEN), `write_note` (side effect, appends to
 //! notes.txt in the working folder), `fail` (isError), `crash` (read-only, exits the process), `note_then_crash` (side effect, then exits). tools/list is paginated.
 
 use std::io::{BufRead, Write};
@@ -31,7 +31,7 @@ fn main() {
             "initialize" => {
                 let r = json!({
                     "protocolVersion": "2025-06-18",
-                    "capabilities": { "tools": { "listChanged": false } },
+                    "capabilities": { "tools": { "listChanged": false }, "resources": {}, "prompts": {} },
                     "serverInfo": { "name": "agenium-test-server", "version": "1" },
                     "instructions": "test server"
                 });
@@ -49,6 +49,25 @@ fn main() {
                 continue;
             }
             "ping" => json!({}),
+            "resources/list" => json!({"resources": [
+                {"uri": "memo://style", "name": "style", "description": "House style.", "mimeType": "text/plain"},
+                {"uri": "memo://logo", "name": "logo", "mimeType": "image/png"}
+            ]}),
+            "resources/read" => match msg["params"]["uri"].as_str() {
+                Some("memo://style") => {
+                    json!({"contents": [{"uri": "memo://style", "mimeType": "text/plain", "text": "Use short sentences."}]})
+                }
+                Some(u) => {
+                    json!({"contents": [{"uri": u, "mimeType": "image/png", "blob": "iVBORw0KGgo="}]})
+                }
+                None => json!({}),
+            },
+            "prompts/list" => {
+                json!({"prompts": [{"name": "review", "description": "Review a file.", "arguments": [{"name": "path", "required": true}, {"name": "tone"}]}]})
+            }
+            "prompts/get" => {
+                json!({"messages": [{"role": "user", "content": {"type": "text", "text": format!("Review {} carefully.", msg["params"]["arguments"]["path"].as_str().unwrap_or("?"))}}]})
+            }
             "tools/list" => {
                 if msg["params"]["cursor"].is_null() {
                     json!({"tools": [
