@@ -247,18 +247,62 @@ impl Runtime {
             let r = redactor.redact(text);
             (r == text && agenium_secrets::scan_text(text).is_empty()).then_some(r)
         };
-        Some(
-            learn(
-                provider.as_ref(),
-                &model,
-                mem,
-                self.embedder.as_ref(),
-                ep,
-                &clean,
-            )
-            .await
-            .map_err(|e| e.to_string()),
+        let r = learn(
+            provider.as_ref(),
+            &model,
+            mem,
+            self.embedder.as_ref(),
+            ep,
+            &clean,
         )
+        .await
+        .map_err(|e| e.to_string());
+        if let Ok(rep) = &r {
+            if let Err(e) = self.record_side_run(agent.id, provider.id(), &model.model, &rep.usage)
+            {
+                tracing::warn!(error = %e, "the memory extraction's usage was not recorded");
+            }
+        }
+        Some(r)
+    }
+
+    /// Records a model call made beside the runs (memory extraction) as a finished run of `agent` with outcome
+    /// `Memory`, so its tokens and cost count in the usage views like any run's. Nothing is recorded for no tokens.
+    fn record_side_run(
+        &self,
+        agent: AgentId,
+        provider: &str,
+        model: &str,
+        u: &agenium_llm::Usage,
+    ) -> Result<()> {
+        if u.total_input() + u.output == 0 {
+            return Ok(());
+        }
+        let usage = super::bridge::summary(u, self.cost(provider, model, u), 0);
+        let run = RunId::new();
+        self.app.store().commit(None, "system", |w| -> Result<()> {
+            let now = now_iso();
+            runs::insert(
+                w.tx,
+                &runs::Run {
+                    id: run,
+                    ticket: None,
+                    agent,
+                    provider: provider.to_owned(),
+                    model: model.to_owned(),
+                    started_at: now.clone(),
+                    ended_at: None,
+                    outcome: None,
+                    steps: 1,
+                    usage,
+                    heartbeat: None,
+                },
+            )?;
+            runs::finish(w.tx, run, &now, "Memory")?;
+            Ok(())
+        })?;
+        self.app
+            .run_log(run, "run", serde_json::json!({ "kind": "memory" }))
     }
 
     /// Learns from the part of the project's chat with the Lead not learned from yet, once the chat has been quiet

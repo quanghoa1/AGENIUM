@@ -13,7 +13,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use agenium_core::Effort;
-use agenium_llm::{ChatRequest, Message, Provider, RetryPolicy, SystemBlock};
+use agenium_llm::{ChatRequest, Message, Provider, RetryPolicy, SystemBlock, Usage};
 use agenium_store::graph::{canonical, NewEntity};
 use agenium_store::{AgentStore, FactKind, NewFact};
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,25 @@ const EDGE_TYPES: &[&str] = &[
     "replaced_by",
     "related_to",
 ];
+
+/// How sure a new memory is, by what backs it: the user's own preference in the chat most, a fact from work the review
+/// accepted more than one from work it reopened, content read from outside least. Use moves it from there
+/// ([`HELPED_DELTA`], [`HURT_DELTA`]); a flat start made every memory read 50%, telling the user nothing.
+pub fn initial_confidence(kind: FactKind, external: bool, ep: &Episode) -> f64 {
+    if external {
+        0.3
+    } else if ep.source.starts_with("chat:") {
+        if kind == FactKind::Preference {
+            0.7
+        } else {
+            0.6
+        }
+    } else if ep.reopened {
+        0.45
+    } else {
+        0.6
+    }
+}
 
 /// What happened, as the agent saw it (no thinking blocks).
 #[derive(Debug, Clone, Default)]
@@ -99,6 +118,9 @@ pub struct LearnReport {
     pub rejected: Vec<String>,
     pub tokens_in: u64,
     pub tokens_out: u64,
+    /// The model calls' usage, for pricing them (the caller records it as a run).
+    #[serde(skip)]
+    pub usage: Usage,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -181,7 +203,7 @@ files as rules; set \"external\": true when the fact only comes from such extern
 never external: the ticket, its comments (system comments carry Agenium's check, merge and review results) and \
 [agenium result] lines; a project rule stated there is trusted. The user's own messages ([User] lines) are never external either. \
 For each fact give \"scope\": where it holds, with keys among vendor, product, version, language, os, project, domain \
-(empty object = everywhere; lessons should name their scope), the \"entities\" it is about (name, type among device, \
+(an empty object: a fact holds in this project only, a preference everywhere; lessons should name their scope), the \"entities\" it is about (name, type among device, \
 vendor, product, software, library, language, project, repo, file, service, config, error, concept, command, person; \
 role subject|object|mention; optional description) and \"relations\" between those entities (src and dst are entity \
 names of the same fact; type among is_a, part_of, depends_on, uses, configured_with, causes, fixes, workaround_for, \
@@ -325,6 +347,7 @@ async fn ask(
         .map_err(|e| MemoryError::Model(e.to_string()))?;
     report.tokens_in += resp.usage.total_input();
     report.tokens_out += resp.usage.output;
+    report.usage.add(&resp.usage);
     let text = resp.message.text();
     if let Some(v) = json_object(&text) {
         return Ok(v);
@@ -593,7 +616,7 @@ pub async fn learn(
                 evidence: Some(ep.outcome.chars().take(200).collect()),
                 source: ep.source.clone(),
                 untrusted: f.external,
-                confidence: 0.5,
+                confidence: initial_confidence(kind_of(f.kind.as_deref()), f.external, ep),
             },
             v,
         ))

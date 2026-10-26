@@ -1330,6 +1330,16 @@ async fn closing_a_ticket_teaches_the_assignee() {
     assert!(log
         .iter()
         .any(|e| e.kind == "memory" && e.data["added"] == 1));
+    // The extraction's tokens count like a run's, as the assignee's Memory run.
+    let memory: Vec<runs::Run> = app
+        .store()
+        .read(|c| runs::for_agent(c, agent, 50))
+        .unwrap()
+        .into_iter()
+        .filter(|r| r.outcome.as_deref() == Some("Memory"))
+        .collect();
+    assert_eq!(memory.len(), 1, "{memory:?}");
+    assert!(memory[0].usage.tokens_in > 0 && memory[0].ticket.is_none());
     // Once per ticket state.
     assert!(rt
         .learn_from_ticket(project, &key("AGN-1"), s.run)
@@ -2553,4 +2563,44 @@ async fn a_chat_turn_stores_only_its_own_messages() {
         mem.load_messages(&format!("chat:{project}")).unwrap().len(),
         6
     );
+}
+
+/// A ticket cancelled while its run works stops the run before its next step, and its agent stays busy until that run
+/// has ended (the scheduler could otherwise start a second run of the same agent beside it).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_ticket_cancelled_under_its_run_stops_it() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let a = app.clone();
+    p.push(Box::new(move |_| {
+        a.apply(
+            &agenium_orchestrator::CallCtx {
+                project,
+                actor: Actor::Lead(agent),
+                intent_id: None,
+                run: None,
+            },
+            Intent::CancelTicket(agenium_core::forms::CancelTicket {
+                ticket_id: key("AGN-1"),
+                reason: "Out of scope now".into(),
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            a.agent(agent).unwrap().status,
+            AgentStatus::Working,
+            "busy while its run is live"
+        );
+        // Longer than the runtime's watch period.
+        tokio::task::block_in_place(|| std::thread::sleep(std::time::Duration::from_millis(2600)));
+        Ok(calls_response("", vec![("list_dir", json!({}))]))
+    }));
+    p.push_calls("", vec![("list_dir", json!({}))]);
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Cancelled");
+    assert_eq!(p.remaining(), 1, "no model call after the cancel");
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
 }

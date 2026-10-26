@@ -6,6 +6,7 @@ import { twMerge } from "tailwind-merge";
 import {
   AlertTriangle,
   Bot,
+  Brain,
   CheckCircle2,
   CircleDashed,
   CircleDot,
@@ -122,7 +123,9 @@ export function OutcomeBadge({ outcome }: { outcome?: string | null }) {
         ? ["border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300", <Clock className="h-3 w-3" />]
         : o === "Cancelled"
           ? ["border-zinc-500/30 bg-zinc-500/10 text-zinc-500", <CircleDashed className="h-3 w-3" />]
-          : ["border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300", <XCircle className="h-3 w-3" />];
+          : o === "Memory"
+            ? ["border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300", <Brain className="h-3 w-3" />]
+            : ["border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300", <XCircle className="h-3 w-3" />];
   return (
     <span className={cn("chip", tone)} title={outcome}>
       {icon}
