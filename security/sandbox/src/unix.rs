@@ -265,6 +265,124 @@ pub fn request(
     }
 }
 
+/// Every process a sandboxed command starts carries this variable, with a value of its own per command.
+pub const STRAY_TOKEN_ENV: &str = "AGENIUM_SANDBOX_RUN";
+
+/// A fresh token for one command (128 random bits from the standard library's hasher keys).
+fn stray_token() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let part = || {
+        std::collections::hash_map::RandomState::new()
+            .build_hasher()
+            .finish()
+    };
+    format!("{:016x}{:016x}", part(), part())
+}
+
+fn contains(hay: &[u8], needle: &[u8]) -> bool {
+    !needle.is_empty() && hay.windows(needle.len()).any(|w| w == needle)
+}
+
+/// Kills this user's processes that still carry `token` once the command has ended, and returns how many. A daemon
+/// (double fork + `setsid`) leaves the command's process group; on macOS nothing else ends it (no PID namespace, no
+/// job object), on Linux bubblewrap's PID namespace already has. A process that clears its environment is not found;
+/// Seatbelt still confines it (ADR-55).
+pub fn kill_strays(token: &str) -> usize {
+    let needle = format!("{STRAY_TOKEN_ENV}={token}");
+    let me = std::process::id() as i32;
+    let mut killed = 0;
+    // A daemon may fork while it is being looked for: look again until a pass finds none.
+    for _ in 0..5 {
+        let mut found = 0;
+        for pid in pids() {
+            if pid > 1 && pid != me && carries(pid, needle.as_bytes()) {
+                // SAFETY: kill(2) with a pid read from the system and a constant signal.
+                if unsafe { libc::kill(pid, libc::SIGKILL) } == 0 {
+                    found += 1;
+                }
+            }
+        }
+        killed += found;
+        if found == 0 {
+            break;
+        }
+    }
+    killed
+}
+
+#[cfg(target_os = "linux")]
+fn pids() -> Vec<i32> {
+    std::fs::read_dir("/proc")
+        .map(|d| {
+            d.filter_map(|e| e.ok()?.file_name().to_str()?.parse().ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Its environment (another user's process cannot be read, so it is never matched).
+#[cfg(target_os = "linux")]
+fn carries(pid: i32, needle: &[u8]) -> bool {
+    std::fs::read(format!("/proc/{pid}/environ")).is_ok_and(|b| contains(&b, needle))
+}
+
+#[cfg(target_os = "macos")]
+fn pids() -> Vec<i32> {
+    // SAFETY: a null buffer asks for the count; the second call fills at most `buf.len()` pids.
+    unsafe {
+        let n = libc::proc_listallpids(std::ptr::null_mut(), 0);
+        if n <= 0 {
+            return Vec::new();
+        }
+        let mut buf = vec![0i32; n as usize + 64];
+        let n = libc::proc_listallpids(
+            buf.as_mut_ptr().cast(),
+            (buf.len() * std::mem::size_of::<i32>()) as libc::c_int,
+        );
+        buf.truncate(n.max(0) as usize);
+        buf
+    }
+}
+
+/// Its arguments and environment (`KERN_PROCARGS2`; only this user's processes can be read).
+#[cfg(target_os = "macos")]
+fn carries(pid: i32, needle: &[u8]) -> bool {
+    // SAFETY: sysctl(3) with fixed MIBs and buffers sized by the length it reports back.
+    unsafe {
+        let mut max: libc::c_int = 0;
+        let mut len = std::mem::size_of::<libc::c_int>();
+        let mut mib = [libc::CTL_KERN, libc::KERN_ARGMAX];
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            (&mut max as *mut libc::c_int).cast(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) != 0
+            || max <= 0
+        {
+            return false;
+        }
+        let mut buf = vec![0u8; max as usize];
+        let mut len = buf.len();
+        let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid];
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            3,
+            buf.as_mut_ptr().cast(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) != 0
+        {
+            return false;
+        }
+        buf.truncate(len);
+        contains(&buf, needle)
+    }
+}
+
 fn reader(mut r: Box<dyn Read + Send>) -> std::thread::JoinHandle<Vec<u8>> {
     std::thread::spawn(move || {
         let mut b = Vec::new();
@@ -284,8 +402,11 @@ pub fn run(
     let start = Instant::now();
     let (policy, note) = effective(policy);
     let policy = &policy;
+    let token = stray_token();
+    let mut env = env.to_vec();
+    env.push((STRAY_TOKEN_ENV.into(), token.clone()));
     let mut child =
-        v1::spawn(request(command, cwd, env, policy), Default::default()).map_err(|e| {
+        v1::spawn(request(command, cwd, &env, policy), Default::default()).map_err(|e| {
             ExecError::Spawn {
                 program: BACKEND.into(),
                 source: std::io::Error::other(e.to_string()),
@@ -307,6 +428,7 @@ pub fn run(
         }
         std::thread::sleep(Duration::from_millis(20));
     };
+    let strays = kill_strays(&token);
     let grace = Instant::now() + Duration::from_secs(2);
     let join = |h: Option<std::thread::JoinHandle<Vec<u8>>>,
                 closer: &Option<v1::StreamCloser>|
@@ -324,12 +446,12 @@ pub fn run(
     };
     let stdout = join(out, &out_closer);
     let stderr = join(err, &err_closer);
-    let mut stderr_text = note
-        .map(|n| {
-            n + "
-"
-        })
-        .unwrap_or_default();
+    let mut stderr_text = note.map(|n| n + "\n").unwrap_or_default();
+    if strays > 0 {
+        stderr_text.push_str(&format!(
+            "[agenium] stopped {strays} background process(es) this command left running\n"
+        ));
+    }
     stderr_text.push_str(&String::from_utf8_lossy(&stderr));
     Ok(ExecOutput {
         exit_code: code,
@@ -338,4 +460,66 @@ pub fn run(
         timed_out,
         elapsed_ms: start.elapsed().as_millis() as u64,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn alive(pid: i32) -> bool {
+        // SAFETY: signal 0 only checks that the process exists.
+        unsafe { libc::kill(pid, 0) == 0 }
+    }
+
+    /// A double-forked, session-leading process (as the containment payload's daemon) outside any sandbox: found by
+    /// its token and killed; a process with another token is left alone.
+    #[test]
+    fn a_daemon_left_running_is_found_by_its_token_and_killed() {
+        if std::process::Command::new("python3")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eprintln!("python3 missing: skipped");
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let daemon = |token: &str, file: &str| {
+            let pidfile = tmp.path().join(file);
+            let script = "import os,sys,time\n\
+                          if os.fork()==0:\n    os.setsid()\n    if os.fork()==0:\n        \
+                          open(sys.argv[1],'w').write(str(os.getpid()))\n        time.sleep(300)\n    os._exit(0)\n\
+                          os.wait()\n";
+            let st = std::process::Command::new("python3")
+                .args(["-c", script, pidfile.to_str().unwrap()])
+                .env(STRAY_TOKEN_ENV, token)
+                .status()
+                .unwrap();
+            assert!(st.success());
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                if let Ok(s) = std::fs::read_to_string(&pidfile) {
+                    if let Ok(p) = s.trim().parse::<i32>() {
+                        return p;
+                    }
+                }
+                assert!(Instant::now() < deadline, "the daemon did not start");
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        };
+        let (mine, other) = (stray_token(), stray_token());
+        assert_ne!(mine, other);
+        let a = daemon(&mine, "a.pid");
+        let b = daemon(&other, "b.pid");
+        assert!(alive(a) && alive(b));
+        assert_eq!(kill_strays(&mine), 1);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while alive(a) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(!alive(a), "the daemon still runs");
+        assert!(alive(b), "another command's process was killed");
+        assert_eq!(kill_strays(&other), 1);
+        assert_eq!(kill_strays(&mine), 0);
+    }
 }

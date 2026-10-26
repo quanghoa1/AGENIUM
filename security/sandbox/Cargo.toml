@@ -20,6 +20,8 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 # Bubblewrap (Linux) and Seatbelt (macOS) through the same SDK as the Windows backend (MIT).
 mxc-sdk = "=1.0.1"
+# Finding and stopping the processes a command left running (unix::kill_strays).
+libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }

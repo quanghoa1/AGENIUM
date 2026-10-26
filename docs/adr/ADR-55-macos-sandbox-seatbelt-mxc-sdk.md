@@ -65,7 +65,13 @@ Open:
 - **A daemon outlives the command** (double fork + `setsid`, both modes). macOS has no PID namespace or job object.
   Seatbelt still confines the daemon (it cannot write outside the worktree or read the home). But it
   keeps running after the run and after a timeout. Bubblewrap's PID namespace kills it on Linux, and MXC's job object
-  does on Windows.
+  does on Windows. **Mitigation (2026-10-26, to be confirmed by the fifth Mac run):** every sandboxed command gets a
+  random token in its environment (`AGENIUM_SANDBOX_RUN`); when the command ends or times out, `unix::kill_strays`
+  kills this user's processes that still carry it (macOS: `proc_listallpids` + `KERN_PROCARGS2`; Linux: `/proc`), and
+  the command's output says how many it stopped. A process that clears its environment is not found (Seatbelt still
+  confines it). Tested on Linux with a double-forked `setsid` daemon outside any sandbox (found and killed; another
+  token's process left alone; the test fails when the lookup is broken); the Linux containment matrix still shows
+  0 escapes.
 - **With network on, a host unix socket is reachable** (runs 2 and 3). `mxc-sdk` 1.0.0 and 1.0.1 emit an unfiltered
   `(allow network-outbound)`, which in Seatbelt also covers AF_UNIX `connect()` to any path. A fixed-path socket such as
   Docker's `/var/run/docker.sock` is therefore reachable from a sandboxed command when the network is on. The SDK has no
