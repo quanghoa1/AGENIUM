@@ -816,3 +816,30 @@ async fn local_servers_are_discovered() {
     assert_eq!(found[0].models, vec!["qwen3:8b", "llama3.2"]);
     assert_eq!(seen.lock().unwrap()[0].path, "/v1/models");
 }
+
+/// Learned from pi: OpenRouter reports cache writes inside `prompt_tokens`; they are not plain input. The invariant
+/// `input + cache_read + cache_write = prompt` holds and output includes reasoning.
+#[tokio::test]
+async fn openrouter_cache_writes_are_not_input() {
+    let body = concat!(
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5000,\"completion_tokens\":60,\"prompt_tokens_details\":{\"cached_tokens\":3000,\"cache_write_tokens\":1500},\"completion_tokens_details\":{\"reasoning_tokens\":20}}}\n\n",
+        "data: [DONE]\n\n"
+    );
+    let (base, _) = server(vec![sse(200, body)]).await;
+    let p = openai::OpenAiCompat::new("openrouter", &format!("{base}/api/v1"), Some("k"), http());
+    let r = p
+        .chat(&request("anthropic/claude-sonnet"), &|_| {})
+        .await
+        .unwrap();
+    assert_eq!(
+        (
+            r.usage.input,
+            r.usage.cache_read,
+            r.usage.cache_write,
+            r.usage.output,
+            r.usage.reasoning
+        ),
+        (500, 3000, 1500, 60, 20)
+    );
+    assert_eq!(r.usage.total_input(), 5000);
+}

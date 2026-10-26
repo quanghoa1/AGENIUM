@@ -409,11 +409,15 @@ impl StreamState {
                 .as_u64()
                 .or(u["prompt_cache_hit_tokens"].as_u64())
                 .unwrap_or(0);
+            // OpenRouter reports cache writes inside the prompt count; they cost more than plain input.
+            let written = u["prompt_tokens_details"]["cache_write_tokens"]
+                .as_u64()
+                .unwrap_or(0);
             self.usage = Usage {
-                input: prompt.saturating_sub(cached),
+                input: prompt.saturating_sub(cached).saturating_sub(written),
                 output: u["completion_tokens"].as_u64().unwrap_or(0),
                 cache_read: cached,
-                cache_write: 0,
+                cache_write: written,
                 reasoning: u["completion_tokens_details"]["reasoning_tokens"]
                     .as_u64()
                     .unwrap_or(0),
