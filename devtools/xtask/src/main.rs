@@ -1,4 +1,4 @@
-//! Repository automation: `cargo xtask schemas [--check]`, `cargo xtask ci`.
+//! Repository automation: `cargo xtask schemas [--check]`, `cargo xtask vendor-check`, `cargo xtask ci`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

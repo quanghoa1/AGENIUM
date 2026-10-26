@@ -106,6 +106,29 @@ pub fn for_ticket(c: &Connection, ticket: TicketId) -> Result<Vec<Comment>, Stor
     rows.map(|r| decode(r?)).collect()
 }
 
+/// Unresolved questions per ticket of a project (tickets without one are left out).
+pub fn open_questions(
+    c: &Connection,
+    project: agenium_core::ProjectId,
+) -> Result<std::collections::HashMap<TicketId, usize>, StoreError> {
+    let mut st = c.prepare_cached(
+        "SELECT c.ticket, COUNT(*) FROM comment c JOIN ticket t ON t.id = c.ticket
+         WHERE t.project = ?1 AND c.kind = ?2 AND c.resolved = 0 GROUP BY c.ticket",
+    )?;
+    let rows = st.query_map(
+        params![
+            project.to_string(),
+            agenium_core::CommentKind::Question.as_str()
+        ],
+        |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+    )?;
+    rows.map(|r| {
+        let (t, n) = r?;
+        Ok((parse(&t, "ticket id")?, n as usize))
+    })
+    .collect()
+}
+
 /// Open (unresolved) blocking comments of a ticket.
 pub fn open_blocking(c: &Connection, ticket: TicketId) -> Result<Vec<Comment>, StoreError> {
     let mut st = c.prepare_cached(&format!(

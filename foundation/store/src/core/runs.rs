@@ -176,6 +176,23 @@ pub fn recent(c: &Connection, limit: usize) -> Result<Vec<Run>, StoreError> {
     rows.map(|r| decode(r?)).collect()
 }
 
+/// How many runs the store holds.
+pub fn count(c: &Connection) -> Result<u64, StoreError> {
+    Ok(c.query_row("SELECT COUNT(*) FROM run", [], |r| r.get::<_, i64>(0))? as u64)
+}
+
+/// Runs that used tokens but cost 0 (priced again when a price shows up).
+pub fn unpriced(c: &Connection) -> Result<Vec<Run>, StoreError> {
+    let mut st = c.prepare_cached(&format!(
+        "SELECT {COLS} FROM run
+         WHERE COALESCE(json_extract(usage, '$.estimated_cost_usd'), 0) = 0
+           AND COALESCE(json_extract(usage, '$.tokens_in'), 0) + COALESCE(json_extract(usage, '$.tokens_out'), 0) > 0
+         ORDER BY started_at"
+    ))?;
+    let rows = st.query_map([], map)?;
+    rows.map(|r| decode(r?)).collect()
+}
+
 /// Runs without `ended_at` (live, or orphaned by a crash).
 pub fn unfinished(c: &Connection) -> Result<Vec<Run>, StoreError> {
     let mut st = c.prepare_cached(&format!(

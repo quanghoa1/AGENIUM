@@ -1,5 +1,5 @@
-//! `agenium`: headless front-end over the orchestrator (the desktop UI comes later). Every state change goes
-//! through the same App/Runtime API the UI will use.
+//! `agenium`: headless front-end over the orchestrator. Every state change goes through the same App/Runtime API
+//! the desktop app uses.
 
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};

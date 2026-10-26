@@ -25,10 +25,25 @@ pub struct PriceView {
     pub providers: BTreeMap<String, BTreeMap<String, Price>>,
 }
 
+/// The modification times of `pricing.toml` and the catalogue: the price list is read again when one changes.
+pub(crate) type PricesStamp = (Option<std::time::SystemTime>, Option<std::time::SystemTime>);
+
 impl App {
+    /// The price list, read from disk only when `pricing.toml` or the catalogue changed since the last call.
     pub fn prices(&self) -> Prices {
         let layout = self.layout();
-        Prices {
+        let modified = |p: std::path::PathBuf| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+        let stamp = (
+            modified(layout.pricing()),
+            modified(layout.price_catalogue()),
+        );
+        let mut cache = self.prices_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((at, p)) = cache.as_ref() {
+            if *at == stamp {
+                return p.clone();
+            }
+        }
+        let p = Prices {
             table: PriceTable::load(&layout.pricing()).unwrap_or_else(|e| {
                 tracing::warn!(error = %e, "pricing.toml unreadable; built-in prices only");
                 PriceTable::builtin()
@@ -37,7 +52,9 @@ impl App {
                 .ok()
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default(),
-        }
+        };
+        *cache = Some((stamp, p.clone()));
+        p
     }
 
     /// Cost in USD of `usage` on the configured API provider `provider`; `None` when the model has no price or
@@ -141,11 +158,8 @@ impl App {
         let prices = self.prices();
         let todo: Vec<(agenium_core::RunId, agenium_core::UsageSummary)> = self
             .store
-            .read(|c| runs::recent(c, usize::MAX >> 1))?
+            .read(runs::unpriced)?
             .into_iter()
-            .filter(|r| {
-                r.usage.estimated_cost_usd == 0.0 && r.usage.tokens_in + r.usage.tokens_out > 0
-            })
             .filter_map(|r| {
                 let cost = self.usage_cost(&prices, &r.provider, &r.model, &r.usage)?;
                 (cost > 0.0).then(|| {

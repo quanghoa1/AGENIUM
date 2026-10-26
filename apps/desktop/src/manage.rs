@@ -474,7 +474,7 @@ pub fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<()> {
             models: form.models,
         })
         .map_err(err)?;
-    o.rt.providers.forget(form.id.trim());
+    o.rt.forget_provider(form.id.trim());
     Ok(())
 }
 
@@ -482,7 +482,7 @@ pub fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<()> {
 pub fn remove_provider(d: State<'_, Desktop>, id: String) -> R<()> {
     let o = d.opened()?;
     o.app.remove_provider(&id).map_err(err)?;
-    o.rt.providers.forget(&id);
+    o.rt.forget_provider(&id);
     Ok(())
 }
 

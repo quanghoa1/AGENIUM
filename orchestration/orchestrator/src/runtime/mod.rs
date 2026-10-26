@@ -129,6 +129,9 @@ impl ProviderSource for ConfiguredProviders {
     }
 }
 
+/// How long an agent CLI's detection is reused (a login or upgrade shows up within this).
+const CLI_INFO_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
 /// Fixed providers by id (tests, evals).
 pub struct StaticProviders(pub Vec<(String, Arc<dyn Provider>)>);
 
@@ -172,6 +175,13 @@ pub struct Runtime {
     pub mcp: Arc<agenium_mcp::McpHub>,
     /// What each (provider, model) can do, looked up once (ADR-31).
     model_infos: Mutex<std::collections::HashMap<(String, String), Option<agenium_llm::ModelInfo>>>,
+    /// Each agent CLI's detection (version and login probes) and when it was made; reused for [`CLI_INFO_TTL`].
+    cli_infos: Mutex<
+        std::collections::HashMap<
+            agenium_cli_backend::CliKind,
+            (std::time::Instant, agenium_cli_backend::detect::CliInfo),
+        >,
+    >,
     /// Per project: the stop flag of its work (child of `cancel`); pausing a project stops its runs, not others.
     project_cancels: Mutex<std::collections::HashMap<ProjectId, Cancel>>,
     /// Per project: the inbox the Lead last failed on and how many times in a row (stops re-running a Lead that
@@ -292,6 +302,7 @@ impl Runtime {
         Self {
             project_cancels: Mutex::default(),
             model_infos: Mutex::default(),
+            cli_infos: Mutex::default(),
             inbox_failures: Mutex::default(),
             planner_failures: Mutex::default(),
             steering: Mutex::default(),
@@ -609,7 +620,7 @@ impl Runtime {
         let mut cli_ready = None;
         let fallback_agent;
         let agent = if agent.backend == BackendKind::Cli {
-            match self.cli_ready(agent) {
+            match self.cli_ready(agent).await {
                 Ok(r) => {
                     cli_ready = Some(r);
                     agent
@@ -845,9 +856,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             tokio::time::timeout(std::time::Duration::from_secs(15), provider.list_models())
                 .await
                 .ok()
-                .and_then(|r| r.ok())
-                .unwrap_or_default();
-        let mut info = listed.into_iter().find(|m| m.id == model);
+                .and_then(|r| r.ok());
+        // A failed or slow listing is not remembered: the next run asks again.
+        let answered = listed.is_some();
+        let mut info = listed
+            .unwrap_or_default()
+            .into_iter()
+            .find(|m| m.id == model);
         if let Some(pc) = self.app.config().provider(provider_id) {
             if info.is_none() && pc.caps(model).is_some() {
                 info = Some(agenium_llm::ModelInfo {
@@ -863,16 +878,61 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 apply_caps(pc, i);
             }
         }
+        if answered {
+            self.model_infos
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(key, info.clone());
+        }
+        info
+    }
+
+    /// The CLI's detection, made off the async threads (it runs the CLI's version and login probes) and reused for
+    /// a short while so back-to-back runs do not probe again.
+    async fn cli_info(
+        &self,
+        cli: agenium_cli_backend::CliKind,
+    ) -> agenium_cli_backend::detect::CliInfo {
+        if let Some((at, info)) = self
+            .cli_infos
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&cli)
+        {
+            if at.elapsed() < CLI_INFO_TTL {
+                return info.clone();
+            }
+        }
+        let info = tokio::task::spawn_blocking(move || agenium_cli_backend::detect::detect(cli))
+            .await
+            .unwrap_or_else(|_| agenium_cli_backend::detect::CliInfo {
+                kind: cli,
+                path: None,
+                version: None,
+                login: agenium_cli_backend::Login::Unknown,
+                compatible: false,
+                note: Some("detection failed".into()),
+            });
+        self.cli_infos
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(cli, (std::time::Instant::now(), info.clone()));
+        info
+    }
+
+    /// Drops what this runtime remembers about a provider (its client and its models' capabilities) after the
+    /// user edits or removes it.
+    pub fn forget_provider(&self, id: &str) {
+        self.providers.forget(id);
         self.model_infos
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .insert(key, info.clone());
-        info
+            .retain(|(p, _), _| p != id);
     }
 
     /// Whether the agent's CLI can run now: known, driven by Agenium, installed, at least the checked version, not
     /// logged out, and (for a CLI that must run contained) a sandbox backend works. `Err` = why not.
-    fn cli_ready(
+    async fn cli_ready(
         &self,
         agent: &agenium_store::core::agents::Agent,
     ) -> std::result::Result<(&'static dyn agenium_cli_backend::Driver, PathBuf), String> {
@@ -884,7 +944,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .ok_or_else(|| format!("{name:?} is not a known agent CLI"))?;
         let driver = agenium_cli_backend::driver(cli)
             .ok_or_else(|| format!("Agenium does not drive {name} yet (ADR-56)"))?;
-        let info = agenium_cli_backend::detect::detect(cli);
+        let info = self.cli_info(cli).await;
         let program = driver.program(
             &info
                 .path

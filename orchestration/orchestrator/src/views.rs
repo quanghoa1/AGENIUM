@@ -233,17 +233,8 @@ impl App {
         let names: HashMap<AgentId, String> =
             self.agents()?.into_iter().map(|a| (a.id, a.name)).collect();
         let by_key: HashMap<&TicketKey, &Ticket> = tickets.iter().map(|t| (&t.key, t)).collect();
-        let open_q: HashMap<TicketId, usize> = self.store.read(|c| {
-            let mut m = HashMap::new();
-            for t in &tickets {
-                let n = comments::for_ticket(c, t.id)?
-                    .iter()
-                    .filter(|c| c.kind == CommentKind::Question && !c.resolved)
-                    .count();
-                m.insert(t.id, n);
-            }
-            Ok(m)
-        })?;
+        let open_q: HashMap<TicketId, usize> =
+            self.store.read(|c| comments::open_questions(c, project))?;
         let mut cols: Vec<Column> = COLUMNS
             .iter()
             .map(|s| Column {

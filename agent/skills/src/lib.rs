@@ -518,12 +518,21 @@ impl Registry {
     pub fn for_agent(&self, agent: &str, role: &str, enabled: &[String]) -> SkillSet {
         let mut map = BTreeMap::new();
         let mut problems = Vec::new();
-        if !enabled.is_empty() {
-            let lib = self.library();
-            for s in lib.skills {
-                if enabled.contains(&s.meta.name) {
+        // A skill's folder is named after it, so only the enabled ones are read (not the whole library).
+        let lib = self.dir_of(&Owner::Library);
+        for name in enabled.iter().filter(|n| valid_name(n)) {
+            let dir = lib.join(name);
+            if !dir.is_dir() {
+                continue;
+            }
+            match validate(&dir, Origin::Library) {
+                Ok(s) => {
                     map.insert(s.meta.name.clone(), s);
                 }
+                Err(e) => problems.push(Problem {
+                    dir,
+                    error: e.to_string(),
+                }),
             }
         }
         scan(

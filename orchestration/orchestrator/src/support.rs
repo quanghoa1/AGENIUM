@@ -97,10 +97,7 @@ impl App {
             for t in &tickets {
                 *by.entry(format!("{:?}", t.status)).or_default() += 1;
             }
-            let runs = self
-                .store()
-                .read(|c| agenium_store::core::runs::recent(c, usize::MAX >> 1))?
-                .len();
+            let runs = self.store().read(agenium_store::core::runs::count)?;
             stats.push_str(&format!(
                 "\n[{}] {} — {} ticket(s): {}; {} run(s) total (store-wide)\n  open: {}\n",
                 p.key_prefix,

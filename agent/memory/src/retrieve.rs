@@ -142,9 +142,14 @@ pub fn recall(
     for (r, (f, _)) in graph_hits.iter().enumerate() {
         add(f.id, r, W_GRAPH, 2);
     }
-    let ids: Vec<i64> = fused.keys().copied().collect();
-    let mut facts: HashMap<i64, Fact> = HashMap::new();
-    for id in ids {
+    // The graph channel already loaded its facts; only the text hits are read here.
+    let mut facts: HashMap<i64, Fact> = graph_hits.into_iter().map(|(f, _)| (f.id, f)).collect();
+    let missing: Vec<i64> = fused
+        .keys()
+        .copied()
+        .filter(|id| !facts.contains_key(id))
+        .collect();
+    for id in missing {
         if let Ok(f) = store.get(id) {
             facts.insert(id, f);
         }

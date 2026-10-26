@@ -67,6 +67,9 @@ pub struct App {
     agent_stores: Mutex<HashMap<AgentId, Arc<AgentStore>>>,
     /// Serializes writes of `<root>/vendor-usage.json`.
     pub(crate) vendor_usage_lock: Mutex<()>,
+    /// The last price list read and the file times it was read at ([`App::prices`]).
+    pub(crate) prices_cache:
+        Mutex<Option<(crate::prices::PricesStamp, agenium_llm::pricing::Prices)>>,
 }
 
 struct StoreSource(Arc<CoreStore>);
@@ -160,6 +163,7 @@ impl App {
             faults: Arc::new(Mutex::new(Vec::new())),
             agent_stores: Mutex::new(HashMap::new()),
             vendor_usage_lock: Mutex::new(()),
+            prices_cache: Mutex::default(),
         };
         let report = app.reconcile()?;
         app.purge_deleted_agents()?;
