@@ -6,6 +6,7 @@ import { Empty, Mono, PageHeader, PriorityBadge, Section, TicketStatusBadge, cn 
 import { AnimatePresence } from "motion/react";
 import { useRef } from "react";
 import { api } from "../lib/api";
+import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import type { AgentEntry, Card, Column, InboxItem, PlanView, TicketStatus } from "../lib/types";
 
@@ -310,6 +311,17 @@ function Plan({ project }: { project: string }) {
   );
 }
 
+// Rose: work cannot go on; amber: waits on a decision; purple: planning; cyan: staffing; blue: a question.
+const INBOX_TONE: Partial<Record<InboxItem["kind"], string>> = {
+  Blocked: "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300",
+  BlockingQuestion: "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300",
+  Permission: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  Planning: "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300",
+  Plan: "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300",
+  Assign: "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
+  Question: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+};
+
 function Inbox({ project }: { project: string }) {
   const app = useApp();
   const [items, setItems] = useState<InboxItem[] | null>(null);
@@ -322,7 +334,7 @@ function Inbox({ project }: { project: string }) {
       <div className="space-y-2">
         {items.map((i, n) => (
           <div key={n} className="flex items-start gap-3 rounded-lg border border-line bg-elevated/50 p-3">
-            <span className="chip border-line-strong bg-surface text-muted">{i.kind}</span>
+            <span className={cn("chip shrink-0", INBOX_TONE[i.kind] ?? "border-line-strong bg-surface text-muted")}>{app.t(`inbox.kind.${i.kind}` as Key)}</span>
             <Markdown className="flex-1 text-xs" text={i.text} />
             {i.ticket && (
               <button className="btn" onClick={() => app.go("ticket", i.ticket!)}>

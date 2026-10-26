@@ -56,3 +56,12 @@ command gate plus the unified `fetch` are their controls.
 - Tests: config default asserts `sandbox.network`; `stream_run` asserts the web tool is denied toward `fetch`.
 - Not done: per-domain command egress (would need the proxy ADR-83 rejected); moving hook-mode CLIs in-sandbox (blocked
   by their host login model).
+
+## Addendum (2026-10-27): host loopback on Windows
+
+With `network = true`, a command in the Windows sandbox reaches services on the host's `127.0.0.1` (a review found it;
+tested: the sandbox cannot tell the worker's own loopback from the host's, so denying loopback also breaks the dev
+servers and test suites a worker starts for itself). The owner's decision: keep it, as Codex's sandbox does with its
+network on; no extra switch. The effort goes into the orchestration instead (agents doing the plan fully and right).
+The app's own window is protected separately: it refuses any navigation away from the app (`nav-guard` in the
+desktop), after a worker's verification script drove the app's DevTools port.
