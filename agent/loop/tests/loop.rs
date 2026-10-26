@@ -825,3 +825,63 @@ async fn a_wordless_400_is_an_overflow_only_for_a_huge_request() {
     let r = run(&p, &ctx, &tools, &proto, cfg()).run(&huge).await;
     assert_eq!(r.outcome, Outcome::Completed);
 }
+
+/// ADR-100: the notes list the files read and changed, and a second compaction updates the first notes and keeps
+/// the lists.
+#[tokio::test]
+async fn notes_carry_the_files_read_and_changed() {
+    let (t, ctx, tools, proto) = harness();
+    std::fs::write(t.path().join("spec.md"), "the spec\n").unwrap();
+    let p = ScriptedProvider::new("m");
+    p.push(using(100, vec![("read_file", json!({"path": "spec.md"}))]));
+    p.push(using(
+        9_000,
+        vec![(
+            "write_file",
+            json!({"path": "out.rs", "content": "fn main() {}\n"}),
+        )],
+    ));
+    p.push(Box::new(|req: &ChatRequest| {
+        let ask = req.messages.last().unwrap().text();
+        assert!(
+            ask.contains("## Next steps") && ask.contains("update them"),
+            "{ask}"
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "## Goal\nfirst notes",
+            vec![],
+        ))
+    }));
+    p.push(using(9_000, vec![("list_dir", json!({}))]));
+    p.push(Box::new(|req: &ChatRequest| {
+        let earlier = req.messages[1].text();
+        assert!(
+            earlier.contains("first notes"),
+            "the earlier notes are shown: {earlier}"
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "## Goal\nsecond notes",
+            vec![],
+        ))
+    }));
+    p.push(Box::new(|req: &ChatRequest| {
+        let note = req.messages[1].text();
+        assert!(note.contains("second notes"), "{note}");
+        assert!(
+            note.contains("<read-files>\nspec.md\n</read-files>"),
+            "{note}"
+        );
+        assert!(
+            note.contains("<modified-files>\nout.rs\n</modified-files>"),
+            "{note}"
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, small_window())
+        .run(&order())
+        .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+}

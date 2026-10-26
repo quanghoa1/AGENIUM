@@ -27,6 +27,11 @@ it, else 200 000 tokens):
    (default 2; 0 = the old behaviour).
 3. **Then: checkpoint**, as before (the note, the run ends, the next run resumes from it).
 
+**Notes format (2026-10-26, learned from pi):** the model writes under fixed headings (Goal; Constraints and
+preferences; Progress — Done / In progress / Blocked; Key decisions; Next steps; Critical context) and, on a second
+compaction, updates its earlier notes instead of starting over. Agenium appends the files the replaced conversation
+read and changed (`<read-files>`, `<modified-files>`, from its tool calls), carried over from compaction to compaction.
+
 ## Consequences
 
 - Long tickets run further in one run and keep what they need; fewer runs end at a checkpoint.

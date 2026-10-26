@@ -215,8 +215,11 @@ const KEEP_RESULTS: usize = 4;
 const CLEAR_MIN_CHARS: usize = 400;
 const CLEARED: &str = "[cleared to save context";
 const COMPACT: &str = "The context is nearly full: the conversation of this run so far will be replaced by your notes. \
-Write them now, without calling tools: the task, what is done (files changed; commands run and the results that \
-matter), what you found that you still need, what remains, and the next concrete step.";
+Write them now, without calling tools, under these headings:\n\
+## Goal\n## Constraints and preferences\n## Progress (Done / In progress / Blocked)\n## Key decisions\n\
+## Next steps\n## Critical context (exact names, values, errors and commands you still need)\n\
+If notes from an earlier compaction are above, update them: keep what still holds, move finished items to Done, add \
+what is new. The files you read and changed are listed for you; do not list them.";
 const COMPACTED: &str =
     "[Context compacted: the conversation of this run so far was replaced by your notes below. \
 Changes you made to files are still there. Continue from the next step.]";
@@ -724,8 +727,22 @@ impl Run<'_> {
         if notes.trim().is_empty() || r.stop == StopReason::MaxTokens {
             return Ok(false);
         }
+        let (read, changed) = files_touched(&messages[start_len..]);
         messages.truncate(start_len);
-        let m = Message::user_text(format!("{COMPACTED}\n\n{}", notes.trim()));
+        let mut text = format!("{COMPACTED}\n\n{}", notes.trim());
+        if !read.is_empty() {
+            text.push_str(&format!(
+                "\n\n<read-files>\n{}\n</read-files>",
+                read.join("\n")
+            ));
+        }
+        if !changed.is_empty() {
+            text.push_str(&format!(
+                "\n<modified-files>\n{}\n</modified-files>",
+                changed.join("\n")
+            ));
+        }
+        let m = Message::user_text(text);
         self.observer.message(&m);
         messages.push(m);
         tracing::info!("run context compacted");
@@ -783,6 +800,46 @@ fn bare_overflow(e: &agenium_llm::LlmError, messages: &[Message]) -> bool {
         })
         .sum();
     wordless && chars / 4 > 100_000
+}
+
+/// The files the replaced conversation read and changed, by its tool calls and by the lists of an earlier
+/// compaction note it starts with (so they carry over). Changed files are not listed as read too.
+fn files_touched(messages: &[Message]) -> (Vec<String>, Vec<String>) {
+    let mut read = std::collections::BTreeSet::new();
+    let mut changed = std::collections::BTreeSet::new();
+    let block = |text: &str, tag: &str| -> Vec<String> {
+        let (open, close) = (format!("<{tag}>\n"), format!("\n</{tag}>"));
+        text.find(&open)
+            .and_then(|i| {
+                let rest = &text[i + open.len()..];
+                rest.find(&close)
+                    .map(|j| rest[..j].lines().map(str::to_owned).collect())
+            })
+            .unwrap_or_default()
+    };
+    for m in messages {
+        let t = m.text();
+        if t.starts_with("[Context compacted") {
+            read.extend(block(&t, "read-files"));
+            changed.extend(block(&t, "modified-files"));
+        }
+        for c in m.tool_calls() {
+            let Some(path) = c.args["path"].as_str() else {
+                continue;
+            };
+            match c.name.as_str() {
+                "read_file" => {
+                    read.insert(path.to_owned());
+                }
+                "write_file" | "edit_file" | "multi_edit" => {
+                    changed.insert(path.to_owned());
+                }
+                _ => {}
+            }
+        }
+    }
+    let read = read.into_iter().filter(|p| !changed.contains(p)).collect();
+    (read, changed.into_iter().collect())
 }
 
 fn call_outcome(e: CallError) -> Outcome {
