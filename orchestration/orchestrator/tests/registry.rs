@@ -653,3 +653,25 @@ fn projects_from_a_folder_name_or_a_repository() {
     assert!(std::path::Path::new(&p.path).join("README.md").is_file());
     assert_eq!(p.main_branch, "trunk");
 }
+
+/// ADR-107: every known vendor's preset builds an adapter (with a placeholder key), and its endpoint is the one the
+/// adapter will call.
+#[test]
+fn every_vendor_preset_builds_an_adapter() {
+    for pr in agenium_config::presets::PRESETS {
+        let spec = agenium_llm::ProviderSpec {
+            id: pr.id.into(),
+            kind: match pr.kind {
+                agenium_config::ProviderKind::Anthropic => "anthropic",
+                agenium_config::ProviderKind::Gemini => "gemini",
+                _ => "openai_compat",
+            }
+            .into(),
+            base_url: pr.base_url.map(str::to_owned),
+            api_key: (!pr.key_env.is_empty()).then(|| "placeholder".to_owned()),
+            max_concurrency: 2,
+        };
+        let p = agenium_llm::build_provider(&spec).unwrap_or_else(|e| panic!("{}: {e}", pr.id));
+        assert_eq!(p.id(), pr.id);
+    }
+}

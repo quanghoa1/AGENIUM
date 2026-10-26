@@ -37,6 +37,7 @@ dependencies = [
  "agenium-llm",
  "agenium-tools",
  "async-trait",
+ "futures",
  "serde",
  "serde_json",
  "tokio",

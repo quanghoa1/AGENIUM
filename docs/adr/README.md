@@ -74,3 +74,4 @@ ADR-52 records this fresh implementation.
 | [104](ADR-104-messaging-a-running-lead.md) | The user's message to a running Lead/Solo reaches it before its next step (never a worker: workers get work through tickets and the plan); late messages open the next turn |
 | [105](ADR-105-lenient-arguments-parallel-reads.md) | Harmless tool-argument shape mistakes are repaired against the schema; read-only calls of one turn run together, results in order |
 | [106](ADR-106-long-lead-chat-summary.md) | A long Lead chat (over ~50k tokens) is sent as a summary of its older part plus ~15k tokens of recent messages; the stored chat stays whole; the summary is updated, never cut at a tool result |
+| [107](ADR-107-vendor-presets.md) | 29 known vendors as presets (adapter, endpoint, key variable): `agenium provider presets`, `provider add <id>`, "More vendors…" in the app; every endpoint probed |

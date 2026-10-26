@@ -169,11 +169,16 @@ enum Cmd {
 
 #[derive(Subcommand)]
 enum ProviderCmd {
-    /// Add or replace a provider. The key is read from --key-env or stdin.
+    /// Add or replace a provider. The key is read from --key-env or stdin. A known vendor needs no --kind or
+    /// --base-url: name it with --preset (or use its preset id as the provider id; see `agenium provider presets`);
+    /// its usual key variable (e.g. GROQ_API_KEY) is read when set.
     Add {
         id: String,
         #[arg(long, value_parser = ["anthropic", "gemini", "openai_compat"])]
-        kind: String,
+        kind: Option<String>,
+        /// A known vendor (`agenium provider presets`).
+        #[arg(long)]
+        preset: Option<String>,
         #[arg(long)]
         base_url: Option<String>,
         /// Environment variable holding the API key.
@@ -186,6 +191,8 @@ enum ProviderCmd {
         max_concurrency: u32,
     },
     List,
+    /// Known vendors: adapter, endpoint and the usual key variable (ADR-107).
+    Presets,
     /// List models from the provider's API.
     Models {
         id: String,
@@ -1408,18 +1415,65 @@ async fn main() -> Result<()> {
                 );
             }
         }
+        Cmd::Provider(ProviderCmd::Presets) => {
+            for pr in agenium_config::presets::PRESETS {
+                println!(
+                    "{:<18} {:<30} {:<58} {}{}",
+                    pr.id,
+                    pr.name,
+                    pr.base_url.unwrap_or("(adapter default)"),
+                    if pr.key_env.is_empty() {
+                        "no key"
+                    } else {
+                        pr.key_env
+                    },
+                    if pr.note.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" — {}", pr.note)
+                    }
+                );
+            }
+        }
         Cmd::Provider(pc) => {
             let app = open(&root(&cli)?)?;
             match pc {
                 ProviderCmd::Add {
                     id,
                     kind,
+                    preset,
                     base_url,
                     key_env,
                     key_stdin,
                     max_concurrency,
                 } => {
-                    let key = match (key_env, key_stdin) {
+                    let known = match preset {
+                        Some(n) => Some(agenium_config::presets::preset(n).ok_or_else(|| {
+                            anyhow!("no preset {n:?} (see agenium provider presets)")
+                        })?),
+                        None if kind.is_none() => agenium_config::presets::preset(id),
+                        None => None,
+                    };
+                    let kind = match (kind.as_deref(), known) {
+                        (Some(k), _) => k.to_owned(),
+                        (None, Some(pr)) => match pr.kind {
+                            ProviderKind::Anthropic => "anthropic",
+                            ProviderKind::Gemini => "gemini",
+                            _ => "openai_compat",
+                        }
+                        .to_owned(),
+                        (None, None) => bail!(
+                            "give --kind, or --preset with a known vendor (agenium provider presets)"
+                        ),
+                    };
+                    let base_url = base_url
+                        .clone()
+                        .or_else(|| known.and_then(|pr| pr.base_url.map(str::to_owned)));
+                    // The vendor's usual variable is read only when it is set (its value is never printed).
+                    let usual = known
+                        .map(|pr| pr.key_env)
+                        .filter(|v| !v.is_empty() && std::env::var(v).is_ok());
+                    let key = match (key_env.as_deref().or(usual), key_stdin) {
                         (Some(v), _) => Some(
                             std::env::var(v)
                                 .with_context(|| format!("environment variable {v} is not set"))?,
@@ -1427,6 +1481,12 @@ async fn main() -> Result<()> {
                         (None, true) => Some(read_secret_stdin()?),
                         (None, false) => None,
                     };
+                    if key.is_none() && known.is_some_and(|pr| !pr.key_env.is_empty()) {
+                        eprintln!(
+                            "note: no key given; set {} or pass --key-env/--key-stdin",
+                            known.map(|pr| pr.key_env).unwrap_or_default()
+                        );
+                    }
                     let secret_name = format!("provider/{id}");
                     if let Some(k) = &key {
                         app.secrets().set(&secret_name, k.as_bytes())?;
@@ -1483,6 +1543,7 @@ async fn main() -> Result<()> {
                         );
                     }
                 }
+                ProviderCmd::Presets => unreachable!("listed without a root"),
                 ProviderCmd::List => {
                     for p in app.config().providers {
                         println!(

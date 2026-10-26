@@ -505,6 +505,27 @@ pub async fn provider_models(d: State<'_, Desktop>, id: String) -> R<Value> {
     Ok(json!(models))
 }
 
+/// Known vendors with their adapter, endpoint and usual key variable (ADR-107).
+#[tauri::command]
+pub fn provider_presets() -> R<Value> {
+    let kind = |k: agenium_config::ProviderKind| match k {
+        agenium_config::ProviderKind::Anthropic => "anthropic",
+        agenium_config::ProviderKind::Gemini => "gemini",
+        _ => "openai_compat",
+    };
+    Ok(json!(agenium_config::presets::PRESETS
+        .iter()
+        .map(|p| json!({
+            "id": p.id,
+            "name": p.name,
+            "kind": kind(p.kind),
+            "base_url": p.base_url,
+            "key_env": p.key_env,
+            "note": p.note,
+        }))
+        .collect::<Vec<_>>()))
+}
+
 /// Local model servers answering on this machine.
 #[tauri::command]
 pub async fn local_servers() -> R<Value> {

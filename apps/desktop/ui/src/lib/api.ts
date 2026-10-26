@@ -182,6 +182,10 @@ export const api = {
   removeProvider: (id: string) => call<void>("remove_provider", { id }),
   providerModels: (id: string) => call<ModelInfo[]>("provider_models", { id }),
   localServers: () => call<LocalServer[]>("local_servers"),
+  providerPresets: () =>
+    call<{ id: string; name: string; kind: "anthropic" | "gemini" | "openai_compat"; base_url?: string | null; key_env: string; note: string }[]>(
+      "provider_presets",
+    ),
 
   // Live tab
   live: () => call<LiveData>("live"),

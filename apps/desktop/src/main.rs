@@ -124,6 +124,7 @@ fn main() {
             manage::import_mcp_json,
             manage::remove_mcp,
             manage::test_mcp,
+            manage::provider_presets,
             manage::login_mcp,
             manage::logout_mcp,
             manage::put_provider,

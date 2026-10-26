@@ -1,6 +1,7 @@
 //! Agenium root, `config.toml`, setup wizard backend and system requirements (decisions 12 and 24).
 
 pub mod config;
+pub mod presets;
 pub mod root;
 pub mod setup;
 pub mod sysreq;

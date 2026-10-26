@@ -101,7 +101,7 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
         </label>
         <label>
           <span className="label">base URL</span>
-          <input className="input mt-1 font-mono" value={d.base_url} disabled={d.kind !== "openai_compat"} placeholder={d.kind === "openai_compat" ? "https://…/v1" : app.t("providers.defaultUrl")} onChange={(e) => set({ base_url: e.target.value })} />
+          <input className="input mt-1 font-mono" value={d.base_url} placeholder={d.kind === "openai_compat" ? "https://…/v1" : app.t("providers.defaultUrl")} onChange={(e) => set({ base_url: e.target.value })} />
         </label>
         {!d.local && (
           <label className="md:col-span-2">
@@ -189,10 +189,17 @@ export function ProvidersView() {
   const [models, setModels] = useState<string | null>(null);
   const [del, setDel] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [vendors, setVendors] = useState<Preset[]>([]);
   const load = (refresh = false) => api.capabilities(refresh).then(setC);
   useEffect(() => {
     load();
   }, [app.tick]);
+  useEffect(() => {
+    api
+      .providerPresets()
+      .then((v) => setVendors((v ?? []).map((p) => ({ id: p.id, label: p.name, kind: p.kind, base_url: p.base_url ?? undefined, key: p.key_env !== "", local: p.key_env === "" }))))
+      .catch(() => setVendors([]));
+  }, []);
   if (!c) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
   const fromPreset = (p: Preset): ProviderDraft => ({
     editing: false,
@@ -223,6 +230,23 @@ export function ProvidersView() {
           <div className="mb-4 space-y-3">
             {!draft.editing && (
               <div className="flex flex-wrap gap-2">
+                {vendors.length > 0 && (
+                  <select
+                    className="input w-auto text-xs"
+                    value=""
+                    onChange={(e) => {
+                      const p = vendors.find((v) => v.id === e.target.value);
+                      if (p) setDraft(fromPreset(p));
+                    }}
+                  >
+                    <option value="">{app.t("providers.more")} ({vendors.length})</option>
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {PRESETS.map((p) => (
                   <button
                     key={p.id}
