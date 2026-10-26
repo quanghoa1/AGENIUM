@@ -705,7 +705,7 @@ impl Approver for TerminalApprover {
     }
 }
 
-/// Pre-merge checks configured in `agenium.toml` run only after approval (no sandbox before M2).
+/// Pre-merge checks configured in `agenium.toml` run only after the user approves them at the terminal.
 struct ApprovedChecks;
 
 struct ApprovedCheck {
@@ -734,30 +734,7 @@ impl agenium_vcs::CheckRunner for ApprovedCheck {
                 log: "the user declined the pre-merge check".into(),
             };
         }
-        let ex = agenium_sandbox::Executor::new(agenium_sandbox::Shell::detect());
-        let spec = agenium_sandbox::CommandSpec {
-            command: self.command.clone(),
-            cwd: worktree.into(),
-            timeout: std::time::Duration::from_secs(1800),
-            env: Default::default(),
-        };
-        let policy = agenium_sandbox::SandboxPolicy::workspace(std::path::Path::new(worktree));
-        let r = match tokio::runtime::Handle::try_current() {
-            Ok(h) => h.block_on(ex.run(&spec, &policy)),
-            Err(_) => tokio::runtime::Runtime::new()
-                .map_err(agenium_sandbox::ExecError::Io)
-                .and_then(|rt| rt.block_on(ex.run(&spec, &policy))),
-        };
-        match r {
-            Ok(o) => agenium_vcs::CheckOutcome {
-                ok: o.exit_code == Some(0) && !o.timed_out,
-                log: format!("{}\n{}", o.stdout, o.stderr),
-            },
-            Err(e) => agenium_vcs::CheckOutcome {
-                ok: false,
-                log: e.to_string(),
-            },
-        }
+        agenium_orchestrator::check::run_check(&self.command, worktree)
     }
 }
 

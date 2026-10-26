@@ -5,6 +5,16 @@ use std::fmt;
 
 use serde::Serialize;
 
+/// An id slug (roles, team templates, skill folders): 1..=`max` of `a-z`, `0-9` and `-`, no hyphen at either end.
+pub fn slug_ok(s: &str, max: usize) -> bool {
+    !s.is_empty()
+        && s.len() <= max
+        && s.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        && !s.starts_with('-')
+        && !s.ends_with('-')
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FieldError {
     pub field: String,

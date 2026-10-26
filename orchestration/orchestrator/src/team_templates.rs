@@ -66,10 +66,7 @@ fn one() -> u32 {
 }
 
 fn slug_ok(s: &str) -> bool {
-    !s.is_empty()
-        && s.len() <= 40
-        && s.chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    agenium_core::validate::slug_ok(s, 40)
 }
 
 impl TeamTemplate {
@@ -196,7 +193,7 @@ impl App {
             files.sort();
             for f in files {
                 match std::fs::read_to_string(&f)
-                    .map_err(|e| OrchError::Invalid(e.to_string()))
+                    .map_err(OrchError::from)
                     .and_then(|s| TeamTemplate::parse(&s))
                 {
                     Ok(t) => {
@@ -224,9 +221,7 @@ impl App {
     pub fn save_team_template(&self, t: &TeamTemplate) -> Result<TeamTemplate> {
         t.validate()?;
         let dir = self.layout().templates();
-        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
-        std::fs::write(dir.join(format!("{}.toml", t.id)), t.to_toml())
-            .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        agenium_config::write_atomic(&dir.join(format!("{}.toml", t.id)), t.to_toml().as_bytes())?;
         self.team_template(&t.id)
     }
 
@@ -236,7 +231,7 @@ impl App {
         if !slug_ok(id) || !file.is_file() {
             return Err(OrchError::NotFound(format!("no user template {id:?}")));
         }
-        std::fs::remove_file(file).map_err(|e| OrchError::Invalid(e.to_string()))
+        Ok(std::fs::remove_file(file)?)
     }
 
     /// Whether `id` is (or overrides) one of the built-in templates, and whether the user saved one with this id.
@@ -316,9 +311,7 @@ impl App {
             .map_err(|e| OrchError::Invalid(format!("{}: {e}", file.display())))?;
         let t = TeamTemplate::parse(&text)?;
         let dir = self.layout().templates();
-        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
-        std::fs::write(dir.join(format!("{}.toml", t.id)), t.to_toml())
-            .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        agenium_config::write_atomic(&dir.join(format!("{}.toml", t.id)), t.to_toml().as_bytes())?;
         Ok(t)
     }
 
@@ -417,11 +410,10 @@ impl App {
     /// not exist yet.
     pub(crate) fn write_role_folder(&self, id: &str, origin: &str, r: &RoleSpec) -> Result<()> {
         let dir = self.layout().roles().join(id);
-        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        std::fs::create_dir_all(&dir)?;
         let role_md = dir.join("ROLE.md");
         if !role_md.exists() && !r.prompt.trim().is_empty() {
-            std::fs::write(&role_md, format!("{}\n", r.prompt.trim()))
-                .map_err(|e| OrchError::Invalid(e.to_string()))?;
+            std::fs::write(&role_md, format!("{}\n", r.prompt.trim()))?;
         }
         let scope = dir.join("role.toml");
         if !scope.exists() {
@@ -433,7 +425,7 @@ impl App {
                 tags: r.tags.clone(),
             })
             .unwrap_or_default();
-            std::fs::write(&scope, body).map_err(|e| OrchError::Invalid(e.to_string()))?;
+            std::fs::write(&scope, body)?;
         }
         Ok(())
     }

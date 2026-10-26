@@ -353,15 +353,10 @@ impl App {
             return Err(denied("only a team's Lead proposes roles"));
         };
         let role = r.role_id.trim().to_owned();
-        if role.is_empty()
-            || role.len() > 60
-            || role.starts_with('-')
-            || !role
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-        {
+        // The same rule `put_role` applies at approval, so an accepted proposal can be approved.
+        if !agenium_core::validate::slug_ok(&role, crate::registry::ROLE_ID_MAX) {
             return Err(invalid(format!(
-                "role_id {role:?}: lowercase letters, digits and '-' (at most 60)"
+                "role_id {role:?}: lowercase letters, digits and '-', not at either end (at most 60)"
             )));
         }
         if r.title.trim().is_empty() || r.description.trim().len() < 20 {

@@ -4,8 +4,8 @@
 //! it is a shell command and Agenium does not run shell commands unsandboxed on its own. A non-zero exit fails the
 //! merge and the ticket is reopened with the output, which the merge flow already handles.
 //!
-//! The headless CLI uses its own interactive approving check instead (`apps/cli`); this one runs automatically and
-//! is what the desktop app and non-interactive runtimes use.
+//! The headless CLI asks at the terminal first (`apps/cli`), then runs the command with [`run_check`]; this one runs
+//! automatically and is what the desktop app and non-interactive runtimes use.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -54,34 +54,40 @@ impl CheckRunner for SandboxCheck {
                 ),
             };
         }
-        let ex = Executor::new(Shell::detect());
-        let spec = CommandSpec {
-            command: self.cmd.clone(),
-            cwd: worktree.to_path_buf(),
-            timeout: TIMEOUT,
-            env: Default::default(),
-        };
-        let policy = SandboxPolicy::workspace(worktree);
-        // Run on a scratch thread so a current Tokio runtime is not blocked.
-        let r = match tokio::runtime::Handle::try_current() {
-            Ok(h) => std::thread::scope(|s| {
-                s.spawn(|| h.block_on(ex.run(&spec, &policy)))
-                    .join()
-                    .unwrap()
-            }),
-            Err(_) => tokio::runtime::Runtime::new()
-                .map_err(agenium_sandbox::ExecError::Io)
-                .and_then(|rt| rt.block_on(ex.run(&spec, &policy))),
-        };
-        match r {
-            Ok(o) => CheckOutcome {
-                ok: o.exit_code == Some(0) && !o.timed_out,
-                log: format!("$ {}\n{}{}", self.cmd, o.stdout, o.stderr),
-            },
-            Err(e) => CheckOutcome {
-                ok: false,
-                log: format!("pre-merge check failed to run: {e}"),
-            },
-        }
+        run_check(&self.cmd, worktree)
+    }
+}
+
+/// Runs a pre-merge check command in `worktree` under the workspace policy and turns the exit into an outcome.
+/// Safe to call from inside a Tokio runtime (it runs on a scratch thread then).
+pub fn run_check(cmd: &str, worktree: &Path) -> CheckOutcome {
+    let ex = Executor::new(Shell::detect());
+    let spec = CommandSpec {
+        command: cmd.to_owned(),
+        cwd: worktree.to_path_buf(),
+        timeout: TIMEOUT,
+        env: Default::default(),
+    };
+    let policy = SandboxPolicy::workspace(worktree);
+    // Run on a scratch thread so a current Tokio runtime is not blocked.
+    let r = match tokio::runtime::Handle::try_current() {
+        Ok(h) => std::thread::scope(|s| {
+            s.spawn(|| h.block_on(ex.run(&spec, &policy)))
+                .join()
+                .unwrap()
+        }),
+        Err(_) => tokio::runtime::Runtime::new()
+            .map_err(agenium_sandbox::ExecError::Io)
+            .and_then(|rt| rt.block_on(ex.run(&spec, &policy))),
+    };
+    match r {
+        Ok(o) => CheckOutcome {
+            ok: o.exit_code == Some(0) && !o.timed_out,
+            log: format!("$ {cmd}\n{}{}", o.stdout, o.stderr),
+        },
+        Err(e) => CheckOutcome {
+            ok: false,
+            log: format!("pre-merge check failed to run: {e}"),
+        },
     }
 }

@@ -132,8 +132,7 @@ impl App {
     pub fn save_price_catalogue(&self, c: &Catalogue) -> Result<usize> {
         let path = self.layout().price_catalogue();
         let text = serde_json::to_string(c).map_err(|e| OrchError::Invalid(e.to_string()))?;
-        std::fs::write(&path, text)
-            .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))?;
+        agenium_config::write_atomic(&path, text.as_bytes())?;
         self.price_unpriced_runs()
     }
 

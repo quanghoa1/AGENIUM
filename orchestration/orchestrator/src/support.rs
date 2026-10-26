@@ -1,32 +1,42 @@
-//! Support bundle (M5): a folder of diagnostics the user can share — versions, the configuration (secrets are stored
-//! by reference, so no values), store counts, and the tail of recent log files with secret values masked. Nothing in
-//! it is a secret; it is written under a folder the user chooses.
+//! Support bundle (M5): a folder of diagnostics the user can share — versions, the configuration (vault secrets are
+//! references; plain MCP `env`/`headers` values that look like secrets are masked), store counts, and the tail of
+//! recent log files with secret values masked. It is written under a folder the user chooses.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::app::App;
-use crate::{OrchError, Result};
+use crate::Result;
 
 /// Bytes of each log file kept (its tail).
 const LOG_TAIL: usize = 200_000;
 
-fn io(e: std::io::Error) -> OrchError {
-    OrchError::Invalid(e.to_string())
+/// The configuration as TOML with plain secret-looking MCP values replaced and known secrets redacted.
+fn masked_config(app: &App) -> String {
+    let mut cfg = app.config();
+    for server in &mut cfg.mcp {
+        for key in crate::mcp::plaintext_secrets(server) {
+            for map in [&mut server.env, &mut server.headers] {
+                if let Some(v) = map.get_mut(&key) {
+                    *v = "[masked]".into();
+                }
+            }
+        }
+    }
+    app.redactor()
+        .redact(&toml::to_string_pretty(&cfg).unwrap_or_default())
 }
 
 impl App {
-    /// Writes a support bundle under `out` and returns its folder. Secret values are masked; configuration holds
-    /// only secret names.
+    /// Writes a support bundle under `out` and returns its folder. Secret values are masked.
     pub fn support_bundle(&self, out: &Path) -> Result<PathBuf> {
         let dir = out.join(format!(
             "agenium-support-{}",
             chrono::Utc::now().format("%Y%m%dT%H%M%SZ")
         ));
-        std::fs::create_dir_all(&dir).map_err(io)?;
-        let write = |name: &str, body: &str| -> Result<()> {
-            std::fs::write(dir.join(name), body).map_err(io)
-        };
+        std::fs::create_dir_all(&dir)?;
+        let write =
+            |name: &str, body: &str| -> Result<()> { Ok(std::fs::write(dir.join(name), body)?) };
 
         // Versions and environment.
         let clis = agenium_cli_backend::detect::detect_all();
@@ -70,11 +80,8 @@ impl App {
         }
         write("versions.txt", &v)?;
 
-        // Configuration (secrets are references, not values).
-        write(
-            "config.toml",
-            &toml::to_string_pretty(&self.config()).unwrap_or_default(),
-        )?;
+        // Configuration: vault secrets are references, but an MCP server's env/headers may hold a plain key.
+        write("config.toml", &masked_config(self))?;
 
         // Store counts.
         let mut stats = String::new();
@@ -111,7 +118,7 @@ impl App {
 
         // Recent log files, secret values masked.
         let logs_dir = dir.join("logs");
-        std::fs::create_dir_all(&logs_dir).map_err(io)?;
+        std::fs::create_dir_all(&logs_dir)?;
         if let Ok(rd) = std::fs::read_dir(self.layout().logs()) {
             let mut files: Vec<PathBuf> = rd
                 .flatten()
@@ -135,8 +142,8 @@ impl App {
                         .unwrap_or_default()
                         .to_string_lossy()
                         .into_owned();
-                    let mut w = std::fs::File::create(logs_dir.join(name)).map_err(io)?;
-                    w.write_all(masked.as_bytes()).map_err(io)?;
+                    let mut w = std::fs::File::create(logs_dir.join(name))?;
+                    w.write_all(masked.as_bytes())?;
                 }
             }
         }

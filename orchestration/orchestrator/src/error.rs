@@ -29,6 +29,9 @@ pub enum OrchError {
     Conflict(String),
     #[error("invalid: {0}")]
     Invalid(String),
+    /// A file Agenium keeps could not be read or written (not the caller's fault).
+    #[error("i/o: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Structured error returned to a model as a tool result (decision 36: code + reason + current state).
@@ -58,6 +61,7 @@ impl OrchError {
             OrchError::Secret(_) => "secret_store_error",
             OrchError::Denied(_) => "denied",
             OrchError::Invalid(_) => "invalid",
+            OrchError::Io(_) => "io_error",
         }
     }
 

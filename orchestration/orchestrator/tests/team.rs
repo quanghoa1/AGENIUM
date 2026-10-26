@@ -1091,6 +1091,11 @@ fn the_lead_proposes_a_role_and_the_user_decides() {
         propose(Actor::Worker(t.web), "qa").is_err(),
         "workers do not propose roles"
     );
+    // An id the approval step would reject is refused up front.
+    assert!(propose(Actor::Lead(t.lead), "tester-")
+        .unwrap_err()
+        .to_string()
+        .contains("not at either end"));
     assert!(
         propose(Actor::Lead(t.lead), "web")
             .unwrap_err()
@@ -1387,13 +1392,36 @@ fn agents_md_is_the_shared_project_guidance() {
     assert!(!g.contains("ignore me"));
 }
 
-/// Support bundle (M5): a shareable diagnostics folder with versions, the config (secret names only), store counts
+/// Support bundle (M5): a shareable diagnostics folder with versions, the config (plain MCP keys masked), store counts
 /// and masked logs; no secret values.
 #[test]
 fn support_bundle_has_diagnostics_without_secrets() {
     let f = fixture();
+    // A key typed straight into an MCP server's headers is masked in the bundle's config.
+    f.app
+        .put_mcp_server(agenium_config::McpServerConfig {
+            id: "plain".into(),
+            command: None,
+            args: vec![],
+            env: [("API_TOKEN".to_string(), "plain-env-value-42".to_string())].into(),
+            url: Some("http://127.0.0.1:1/mcp".into()),
+            headers: [(
+                "Authorization".to_string(),
+                "Bearer plain-header-value-42".to_string(),
+            )]
+            .into(),
+            timeout_secs: 10,
+            oauth: None,
+        })
+        .unwrap();
     let out = f.root.parent().unwrap().join("bundle-out");
     let dir = f.app.support_bundle(&out).unwrap();
+    let config = std::fs::read_to_string(dir.join("config.toml")).unwrap();
+    assert!(
+        config.contains("[masked]") && config.contains("plain"),
+        "{config}"
+    );
+    assert!(!config.contains("plain-env-value-42") && !config.contains("plain-header-value-42"));
     for name in ["versions.txt", "config.toml", "stats.txt", "README.txt"] {
         assert!(dir.join(name).is_file(), "missing {name}");
     }

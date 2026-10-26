@@ -25,13 +25,11 @@ fn io(e: impl std::fmt::Display) -> OrchError {
     OrchError::Invalid(e.to_string())
 }
 
+/// Longest role id.
+pub(crate) const ROLE_ID_MAX: usize = 60;
+
 fn slug_ok(s: &str) -> bool {
-    !s.is_empty()
-        && s.len() <= 60
-        && s.chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-        && !s.starts_with('-')
-        && !s.ends_with('-')
+    agenium_core::validate::slug_ok(s, ROLE_ID_MAX)
 }
 
 /// A role an agent can take: a folder under `<root>/roles/<id>` or a template preset not written yet.
@@ -257,8 +255,10 @@ impl App {
             }
         }
         let dir = self.layout().roles().join(&def.id);
-        std::fs::create_dir_all(&dir).map_err(io)?;
-        std::fs::write(dir.join("ROLE.md"), format!("{}\n", def.prompt.trim())).map_err(io)?;
+        agenium_config::write_atomic(
+            &dir.join("ROLE.md"),
+            format!("{}\n", def.prompt.trim()).as_bytes(),
+        )?;
         let old = self.role_file(&def.id);
         let file = RoleFile {
             template: old.template,
@@ -267,11 +267,10 @@ impl App {
             lead: def.lead,
             tags: def.tags.clone(),
         };
-        std::fs::write(
-            dir.join("role.toml"),
-            toml::to_string(&file).unwrap_or_default(),
-        )
-        .map_err(io)?;
+        agenium_config::write_atomic(
+            &dir.join("role.toml"),
+            toml::to_string(&file).unwrap_or_default().as_bytes(),
+        )?;
         self.role(&def.id)
     }
 

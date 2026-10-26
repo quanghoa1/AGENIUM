@@ -63,10 +63,6 @@ fn invalid(m: impl Into<String>) -> OrchError {
     OrchError::Invalid(m.into())
 }
 
-fn io(e: std::io::Error) -> OrchError {
-    OrchError::Invalid(e.to_string())
-}
-
 fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for e in std::fs::read_dir(from)? {
@@ -83,8 +79,8 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 
 /// Applies a unified diff to `text` with `git apply` in a scratch folder (`a/`/`b/` prefixes or none).
 fn apply_patch(text: &str, patch: &str) -> Result<String> {
-    let dir = tempfile::tempdir().map_err(io)?;
-    std::fs::write(dir.path().join("SKILL.md"), text).map_err(io)?;
+    let dir = tempfile::tempdir()?;
+    std::fs::write(dir.path().join("SKILL.md"), text)?;
     let patch_file = dir.path().join("change.patch");
     let mut p = patch.replace("\r\n", "\n");
     if !p.ends_with('\n') {
@@ -95,7 +91,7 @@ fn apply_patch(text: &str, patch: &str) -> Result<String> {
     let prefixed = p
         .lines()
         .any(|l| l.starts_with("--- a/") || l.starts_with("+++ b/"));
-    std::fs::write(&patch_file, &p).map_err(io)?;
+    std::fs::write(&patch_file, &p)?;
     let mut errors = Vec::new();
     for strip in ["-p1", "-p0"] {
         let out = std::process::Command::new("git")
@@ -103,10 +99,9 @@ fn apply_patch(text: &str, patch: &str) -> Result<String> {
             .args(["apply", "--recount", "--whitespace=nowarn", strip])
             .arg(&patch_file)
             .current_dir(dir.path())
-            .output()
-            .map_err(io)?;
+            .output()?;
         if out.status.success() {
-            let t = std::fs::read_to_string(dir.path().join("SKILL.md")).map_err(io)?;
+            let t = std::fs::read_to_string(dir.path().join("SKILL.md"))?;
             return Ok(t.replace("\r\n", "\n"));
         }
         errors.push(String::from_utf8_lossy(&out.stderr).trim().to_owned());
@@ -212,14 +207,14 @@ fn updated_text(current: &str, u: &ProposeSkillUpdate) -> Result<String> {
 
 /// Reverse-applies `patch` (a base -> overlay diff) to `overlay`, reconstructing the base it was built on.
 fn unapply_patch(overlay: &str, patch: &str) -> Result<String> {
-    let dir = tempfile::tempdir().map_err(io)?;
-    std::fs::write(dir.path().join("SKILL.md"), overlay).map_err(io)?;
+    let dir = tempfile::tempdir()?;
+    std::fs::write(dir.path().join("SKILL.md"), overlay)?;
     let patch_file = dir.path().join("change.patch");
     let mut p = patch.replace("\r\n", "\n");
     if !p.ends_with('\n') {
         p.push('\n');
     }
-    std::fs::write(&patch_file, p).map_err(io)?;
+    std::fs::write(&patch_file, p)?;
     let mut last = String::new();
     // `diff_texts` writes under a/ and b/ subdirs, so git's own a/ b/ prefix makes the paths a/a/SKILL.md, b/b/SKILL.md
     // (strip 2); -p1/-p0 cover a patch stored in another shape.
@@ -235,10 +230,9 @@ fn unapply_patch(overlay: &str, patch: &str) -> Result<String> {
             ])
             .arg(&patch_file)
             .current_dir(dir.path())
-            .output()
-            .map_err(io)?;
+            .output()?;
         if out.status.success() {
-            let t = std::fs::read_to_string(dir.path().join("SKILL.md")).map_err(io)?;
+            let t = std::fs::read_to_string(dir.path().join("SKILL.md"))?;
             return Ok(t.replace("\r\n", "\n"));
         }
         last = String::from_utf8_lossy(&out.stderr).trim().to_owned();
@@ -251,13 +245,13 @@ fn unapply_patch(overlay: &str, patch: &str) -> Result<String> {
 /// 3-way merge (ADR-86): start from `new_base` and fold in the agent's `old_base` -> `overlay` changes. Returns the
 /// merged text and whether it carries conflict markers. `git merge-file` needs no repository.
 fn merge_three(new_base: &str, old_base: &str, overlay: &str) -> Result<(String, bool)> {
-    let dir = tempfile::tempdir().map_err(io)?;
+    let dir = tempfile::tempdir()?;
     let cur = dir.path().join("current");
     let anc = dir.path().join("ancestor");
     let oth = dir.path().join("other");
-    std::fs::write(&cur, new_base.replace("\r\n", "\n")).map_err(io)?;
-    std::fs::write(&anc, old_base.replace("\r\n", "\n")).map_err(io)?;
-    std::fs::write(&oth, overlay.replace("\r\n", "\n")).map_err(io)?;
+    std::fs::write(&cur, new_base.replace("\r\n", "\n"))?;
+    std::fs::write(&anc, old_base.replace("\r\n", "\n"))?;
+    std::fs::write(&oth, overlay.replace("\r\n", "\n"))?;
     let out = std::process::Command::new("git")
         .args([
             "-c",
@@ -277,8 +271,7 @@ fn merge_three(new_base: &str, old_base: &str, overlay: &str) -> Result<(String,
         .arg(&cur)
         .arg(&anc)
         .arg(&oth)
-        .output()
-        .map_err(io)?;
+        .output()?;
     // Exit status: 0 = clean, > 0 = number of conflicts, < 0 = error. Treat a non-zero code as a conflict; a real git
     // error leaves the merged text with markers too, which the caller surfaces for the user.
     let merged = String::from_utf8_lossy(&out.stdout).replace("\r\n", "\n");
@@ -288,11 +281,11 @@ fn merge_three(new_base: &str, old_base: &str, overlay: &str) -> Result<(String,
 
 /// Unified diff `a/SKILL.md` -> `b/SKILL.md` (git, no repository needed).
 fn diff_texts(base: &str, overlay: &str) -> Result<String> {
-    let dir = tempfile::tempdir().map_err(io)?;
+    let dir = tempfile::tempdir()?;
     let (a, b) = (dir.path().join("a"), dir.path().join("b"));
     for (d, t) in [(&a, base), (&b, overlay)] {
-        std::fs::create_dir_all(d).map_err(io)?;
-        std::fs::write(d.join("SKILL.md"), t).map_err(io)?;
+        std::fs::create_dir_all(d)?;
+        std::fs::write(d.join("SKILL.md"), t)?;
     }
     let out = std::process::Command::new("git")
         .args([
@@ -303,8 +296,7 @@ fn diff_texts(base: &str, overlay: &str) -> Result<String> {
             "b/SKILL.md",
         ])
         .current_dir(dir.path())
-        .output()
-        .map_err(io)?;
+        .output()?;
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
@@ -348,7 +340,7 @@ impl App {
         } else {
             base.meta.dir.join("SKILL.md")
         };
-        let current = std::fs::read_to_string(path).map_err(io)?;
+        let current = std::fs::read_to_string(path)?;
         let updated = updated_text(&current, u)?;
         Ok((current, updated))
     }
@@ -397,7 +389,7 @@ impl App {
         } else {
             dir.join("SKILL.md")
         };
-        let current = std::fs::read_to_string(current).map_err(io)?;
+        let current = std::fs::read_to_string(current)?;
         let updated = updated_text(&current, u)?;
         let lower = updated.to_lowercase();
         if let Some(p) = INJECTION
@@ -438,16 +430,16 @@ impl App {
         // (The staging folder carries the skill's name: a skill's name must equal its folder's.)
         let staging_root = dir.with_file_name(format!(".update-{}", ulid::Ulid::new()));
         let staging = staging_root.join(name);
-        copy_dir(if fresh { &base.meta.dir } else { &dir }, &staging).map_err(io)?;
-        std::fs::write(staging.join("SKILL.md"), &updated).map_err(io)?;
+        copy_dir(if fresh { &base.meta.dir } else { &dir }, &staging)?;
+        std::fs::write(staging.join("SKILL.md"), &updated)?;
         if let Err(e) = agenium_skills::validate(&staging, Origin::Overlay) {
             let _ = std::fs::remove_dir_all(&staging_root);
             return Err(invalid(format!("the updated skill is not valid: {e}")));
         }
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::rename(&staging, &dir).map_err(io)?;
+        std::fs::rename(&staging, &dir)?;
         let _ = std::fs::remove_dir_all(&staging_root);
-        let base_text = std::fs::read_to_string(base.meta.dir.join("SKILL.md")).map_err(io)?;
+        let base_text = std::fs::read_to_string(base.meta.dir.join("SKILL.md"))?;
         let cumulative = diff_texts(&base_text, &updated)?;
         // ADR-88: the same skill-shape checks the user sees when authoring also run on an agent's self-upgrade, as
         // advice recorded with the change (never blocking).
@@ -570,9 +562,9 @@ impl App {
             .clone()
             .unwrap_or_else(|| "unversioned".into());
         outcome.to_version = new_version.clone();
-        let new_base = std::fs::read_to_string(base.meta.dir.join("SKILL.md")).map_err(io)?;
+        let new_base = std::fs::read_to_string(base.meta.dir.join("SKILL.md"))?;
         let dir = self.overlay_dir(agent, &o.skill);
-        let overlay = std::fs::read_to_string(dir.join("SKILL.md")).map_err(io)?;
+        let overlay = std::fs::read_to_string(dir.join("SKILL.md"))?;
         let old_base = unapply_patch(&overlay, &o.patch)?;
         if old_base == new_base {
             // The base is unchanged; only refresh the recorded version if its label drifted.
@@ -590,8 +582,8 @@ impl App {
         // Clean merge: validate in a staging copy, then swap it in (as apply_skill_update does).
         let staging_root = dir.with_file_name(format!(".rebase-{}", ulid::Ulid::new()));
         let staging = staging_root.join(&o.skill);
-        copy_dir(&dir, &staging).map_err(io)?;
-        std::fs::write(staging.join("SKILL.md"), &merged).map_err(io)?;
+        copy_dir(&dir, &staging)?;
+        std::fs::write(staging.join("SKILL.md"), &merged)?;
         if let Err(e) = agenium_skills::validate(&staging, Origin::Overlay) {
             let _ = std::fs::remove_dir_all(&staging_root);
             outcome.status = "conflict".into();
@@ -600,7 +592,7 @@ impl App {
             return Ok(outcome);
         }
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::rename(&staging, &dir).map_err(io)?;
+        std::fs::rename(&staging, &dir)?;
         let _ = std::fs::remove_dir_all(&staging_root);
         let cumulative = diff_texts(&new_base, &merged)?;
         mem.put_overlay(
@@ -628,7 +620,7 @@ impl App {
     pub fn revert_skill_overlay(&self, agent: AgentId, skill: &str) -> Result<()> {
         let dir = self.overlay_dir(agent, skill);
         if dir.is_dir() {
-            std::fs::remove_dir_all(&dir).map_err(io)?;
+            std::fs::remove_dir_all(&dir)?;
         }
         self.agent_memory_store(agent)?.remove_overlay(skill)?;
         self.store.commit(None, "user", |w| {
@@ -651,8 +643,8 @@ impl App {
         let dir = self.overlay_dir(agent, skill);
         let text = std::fs::read_to_string(dir.join("SKILL.md"))
             .map_err(|_| OrchError::NotFound(format!("overlay {skill}")))?;
-        std::fs::write(base.meta.dir.join("SKILL.md"), text).map_err(io)?;
-        std::fs::remove_dir_all(&dir).map_err(io)?;
+        std::fs::write(base.meta.dir.join("SKILL.md"), text)?;
+        std::fs::remove_dir_all(&dir)?;
         self.agent_memory_store(agent)?.remove_overlay(skill)?;
         self.store.commit(None, "user", |w| {
             w.emit(DomainEvent::AgentUpdated {

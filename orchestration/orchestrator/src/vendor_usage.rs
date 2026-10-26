@@ -27,8 +27,7 @@ impl App {
         let path = self.layout().vendor_usage();
         let text =
             serde_json::to_string_pretty(all).map_err(|e| OrchError::Invalid(e.to_string()))?;
-        std::fs::write(&path, text)
-            .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))
+        Ok(agenium_config::write_atomic(&path, text.as_bytes())?)
     }
 
     /// Keeps a vendor's reading. A failed reading keeps the earlier windows (shown as stale) with the error.

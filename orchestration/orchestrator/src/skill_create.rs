@@ -53,10 +53,6 @@ fn refuse<T>(m: impl Into<String>) -> Result<T> {
     Err(OrchError::Invalid(m.into()))
 }
 
-fn io(e: std::io::Error) -> OrchError {
-    OrchError::Invalid(e.to_string())
-}
-
 fn load(mem: &AgentStore) -> Result<BTreeMap<String, CreatedSkill>> {
     Ok(mem
         .meta(META_KEY)?
@@ -206,16 +202,16 @@ impl App {
         }
 
         // Write a staging copy, validate it as a skill, then swap it in.
-        std::fs::create_dir_all(&own_dir).map_err(io)?;
+        std::fs::create_dir_all(&own_dir)?;
         let staging_root = own_dir.join(format!(".new-{}", ulid::Ulid::new()));
         let staging = staging_root.join(name);
-        std::fs::create_dir_all(&staging).map_err(io)?;
-        std::fs::write(staging.join(agenium_skills::SKILL_FILE), &text).map_err(io)?;
+        std::fs::create_dir_all(&staging)?;
+        std::fs::write(staging.join(agenium_skills::SKILL_FILE), &text)?;
         if let Err(e) = agenium_skills::validate(&staging, Origin::Agent) {
             let _ = std::fs::remove_dir_all(&staging_root);
             return refuse(format!("the new skill is not valid: {e}"));
         }
-        std::fs::rename(&staging, own_dir.join(name)).map_err(io)?;
+        std::fs::rename(&staging, own_dir.join(name))?;
         let _ = std::fs::remove_dir_all(&staging_root);
 
         created.insert(
@@ -299,7 +295,7 @@ impl App {
             .dir_of(&Owner::Agent(agent.to_string()))
             .join(name);
         if dir.is_dir() {
-            std::fs::remove_dir_all(&dir).map_err(io)?;
+            std::fs::remove_dir_all(&dir)?;
         }
         save(&mem, &created)?;
         self.store().commit(None, "user", |w| {

@@ -131,7 +131,7 @@ pub const LIBRARY: &[Builtin] = &[
 ];
 
 use crate::app::App;
-use crate::{OrchError, Result};
+use crate::Result;
 
 /// The body of a SKILL.md (everything after the frontmatter block), for linting and near-duplicate checks.
 pub(crate) fn strip_frontmatter(text: &str) -> String {
@@ -198,23 +198,21 @@ impl App {
         let dir = self
             .skill_registry()
             .dir_of(&agenium_skills::Owner::Library);
-        std::fs::create_dir_all(&dir).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        std::fs::create_dir_all(&dir)?;
         let mut n = 0;
         for s in LIBRARY {
             let folder = dir.join(s.name);
             if folder.join(agenium_skills::SKILL_FILE).exists() || folder.exists() {
                 continue;
             }
-            std::fs::create_dir_all(&folder).map_err(|e| OrchError::Invalid(e.to_string()))?;
-            std::fs::write(folder.join(agenium_skills::SKILL_FILE), s.skill_md)
-                .map_err(|e| OrchError::Invalid(e.to_string()))?;
+            std::fs::create_dir_all(&folder)?;
+            std::fs::write(folder.join(agenium_skills::SKILL_FILE), s.skill_md)?;
             for (rel, content) in s.files {
                 let p = folder.join(rel);
                 if let Some(parent) = p.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| OrchError::Invalid(e.to_string()))?;
+                    std::fs::create_dir_all(parent)?;
                 }
-                std::fs::write(&p, content).map_err(|e| OrchError::Invalid(e.to_string()))?;
+                std::fs::write(&p, content)?;
             }
             n += 1;
         }

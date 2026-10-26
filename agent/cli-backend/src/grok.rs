@@ -126,13 +126,20 @@ pub fn parse_models(out: &str) -> Vec<String> {
         .collect()
 }
 
+/// The models this Grok login can use (`grok models`; no model turn). A CLI that hangs is given up after 40 s.
 pub async fn models(program: &Path) -> Result<Vec<String>, String> {
-    let out = tokio::process::Command::new(program)
-        .arg("models")
+    let mut cmd = tokio::process::Command::new(program);
+    cmd.arg("models")
         .stdin(std::process::Stdio::null())
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    let out = tokio::time::timeout(std::time::Duration::from_secs(40), cmd.output())
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|_| "grok models did not answer in 40 s".to_owned())?
+        .map_err(|e| format!("cannot start grok: {e}"))?;
     let m = parse_models(&String::from_utf8_lossy(&out.stdout));
     if m.is_empty() {
         Err("grok models listed nothing".into())
