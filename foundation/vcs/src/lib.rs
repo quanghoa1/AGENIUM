@@ -761,9 +761,22 @@ impl Repo {
             return Ok(MergeOutcome::CheckFailed { log: c.log });
         }
         // The project's own working tree has main checked out: a fast-forward keeps it in sync. It fails if the
-        // user edited main while the project was running (decision 19), which surfaces as an error.
-        self.git
-            .check(&self.root, ["merge", "-q", "--ff-only", &branch])?;
+        // user edited main while the project was running (decision 19), which surfaces as an error. No hook runs:
+        // a relative `core.hooksPath` (husky's `.husky`) would find the hooks the merged branch brings, written by
+        // an agent, and run them here, on the host.
+        self.git.check(
+            &self.root,
+            [
+                "-c",
+                git::NO_HOOKS,
+                "-c",
+                "core.fsmonitor=",
+                "merge",
+                "-q",
+                "--ff-only",
+                &branch,
+            ],
+        )?;
         let changed = self.changed_files(&self.root, &main_before, &head)?;
         Ok(MergeOutcome::Merged {
             sha: head,

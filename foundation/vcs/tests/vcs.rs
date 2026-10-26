@@ -427,6 +427,42 @@ fn a_rewritten_dot_git_file_runs_nothing_on_the_host() {
     );
 }
 
+/// The merge into the project's own checkout runs no hook either: with a relative `core.hooksPath` (husky's
+/// `.husky`), a `post-merge` the ticket's branch brings was found in the checkout right after the fast-forward and ran
+/// on the host.
+#[test]
+fn the_merge_into_the_checkout_runs_no_hook_the_branch_brings() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    write(&r.root, "README.md", "seed\n");
+    r.commit_all(&r.root, "seed", AUTHOR, &[]).unwrap();
+    Git::default()
+        .check(&r.root, ["config", "core.hooksPath", ".husky"])
+        .unwrap();
+    let marker = tmp.path().join("ran-on-host");
+    let m = marker.to_string_lossy().replace('\\', "/");
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    hook(
+        &w.path.join(".husky/post-merge"),
+        &format!("echo post-merge >> '{m}'"),
+    );
+    write(&w.path, "src/a.txt", "a\n");
+    r.commit_all(&w.path, "Add a", AUTHOR, &[]).unwrap();
+    assert!(matches!(
+        r.merge_ticket("AGN-1", &NoCheck).unwrap(),
+        MergeOutcome::Merged { .. }
+    ));
+    assert!(
+        r.root.join(".husky/post-merge").exists(),
+        "the branch's files are merged"
+    );
+    assert!(
+        !marker.exists(),
+        "ran on the host: {}",
+        std::fs::read_to_string(&marker).unwrap_or_default()
+    );
+}
+
 /// A crash in the middle of the merge queue's rebase leaves the worktree on a detached HEAD with the rebase in
 /// progress. Opening the worktree again aborts the rebase and keeps the directory and its work: it was deleted, and
 /// every later attempt failed ("missing but already registered worktree"). A registered worktree whose directory is

@@ -27,7 +27,7 @@ impl Default for Git {
 }
 
 /// A `core.hooksPath` that holds no hooks.
-const NO_HOOKS: &str = if cfg!(windows) {
+pub(crate) const NO_HOOKS: &str = if cfg!(windows) {
     "core.hooksPath=NUL"
 } else {
     "core.hooksPath=/dev/null"

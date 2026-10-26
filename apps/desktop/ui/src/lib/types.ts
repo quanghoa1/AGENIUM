@@ -259,7 +259,7 @@ export interface PlanView {
 }
 
 export interface InboxItem {
-  kind: "BlockingQuestion" | "Permission" | "Planning" | "Plan" | "Assign" | "Question";
+  kind: "BlockingQuestion" | "Permission" | "Planning" | "Plan" | "Assign" | "Blocked" | "Question";
   ticket?: string | null;
   comment?: string | null;
   created_at: string;
