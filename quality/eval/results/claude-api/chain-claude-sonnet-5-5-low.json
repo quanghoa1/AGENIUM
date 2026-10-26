@@ -1,0 +1,403 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 5 steps; recall showed 2 fact(s)",
+    "runs": 10,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 373758,
+    "tokens_out": 3041,
+    "tokens_cached": 334266,
+    "cost_usd": 0.0,
+    "elapsed_ms": 72804,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 3,
+                "text": "In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if ",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it."
+            ],
+            "memory_ops": [
+              {
+                "added": 2,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 2,
+                "entities_new": 5,
+                "extracted": 2,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1863,
+                "tokens_out": 476,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 2,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 2,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3429,
+                "tokens_out": 549,
+                "updated": 1,
+                "validated": 0
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEW0VAXQBZTPPGZMMNPDN6",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEW5YXWPKP25MAT8WZ9EJZ",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEWBVZGYAS591Q7R96R6QH",
+                "shown": 2,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEWGQ2Z738ZRBR30J7XBVF",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WEWBVZGYAS591Q7R96R6QH #1 graph Some(Lesson): In the docs project, check project rules such as the required 'Owner: docs-team' first line before submitting a new document, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+              "run 01M5WEWBVZGYAS591Q7R96R6QH #2 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WEW08QQT65594NB0BYJ0GY/ticket:AGN-2"
+                ],
+                "id": 3,
+                "text": "In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if ",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it."
+            ],
+            "memory_ops": [
+              {
+                "added": 0,
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 0,
+                "entities_new": 0,
+                "extracted": 0,
+                "helped": 2,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 2170,
+                "tokens_out": 16,
+                "updated": 0,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEWSS2CHWQADGASB81BW8Z",
+                "shown": 2,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEWX9HKS027KRCB8NZSFDD",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WEWSS2CHWQADGASB81BW8Z #1 hybrid Some(Lesson): In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+              "run 01M5WEWSS2CHWQADGASB81BW8Z #2 hybrid Some(Fact): In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WEW08QQT65594NB0BYJ0GY/ticket:AGN-2"
+                ],
+                "id": 3,
+                "text": "In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if ",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch to main, template coding@1, and an empty pre_merge check command.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project README states team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it. New team docs, including handbook/, should follow this convention too.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened."
+            ],
+            "memory_ops": [
+              {
+                "added": 2,
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 3,
+                "entities_new": 3,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3388,
+                "tokens_out": 541,
+                "updated": 1,
+                "validated": 0
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEX2SJJYGFCPZ286MPPXQC",
+                "shown": 0,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEXD6MCCQZ2M1NGHQGYR1V",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M5WEW08QQT65594NB0BYJ0GY/ticket:AGN-2",
+                  "01M5WEW08QQT65594NB0BYJ0GY/ticket:AGN-4"
+                ],
+                "id": 3,
+                "text": "In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if ",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, the minutes/ directory may not exist in a fresh worktree, but write_file creates it when writing a new file.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it. New team docs, including handbook/ and minutes/, should follow this convention too (minutes/ usage accepted by review).",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch to main, template coding@1, and an empty pre_merge check command.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project README states team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened."
+            ],
+            "memory_ops": [
+              {
+                "added": 1,
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 4,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 4,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3613,
+                "tokens_out": 477,
+                "updated": 1,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEXQAKFXZ6W50KEVJ0GJKB",
+                "shown": 4,
+                "steps": 3
+              },
+              {
+                "agent": "agent_01M5WEW0PNYS5V72CQCSDE6HSH",
+                "outcome": "Completed",
+                "run": "01M5WEXZJQ57ZTD43H4NHY213H",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M5WEXQAKFXZ6W50KEVJ0GJKB #1 graph Some(Lesson): In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+              "run 01M5WEXQAKFXZ6W50KEVJ0GJKB #2 hybrid Some(Fact): The docs project README states team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M5WEXQAKFXZ6W50KEVJ0GJKB #3 graph Some(Fact): In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it. New team docs, including handbook/, should follow this convention too.",
+              "run 01M5WEXQAKFXZ6W50KEVJ0GJKB #4 graph Some(Fact): The docs project's agenium.toml sets main_branch to main, template coding@1, and an empty pre_merge check command."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 7,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 94992,
+            "tokens_in": 98295,
+            "tokens_out": 839
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 6,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 80474,
+            "tokens_in": 83727,
+            "tokens_out": 690
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, the minutes/ directory may not exist in a fresh worktree, but write_file creates it when writing a new file.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it. New team docs, including handbook/ and minutes/, should follow this convention too (minutes/ usage accepted by review).",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch to main, template coding@1, and an empty pre_merge check command.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project README states team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 93312,
+        "tokens_in": 123669,
+        "tokens_out": 969
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 5,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 65488,
+        "tokens_in": 68067,
+        "tokens_out": 543
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5WEWSS2CHWQADGASB81BW8Z #1 hybrid: In the docs project, before submitting a new file in deliverables/ or reports/, check project rules such as the required 'Owner: docs-team' first line, even if the ticket text does not mention them; otherwise the pre-merge check fails and the ticket is reopened.",
+        "run 01M5WEWSS2CHWQADGASB81BW8Z #2 hybrid: In the docs project, every team document in deliverables/ or reports/ must start with the first line exactly 'Owner: docs-team'; the pre-merge check enforces it."
+      ]
+    }
+  }
+]

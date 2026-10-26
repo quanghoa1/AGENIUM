@@ -196,6 +196,7 @@ fn measure(
         "tokens_in": t.usage.tokens_in,
         "tokens_cached": t.usage.cache_read,
         "tokens_out": t.usage.tokens_out,
+        "cost_usd": t.usage.estimated_cost_usd,
         "files_after": files(root),
         "tickets_in_project": app.store().read(|c| agenium_store::core::tickets::list(c, project, &Default::default()))?.len(),
     }))
@@ -545,7 +546,7 @@ pub async fn run(
         tokens_in: tickets.iter().map(|t| t["tokens_in"].as_u64().unwrap_or(0)).sum(),
         tokens_cached: tickets.iter().map(|t| t["tokens_cached"].as_u64().unwrap_or(0)).sum(),
         tokens_out: tickets.iter().map(|t| t["tokens_out"].as_u64().unwrap_or(0)).sum(),
-        cost_usd: 0.0,
+        cost_usd: tickets.iter().map(|t| t["cost_usd"].as_f64().unwrap_or(0.0)).sum(),
         elapsed_ms: start.elapsed().as_millis() as u64,
         learning: Some(json!({
             "memory": memory_on,

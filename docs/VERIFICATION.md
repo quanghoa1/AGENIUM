@@ -108,8 +108,9 @@ Also from these runs:
 | `real_checks`: compaction, steering, overflow wording, MCP behind OAuth, BOM/CRLF edit, chat learning, dangling tool call | Haiku 5.5 | 7/7 PASS |
 | golden tasks | Haiku 5.5 (high), Sonnet 5.5 (medium), Opus 5.5 (medium) | 5/5 PASS each |
 | team task | Haiku 5.5 | PASS (after the review rule below) |
+| team task (effort low) | Sonnet 5.5, Opus 5.5 | PASS each: 7 runs, 0 reopens, the message reached the Lead; $0.21 and $0.47 |
 | learning chain | Haiku 5.5 | PASS; tickets 2 and 4 passed their first merge with the lesson recalled |
-| learning chain (effort low, hashing embedder) | Opus 5.5 | PASS; tickets 2, 3 and 4 passed their first merge, the lesson held in 3 contexts |
+| learning chain (effort low, hashing embedder) | Opus 5.5, Sonnet 5.5 | PASS each; tickets 2, 3 and 4 passed their first merge |
 | CLI agents at effort low (ADR-114) | Claude Code `haiku`, Codex `gpt-6-luna`, Antigravity `gemini-3.8-flash` | `hello-file` PASS |
 | the agent form offers each model's own effort levels (ADR-114) | Codex, Claude Code, Antigravity, Grok, DeepSeek API | 7/7 in the desktop app |
 

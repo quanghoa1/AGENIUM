@@ -1,0 +1,60 @@
+[
+  {
+    "id": "team-greeting",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 7,
+    "steps": 17,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "chat:t-lead::Completed",
+      "plan:t-planner::Completed",
+      "inbox:t-lead::Completed",
+      "work:t-backend:AGN-1:Completed",
+      "review:t-lead:AGN-1:Completed",
+      "work:t-frontend:AGN-2:Completed",
+      "review:t-lead:AGN-2:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 159569,
+    "tokens_out": 4783,
+    "tokens_cached": 116678,
+    "cost_usd": 0.2112683,
+    "elapsed_ms": 54441,
+    "discipline": {
+      "counts": {
+        "steer": 1
+      },
+      "lead_acknowledged_message": true,
+      "message_reached_lead": true,
+      "reports_with_evidence": 2,
+      "tickets": [
+        {
+          "assignee": "agent_01M5WETB1XBPWWY9AWJZ6AXVWK",
+          "close_reason": "Approved and merged; file content verified as valid JSON.",
+          "depends_on": [],
+          "key": "AGN-1",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create api/greeting.json"
+        },
+        {
+          "assignee": "agent_01M5WETB1XZQA6N3G7NSA66M4P",
+          "close_reason": "ACK-42. Approved and merged. web/index.html has meta charset utf-8, uses fetch('../api/greeting.json'), renders d.greeting into the DOM and shows an error message on failure. I checked this in the diff. It was not run in a browser.",
+          "depends_on": [
+            "AGN-1"
+          ],
+          "key": "AGN-2",
+          "merged": true,
+          "reopened": 0,
+          "status": "Closed",
+          "title": "Create web/index.html that fetches and shows the greeting"
+        }
+      ]
+    }
+  }
+]
