@@ -1,0 +1,12 @@
+== machine  (04:26:16)
+== build (cargo build --workspace --all-targets)  (04:26:17)
+   exit=0 seconds=270
+== tests (cargo test --workspace --no-fail-fast)  (04:30:47)
+   exit=0 seconds=24
+== the tests this run checks, alone (new in run 5: the daemon sweep; run 4: the Seatbelt profile)  (04:31:11)
+   exit=0 seconds=48
+== doctor  (04:31:59)
+   exit=0 seconds=76
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (04:33:15)
+   exit=0 seconds=35
+== summary  (04:33:50)

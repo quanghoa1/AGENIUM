@@ -1,0 +1,19 @@
+root: /Users/devin/agenium-macos-test-v5/agenium-macos-test-kit-v5/work/agenium-home
+os: macOS 26.6.2 Tahoe
+  [Ok] cpu_cores = 8 (minimum 4 cores, recommended 8)
+  [Ok] ram = 16.0 GB (minimum 8 GB, recommended 16 GB)
+  [BelowRecommended] disk_free = 18.1 GB (minimum 10 GB free, recommended 50 GB (SSD))
+  [Ok] git = git version 2.50.1 (Apple Git-155) (git 2.30+ is required (every project is a git repository))
+  [Ok] os = macOS 26.6.2 Tahoe (macOS 12+ (Seatbelt sandbox is experimental))
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+sandbox network: private network (outbound only; no inbound, no host loopback)
+shell: bash (/opt/homebrew/bin/bash)
+agent CLIs (CliBackend, M2.5; Agenium never logs in for you):
+  codex     not installed (not on PATH)
+  agy       not installed (not on PATH)
+  devin     not installed (not on PATH)
+  claude    not installed (not on PATH)
+  opencode  not installed (not on PATH)
+embedding model: not installed, memory uses keyword-level hashing (agenium models download)
+keyring: available
+exit=0 seconds=76

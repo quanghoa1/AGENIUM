@@ -9,7 +9,9 @@
   `docs/reference/bench-raw/macos-2026-10-26-run3/`. **Fourth run 2026-10-26** (commit 52f1c12): 301 passed, 0
   failed; with the narrowed profile `net.unix_host_socket` is blocked in both sandboxed modes while `net.dns` and
   `net.tcp_internet` still pass with the network on; only `daemon.outlives_*` remains. Raw:
-  `docs/reference/bench-raw/macos-2026-10-26-run4/`.
+  `docs/reference/bench-raw/macos-2026-10-26-run4/`. **Fifth run 2026-10-26** (commit c35ee29): 312 passed, 0 failed;
+  `daemon.outlives_the_run` and `daemon.outlives_a_timeout` blocked in both sandboxed modes; **0 escapes** in the
+  whole matrix. Raw: `docs/reference/bench-raw/macos-2026-10-26-run5/`.
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Amends:** ADR-43 (macOS Seatbelt v2, experimental) — implementation choice only.
 
@@ -65,7 +67,7 @@ Open:
 - **A daemon outlives the command** (double fork + `setsid`, both modes). macOS has no PID namespace or job object.
   Seatbelt still confines the daemon (it cannot write outside the worktree or read the home). But it
   keeps running after the run and after a timeout. Bubblewrap's PID namespace kills it on Linux, and MXC's job object
-  does on Windows. **Mitigation (2026-10-26, to be confirmed by the fifth Mac run):** every sandboxed command gets a
+  does on Windows. **Mitigation (2026-10-26, confirmed by the fifth Mac run):** every sandboxed command gets a
   random token in its environment (`AGENIUM_SANDBOX_RUN`); when the command ends or times out, `unix::kill_strays`
   kills this user's processes that still carry it (macOS: `proc_listallpids` + `KERN_PROCARGS2`; Linux: `/proc`), and
   the command's output says how many it stopped. A process that clears its environment is not found (Seatbelt still
