@@ -1,0 +1,128 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 19,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 2
+    },
+    "errors": [
+      "cli:permission: denied: D:\\Work\\tmp\\.tmp6KwS1R\\root\\projects\\hello-file is outside the ticket worktree",
+      "cli:permission: denied: the run is ending"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 240716,
+    "tokens_out": 5151,
+    "cost_usd": 0.0,
+    "elapsed_ms": 105232
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 20,
+    "tool_errors": 1,
+    "error_codes": {
+      "denied": 1
+    },
+    "errors": [
+      "cli:permission: denied: D:\\Work\\tmp\\.tmpn6IVKK\\root\\projects\\fix-config-key is outside the ticket worktree"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 229602,
+    "tokens_out": 5852,
+    "cost_usd": 0.0,
+    "elapsed_ms": 117099
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 37,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 3
+    },
+    "errors": [
+      "cli:permission: denied: D:\\Work\\tmp is outside the ticket worktree",
+      "cli:permission: denied: D:\\Work\\AGENIUM\\orchestration\\orchestrator\\templates\\coding.toml is outside the ticket worktree",
+      "cli:permission: denied: D:\\Work\\AGENIUM\\orchestration\\orchestrator\\src\\templates.rs is outside the ticket worktree"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 521711,
+    "tokens_out": 6401,
+    "cost_usd": 0.0,
+    "elapsed_ms": 154120
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 17,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 2
+    },
+    "errors": [
+      "cli:permission: denied: D:\\Work\\tmp\\.tmpLz9mJY\\root\\projects\\readme-usage is outside the ticket worktree",
+      "cli:permission: denied: the run is ending"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 225547,
+    "tokens_out": 4002,
+    "cost_usd": 0.0,
+    "elapsed_ms": 82033
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 31,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 3
+    },
+    "errors": [
+      "cli:permission: denied: D:\\Work\\tmp\\.tmp4gC4Pn\\root\\projects\\csv-total is outside the ticket worktree",
+      "cli:permission: denied: D:\\Work\\AGENIUM\\orchestration\\orchestrator\\templates\\coding.toml is outside the ticket worktree",
+      "cli:permission: denied: D:\\Work\\AGENIUM\\orchestration\\orchestrator\\src\\templates.rs is outside the ticket worktree"
+    ],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 478649,
+    "tokens_out": 7230,
+    "cost_usd": 0.0,
+    "elapsed_ms": 214060
+  }
+]

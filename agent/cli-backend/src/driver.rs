@@ -124,6 +124,11 @@ pub trait Driver: Send + Sync {
     }
     /// What goes to stdin for one user message.
     fn user_input(&self, text: &str) -> String;
+    /// `Turns::ProcessPerTurn` CLIs that take the turn's message from a file instead of stdin (grok): the file the
+    /// message is written to before the process starts (its path is in `args`).
+    fn prompt_file(&self, _home: &Path) -> Option<PathBuf> {
+        None
+    }
     /// Events of one stdout line.
     fn parse(&self, line: &Value) -> Vec<Event>;
     /// The shell command a tool step runs, when it runs one.

@@ -212,7 +212,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.)
 - UI: Monaco editor / xterm terminal (lightweight viewers instead), mini-map and room editor of the Live office, CI UI
-  tests. CLI backend: codex, agy, claude and opencode (free models, ADR-68) driven; devin not drivable (ADR-56).
+  tests. CLI backend: codex, agy, claude, opencode (free models, ADR-68) and grok (ADR-108: 5/5 golden tasks) driven; devin not drivable (ADR-56). UI checked on the running app through the DevTools port on 2026-10-26: MCP sign-in/test/sign-out and the vendor presets, 8/8, no console errors; grok listed as usable.
 - Sandbox on macOS (containment runs 2026-10-26, ADR-55; confirmed again by the third run): a daemon outlived the command (now killed by its environment token; the fifth Mac run, c35ee29: 312 passed, 0 failed, 0 escapes); with network on a host unix socket was reachable (mxc-sdk emits an unfiltered `network-outbound`), now narrowed by Agenium (`seatbelt.rs`) and confirmed blocked by the fourth Mac run (52f1c12: 301 passed, 0 failed, DNS and internet still work). File escapes are blocked. (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
   VM, 0 escapes, ADR-95; Windows MXC: ADR-53/S2). An AppArmor profile shipped with a Linux installer (until then,
   Ubuntu 24.04+ hosts run sandboxed commands without network unless the user allows user namespaces, ADR-95).

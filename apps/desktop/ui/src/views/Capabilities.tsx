@@ -729,7 +729,7 @@ function McpPanel() {
                   ) : (
                     <div className="space-y-1">
                       <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                        {app.t("library.connected")} · {t.tools.length} tool
+                        {app.t("library.connected")} · {t.tools.length} tool{app.lang === "en" && t.tools.length !== 1 ? "s" : ""}
                       </div>
                       {t.tools.map((x) => (
                         <div key={x.name} className="text-[11px]">

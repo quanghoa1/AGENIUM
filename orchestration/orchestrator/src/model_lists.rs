@@ -45,6 +45,7 @@ pub async fn cli_models(app: &App, clis: &[CliInfo]) -> BTreeMap<String, Vec<Str
                 .map(str::to_owned)
                 .to_vec()),
             CliKind::Opencode => Ok(app.opencode_free_models()),
+            CliKind::Grok => agenium_cli_backend::grok::models(program).await,
             CliKind::Devin => continue,
         };
         match models {

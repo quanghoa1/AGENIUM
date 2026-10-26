@@ -22,6 +22,7 @@ const VENDORS: Record<string, Vendor> = {
   mistral: { key: "mistral", name: "Mistral", color: "#FA520F", initial: "M" },
   meta: { key: "meta", name: "Llama (Meta)", color: "#0866FF", initial: "L" },
   qwen: { key: "qwen", name: "Qwen", color: "#7C3AED", initial: "Q" },
+  xai: { key: "xai", name: "Grok (xAI)", color: "#111827", initial: "X" },
   local: { key: "local", name: "Local model", color: "#0EA5E9", initial: "◆" },
 };
 
@@ -36,6 +37,7 @@ export function vendorOf(provider: string, model: string): Vendor {
   if (has("deepseek")) return VENDORS.deepseek;
   if (has("gemini", "agy", "google")) return VENDORS.google;
   if (has("gpt", "codex", "openai", "o1", "o3", "o4", "luna")) return VENDORS.openai;
+  if (has("grok", "xai")) return VENDORS.xai;
   if (has("qwen")) return VENDORS.qwen;
   if (has("mistral", "mixtral", "codestral")) return VENDORS.mistral;
   if (has("llama", "meta-llama")) return VENDORS.meta;

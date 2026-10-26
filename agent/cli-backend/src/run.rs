@@ -505,6 +505,13 @@ ask_question if you are blocked.",
         resume: Option<&str>,
         input: &str,
     ) -> Result<Proc, Outcome> {
+        if let Some(file) = self.driver.prompt_file(home) {
+            std::fs::write(&file, input)
+                .map_err(|e| failed(format!("cannot write the turn's message: {e}")))?;
+            let mut p = self.spawn(env, home, resume)?;
+            p.close_input();
+            return Ok(p);
+        }
         let mut p = self.spawn(env, home, resume)?;
         p.send(input).map_err(failed)?;
         if self.driver.turns() == Turns::ProcessPerTurn {

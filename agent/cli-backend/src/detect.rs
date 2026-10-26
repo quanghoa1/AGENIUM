@@ -16,15 +16,17 @@ pub enum CliKind {
     Devin,
     Claude,
     Opencode,
+    Grok,
 }
 
 impl CliKind {
-    pub const ALL: [CliKind; 5] = [
+    pub const ALL: [CliKind; 6] = [
         CliKind::Codex,
         CliKind::Agy,
         CliKind::Devin,
         CliKind::Claude,
         CliKind::Opencode,
+        CliKind::Grok,
     ];
 
     pub fn program(self) -> &'static str {
@@ -34,6 +36,7 @@ impl CliKind {
             CliKind::Devin => "devin",
             CliKind::Claude => "claude",
             CliKind::Opencode => "opencode",
+            CliKind::Grok => "grok",
         }
     }
 
@@ -45,6 +48,7 @@ impl CliKind {
             CliKind::Devin => [3000, 11, 3],
             CliKind::Claude => [2, 1, 310],
             CliKind::Opencode => [2, 1, 0],
+            CliKind::Grok => [1, 0, 41],
         }
     }
 
@@ -65,7 +69,7 @@ impl CliKind {
             CliKind::Codex => Some((&["login", "status"], codex)),
             CliKind::Devin => Some((&["auth", "status"], codex)),
             CliKind::Claude => Some((&["auth", "status"], codex)),
-            CliKind::Agy | CliKind::Opencode => None,
+            CliKind::Agy | CliKind::Opencode | CliKind::Grok => None,
         }
     }
 }
