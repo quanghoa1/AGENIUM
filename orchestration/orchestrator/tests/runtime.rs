@@ -1822,3 +1822,63 @@ async fn the_user_messages_a_running_lead_and_never_a_worker() {
     let _ = rt.run_ticket(project, &key("AGN-1")).await;
     assert_eq!(p.remaining(), 0);
 }
+
+/// ADR-106: a long chat with the Lead is seen as a summary of its older part plus the recent messages; the summary is
+/// made once and kept, and the stored conversation stays whole.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_long_chat_is_summarised_once_and_kept() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let session = format!("chat:{project}");
+    for i in 0..20 {
+        for m in [
+            agenium_llm::Message::user_text(format!("turn {i}: {}", "x".repeat(12_000))),
+            agenium_llm::Message::assistant_text(format!("ok {i}")),
+        ] {
+            mem.append_message(&session, &serde_json::to_value(m).unwrap())
+                .unwrap();
+        }
+    }
+    p.push(Box::new(|req| {
+        assert!(req.tools.is_empty());
+        let t = req.messages[0].text();
+        assert!(
+            t.contains("turn 0:") && !t.contains("turn 19:"),
+            "only the older part"
+        );
+        Ok(calls_response(
+            "## Goal\nsummary of the early turns",
+            vec![],
+        ))
+    }));
+    p.push(Box::new(|req| {
+        let first = req.messages[0].text();
+        assert!(
+            first.starts_with("[Earlier conversation, summarised]")
+                && first.contains("summary of the early turns"),
+            "{first}"
+        );
+        let all: String = req.messages.iter().map(|m| m.text()).collect();
+        assert!(all.contains("turn 19:") && !all.contains("turn 0:"));
+        Ok(calls_response("ok", vec![]))
+    }));
+    rt.chat(project, "next").await.unwrap();
+    // The next turn reuses the summary: no new summary call.
+    p.push(Box::new(|req| {
+        assert!(req.messages[0]
+            .text()
+            .starts_with("[Earlier conversation, summarised]"));
+        Ok(calls_response("ok again", vec![]))
+    }));
+    rt.chat(project, "and next").await.unwrap();
+    assert_eq!(p.remaining(), 0);
+    assert_eq!(
+        mem.load_messages(&session).unwrap().len(),
+        44,
+        "the stored conversation stays whole"
+    );
+}

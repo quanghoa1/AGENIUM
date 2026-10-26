@@ -9,6 +9,7 @@
 //! switch loses nothing; continuation runs resume the stored conversation (or the checkpoint summary).
 
 pub mod bridge;
+mod chat_history;
 pub mod learn;
 
 use std::path::{Path, PathBuf};
@@ -1422,11 +1423,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let root = PathBuf::from(&p.path);
         let mem = self.agent_memory(lead.id)?;
         let session = learn::chat_session(project);
-        let history: Vec<Message> = mem
-            .load_messages(&session)?
-            .into_iter()
-            .filter_map(|v| serde_json::from_value(v).ok())
-            .collect();
+        // Older turns of a long chat are seen as a summary (ADR-106); the stored conversation stays whole.
+        let history: Vec<Message> = self.chat_history(&lead, &mem, project).await?;
         let run = self
             .app
             .store()

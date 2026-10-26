@@ -47,15 +47,15 @@ macOS); MCP tool names that collide after sanitising get a hash suffix; endpoint
 3. **Parallel read-only tools** — done (ADR-105). pi runs a turn's tool calls in parallel by default (results in call order; writes
    to the same file serialised). Agenium runs them one by one; read-only calls (read, grep, list, glob, fetch) could
    run together.
-4. **Retry-After cap.** pi caps a provider-requested delay (60 s). Agenium waits the full `retry-after` (bounded only
+4. **Retry-After cap** — done: a wait above 60 s is not taken, the agent goes Offline and the probe resumes it. pi caps a provider-requested delay (60 s). Agenium waits the full `retry-after` (bounded only
    by the total retry budget).
-5. **Per-provider fixtures for usage accounting** (pi: reasoning or cached tokens counted twice, cache writes counted
+5. **Per-provider fixtures for usage accounting** — done (each adapter has fixtures; OpenRouter cache writes fixed). (pi: reasoning or cached tokens counted twice, cache writes counted
    as input, ~25 entries): a golden test per adapter with real usage payloads.
-6. **Compaction quality:** pi's summary format (Goal / Constraints / Progress / Decisions / Next steps / Critical
+6. **Compaction quality** — done (ADR-100 notes format): pi's summary format (Goal / Constraints / Progress / Decisions / Next steps / Critical
    context, plus the files read and modified, carried across compactions) and an update of the previous summary on
    a second compaction instead of a fresh one.
-7. **OAuth issuer check (RFC 9207)** on the authorization response, and treating an empty `scope` as absent.
-8. **A very long Lead chat** reloads its whole history each turn; compaction of the chat session itself.
+7. **OAuth issuer check (RFC 9207)** — done (ADR-97) on the authorization response, and treating an empty `scope` as absent.
+8. **A very long Lead chat** — done (ADR-106): reloads its whole history each turn; compaction of the chat session itself.
 
 Not proposed: session trees and `/fork` (Agenium's unit of work is the ticket and its git worktree), extensions and
 codemode (out of scope now), prompt-cache warming (cost model differs: runs are short and scheduled).

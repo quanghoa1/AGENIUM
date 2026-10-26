@@ -194,20 +194,18 @@ impl Runtime {
         }
     }
 
-    /// The memory pipeline on `ep` with `agent`'s model; `None` when the agent has no model to extract with.
-    async fn extract(
+    /// The API model for `agent`'s side calls (memory extraction, chat summaries): its own, or for a CLI agent the
+    /// `[cli]` API fallback model (ADR-56). `None` when there is none.
+    pub(crate) fn side_model(
         &self,
         agent: &agenium_store::core::agents::Agent,
-        mem: &AgentStore,
-        ep: &Episode,
-    ) -> Option<std::result::Result<LearnReport, String>> {
-        // Extraction is an API call: a CLI agent uses the `[cli]` API fallback model for it (ADR-56).
+    ) -> Option<(std::sync::Arc<dyn agenium_llm::Provider>, String)> {
         let (provider_id, model_id) = if agent.backend == BackendKind::Cli {
             let cfg = self.app.config().cli;
             if cfg.fallback_provider.is_empty() || cfg.fallback_model.is_empty() {
                 tracing::info!(
                     agent = %agent.name,
-                    "memory pipeline skipped: a CLI agent needs [cli] fallback_provider/fallback_model for extraction"
+                    "skipped: a CLI agent needs [cli] fallback_provider/fallback_model for this API call"
                 );
                 return None;
             }
@@ -215,10 +213,23 @@ impl Runtime {
         } else {
             (agent.model.provider.clone(), agent.model.model.clone())
         };
-        let provider = match self.providers.provider(&provider_id) {
-            Ok(p) => p,
-            Err(e) => return Some(Err(e.to_string())),
-        };
+        match self.providers.provider(&provider_id) {
+            Ok(p) => Some((p, model_id)),
+            Err(e) => {
+                tracing::warn!(agent = %agent.name, error = %e, "no provider for a side call");
+                None
+            }
+        }
+    }
+
+    /// The memory pipeline on `ep` with `agent`'s model; `None` when the agent has no model to extract with.
+    async fn extract(
+        &self,
+        agent: &agenium_store::core::agents::Agent,
+        mem: &AgentStore,
+        ep: &Episode,
+    ) -> Option<std::result::Result<LearnReport, String>> {
+        let (provider, model_id) = self.side_model(agent)?;
         let model = PipelineModel {
             model: model_id,
             effort: Effort::Low,
