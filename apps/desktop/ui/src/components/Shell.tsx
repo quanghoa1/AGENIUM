@@ -33,6 +33,7 @@ import type { Key } from "../lib/i18n";
 import { inTauri, useApp, useLive, type View } from "../lib/store";
 import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
+import { Logo } from "./Logo";
 import { CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
 import { cn } from "./ui";
 import { UsageFooter } from "./UsageFooter";
@@ -120,8 +121,10 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-full w-full overflow-hidden bg-background text-fg">
       <aside className={cn("flex shrink-0 select-none flex-col border-r border-line bg-surface transition-all duration-200", collapsed ? "w-16" : "w-60")}>
         <div className="flex h-14 items-center justify-between border-b border-line px-3.5">
-          <button onClick={() => go("overview")} className="flex items-center gap-2.5 text-left">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 font-mono text-sm font-bold text-white shadow-sm">AG</div>
+          <button onClick={() => go("overview")} className="flex items-center gap-2.5 text-left group">
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm ring-1 ring-blue-500/30 transition-transform duration-150 group-hover:scale-105">
+              <Logo className="h-8 w-8 rounded-lg" />
+            </div>
             {!collapsed && (
               <div>
                 <div className="flex items-center gap-1.5">

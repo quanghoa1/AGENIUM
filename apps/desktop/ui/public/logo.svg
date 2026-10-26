@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0B1120" />
+      <stop offset="55%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#090D16" />
+    </linearGradient>
+    <radialGradient id="core-glow" cx="256" cy="240" r="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.24" />
+      <stop offset="55%" stop-color="#2563EB" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="rim-grad" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.55" />
+      <stop offset="50%" stop-color="#3B82F6" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#1E293B" stop-opacity="0.8" />
+    </linearGradient>
+    <linearGradient id="rail-left" x1="256" y1="88" x2="124" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="rail-right" x1="256" y1="88" x2="388" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="50%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="ticket-grad" x1="128" y1="240" x2="384" y2="332" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="50%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="ticket-inner" x1="140" y1="250" x2="372" y2="322" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A" stop-opacity="0.92" />
+      <stop offset="100%" stop-color="#1E293B" stop-opacity="0.88" />
+    </linearGradient>
+    <linearGradient id="lead-node" x1="216" y1="68" x2="296" y2="148" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#67E8F9" />
+      <stop offset="45%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg-grad)" />
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#core-glow)" />
+  <rect x="18" y="18" width="476" height="476" rx="106" stroke="url(#rim-grad)" stroke-width="4" />
+
+  <path d="M 124 404 Q 256 446 388 404" stroke="url(#rail-right)" stroke-width="5" stroke-dasharray="8 8" stroke-linecap="round" fill="none" opacity="0.85" />
+  <path d="M 256 108 L 124 404" stroke="url(#rail-left)" stroke-width="36" stroke-linecap="round" />
+  <path d="M 256 108 L 388 404" stroke="url(#rail-right)" stroke-width="36" stroke-linecap="round" />
+
+  <path
+    d="M 146 244 H 366 A 14 14 0 0 1 380 258 V 270 A 16 16 0 0 0 380 302 V 314 A 14 14 0 0 1 366 328 H 146 A 14 14 0 0 1 132 314 V 302 A 16 16 0 0 0 132 270 V 258 A 14 14 0 0 1 146 244 Z"
+    fill="url(#ticket-inner)"
+    stroke="url(#ticket-grad)"
+    stroke-width="5"
+  />
+  <line x1="204" y1="252" x2="204" y2="320" stroke="#38BDF8" stroke-width="2.5" stroke-dasharray="6 5" opacity="0.65" />
+  <circle cx="170" cy="286" r="15" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="3" />
+  <path d="M 163 286 L 168 291 L 178 281" stroke="#34D399" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+  <rect x="222" y="266" width="64" height="12" rx="6" fill="#38BDF8" />
+  <circle cx="302" cy="272" r="6" fill="#F59E0B" />
+  <rect x="222" y="292" width="124" height="12" rx="6" fill="#94A3B8" fill-opacity="0.65" />
+
+  <circle cx="256" cy="108" r="42" fill="#0B1120" stroke="url(#lead-node)" stroke-width="6" />
+  <polygon points="256,82 282,108 256,134 230,108" fill="url(#lead-node)" />
+  <circle cx="256" cy="108" r="7" fill="#FFFFFF" />
+
+  <circle cx="124" cy="404" r="30" fill="#0B1120" stroke="#3B82F6" stroke-width="6" />
+  <circle cx="124" cy="404" r="13" fill="#60A5FA" />
+  <circle cx="124" cy="404" r="5" fill="#FFFFFF" />
+
+  <circle cx="388" cy="404" r="30" fill="#0B1120" stroke="#06B6D4" stroke-width="6" />
+  <circle cx="388" cy="404" r="13" fill="#22D3EE" />
+  <circle cx="388" cy="404" r="5" fill="#FFFFFF" />
+
+  <rect x="242" y="411" width="28" height="28" rx="8" fill="#0B1120" stroke="#10B981" stroke-width="4" />
+  <circle cx="256" cy="425" r="5" fill="#34D399" />
+</svg>

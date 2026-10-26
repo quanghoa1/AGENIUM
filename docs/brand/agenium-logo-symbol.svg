@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <linearGradient id="sym-rail-left" x1="256" y1="64" x2="108" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="sym-rail-right" x1="256" y1="64" x2="404" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="50%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="sym-ticket-grad" x1="112" y1="236" x2="400" y2="336" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="50%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="sym-lead-node" x1="208" y1="48" x2="304" y2="144" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#67E8F9" />
+      <stop offset="45%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+  </defs>
+
+  <!-- Sequential Merge Queue Arc -->
+  <path
+    d="M 108 416 Q 256 462 404 416"
+    stroke="url(#sym-rail-right)"
+    stroke-width="8"
+    stroke-dasharray="12 10"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- Multi-Agent "A" Orchestration Rails -->
+  <path d="M 256 96 L 108 416" stroke="url(#sym-rail-left)" stroke-width="42" stroke-linecap="round" />
+  <path d="M 256 96 L 404 416" stroke="url(#sym-rail-right)" stroke-width="42" stroke-linecap="round" />
+
+  <!-- Center Notched Jira-Style Ticket Crossbar -->
+  <path
+    d="M 134 240
+       H 378
+       A 14 14 0 0 1 392 254
+       V 268
+       A 18 18 0 0 0 392 304
+       V 318
+       A 14 14 0 0 1 378 332
+       H 134
+       A 14 14 0 0 1 120 318
+       V 304
+       A 18 18 0 0 0 120 268
+       V 254
+       A 14 14 0 0 1 134 240 Z"
+    fill="#0F172A"
+    stroke="url(#sym-ticket-grad)"
+    stroke-width="8"
+  />
+  <line x1="198" y1="250" x2="198" y2="322" stroke="#38BDF8" stroke-width="4" stroke-dasharray="7 6" />
+  <circle cx="162" cy="286" r="16" fill="#10B981" fill-opacity="0.25" stroke="#10B981" stroke-width="4" />
+  <path d="M 154 286 L 160 292 L 171 280" stroke="#34D399" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+  <rect x="218" y="264" width="72" height="14" rx="7" fill="#38BDF8" />
+  <circle cx="308" cy="271" r="7" fill="#F59E0B" />
+  <rect x="218" y="292" width="136" height="14" rx="7" fill="#94A3B8" />
+
+  <!-- Lead Apex Node -->
+  <circle cx="256" cy="96" r="46" fill="#0F172A" stroke="url(#sym-lead-node)" stroke-width="8" />
+  <polygon points="256,66 286,96 256,126 226,96" fill="url(#sym-lead-node)" />
+  <circle cx="256" cy="96" r="8" fill="#FFFFFF" />
+
+  <!-- Worker Base Nodes -->
+  <circle cx="108" cy="416" r="34" fill="#0F172A" stroke="#3B82F6" stroke-width="8" />
+  <circle cx="108" cy="416" r="15" fill="#60A5FA" />
+
+  <circle cx="404" cy="416" r="34" fill="#0F172A" stroke="#06B6D4" stroke-width="8" />
+  <circle cx="404" cy="416" r="15" fill="#22D3EE" />
+</svg>

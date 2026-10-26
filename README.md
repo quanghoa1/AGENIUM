@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/brand/agenium-logo-banner-dark.svg" alt="AGENIUM — Ticket-Driven Multi-Agent Orchestrator" width="100%" />
+</p>
+
 # Agenium
 
 Rust application that orchestrates AI agents — a Solo agent, or a Lead with Workers — through a built-in ticket system.

@@ -1,5 +1,6 @@
 import { Copy, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Logo } from "../components/Logo";
 import { Empty, FreeTag, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { isFree, priceOf, usePrices } from "../lib/prices";
@@ -263,7 +264,7 @@ export function SetupView() {
     <div className="flex h-full items-center justify-center bg-background p-6">
       <div className="card w-[460px] p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 font-mono font-bold text-white">AG</div>
+          <Logo className="h-10 w-10 shrink-0 rounded-lg shadow-sm" />
           <div className="text-base font-semibold">{app.t("setup.title")}</div>
         </div>
         <label className="block text-xs">
