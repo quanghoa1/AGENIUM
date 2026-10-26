@@ -1731,7 +1731,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let mem = self.agent_memory(lead.id)?;
         let session = learn::chat_session(project);
         // Older turns of a long chat are seen as a summary (ADR-106); the stored conversation stays whole.
-        let history: Vec<Message> = self.chat_history(&lead, &mem, project).await?;
+        let (history, summary_usage) = self.chat_history(&lead, &mem, project).await?;
         let run = self
             .app
             .store()
@@ -1842,7 +1842,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .find(|m| m.role == agenium_llm::Role::Assistant && !m.text().is_empty())
             .map(|m| m.text())
             .unwrap_or_default();
-        let usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
+        let mut usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
+        // The summary of the older chat this turn needed (ADR-106) is part of its cost.
+        usage.add(&summary_usage);
         self.app
             .finish_run(run, &report.outcome.label(), report.steps, &usage)?;
         self.agent_state_after(&lead, None, &report.outcome)?;

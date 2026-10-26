@@ -60,13 +60,14 @@ fn cut(messages: &[Message]) -> Option<usize> {
 
 impl Runtime {
     /// The history a chat turn of `lead` in `project` sends: the stored conversation, its older part replaced by a
-    /// summary once it is too long. A failed summary leaves the history whole (and is tried at the next turn).
+    /// summary once it is too long. A failed summary leaves the history whole (and is tried at the next turn). Also
+    /// what the summary's model call used, priced: the turn that needed it records it with its own.
     pub(crate) async fn chat_history(
         &self,
         lead: &agenium_store::core::agents::Agent,
         mem: &AgentStore,
         project: ProjectId,
-    ) -> Result<Vec<Message>> {
+    ) -> Result<(Vec<Message>, UsageSummary)> {
         let all: Vec<Message> = mem
             .load_messages(&super::learn::chat_session(project))?
             .into_iter()
@@ -93,15 +94,16 @@ impl Runtime {
             v
         };
         let current = view(from, &summary);
+        let none = UsageSummary::default();
         if current.iter().map(tokens).sum::<usize>() <= CHAT_BUDGET {
-            return Ok(current);
+            return Ok((current, none));
         }
         let Some(rel) = cut(&all[from..]) else {
-            return Ok(current);
+            return Ok((current, none));
         };
         let until = from + rel;
         let Some((provider, model)) = self.side_model(lead) else {
-            return Ok(current);
+            return Ok((current, none));
         };
         let mut text = String::new();
         if !summary.is_empty() {
@@ -112,7 +114,7 @@ impl Runtime {
             super::learn::chat_transcript(&all[from..until])
         ));
         let req = ChatRequest {
-            model,
+            model: model.clone(),
             system: vec![SystemBlock {
                 text: SUMMARY_RULES.into(),
                 cache: false,
@@ -125,7 +127,11 @@ impl Runtime {
             long_cache: false,
             tools_off: false,
         };
-        match chat_with_retry(provider.as_ref(), &req, &self.retry, &|_| {}, |_, _, _| {}).await {
+        let r = chat_with_retry(provider.as_ref(), &req, &self.retry, &|_| {}, |_, _, _| {}).await;
+        let used = |u: &agenium_llm::Usage| {
+            super::bridge::summary(u, self.cost(provider.id(), &model, u), 0)
+        };
+        match r {
             Ok(r) if r.stop != StopReason::MaxTokens && !r.message.text().trim().is_empty() => {
                 let s = r.message.text().trim().to_owned();
                 mem.set_meta(
@@ -133,15 +139,15 @@ impl Runtime {
                     &serde_json::to_string(&(until, &s)).unwrap_or_default(),
                 )?;
                 tracing::info!(%project, summarised = until, "the Lead's chat history was summarised");
-                Ok(view(until, &s))
+                Ok((view(until, &s), used(&r.usage)))
             }
-            Ok(_) => {
+            Ok(r) => {
                 tracing::warn!(%project, "chat summary was empty or cut off; history kept whole");
-                Ok(current)
+                Ok((current, used(&r.usage)))
             }
             Err(e) => {
                 tracing::warn!(%project, error = %e, "chat summary failed; history kept whole");
-                Ok(current)
+                Ok((current, none))
             }
         }
     }

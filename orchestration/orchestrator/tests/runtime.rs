@@ -1975,7 +1975,11 @@ async fn a_long_chat_is_summarised_once_and_kept() {
         assert!(all.contains("turn 19:") && !all.contains("turn 0:"));
         Ok(calls_response("ok", vec![]))
     }));
-    rt.chat(project, "next").await.unwrap();
+    let first = rt.chat(project, "next").await.unwrap();
+    assert_eq!(
+        first.usage.tokens_in, 200,
+        "the summary's model call is part of the turn's usage"
+    );
     // The next turn reuses the summary: no new summary call.
     p.push(Box::new(|req| {
         assert!(req.messages[0]
@@ -1983,7 +1987,8 @@ async fn a_long_chat_is_summarised_once_and_kept() {
             .starts_with("[Earlier conversation, summarised]"));
         Ok(calls_response("ok again", vec![]))
     }));
-    rt.chat(project, "and next").await.unwrap();
+    let next = rt.chat(project, "and next").await.unwrap();
+    assert_eq!(next.usage.tokens_in, 100);
     assert_eq!(p.remaining(), 0);
     assert_eq!(
         mem.load_messages(&session).unwrap().len(),
