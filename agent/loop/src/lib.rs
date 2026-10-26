@@ -70,8 +70,11 @@ pub struct LoopConfig {
     pub retry: RetryPolicy,
     pub cache_key: Option<String>,
     pub long_cache: bool,
-    /// Context size of the model; a checkpoint is taken at 85 % of it.
+    /// Context size of the model. At 60 % of it old tool results are cleared; at 85 % the run's conversation is
+    /// replaced by the model's notes (`max_compactions` times), then the run checkpoints (ADR-100).
     pub context_window: u64,
+    /// In-run compactions before a full context checkpoints the run; 0 = checkpoint at once.
+    pub max_compactions: u32,
 }
 
 impl Default for LoopConfig {
@@ -88,6 +91,7 @@ impl Default for LoopConfig {
             cache_key: None,
             long_cache: true,
             context_window: 200_000,
+            max_compactions: 2,
         }
     }
 }
@@ -200,6 +204,68 @@ with one result per acceptance criterion when you are done, or ask_question if y
 const NUDGE_CHAT: &str = "Text alone is not an action. If something must change, call the matching tool now; otherwise reply to the user and stop.";
 const CHECKPOINT: &str = "Checkpoint: this run is stopping (step or context limit). Write a short progress note for the next run: \
 what is done, what remains, and the next concrete step. Do not call tools.";
+
+/// Share of the context window (percent) from which old tool results are cleared, without a model call.
+const CLEAR_AT_PERCENT: u64 = 60;
+/// Share from which the run's conversation is replaced by the model's notes (or the run checkpoints).
+const COMPACT_AT_PERCENT: u64 = 85;
+/// Tool-result messages at the end of the conversation that are never cleared.
+const KEEP_RESULTS: usize = 4;
+/// A tool result shorter than this (characters) is never cleared.
+const CLEAR_MIN_CHARS: usize = 400;
+const CLEARED: &str = "[cleared to save context";
+const COMPACT: &str = "The context is nearly full: the conversation of this run so far will be replaced by your notes. \
+Write them now, without calling tools: the task, what is done (files changed; commands run and the results that \
+matter), what you found that you still need, what remains, and the next concrete step.";
+const COMPACTED: &str =
+    "[Context compacted: the conversation of this run so far was replaced by your notes below. \
+Changes you made to files are still there. Continue from the next step.]";
+
+/// Clears the content of long tool results, all but the last `KEEP_RESULTS` tool-result messages, when together they
+/// free at least a tenth of the window (fewer edits keep the prompt cache). Returns how many were cleared.
+fn clear_old_results(messages: &mut [Message], window: u64) -> usize {
+    let with_results: Vec<usize> = messages
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m.parts.iter().any(|p| matches!(p, Part::ToolResult { .. })))
+        .map(|(i, _)| i)
+        .collect();
+    let old = &with_results[..with_results.len().saturating_sub(KEEP_RESULTS)];
+    let clearable = |p: &Part| match p {
+        Part::ToolResult { content, .. } => {
+            content.len() >= CLEAR_MIN_CHARS && !content.starts_with(CLEARED)
+        }
+        _ => false,
+    };
+    let chars: usize = old
+        .iter()
+        .flat_map(|&i| messages[i].parts.iter())
+        .filter(|p| clearable(p))
+        .map(|p| match p {
+            Part::ToolResult { content, .. } => content.len(),
+            _ => 0,
+        })
+        .sum();
+    // About four characters a token.
+    if (chars as u64) / 4 < window / 10 {
+        return 0;
+    }
+    let mut n = 0;
+    for &i in old {
+        for p in &mut messages[i].parts {
+            if clearable(p) {
+                if let Part::ToolResult { content, .. } = p {
+                    *content = format!(
+                        "{CLEARED}: {} characters; call the tool again if you need it]",
+                        content.chars().count()
+                    );
+                    n += 1;
+                }
+            }
+        }
+    }
+    n
+}
 
 /// Validation-type error codes: three in a row stop the run.
 fn is_invalid_call(code: &str) -> bool {
@@ -318,6 +384,7 @@ impl Run<'_> {
         let mut errors_in_row = 0u32;
         let mut nudges = 0u32;
         let mut step = 0u32;
+        let mut compactions = 0u32;
         let push = |messages: &mut Vec<Message>, m: Message| {
             self.observer.message(&m);
             messages.push(m);
@@ -452,10 +519,28 @@ impl Run<'_> {
                 Effect::Park => break Outcome::Parked,
                 Effect::Continue => {}
             }
-            if usage_window(&resp.usage) > self.cfg.context_window * 85 / 100 {
+            let used = usage_window(&resp.usage);
+            if used > self.cfg.context_window * COMPACT_AT_PERCENT / 100 {
+                if compactions < self.cfg.max_compactions {
+                    compactions += 1;
+                    match self
+                        .compact(order, &mut messages, start_len, &mut usage)
+                        .await
+                    {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(o) => break o,
+                    }
+                }
                 break self
                     .checkpoint(order, &mut messages, &mut usage, "context")
                     .await;
+            }
+            if used > self.cfg.context_window * CLEAR_AT_PERCENT / 100 {
+                let n = clear_old_results(&mut messages, self.cfg.context_window);
+                if n > 0 {
+                    tracing::info!(cleared = n, "old tool results cleared to save context");
+                }
             }
         };
         RunReport {
@@ -465,6 +550,31 @@ impl Run<'_> {
             messages: messages.split_off(start_len),
             model,
         }
+    }
+
+    /// Asks for notes without tools and replaces the run's conversation (after the work order) with them; the run
+    /// goes on. `Ok(false)` when the model wrote no notes.
+    async fn compact(
+        &self,
+        order: &WorkOrder,
+        messages: &mut Vec<Message>,
+        start_len: usize,
+        usage: &mut Usage,
+    ) -> Result<bool, Outcome> {
+        let mut ask = messages.clone();
+        ask.push(Message::user_text(COMPACT));
+        let r = self.turn(&self.request(order, &ask, false)).await?;
+        usage.add(&r.usage);
+        let notes = r.message.text();
+        if notes.trim().is_empty() {
+            return Ok(false);
+        }
+        messages.truncate(start_len);
+        let m = Message::user_text(format!("{COMPACTED}\n\n{}", notes.trim()));
+        self.observer.message(&m);
+        messages.push(m);
+        tracing::info!("run context compacted");
+        Ok(true)
     }
 
     /// Asks for a progress note without tools; the next run resumes from it.

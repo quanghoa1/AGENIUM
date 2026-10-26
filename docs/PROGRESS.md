@@ -216,7 +216,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - Sandbox on macOS (containment runs 2026-10-26, ADR-55; confirmed again by the third run): a daemon outlives the command (now killed by its environment token, to be confirmed by the fifth Mac run); with network on a host unix socket was reachable (mxc-sdk emits an unfiltered `network-outbound`), now narrowed by Agenium (`seatbelt.rs`) and confirmed blocked by the fourth Mac run (52f1c12: 301 passed, 0 failed, DNS and internet still work). File escapes are blocked. (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
   VM, 0 escapes, ADR-95; Windows MXC: ADR-53/S2). An AppArmor profile shipped with a Linux installer (until then,
   Ubuntu 24.04+ hosts run sandboxed commands without network unless the user allows user namespaces, ADR-95).
-- Context compaction beyond the checkpoint-and-continue approach.
+- Context compaction: in-run clearing and compaction done (ADR-100, scripted model only); a very long Lead chat still checkpoints its turn.
 - GitHub workflows (cargo-deny runs in local CI since 2026-10-26, ADR-99). **Real Ubuntu 25.10 (VMware VM, 2026-10-26): 296 passed, 0 failed** after the ADR-95
   fixes — the first run found that no sandboxed command could start with the network on. **macOS: first run 2026-10-25** (virtual M4 Pro): build OK, 289 passed / 1 failed /
   2 ignored — the failure was a real path-confinement defect (a worktree reached through `/private/var`), fixed and

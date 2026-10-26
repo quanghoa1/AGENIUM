@@ -391,6 +391,7 @@ impl Runtime {
             cache_key: Some(cache_key),
             long_cache: true,
             context_window: 200_000,
+            max_compactions: 2,
         }
     }
 

@@ -342,3 +342,140 @@ async fn cancel_and_chat_mode() {
     assert_eq!(rep.outcome, Outcome::Completed);
     assert_eq!(rep.messages[0].text(), "Here is my answer.");
 }
+
+/// A scripted answer that reports `tokens` of context in use.
+fn using(
+    tokens: u64,
+    calls: Vec<(&'static str, serde_json::Value)>,
+) -> agenium_llm::mock::Responder {
+    Box::new(move |_| {
+        let mut r = agenium_llm::mock::calls_response("", calls.clone());
+        r.usage.input = tokens;
+        Ok(r)
+    })
+}
+
+fn small_window() -> LoopConfig {
+    LoopConfig {
+        context_window: 10_000,
+        ..cfg()
+    }
+}
+
+/// ADR-100: past 60 % of the window, long tool results older than the last four are cleared (no model call).
+#[tokio::test]
+async fn old_tool_results_are_cleared_when_the_context_fills() {
+    let (_t, ctx, tools, proto) = harness();
+    let big = "x".repeat(6000);
+    let p = ScriptedProvider::new("m");
+    p.push(using(
+        100,
+        vec![("write_file", json!({"path": "big.txt", "content": big}))],
+    ));
+    p.push(using(100, vec![("read_file", json!({"path": "big.txt"}))]));
+    for d in 1..=4 {
+        p.push(using(100, vec![("list_dir", json!({"depth": d}))]));
+    }
+    // 70 % in use: the next request has the old read cleared, the last four results whole.
+    p.push(using(7_000, vec![("list_dir", json!({"depth": 5}))]));
+    p.push(Box::new(|req: &ChatRequest| {
+        let all: String = req
+            .messages
+            .iter()
+            .flat_map(|m| m.parts.iter())
+            .filter_map(|p| match p {
+                Part::ToolResult { name, content, .. } => Some(format!("{name}: {content}\n")),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            all.contains("read_file: [cleared to save context: "),
+            "{all}"
+        );
+        assert!(!all.contains(&"x".repeat(1000)), "the big result is gone");
+        assert_eq!(all.matches("list_dir: ").count(), 5);
+        assert!(!all.contains("list_dir: [cleared"), "recent results stay");
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, small_window())
+        .run(&order())
+        .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    assert_eq!(p.remaining(), 0);
+}
+
+/// ADR-100: past 85 % the run's conversation is replaced by the model's notes and the run goes on.
+#[tokio::test]
+async fn a_full_context_is_summarised_and_the_run_goes_on() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push(using(9_000, vec![("list_dir", json!({}))]));
+    p.push_text("Task: AGN-1. Done: listed the files. Next: submit the report.");
+    p.push(Box::new(|req: &ChatRequest| {
+        assert!(!req.tools.is_empty(), "work goes on with tools");
+        assert_eq!(req.messages.len(), 2, "{:?}", req.messages);
+        assert!(req.messages[0].text().contains("# Ticket AGN-1"));
+        let note = req.messages[1].text();
+        assert!(note.starts_with("[Context compacted"), "{note}");
+        assert!(note.contains("Next: submit the report."), "{note}");
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, small_window())
+        .run(&order())
+        .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    assert!(
+        p.requests()[1].tools.is_empty(),
+        "the notes are asked for without tools"
+    );
+    // What the run keeps (and a later run resumes from) starts with the notes.
+    assert!(r.messages[0].text().starts_with("[Context compacted"));
+}
+
+/// ADR-100: after `max_compactions`, a full context checkpoints the run as before.
+#[tokio::test]
+async fn after_two_compactions_the_run_checkpoints() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    for d in 1..=3 {
+        p.push(using(9_000, vec![("list_dir", json!({"depth": d}))]));
+        if d < 3 {
+            p.push_text(&format!("Notes {d}."));
+        }
+    }
+    p.push_text("Progress: listed three times.");
+    let r = run(&p, &ctx, &tools, &proto, small_window())
+        .run(&order())
+        .await;
+    assert_eq!(
+        r.outcome,
+        Outcome::Checkpoint {
+            summary: "Progress: listed three times.".into(),
+            reason: "context".into()
+        }
+    );
+    assert_eq!(p.remaining(), 0);
+    // Off: the first full context checkpoints.
+    let p = ScriptedProvider::new("m");
+    p.push(using(9_000, vec![("list_dir", json!({}))]));
+    p.push_text("Progress.");
+    let r = run(
+        &p,
+        &ctx,
+        &tools,
+        &proto,
+        LoopConfig {
+            max_compactions: 0,
+            ..small_window()
+        },
+    )
+    .run(&order())
+    .await;
+    assert!(matches!(r.outcome, Outcome::Checkpoint { .. }));
+}
