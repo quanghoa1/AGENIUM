@@ -26,8 +26,19 @@ use crate::{ExecError, ExecOutput, SandboxMode, SandboxPolicy};
 #[link(name = "advapi32")]
 unsafe extern "system" {}
 
+/// A path in the form used to compare folders: long (no 8.3 short names, junctions resolved, when it exists) and
+/// without case, as Windows names them (`C:\Users\Me`, `c:\users\me` and `C:\Users\ME~1` are one folder).
+fn fold(p: &Path) -> PathBuf {
+    PathBuf::from(long_path(p).to_string_lossy().to_lowercase())
+}
+
+/// A drive root, the user profile, or a relative PATH entry (`.`, `.\bin`, `\tools`): one would resolve against the
+/// harness's working directory, often the profile itself.
 fn is_unsafe_root(p: &Path, profile: Option<&Path>) -> bool {
-    p.parent().is_none() || profile.is_some_and(|h| p == h) || p.components().count() <= 1
+    !p.is_absolute()
+        || p.parent().is_none()
+        || profile.is_some_and(|h| fold(p) == fold(h))
+        || p.components().count() <= 1
 }
 
 /// Read-only roots for the toolchains on PATH: every PATH directory and, for `bin`/`cmd`/`Scripts` folders, the
@@ -46,7 +57,11 @@ pub fn toolchain_read_roots() -> Vec<PathBuf> {
     };
     if let Some(path) = std::env::var_os("PATH") {
         for d in std::env::split_paths(&path) {
-            if cargo_home.as_ref().is_some_and(|c| d.starts_with(c)) {
+            // Without case: `c:\users\me\.cargo\bin` on PATH would otherwise add `.cargo` (its credentials) below.
+            if cargo_home
+                .as_ref()
+                .is_some_and(|c| fold(&d).starts_with(fold(c)))
+            {
                 continue; // handled below
             }
             let name = d
@@ -221,4 +236,28 @@ pub fn run(
         timed_out,
         elapsed_ms: start.elapsed().as_millis() as u64,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The profile is refused however PATH spells it, and a relative PATH entry (it would resolve against the
+    /// harness's working directory) is never a read root.
+    #[test]
+    fn unsafe_roots_ignore_case_and_relative_entries() {
+        let profile = Path::new(r"C:\Users\Me");
+        assert!(is_unsafe_root(Path::new(r"c:\users\me"), Some(profile)));
+        assert!(is_unsafe_root(Path::new(r"C:\USERS\ME\"), Some(profile)));
+        assert!(is_unsafe_root(Path::new(r"C:\"), Some(profile)));
+        for rel in [".", r".\bin", r"node_modules\.bin", r"\tools", r"C:tools"] {
+            assert!(is_unsafe_root(Path::new(rel), Some(profile)), "{rel}");
+        }
+        assert!(!is_unsafe_root(
+            Path::new(r"C:\Users\Me\.cargo\bin"),
+            Some(profile)
+        ));
+        assert!(fold(Path::new(r"c:\users\me\.CARGO\bin"))
+            .starts_with(fold(Path::new(r"C:\Users\Me\.cargo"))));
+    }
 }

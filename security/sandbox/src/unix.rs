@@ -157,7 +157,10 @@ pub fn toolchain_read_roots() -> Vec<PathBuf> {
     let system = platform_read_roots();
     let mut out: Vec<PathBuf> = Vec::new();
     let mut push = |p: PathBuf| {
-        let unsafe_root = p.parent().is_none() || home.as_deref() == Some(p.as_path());
+        // A relative PATH entry (`.`, `node_modules/.bin`) would resolve against the harness's working directory,
+        // often $HOME itself.
+        let unsafe_root =
+            p.is_relative() || p.parent().is_none() || home.as_deref() == Some(p.as_path());
         if p.is_dir()
             && !unsafe_root
             && !system.iter().any(|s| p.starts_with(s))
