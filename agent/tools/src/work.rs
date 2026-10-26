@@ -337,10 +337,14 @@ impl Tool for GrepTool {
                     continue;
                 }
             }
+            // Too large to search: skipped before it is read.
+            if std::fs::metadata(&f).map_or(true, |m| m.len() > MAX_READ_BYTES) {
+                continue;
+            }
             let Ok(bytes) = std::fs::read(&f) else {
                 continue;
             };
-            if bytes.len() as u64 > MAX_READ_BYTES || bytes.iter().take(8192).any(|b| *b == 0) {
+            if bytes.iter().take(8192).any(|b| *b == 0) {
                 continue;
             }
             let s = String::from_utf8_lossy(&bytes);
@@ -362,7 +366,11 @@ impl Tool for GrepTool {
         if out.is_empty() {
             return Ok(ToolOutput::text("no matches"));
         }
-        out.push(format!("[{matches} matching lines]"));
+        out.push(if files_only {
+            format!("[{matches} matching files]")
+        } else {
+            format!("[{matches} matching lines]")
+        });
         Ok(ctx.finish_output(out.join("\n"), false))
     }
 }
@@ -787,16 +795,23 @@ pub fn domain_allowed(host: &str, allow: &[String]) -> bool {
 
 /// Very small HTML-to-text reduction (scripts/styles dropped, tags removed, entities for the common cases).
 pub fn html_to_text(html: &str) -> String {
-    let re_drop = regex::Regex::new(
-        r"(?is)<(script|style|noscript|svg)[^>]*>.*?</(script|style|noscript|svg)>",
-    )
-    .expect("regex");
-    let s = re_drop.replace_all(html, " ");
-    let re_block = regex::Regex::new(r"(?i)</?(p|div|br|li|tr|h[1-6]|section|article|pre)[^>]*>")
-        .expect("regex");
-    let s = re_block.replace_all(&s, "\n");
-    let re_tag = regex::Regex::new(r"(?s)<[^>]*>").expect("regex");
-    let s = re_tag.replace_all(&s, "");
+    use std::sync::LazyLock;
+    // Compiled once, not on every fetch.
+    static DROP: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r"(?is)<(script|style|noscript|svg)[^>]*>.*?</(script|style|noscript|svg)>",
+        )
+        .expect("regex")
+    });
+    static BLOCK: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"(?i)</?(p|div|br|li|tr|h[1-6]|section|article|pre)[^>]*>")
+            .expect("regex")
+    });
+    static TAG: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"(?s)<[^>]*>").expect("regex"));
+    let s = DROP.replace_all(html, " ");
+    let s = BLOCK.replace_all(&s, "\n");
+    let s = TAG.replace_all(&s, "");
     let s = s
         .replace("&nbsp;", " ")
         .replace("&lt;", "<")

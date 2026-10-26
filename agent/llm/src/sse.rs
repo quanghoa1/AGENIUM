@@ -1,4 +1,4 @@
-//! Minimal Server-Sent Events decoder (WHATWG rules needed by the three vendors: `event:`, `data:` multi-line,
+//! Minimal Server-Sent Events decoder (WHATWG rules the vendor streams need: `event:`, `data:` multi-line,
 //! comments, CRLF/LF, blank-line dispatch). Fed raw byte chunks; yields complete events.
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

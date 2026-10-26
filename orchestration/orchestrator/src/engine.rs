@@ -1208,7 +1208,7 @@ impl App {
         let outside = self.out_of_scope_changes(project, &t0, &role)?;
         if !outside.is_empty() {
             return Err(invalid(format!(
-                "{} changes files outside the write scope of the ticket and your role: {}. Restore them, or                  request_permission (kind=path) for them, then submit again",
+                "{} changes files outside the write scope of the ticket and your role: {}. Restore them, or request_permission (kind=path) for them, then submit again",
                 t0.key,
                 outside.join(", ")
             )));

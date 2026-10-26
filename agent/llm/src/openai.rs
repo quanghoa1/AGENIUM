@@ -52,7 +52,7 @@ impl Flavor {
 fn is_reasoning_model(flavor: Flavor, model: &str) -> bool {
     let m = model.to_ascii_lowercase();
     match flavor {
-        Flavor::OpenAi => m.starts_with('o') || m.starts_with("gpt-5"),
+        Flavor::OpenAi => m.starts_with('o') || m.starts_with("gpt-5") || m.starts_with("gpt-6"),
         Flavor::DeepSeek => m.contains("reasoner") || m.contains("v3.2") || m.contains("v4"),
         Flavor::OpenRouter => true,
         Flavor::OpenCode => m.starts_with("deepseek"),

@@ -187,7 +187,7 @@ impl ToolCtx {
                 return Err(ToolError::new(
                     "out_of_scope",
                     format!(
-                        "{rel} is outside the write scope of your ticket and role {}; if the work needs it,                          request_permission (kind=path, paths=[\"{rel}\"]) or ask_question",
+                        "{rel} is outside the write scope of your ticket and role {}; if the work needs it, request_permission (kind=path, paths=[\"{rel}\"]) or ask_question",
                         self.write_scope.describe()
                     ),
                 ));

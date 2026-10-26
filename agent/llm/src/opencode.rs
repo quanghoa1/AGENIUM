@@ -1,5 +1,5 @@
 //! OpenCode Zen / Go relay (opencode.ai): one key, several wire protocols. The model id decides the transport, as
-//! the relay documents and Hermes agent implements: Anthropic Messages for `claude-*`, `minimax-*`, `qwen*`;
+//! the relay documents and Hermes agent implements: Anthropic Messages for `claude-*`, `minimax-*`, `qwen*`, `union-alpha`;
 //! OpenAI Responses for `gpt-*`, `grok-*`, `muse-spark*`; chat/completions otherwise.
 //! Every request carries `x-opencode-session` (Go rejects requests without it).
 

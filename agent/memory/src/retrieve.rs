@@ -31,25 +31,11 @@ fn days_since(ts: &str) -> f64 {
     chrono_like_days(ts).unwrap_or(0.0)
 }
 
-/// Days between an RFC 3339 UTC timestamp and now (no chrono dependency: the format is fixed by the store).
+/// Days between an RFC 3339 timestamp and now.
 fn chrono_like_days(ts: &str) -> Option<f64> {
-    let (date, time) = ts.split_once('T')?;
-    let mut d = date.split('-').map(|x| x.parse::<i64>());
-    let (y, m, day) = (d.next()?.ok()?, d.next()?.ok()?, d.next()?.ok()?);
-    let hours: f64 = time.get(0..2)?.parse().ok()?;
-    // Days from civil (Howard Hinnant's algorithm).
-    let y2 = if m <= 2 { y - 1 } else { y };
-    let era = y2.div_euclid(400);
-    let yoe = y2 - era * 400;
-    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    let then = days as f64 * 86_400.0 + hours * 3600.0;
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .ok()?
-        .as_secs_f64();
-    Some(((now - then) / 86_400.0).max(0.0))
+    let then = chrono::DateTime::parse_from_rfc3339(ts).ok()?;
+    let secs = chrono::Utc::now().signed_duration_since(then).num_seconds();
+    Some(secs.max(0) as f64 / 86_400.0)
 }
 
 /// `0.5 + 0.5 * 2^(-age/90)` (ADR-51 §7, floor 0.5).

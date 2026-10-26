@@ -8,7 +8,6 @@
 
 pub mod prompt;
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -402,7 +401,8 @@ impl Run<'_> {
         let start_len = messages.len();
         let mut usage = Usage::default();
         let mut model = self.cfg.model.clone();
-        let mut last_calls: Vec<(String, String)> = Vec::new();
+        // The last `same_call_limit` calls only (a call's arguments can be a whole file).
+        let mut last_calls: std::collections::VecDeque<(String, String)> = Default::default();
         let mut errors_in_row = 0u32;
         let mut nudges = 0u32;
         let mut step = 0u32;
@@ -558,10 +558,13 @@ impl Run<'_> {
                 };
             for (i, c) in calls.iter().enumerate() {
                 let key = (c.name.clone(), c.args.to_string());
-                last_calls.push(key.clone());
+                last_calls.push_back(key.clone());
+                if last_calls.len() > self.cfg.same_call_limit.max(1) as usize {
+                    last_calls.pop_front();
+                }
                 let n = last_calls.len();
                 let limit = self.cfg.same_call_limit.max(1) as usize;
-                let looping = n >= limit && last_calls[n - limit..].iter().all(|k| *k == key);
+                let looping = n >= limit && last_calls.iter().all(|k| *k == key);
                 let (res, eff, untrusted) = if looping {
                     (
                         Err(ToolError::new(
@@ -877,15 +880,4 @@ pub fn sorted_specs(mut v: Vec<ToolSpec>) -> Vec<ToolSpec> {
     v.sort_by(|a, b| a.name.cmp(&b.name));
     v.dedup_by(|a, b| a.name == b.name);
     v
-}
-
-/// Counts tool calls by name in a set of messages (diagnostics, eval metrics).
-pub fn tool_histogram(messages: &[Message]) -> HashMap<String, u32> {
-    let mut h = HashMap::new();
-    for m in messages {
-        for c in m.tool_calls() {
-            *h.entry(c.name).or_insert(0) += 1;
-        }
-    }
-    h
 }

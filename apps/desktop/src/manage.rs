@@ -141,14 +141,12 @@ pub fn set_agent_mcp_key(
         .map_err(err)
 }
 
-/// Deletes an agent for good (the user typed its name again).
+/// Deletes an agent for good (the user typed its name again); its MCP connections are dropped.
 #[tauri::command]
-pub fn delete_agent(d: State<'_, Desktop>, agent: String, confirm: String) -> R<Value> {
-    let r = d
-        .opened()?
-        .app
-        .delete_agent(aid(&agent)?, &confirm)
-        .map_err(err)?;
+pub async fn delete_agent(d: State<'_, Desktop>, agent: String, confirm: String) -> R<Value> {
+    let o = d.opened()?;
+    let r = o.app.delete_agent(aid(&agent)?, &confirm).map_err(err)?;
+    o.rt.mcp.disconnect_agent(&r.name).await;
     Ok(json!({ "name": r.name, "pending": r.pending }))
 }
 

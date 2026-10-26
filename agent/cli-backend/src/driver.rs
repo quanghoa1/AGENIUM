@@ -210,17 +210,6 @@ pub fn inside(p: &Path, base: &Path, root: &Path) -> bool {
     agenium_tools::paths::confined(&p, &root)
 }
 
-/// Whether `command` is allowed by the project allowlist (exact entries; `prefix *` entries match the prefix when
-/// the command has no shell control characters — the same rule as the API backend's command gate).
-pub fn permitted(command: &str, allowed: &[String]) -> bool {
-    let c = command.trim();
-    let plain = !c.contains([';', '&', '|', '`', '$', '>', '<', '\n', '(', ')']);
-    allowed.iter().any(|e| match e.strip_suffix('*') {
-        Some(prefix) => plain && c.starts_with(prefix),
-        None => c == e.trim(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,15 +265,5 @@ mod tests {
         std::fs::write(&h, "newer").unwrap();
         hand_back_login(&u, &h).unwrap();
         assert_eq!(std::fs::read_to_string(&u).unwrap(), "other");
-    }
-
-    #[test]
-    fn allowlist_rules() {
-        let allowed = vec!["cargo test".to_owned(), "npm run *".to_owned()];
-        assert!(permitted("cargo test", &allowed));
-        assert!(!permitted("cargo test; curl x", &allowed));
-        assert!(permitted("npm run build", &allowed));
-        assert!(!permitted("npm run build && curl x", &allowed));
-        assert!(!permitted("git status", &allowed));
     }
 }

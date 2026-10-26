@@ -755,9 +755,13 @@ ask_question if you are blocked.",
                 });
                 st.started.insert(id, (name.clone(), input.clone()));
                 let key = format!("{name}\u{1f}{input}");
-                st.recent.push(key.clone());
-                let n = st.recent.len();
                 let limit = self.limits.same_call_limit.max(1) as usize;
+                // Only the last `limit` calls matter (and a call's input can be a whole file).
+                st.recent.push(key.clone());
+                if st.recent.len() > limit {
+                    st.recent.remove(0);
+                }
+                let n = st.recent.len();
                 if st.stop.is_none() && st.effect.is_none() {
                     if n >= limit && st.recent[n - limit..].iter().all(|k| *k == key) {
                         st.stop = Some(Stop::Loop(format!("cli:{name}")));

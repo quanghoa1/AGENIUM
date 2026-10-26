@@ -1,6 +1,7 @@
-//! Vendor API layer (decision 13): one `Provider` trait over a vendor-neutral message model, three adapters
-//! (Anthropic, Gemini, OpenAI-compatible for OpenAI/OpenRouter/Opencode/DeepSeek/Local) and a scripted provider
-//! for tests and evals. Retry/backoff, per-key concurrency limits and the display-only price table live here; the
+//! Vendor API layer (decision 13): one `Provider` trait over a vendor-neutral message model; adapters for Anthropic
+//! Messages, Gemini, OpenAI-compatible chat completions (OpenAI, OpenRouter, DeepSeek, the ADR-107 presets, local
+//! servers), OpenAI Responses, the OpenCode relay (several wires behind one key) and TypeSafe's System One; and a
+//! scripted provider for tests and evals. Retry/backoff, per-key concurrency limits and the display-only price table live here; the
 //! crate knows nothing about tickets.
 
 pub mod anthropic;
@@ -37,7 +38,8 @@ pub const INVALID_JSON_KEY: &str = "__invalid_json__";
 pub trait Provider: Send + Sync {
     /// Provider id from configuration.
     fn id(&self) -> &str;
-    /// Adapter kind (`anthropic`, `gemini`, `openai_compat`, `mock`): thinking blocks replay only within a kind.
+    /// Adapter kind (`anthropic`, `gemini`, `openai_compat`, `opencode`, `responses`, `mock`, ...): thinking blocks
+    /// replay only within a kind (and only to the model that wrote them, ADR-101).
     fn kind(&self) -> &'static str;
     async fn list_models(&self) -> Result<Vec<ModelInfo>, LlmError>;
     /// Streams one model turn; `emit` receives live events, the returned response is authoritative.

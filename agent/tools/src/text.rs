@@ -24,12 +24,14 @@ pub fn truncate(s: &str, max_chars: usize, max_lines: usize) -> (String, bool) {
         cut = true;
         let head = max_chars / 2;
         let tail = max_chars - head;
-        let chars: Vec<char> = text.chars().collect();
+        // Byte offsets of the cut points (no copy of the text as chars).
+        let at = |k: usize| text.char_indices().nth(k).map_or(text.len(), |(i, _)| i);
+        let (a, b) = (at(head), at(n - tail));
         text = format!(
             "{}\n[... {} characters omitted ...]\n{}",
-            chars[..head].iter().collect::<String>(),
+            &text[..a],
             n - head - tail,
-            chars[n - tail..].iter().collect::<String>()
+            &text[b..]
         );
     }
     (text, cut)
