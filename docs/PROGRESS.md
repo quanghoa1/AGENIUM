@@ -199,8 +199,8 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   app (403 FreeTierError); unfunded Zen accounts return 402 (-> QuotaExhausted, verified).
 
 ## Not done / not run (honest list)
-- Real Anthropic, Gemini, OpenAI, OpenRouter, DeepSeek-direct and local endpoints (only OpenCode Go was run; the
-  owner allows DeepSeek models only). The OpenCode Anthropic and Responses wires are contract-tested, not run.
+- Real Anthropic, Gemini, OpenAI, DeepSeek-direct, the other preset vendors (ADR-107) and local endpoints: endpoints probed,
+  not called with a key (OpenCode Go and OpenRouter free models were run: `real_checks` 7/7 on each). The OpenCode Anthropic and Responses wires are contract-tested, not run.
 - Graph memory: adjacency cache; (memory extraction after chat sessions: done, ADR-98, scripted model only).
   (The labelled resolution set — 2 152 mentions — and the 112-question multi-hop set are built and run:
   docs/memory-eval.md, ADR-94. Memory reuse ran on DeepSeek, n = 5, and on the CLI models, n = 3: §4, ADR-96.) (Consolidation/forgetting, lessons with cue/decay, skill
@@ -216,7 +216,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
 - Sandbox on macOS (containment runs 2026-10-26, ADR-55; confirmed again by the third run): a daemon outlived the command (now killed by its environment token; the fifth Mac run, c35ee29: 312 passed, 0 failed, 0 escapes); with network on a host unix socket was reachable (mxc-sdk emits an unfiltered `network-outbound`), now narrowed by Agenium (`seatbelt.rs`) and confirmed blocked by the fourth Mac run (52f1c12: 301 passed, 0 failed, DNS and internet still work). File escapes are blocked. (Linux bubblewrap: run 2026-10-26 on a real Ubuntu 25.10
   VM, 0 escapes, ADR-95; Windows MXC: ADR-53/S2). An AppArmor profile shipped with a Linux installer (until then,
   Ubuntu 24.04+ hosts run sandboxed commands without network unless the user allows user namespaces, ADR-95).
-- Context compaction: in-run clearing and compaction done (ADR-100, scripted model only); a very long Lead chat still checkpoints its turn.
+- Context compaction: done — in-run clearing and compaction (ADR-100/103, two compactions seen on a real OpenRouter model), long Lead chat summary (ADR-106).
 - GitHub workflows (cargo-deny runs in local CI since 2026-10-26, ADR-99). **Real Ubuntu 25.10 (VMware VM, 2026-10-26): 296 passed, 0 failed** after the ADR-95
   fixes — the first run found that no sandboxed command could start with the network on. **macOS: first run 2026-10-25** (virtual M4 Pro): build OK, 289 passed / 1 failed /
   2 ignored — the failure was a real path-confinement defect (a worktree reached through `/private/var`), fixed and
