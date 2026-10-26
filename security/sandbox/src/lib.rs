@@ -81,37 +81,51 @@ pub fn toolchain_read_roots() -> Vec<PathBuf> {
 
 /// The git directories a worktree needs: `.git` is a file `gitdir: <repo>/.git/worktrees/<name>` whose
 /// `commondir` is the repository's `.git`.
+///
+/// That file is inside the writable root: an agent can rewrite it between runs (`gitdir: C:\Users\me` made the whole
+/// profile readable). So the directory it names is only believed when git itself vouches for it: it lies outside the
+/// worktree, its `gitdir` file points back to this worktree's `.git`, and it is `<common>/worktrees/<its name>` of
+/// the repository its `commondir` names. The agent cannot write outside the worktree and its temp folders, so it can
+/// only name the directory git made for this worktree; anything else gives no git read root (git then fails inside
+/// the sandbox instead of reading elsewhere).
 pub fn git_read_roots(root: &Path) -> Vec<PathBuf> {
-    let dotgit = root.join(".git");
-    let Ok(text) = std::fs::read_to_string(&dotgit) else {
+    let canon = |p: &Path| std::fs::canonicalize(p).ok();
+    let (Ok(text), Some(root)) = (std::fs::read_to_string(root.join(".git")), canon(root)) else {
         return Vec::new(); // a normal repository: .git is inside the writable root
     };
     let Some(gitdir) = text
         .trim()
         .strip_prefix("gitdir:")
-        .map(|g| PathBuf::from(g.trim()))
+        .and_then(|g| canon(&root.join(g.trim())))
     else {
         return Vec::new();
     };
-    let gitdir = if gitdir.is_absolute() {
-        gitdir
-    } else {
-        root.join(gitdir)
-    };
+    // Outside the worktree: inside it (`gitdir: .`, whose parent folder is `.agenium/worktrees`) the agent writes the
+    // `gitdir` and `commondir` files itself.
+    if gitdir.starts_with(&root) {
+        return Vec::new();
+    }
+    let points_back = std::fs::read_to_string(gitdir.join("gitdir"))
+        .ok()
+        .and_then(|b| canon(&gitdir.join(b.trim())))
+        .is_some_and(|b| b == root.join(".git"));
     let common = std::fs::read_to_string(gitdir.join("commondir"))
-        .map(|c| {
-            let c = PathBuf::from(c.trim());
-            if c.is_absolute() {
-                c
-            } else {
-                gitdir.join(c)
-            }
-        })
-        .unwrap_or_else(|_| gitdir.clone());
-    let common = std::fs::canonicalize(&common)
-        .map(|p| PathBuf::from(p.to_string_lossy().trim_start_matches(r"\\?\").to_owned()))
-        .unwrap_or(common);
-    vec![common]
+        .ok()
+        .and_then(|c| canon(&gitdir.join(c.trim())));
+    let Some(common) = common.filter(|c| {
+        points_back
+            && gitdir.file_name().is_some_and(|name| {
+                canon(&c.join("worktrees").join(name)).as_deref() == Some(gitdir.as_path())
+            })
+    }) else {
+        return Vec::new();
+    };
+    vec![PathBuf::from(
+        common
+            .to_string_lossy()
+            .trim_start_matches(r"\\?\")
+            .to_owned(),
+    )]
 }
 
 /// Whether sandboxed commands asked to have the network get it on this machine; `Err` says why not (Linux without a
@@ -340,15 +354,25 @@ impl Shell {
 /// A command's output as text. It is UTF-8 where the environment and the prelude could ask for it; bytes that are not
 /// (a Windows program writing in the ANSI code page) are decoded with that code page rather than shown as U+FFFD.
 pub fn decode_output(bytes: &[u8]) -> String {
+    decode_lines(bytes, ansi)
+}
+
+/// Valid UTF-8 stays as it is. Otherwise each line that is not UTF-8 is decoded whole with `ansi`: decoding every
+/// invalid run on its own split the characters of a double-byte code page (GBK, Shift-JIS: a lead byte alone is
+/// invalid UTF-8, its trail byte the next run). No byte of such a character is a line feed, so a line keeps them
+/// whole, and the UTF-8 lines of a mixed stream stay readable.
+fn decode_lines(bytes: &[u8], ansi: impl Fn(&[u8]) -> Option<String>) -> String {
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_owned();
+    }
     let mut out = String::with_capacity(bytes.len());
-    for chunk in bytes.utf8_chunks() {
-        out.push_str(chunk.valid());
-        let bad = chunk.invalid();
-        if !bad.is_empty() {
-            match ansi(bad) {
+    for line in bytes.split_inclusive(|b| *b == b'\n') {
+        match std::str::from_utf8(line) {
+            Ok(s) => out.push_str(s),
+            Err(_) => match ansi(line) {
                 Some(s) => out.push_str(&s),
-                None => out.push('\u{fffd}'),
-            }
+                None => out.push_str(&String::from_utf8_lossy(line)),
+            },
         }
     }
     out
@@ -356,15 +380,20 @@ pub fn decode_output(bytes: &[u8]) -> String {
 
 #[cfg(windows)]
 fn ansi(bytes: &[u8]) -> Option<String> {
-    use windows_sys::Win32::Globalization::{MultiByteToWideChar, CP_ACP};
+    code_page(bytes, windows_sys::Win32::Globalization::CP_ACP)
+}
+
+#[cfg(windows)]
+fn code_page(bytes: &[u8], cp: u32) -> Option<String> {
+    use windows_sys::Win32::Globalization::MultiByteToWideChar;
     let len = i32::try_from(bytes.len()).ok()?;
     // SAFETY: the pointers and lengths describe `bytes` and `wide`, which outlive the calls.
-    let n = unsafe { MultiByteToWideChar(CP_ACP, 0, bytes.as_ptr(), len, std::ptr::null_mut(), 0) };
+    let n = unsafe { MultiByteToWideChar(cp, 0, bytes.as_ptr(), len, std::ptr::null_mut(), 0) };
     if n <= 0 {
         return None;
     }
     let mut wide = vec![0u16; n as usize];
-    let m = unsafe { MultiByteToWideChar(CP_ACP, 0, bytes.as_ptr(), len, wide.as_mut_ptr(), n) };
+    let m = unsafe { MultiByteToWideChar(cp, 0, bytes.as_ptr(), len, wide.as_mut_ptr(), n) };
     (m > 0).then(|| String::from_utf16_lossy(&wide[..m as usize]))
 }
 
@@ -888,6 +917,85 @@ mod tests {
         }
     }
 
+    fn git(dir: &Path, args: &[&str]) {
+        let ok = std::process::Command::new("git")
+            .args(["-c", "user.name=t", "-c", "user.email=t@agenium.local"])
+            .args(args)
+            .current_dir(dir)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        assert!(ok, "git {args:?}");
+    }
+
+    /// The worktree's `.git` file is the agent's to rewrite: only the git directory git made for this worktree gives a
+    /// read root (the main repository's `.git`), never a folder the file names (`gitdir: <profile>` made the profile
+    /// readable).
+    #[test]
+    fn git_read_roots_trust_only_the_worktrees_own_git_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project = tmp.path().join("project");
+        std::fs::create_dir_all(&project).unwrap();
+        git(&project, &["init", "-q", "-b", "main"]);
+        git(&project, &["commit", "-q", "--allow-empty", "-m", "init"]);
+        let worktrees = project.join(".agenium").join("worktrees");
+        let (wt, other) = (worktrees.join("T1"), worktrees.join("T2"));
+        for (w, b) in [(&wt, "agenium/T1"), (&other, "agenium/T2")] {
+            git(
+                &project,
+                &["worktree", "add", "-q", "-b", b, w.to_str().unwrap()],
+            );
+        }
+        let main_git = std::fs::canonicalize(project.join(".git")).unwrap();
+        let roots = |w: &Path| -> Vec<PathBuf> {
+            git_read_roots(w)
+                .iter()
+                .map(|r| std::fs::canonicalize(r).unwrap())
+                .collect()
+        };
+        assert_eq!(roots(&wt), std::slice::from_ref(&main_git));
+
+        let genuine = std::fs::read_to_string(wt.join(".git")).unwrap();
+        let point = |target: &Path| {
+            std::fs::write(wt.join(".git"), format!("gitdir: {}\n", target.display())).unwrap()
+        };
+        // A folder outside the worktree: nothing in it points back.
+        let profile = tmp.path().join("profile");
+        std::fs::create_dir_all(&profile).unwrap();
+        point(&profile);
+        assert!(roots(&wt).is_empty());
+        // The worktree itself, with the files git would write: its folder `.agenium/worktrees` made `.agenium` (every
+        // other worktree) the common dir.
+        std::fs::write(
+            wt.join("gitdir"),
+            format!("{}\n", wt.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::write(wt.join("commondir"), "../..\n").unwrap();
+        point(&wt);
+        assert!(roots(&wt).is_empty());
+        // A made-up admin folder elsewhere (the agent's temp dir) that names the profile as its repository.
+        let fake = tmp.path().join("tmp").join("T1");
+        std::fs::create_dir_all(&fake).unwrap();
+        std::fs::write(
+            fake.join("gitdir"),
+            format!("{}\n", wt.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::write(fake.join("commondir"), format!("{}\n", profile.display())).unwrap();
+        point(&fake);
+        assert!(roots(&wt).is_empty());
+        // Another worktree's admin folder: it points back to that worktree.
+        let other_admin = std::fs::read_to_string(other.join(".git")).unwrap();
+        std::fs::write(wt.join(".git"), other_admin).unwrap();
+        assert!(roots(&wt).is_empty());
+
+        std::fs::write(wt.join(".git"), genuine).unwrap();
+        assert_eq!(roots(&wt), [main_git]);
+    }
+
     #[test]
     fn fail_closed_detection() {
         let a = detect();
@@ -966,14 +1074,27 @@ mod tests {
     }
 
     /// Output that is not UTF-8 (a Windows program writing in the ANSI code page) is decoded with that code page;
-    /// the UTF-8 around it stays as it is.
+    /// the UTF-8 lines around it stay as they are.
     #[test]
     fn output_in_the_ansi_code_page_is_still_text() {
-        let s = decode_output(b"ok \xe0 \xc3\xa0");
-        assert!(s.starts_with("ok ") && s.ends_with('\u{e0}'), "{s:?}");
+        let s = decode_output(b"ok \xc3\xa0\n\xe0\n");
+        assert!(s.starts_with("ok \u{e0}\n") && s.ends_with('\n'), "{s:?}");
         if cfg!(windows) {
             assert!(!s.contains('\u{fffd}'), "{s:?}");
         }
+    }
+
+    /// A double-byte character is decoded whole: its lead byte alone is invalid UTF-8 and its trail byte came as the
+    /// next invalid run, so decoding run by run turned "中" (GBK D6 D0) into two wrong characters.
+    #[test]
+    fn a_double_byte_character_is_not_split() {
+        let gbk = |b: &[u8]| (b == b"\xd6\xd0\n").then(|| "\u{4e2d}\n".to_owned());
+        assert_eq!(decode_lines(b"ok\n\xd6\xd0\n", gbk), "ok\n\u{4e2d}\n");
+        #[cfg(windows)]
+        assert_eq!(
+            decode_lines(b"\xd6\xd0\xce\xc4\n", |b| code_page(b, 936)),
+            "\u{4e2d}\u{6587}\n"
+        );
     }
 
     /// `[sandbox] network = true` is the default (ADR-84): a command must start with it. On Ubuntu 25.10 every such
