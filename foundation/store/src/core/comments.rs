@@ -106,6 +106,25 @@ pub fn for_ticket(c: &Connection, ticket: TicketId) -> Result<Vec<Comment>, Stor
     rows.map(|r| decode(r?)).collect()
 }
 
+/// Comments of every open (not Closed/Cancelled) ticket of a project in one query, per ticket, oldest first
+/// ([`for_ticket`] per ticket costs a query each; the Lead inbox reads them every scheduler tick).
+pub fn of_open_tickets(
+    c: &Connection,
+    project: agenium_core::ProjectId,
+) -> Result<std::collections::HashMap<TicketId, Vec<Comment>>, StoreError> {
+    let mut st = c.prepare_cached(&format!(
+        "SELECT {COLS} {FROM} WHERE t.project = ?1 AND t.status NOT IN ('Closed','Cancelled')
+         ORDER BY c.created_at, c.rowid"
+    ))?;
+    let rows = st.query_map([project.to_string()], map)?;
+    let mut out: std::collections::HashMap<TicketId, Vec<Comment>> = Default::default();
+    for r in rows {
+        let cm = decode(r?)?;
+        out.entry(cm.ticket).or_default().push(cm);
+    }
+    Ok(out)
+}
+
 /// Unresolved questions per ticket of a project (tickets without one are left out).
 pub fn open_questions(
     c: &Connection,

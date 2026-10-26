@@ -473,8 +473,10 @@ impl App {
                 )
             });
         }
+        // The comments of the open tickets, read once for the Lead's inbox and for the user's items.
+        let by_ticket = self.store.read(|c| comments::of_open_tickets(c, project))?;
         let lead_items: std::collections::HashSet<CommentId> = self
-            .lead_inbox(project)?
+            .inbox_from(project, &by_ticket)?
             .into_iter()
             .filter_map(|i| i.comment)
             .collect();
@@ -484,7 +486,13 @@ impl App {
             .iter()
             .filter(|t| !t.status.is_terminal())
         {
-            let cs = self.store.read(|c| comments::for_ticket(c, t.id))?;
+            let cs = by_ticket.get(&t.id).map(Vec::as_slice).unwrap_or_default();
+            // A blocking question past its SLA goes to the user too (either answers), though the Lead still has it.
+            let past_sla: std::collections::HashSet<CommentId> = cs
+                .iter()
+                .filter(|c| matches!(&c.body, CommentBody::System { text } if text.starts_with(crate::inbox::SLA_NOTE)))
+                .filter_map(|c| c.reply_to)
+                .collect();
             if t.escalated {
                 out.push(need(
                     NeedKind::Escalation,
@@ -499,7 +507,7 @@ impl App {
                     out.push(need(NeedKind::Escalation, Some(t), format!("{}: runs keep stopping; look at the run log", t.key), &c.created_at));
                 }
             }
-            for c in &cs {
+            for c in cs {
                 match &c.body {
                     CommentBody::Permission {
                         request,
@@ -517,8 +525,11 @@ impl App {
                             &c.created_at,
                         )
                     }),
-                    CommentBody::Question(q) if !c.resolved && !lead_items.contains(&c.id) => out
-                        .push(NeedItem {
+                    CommentBody::Question(q)
+                        if !c.resolved
+                            && (!lead_items.contains(&c.id) || past_sla.contains(&c.id)) =>
+                    {
+                        out.push(NeedItem {
                             comment: Some(c.id),
                             ..need(
                                 NeedKind::Question,
@@ -526,7 +537,8 @@ impl App {
                                 format!("{}: {}", t.key, q.question),
                                 &c.created_at,
                             )
-                        }),
+                        })
+                    }
                     _ => {}
                 }
             }

@@ -2,7 +2,7 @@
 //! requests, then plan items without tickets and tickets without a worker, then non-blocking questions. Reviews of
 //! Resolved tickets have their own runs. The blocking-question SLA escalates to the user when the Lead is late.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use agenium_core::*;
 use agenium_store::core::{comments, plans};
@@ -39,12 +39,22 @@ pub struct InboxItem {
 }
 
 /// Note posted under a question when its SLA ran out (posted once per question).
-const SLA_NOTE: &str = "SLA exceeded:";
+pub(crate) const SLA_NOTE: &str = "SLA exceeded:";
 
 impl App {
     /// The inbox of the project's Lead; empty without a team. A Solo agent's inbox has only the items that move the
     /// work on (plan, tickets to create or assign: ADR-63); its questions go to the user.
     pub fn lead_inbox(&self, project: ProjectId) -> Result<Vec<InboxItem>> {
+        let by_ticket = self.store.read(|c| comments::of_open_tickets(c, project))?;
+        self.inbox_from(project, &by_ticket)
+    }
+
+    /// [`lead_inbox`](Self::lead_inbox) from the comments of the project's open tickets, read once by the caller.
+    pub(crate) fn inbox_from(
+        &self,
+        project: ProjectId,
+        by_ticket: &HashMap<TicketId, Vec<Comment>>,
+    ) -> Result<Vec<InboxItem>> {
         let Some((team, members)) = self.team_of_project(project)? else {
             return Ok(vec![]);
         };
@@ -69,7 +79,7 @@ impl App {
             .collect();
         let mut out = Vec::new();
         for t in tickets.iter().filter(|t| !t.status.is_terminal()) {
-            let cs = self.store.read(|c| comments::for_ticket(c, t.id))?;
+            let cs = by_ticket.get(&t.id).map(Vec::as_slice).unwrap_or_default();
             // Questions the Lead escalated to the user are the user's now.
             let escalated: HashSet<CommentId> = cs
                 .iter()
@@ -78,7 +88,7 @@ impl App {
                 })
                 .filter_map(|c| c.reply_to)
                 .collect();
-            for c in &cs {
+            for c in cs {
                 match &c.body {
                     CommentBody::Question(q)
                         if !c.resolved
@@ -312,8 +322,9 @@ impl App {
         now: chrono::DateTime<chrono::Utc>,
     ) -> Result<usize> {
         let minutes = i64::from(self.config().runtime.blocking_question_sla_minutes.max(1));
+        let by_ticket = self.store.read(|c| comments::of_open_tickets(c, project))?;
         let mut late = Vec::new();
-        for item in self.lead_inbox(project)? {
+        for item in self.inbox_from(project, &by_ticket)? {
             if item.kind != InboxKind::BlockingQuestion {
                 continue;
             }
@@ -327,8 +338,9 @@ impl App {
                 continue;
             };
             let t = self.ticket(project, &key)?;
-            let noted = self.store.read(|c| comments::for_ticket(c, t.id))?.iter().any(|c| {
-                c.reply_to == Some(q) && matches!(&c.body, CommentBody::System { text } if text.starts_with(SLA_NOTE))
+            let noted = by_ticket.get(&t.id).into_iter().flatten().any(|c| {
+                c.reply_to == Some(q)
+                    && matches!(&c.body, CommentBody::System { text } if text.starts_with(SLA_NOTE))
             });
             if !noted {
                 late.push((t, q));

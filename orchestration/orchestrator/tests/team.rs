@@ -426,6 +426,21 @@ fn lead_inbox_order_sla_and_escalation() {
     assert!(cs
         .iter()
         .any(|c| c.reply_to == Some(blocking) && c.kind == CommentKind::System));
+    // Past its SLA the question goes to the user too, while the Lead still has it (it was hidden from the user).
+    let for_user: Vec<_> = f
+        .app
+        .needs_you(f.project.id)
+        .unwrap()
+        .into_iter()
+        .filter_map(|n| n.comment)
+        .collect();
+    assert_eq!(for_user, [blocking]);
+    assert!(f
+        .app
+        .lead_inbox(f.project.id)
+        .unwrap()
+        .iter()
+        .any(|i| i.comment == Some(blocking)));
 
     // The Lead escalates: the question stays open for the user and leaves the inbox; the user answers it.
     let esc = |actor: Actor| {
