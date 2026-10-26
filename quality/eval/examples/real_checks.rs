@@ -175,19 +175,38 @@ fn get_location(url: &str) -> Option<String> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let root = PathBuf::from(arg(&args, "--root").ok_or_else(|| anyhow!("--root"))?);
     let provider_id = arg(&args, "--provider").ok_or_else(|| anyhow!("--provider"))?;
     let model_id = arg(&args, "--model").ok_or_else(|| anyhow!("--model"))?;
     let only = arg(&args, "--only");
-    let (app, _) = agenium_orchestrator::App::open(
-        &root,
-        agenium_orchestrator::AppOptions {
-            keyring: Arc::new(agenium_secrets::OsKeyring::default()),
-            checks: Arc::new(agenium_orchestrator::NoCheckFactory),
-        },
-    )?;
-    let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
-    let provider = agenium_orchestrator::runtime::ProviderSource::provider(&source, &provider_id)?;
+    // Either a root whose configured provider (key in its vault) is used, or a provider built here from
+    // `--base-url` and the key in the environment variable `--key-env` (a test key that must not be stored).
+    let provider: Arc<dyn Provider> = match arg(&args, "--base-url") {
+        Some(base) => {
+            let var =
+                arg(&args, "--key-env").ok_or_else(|| anyhow!("--key-env with --base-url"))?;
+            let key = std::env::var(&var).map_err(|_| anyhow!("{var} is not set"))?;
+            build_provider(&ProviderSpec {
+                id: provider_id.clone(),
+                kind: arg(&args, "--kind").unwrap_or_else(|| "openai_compat".into()),
+                base_url: Some(base),
+                api_key: Some(key),
+                max_concurrency: 2,
+            })?
+        }
+        None => {
+            let root =
+                PathBuf::from(arg(&args, "--root").ok_or_else(|| anyhow!("--root or --base-url"))?);
+            let (app, _) = agenium_orchestrator::App::open(
+                &root,
+                agenium_orchestrator::AppOptions {
+                    keyring: Arc::new(agenium_secrets::OsKeyring::default()),
+                    checks: Arc::new(agenium_orchestrator::NoCheckFactory),
+                },
+            )?;
+            let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
+            agenium_orchestrator::runtime::ProviderSource::provider(&source, &provider_id)?
+        }
+    };
     let m = Model {
         provider,
         model: model_id.clone(),

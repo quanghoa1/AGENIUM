@@ -27,8 +27,12 @@ buttons and the CLI none.
 
 Every preset builds an adapter. Without a key, `GET <base>/models` answered 401/403 (or 200 for public model lists) for
 all 25 OpenAI-compatible endpoints, so each path is right; MiniMax's `/anthropic/v1/messages` answered 411 (the route
-exists); `api.minimaxi.com` (China) was not reachable from this machine. No vendor except OpenCode Go has been called
-with a key: the owner has no keys for them.
+exists); `api.minimaxi.com` (China) was not reachable from this machine. **OpenRouter, with a key (free models, an account without credit; the key passed in the environment only, never
+stored):** `real_checks` 7/7 on `nvidia/nemotron-3-ultra-550b-a55b:free` — overflow wording recognised ("maximum context
+length is 1000000 tokens…"), dangling call, compaction (two compactions in one run, right sum), CRLF+BOM edit, MCP
+tool behind OAuth, a message during the run, chat learning. `google/gemma-4-31b-it:free` answered 429 at once (the free
+endpoint's limit); the runs went Offline as designed. Raw: `docs/reference/bench-raw/real-checks-openrouter-*.txt`.
+The other vendors have not been called with a key.
 
 Not here yet (another sign-in or request signing): Azure OpenAI, Amazon Bedrock, Google Vertex, GitHub Copilot,
 Cloudflare Workers AI (account id in the URL), Mistral's own Conversations API.

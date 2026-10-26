@@ -1,0 +1,3 @@
+FAIL edit keeps BOM and CRLF: outcome Offline { message: "HTTP 429 (429): Provider returned error" }, file now "\u{feff}class Greeter\r\n{\r\n    string Hi() => “Hello, world”;\r\n}\r\n"
+FAIL a message sent during the run is followed: outcome Offline { message: "HTTP 429 (429): Provider returned error" }, tools [], answer None
+FAIL dangling tool call sent after the history pass: as stored: refused (HTTP 429 (429): Provider returned error); prepared: refused (HTTP 429 (429): Provider returned error)

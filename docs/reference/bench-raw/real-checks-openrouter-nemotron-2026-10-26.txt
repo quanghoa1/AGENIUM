@@ -1,0 +1,8 @@
+PASS overflow wording recognised: HTTP 400 (400): This endpoint's maximum context length is 1000000 tokens. However, you requested about 1252001 tokens (1250001 of text input, 2000 in the output). Please reduce the length of either one, or use the context-compression plugin to compress your prompt automatically.
+PASS dangling tool call sent after the history pass: as stored: accepted; prepared: answered "OK"
+PASS compaction keeps the work going: outcome Completed, steps 18, compactions 2, answer Some("92") (expected 92)
+PASS edit keeps BOM and CRLF: outcome Completed, file now "\u{feff}class Greeter\r\n{\r\n    string Hi() => \"Xin chao, the world\";\r\n}\r\n"
+PASS MCP tool behind OAuth used by the model: login ok, problems [], outcome Completed, answer Some("client dyn-043f8d7cbf729ba215413ada95a7ec87, token #1")
+PASS a message sent during the run is followed: outcome Completed, tools ["read_file", "read_file", "read_file", "submit_report"], answer Some("a.txt contains \"a.txt content\", b.txt contains \"b.txt content\", c.txt contains \"c.txt content\" BANANA")
+PASS the Lead learns from the chat: chat Completed, learn added 2, facts ["The shop project is deployed using the command `make ship`.", "User prefers responses in Vietnamese."]
+7/7 passed (nvidia/nemotron-3-ultra-550b-a55b:free)
