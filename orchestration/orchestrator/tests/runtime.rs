@@ -2334,3 +2334,120 @@ async fn reviews_stopping_at_a_checkpoint_go_to_the_user() {
     assert_eq!(rt.tick(project).await.unwrap().len(), 1, "another try");
     assert_eq!(p.remaining(), 0);
 }
+
+/// ADR-104: when the Lead's chat turn and another of its runs overlap, the user's messages go to the chat turn, and
+/// none is lost or misrouted when the other run ends.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn overlapping_lead_runs_keep_the_users_messages() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let rt = Arc::new(rt);
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, lead, _) = team_project(&app, "duo");
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(lead),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+    app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    // The chat turn's first step runs an inbox run of the same Lead to its end (as the scheduler can meanwhile).
+    let r = rt.clone();
+    p.push(Box::new(move |_| {
+        let inbox = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(r.inbox(project))
+        });
+        assert!(inbox.unwrap().is_some());
+        assert!(
+            r.steer(project, "And keep it small.").unwrap(),
+            "the chat turn still takes messages"
+        );
+        Ok(calls_response("", vec![("list_dir", json!({}))]))
+    }));
+    let r = rt.clone();
+    p.push(Box::new(move |_| {
+        assert!(r.steer(project, "Use Rust.").unwrap());
+        Err(agenium_llm::LlmError::Unsupported(
+            "the inbox run stops here".into(),
+        ))
+    }));
+    p.push(Box::new(|req| {
+        let all: String = req.messages.iter().map(|m| m.text()).collect();
+        assert!(
+            all.contains("Use Rust.") && all.contains("And keep it small."),
+            "{all}"
+        );
+        Ok(calls_response("Noted.", vec![]))
+    }));
+    let s = rt.chat(project, "Plan an API.").await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    assert_eq!(p.remaining(), 0);
+}
+
+/// ADR-104: a message that reached the Lead after its last step is answered while the project is not running yet
+/// (Agreeing), and one whose turn fails is kept for the user's next message (tried twice, not every round).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn messages_left_after_the_last_step_are_answered_or_kept() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let rt = Arc::new(rt);
+    let (project, agent) = solo(&app);
+    let left_behind = |text: &'static str| -> agenium_llm::mock::Responder {
+        let r = rt.clone();
+        Box::new(move |_| {
+            assert!(r.steer(project, text).unwrap());
+            Ok(calls_response("Noted.", vec![]))
+        })
+    };
+    p.push(left_behind("And add a README."));
+    rt.chat(project, "Plan an API.").await.unwrap();
+    use agenium_orchestrator::views::RunState;
+    assert_eq!(app.run_state(project).unwrap(), RunState::Agreeing);
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap().text();
+        assert!(last.contains("And add a README."), "{last}");
+        Ok(calls_response("Will do.", vec![]))
+    }));
+    let runs = rt.work(project).await.unwrap();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].text, "Will do.");
+    assert!(rt.work(project).await.unwrap().is_empty(), "answered once");
+
+    // The turn that would answer fails: the message is kept, tried twice, then waits for the user's next message.
+    p.push(left_behind("Also a licence."));
+    rt.chat(project, "Thanks.").await.unwrap();
+    app.set_agent_backend(agent, BackendKind::Cli, &devin())
+        .unwrap();
+    for _ in 0..3 {
+        assert!(rt.work(project).await.unwrap().is_empty());
+    }
+    let failed = app
+        .store()
+        .read(|c| runs::for_agent(c, agent, 50))
+        .unwrap()
+        .iter()
+        .filter(|r| {
+            r.outcome
+                .as_deref()
+                .is_some_and(|o| o.starts_with("Error:"))
+        })
+        .count();
+    assert_eq!(failed, 2);
+    app.set_agent_backend(agent, BackendKind::Api, &model())
+        .unwrap();
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap().text();
+        assert!(
+            last.contains("Also a licence.") && last.contains("One more thing."),
+            "{last}"
+        );
+        Ok(calls_response("Sure.", vec![]))
+    }));
+    rt.chat(project, "One more thing.").await.unwrap();
+    assert_eq!(p.remaining(), 0);
+}

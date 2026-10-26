@@ -189,11 +189,15 @@ pub struct Runtime {
     inbox_failures: Mutex<std::collections::HashMap<ProjectId, (String, usize)>>,
     /// Failed planner runs per (project, spec version).
     planner_failures: Mutex<std::collections::HashMap<(ProjectId, u32), usize>>,
-    /// The message queue of each Lead or Solo agent while it runs (ADR-104). Workers are never here: they get work
-    /// through tickets and the Lead's plan only.
-    steering: Mutex<std::collections::HashMap<AgentId, agenium_backend::Steer>>,
+    /// The message queues of each Lead or Solo agent's runs while they last (ADR-104), in start order: a chat turn and
+    /// a review or inbox run of the same Lead can overlap. Workers are never here: they get work through tickets and
+    /// the Lead's plan only.
+    steering: Mutex<std::collections::HashMap<AgentId, Vec<SteerQueue>>>,
     /// Messages that reached a Lead's queue after its last step: the next chat turn of the project starts with them.
     steer_left: Mutex<std::collections::HashMap<ProjectId, Vec<String>>>,
+    /// Turns in a row that failed to answer a project's `steer_left`: from MAX_FAILED_RUNS on, the messages wait for
+    /// the user's next message instead of a failing turn every round.
+    left_failures: Mutex<std::collections::HashMap<ProjectId, usize>>,
 }
 
 /// `info` with the hand-set capabilities of the provider's configuration applied (they win, ADR-31).
@@ -240,12 +244,25 @@ fn shell_text(shell: &agenium_sandbox::Shell) -> String {
     s
 }
 
-/// Keeps a Lead's message queue registered while its run lasts. Messages that arrive after its last step are kept
-/// for the project's next chat turn.
+/// The message queue of one run of a Lead.
+struct SteerQueue {
+    run: RunId,
+    chat: bool,
+    q: agenium_backend::Steer,
+}
+
+/// The queue a message to a Lead goes to: its chat turn's (the user's conversation), else its latest run's.
+fn recipient(qs: &[SteerQueue]) -> Option<&SteerQueue> {
+    qs.iter().rev().find(|s| s.chat).or(qs.last())
+}
+
+/// Keeps a Lead's run's message queue registered while the run lasts. Messages that arrive after its last step go to
+/// another run of the Lead that goes on, else to the project's next chat turn.
 struct SteerGuard<'a> {
     rt: &'a Runtime,
     project: ProjectId,
     agent: AgentId,
+    run: RunId,
 }
 
 impl<'a> SteerGuard<'a> {
@@ -253,36 +270,60 @@ impl<'a> SteerGuard<'a> {
         rt: &'a Runtime,
         project: ProjectId,
         agent: AgentId,
-        q: agenium_backend::Steer,
-    ) -> Self {
+        run: RunId,
+        chat: bool,
+    ) -> (Self, agenium_backend::Steer) {
+        let q = agenium_backend::Steer::default();
         rt.steering
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .insert(agent, q);
-        SteerGuard { rt, project, agent }
+            .entry(agent)
+            .or_default()
+            .push(SteerQueue {
+                run,
+                chat,
+                q: q.clone(),
+            });
+        (
+            SteerGuard {
+                rt,
+                project,
+                agent,
+                run,
+            },
+            q,
+        )
     }
 }
 
 impl Drop for SteerGuard<'_> {
     fn drop(&mut self) {
-        // Removing the queue and taking what is left happen under the same lock as `steer`, so no message is lost.
-        let q = self
-            .rt
-            .steering
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&self.agent);
-        let left = q
-            .map(|q| std::mem::take(&mut *q.lock().unwrap_or_else(|e| e.into_inner())))
-            .unwrap_or_default();
+        // Only this run's own queue is removed (another run of the Lead keeps its own), and removing it and handing on
+        // what is left happen under the same lock as `steer`, so no message is lost or reaches a queue nobody reads.
+        let mut map = self.rt.steering.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(qs) = map.get_mut(&self.agent) else {
+            return;
+        };
+        let Some(i) = qs.iter().position(|s| s.run == self.run) else {
+            return;
+        };
+        let mine = qs.remove(i);
+        let left = std::mem::take(&mut *mine.q.lock().unwrap_or_else(|e| e.into_inner()));
         if !left.is_empty() {
-            self.rt
-                .steer_left
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .entry(self.project)
-                .or_default()
-                .extend(left);
+            match recipient(qs) {
+                Some(s) => s.q.lock().unwrap_or_else(|e| e.into_inner()).extend(left),
+                None => self
+                    .rt
+                    .steer_left
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .entry(self.project)
+                    .or_default()
+                    .extend(left),
+            }
+        }
+        if qs.is_empty() {
+            map.remove(&self.agent);
         }
     }
 }
@@ -311,6 +352,7 @@ impl Runtime {
             planner_failures: Mutex::default(),
             steering: Mutex::default(),
             steer_left: Mutex::default(),
+            left_failures: Mutex::default(),
             mcp,
             app,
             providers,
@@ -828,12 +870,7 @@ impl Runtime {
                 contained: false,
             });
             // The project's Lead can be messaged while its CLI runs, as on the API backend (ADR-104, ADR-110).
-            let is_lead =
-                self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) == Some(agent.id);
-            let steer: Option<agenium_backend::Steer> = is_lead.then(Default::default);
-            let steering = steer
-                .as_ref()
-                .map(|s| SteerGuard::register(self, project, agent.id, s.clone()));
+            let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
             let report = self
                 .cli_run(
                     agent, driver, program, kind, &ctx, gate, &protocol, pspecs, work, &observer,
@@ -869,13 +906,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         if let Some(c) = info.and_then(|i| i.context_window) {
             cfg.context_window = c;
         }
-        // Only the project's Lead (a Solo agent is its own team's Lead) can be messaged while it runs (ADR-104).
-        let is_lead =
-            self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) == Some(agent.id);
-        let steer: Option<agenium_backend::Steer> = is_lead.then(Default::default);
-        let steering = steer
-            .as_ref()
-            .map(|s| SteerGuard::register(self, project, agent.id, s.clone()));
+        let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
         let r = Run {
             provider: provider.as_ref(),
             tools: &work,
@@ -898,6 +929,65 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             None => self.cost(&agent.model.provider, &report.model, &report.usage),
         };
         Ok((report, cost))
+    }
+
+    /// The message queue of `run`: only the project's Lead (a Solo agent is its own team's Lead) can be messaged while
+    /// it runs (ADR-104). A chat turn registered its queue when it began; another run of the Lead registers one now,
+    /// kept while the returned guard lives.
+    fn steer_queue(
+        &self,
+        project: ProjectId,
+        agent: AgentId,
+        run: RunId,
+        kind: RunKind,
+    ) -> Result<(Option<agenium_backend::Steer>, Option<SteerGuard<'_>>)> {
+        let registered = self
+            .steering
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&agent)
+            .and_then(|qs| qs.iter().find(|s| s.run == run))
+            .map(|s| s.q.clone());
+        if registered.is_some() {
+            return Ok((registered, None));
+        }
+        if self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) != Some(agent) {
+            return Ok((None, None));
+        }
+        let (guard, q) = SteerGuard::register(self, project, agent, run, kind == RunKind::Chat);
+        Ok((Some(q), Some(guard)))
+    }
+
+    /// Delivers `text` to a running run of the Lead, or else registers the queue of `run`, the chat turn about to
+    /// start: one step under the steering lock, so a message sent while the turn starts reaches it instead of starting
+    /// a second turn. `None` = delivered.
+    fn steer_or_register(
+        &self,
+        project: ProjectId,
+        lead: AgentId,
+        run: RunId,
+        text: &str,
+    ) -> Option<SteerGuard<'_>> {
+        let mut map = self.steering.lock().unwrap_or_else(|e| e.into_inner());
+        let qs = map.entry(lead).or_default();
+        if let Some(s) = recipient(qs) {
+            s.q.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(text.to_owned());
+            tracing::info!(%project, "message delivered to the running Lead");
+            return None;
+        }
+        qs.push(SteerQueue {
+            run,
+            chat: true,
+            q: Default::default(),
+        });
+        Some(SteerGuard {
+            rt: self,
+            project,
+            agent: lead,
+            run,
+        })
     }
 
     /// Capabilities of `model` (endpoint report + hand-set flags), looked up once per runtime; `None` when the
@@ -1546,10 +1636,10 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             return Ok(false);
         };
         let map = self.steering.lock().unwrap_or_else(|e| e.into_inner());
-        let Some(q) = map.get(&lead) else {
+        let Some(s) = map.get(&lead).and_then(|qs| recipient(qs)) else {
             return Ok(false);
         };
-        q.lock()
+        s.q.lock()
             .unwrap_or_else(|e| e.into_inner())
             .push(text.to_owned());
         tracing::info!(%project, "message delivered to the running Lead");
@@ -1559,8 +1649,30 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     /// One chat turn of the user with the Lead/Solo (discovery, spec, plan, ticket creation). The conversation is kept
     /// per project in the Lead's private database. When the Lead is running already, the message goes to that run.
     pub async fn chat(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
+        // Messages left after the Lead's last step open this turn; a turn that fails keeps them for the next one.
+        let left = self
+            .steer_left
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&project)
+            .unwrap_or_default();
+        let text = if left.is_empty() {
+            user_text.to_owned()
+        } else {
+            format!("{}\n\n{user_text}", left.join("\n\n"))
+        };
         let mut opened = None;
-        let r = self.chat_run(project, user_text, &mut opened).await;
+        let r = self.chat_run(project, &text, &mut opened).await;
+        if r.is_ok() {
+            self.left_failures
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&project);
+        } else if !left.is_empty() {
+            let mut m = self.steer_left.lock().unwrap_or_else(|e| e.into_inner());
+            let v = m.entry(project).or_default();
+            v.splice(0..0, left);
+        }
         self.end_on_error(opened, r)
     }
 
@@ -1570,25 +1682,18 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         user_text: &str,
         opened: &mut Option<RunId>,
     ) -> Result<RunSummary> {
-        let left = self
-            .steer_left
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&project)
-            .unwrap_or_default();
-        let joined;
-        let user_text = if left.is_empty() {
-            user_text
-        } else {
-            joined = format!("{}\n\n{user_text}", left.join("\n\n"));
-            joined.as_str()
-        };
-        if self.steer(project, user_text)? {
-            let lead = self.app.team_of_project(project)?.and_then(|(t, _)| t.lead);
-            let name = match lead {
-                Some(id) => self.app.agent(id)?.name,
-                None => String::new(),
-            };
+        let (team, _) = self
+            .app
+            .team_of_project(project)?
+            .ok_or_else(|| OrchError::Invalid("the project has no team".into()))?;
+        let lead = self.app.agent(
+            team.lead
+                .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
+        )?;
+        let run = RunId::new();
+        // Before anything that waits: a message sent while this turn starts reaches it, not a second turn (ADR-104).
+        let Some(_steering) = self.steer_or_register(project, lead.id, run, user_text) else {
+            let name = lead.name;
             return Ok(RunSummary {
                 run: RunId::new(),
                 kind: "steer".into(),
@@ -1599,15 +1704,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 usage: Default::default(),
                 text: format!("{name} is working; your message reaches it before its next step."),
             });
-        }
-        let (team, _) = self
-            .app
-            .team_of_project(project)?
-            .ok_or_else(|| OrchError::Invalid("the project has no team".into()))?;
-        let lead = self.app.agent(
-            team.lead
-                .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
-        )?;
+        };
         let p = self.app.project(project)?;
         let root = PathBuf::from(&p.path);
         let mem = self.agent_memory(lead.id)?;
@@ -1618,7 +1715,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             .app
             .store()
             .commit(None, "system", |w| -> Result<RunId> {
-                let id = RunId::new();
+                let id = run;
                 runs::insert(
                     w.tx,
                     &runs::Run {
@@ -2134,23 +2231,46 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     /// executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
         let mut out = self.tick_runs(project).await?;
-        // Messages that reached the Lead after its last step get their own turn (ADR-104).
+        out.extend(self.answer_left(project).await);
+        if let Err(e) = self.learn_from_chat(project, false).await {
+            tracing::warn!(error = %e, "learning from the chat failed");
+        }
+        Ok(out)
+    }
+
+    /// Messages that reached the Lead after its last step get their own turn (ADR-104), unless the project is paused
+    /// (the next turn starts with them then). A turn that fails keeps them; after MAX_FAILED_RUNS such turns in a row
+    /// they wait for the user's next message instead of a failing turn every round.
+    async fn answer_left(&self, project: ProjectId) -> Option<RunSummary> {
         let pending = self
             .steer_left
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .get(&project)
             .is_some_and(|v| !v.is_empty());
-        if pending {
-            match self.chat(project, "").await {
-                Ok(s) => out.push(s),
-                Err(e) => tracing::warn!(error = %e, "answering messages sent during a run failed"),
+        let failures = self
+            .left_failures
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&project)
+            .copied()
+            .unwrap_or(0);
+        if !pending || failures >= MAX_FAILED_RUNS || self.project_cancel(project).is_cancelled() {
+            return None;
+        }
+        match self.chat(project, "").await {
+            Ok(s) => Some(s),
+            Err(e) => {
+                tracing::warn!(error = %e, "answering messages sent during a run failed");
+                *self
+                    .left_failures
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .entry(project)
+                    .or_default() += 1;
+                None
             }
         }
-        if let Err(e) = self.learn_from_chat(project, false).await {
-            tracing::warn!(error = %e, "learning from the chat failed");
-        }
-        Ok(out)
     }
 
     async fn tick_runs(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
@@ -2544,7 +2664,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let state = self.app.run_state(project)?;
         let out = match state {
             crate::views::RunState::Running => self.tick(project).await?,
-            _ => Vec::new(),
+            crate::views::RunState::Paused => Vec::new(),
+            // Not running (yet, or any more): the Lead still answers what reached it after its last step (ADR-104).
+            _ => self.answer_left(project).await.into_iter().collect(),
         };
         let status = self.app.project(project)?.status;
         let done = self.app.run_state(project)? == crate::views::RunState::Done;
