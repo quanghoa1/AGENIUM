@@ -153,7 +153,11 @@ fn find(hay: &[String], needle: &[&str], from: usize, norm: fn(&str) -> &str) ->
     if needle.is_empty() {
         return Some(from.min(hay.len()));
     }
-    (from..=hay.len().saturating_sub(needle.len())).find(|&s| {
+    // More lines to match than the file has (an empty file has none): no match, not an index past the end.
+    if needle.len() > hay.len() {
+        return None;
+    }
+    (from..=hay.len() - needle.len()).find(|&s| {
         needle
             .iter()
             .enumerate()
@@ -299,5 +303,28 @@ mod tests {
         }];
         assert_eq!(apply_hunks("a\n", &append, "x").unwrap(), "a\ntail\n");
         assert_eq!(apply_hunks("", &append, "x").unwrap(), "tail\n");
+    }
+
+    /// Review of 2026-10-27: a hunk with more old lines than the file indexed past its end, and an empty file
+    /// panicked; both are a hunk that does not apply.
+    #[test]
+    fn a_hunk_longer_than_the_file_does_not_apply() {
+        let hunk = |lines: &[(char, &str)], at_eof: bool| {
+            vec![Hunk {
+                anchor: None,
+                lines: lines.iter().map(|(k, t)| (*k, (*t).to_owned())).collect(),
+                at_eof,
+            }]
+        };
+        let long = hunk(&[(' ', "a"), ('-', "b"), ('-', "c"), ('+', "d")], false);
+        assert!(apply_hunks("a\n", &long, "x")
+            .unwrap_err()
+            .contains("not found"));
+        assert!(apply_hunks("", &long, "x")
+            .unwrap_err()
+            .contains("not found"));
+        let eof = hunk(&[('-', "a"), ('-', "b")], true);
+        assert!(apply_hunks("", &eof, "x").is_err());
+        assert!(apply_hunks("b\n", &eof, "x").is_err());
     }
 }
