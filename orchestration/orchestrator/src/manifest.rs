@@ -46,9 +46,6 @@ fn default_template() -> String {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct WorktreeSection {
-    /// Directories linked into every ticket worktree (e.g. caches).
-    #[serde(default)]
-    pub shared_dirs: Vec<String>,
     /// Untracked files copied into every ticket worktree (e.g. `.env.example`).
     #[serde(default)]
     pub include_files: Vec<String>,

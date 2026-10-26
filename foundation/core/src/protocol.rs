@@ -146,11 +146,6 @@ impl ProtocolTool {
         }
     }
 
-    /// Tools that end a worker run when they succeed (submit) or park it (blocking question handled separately).
-    pub fn ends_run(self) -> bool {
-        matches!(self, ProtocolTool::SubmitReport)
-    }
-
     pub fn for_role(role: RoleKind, solo: bool) -> Vec<ProtocolTool> {
         Self::ALL
             .iter()

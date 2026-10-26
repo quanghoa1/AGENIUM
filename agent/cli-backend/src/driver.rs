@@ -36,6 +36,15 @@ pub struct CheckCtx<'a> {
     pub subagents: bool,
 }
 
+/// Env names under which a hooked CLI's permission hook finds Agenium's endpoint and its per-run token.
+pub(crate) const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
+pub(crate) const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
+
+/// A TOML basic string (JSON string escaping is valid TOML).
+pub(crate) fn toml_str(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_default()
+}
+
 /// Refusal of a subagent tool in team mode.
 pub const NO_SUBAGENTS: &str =
     "subagents are not used in team mode: the Lead splits the work into tickets; do this ticket yourself";

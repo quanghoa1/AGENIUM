@@ -194,14 +194,6 @@ pub fn set_settings(
     Ok(())
 }
 
-pub fn set_git(c: &Connection, id: ProjectId, git: &serde_json::Value) -> Result<(), StoreError> {
-    c.execute(
-        "UPDATE project SET git = ?2 WHERE id = ?1",
-        params![id.to_string(), to_json(git)?],
-    )?;
-    Ok(())
-}
-
 /// Adds always-allow entries (callers must ensure the user granted them).
 pub fn add_allowlist(
     c: &Connection,

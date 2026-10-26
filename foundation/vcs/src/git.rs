@@ -37,10 +37,6 @@ impl GitOutput {
 }
 
 impl Git {
-    pub fn with_exe(exe: impl Into<PathBuf>) -> Self {
-        Self { exe: exe.into() }
-    }
-
     fn command(&self, dir: &Path) -> Command {
         let mut c = Command::new(&self.exe);
         c.arg("-C").arg(dir);

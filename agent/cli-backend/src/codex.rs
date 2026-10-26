@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
+use crate::driver::toml_str;
 use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, Turns};
 
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
@@ -42,10 +43,6 @@ pub fn user_codex_home() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map(|h| PathBuf::from(h).join(".codex"))
-}
-
-fn toml_str(s: &str) -> String {
-    serde_json::to_string(s).unwrap_or_default()
 }
 
 impl Driver for Codex {

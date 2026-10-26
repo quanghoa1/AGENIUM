@@ -22,6 +22,7 @@ use crate::driver::{
     copy_login, hand_back_login, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
     NO_SUBAGENTS,
 };
+use crate::driver::{HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
 /// Claude Code tools an Agenium run may use: files, search, shell, and `ToolSearch` (loads the Agenium MCP tools).
 /// Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
@@ -49,8 +50,6 @@ fn allowed_tools(subagents: bool) -> Vec<&'static str> {
 
 pub struct Claude;
 
-const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
-const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
 const MCP_FILE: &str = "agenium-mcp.json";
 const HOOK_FILE: &str = "agenium-hook.sh";
 const LOGIN: &str = ".credentials.json";

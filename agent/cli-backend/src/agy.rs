@@ -18,6 +18,7 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS};
+use crate::driver::{HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
 /// Name fragments of agy 1.4 tools an Agenium run never uses (matched on the lowercase tool name, since the hook and
 /// the init event spell some tools differently).
@@ -34,9 +35,6 @@ const WITHHELD: [&str; 9] = [
 ];
 
 pub struct Agy;
-
-const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
-const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
 
 fn write_json(path: &Path, v: &Value) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {

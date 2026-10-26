@@ -24,12 +24,12 @@ use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 
+use crate::driver::HOOK_URL_ENV;
 use crate::driver::{inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS};
 
 pub struct Opencode;
 
 const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
-const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
 const PASSWORD_ENV: &str = "OPENCODE_SERVER_PASSWORD";
 /// Read by the bridge only (not by opencode): the model of the session.
 const MODEL_ENV: &str = "AGENIUM_OPENCODE_MODEL";

@@ -22,6 +22,7 @@ use crate::driver::{
     copy_login, hand_back_login, inside, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
     NO_SUBAGENTS,
 };
+use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
 pub struct Grok;
 
@@ -52,8 +53,6 @@ fn allowed_tools(subagents: bool) -> Vec<&'static str> {
     v
 }
 
-const HOOK_URL_ENV: &str = "AGENIUM_HOOK_URL";
-const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
 const LOGIN: &str = "auth.json";
 const TURN_FILE: &str = "agenium-turn.txt";
 /// Seconds Grok waits for the hook; the hook's own call to Agenium gives up 100 s earlier, so a slow approval ends
@@ -72,10 +71,6 @@ pub fn user_grok_dir() -> Option<PathBuf> {
 }
 
 /// A TOML basic string.
-fn toml_str(s: &str) -> String {
-    serde_json::to_string(s).unwrap_or_default()
-}
-
 /// The hook script and the command that runs it (PowerShell on Windows, where Grok runs hooks through it; `sh`
 /// elsewhere).
 fn hook(home: &Path) -> (PathBuf, String, String) {
