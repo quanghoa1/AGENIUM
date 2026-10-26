@@ -211,6 +211,9 @@ what is done, what remains, and the next concrete step. Do not call tools.";
 const CLEAR_AT_PERCENT: u64 = 60;
 /// Share from which the run's conversation is replaced by the model's notes (or the run checkpoints).
 const COMPACT_AT_PERCENT: u64 = 85;
+/// The most recent steps kept verbatim after a compaction, as a share of the window (ADR-113; after DeepSeek's
+/// harness, which keeps a recent tail instead of summarising everything).
+const RETAIN_PERCENT: u64 = 15;
 /// Tokens kept free for the notes when the run's whole prefix is sent for them (ADR-113).
 const NOTES_ROOM: u64 = 4_096;
 /// Tool-result messages at the end of the conversation that are never cleared.
@@ -218,15 +221,16 @@ const KEEP_RESULTS: usize = 4;
 /// A tool result shorter than this (characters) is never cleared.
 const CLEAR_MIN_CHARS: usize = 400;
 const CLEARED: &str = "[cleared to save context";
-const COMPACT: &str = "The context is nearly full: the conversation of this run so far will be replaced by your notes. \
+const COMPACT: &str = "The context is nearly full: the conversation of this run up to here will be replaced by your notes \
+(the most recent steps after it are kept as they are). \
 Write them now, without calling tools, under these headings:\n\
 ## Goal\n## Constraints and preferences\n## Progress (Done / In progress / Blocked)\n## Key decisions\n\
 ## Next steps\n## Critical context (exact names, values, errors and commands you still need)\n\
 If notes from an earlier compaction are above, update them: keep what still holds, move finished items to Done, add \
 what is new. The files you read and changed are listed for you; do not list them.";
 const COMPACTED: &str =
-    "[Context compacted: the conversation of this run so far was replaced by your notes below. \
-Changes you made to files are still there. Continue from the next step.]";
+    "[Context compacted: the older part of this run's conversation was replaced by your notes below; the most recent \
+steps follow unchanged. Changes you made to files are still there. Continue from the next step.]";
 
 /// Characters of a tool result shown to the model that writes compaction notes.
 const NOTES_RESULT_CHARS: usize = 2000;
@@ -736,8 +740,8 @@ impl Run<'_> {
         }
     }
 
-    /// Asks for notes without tools and replaces the run's conversation (after the work order) with them; the run
-    /// goes on. `Ok(false)` when the model wrote no notes.
+    /// Asks for notes on the older part of the run's conversation and replaces that part with them, keeping the most
+    /// recent steps verbatim; the run goes on. `Ok(false)` when the model wrote no notes.
     async fn compact(
         &self,
         order: &WorkOrder,
@@ -746,9 +750,15 @@ impl Run<'_> {
         usage: &mut Usage,
         overflowed: bool,
     ) -> Result<bool, Outcome> {
-        // First the run's exact prefix with the instruction appended, served by the prompt cache (ADR-113); after the
-        // provider said the request does not fit, or if this one does not, a smaller request.
-        let mut whole = messages.clone();
+        // The recent tail stays as it is; the notes cover what comes before it. That older part is a prefix of the
+        // run's last request, so the prompt cache serves it (ADR-113). After the provider said the request does not
+        // fit, or if this one does not, a smaller request.
+        let split = tail_start(
+            messages,
+            start_len,
+            (self.cfg.context_window * RETAIN_PERCENT / 100 * 4) as usize,
+        );
+        let mut whole = messages[..split].to_vec();
         whole.push(Message::user_text(COMPACT));
         let first = if overflowed {
             None
@@ -765,7 +775,7 @@ impl Run<'_> {
         };
         let r = match first {
             Some(r) => r,
-            None => self.cut_notes(order, messages).await?,
+            None => self.cut_notes(order, &messages[..split]).await?,
         };
         usage.add(&r.usage);
         let notes = r.message.text();
@@ -773,7 +783,8 @@ impl Run<'_> {
         if notes.trim().is_empty() || r.stop == StopReason::MaxTokens {
             return Ok(false);
         }
-        let (read, changed) = files_touched(&messages[start_len..]);
+        let (read, changed) = files_touched(&messages[start_len..split]);
+        let tail = messages.split_off(split);
         messages.truncate(start_len);
         let mut text = format!("{COMPACTED}\n\n{}", notes.trim());
         if !read.is_empty() {
@@ -795,6 +806,7 @@ impl Run<'_> {
         let m = Message::user_text(text);
         self.observer.message(&m);
         messages.push(m);
+        messages.extend(tail);
         tracing::info!("run context compacted");
         Ok(true)
     }
@@ -862,6 +874,35 @@ impl Run<'_> {
             Err(o) => o,
         }
     }
+}
+
+/// Where the recent tail kept verbatim after a compaction starts: the earliest assistant turn from which the rest of
+/// the run fits in `budget` characters, so a tool call stays with its results. The older part keeps at least one
+/// exchange (else everything is summarised: `messages.len()`).
+fn tail_start(messages: &[Message], start_len: usize, budget: usize) -> usize {
+    let chars = |m: &Message| -> usize {
+        m.parts
+            .iter()
+            .map(|p| match p {
+                Part::Text { text } | Part::Thinking { text, .. } => text.len(),
+                Part::ToolCall { args, .. } => args.to_string().len(),
+                Part::ToolResult { content, .. } => content.len(),
+                Part::Image { data_b64, .. } => data_b64.len(),
+            })
+            .sum()
+    };
+    let mut size = 0;
+    let mut start = messages.len();
+    for i in (start_len..messages.len()).rev() {
+        size += chars(&messages[i]);
+        if size > budget {
+            break;
+        }
+        if messages[i].role == Role::Assistant && i >= start_len + 2 {
+            start = i;
+        }
+    }
+    start
 }
 
 /// A gateway that answers an oversized request with a 400 or 413 and no error text (OpenCode Go with DeepSeek,

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 123559,
+    "tokens_out": 760,
+    "tokens_cached": 64768,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41000
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 123784,
+    "tokens_out": 790,
+    "tokens_cached": 89344,
+    "cost_usd": 0.0,
+    "elapsed_ms": 33324
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 151476,
+    "tokens_out": 1148,
+    "tokens_cached": 84736,
+    "cost_usd": 0.0,
+    "elapsed_ms": 43749
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 111264,
+    "tokens_out": 857,
+    "tokens_cached": 72576,
+    "cost_usd": 0.0,
+    "elapsed_ms": 31897
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 136134,
+    "tokens_out": 836,
+    "tokens_cached": 82944,
+    "cost_usd": 0.0,
+    "elapsed_ms": 34863
+  }
+]

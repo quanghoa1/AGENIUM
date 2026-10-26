@@ -3,6 +3,7 @@
 //! read from the cache. Costs a few small requests.
 //!
 //! cargo run -p agenium-eval --example cache_probe -- --root <root> --provider <id> --model <model>
+//! cargo run -p agenium-eval --example cache_probe -- --base-url <url> --key-env <VAR> --provider <id> --model <model>
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -55,16 +56,35 @@ async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let provider_id = arg(&args, "--provider").ok_or_else(|| anyhow!("--provider"))?;
     let model = arg(&args, "--model").ok_or_else(|| anyhow!("--model"))?;
-    let root = PathBuf::from(arg(&args, "--root").ok_or_else(|| anyhow!("--root"))?);
-    let (app, _) = agenium_orchestrator::App::open(
-        &root,
-        agenium_orchestrator::AppOptions {
-            keyring: Arc::new(agenium_secrets::OsKeyring::default()),
-            checks: Arc::new(agenium_orchestrator::NoCheckFactory),
-        },
-    )?;
-    let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
-    let p = agenium_orchestrator::runtime::ProviderSource::provider(&source, &provider_id)?;
+    // Either a root's configured provider (key in its vault), or a provider built from `--base-url` and the key in
+    // the environment variable `--key-env` (a test key that must not be stored).
+    let p: Arc<dyn Provider> = match arg(&args, "--base-url") {
+        Some(base) => {
+            let var =
+                arg(&args, "--key-env").ok_or_else(|| anyhow!("--key-env with --base-url"))?;
+            let key = std::env::var(&var).map_err(|_| anyhow!("{var} is not set"))?;
+            build_provider(&ProviderSpec {
+                id: provider_id.clone(),
+                kind: "openai_compat".into(),
+                base_url: Some(base),
+                api_key: Some(key),
+                max_concurrency: 1,
+            })?
+        }
+        None => {
+            let root =
+                PathBuf::from(arg(&args, "--root").ok_or_else(|| anyhow!("--root or --base-url"))?);
+            let (app, _) = agenium_orchestrator::App::open(
+                &root,
+                agenium_orchestrator::AppOptions {
+                    keyring: Arc::new(agenium_secrets::OsKeyring::default()),
+                    checks: Arc::new(agenium_orchestrator::NoCheckFactory),
+                },
+            )?;
+            let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
+            agenium_orchestrator::runtime::ProviderSource::provider(&source, &provider_id)?
+        }
+    };
     // A unique stem per probe so earlier probes' cache does not answer.
     let stem = format!("Probe {}. ", agenium_core::now_iso());
     let rules = format!(

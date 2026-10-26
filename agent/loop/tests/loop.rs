@@ -927,3 +927,44 @@ async fn notes_carry_the_files_read_and_changed() {
         .await;
     assert_eq!(r.outcome, Outcome::Completed);
 }
+
+/// ADR-113 (after DeepSeek's harness): a compaction summarises the older steps and keeps the most recent ones verbatim;
+/// the notes request carries only the older part, a prefix of the run's last request.
+#[tokio::test]
+async fn a_compaction_keeps_the_most_recent_steps() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push(using(10_000, vec![("list_dir", json!({"depth": 1}))]));
+    p.push(using(20_000, vec![("list_dir", json!({"depth": 2}))]));
+    p.push(using(90_000, vec![("list_dir", json!({"depth": 3}))]));
+    p.push(Box::new(|req: &ChatRequest| {
+        assert!(req.tools_off);
+        let calls = format!("{:?}", req.messages);
+        assert!(
+            calls.contains("\"depth\": Number(1)") && !calls.contains("\"depth\": Number(3)"),
+            "{calls}"
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "Done: listed twice. Next: one more listing, then report.",
+            vec![],
+        ))
+    }));
+    p.push(Box::new(|req: &ChatRequest| {
+        // The work order, the notes, then the latest step as it was.
+        let texts: Vec<String> = req.messages.iter().map(|m| m.text()).collect();
+        assert!(texts[1].starts_with("[Context compacted"), "{texts:?}");
+        let rest = format!("{:?}", &req.messages[2..]);
+        assert!(
+            rest.contains("\"depth\": Number(3)") && !rest.contains("\"depth\": Number(1)"),
+            "{rest}"
+        );
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let r = run(&p, &ctx, &tools, &proto, roomy_window())
+        .run(&order())
+        .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+}

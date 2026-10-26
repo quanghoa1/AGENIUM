@@ -31,6 +31,10 @@ cache guide and the pi `pi-deepseek-cache` / `pi-reasonix` notes; our own code):
 - the same route is kept;
 - a summary call replays the original prefix and appends only its instruction.
 
+These rules come from DeepSeek's own harness (`deepseek-ai/deepseek-harness`, studied 2026-10-26: the "KV Cache
+effect" notes of its packages and its `compaction-basic`), and the same rules appear in the pi `pi-deepseek-cache` /
+`pi-reasonix` notes. Agenium implements them in its own code.
+
 ## Decision
 
 1. **Stable first, and nothing per-run in the system.** The work order's system blocks are, in order:
@@ -57,7 +61,11 @@ cache guide and the pi `pi-deepseek-cache` / `pi-reasonix` notes; our own code):
    one after each of the first two stable system blocks and one on the last message (1 h TTL for long-running
    Anthropic agents). DeepSeek, OpenAI, xAI and Gemini direct cache automatically. Anthropic direct already had its
    breakpoints (decision 13).
-5. **A cache break is visible.** A step served from the cache for less than half of the previous request's prompt is
+5. **A compaction keeps the most recent steps.** This follows DeepSeek's harness, which condenses the oldest span and
+   keeps a recent tail verbatim. The older part is replaced by notes. The newest steps stay as they were: about 15 %
+   of the window, starting at an assistant turn so a tool call stays with its results. Agenium used to replace the
+   whole run with notes. The notes request now carries only the older part, which is a prefix of the last request.
+6. **A cache break is visible.** A step served from the cache for less than half of the previous request's prompt is
    logged in the run's log (`control: cache_miss`). The log starts once the provider has shown it caches at all. A
    compaction or a clearing resets it, because those change the prefix on purpose.
 
@@ -76,7 +84,9 @@ cache guide and the pi `pi-deepseek-cache` / `pi-reasonix` notes; our own code):
 Not done: OpenAI's extended retention (`prompt_cache_retention` / `prompt_cache_options`). The field and its allowed
 values differ by model generation, and a wrong value is a 400. Gemini's explicit `cachedContents` is not used either.
 
-## Result (DeepSeek v4.1 Flash via OpenCode Go, `quality/eval/results/prompt-cache/`)
+## Result
+
+### DeepSeek v4.1 Flash via OpenCode Go (`quality/eval/results/prompt-cache/`)
 
 | Scenario | Before (5385ffe) | After | Uncached input per run | per step |
 |---|---|---|---|---|
@@ -86,3 +96,15 @@ values differ by model generation, and a wrong value is a 400. Gemini's explicit
 In the chain, tickets 2 and 3 of the same agent were served 96–97 % from the cache. Cache reads cost about a tenth of
 uncached input, so the input bill of these runs drops by roughly a third. The remaining misses are mostly each step's
 new tool results, which no cache can serve.
+
+### Other vendors measured (2026-10-26)
+
+| Route | Scenario | Prompt cache | Note |
+|---|---|---|---|
+| Claude Haiku via Claude Code (subscription) | golden tasks, 5/5 PASS | **91.0 %** | the CLI caches its own prompt; Agenium sets only the work order |
+| gpt-6-luna via Codex (subscription) | golden tasks, 5/5 PASS | 61.0 % | each run is a new Codex session of about 3 steps, so its first request is cold |
+| NVIDIA Nemotron 3.5 Lightning via OpenRouter (free) | `cache_probe` | 67 % on an unchanged prefix, 67 % with one tool replaced, **0 %** after one line appended to the system or the second system block changed | OpenRouter routes by a hash of the opening messages, so a per-run line in the system loses the cache entirely. This confirms decision 1. |
+| Cohere North Mini via OpenRouter (free) | `cache_probe` | 0 % | the free route reports no caching |
+
+Not measured, no key: Anthropic, OpenAI, Gemini and xAI through their APIs (contract tests only).
+
