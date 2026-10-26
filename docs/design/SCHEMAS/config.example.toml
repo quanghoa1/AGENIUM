@@ -40,6 +40,7 @@ weekly_keep = 4
 [memory]
 embedder = "fastembed:bge-small-en-v1.5"   # xem lại sau spike S6
 language = "en"
+chat_idle_minutes = 20     # learn from the chat with the Lead once it has been quiet this long; 0 = never (ADR-98)
 
 [secrets]
 backend = "keyring"        # "keyring" | "vault" (phương án B, spike S5)

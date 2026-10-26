@@ -1310,7 +1310,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         let p = self.app.project(project)?;
         let root = PathBuf::from(&p.path);
         let mem = self.agent_memory(lead.id)?;
-        let session = format!("chat:{project}");
+        let session = learn::chat_session(project);
         let history: Vec<Message> = mem
             .load_messages(&session)?
             .into_iter()
@@ -1415,6 +1415,8 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 mem.append_message(&session, &v)?;
             }
         }
+        // When the chat goes quiet, the scheduler learns from it (ADR-98).
+        mem.set_meta(&format!("chat-last:{project}"), &now_iso())?;
         let text = report
             .messages
             .iter()
@@ -1822,8 +1824,17 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     }
 
     /// One scheduling round: start work runs for ready tickets (bounded parallelism), then review runs for Resolved
-    /// tickets awaiting the Lead. Returns the runs executed.
+    /// tickets awaiting the Lead, then learn from the chat with the Lead if it has gone quiet. Returns the runs
+    /// executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
+        let out = self.tick_runs(project).await?;
+        if let Err(e) = self.learn_from_chat(project, false).await {
+            tracing::warn!(error = %e, "learning from the chat failed");
+        }
+        Ok(out)
+    }
+
+    async fn tick_runs(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
         let mut out = Vec::new();
         // No run of this project is active between rounds: retry git operations that failed during one.
         let app = self.app.clone();

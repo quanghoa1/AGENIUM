@@ -245,6 +245,9 @@ pub struct MemorySection {
     /// held in >=2 distinct contexts and is not scoped to one project, and every agent also recalls from the pool
     /// (ranked below its own memory). Off stops promotion and pool recall.
     pub share: bool,
+    /// Learn from the user's chat with the Lead once the chat has been quiet this many minutes: facts and preferences
+    /// only, each part of the chat once. 0 = never learn from chats.
+    pub chat_idle_minutes: u32,
 }
 
 impl Default for MemorySection {
@@ -256,6 +259,7 @@ impl Default for MemorySection {
             top_k: 8,
             learn: true,
             share: true,
+            chat_idle_minutes: 20,
         }
     }
 }

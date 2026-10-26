@@ -1617,3 +1617,107 @@ async fn planner_drafts_then_the_lead_creates_the_plan() {
         "proposed by the Lead"
     );
 }
+
+/// ADR-98: the chat with the Lead is learned from once it has gone quiet (by the scheduler's round), each part once,
+/// facts and preferences only, without the project state appended to each user message.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_chat_with_the_lead_is_learned_once_it_goes_quiet() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let quiet = || {
+        mem.set_meta(&format!("chat-last:{project}"), "2020-01-01T00:00:00Z")
+            .unwrap()
+    };
+
+    p.push_text("Noted: Vietnamese from now on, and `make ship` deploys.");
+    rt.chat(
+        project,
+        "Always answer me in Vietnamese. We deploy this project with `make ship`.",
+    )
+    .await
+    .unwrap();
+    // Not quiet yet: nothing happens (no model call is scripted).
+    assert!(rt.learn_from_chat(project, false).await.unwrap().is_none());
+
+    quiet();
+    p.push(Box::new(|req| {
+        let t = req.messages[0].text();
+        assert!(t.contains("Episode chat:greet"), "{t}");
+        assert!(t.contains("SIGNALS: none"), "{t}");
+        assert!(t.contains("[User] Always answer me in Vietnamese."), "{t}");
+        assert!(t.contains("[Assistant] Noted"), "{t}");
+        assert!(!t.contains("project_state"), "{t}");
+        Ok(calls_response(
+            "{\"facts\": [{\"text\": \"The user wants answers in Vietnamese.\", \"kind\": \"preference\"}, \
+             {\"text\": \"The greet project deploys with make ship.\", \"kind\": \"fact\"}]}",
+            vec![],
+        ))
+    }));
+    // The scheduler's round learns from it.
+    rt.tick(project).await.unwrap();
+    assert_eq!(p.remaining(), 0, "one extraction call");
+    let facts = mem.live(10).unwrap();
+    assert_eq!(facts.len(), 2, "{facts:?}");
+    assert!(facts.iter().all(|f| f.source == "chat:greet"));
+    assert!(facts
+        .iter()
+        .any(|f| f.kind == agenium_store::agent::FactKind::Preference));
+    // Each part once.
+    assert!(rt.learn_from_chat(project, true).await.unwrap().is_none());
+
+    // The next part of the chat: only it is sent.
+    p.push_text("Sure.");
+    rt.chat(project, "Please keep commit messages short.")
+        .await
+        .unwrap();
+    p.push(Box::new(|req| {
+        let t = req.messages[0].text();
+        assert!(
+            t.contains("[User] Please keep commit messages short."),
+            "{t}"
+        );
+        assert!(!t.contains("Vietnamese"), "{t}");
+        Ok(calls_response("{\"facts\": []}", vec![]))
+    }));
+    assert!(rt.learn_from_chat(project, true).await.unwrap().is_some());
+    assert_eq!(p.remaining(), 0);
+
+    // Off: never.
+    p.push_text("Ok.");
+    rt.chat(project, "One more thing.").await.unwrap();
+    quiet();
+    app.update_config(|c| c.memory.chat_idle_minutes = 0)
+        .unwrap();
+    assert!(rt.learn_from_chat(project, false).await.unwrap().is_none());
+}
+
+/// ADR-98: a failed chat extraction is not retried on every scheduler round.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_failed_chat_extraction_waits_before_the_next_try() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    p.push_text("Ok.");
+    rt.chat(project, "We use pnpm, not npm.").await.unwrap();
+    mem.set_meta(&format!("chat-last:{project}"), "2020-01-01T00:00:00Z")
+        .unwrap();
+    p.push_error(agenium_llm::LlmError::Unsupported("provider down".into()));
+    assert!(rt.learn_from_chat(project, false).await.unwrap().is_none());
+    assert_eq!(p.remaining(), 0);
+    // The next rounds make no model call.
+    let asked = p.requests().len();
+    rt.tick(project).await.unwrap();
+    assert!(rt.learn_from_chat(project, false).await.unwrap().is_none());
+    assert_eq!(p.requests().len(), asked);
+    // Forced, it tries again and learns.
+    p.push(Box::new(|_| Ok(calls_response("{\"facts\": []}", vec![]))));
+    assert!(rt.learn_from_chat(project, true).await.unwrap().is_some());
+    assert_eq!(p.remaining(), 0);
+}
