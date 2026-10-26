@@ -22,6 +22,8 @@ pub enum InboxKind {
     Plan,
     /// New tickets without a worker, or Reopened tickets whose worker cannot take work.
     Assign,
+    /// Tickets that wait for a cancelled ticket: they can never start.
+    Blocked,
     Question,
 }
 
@@ -60,6 +62,11 @@ impl App {
                 .unwrap_or_else(|| id.to_string()),
             other => other.to_string(),
         };
+        let cancelled: HashSet<&TicketKey> = tickets
+            .iter()
+            .filter(|t| t.status == TicketStatus::Cancelled)
+            .map(|t| &t.key)
+            .collect();
         let mut out = Vec::new();
         for t in tickets.iter().filter(|t| !t.status.is_terminal()) {
             let cs = self.store.read(|c| comments::for_ticket(c, t.id))?;
@@ -164,6 +171,31 @@ impl App {
                     },
                 });
             }
+            // A ticket that has not started yet waits for its dependencies; a cancelled one is never done.
+            let dead: Vec<String> = t
+                .depends_on
+                .iter()
+                .filter(|k| cancelled.contains(k))
+                .map(|k| k.to_string())
+                .collect();
+            let waits = matches!(
+                t.status,
+                TicketStatus::New | TicketStatus::Assigned | TicketStatus::Reopened
+            );
+            if waits && !dead.is_empty() {
+                out.push(InboxItem {
+                    kind: InboxKind::Blocked,
+                    ticket: Some(t.key.clone()),
+                    comment: None,
+                    created_at: t.updated_at.clone(),
+                    text: format!(
+                        "{} ({}) depends on {}, which was cancelled: it can never start. cancel_ticket it, and when its work is still needed create_ticket again without that dependency (or depending on the ticket that replaces it)",
+                        t.key,
+                        t.title,
+                        dead.join(", ")
+                    ),
+                });
+            }
         }
         let (spec, latest) = self.store.read(|c| {
             Ok((
@@ -260,7 +292,7 @@ impl App {
             out.retain(|i| {
                 matches!(
                     i.kind,
-                    InboxKind::Planning | InboxKind::Plan | InboxKind::Assign
+                    InboxKind::Planning | InboxKind::Plan | InboxKind::Assign | InboxKind::Blocked
                 )
             });
         }

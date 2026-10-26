@@ -663,3 +663,246 @@ fn a_closed_ticket_pushes_when_the_project_has_a_remote() {
         "main pushed to origin: {heads}"
     );
 }
+
+fn approve(k: &TicketKey) -> ReviewDecision {
+    ReviewDecision {
+        ticket_id: k.clone(),
+        decision: ReviewVerdict::Approve,
+        ac_feedback: vec![],
+        required_changes: vec![],
+    }
+}
+
+fn cancel(k: &str) -> Intent {
+    Intent::CancelTicket(CancelTicket {
+        ticket_id: key(k),
+        reason: "No longer needed".into(),
+    })
+}
+
+/// An aggregate links two or more existing tickets, and its ticket commits with its links: an empty list panicked
+/// inside a store read, and a child key that does not exist left an orphan aggregate ticket behind.
+#[test]
+fn an_aggregate_commits_with_its_links_or_not_at_all() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let lead = Actor::Lead(a.id);
+    for title in ["One", "Two"] {
+        f.app
+            .apply(
+                &ctx(&f, lead),
+                Intent::CreateTicket(new_ticket("PI-1", title, &[], &[])),
+            )
+            .unwrap();
+    }
+    let aggregate = |children: &[&str]| {
+        f.app.apply(
+            &ctx(&f, lead),
+            Intent::CreateAggregate(agenium_core::protocol::CreateAggregate {
+                children: children.iter().map(|k| key(k)).collect(),
+                kind: "attack chain".into(),
+                title: "Chain".into(),
+                summary: String::new(),
+            }),
+        )
+    };
+    assert!(matches!(aggregate(&[]), Err(OrchError::Invalid(_))));
+    assert!(matches!(
+        aggregate(&["AGN-1", "AGN-9"]),
+        Err(OrchError::NotFound(_))
+    ));
+    assert_eq!(
+        f.app.tickets(f.project.id).unwrap().len(),
+        2,
+        "no orphan aggregate"
+    );
+    let out = aggregate(&["AGN-1", "AGN-2"]).unwrap();
+    assert_eq!(out.result["ticket_id"], "AGN-3");
+    let links = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::tickets::links_of(c, ticket(&f, "AGN-3").id))
+        .unwrap();
+    assert_eq!(
+        links.iter().filter(|l| l.kind == "aggregates").count(),
+        2,
+        "{links:?}"
+    );
+}
+
+/// A cancelled ticket is never done: a new ticket cannot wait for it, and the tickets already waiting for it go to
+/// the Lead (they could never start, and nothing said so).
+#[test]
+fn tickets_waiting_for_a_cancelled_one_go_to_the_lead() {
+    use agenium_orchestrator::inbox::InboxKind;
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &["PI-1"])]);
+    let lead = Actor::Lead(a.id);
+    let create = |item: &str, deps: &[&str]| {
+        f.app.apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket(item, "Work", deps, &[])),
+        )
+    };
+    create("PI-1", &[]).unwrap();
+    create("PI-2", &["AGN-1"]).unwrap();
+    let blocked = || -> Vec<Option<TicketKey>> {
+        f.app
+            .lead_inbox(f.project.id)
+            .unwrap()
+            .into_iter()
+            .filter(|i| i.kind == InboxKind::Blocked)
+            .map(|i| i.ticket)
+            .collect()
+    };
+    assert!(blocked().is_empty());
+    let out = f.app.apply(&ctx(&f, lead), cancel("AGN-1")).unwrap();
+    assert_eq!(
+        out.result["blocked_dependents"],
+        serde_json::json!(["AGN-2"])
+    );
+    assert_eq!(blocked(), [Some(key("AGN-2"))]);
+    let e = create("PI-2", &["AGN-1"]).unwrap_err();
+    assert!(e.to_string().contains("AGN-1 is cancelled"), "{e}");
+    // Dealt with (cancelled; a new ticket would replace it): the item leaves the inbox.
+    f.app.apply(&ctx(&f, lead), cancel("AGN-2")).unwrap();
+    assert!(blocked().is_empty());
+}
+
+/// A Solo agent's questions and permission requests go to the user: the agent, its own Lead, cannot decide them.
+#[test]
+fn a_solo_agent_does_not_decide_its_own_requests() {
+    let f = fixture();
+    let mut m = f.app.manifest(&f.project).unwrap();
+    m.network.allowlist = vec!["crates.io".into()];
+    m.save(std::path::Path::new(&f.project.path)).unwrap();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    let k = started(&f, a.id, "PI-1", "Ask first", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let q = f
+        .app
+        .apply(
+            &ctx(&f, worker),
+            Intent::AskQuestion(Question {
+                ticket_id: k.clone(),
+                category: QuestionCategory::Requirement,
+                question: "Which greeting language should be used?".into(),
+                context: String::new(),
+                options: vec![],
+                recommendation: None,
+                blocking: true,
+                urgency: Urgency::Normal,
+            }),
+        )
+        .unwrap();
+    let qid: CommentId = serde_json::from_value(q.result["comment_id"].clone()).unwrap();
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::AnswerQuestion(AnswerQuestion {
+                ticket_id: k.clone(),
+                reply_to: qid,
+                answer: "English".into(),
+                chosen_option: None,
+                escalate: false,
+            }),
+        )
+        .unwrap_err();
+    assert!(matches!(e, OrchError::Denied(_)), "{e}");
+    let p = f
+        .app
+        .apply(
+            &ctx(&f, worker),
+            Intent::RequestPermission(PermissionRequest {
+                ticket_id: k.clone(),
+                kind: PermissionKind::Network,
+                command: Some("cargo add serde".into()),
+                domains: vec!["crates.io".into()],
+                paths: vec![],
+                reason: "cargo add serde".into(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(p.result["decided_by"], "user");
+    let rid: CommentId = serde_json::from_value(p.result["request_id"].clone()).unwrap();
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ApprovePermission(ApprovePermission {
+                ticket_id: k.clone(),
+                request_id: rid,
+                decision: PermissionDecision::Approve,
+                note: None,
+            }),
+        )
+        .unwrap_err();
+    assert!(matches!(e, OrchError::Denied(_)), "{e}");
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::Pending);
+    // The user decides both.
+    f.app
+        .user_answer(f.project.id, &k, qid, "English", None)
+        .unwrap();
+    f.app
+        .decide_permission(
+            f.project.id,
+            &k,
+            rid,
+            PermissionDecision::Approve,
+            false,
+            None,
+        )
+        .unwrap();
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::InProgress);
+}
+
+/// A done item keeps its work across revisions, also when one revision dropped it and a later one brings its id
+/// back with new work (that work would count as done by the old closed ticket, and nobody would do it).
+#[test]
+fn a_dropped_done_item_cannot_come_back_with_new_work() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let lead = Actor::Lead(a.id);
+    // PI-1 is done: its ticket (no code) is reviewed and closed.
+    let k = started(&f, a.id, "PI-1", "Look something up", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    f.app
+        .apply(
+            &ctx(&f, Actor::Worker(a.id)),
+            Intent::SubmitReport(report("AGN-1")),
+        )
+        .unwrap();
+    f.app
+        .apply(&ctx(&f, lead), Intent::ReviewTicket(approve(&k)))
+        .unwrap();
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CloseTicket(CloseTicket {
+                ticket_id: k.clone(),
+                reason: "Answer recorded".into(),
+            }),
+        )
+        .unwrap();
+    let v1 = plan(&[("PI-1", &[]), ("PI-2", &[])]);
+    let revise = |base: u32, items: Vec<agenium_core::plan::PlanItem>| {
+        f.app.apply(
+            &ctx(&f, lead),
+            Intent::RevisePlan(agenium_core::plan::PlanRevision {
+                base_version: base,
+                reason: "re-plan".into(),
+                milestones: v1.milestones.clone(),
+                items,
+            }),
+        )
+    };
+    revise(1, vec![v1.items[1].clone()]).unwrap();
+    let mut new_work = v1.items[0].clone();
+    new_work.title = "Something else entirely".into();
+    let e = revise(2, vec![new_work, v1.items[1].clone()]).unwrap_err();
+    assert!(e.to_string().contains("plan item PI-1 is done"), "{e}");
+    // Back as it was in v1: the done item returns with its own work.
+    revise(2, v1.items.clone()).unwrap();
+}

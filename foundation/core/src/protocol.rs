@@ -167,6 +167,22 @@ pub struct CreateAggregate {
     pub summary: String,
 }
 
+impl Validate for CreateAggregate {
+    fn validate(&self) -> Result<(), FormErrors> {
+        let mut c = crate::validate::Checker::new();
+        // The schema says two or more, but serde does not enforce it: an aggregate of fewer is no aggregate.
+        c.items("children", &self.children, 2, 50);
+        let mut seen = std::collections::HashSet::new();
+        for (i, k) in self.children.iter().enumerate() {
+            c.check(seen.insert(k), format!("children[{i}]"), "duplicate ticket");
+        }
+        c.non_blank("kind", &self.kind);
+        c.len("title", &self.title, 1, 200);
+        c.non_blank("title", &self.title);
+        c.finish()
+    }
+}
+
 /// get_team takes no arguments.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -307,13 +323,13 @@ impl Intent {
             SubmitReport(x) => x.validate(),
             SuggestLink(x) => x.validate(),
             SubmitPlanDraft(x) => x.validate(),
+            CreateAggregate(x) => x.validate(),
             AssignTicket(_)
             | ApprovePermission(_)
             | ProposeRole(_)
             | GetTeam(_)
             | SetMemberMcpKey(_)
             | ConfirmLink(_)
-            | CreateAggregate(_)
             | LoadSkill(_)
             | ProposeSkillUpdate(_)
             | ProposeNewSkill(_)
@@ -409,6 +425,30 @@ mod tests {
             Intent::parse("rm_rf", serde_json::json!({}), RoleKind::Lead, true),
             Err(IntentError::UnknownTool { .. })
         ));
+    }
+
+    /// An aggregate needs two or more distinct tickets (an empty list reached the engine and panicked there).
+    #[test]
+    fn create_aggregate_needs_two_distinct_children() {
+        let parse = |children: serde_json::Value| {
+            Intent::parse(
+                "create_aggregate",
+                serde_json::json!({ "children": children, "kind": "attack chain", "title": "Chain" }),
+                RoleKind::Lead,
+                false,
+            )
+        };
+        for bad in [
+            serde_json::json!([]),
+            serde_json::json!(["AGN-1"]),
+            serde_json::json!(["AGN-1", "AGN-1"]),
+        ] {
+            assert!(
+                matches!(parse(bad.clone()), Err(IntentError::Fields { .. })),
+                "{bad}"
+            );
+        }
+        assert!(parse(serde_json::json!(["AGN-1", "AGN-2"])).is_ok());
     }
 
     /// M3-3 acceptance: every JSON example of the architecture document ("Payload & ví dụ JSON") passes the tool

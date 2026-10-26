@@ -619,31 +619,26 @@ impl App {
             }
             // A done item (its tickets ended, one closed) keeps its work: new work under its id would count as done
             // by the old tickets, and nobody would do it. It may take back what it read in an earlier version (a
-            // revision that put new work there is repaired that way).
-            for old in &base.body.items {
-                let of: Vec<_> = all.iter().filter(|t| t.plan_item == old.id && t.status != TicketStatus::Cancelled).collect();
+            // revision that put new work there is repaired that way). Every item of the revision is checked, also one
+            // the base plan dropped: re-adding a done id with new work is the same mistake.
+            let mut versions: Vec<PlanRow> = Vec::new();
+            for new in &rev.items {
+                let of: Vec<_> = all.iter().filter(|t| t.plan_item == new.id && t.status != TicketStatus::Cancelled).collect();
                 let done = of.iter().all(|t| t.status.is_terminal()) && of.iter().any(|t| t.status == TicketStatus::Closed);
-                let Some(new) = rev.items.iter().find(|i| i.id == old.id) else {
-                    continue;
-                };
-                let same = |i: &agenium_core::plan::PlanItem| i.title == new.title && i.acceptance == new.acceptance;
-                if !done || same(old) {
+                let same = |i: &agenium_core::plan::PlanItem| i.id == new.id && i.title == new.title && i.acceptance == new.acceptance;
+                if !done || base.body.items.iter().any(same) {
                     continue;
                 }
-                let mut earlier = false;
-                for v in 1..base.version {
-                    if let Some(p) = plans::plan(w.tx, project, v)? {
-                        if p.body.items.iter().any(|i| i.id == old.id && same(i)) {
-                            earlier = true;
-                            break;
-                        }
+                if versions.is_empty() {
+                    for v in 1..base.version {
+                        versions.extend(plans::plan(w.tx, project, v)?);
                     }
                 }
-                if !earlier {
+                if !versions.iter().any(|p| p.body.items.iter().any(same)) {
                     let keys: Vec<String> = of.iter().map(|t| t.key.to_string()).collect();
                     return Err(invalid(format!(
                         "plan item {} is done ({} closed): keep its title and acceptance (as now, or as in an earlier plan version) and put the new work in a new item",
-                        old.id,
+                        new.id,
                         keys.join(", ")
                     )));
                 }
@@ -698,68 +693,20 @@ impl App {
         nt: NewTicket,
     ) -> Result<Outcome> {
         let pid = project.id;
-        let default_template = self
-            .manifest(project)
-            .map(|m| m.project.template)
-            .unwrap_or_else(|_| "coding@1".into());
+        let default_template = self.default_template(project);
         self.commit(ctx, |w| {
             require_lead(w, pid, &ctx.actor)?;
-            let plan = plans::current_plan(w.tx, pid)?.ok_or_else(|| invalid("no approved plan: every ticket must reference a plan item (create_plan first)"))?;
-            if !plan.body.items.iter().any(|i| i.id == nt.plan_item) {
-                return Err(invalid(format!("plan item {} is not in the approved plan v{}", nt.plan_item, plan.version)));
-            }
-            let parent = match &nt.parent {
-                Some(k) => Some(ticket_by_key(w, pid, k)?),
-                None => None,
-            };
-            let mut dep_ids = Vec::new();
-            for k in &nt.depends_on {
-                dep_ids.push(ticket_by_key(w, pid, k)?.id);
-            }
-            // Overlapping scope with an open ticket requires a dependency path between them (decision 18).
-            if !nt.scope_paths.is_empty() {
-                let graph = tickets::dep_graph(w.tx, pid)?;
-                let ancestors = closure(&graph, &dep_ids);
-                for other in tickets::list(w.tx, pid, &Default::default())? {
-                    if !other.status.is_terminal() && !ancestors.contains(&other.id) && scopes_overlap(&nt.scope_paths, &other.scope_paths) {
-                        return Err(invalid(format!(
-                            "scope_paths overlap with open ticket {} ({:?}); add it to depends_on or narrow the scope",
-                            other.key, other.scope_paths
-                        )));
-                    }
-                }
-            }
-            let key = projects::next_ticket_key(w.tx, pid)?;
-            let id = TicketId::new();
-            // A new ticket has no dependents yet, so it cannot close a cycle; checked anyway for safety.
-            let graph = tickets::dep_graph(w.tx, pid)?;
-            if let Some(cyc) = find_cycle(&graph, &id, &dep_ids) {
-                return Err(invalid(format!("depends_on would create a cycle ({} tickets)", cyc.len())));
-            }
-            let t = tickets::insert(
-                w.tx,
-                &tickets::TicketInsert {
-                    id,
-                    key: key.clone(),
-                    project: pid,
-                    parent: parent.map(|p| p.id),
-                    kind: nt.kind,
-                    title: nt.title.trim().to_owned(),
-                    description: nt.description,
-                    acceptance: nt.acceptance,
-                    plan_item: nt.plan_item,
-                    priority: nt.priority,
-                    depends_on: dep_ids,
-                    required_role: nt.required_role,
-                    required_tags: nt.required_tags,
-                    scope_paths: nt.scope_paths,
-                    report_template: nt.report_template.unwrap_or(default_template),
-                    created_at: now_iso(),
-                },
-            )?;
-            w.emit(DomainEvent::TicketCreated { ticket: t.id, key: t.key.clone(), title: t.title.clone() })?;
-            Ok(Outcome::ok(serde_json::json!({ "ticket_id": t.key, "status": t.status })))
+            let t = insert_ticket(w, pid, nt, default_template)?;
+            Ok(Outcome::ok(
+                serde_json::json!({ "ticket_id": t.key, "status": t.status }),
+            ))
         })
+    }
+
+    fn default_template(&self, project: &projects::Project) -> String {
+        self.manifest(project)
+            .map(|m| m.project.template)
+            .unwrap_or_else(|_| "coding@1".into())
     }
 
     fn assign_ticket(&self, ctx: &CallCtx, a: AssignTicket) -> Result<Outcome> {
@@ -860,12 +807,17 @@ impl App {
     fn answer_question(&self, ctx: &CallCtx, a: AnswerQuestion) -> Result<Outcome> {
         let pid = ctx.project;
         self.commit(ctx, |w| {
-            require_lead(w, pid, &ctx.actor)?;
+            let team = require_lead(w, pid, &ctx.actor)?;
             let mut t = ticket_by_key(w, pid, &a.ticket_id)?;
             let q = comments::find(w.tx, a.reply_to)?
                 .ok_or_else(|| invalid(format!("comment {} does not exist", a.reply_to)))?;
             if q.ticket != t.id || q.kind != CommentKind::Question {
                 return Err(invalid("reply_to must be a Question on this ticket"));
+            }
+            if solo_self(team.as_ref(), &ctx.actor, &q) {
+                return Err(denied(
+                    "a Solo agent's own questions go to the user: wait for the answer (the ticket resumes then)",
+                ));
             }
             if q.resolved {
                 return Err(invalid("this question is already answered"));
@@ -955,7 +907,7 @@ impl App {
         let list = allowlist(self, project);
         let pid = ctx.project;
         self.commit(ctx, |w| {
-            require_lead(w, pid, &ctx.actor)?;
+            let team = require_lead(w, pid, &ctx.actor)?;
             let mut t = ticket_by_key(w, pid, &a.ticket_id)?;
             let c = comments::find(w.tx, a.request_id)?.ok_or_else(|| invalid("request_id does not exist"))?;
             let CommentBody::Permission { request, run, outcome: None } = c.body.clone() else {
@@ -963,6 +915,9 @@ impl App {
             };
             if c.ticket != t.id {
                 return Err(invalid("the request belongs to another ticket"));
+            }
+            if solo_self(team.as_ref(), &ctx.actor, &c) {
+                return Err(denied("a Solo agent's own permission requests go to the user: wait for the decision"));
             }
             if a.decision == PermissionDecision::Approve && !in_allowlist(&request, &list) {
                 return Err(denied("the request is outside the project allowlist: only the user can approve it"));
@@ -1454,8 +1409,16 @@ impl App {
                     },
                 )?);
             }
+            // Open tickets that depend on this one can never start now (the Lead's inbox keeps listing them).
+            let mut blocked = Vec::new();
+            for id in tickets::dependents(w.tx, t.id)? {
+                let d = tickets::get(w.tx, id)?;
+                if !d.status.is_terminal() {
+                    blocked.push(d.key);
+                }
+            }
             Ok(Outcome {
-                result: serde_json::json!({ "ticket_id": t.key, "status": t.status }),
+                result: serde_json::json!({ "ticket_id": t.key, "status": t.status, "blocked_dependents": blocked }),
                 run: RunEffect::Continue,
                 ops,
             })
@@ -1564,49 +1527,50 @@ impl App {
         a: CreateAggregate,
     ) -> Result<Outcome> {
         // An aggregate is an ordinary ticket on the plan item of its first child, linked `aggregates` to each child.
-        let first = self
-            .store
-            .read(|c| tickets::get_by_key(c, project.id, &a.children[0]))?;
-        let nt = NewTicket {
-            kind: TicketKind::Task,
-            plan_item: first.plan_item.clone(),
-            parent: None,
-            title: a.title.clone(),
-            description: format!(
-                "{}\n\nAggregates: {}",
-                a.summary,
-                a.children
-                    .iter()
-                    .map(|k| k.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            acceptance: vec![AcceptanceCriterion {
-                id: "AC-1".into(),
-                text: format!("{} verified end to end", a.kind),
-            }],
-            priority: first.priority,
-            depends_on: vec![],
-            required_role: None,
-            required_tags: vec![],
-            scope_paths: vec![],
-            report_template: None,
-        };
-        let created = self.create_ticket(
-            &CallCtx {
-                intent_id: ctx.intent_id.as_ref().map(|i| format!("{i}:ticket")),
-                ..ctx.clone()
-            },
-            project,
-            nt,
-        )?;
-        let key: TicketKey = serde_json::from_value(created.result["ticket_id"].clone())
-            .map_err(|e| invalid(e.to_string()))?;
+        // The form is validated on parse; checked here too, as `apply` may be called with an unchecked intent.
+        if a.children.len() < 2 {
+            return Err(invalid(
+                "an aggregate links two or more existing tickets (children)",
+            ));
+        }
         let pid = project.id;
+        let default_template = self.default_template(project);
+        // The ticket and its links commit together: a child key that does not exist leaves nothing behind.
         self.commit(ctx, |w| {
-            let agg = ticket_by_key(w, pid, &key)?;
-            for k in &a.children {
-                let child = ticket_by_key(w, pid, k)?;
+            require_lead(w, pid, &ctx.actor)?;
+            let children = a
+                .children
+                .iter()
+                .map(|k| ticket_by_key(w, pid, k))
+                .collect::<Result<Vec<_>>>()?;
+            let first = &children[0];
+            let nt = NewTicket {
+                kind: TicketKind::Task,
+                plan_item: first.plan_item.clone(),
+                parent: None,
+                title: a.title.clone(),
+                description: format!(
+                    "{}\n\nAggregates: {}",
+                    a.summary,
+                    a.children
+                        .iter()
+                        .map(|k| k.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                acceptance: vec![AcceptanceCriterion {
+                    id: "AC-1".into(),
+                    text: format!("{} verified end to end", a.kind),
+                }],
+                priority: first.priority,
+                depends_on: vec![],
+                required_role: None,
+                required_tags: vec![],
+                scope_paths: vec![],
+                report_template: None,
+            };
+            let agg = insert_ticket(w, pid, nt, default_template)?;
+            for child in &children {
                 tickets::add_link(
                     w.tx,
                     agg.id,
@@ -1617,7 +1581,7 @@ impl App {
                     Some(&a.kind),
                 )?;
             }
-            Ok(Outcome::ok(serde_json::json!({ "ticket_id": key })))
+            Ok(Outcome::ok(serde_json::json!({ "ticket_id": agg.key })))
         })
     }
 
@@ -1695,6 +1659,94 @@ impl App {
             "uses": if k.value.is_some() { "its own key" } else { "the system key" },
         })))
     }
+}
+
+/// Checks a new ticket against the plan, its dependencies and the open tickets' scopes, and inserts it (the caller's
+/// transaction; `create_ticket` and `create_aggregate`).
+fn insert_ticket(
+    w: &mut WriteCtx<'_, '_>,
+    pid: ProjectId,
+    nt: NewTicket,
+    default_template: String,
+) -> Result<Ticket> {
+    let plan = plans::current_plan(w.tx, pid)?.ok_or_else(|| {
+        invalid("no approved plan: every ticket must reference a plan item (create_plan first)")
+    })?;
+    if !plan.body.items.iter().any(|i| i.id == nt.plan_item) {
+        return Err(invalid(format!(
+            "plan item {} is not in the approved plan v{}",
+            nt.plan_item, plan.version
+        )));
+    }
+    let parent = match &nt.parent {
+        Some(k) => Some(ticket_by_key(w, pid, k)?),
+        None => None,
+    };
+    let mut dep_ids = Vec::new();
+    for k in &nt.depends_on {
+        let d = ticket_by_key(w, pid, k)?;
+        // A cancelled ticket is never done: a ticket waiting for it would never start.
+        if d.status == TicketStatus::Cancelled {
+            return Err(invalid(format!(
+                "{} is cancelled and will never be done: drop it from depends_on (or depend on the ticket that replaces it)",
+                d.key
+            )));
+        }
+        dep_ids.push(d.id);
+    }
+    // Overlapping scope with an open ticket requires a dependency path between them (decision 18).
+    if !nt.scope_paths.is_empty() {
+        let graph = tickets::dep_graph(w.tx, pid)?;
+        let ancestors = closure(&graph, &dep_ids);
+        for other in tickets::list(w.tx, pid, &Default::default())? {
+            if !other.status.is_terminal()
+                && !ancestors.contains(&other.id)
+                && scopes_overlap(&nt.scope_paths, &other.scope_paths)
+            {
+                return Err(invalid(format!(
+                    "scope_paths overlap with open ticket {} ({:?}); add it to depends_on or narrow the scope",
+                    other.key, other.scope_paths
+                )));
+            }
+        }
+    }
+    let key = projects::next_ticket_key(w.tx, pid)?;
+    let id = TicketId::new();
+    // A new ticket has no dependents yet, so it cannot close a cycle; checked anyway for safety.
+    let graph = tickets::dep_graph(w.tx, pid)?;
+    if let Some(cyc) = find_cycle(&graph, &id, &dep_ids) {
+        return Err(invalid(format!(
+            "depends_on would create a cycle ({} tickets)",
+            cyc.len()
+        )));
+    }
+    let t = tickets::insert(
+        w.tx,
+        &tickets::TicketInsert {
+            id,
+            key,
+            project: pid,
+            parent: parent.map(|p| p.id),
+            kind: nt.kind,
+            title: nt.title.trim().to_owned(),
+            description: nt.description,
+            acceptance: nt.acceptance,
+            plan_item: nt.plan_item,
+            priority: nt.priority,
+            depends_on: dep_ids,
+            required_role: nt.required_role,
+            required_tags: nt.required_tags,
+            scope_paths: nt.scope_paths,
+            report_template: nt.report_template.unwrap_or(default_template),
+            created_at: now_iso(),
+        },
+    )?;
+    w.emit(DomainEvent::TicketCreated {
+        ticket: t.id,
+        key: t.key.clone(),
+        title: t.title.clone(),
+    })?;
+    Ok(t)
 }
 
 fn closure(graph: &HashMap<TicketId, Vec<TicketId>>, start: &[TicketId]) -> HashSet<TicketId> {
@@ -1960,6 +2012,12 @@ fn plan_item_done(w: &mut WriteCtx<'_, '_>, t: &Ticket) -> Result<()> {
         )?;
     }
     Ok(())
+}
+
+/// A Solo agent (the Lead of a Solo team) acting on its own question or permission request: those are routed to the
+/// user (`ask_question`, `request_permission`), so it may not decide them itself.
+fn solo_self(team: Option<&agents::Team>, actor: &Actor, c: &Comment) -> bool {
+    matches!(actor, Actor::Lead(a) if team.is_some_and(|t| t.solo) && c.author == Author::Agent(*a))
 }
 
 /// Whether the agent works as a Solo (its team is a Solo team).
