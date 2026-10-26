@@ -2451,3 +2451,41 @@ async fn messages_left_after_the_last_step_are_answered_or_kept() {
     rt.chat(project, "One more thing.").await.unwrap();
     assert_eq!(p.remaining(), 0);
 }
+
+/// A continuation run is shown what was posted on its ticket while its previous run went on (it never saw those
+/// comments), not only what came after that run ended.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_continuation_sees_comments_posted_during_the_last_run() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, _) = solo_with_tickets(&app, &["PI-1"]);
+    let a = app.clone();
+    p.push(Box::new(move |_| {
+        a.user_comment(project, &key("AGN-1"), "Use tabs, not spaces.")
+            .unwrap();
+        Ok(calls_response("thinking out loud", vec![]))
+    }));
+    p.push_text("thinking out loud");
+    p.push_text("thinking out loud");
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Stopped:no_tool_call");
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap().text();
+        assert!(
+            last.contains("New on the ticket since your last step")
+                && last.contains("Use tabs, not spaces."),
+            "{last}"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "submit_report",
+                serde_json::to_value(report("AGN-1")).unwrap(),
+            )],
+        ))
+    }));
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    assert_eq!(p.remaining(), 0);
+}

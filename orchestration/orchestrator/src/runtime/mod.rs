@@ -529,7 +529,7 @@ impl Runtime {
     }
 
     /// Previous conversation of the ticket for continuation: the last finished run's messages, unless it ended with a
-    /// checkpoint (then a fresh start with the note).
+    /// checkpoint (then a fresh start with the note), and when that run started.
     fn previous(
         &self,
         agent: AgentId,
@@ -554,14 +554,14 @@ impl Runtime {
                 .rev()
                 .find(|e| e.kind == "checkpoint")
                 .and_then(|e| e.data["summary"].as_str().map(str::to_owned));
-            return Ok((vec![], note, last.ended_at.clone()));
+            return Ok((vec![], note, Some(last.started_at.clone())));
         }
         let msgs: Vec<Message> = mem
             .load_messages(&last.id.to_string())?
             .into_iter()
             .filter_map(|v| serde_json::from_value(v).ok())
             .collect();
-        Ok((msgs, None, last.ended_at.clone()))
+        Ok((msgs, None, Some(last.started_at.clone())))
     }
 
     fn ready_to_autostart(&self, ticket: TicketId) -> Result<bool> {
@@ -1255,7 +1255,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         }
         let t = self.app.ticket(project, key)?;
         let mem = self.agent_memory(agent.id)?;
-        let (prev, note, prev_end) = if start.continuation {
+        let (prev, note, prev_start) = if start.continuation {
             self.previous(agent.id, t.id, &mem)?
         } else {
             (vec![], None, None)
@@ -1400,12 +1400,15 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 }
                 messages.push(Message::user_text(first));
             } else {
+                // Everything posted since the previous run started (a comment posted while it ran never reached it),
+                // except the agent's own: those are in its conversation already.
                 let newer: Vec<Comment> = all_comments
                     .iter()
                     .filter(|c| {
-                        prev_end
-                            .as_deref()
-                            .is_none_or(|e| c.created_at.as_str() > e)
+                        c.author != Author::Agent(agent.id)
+                            && prev_start
+                                .as_deref()
+                                .is_none_or(|s| c.created_at.as_str() > s)
                     })
                     .cloned()
                     .collect();
