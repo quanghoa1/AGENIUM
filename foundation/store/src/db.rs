@@ -92,6 +92,25 @@ impl ReaderPool {
     }
 }
 
+/// A pooled read connection, handed back when dropped — also when the closure using it panics. Before, a panic lost
+/// the connection for good: the pool shrank and the exclusive checkpoint, which waits for every reader, never ran.
+struct Lease<'a> {
+    pool: &'a ReaderPool,
+    conn: Option<Connection>,
+}
+
+impl Drop for Lease<'_> {
+    fn drop(&mut self) {
+        if let Some(c) = self.conn.take() {
+            // A read transaction left open (a panic between BEGIN and COMMIT) would pin an old snapshot.
+            if !c.is_autocommit() {
+                let _ = c.execute_batch("ROLLBACK");
+            }
+            self.pool.release(c);
+        }
+    }
+}
+
 pub struct Db {
     path: PathBuf,
     writer: Mutex<Connection>,
@@ -107,6 +126,9 @@ const WAL_CHECK_EVERY: u64 = 32;
 
 /// How long the write-path WAL gate waits for in-flight reads before giving up for now (it retries later).
 const WAL_GATE_WAIT: Duration = Duration::from_secs(2);
+
+/// How long the exclusive checkpoint (maintenance tick, [`Db::checkpoint_exclusive`]) waits for in-flight reads.
+pub const EXCLUSIVE_WAIT: Duration = Duration::from_secs(30);
 
 impl std::fmt::Debug for Db {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -223,10 +245,11 @@ impl Db {
         &self,
         f: impl FnOnce(&Connection) -> Result<T, E>,
     ) -> Result<T, E> {
-        let c = self.readers.acquire();
-        let r = f(&c);
-        self.readers.release(c);
-        r
+        let lease = Lease {
+            pool: &self.readers,
+            conn: Some(self.readers.acquire()),
+        };
+        f(lease.conn.as_ref().expect("leased connection"))
     }
 
     /// Runs `f` inside `BEGIN IMMEDIATE` on the writer; commits on `Ok`, rolls back on `Err`.
@@ -275,18 +298,29 @@ impl Db {
     }
 
     /// Maintenance tick: passive checkpoint; if the WAL is still above the limit, pause new reads, drain the
-    /// in-flight ones and TRUNCATE (the WAL gate). Returns the WAL size afterwards.
+    /// in-flight ones and TRUNCATE (the WAL gate). Returns the WAL size afterwards: when reads did not drain within
+    /// [`EXCLUSIVE_WAIT`] the WAL stays as it is and the next tick retries (the tick's backups still run).
     pub fn maintain(&self) -> Result<u64, StoreError> {
         self.with_writer(|w| w.query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |_| Ok(())))?;
         if self.wal_bytes() > self.opts.wal_limit_bytes {
-            self.checkpoint_exclusive()?;
+            self.checkpoint_gate(EXCLUSIVE_WAIT)?;
         }
         Ok(self.wal_bytes())
     }
 
-    /// TRUNCATE checkpoint with all readers parked (waits as long as it takes).
+    /// TRUNCATE checkpoint with all readers parked. Waits at most [`EXCLUSIVE_WAIT`] for in-flight reads, then fails
+    /// with the pool reopened: it waited forever, so one read that never ended (or a reader lost to a panic) hung
+    /// every later read behind the closed gate.
     pub fn checkpoint_exclusive(&self) -> Result<(), StoreError> {
-        self.checkpoint_gate(Duration::MAX).map(|_| ())
+        if self.checkpoint_gate(EXCLUSIVE_WAIT)? {
+            Ok(())
+        } else {
+            Err(StoreError::Conflict(format!(
+                "{}: reads still in progress after {}s; checkpoint not run",
+                self.path.display(),
+                EXCLUSIVE_WAIT.as_secs()
+            )))
+        }
     }
 
     /// The WAL gate: closes the reader pool to new reads, waits up to `wait` for in-flight reads to finish, then runs
@@ -427,6 +461,36 @@ mod tests {
             db.checkpoint_gate(Duration::from_secs(5)).unwrap(),
             "runs once reads drain"
         );
+    }
+
+    /// A read whose closure panics hands its connection back, its open transaction rolled back: the pool shrank for
+    /// good instead, and the exclusive checkpoint, which waits for every reader, waited forever.
+    #[test]
+    fn a_panicking_read_returns_its_connection() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = open(&tmp.path().join("p.db")).unwrap();
+        for _ in 0..db.readers.size {
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                db.read(|c| -> Result<(), StoreError> {
+                    c.execute_batch("BEGIN")?;
+                    c.query_row("SELECT count(*) FROM t", [], |_| Ok(()))?;
+                    panic!("a read that panics inside its transaction");
+                })
+            }));
+            assert!(r.is_err());
+        }
+        assert!(
+            db.checkpoint_gate(Duration::from_secs(2)).unwrap(),
+            "every reader is back in the pool"
+        );
+        db.read(|c| -> Result<(), StoreError> {
+            c.execute_batch("BEGIN")?;
+            c.query_row("SELECT count(*) FROM t", [], |_| Ok(()))?;
+            c.execute_batch("COMMIT")?;
+            Ok(())
+        })
+        .unwrap();
+        db.checkpoint_exclusive().unwrap();
     }
 
     #[test]
