@@ -794,3 +794,34 @@ async fn read_only_calls_run_together_and_arguments_are_repaired() {
     );
     assert!(started.elapsed() < Duration::from_millis(400));
 }
+
+/// ADR-103: a wordless 400 counts as an overflow only for a very large request.
+#[tokio::test]
+async fn a_wordless_400_is_an_overflow_only_for_a_huge_request() {
+    let bare = || LlmError::Http {
+        status: 400,
+        kind: String::new(),
+        message: "{\"model\":\"deepseek-v4.1-flash\"}".into(),
+        quota: false,
+        retry_after: None,
+    };
+    let (_t, ctx, tools, proto) = harness();
+    // Ordinary request: reported as it is.
+    let p = ScriptedProvider::new("m");
+    p.push_error(bare());
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert!(
+        matches!(r.outcome, Outcome::Failed { .. }),
+        "{:?}",
+        r.outcome
+    );
+    // A huge one: notes, then on.
+    let p = ScriptedProvider::new("m");
+    p.push_error(bare());
+    p.push_text("Notes: nothing done yet. Next: submit.");
+    p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1"}))]);
+    let mut huge = order();
+    huge.messages = vec![Message::user_text("x".repeat(500_000))];
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&huge).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+}

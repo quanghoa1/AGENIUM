@@ -439,7 +439,8 @@ impl Run<'_> {
                 // The provider says the request did not fit (ADR-103): free old tool results, else write notes, and
                 // send again once.
                 Err(CallError::Fatal(e))
-                    if agenium_llm::is_context_overflow(&e) && !overflow_recovered =>
+                    if (agenium_llm::is_context_overflow(&e) || bare_overflow(&e, &messages))
+                        && !overflow_recovered =>
                 {
                     overflow_recovered = true;
                     tracing::info!(error = %e, "the provider reports a context overflow");
@@ -756,6 +757,32 @@ impl Run<'_> {
             Err(o) => o,
         }
     }
+}
+
+/// A gateway that answers an oversized request with a 400 or 413 and no error text (OpenCode Go with DeepSeek,
+/// 2026-10-26: `{"model": "…"}` for a request of about a million tokens, while 500 000 were accepted). Only a request
+/// estimated above 100 000 tokens counts, so a bare 400 on an ordinary request is never taken for an overflow.
+fn bare_overflow(e: &agenium_llm::LlmError, messages: &[Message]) -> bool {
+    let agenium_llm::LlmError::Http {
+        status: 400 | 413,
+        message,
+        ..
+    } = e
+    else {
+        return false;
+    };
+    let wordless = !message.to_ascii_lowercase().contains("error") && message.len() < 200;
+    let chars: usize = messages
+        .iter()
+        .flat_map(|m| m.parts.iter())
+        .map(|p| match p {
+            Part::Text { text } => text.len(),
+            Part::ToolResult { content, .. } => content.len(),
+            Part::ToolCall { args, .. } => args.to_string().len(),
+            _ => 0,
+        })
+        .sum();
+    wordless && chars / 4 > 100_000
 }
 
 fn call_outcome(e: CallError) -> Outcome {

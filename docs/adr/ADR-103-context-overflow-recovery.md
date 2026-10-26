@@ -19,3 +19,11 @@ requests larger than the context they summarised.
    characters a token before the next request is sent.
 4. **Notes must be whole and must fit:** notes cut by the output limit are not used (the run checkpoints instead);
    the notes request carries no thinking and tool results cut to 2 000 characters.
+5. **A wordless refusal of a huge request.** On the real model (OpenCode Go, deepseek-v4.1-flash, 2026-10-26) a request
+   of about a million tokens came back as HTTP 400 with no error text (`{"model": "…"}`, once an empty body), while
+   requests of 50 000 to 500 000 tokens were accepted. A 400 or 413 without error text counts as an overflow only when
+   the request is estimated above 100 000 tokens; an ordinary bare 400 is still reported as it is.
+
+Real-model checks of ADR-97..105: `quality/eval/examples/real_checks.rs`, 7/7 on deepseek-v4.1-flash
+(`docs/reference/bench-raw/real-checks-deepseek-2026-10-26.txt`).
+

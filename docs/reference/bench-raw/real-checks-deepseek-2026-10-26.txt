@@ -1,0 +1,8 @@
+PASS overflow wording recognised: HTTP 400 (): 
+PASS dangling tool call sent after the history pass: as stored: accepted; prepared: answered "OK"
+PASS compaction keeps the work going: outcome Completed, steps 9, compactions 0, answer Some("92") (expected 92)
+PASS edit keeps BOM and CRLF: outcome Completed, file now "\u{feff}class Greeter\r\n{\r\n    string Hi() => “Xin chao, the world”;\r\n}\r\n"
+PASS MCP tool behind OAuth used by the model: login ok, problems [], outcome Completed, answer Some("client dyn-4e4fcd3986d91ba6a0dbb36c8398de6d, token #1")
+PASS a message sent during the run is followed: outcome Completed, tools ["read_file", "read_file", "read_file", "submit_report"], answer Some("a.txt, b.txt and c.txt each contain a single placeholder line of the form \"<name> content\" (a.txt content, b.txt content, c.txt content). BANANA")
+PASS the Lead learns from the chat: chat Completed, learn added 2, facts ["The shop project is deployed with `make ship`.", "The user wants all replies in Vietnamese."]
+7/7 passed (deepseek-v4.1-flash)

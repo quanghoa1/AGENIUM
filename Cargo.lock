@@ -31,6 +31,7 @@ dependencies = [
  "agenium-llm",
  "agenium-tools",
  "async-trait",
+ "futures",
  "serde",
  "serde_json",
  "tempfile",
@@ -127,14 +128,19 @@ dependencies = [
 name = "agenium-eval"
 version = "0.1.0"
 dependencies = [
+ "agenium-backend",
+ "agenium-config",
  "agenium-core",
  "agenium-llm",
+ "agenium-mcp",
  "agenium-memory",
  "agenium-orchestrator",
  "agenium-secrets",
  "agenium-store",
+ "agenium-tools",
  "agenium-vcs",
  "anyhow",
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",
