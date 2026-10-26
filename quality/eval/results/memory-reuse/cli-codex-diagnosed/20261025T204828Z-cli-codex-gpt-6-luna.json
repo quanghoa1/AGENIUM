@@ -1,0 +1,90 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 5 fact(s)",
+    "runs": 8,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 530135,
+    "tokens_out": 4389,
+    "cost_usd": 0.0,
+    "elapsed_ms": 157797,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"product\":\"agenium\"}) In Agenium, submit_report moves the ticket to Resolved and the Lead performs the final close; merging into main does not close it.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"product\":\"agenium\",\"project\":\"docs\"}) Agenium ticket worktrees for the docs project live under projects/docs/.agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Verify exact first-line requirements by reading the file's raw bytes (e.g. [IO.File]::ReadAllBytes and BitConverter) rather than trusting the editor's text view.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"language\":\"powershell\"}) Writing a UTF-8 file without a BOM in PowerShell is reliable via [IO.File]::WriteAllText with [Text.UTF8Encoding]::new($false).",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces a pre-merge check that rejects deliverables/ and reports/ files when the required first line is not exactly 'Owner: <team>', including hidden bytes such as a BOM.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"language\":\"powershell\",\"os\":\"windows\",\"project\":\"docs\"}) When creating any file under deliverables/ or reports/ in the docs project, put the exact owner line (e.g. 'Owner: docs-team') as the very first line before other content and write the file as UTF-8 without BOM (e.g. with .NET WriteAllText or [IO.File]::WriteAllLines) instead of Set-Content -Encoding utf8, or the pre-merge check fails and the ticket is reopened.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"language\":\"powershell\",\"os\":\"windows\"}) PowerShell's Set-Content -Encoding utf8 writes a UTF-8 BOM (EF BB BF) at the start of the file, so the first line is not byte-exact.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"domain\":\"documentation\",\"project\":\"docs\"}) In the docs project, files under deliverables/ or reports/ must be UTF-8 without a BOM, with the first line exactly 'Owner: <team>' (e.g. 'Owner: docs-team')."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Verify exact first-line requirements by reading the file's raw bytes (e.g. [IO.File]::ReadAllBytes and BitConverter) rather than trusting the editor's text view.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"language\":\"powershell\"}) Writing a UTF-8 file without a BOM in PowerShell is reliable via [IO.File]::WriteAllText with [Text.UTF8Encoding]::new($false).",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces a pre-merge check that rejects deliverables/ and reports/ files when the required first line is not exactly 'Owner: <team>', including hidden bytes such as a BOM.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"language\":\"powershell\",\"os\":\"windows\",\"project\":\"docs\"}) When creating any file under deliverables/ or reports/ in the docs project, put the exact owner line (e.g. 'Owner: docs-team') as the very first line before other content and write the file as UTF-8 without BOM (e.g. with .NET WriteAllText or [IO.File]::WriteAllLines) instead of Set-Content -Encoding utf8, or the pre-merge check fails and the ticket is reopened.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"language\":\"powershell\",\"os\":\"windows\"}) PowerShell's Set-Content -Encoding utf8 writes a UTF-8 BOM (EF BB BF) at the start of the file, so the first line is not byte-exact.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"domain\":\"documentation\",\"project\":\"docs\"}) In the docs project, files under deliverables/ or reports/ must be UTF-8 without a BOM, with the first line exactly 'Owner: <team>' (e.g. 'Owner: docs-team')."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 2,
+        "runs": 6,
+        "status": "Closed",
+        "steps": 19,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 376286,
+        "tokens_out": 3346
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 153849,
+        "tokens_out": 1043
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5TD3K3SS2VTB7C0KVZBEGB8 #1 hybrid: The docs project enforces a pre-merge check that rejects deliverables/ and reports/ files when the required first line is not exactly 'Owner: <team>', including hidden bytes such as a BOM.",
+        "run 01M5TD3K3SS2VTB7C0KVZBEGB8 #2 hybrid: In the docs project, files under deliverables/ or reports/ must be UTF-8 without a BOM, with the first line exactly 'Owner: <team>' (e.g. 'Owner: docs-team').",
+        "run 01M5TD3K3SS2VTB7C0KVZBEGB8 #3 hybrid: When creating any file under deliverables/ or reports/ in the docs project, put the exact owner line (e.g. 'Owner: docs-team') as the very first line before other content and write the file as UTF-8 without BOM (e.g. with .NET WriteAllText or [IO.File]::WriteAllLines) instead of Set-Content -Encoding utf8, or the pre-merge check fails and the ticket is reopened.",
+        "run 01M5TD3K3SS2VTB7C0KVZBEGB8 #4 graph: Verify exact first-line requirements by reading the file's raw bytes (e.g. [IO.File]::ReadAllBytes and BitConverter) rather than trusting the editor's text view.",
+        "run 01M5TD3K3SS2VTB7C0KVZBEGB8 #5 graph: PowerShell's Set-Content -Encoding utf8 writes a UTF-8 BOM (EF BB BF) at the start of the file, so the first line is not byte-exact."
+      ]
+    }
+  }
+]

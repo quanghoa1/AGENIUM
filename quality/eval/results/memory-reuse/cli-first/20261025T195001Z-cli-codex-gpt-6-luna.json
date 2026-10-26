@@ -1,0 +1,80 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 11 steps; recall showed 8 fact(s)",
+    "runs": 8,
+    "steps": 23,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 492731,
+    "tokens_out": 3066,
+    "cost_usd": 0.0,
+    "elapsed_ms": 143864,
+    "learning": {
+      "memories_after": [
+        "[Lesson] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, PowerShell Format-Hex on a reports/ or deliverables/ file is the way to verify the raw first bytes and confirm no BOM precedes the 'Owner: docs-team' line.",
+        "[Lesson] (ticket:AGN-2 {\"language\":\"powershell\",\"os\":\"windows\"}) In Windows PowerShell, Set-Content -Encoding utf8 writes a UTF-8 BOM at the start of the file; to produce UTF-8 without a BOM, use [IO.File]::WriteAllLines or [System.IO.File]::WriteAllText with UTF8Encoding($false) (or -Encoding utf8NoBOM on PowerShell 7) when a file must start with exact text; this is the reliable fix when a byte-exact first-line check fails.",
+        "[Lesson] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project enforces a pre-merge check that compares the first line of reports/ and deliverables/ documents exactly and rejects team documents whose first line is not 'Owner: docs-team'; files under reports/ and deliverables/ must be saved as UTF-8 without a byte-order mark, because a leading BOM makes 'Owner: docs-team' fail the byte-exact check.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, when first creating any file under deliverables/ or reports/, write 'Owner: docs-team' as the exact first line before the content, so the pre-merge check passes on the first attempt instead of after a reopen.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the owning team for deliverables is 'docs-team'.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 244594,
+        "tokens_out": 1453
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 11,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 248137,
+        "tokens_out": 1613
+      },
+      "ticket2_facts_shown": 8,
+      "ticket2_shown": [
+        "run 01M5T9QND0T5QVXSZ58WFZXB7R #1 hybrid: In the docs project, when first creating any file under deliverables/ or reports/, write 'Owner: docs-team' as the exact first line before the content, so the pre-merge check passes on the first attempt instead of after a reopen.",
+        "run 01M5T9QND0T5QVXSZ58WFZXB7R #2 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+        "run 01M5T9QND0T5QVXSZ58WFZXB7R #3 graph: In the docs project, the owning team for deliverables is 'docs-team'.",
+        "run 01M5T9QND0T5QVXSZ58WFZXB7R #4 graph: The docs project enforces a pre-merge check that rejects team documents whose first line is not 'Owner: docs-team'.",
+        "run 01M5T9RM5J74PHVZF80F59EXVT #1 hybrid: In the docs project, when first creating any file under deliverables/ or reports/, write 'Owner: docs-team' as the exact first line before the content, so the pre-merge check passes on the first attempt instead of after a reopen.",
+        "run 01M5T9RM5J74PHVZF80F59EXVT #2 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+        "run 01M5T9RM5J74PHVZF80F59EXVT #3 hybrid: The docs project enforces a pre-merge check that compares the first line of reports/ and deliverables/ documents exactly and rejects team documents whose first line is not 'Owner: docs-team'; a leading byte-order mark makes 'Owner: docs-team' fail the check.",
+        "run 01M5T9RM5J74PHVZF80F59EXVT #4 graph: In the docs project, the owning team for deliverables is 'docs-team'."
+      ]
+    }
+  }
+]

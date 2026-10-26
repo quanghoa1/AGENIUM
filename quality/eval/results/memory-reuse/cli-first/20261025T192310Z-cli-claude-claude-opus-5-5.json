@@ -1,0 +1,77 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 21 steps; recall showed 4 fact(s)",
+    "runs": 8,
+    "steps": 39,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 657863,
+    "tokens_out": 6742,
+    "cost_usd": 0.0,
+    "elapsed_ms": 192168,
+    "learning": {
+      "memories_after": [
+        "[Lesson] (ticket:AGN-2 {\"project\":\"docs\"}) Acceptance criteria for a reports/ or deliverables/ file may omit project-wide formatting conventions, so check project document rules in README.md and sibling files before submitting; because pre-merge checks in the docs project run only at merge time, do this before submitting a ticket that creates a document.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project enforces an automated pre-merge check that rejects team documents in deliverables/ or reports/ whose first line is not 'Owner: docs-team'; because agenium.toml defines no local pre_merge command, the check cannot be run from the worktree and only runs at merge time.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's deliverables/hello.txt already follows the owner-line convention and can be used as a format reference for new documents.",
+        "[Fact] (ticket:AGN-2 {\"domain\":\"team documents\",\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, with content on the following lines.",
+        "[Fact] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Use PowerShell Get-Content to read and verify file contents in the docs project on Windows.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project lives in a git worktree per ticket at projects/docs/.agenium/worktrees/<TICKET> on branch agenium/<TICKET>.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) When authoring a team document under deliverables/ or reports/ in the docs project, add the required 'Owner: <team>' first line before submitting, or the pre-merge check fails."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 18,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 317260,
+        "tokens_out": 2997
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 21,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 340603,
+        "tokens_out": 3745
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5T8598KKWPXX9Z6FZMHR9CD #1 graph: The docs project lives in a git worktree per ticket at projects/docs/.agenium/worktrees/<TICKET> on branch agenium/<TICKET>.",
+        "run 01M5T86P1X92S3HDZ69RCDPFF7 #1 hybrid: Acceptance criteria for a reports/ or deliverables/ file may omit project-wide formatting conventions, so check project document rules in addition to the ACs before submitting.",
+        "run 01M5T86P1X92S3HDZ69RCDPFF7 #2 graph: The docs project lives in a git worktree per ticket at projects/docs/.agenium/worktrees/<TICKET> on branch agenium/<TICKET>.",
+        "run 01M5T86P1X92S3HDZ69RCDPFF7 #3 graph: Use PowerShell Get-Content to read and verify file contents in the docs project on Windows."
+      ]
+    }
+  }
+]

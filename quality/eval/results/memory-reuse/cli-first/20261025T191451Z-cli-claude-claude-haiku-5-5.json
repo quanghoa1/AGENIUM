@@ -1,0 +1,75 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 22 steps; recall showed 4 fact(s)",
+    "runs": 8,
+    "steps": 44,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 944422,
+    "tokens_out": 12506,
+    "cost_usd": 0.0,
+    "elapsed_ms": 190235,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team' with no carriage return (CR); when adding one, write this before submitting, or the pre-merge check rejects the merge.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) When adding a team document in the docs project and agenium.toml's pre_merge is empty, take the rule from the merge failure message and prepend 'Owner: docs-team' instead of searching repo files further.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) Before submitting a report in the docs project, note that pre-merge rules are not in agenium.toml (which has an empty pre_merge check) or README.md; they are only surfaced by the merge check failure message, and missing them causes rejection after approval.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) Agenium work for the docs project happens in a per-ticket git worktree under .agenium/worktrees/<TICKET_ID> on branch agenium/<TICKET_ID>.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps team documents in the deliverables/ and reports/ directories."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 22,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 490309,
+        "tokens_out": 6847
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 22,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 454113,
+        "tokens_out": 5659
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5T7PWE5BNKPXG0PB5NWNS2T #1 hybrid: The docs project keeps team documents in the deliverables/ and reports/ directories.",
+        "run 01M5T7PWE5BNKPXG0PB5NWNS2T #2 graph: Agenium work for the docs project happens in a per-ticket git worktree under .agenium/worktrees/<TICKET_ID> on branch agenium/<TICKET_ID>.",
+        "run 01M5T7R565YGJSFV0CTQHPG6TS #1 hybrid: The docs project keeps team documents in the deliverables/ and reports/ directories.",
+        "run 01M5T7R565YGJSFV0CTQHPG6TS #2 graph: Agenium work for the docs project happens in a per-ticket git worktree under .agenium/worktrees/<TICKET_ID> on branch agenium/<TICKET_ID>."
+      ]
+    }
+  }
+]

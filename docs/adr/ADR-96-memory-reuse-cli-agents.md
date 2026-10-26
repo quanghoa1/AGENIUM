@@ -49,6 +49,13 @@ the byte-order mark. Codex with memory off stayed at 0/6.
    bge-small for a run. The published runs keep the hashing embedder, so they stay comparable with ADR-94 and match a
    fresh install.
 
+## Result
+
+After the fixes (same scenario, 5 models × 3 × memory on/off, 2026-10-26): ticket 2 passed its first merge in
+**15/15 runs with memory and 0/15 without**. With memory, every model needed fewer steps (22–47 % fewer, medians) and
+fewer tokens (23–44 % fewer). None of the 15 memory runs held the rule as untrusted, and none was rejected for a
+byte-order mark. Details: `docs/memory-eval.md` §4.
+
 ## Consequences
 
 - A rule learned from Agenium's own feedback reaches the next ticket. Prompt-injected content from a fetched page is

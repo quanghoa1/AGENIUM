@@ -1,0 +1,74 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 14 steps; recall showed 3 fact(s)",
+    "runs": 8,
+    "steps": 26,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 420122,
+    "tokens_out": 3000,
+    "cost_usd": 0.0,
+    "elapsed_ms": 173525,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project has no local pre-merge command configured in agenium.toml; failing pre-merge rules surface only in the merge-failure message.",
+        "[Lesson] (ticket:AGN-2 {\"project\":\"docs\"}) Checking only the ticket's acceptance criteria is not enough in the docs project; the pre-merge check enforces additional project rules that must be satisfied before submit_report.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) When adding a file to deliverables/ or reports/ in the docs project, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails and the work is reopened.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have 'Owner: <team-name>' as its exact first line (project rule); for the docs-team, this is exactly 'Owner: docs-team'.",
+        "[Fact] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project tickets are worked on Windows using PowerShell; file contents are verified with Get-Content -LiteralPath <file> -Raw."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 194293,
+        "tokens_out": 1360
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 225829,
+        "tokens_out": 1640
+      },
+      "ticket2_facts_shown": 3,
+      "ticket2_shown": [
+        "run 01M5T8RBA489JX1Y5WG51WAPPA #1 graph: The docs project tickets are worked on Windows using PowerShell; file contents are verified with Get-Content -LiteralPath <file> -Raw.",
+        "run 01M5T8SFMYJ79GGN6EQ7MC8Q8X #1 hybrid: Checking only the ticket's acceptance criteria is not enough in the docs project; the pre-merge check enforces additional project rules that must be satisfied before submit_report.",
+        "run 01M5T8SFMYJ79GGN6EQ7MC8Q8X #2 graph: The docs project tickets are worked on Windows using PowerShell; file contents are verified with Get-Content -LiteralPath <file> -Raw."
+      ]
+    }
+  }
+]

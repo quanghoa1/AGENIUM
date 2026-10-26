@@ -1,0 +1,88 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 5 fact(s)",
+    "runs": 6,
+    "steps": 23,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 434346,
+    "tokens_out": 3949,
+    "cost_usd": 0.0,
+    "elapsed_ms": 95773,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt carries the first line 'Owner: docs-team', which is the team name used for the required Owner line in team documents.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the required Owner first line applies in addition to the ticket's acceptance criteria, so add it to any file written under deliverables/ or reports/ even when the AC does not mention it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Agenium worktrees for the docs project live under the project's .agenium/worktrees/ directory with branches named agenium/<TICKET-ID>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: trusting the Write tool's creation confirmation without reading the file back let a rule-violating file reach the pre-merge check; always read back written files and verify content against project rules before submitting the report.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: the pre-merge check enforces project rules on file contents, so a document missing its required 'Owner:' first line fails the merge even if the acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document under deliverables/ or reports/ must have its first line exactly 'Owner: <team-name>', naming the owning team."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the required Owner first line applies in addition to the ticket's acceptance criteria, so add it to any file written under deliverables/ or reports/ even when the AC does not mention it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Agenium worktrees for the docs project live under the project's .agenium/worktrees/ directory with branches named agenium/<TICKET-ID>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: trusting the Write tool's creation confirmation without reading the file back let a rule-violating file reach the pre-merge check; always read back written files and verify content against project rules before submitting the report.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: the pre-merge check enforces project rules on file contents, so a document missing its required 'Owner:' first line fails the merge even if the acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document under deliverables/ or reports/ must have its first line exactly 'Owner: <team-name>', naming the owning team."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 263858,
+        "tokens_out": 2562
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 170488,
+        "tokens_out": 1387
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5TP6F5PV4FVMHR0AWKNNAR7 #1 hybrid: In the docs project, the required Owner first line applies in addition to the ticket's acceptance criteria, so add it to any file written under deliverables/ or reports/ even when the AC does not mention it.",
+        "run 01M5TP6F5PV4FVMHR0AWKNNAR7 #2 hybrid: In the docs project, every team document under deliverables/ or reports/ must have its first line exactly 'Owner: <team-name>', naming the owning team.",
+        "run 01M5TP6F5PV4FVMHR0AWKNNAR7 #3 hybrid: Lesson: trusting the Write tool's creation confirmation without reading the file back let a rule-violating file reach the pre-merge check; always read back written files and verify content against project rules before submitting the report.",
+        "run 01M5TP6F5PV4FVMHR0AWKNNAR7 #4 graph: Lesson: the pre-merge check enforces project rules on file contents, so a document missing its required 'Owner:' first line fails the merge even if the acceptance criteria are met.",
+        "run 01M5TP6F5PV4FVMHR0AWKNNAR7 #5 graph: Agenium worktrees for the docs project live under the project's .agenium/worktrees/ directory with branches named agenium/<TICKET-ID>."
+      ]
+    }
+  }
+]

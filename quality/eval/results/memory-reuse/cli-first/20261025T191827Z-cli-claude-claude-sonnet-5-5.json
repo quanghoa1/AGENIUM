@@ -1,0 +1,75 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 23,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 429741,
+    "tokens_out": 4131,
+    "cost_usd": 0.0,
+    "elapsed_ms": 107996,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, agenium.toml defines an empty pre_merge section, so no pre-merge content check runs on ticket branches.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) After writing a file in a ticket worktree, do not rely on the Write tool's success message; verify the exact required content by re-reading the file or run the pre-merge check before submit_report, since content-rule violations surface there.",
+        "[Fact] (ticket:AGN-1 {\"product\":\"agenium\"}) Ticket work is submitted through the mcp__agenium__submit_report tool, which commits the worktree and resolves the ticket.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) Agenium ticket worktrees for the docs project live under <project>/.agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>.",
+        "[Fact] (ticket:AGN-1 {\"domain\":\"documentation\",\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: docs-team' as its exact first line, or the pre-merge check fails."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 261870,
+        "tokens_out": 2399
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 167871,
+        "tokens_out": 1732
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5T7YPXPJM2PV1G6CRVDT70H #1 hybrid: The docs project enforces a pre-merge check on ticket branches that rejects documents missing the required first line, so content must satisfy it before submit_report.",
+        "run 01M5T7YPXPJM2PV1G6CRVDT70H #2 hybrid: After writing a file in a ticket worktree, do not rely on the Write tool's success message; verify the exact required content by re-reading the file or run the pre-merge check before submit_report, since content-rule violations surface there.",
+        "run 01M5T7YPXPJM2PV1G6CRVDT70H #3 hybrid: Ticket work is submitted through the mcp__agenium__submit_report tool, which commits the worktree and resolves the ticket.",
+        "run 01M5T7YPXPJM2PV1G6CRVDT70H #4 graph: Agenium ticket worktrees for the docs project live under <project>/.agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>."
+      ]
+    }
+  }
+]

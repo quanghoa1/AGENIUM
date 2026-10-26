@@ -1,0 +1,89 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 11 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 33,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 740305,
+    "tokens_out": 8069,
+    "cost_usd": 0.0,
+    "elapsed_ms": 124472,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Project rule for the docs project: every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: <team-name>'; the team name string to use is 'docs-team' per project convention, even though get_team may report a different team label such as 'eval-agent (solo)'.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, documents under deliverables/ and reports/ use 'Owner: docs-team' as their first line; the existing deliverables/hello.txt follows this convention.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any document in deliverables/ or reports/ in the docs project, write the 'Owner: <team-name>' header as the first line before submitting; omitting it makes the pre-merge check fail and the ticket reopen. The Owner-line pre-merge check runs only at merge time, so after editing such a document confirm its first line with `cat -A` before calling submit_report.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"agenium\"}) Agenium's submit_report tool takes the fields ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; passing a field such as `description` is rejected as invalid_arguments.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, ticket work happens in a git worktree under .agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, satisfying the ticket's acceptance criteria and passing self-review is not enough: project-wide document conventions enforced by pre-merge checks must also be honoured.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check fails if a document in deliverables/ or reports/ does not start with the exact 'Owner: <team-name>' line, even when the ticket's acceptance criteria are met."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any document in deliverables/ or reports/ in the docs project, write the 'Owner: <team-name>' header as the first line before submitting; omitting it makes the pre-merge check fail and the ticket reopen. The Owner-line pre-merge check runs only at merge time, so after editing such a document confirm its first line with `cat -A` before calling submit_report.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"agenium\"}) Agenium's submit_report tool takes the fields ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; passing a field such as `description` is rejected as invalid_arguments.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, ticket work happens in a git worktree under .agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, satisfying the ticket's acceptance criteria and passing self-review is not enough: project-wide document conventions enforced by pre-merge checks must also be honoured.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check fails if a document in deliverables/ or reports/ does not start with the exact 'Owner: <team-name>' line, even when the ticket's acceptance criteria are met.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule for the docs project: every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: <team-name>' (e.g. 'Owner: docs-team')."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 22,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 496482,
+        "tokens_out": 5144
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 11,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 243823,
+        "tokens_out": 2925
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TNZ9NJTB5KWMKCNHYE8Z1A #1 hybrid: In the docs project, satisfying the ticket's acceptance criteria and passing self-review is not enough: project-wide document conventions enforced by pre-merge checks must also be honoured.",
+        "run 01M5TNZ9NJTB5KWMKCNHYE8Z1A #2 hybrid: Project rule for the docs project: every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: <team-name>' (e.g. 'Owner: docs-team').",
+        "run 01M5TNZ9NJTB5KWMKCNHYE8Z1A #3 hybrid: The docs project's pre-merge check fails if a document in deliverables/ or reports/ does not start with the exact 'Owner: <team-name>' line, even when the ticket's acceptance criteria are met.",
+        "run 01M5TNZ9NJTB5KWMKCNHYE8Z1A #4 hybrid: When creating or editing any document in deliverables/ or reports/ in the docs project, write the 'Owner: <team-name>' header as the first line before submitting; omitting it makes the pre-merge check fail and the ticket reopen. The Owner-line pre-merge check runs only at merge time, so after editing such a document confirm its first line with `cat -A` before calling submit_report."
+      ]
+    }
+  }
+]

@@ -2,13 +2,13 @@
 
 Three questions about agent memory that the store benchmarks (`docs/reference/STORE-SCALE.md`) cannot answer, each
 measured on the production code paths, 2026-10-25/26 on Windows 11 (10 cores). Every finding below that changed code is
-in [ADR-94](adr/ADR-94-memory-measured.md).
+in [ADR-94](adr/ADR-94-memory-measured.md) and, for the CLI models, [ADR-96](adr/ADR-96-memory-reuse-cli-agents.md).
 
 | Question | Set | Evaluator |
 |---|---|---|
 | Does a mention resolve to the right entity? | 115 stored entities, **2 152 labelled mentions** | `agent/memory/examples/entity_resolution.rs`, model share: `quality/eval/examples/entity_ask.rs` |
 | Does the graph channel find what text alone cannot place? | 214 facts in 36 episodes, **112 labelled questions** | `agent/memory/examples/graph_qa.rs` |
-| Does memory make the agent better on the next ticket? | two-ticket scenario, DeepSeek, n = 5 per condition | `quality/eval/src/memory_reuse.rs` (`--memory-reuse on/off`) |
+| Does memory make the agent better on the next ticket? | two-ticket scenario: DeepSeek n = 5, five CLI models n = 3 per condition (ADR-96) | `quality/eval/src/memory_reuse.rs` (`--memory-reuse on/off`) |
 
 Both sets are synthetic and labelled by construction (`agent/memory/examples/data/make_datasets.py`, deterministic):
 no model wrote a label. Raw outputs: `docs/reference/bench-raw/windows-{entity-resolution-*,entity-ask-deepseek,graph-qa*}.txt`,
@@ -123,4 +123,55 @@ Now the report enters the plan only when the measured ticket is created.
 - One run of the first batch was lost to the machine running out of disk and memory (`git worktree add`: out of memory;
   the page file could not grow on a full system drive); it was replaced.
 
-Not run yet: the same scenario on the CLI models (Claude Haiku/Sonnet/Opus, gpt-6-luna, gpt-6.1-sol).
+## 4. Memory reuse on the CLI models — Claude and Codex, n = 3
+
+This is the scenario of §3, run through the agents' own CLIs: Claude Haiku, Sonnet and Opus 5.5 (`claude`), and
+gpt-6-luna and gpt-6.1-sol (`codex`). Extraction for CLI agents runs on the `[cli]` API fallback model (DeepSeek v4.1
+flash, ADR-56). The embedder is the hashing one, as on a fresh install. Memory-on and memory-off runs are interleaved, 3
+repetitions each. Results are in `quality/eval/results/memory-reuse/`: `cli-first/` (first batch), and
+`cli-codex-diagnosed/` and `cli/` (after the fixes).
+
+**First batch** (20d6bfb). Ticket 2 first merge passed, memory on vs off:
+
+| Model | memory on | memory off |
+|---|---|---|
+| Haiku | 2/3 | 0/3 |
+| Sonnet | 3/3 | 0/3 |
+| Opus | 2/3 | 0/3 |
+| gpt-6-luna | 0/3 | 0/3 |
+| gpt-6.1-sol | 0/3 | 0/3 |
+
+The eval did not yet say why a run failed. It now records the embedder, what the check rejected (the raw first line)
+and what the agent held before ticket 2. A rerun of Codex on the same code found three causes outside the models
+(ADR-96):
+- In 3 of 6 runs, the extractor marked the rule `external`, so it was stored untrusted and never recalled. It had read
+  Agenium's own check result as outside content.
+- Codex's shell is Windows PowerShell 5.1, where `Set-Content -Encoding utf8` writes a byte-order mark. One run
+  followed the recalled rule and was still rejected for `"\u{feff}Owner: docs-team"`.
+- The hashing embedder has no stemming, so one phrasing of the rule was never recalled. A probe showed bge-small
+  recalls it.
+
+The same rerun gave Codex 5/6 first merges with memory on, against 0/6 in the first batch. At n = 3 the variance between
+batches is large. The rerun is evidence of what fails; the measurement is the batch after the fixes.
+
+**After the fixes** (ADR-96: Agenium's own word is never external; the work order names PowerShell 5.1's BOM):
+
+| Model | memory | first merge passed | steps (median, range) | tokens (median / mean) |
+|---|---|---|---|---|
+| Haiku 5.5 | **on** | **3/3** | 14 (11–15) | 290 k / 282 k |
+| | off | 0/3 | 18 (18–22) | 378 k / 405 k |
+| Sonnet 5.5 | **on** | **3/3** | 8 (8–9) | 152 k / 159 k |
+| | off | 0/3 | 15 (14–17) | 265 k / 265 k |
+| Opus 5.5 | **on** | **3/3** | 9 (8–10) | 173 k / 179 k |
+| | off | 0/3 | 17 (16–18) | 304 k / 298 k |
+| gpt-6-luna | **on** | **3/3** | 8 (6–8) | 152 k / 146 k |
+| | off | 0/3 | 12 (12–13) | 264 k / 269 k |
+| gpt-6.1-sol | **on** | **3/3** | 8 (8–8) | 126 k / 129 k |
+| | off | 0/3 | 13 (12–14) | 225 k / 216 k |
+
+- **With memory, 15/15 runs passed the first merge; without it, 0/15.** No CLI model met the rule unaided, whereas
+  DeepSeek did in 3 of 5 (§3). With memory, every run was shown the rule and followed it.
+- Per model (medians), memory saved 22–47 % of the steps and 23–44 % of the tokens: the recalled facts cost less than
+  a failed merge and a second pass.
+- In none of the 15 runs with memory was the rule held as untrusted, and none was rejected for a byte-order mark.
+- Haiku needs the most steps with memory (14).

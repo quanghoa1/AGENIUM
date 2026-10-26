@@ -1,0 +1,90 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 5 fact(s)",
+    "runs": 6,
+    "steps": 22,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 360536,
+    "tokens_out": 2604,
+    "cost_usd": 0.0,
+    "elapsed_ms": 141502,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project each ticket's work is done in its own worktree under .agenium/worktrees/<ticket> on branch agenium/<ticket>.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's root contains an agenium.toml configuration file and a README.md describing the project.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories, each file having an 'Owner: <team>' first line followed by content.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project, file contents can be verified from the worktree using PowerShell, e.g. Get-Content or [IO.File]::ReadAllText with a line split.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, verify a new document's exact first line (case-sensitive, e.g. via PowerShell) before calling submit_report, since a passing AC review does not guarantee the pre-merge check passes.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' first line to a deliverables/ or reports/ document when creating it, not only after the pre-merge check fails and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, a team document's first line must be exactly 'Owner: <team>' (e.g. 'Owner: docs-team'), not a title or content line.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have 'Owner: docs-team' (the owning team) as its exact first line; the pre-merge check enforces this."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project, file contents can be verified from the worktree using PowerShell, e.g. Get-Content or [IO.File]::ReadAllText with a line split.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, verify a new document's exact first line (case-sensitive, e.g. via PowerShell) before calling submit_report, since a passing AC review does not guarantee the pre-merge check passes.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' first line to a deliverables/ or reports/ document when creating it, not only after the pre-merge check fails and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, a team document's first line must be exactly 'Owner: <team>' (e.g. 'Owner: docs-team'), not a title or content line.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have 'Owner: docs-team' (the owning team) as its exact first line; the pre-merge check enforces this."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 226024,
+        "tokens_out": 1675
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 134512,
+        "tokens_out": 929
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5TR1NQA3XS7HP2K82RXMZZ8 #1 hybrid: Lesson: in the docs project, add the 'Owner: docs-team' first line to a deliverables/ or reports/ document when creating it, not only after the pre-merge check fails and the ticket is reopened.",
+        "run 01M5TR1NQA3XS7HP2K82RXMZZ8 #2 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must have 'Owner: docs-team' (the owning team) as its exact first line; the pre-merge check enforces this.",
+        "run 01M5TR1NQA3XS7HP2K82RXMZZ8 #3 hybrid: Lesson: in the docs project, verify a new document's exact first line (case-sensitive, e.g. via PowerShell) before calling submit_report, since a passing AC review does not guarantee the pre-merge check passes.",
+        "run 01M5TR1NQA3XS7HP2K82RXMZZ8 #4 graph: In the docs project, a team document's first line must be exactly 'Owner: <team>' (e.g. 'Owner: docs-team'), not a title or content line.",
+        "run 01M5TR1NQA3XS7HP2K82RXMZZ8 #5 graph: In the docs project, file contents can be verified from the worktree using PowerShell, e.g. Get-Content or [IO.File]::ReadAllText with a line split."
+      ]
+    }
+  }
+]

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 5 fact(s)",
+    "runs": 6,
+    "steps": 24,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 432511,
+    "tokens_out": 4242,
+    "cost_usd": 0.0,
+    "elapsed_ms": 105972,
+    "learning": {
+      "memories_after": [
+        "[Preference] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, submit_report commits the work and moves the ticket to Resolved; the coding@1 report needs per-AC acceptance status with evidence plus artifact refs, and should note in risks when the local pre-merge check could not be run (as the submitting agent did for AGN-2).",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, before calling submit_report, verify a written file's content against project rules (e.g. read it back); no pre-merge check script is present in the ticket worktree, so document-rule checks (e.g. ownership headers) are enforced at merge time rather than relying only on the Write tool's success message.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, a pre-merge failure message names the offending file and the exact required first-line rule, so it can be used to fix the document directly.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, merges are gated by a pre-merge check that enforces document rules such as required first-line ownership headers.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project uses per-ticket git worktrees under .agenium/worktrees/<TICKET> on branch agenium/<TICKET>.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have 'Owner: docs-team' as its exact first line (project rule enforced by the pre-merge check)."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 15,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 281839,
+        "tokens_out": 2636
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 150672,
+        "tokens_out": 1606
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5T9972PXCP9J05NABK9HXCJ #1 hybrid: In the docs project, submit_report commits the work and moves the ticket to Resolved; the coding@1 report needs per-AC acceptance status with evidence plus artifact refs.",
+        "run 01M5T9972PXCP9J05NABK9HXCJ #2 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must have 'Owner: docs-team' as its exact first line (project rule enforced by the pre-merge check).",
+        "run 01M5T9972PXCP9J05NABK9HXCJ #3 hybrid: In the docs project, before calling submit_report, verify a written file's content against project rules (e.g. read it back) and run the pre-merge check on the worktree instead of relying only on the Write tool's success message or letting the merge surface document-rule violations.",
+        "run 01M5T9972PXCP9J05NABK9HXCJ #4 graph: In the docs project, merges are gated by a pre-merge check that enforces document rules such as required first-line ownership headers.",
+        "run 01M5T9972PXCP9J05NABK9HXCJ #5 graph: The docs project uses per-ticket git worktrees under .agenium/worktrees/<TICKET> on branch agenium/<TICKET>."
+      ]
+    }
+  }
+]

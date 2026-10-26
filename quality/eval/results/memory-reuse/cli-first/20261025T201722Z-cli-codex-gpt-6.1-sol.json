@@ -1,0 +1,77 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 12 steps; recall showed 5 fact(s)",
+    "runs": 8,
+    "steps": 23,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 407457,
+    "tokens_out": 3061,
+    "cost_usd": 0.0,
+    "elapsed_ms": 173391,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) Project rule: every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team', with all other content starting on the second line.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) Project docs keeps short team documents in the deliverables/ and reports/ directories; examples include reports/weekly.txt and deliverables/hello.txt.",
+        "[Lesson] (ticket:AGN-2 {\"project\":\"docs\"}) Satisfying only the ticket's stated acceptance criteria is not enough in the docs project; project-wide document rules such as required header lines must also be met before submitting.",
+        "[Fact] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project, verify file contents with PowerShell (Get-Content -Raw / Test-Path) before submitting the report.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any file under deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting, otherwise the pre-merge check fails.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) The pre-merge check for the docs project rejects any team document in deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 11,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 195245,
+        "tokens_out": 1466
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 212212,
+        "tokens_out": 1595
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5TB936SBDFD4E8X1NNTJ2XJ #1 hybrid: Project docs keeps short team documents in the deliverables/ and reports/ directories.",
+        "run 01M5TB936SBDFD4E8X1NNTJ2XJ #2 hybrid: In the docs project, verify file contents with PowerShell (Get-Content -Raw / Test-Path) before submitting the report.",
+        "run 01M5TBA962HMKGRPCFCVJMC6KQ #1 hybrid: Project docs keeps short team documents in the deliverables/ and reports/ directories; examples include reports/weekly.txt and deliverables/hello.txt.",
+        "run 01M5TBA962HMKGRPCFCVJMC6KQ #2 hybrid: In the docs project, verify file contents with PowerShell (Get-Content -Raw / Test-Path) before submitting the report.",
+        "run 01M5TBA962HMKGRPCFCVJMC6KQ #3 graph: Satisfying only the ticket's stated acceptance criteria is not enough in the docs project; project-wide document rules such as required header lines must also be met before submitting."
+      ]
+    }
+  }
+]

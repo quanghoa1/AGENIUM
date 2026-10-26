@@ -1,0 +1,85 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 2 fact(s)",
+    "runs": 6,
+    "steps": 20,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 412848,
+    "tokens_out": 2789,
+    "cost_usd": 0.0,
+    "elapsed_ms": 115980,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"projects docs\"}) The projects/docs project has an agenium.toml configuration file at its root.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"projects docs\"}) In projects/docs, required content such as the word 'hello' can follow the mandatory 'Owner: docs-team' first line in a deliverables file.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"projects docs\"}) When creating or updating a team document in deliverables/ or reports/ in the projects/docs project, ensure 'Owner: docs-team' is the exact first line before submitting, because the pre-merge check rejects documents without it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"projects docs\"}) The projects/docs repo enforces a pre-merge check that fails any team document under deliverables/ or reports/ unless its first line is exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The projects/docs worktree runs on Windows with PowerShell, so files can be written via [System.IO.File]::WriteAllText and verified with Get-Content.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the projects/docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, exactly as 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"projects docs\"}) In projects/docs, required content such as the word 'hello' can follow the mandatory 'Owner: docs-team' first line in a deliverables file.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"projects docs\"}) When creating or updating a team document in deliverables/ or reports/ in the projects/docs project, ensure 'Owner: docs-team' is the exact first line before submitting, because the pre-merge check rejects documents without it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"projects docs\"}) The projects/docs repo enforces a pre-merge check that fails any team document under deliverables/ or reports/ unless its first line is exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The projects/docs worktree runs on Windows with PowerShell, so files can be written via [System.IO.File]::WriteAllText and verified with Get-Content.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the projects/docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, exactly as 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 251939,
+        "tokens_out": 1874
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 160909,
+        "tokens_out": 915
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5TQTFKF34GMCTXQQV0X1TCK #1 hybrid: In the projects/docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, exactly as 'Owner: docs-team'.",
+        "run 01M5TQTFKF34GMCTXQQV0X1TCK #2 graph: The projects/docs worktree runs on Windows with PowerShell, so files can be written via [System.IO.File]::WriteAllText and verified with Get-Content."
+      ]
+    }
+  }
+]

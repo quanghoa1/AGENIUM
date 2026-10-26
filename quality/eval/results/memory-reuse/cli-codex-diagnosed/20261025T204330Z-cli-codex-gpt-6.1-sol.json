@@ -1,0 +1,89 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 21,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 334868,
+    "tokens_out": 2620,
+    "cost_usd": 0.0,
+    "elapsed_ms": 157258,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) Document deliverable checks in the docs project are run on Windows with PowerShell: Test-Path -LiteralPath with -PathType Leaf for existence, and Get-Content -Raw for content.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Docs-project ticket worktrees are created under projects/docs/.agenium/worktrees/<ticket> on branches named agenium/<ticket>.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project keeps short team documents in two folders: deliverables/ for intro-style docs (hello.txt) and reports/ for weekly reports (weekly.txt).",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project enforces its document conventions through a pre-merge check that fails the merge when the first line of a team document is not exactly 'Owner: <team>' (e.g. 'Owner: docs-team').",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must start with a first-line header 'Owner: <team>' (e.g. 'Owner: docs-team').",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Search the repo (AGENTS.md, agenium config, check scripts) for project-wide document rules before submitting, because ticket acceptance criteria may only cover file existence and content.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a team document in the docs project, set its first line to 'Owner: <team>' (e.g. 'Owner: docs-team') before submitting, otherwise the pre-merge check fails even if the acceptance criteria are met.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Acceptance criteria for a docs-project deliverable can be met while the pre-merge check still fails, so content requirements alone are not sufficient evidence of readiness."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Search the repo (AGENTS.md, agenium config, check scripts) for project-wide document rules before submitting, because ticket acceptance criteria may only cover file existence and content.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a team document in the docs project, set its first line to 'Owner: <team>' (e.g. 'Owner: docs-team') before submitting, otherwise the pre-merge check fails even if the acceptance criteria are met.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces its document conventions through a pre-merge check that fails the merge when the first line of a team document is not exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Document deliverable checks in the docs project have been verified with PowerShell (Get-Content -Raw, Test-Path -LiteralPath) on Windows worktrees.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Acceptance criteria for a docs-project deliverable can be met while the pre-merge check still fails, so content requirements alone are not sufficient evidence of readiness.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 210096,
+        "tokens_out": 1693
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 124772,
+        "tokens_out": 927
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TCSXH9N36CR9YZY6NNNQTB #1 hybrid: Search the repo (AGENTS.md, agenium config, check scripts) for project-wide document rules before submitting, because ticket acceptance criteria may only cover file existence and content.",
+        "run 01M5TCSXH9N36CR9YZY6NNNQTB #2 hybrid: When creating a team document in the docs project, set its first line to 'Owner: <team>' (e.g. 'Owner: docs-team') before submitting, otherwise the pre-merge check fails even if the acceptance criteria are met.",
+        "run 01M5TCSXH9N36CR9YZY6NNNQTB #3 graph: Acceptance criteria for a docs-project deliverable can be met while the pre-merge check still fails, so content requirements alone are not sufficient evidence of readiness.",
+        "run 01M5TCSXH9N36CR9YZY6NNNQTB #4 graph: Document deliverable checks in the docs project have been verified with PowerShell (Get-Content -Raw, Test-Path -LiteralPath) on Windows worktrees."
+      ]
+    }
+  }
+]

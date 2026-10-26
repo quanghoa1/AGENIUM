@@ -1,0 +1,91 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 14 steps; recall showed 5 fact(s)",
+    "runs": 6,
+    "steps": 32,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 659544,
+    "tokens_out": 8051,
+    "cost_usd": 0.0,
+    "elapsed_ms": 123950,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, a successful submit_report resolves the ticket and merges the worktree into main, leaving the ticket Resolved until the Lead closes it.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In Agenium, submit_report's 'artifacts' field expects ArtifactRef structs, not plain file-path strings.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In Agenium, submit_report's 'confidence' field expects a numeric f64 (e.g. 0.95), not a string like \"high\".",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In Agenium, submit_report rejects unknown arguments: acceptance entries must use keys ac_id, status, evidence (not 'id'), and there is no 'description' field (use 'summary').",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a first line must be exact, verify it with a byte dump (e.g. Format-Hex) to confirm no BOM or stray whitespace before submitting in the docs project.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, when creating or editing a file under deliverables/ or reports/, add 'Owner: docs-team' as the exact first line before the first submit; a missing owner line fails the pre-merge check and reopens the ticket.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, ticket work is done in a worktree at projects/docs/.agenium/worktrees/<ticket> on branch agenium/<ticket>.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project uses the coding@1 report template for coding tickets in Agenium.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a first line must be exact, verify it with a byte dump (e.g. Format-Hex) to confirm no BOM or stray whitespace before submitting in the docs project.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, when creating or editing a file under deliverables/ or reports/, add 'Owner: docs-team' as the exact first line before the first submit; a missing owner line fails the pre-merge check and reopens the ticket.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, ticket work is done in a worktree at projects/docs/.agenium/worktrees/<ticket> on branch agenium/<ticket>.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project uses the coding@1 report template for coding tickets in Agenium.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 18,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 373363,
+        "tokens_out": 4366
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 286181,
+        "tokens_out": 3685
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5TMX1MT69Z25XYMR4Q1XZ4X #1 hybrid: In the docs project, when creating or editing a file under deliverables/ or reports/, add 'Owner: docs-team' as the exact first line before the first submit; a missing owner line fails the pre-merge check and reopens the ticket.",
+        "run 01M5TMX1MT69Z25XYMR4Q1XZ4X #2 hybrid: The docs project uses the coding@1 report template for coding tickets in Agenium.",
+        "run 01M5TMX1MT69Z25XYMR4Q1XZ4X #3 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line.",
+        "run 01M5TMX1MT69Z25XYMR4Q1XZ4X #4 graph: When a first line must be exact, verify it with a byte dump (e.g. Format-Hex) to confirm no BOM or stray whitespace before submitting in the docs project.",
+        "run 01M5TMX1MT69Z25XYMR4Q1XZ4X #5 graph: In the docs project, ticket work is done in a worktree at projects/docs/.agenium/worktrees/<ticket> on branch agenium/<ticket>."
+      ]
+    }
+  }
+]

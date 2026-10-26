@@ -1,0 +1,73 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 3 fact(s)",
+    "runs": 6,
+    "steps": 28,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 531176,
+    "tokens_out": 6093,
+    "cost_usd": 0.0,
+    "elapsed_ms": 144105,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the pre-merge check runs server-side and its script is not available inside the worktree; agenium.toml leaves checks.pre_merge empty and README.md does not describe the server-side pre-merge format rules, so the required format must be learned from failure messages or inferred from git history.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverable files under deliverables/ and reports/ conventionally start with first line exactly 'Owner: docs-team'; the pre-merge check rejects files without it. This convention is inferred from hello.txt's git history rather than documented rules.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) When writing deliverable files, check the project's pre-merge validation rules first instead of relying on acceptance criteria alone, since the merge gate can enforce extra format requirements.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, submit_report commits worktree changes and marks the ticket Resolved, but review and pre-merge checks still run afterwards and can reopen it."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 18,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 319344,
+        "tokens_out": 3222
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 211832,
+        "tokens_out": 2871
+      },
+      "ticket2_facts_shown": 3,
+      "ticket2_shown": [
+        "run 01M5TARS5HQX2W3H0XDMB5D1Z9 #1 hybrid: In the docs project, submit_report commits worktree changes and marks the ticket Resolved, but review and pre-merge checks still run afterwards and can reopen it.",
+        "run 01M5TARS5HQX2W3H0XDMB5D1Z9 #2 graph: When writing deliverable files, check the project's pre-merge validation rules first instead of relying on acceptance criteria alone, since the merge gate can enforce extra format requirements.",
+        "run 01M5TARS5HQX2W3H0XDMB5D1Z9 #3 graph: In the docs project, the pre-merge check runs on the server side and its script is not available inside the worktree, so its rules can only be learned from failure messages or project docs."
+      ]
+    }
+  }
+]

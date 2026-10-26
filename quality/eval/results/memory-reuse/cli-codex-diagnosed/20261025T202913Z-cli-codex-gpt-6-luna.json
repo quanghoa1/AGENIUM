@@ -1,0 +1,92 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 12 steps; recall showed 8 fact(s)",
+    "runs": 8,
+    "steps": 24,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 523225,
+    "tokens_out": 3404,
+    "cost_usd": 0.0,
+    "elapsed_ms": 139274,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\"",
+        "AGN-2: reports/weekly.txt: \"\\u{feff}Owner: docs-team\""
+      ],
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Ticket work in the docs project is finished by calling submit_report with per-AC evidence and a summary; it commits the work and moves the ticket to Resolved.",
+        "[Lesson w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) In PowerShell, normal display (and Get-Content output) can hide a BOM; before submitting a file whose first line must match exactly, verify the raw bytes (e.g. [System.IO.File]::ReadAllBytes) contain no BOM and that the first-line content is exact.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"language\":\"powershell\",\"os\":\"windows\"}) On Windows PowerShell, write multi-line files with Set-Content -LiteralPath <path> -Value @('line1','line2') so each array element becomes one line; Set-Content -Encoding utf8 writes a UTF-8 BOM, so a file's first line does not literally start with the intended text. Default text-writing cmdlets can emit a UTF-8 BOM; to write BOM-less files use [System.IO.File]::WriteAllText(path, text, [System.Te",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's pre-merge check requires every team document in deliverables/ or reports/ to have its first line exactly 'Owner: docs-team'; a BOM or extra characters break it.",
+        "[Lesson w=1.00] (ticket:AGN-2 {\"language\":\"powershell\",\"os\":\"windows\",\"project\":\"docs\"}) When a project rule requires a file's first line to be exactly some text (e.g. 'Owner: docs-team' in docs project reports), write the file without a BOM (utf8NoBOM or ASCII) or the pre-merge check fails.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Agent work for the docs project runs in a per-ticket git worktree on branch agenium/<ticket-id>, e.g. projects/docs/.agenium/worktrees/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any file under deliverables/ or reports/ in the docs project, start it with the line 'Owner: docs-team'; otherwise the pre-merge check fails and the ticket is reopened."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {}) Ticket work is finished by calling submit_report with per-AC evidence and a summary; it commits the work and moves the ticket to Resolved.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"product\":\"powershell\"}) On Windows PowerShell, write multi-line files with Set-Content -LiteralPath <path> -Value @('line1','line2') so each array element becomes one line.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Agent work for the docs project runs in a per-ticket git worktree on branch agenium/<ticket-id>, e.g. projects/docs/.agenium/worktrees/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any file under deliverables/ or reports/ in the docs project, start it with the line 'Owner: docs-team'; otherwise the pre-merge check fails and the ticket is reopened.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check requires every team document in deliverables/ or reports/ to name its owning team on its first line, exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 245930,
+        "tokens_out": 1662
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 277295,
+        "tokens_out": 1742
+      },
+      "ticket2_facts_shown": 8,
+      "ticket2_shown": [
+        "run 01M5TBZ8GQ0TEB45H7991FZZKS #1 hybrid: When creating or editing any file under deliverables/ or reports/ in the docs project, start it with the line 'Owner: docs-team'; otherwise the pre-merge check fails and the ticket is reopened.",
+        "run 01M5TBZ8GQ0TEB45H7991FZZKS #2 hybrid: Ticket work is finished by calling submit_report with per-AC evidence and a summary; it commits the work and moves the ticket to Resolved.",
+        "run 01M5TBZ8GQ0TEB45H7991FZZKS #3 graph: Agent work for the docs project runs in a per-ticket git worktree on branch agenium/<ticket-id>, e.g. projects/docs/.agenium/worktrees/<ticket-id>.",
+        "run 01M5TC0D09RW2QFQJWTNN20SR9 #1 hybrid: When creating or editing any file under deliverables/ or reports/ in the docs project, start it with the line 'Owner: docs-team'; otherwise the pre-merge check fails and the ticket is reopened.",
+        "run 01M5TC0D09RW2QFQJWTNN20SR9 #2 hybrid: The docs project's pre-merge check requires every team document in deliverables/ or reports/ to have its first line exactly 'Owner: docs-team'; a BOM or extra characters break it.",
+        "run 01M5TC0D09RW2QFQJWTNN20SR9 #3 hybrid: Ticket work is finished by calling submit_report with per-AC evidence and a summary; it commits the work and moves the ticket to Resolved.",
+        "run 01M5TC0D09RW2QFQJWTNN20SR9 #4 graph: Agent work for the docs project runs in a per-ticket git worktree on branch agenium/<ticket-id>, e.g. projects/docs/.agenium/worktrees/<ticket-id>.",
+        "run 01M5TC0D09RW2QFQJWTNN20SR9 #5 hybrid: When a project rule requires a file's first line to be exactly some text (e.g. 'Owner: docs-team' in docs project reports), write the file without a BOM (utf8NoBOM or ASCII) or the pre-merge check fails."
+      ]
+    }
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 6 steps; recall showed 6 fact(s)",
+    "runs": 6,
+    "steps": 18,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 394248,
+    "tokens_out": 2250,
+    "cost_usd": 0.0,
+    "elapsed_ms": 94861,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a pre-merge check fails in the docs project, fix the file to satisfy the stated rule, re-verify its contents, and resubmit the report; the accepted fix was adding the owner line while keeping the required content.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Before submitting a report for a team document in the docs project, verify the file's first line is exactly 'Owner: docs-team', since the pre-merge check rejects files missing it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree runs on Windows with PowerShell; file contents are inspected with Get-Content.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, per the pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The owning team of the docs project's team documents is docs-team.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, team documents are placed in the deliverables/ and reports/ directories."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a pre-merge check fails in the docs project, fix the file to satisfy the stated rule, re-verify its contents, and resubmit the report; the accepted fix was adding the owner line while keeping the required content.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Before submitting a report for a team document in the docs project, verify the file's first line is exactly 'Owner: docs-team', since the pre-merge check rejects files missing it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree runs on Windows with PowerShell; file contents are inspected with Get-Content.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, per the pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The owning team of the docs project's team documents is docs-team.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, team documents are placed in the deliverables/ and reports/ directories."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 271175,
+        "tokens_out": 1588
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 6,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 123073,
+        "tokens_out": 662
+      },
+      "ticket2_facts_shown": 6,
+      "ticket2_shown": [
+        "run 01M5TNH5TX42PVZXD5KWN1MM7G #1 hybrid: In the docs project, team documents are placed in the deliverables/ and reports/ directories.",
+        "run 01M5TNH5TX42PVZXD5KWN1MM7G #2 hybrid: Every team document in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, per the pre-merge check.",
+        "run 01M5TNH5TX42PVZXD5KWN1MM7G #3 hybrid: Before submitting a report for a team document in the docs project, verify the file's first line is exactly 'Owner: docs-team', since the pre-merge check rejects files missing it.",
+        "run 01M5TNH5TX42PVZXD5KWN1MM7G #4 hybrid: When a pre-merge check fails in the docs project, fix the file to satisfy the stated rule, re-verify its contents, and resubmit the report; the accepted fix was adding the owner line while keeping the required content.",
+        "run 01M5TNH5TX42PVZXD5KWN1MM7G #5 graph: The owning team of the docs project's team documents is docs-team.",
+        "run 01M5TNH5TX42PVZXD5KWN1MM7G #6 graph: The docs project worktree runs on Windows with PowerShell; file contents are inspected with Get-Content."
+      ]
+    }
+  }
+]

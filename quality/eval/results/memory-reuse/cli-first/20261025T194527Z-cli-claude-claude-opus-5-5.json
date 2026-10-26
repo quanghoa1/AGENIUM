@@ -1,0 +1,73 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 2 fact(s)",
+    "runs": 6,
+    "steps": 26,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 486793,
+    "tokens_out": 5124,
+    "cost_usd": 0.0,
+    "elapsed_ms": 145025,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) When a pre-merge check rejects a file and no local check script is available, copy the exact required string from the error message, read the file back and grep-count the required word to verify, and disclose in the report that the check was not run locally.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml has an empty [checks] pre_merge setting, so no pre-merge check can be run locally.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line exactly as 'Owner: docs-team'; for example, deliverables/hello.txt begins with 'Owner: docs-team'.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project keeps short team documents in deliverables/ and reports/.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson for the docs project: team documents need the 'Owner: <team>' first line in addition to the ticket's stated content, so check project conventions before submitting; the pre-merge check rejected deliverables/hello.txt for missing it."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 299401,
+        "tokens_out": 3182
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 187392,
+        "tokens_out": 1942
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5T9FC20KFT8TRAVX9N26C1W #1 hybrid: Lesson for the docs project: team documents need the 'Owner: <team>' first line in addition to the ticket's stated content, so check project conventions before submitting; the pre-merge check rejected deliverables/hello.txt for missing it.",
+        "run 01M5T9FC20KFT8TRAVX9N26C1W #2 hybrid: When a pre-merge check rejects a file and no local check script is available, copy the exact required string from the error message, read the file back to verify, and disclose in the report that the check was not run locally."
+      ]
+    }
+  }
+]

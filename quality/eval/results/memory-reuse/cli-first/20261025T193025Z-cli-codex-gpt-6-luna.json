@@ -1,0 +1,64 @@
+[
+  {
+    "id": "memory-reuse-off",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 13 steps; recall showed 0 fact(s)",
+    "runs": 10,
+    "steps": 32,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 3,
+    "tokens_in": 650276,
+    "tokens_out": 4322,
+    "cost_usd": 0.0,
+    "elapsed_ms": 134341,
+    "learning": {
+      "memories_after": [],
+      "memory": false,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 2,
+        "reopened": 2,
+        "runs": 6,
+        "status": "Closed",
+        "steps": 19,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 391708,
+        "tokens_out": 2762
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 13,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 258568,
+        "tokens_out": 1560
+      },
+      "ticket2_facts_shown": 0,
+      "ticket2_shown": []
+    }
+  }
+]

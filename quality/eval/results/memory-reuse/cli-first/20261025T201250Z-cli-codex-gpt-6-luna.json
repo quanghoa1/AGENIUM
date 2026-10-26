@@ -1,0 +1,78 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 14 steps; recall showed 7 fact(s)",
+    "runs": 8,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 550028,
+    "tokens_out": 4016,
+    "cost_usd": 0.0,
+    "elapsed_ms": 158368,
+    "learning": {
+      "memories_after": [
+        "[Lesson] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) Lesson: when verifying a docs-project team document's (e.g. a deliverables/ file's) first line before submit_report, inspect raw bytes with [IO.File]::ReadAllBytes rather than relying on Get-Content, since Get-Content can hide a UTF-8 BOM and the pre-merge check will then fail (a merge failure forces a reopen).",
+        "[Lesson] (ticket:AGN-2 {\"language\":\"powershell\",\"os\":\"windows\",\"project\":\"docs\"}) Commands in this environment run through Windows PowerShell (powershell.exe); file writes use Set-Content with -NoNewline and explicit `n line breaks, but in Windows PowerShell 5.1 Set-Content -Encoding utf8 writes a UTF-8 BOM, so docs-project documents must be written without a BOM (e.g. -Encoding ascii or [IO.File]::WriteAllText with UTF8Encoding($false)) so the first line is exactly 'Owner: doc",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) Docs project worktrees live under projects/docs/.agenium/worktrees/<TICKET> on branch agenium/<TICKET>.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: when adding, creating, or editing a team document in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting, or the pre-merge check fails.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 13,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 260116,
+        "tokens_out": 1584
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 289912,
+        "tokens_out": 2432
+      },
+      "ticket2_facts_shown": 7,
+      "ticket2_shown": [
+        "run 01M5TB0KSQK39JJNRYN0BZPT2G #1 hybrid: In the docs project, every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'.",
+        "run 01M5TB0KSQK39JJNRYN0BZPT2G #2 hybrid: Lesson: when adding, creating, or editing a team document in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting, or the pre-merge check fails.",
+        "run 01M5TB0KSQK39JJNRYN0BZPT2G #3 hybrid: Lesson: verify a deliverables/ file's first line character-for-character against the project rule (e.g. PowerShell first-line comparison) before calling submit_report, since a merge failure forces a reopen.",
+        "run 01M5TB1MWYGQ2HWD46RK6YWTXB #1 hybrid: In the docs project, every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'.",
+        "run 01M5TB1MWYGQ2HWD46RK6YWTXB #2 hybrid: Lesson: when adding, creating, or editing a team document in deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting, or the pre-merge check fails.",
+        "run 01M5TB1MWYGQ2HWD46RK6YWTXB #3 hybrid: Lesson: verify a deliverables/ file's first line character-for-character against the project rule before calling submit_report, since a merge failure forces a reopen; PowerShell Get-Content can hide a UTF-8 BOM, so check the raw first bytes (or write without BOM) rather than relying on Get-Content alone.",
+        "run 01M5TB1MWYGQ2HWD46RK6YWTXB #4 graph: Commands in this environment run through Windows PowerShell (powershell.exe); file writes use Set-Content with -NoNewline and explicit `n line breaks, but in Windows PowerShell 5.1 Set-Content -Encoding utf8 writes a UTF-8 BOM, so docs-project documents must be written without a BOM (e.g. -Encoding ascii or [IO.File]::WriteAllText with UTF8Encoding($false)) so the first line is exactly 'Owner: doc"
+      ]
+    }
+  }
+]

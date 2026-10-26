@@ -1,0 +1,75 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 3 fact(s)",
+    "runs": 6,
+    "steps": 24,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 432347,
+    "tokens_out": 4270,
+    "cost_usd": 0.0,
+    "elapsed_ms": 99584,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) Merging in the docs project is performed by the system after report submission; the ticket stays Resolved until the Lead closes it.",
+        "[Fact] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents belong under reports/ and deliverables/, and coding reports are submitted via the agenium submit_report tool with per-AC evidence and artifact refs.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) Before submitting a coding report, re-read the files you wrote and check both the ticket's content criterion and the project's pre-merge rules (such as the exact first-line document header); a successful Write call does not prove the content satisfies those rules.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) When a pre-merge check rejects a document, copy the exact required string from the check message (e.g. 'Owner: docs-team') into the file's first line instead of paraphrasing it.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have the exact first line 'Owner: docs-team'; the pre-merge check rejects files without it, and required content such as 'hello' must go on a later line.",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a team document in the docs project, add the required 'Owner: docs-team' header as the first line before submitting, otherwise the merge's pre-merge check fails."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 15,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 281556,
+        "tokens_out": 2597
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 150791,
+        "tokens_out": 1673
+      },
+      "ticket2_facts_shown": 3,
+      "ticket2_shown": [
+        "run 01M5TAJ9M72DF7FCE9QEZ1Y2EN #1 hybrid: Before submitting a coding report, re-read the files you wrote and check both the ticket's content criterion and the project's pre-merge rules (such as the exact first-line document header); a successful Write call does not prove the content satisfies those rules.",
+        "run 01M5TAJ9M72DF7FCE9QEZ1Y2EN #2 hybrid: When creating a team document in the docs project, add the required 'Owner: docs-team' header as the first line before submitting, otherwise the merge's pre-merge check fails.",
+        "run 01M5TAJ9M72DF7FCE9QEZ1Y2EN #3 graph: When a pre-merge check rejects a document, copy the exact required string from the check message (e.g. 'Owner: docs-team') into the file's first line instead of paraphrasing it."
+      ]
+    }
+  }
+]

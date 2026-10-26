@@ -1,0 +1,89 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 22,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 350449,
+    "tokens_out": 2460,
+    "cost_usd": 0.0,
+    "elapsed_ms": 133900,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Project docs repository contains a README.md and an agenium.toml config at the project root.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In project docs, submit_report takes per-acceptance-criterion entries with ac_id, status (e.g. Met) and evidence text, plus artifact paths.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In project docs, ticket work happens in a git worktree under .agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>, and results are submitted with the submit_report tool.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A merge can be rejected in project docs even after the review approves, because the pre-merge check runs separately from acceptance verification; submitted work must also pass git diff --check (whitespace) before the pre-merge check lets it merge into main, and the ticket stays Resolved until the Lead closes it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In project docs on Windows, file contents are verified with PowerShell Get-Content plus exact-case comparisons (-cne / -cnotcontains) rather than plain string matching.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying a ticket's acceptance criteria is not enough for project docs: the pre-merge check also enforces the 'Owner: docs-team' first line, so verify it before submitting.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project docs keeps short team documents in the deliverables/ and reports/ directories.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In project docs, every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A merge can be rejected in project docs even after the review approves, because the pre-merge check runs separately from acceptance verification; submitted work must also pass git diff --check (whitespace) before the pre-merge check lets it merge into main, and the ticket stays Resolved until the Lead closes it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In project docs on Windows, file contents are verified with PowerShell Get-Content plus exact-case comparisons (-cne / -cnotcontains) rather than plain string matching.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying a ticket's acceptance criteria is not enough for project docs: the pre-merge check also enforces the 'Owner: docs-team' first line, so verify it before submitting.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project docs keeps short team documents in the deliverables/ and reports/ directories.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In project docs, every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 225460,
+        "tokens_out": 1509
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 124989,
+        "tokens_out": 951
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TPWBXSAJZV8CAY3ZRMZ4HE #1 hybrid: Project docs keeps short team documents in the deliverables/ and reports/ directories.",
+        "run 01M5TPWBXSAJZV8CAY3ZRMZ4HE #2 hybrid: Satisfying a ticket's acceptance criteria is not enough for project docs: the pre-merge check also enforces the 'Owner: docs-team' first line, so verify it before submitting.",
+        "run 01M5TPWBXSAJZV8CAY3ZRMZ4HE #3 hybrid: In project docs, every team document placed in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'.",
+        "run 01M5TPWBXSAJZV8CAY3ZRMZ4HE #4 graph: A merge can be rejected in project docs even after the review approves, because the pre-merge check runs separately from acceptance verification; submitted work must also pass git diff --check (whitespace) before the pre-merge check lets it merge into main, and the ticket stays Resolved until the Lead closes it."
+      ]
+    }
+  }
+]

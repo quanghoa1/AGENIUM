@@ -1,0 +1,75 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 13 steps; recall showed 4 fact(s)",
+    "runs": 8,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 557695,
+    "tokens_out": 3531,
+    "cost_usd": 0.0,
+    "elapsed_ms": 151656,
+    "learning": {
+      "memories_after": [
+        "[Fact] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) In PowerShell, including docs-project file work, Set-Content -NoNewline with an array value joins items without line breaks; use a double-quoted string containing `n to write multiple lines correctly, such as required first-line plus body content.",
+        "[Lesson] (ticket:AGN-2 {\"project\":\"docs\"}) Before submitting a docs-project deliverable, check the pre-merge rules: required first-line 'Owner: <team>' headers and matching existing sibling files' header conventions, so the pre-merge check does not fail; a missing required first line fails the check and reopens the ticket.",
+        "[Fact] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktrees run on Windows and use PowerShell for file work (New-Item, Set-Content, Get-Content -Raw); verify file content and formatting rules before submitting a report.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, new files in deliverables/ or reports/ must start with the 'Owner: docs-team' line, not just the requested content, or the pre-merge check rejects them.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule in the docs project: every team document under deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 272293,
+        "tokens_out": 1846
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 13,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 285402,
+        "tokens_out": 1685
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5T8FEZWG5D63CXPBDPJWEQY #1 hybrid: In PowerShell, Set-Content -NoNewline with an array value joins items without line breaks; use a double-quoted string containing `n to write multiple lines.",
+        "run 01M5T8FEZWG5D63CXPBDPJWEQY #2 graph: The docs project worktrees run on Windows, so file creation and verification are done with PowerShell (New-Item, Set-Content, Get-Content -Raw).",
+        "run 01M5T8GJN2GM9D11F3667MQT2S #1 hybrid: The docs project worktrees run on Windows and use PowerShell for file work (New-Item, Set-Content, Get-Content -Raw); verify file content and formatting rules before submitting a report.",
+        "run 01M5T8GJN2GM9D11F3667MQT2S #2 hybrid: In PowerShell, Set-Content -NoNewline with an array value joins items without line breaks; use a double-quoted string containing `n to write multiple lines."
+      ]
+    }
+  }
+]

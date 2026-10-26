@@ -1,0 +1,82 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 2 fact(s)",
+    "runs": 6,
+    "steps": 21,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 327408,
+    "tokens_out": 2515,
+    "cost_usd": 0.0,
+    "elapsed_ms": 141092,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project keeps short team documents in deliverables/ and reports/ directories.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project runs on Windows and verifies file contents with PowerShell Get-Content (trimmed comparison, checking exit code 0).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any file under deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting or verifying content; otherwise the pre-merge check fails and the ticket is reopened.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Checking only that file content matches the acceptance criteria is not sufficient in the docs project; also satisfy enforced file conventions such as required header lines.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: docs-team' as the exact first line, otherwise the pre-merge check fails."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project runs on Windows and verifies file contents with PowerShell Get-Content (trimmed comparison, checking exit code 0).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any file under deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting or verifying content; otherwise the pre-merge check fails and the ticket is reopened.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Checking only that file content matches the acceptance criteria is not sufficient in the docs project; also satisfy enforced file conventions such as required header lines.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have 'Owner: docs-team' as the exact first line, otherwise the pre-merge check fails."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 209241,
+        "tokens_out": 1619
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 118167,
+        "tokens_out": 896
+      },
+      "ticket2_facts_shown": 2,
+      "ticket2_shown": [
+        "run 01M5TDAS7ERJWK586WYAS8EBH7 #1 hybrid: When creating or editing any file under deliverables/ or reports/ in the docs project, write 'Owner: docs-team' as the exact first line before submitting or verifying content; otherwise the pre-merge check fails and the ticket is reopened.",
+        "run 01M5TDAS7ERJWK586WYAS8EBH7 #2 graph: The docs project runs on Windows and verifies file contents with PowerShell Get-Content (trimmed comparison, checking exit code 0)."
+      ]
+    }
+  }
+]

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 26,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 490359,
+    "tokens_out": 5027,
+    "cost_usd": 0.0,
+    "elapsed_ms": 129070,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must use the expected format: first line exactly 'Owner: docs-team', followed by the deliverable's content line.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, write team documents under deliverables/ or reports/ as UTF-8 without BOM and with LF line endings so the required first line 'Owner: docs-team' matches the pre-merge check byte-for-byte.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt exists, contains the word 'hello', and begins with the line 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, reports/weekly.txt exists and contains the word 'weekly' on its second line after the owner line.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, add the 'Owner: docs-team' first line to deliverables/ and reports/ files before submitting the report, otherwise the merge fails the pre-merge check and the ticket must be redone.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check rejects any file under deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, add the 'Owner: docs-team' first line to deliverables/ and reports/ files before submitting the report, otherwise the merge fails the pre-merge check and the ticket must be redone.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, write team documents under deliverables/ or reports/ as UTF-8 without BOM so the required first line 'Owner: docs-team' matches the pre-merge check byte-for-byte.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check rejects any file under deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 319374,
+        "tokens_out": 3182
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 170985,
+        "tokens_out": 1845
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TN9PRJ72WG4HPVKGXTEH2J #1 hybrid: In the docs project, add the 'Owner: docs-team' first line to deliverables/ and reports/ files before submitting the report, otherwise the merge fails the pre-merge check and the ticket must be redone.",
+        "run 01M5TN9PRJ72WG4HPVKGXTEH2J #2 hybrid: In the docs project, write team documents under deliverables/ or reports/ as UTF-8 without BOM so the required first line 'Owner: docs-team' matches the pre-merge check byte-for-byte.",
+        "run 01M5TN9PRJ72WG4HPVKGXTEH2J #3 hybrid: In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'.",
+        "run 01M5TN9PRJ72WG4HPVKGXTEH2J #4 hybrid: The docs project's pre-merge check rejects any file under deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'."
+      ]
+    }
+  }
+]

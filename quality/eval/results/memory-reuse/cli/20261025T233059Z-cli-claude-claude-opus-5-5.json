@@ -1,0 +1,86 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 25,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 489753,
+    "tokens_out": 4817,
+    "cost_usd": 0.0,
+    "elapsed_ms": 133488,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) When a ticket requires a file to contain specific content and a project rule mandates extra leading lines, keep the required content and verify the exact bytes (e.g. with od -c, such as 'od -c reports/weekly.txt') that both the rule line and the content line are present before submitting.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's deliverables/hello.txt contains the word hello and starts with the 'Owner: docs-team' line, serving as the reference example for new documents.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project keeps team deliverables in the deliverables/ directory and team reports in the reports/ directory.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: when creating any document under deliverables/ or reports/ in the docs project, add the required first line before submitting, because the pre-merge check rejects documents whose first line is not exactly 'Owner: docs-team' and blocks merges without it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project owner line format is 'Owner: docs-team' written as the exact first line of each document.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When a ticket requires a file to contain specific content and a project rule mandates extra leading lines, keep the required content and verify the exact bytes (e.g. with od -c) that both the rule line and the content line are present.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: when creating any document under deliverables/ or reports/ in the docs project, add the required first line before submitting, because the pre-merge check rejects documents whose first line is not exactly 'Owner: docs-team' and blocks merges without it.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project owner line format is 'Owner: docs-team' written as the exact first line of each document.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 320717,
+        "tokens_out": 3055
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 169036,
+        "tokens_out": 1762
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TPCVWQNPE3HP7RJHTY7JD2 #1 hybrid: Lesson: when creating any document under deliverables/ or reports/ in the docs project, add the required first line before submitting, because the pre-merge check rejects documents whose first line is not exactly 'Owner: docs-team' and blocks merges without it.",
+        "run 01M5TPCVWQNPE3HP7RJHTY7JD2 #2 hybrid: In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+        "run 01M5TPCVWQNPE3HP7RJHTY7JD2 #3 hybrid: When a ticket requires a file to contain specific content and a project rule mandates extra leading lines, keep the required content and verify the exact bytes (e.g. with od -c) that both the rule line and the content line are present.",
+        "run 01M5TPCVWQNPE3HP7RJHTY7JD2 #4 graph: The docs project owner line format is 'Owner: docs-team' written as the exact first line of each document."
+      ]
+    }
+  }
+]

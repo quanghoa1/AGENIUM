@@ -1,0 +1,77 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge failed, 1 merge failure(s), 13 steps; recall showed 5 fact(s)",
+    "runs": 8,
+    "steps": 29,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 477121,
+    "tokens_out": 3620,
+    "cost_usd": 0.0,
+    "elapsed_ms": 191530,
+    "learning": {
+      "memories_after": [
+        "[Lesson] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project, verify a deliverable's raw first bytes (e.g. Format-Hex or [IO.File]::ReadAllBytes) before submitting a file with an exact-string header, since Get-Content hides BOM problems.",
+        "[Lesson] (ticket:AGN-2 {\"os\":\"windows\",\"product\":\"powershell\",\"vendor\":\"microsoft\"}) PowerShell's Set-Content -Encoding utf8 writes a UTF-8 BOM, so the first line does not match an exact-string header check and the pre-merge check fails; write such files BOM-free (utf8NoBOM or [IO.File]::WriteAllText with UTF8Encoding($false)).",
+        "[Lesson] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing a team document in the docs project's deliverables/ or reports/, put the exact 'Owner: docs-team' line first before submitting; otherwise the pre-merge check fails and the work is rejected, even if acceptance criteria pass and review approves.",
+        "[Fact] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees run on Windows, so file content is verified with PowerShell Get-Content rather than shell tools like cat.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check fails when a deliverables/ or reports/ document's first line is not the required owner line.",
+        "[Fact] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 16,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 238029,
+        "tokens_out": 1730
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 13,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 239092,
+        "tokens_out": 1890
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M5TA2M7Y12R243Z7JAF94F0V #1 hybrid: When creating or editing a team document in the docs project's deliverables/ or reports/, put the exact 'Owner: docs-team' line first before submitting; otherwise the pre-merge check fails and the work is rejected, even if acceptance criteria pass and review approves.",
+        "run 01M5TA2M7Y12R243Z7JAF94F0V #2 graph: The docs project's ticket worktrees run on Windows, so file content is verified with PowerShell Get-Content rather than shell tools like cat.",
+        "run 01M5TA40DX18PP307CYEAAWGDJ #1 hybrid: When creating or editing a team document in the docs project's deliverables/ or reports/, put the exact 'Owner: docs-team' line first before submitting; otherwise the pre-merge check fails and the work is rejected, even if acceptance criteria pass and review approves.",
+        "run 01M5TA40DX18PP307CYEAAWGDJ #2 graph: The docs project's ticket worktrees run on Windows, so file content is verified with PowerShell Get-Content rather than shell tools like cat.",
+        "run 01M5TA40DX18PP307CYEAAWGDJ #3 graph: PowerShell's Set-Content -Encoding utf8 writes a UTF-8 BOM, so the first line does not match an exact-string header check and the pre-merge check fails; write such files BOM-free (utf8NoBOM or [IO.File]::WriteAllText with UTF8Encoding($false))."
+      ]
+    }
+  }
+]

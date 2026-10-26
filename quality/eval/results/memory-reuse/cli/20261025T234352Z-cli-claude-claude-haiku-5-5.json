@@ -1,0 +1,85 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 15 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 39,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 814391,
+    "tokens_out": 9729,
+    "cost_usd": 0.0,
+    "elapsed_ms": 130504,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {}) submit_report accepts fields ticket_id, summary, acceptance (items with ac_id, status, evidence), artifacts (objects with kind and ref), extension, risks, follow_ups, confidence (a numeric float).",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project repository contains no pre-merge check script, so the 'Owner: docs-team' first-line rule must be verified manually against existing files and the README.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's README states that team documents live in deliverables/ and reports/, and deliverables/hello.txt uses the 'Owner: docs-team' first line.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing a team document in the docs project's deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before other content so the pre-merge check passes.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Before submitting a change to team documents in the docs project, run or verify the pre-merge check locally to catch required first-line conventions early.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing a team document in the docs project's deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before other content so the pre-merge check passes.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project's pre-merge check rejects team documents whose first line is not exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 24,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 508592,
+        "tokens_out": 5377
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 15,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 305799,
+        "tokens_out": 4352
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TQ4EQ93FNDC2672YV9BER4 #1 hybrid: When creating or editing a team document in the docs project's deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before other content so the pre-merge check passes.",
+        "run 01M5TQ4EQ93FNDC2672YV9BER4 #2 hybrid: In the docs project, every team document in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+        "run 01M5TQ4EQ93FNDC2672YV9BER4 #3 graph: Before submitting a change to team documents in the docs project, run or verify the pre-merge check locally to catch required first-line conventions early.",
+        "run 01M5TQ4EQ93FNDC2672YV9BER4 #4 graph: The docs project's pre-merge check rejects team documents whose first line is not exactly 'Owner: docs-team'."
+      ]
+    }
+  }
+]

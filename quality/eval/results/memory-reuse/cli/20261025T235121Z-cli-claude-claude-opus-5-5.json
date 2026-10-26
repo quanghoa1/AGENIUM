@@ -1,0 +1,90 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 513225,
+    "tokens_out": 5241,
+    "cost_usd": 0.0,
+    "elapsed_ms": 138508,
+    "learning": {
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, spec v1 requires two short team documents: deliverables/hello.txt containing 'hello' and reports/weekly.txt containing 'weekly'.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, reports/weekly.txt starts with 'Owner: docs-team' and contains the word 'weekly' (AGN-2 spec v1, plan item PI-2).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: the pre-merge check may not be runnable in the agent worktree, so verify the required first line by reading the file before submitting a report.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, a missing or non-exact 'Owner: <team>' first line makes the pre-merge check fail, so write that header as line 1 when creating any file under deliverables/ or reports/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\"}) On Windows agents, file content is verified with PowerShell `Get-Content <path>` and untracked new files with `git status --short`.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) Agent worktrees live under .agenium/worktrees/<TICKET-ID> inside the project directory and the agent works on branch agenium/<TICKET-ID>.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project requires the owning team's name line on team documents; for deliverables/hello.txt the required first line is 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: <team-name>' as its first line (project rule)."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: the pre-merge check may not be runnable in the agent worktree, so verify the required first line by reading the file before submitting a report.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, a missing or non-exact 'Owner: <team>' first line makes the pre-merge check fail, so write that header as line 1 when creating any file under deliverables/ or reports/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\"}) On Windows agents, file content is verified with PowerShell `Get-Content <path>` and untracked new files with `git status --short`.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) Agent worktrees live under .agenium/worktrees/<TICKET-ID> inside the project directory and the agent works on branch agenium/<TICKET-ID>.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project requires the owning team's name line on team documents; for deliverables/hello.txt the required first line is 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: <team-name>' as its first line (project rule)."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_in": 321346,
+        "tokens_out": 3105
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_in": 191879,
+        "tokens_out": 2136
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5TQJ4R4G22DVSFN1G6GANA9 #1 hybrid: The docs project requires the owning team's name line on team documents; for deliverables/hello.txt the required first line is 'Owner: docs-team'.",
+        "run 01M5TQJ4R4G22DVSFN1G6GANA9 #2 hybrid: In the docs project, every team document in deliverables/ or reports/ must have exactly 'Owner: <team-name>' as its first line (project rule).",
+        "run 01M5TQJ4R4G22DVSFN1G6GANA9 #3 hybrid: Lesson: in the docs project, a missing or non-exact 'Owner: <team>' first line makes the pre-merge check fail, so write that header as line 1 when creating any file under deliverables/ or reports/.",
+        "run 01M5TQJ4R4G22DVSFN1G6GANA9 #4 hybrid: Lesson: the pre-merge check may not be runnable in the agent worktree, so verify the required first line by reading the file before submitting a report."
+      ]
+    }
+  }
+]
