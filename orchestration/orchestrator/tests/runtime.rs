@@ -213,6 +213,26 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
     );
     let mut items = plan(&[("PI-1", &[]), ("PI-2", &[])]).items;
     items[1].trace_to = vec!["REQ-2".into()];
+    // New work under the id of a done item would count as done by its closed ticket: refused.
+    let mut reused = items.clone();
+    reused[0].title = "Write the farewell file".into();
+    reused[0].trace_to.push("REQ-2".into());
+    let err = app
+        .apply(
+            &lead,
+            Intent::RevisePlan(PlanRevision {
+                base_version: 1,
+                reason: "the farewell of spec v2".into(),
+                milestones: plan(&[]).milestones,
+                items: reused,
+            }),
+        )
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("plan item PI-1 is done (AGN-1 closed)"),
+        "{err}"
+    );
     app.apply(
         &lead,
         Intent::RevisePlan(PlanRevision {

@@ -611,9 +611,27 @@ impl App {
             check_trace(&spec, &rev.items)?;
             check_roles(w, team.as_ref(), &rev.items)?;
             // Items that have tickets must keep existing (shrink scope, never drop work silently).
-            for t in tickets::list(w.tx, project, &Default::default())? {
+            let all = tickets::list(w.tx, project, &Default::default())?;
+            for t in &all {
                 if !t.status.is_terminal() && !rev.items.iter().any(|i| i.id == t.plan_item) {
                     return Err(invalid(format!("plan item {} still has open ticket {}", t.plan_item, t.key)));
+                }
+            }
+            // A done item (its tickets ended, one closed) keeps its work: new work under its id would count as done
+            // by the old tickets, and nobody would do it.
+            for old in &base.body.items {
+                let of: Vec<_> = all.iter().filter(|t| t.plan_item == old.id && t.status != TicketStatus::Cancelled).collect();
+                let done = of.iter().all(|t| t.status.is_terminal()) && of.iter().any(|t| t.status == TicketStatus::Closed);
+                let Some(new) = rev.items.iter().find(|i| i.id == old.id) else {
+                    continue;
+                };
+                if done && (new.title != old.title || new.acceptance != old.acceptance) {
+                    let keys: Vec<String> = of.iter().map(|t| t.key.to_string()).collect();
+                    return Err(invalid(format!(
+                        "plan item {} is done ({} closed): keep its title and acceptance as they are and put the new work in a new item",
+                        old.id,
+                        keys.join(", ")
+                    )));
                 }
             }
             let (diff, scope_change) = plan_diff(&base.body.items, &rev.items);
