@@ -192,10 +192,9 @@ pub(crate) fn transition(
             to,
         },
     )?;
-    if matches!(
-        to,
-        TicketStatus::Resolved | TicketStatus::Closed | TicketStatus::Cancelled
-    ) {
+    // The ticket's grants last until it ends, not until it is Resolved: a reopened ticket's branch still holds the
+    // files its path grants allowed, and the scope check at the next submit_report reads them again.
+    if to.is_terminal() {
         runs::revoke_ticket_grants(w.tx, t.id, &now_iso())?;
     }
     if fx.escalated_now {
@@ -1033,17 +1032,13 @@ impl App {
         };
         let repo = self.repo(project);
         let wt = std::path::Path::new(&ws.worktree);
-        let mut files = repo.changed_files(wt, &ws.base_sha, "HEAD")?;
+        let base = crate::effects::work_base(&repo, wt, &project.main_branch, &ws.base_sha);
+        let mut files = repo.changed_files(wt, &base, "HEAD")?;
         for line in repo.status(wt)? {
-            // Porcelain v1: "XY path" or "XY from -> to".
+            // Porcelain v1: "XY path" or "XY from -> to". Both sides of a rename count: moving a file out of the
+            // scope deletes it there.
             let path = line.get(3..).unwrap_or_default();
-            files.push(
-                path.rsplit(" -> ")
-                    .next()
-                    .unwrap_or(path)
-                    .trim_matches('"')
-                    .to_owned(),
-            );
+            files.extend(path.split(" -> ").map(|p| p.trim_matches('"').to_owned()));
         }
         files.sort();
         files.dedup();
@@ -1208,7 +1203,9 @@ impl App {
             transition(w, &mut t, &ctx.actor, TicketStatus::Resolved, &Guards { valid_report: true, ..Default::default() })?;
             set_agent_status(w, agent, AgentStatus::Idle)?;
             if let Some(ws) = workspaces::get(w.tx, t.id)? {
-                workspaces::upsert(w.tx, &workspaces::TicketWorkspace { head_sha: commit.head.clone(), ..ws })?;
+                // The base follows the branch's rebases, so the review diff shows this ticket's work only.
+                let base_sha = commit.base.clone().unwrap_or_else(|| ws.base_sha.clone());
+                workspaces::upsert(w.tx, &workspaces::TicketWorkspace { head_sha: commit.head.clone(), base_sha, ..ws })?;
             }
             Ok(Outcome {
                 result: serde_json::json!({ "ticket_id": t.key, "status": t.status, "report_comment": c.id, "has_code": t.has_code, "commit": commit.sha }),

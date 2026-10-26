@@ -331,18 +331,32 @@ fn permissions_lead_inside_allowlist_user_outside_and_always_allow() {
         .any(|g| g.scope == "project" && g.granted_by == "user"));
     assert_eq!(ticket(f, k.as_str()).status, TicketStatus::InProgress);
 
-    // Run grants end when the ticket is resolved.
+    // Run grants last while the ticket lives (Resolved may be reopened) and end with it.
     write(&worktree(f, k.as_str()), "deliverables/x", "x");
     f.app
         .apply(&ctx(f, web), Intent::SubmitReport(report(k.as_str())))
         .unwrap();
-    let grants = f
-        .app
-        .store()
-        .read(|c| runs::active_grants(c, f.project.id, Some(ticket(f, k.as_str()).id)))
+    let grants = || {
+        f.app
+            .store()
+            .read(|c| runs::active_grants(c, f.project.id, Some(ticket(f, k.as_str()).id)))
+            .unwrap()
+    };
+    assert!(
+        grants().iter().any(|g| g.scope == "run"),
+        "kept while Resolved"
+    );
+    f.app
+        .apply(
+            &ctx(f, lead),
+            Intent::CancelTicket(CancelTicket {
+                ticket_id: k.clone(),
+                reason: "The dependency is not needed".into(),
+            }),
+        )
         .unwrap();
     assert!(
-        grants.iter().all(|g| g.scope == "project"),
+        grants().iter().all(|g| g.scope == "project"),
         "run-scoped grants revoked"
     );
 }
@@ -572,6 +586,37 @@ fn team_from_template_and_write_scope() {
         .unwrap();
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::InProgress);
     submit(&r).unwrap();
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Resolved);
+
+    // The grant lasts while the ticket lives: reopened, the file it allowed is on the branch and still the ticket's.
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Reopen,
+                ac_feedback: vec![AcFeedback {
+                    ac_id: "AC-1".into(),
+                    feedback: "Give the finding its severity".into(),
+                }],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    f.app
+        .finish_run(run.run, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+    let run2 = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    write(&wt, "deliverables/web/login.md", "finding, severity high");
+    f.app
+        .apply(
+            &CallCtx {
+                run: Some(run2.run),
+                ..ctx(&f, Actor::Worker(web))
+            },
+            Intent::SubmitReport(r.clone()),
+        )
+        .unwrap();
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Resolved);
 }
 

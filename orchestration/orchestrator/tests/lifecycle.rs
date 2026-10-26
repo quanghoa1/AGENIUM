@@ -906,3 +906,89 @@ fn a_dropped_done_item_cannot_come_back_with_new_work() {
     // Back as it was in v1: the done item returns with its own work.
     revise(2, v1.items.clone()).unwrap();
 }
+
+/// Moving a file out of the write scope deletes it there: a rename into the scope is outside it too (only the new
+/// path was checked, and the commit deleted the old one).
+#[test]
+fn a_rename_out_of_the_scope_is_outside_it() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Write hello", &[], &["deliverables/**"]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wt = worktree(&f, "AGN-1");
+    std::fs::create_dir_all(wt.join("deliverables")).unwrap();
+    agenium_vcs::git::Git::default()
+        .check(&wt, ["mv", "agenium.toml", "deliverables/agenium.toml"])
+        .unwrap();
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, Actor::Worker(a.id)),
+            Intent::SubmitReport(report("AGN-1")),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("your role: agenium.toml."), "{e}");
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::InProgress);
+}
+
+/// A branch rebased on main (by its worker after a conflict, or by the merge queue before a failed check) holds
+/// the files other tickets merged meanwhile; they are not this ticket's work. The scope check and the review diff
+/// start from the merge-base with main, not from the base the worktree was made on.
+#[test]
+fn a_rebased_branch_is_measured_from_main() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    let k1 = started(&f, a.id, "PI-1", "First", &[], &["src/a/**"]);
+    let k2 = started(&f, a.id, "PI-2", "Second", &[], &["src/b/**"]);
+    let r1 = f.app.start_run(f.project.id, &k1, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-1"), "src/a/x.txt", "x");
+    f.app
+        .apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-1")))
+        .unwrap();
+    f.app
+        .finish_run(r1.run, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+    f.app
+        .apply(&ctx(&f, lead), Intent::ReviewTicket(approve(&k1)))
+        .unwrap();
+    assert!(ticket(&f, "AGN-1").merged);
+
+    // The second ticket's worker commits its work and rebases it on the new main.
+    f.app.start_run(f.project.id, &k2, "mock", "m").unwrap();
+    let wt = worktree(&f, "AGN-2");
+    write(&wt, "src/b/y.txt", "y");
+    let vcs = agenium_vcs::git::Git::default();
+    let as_worker = |args: &[&str]| {
+        let mut v = vec![
+            "-c",
+            "user.name=worker",
+            "-c",
+            "user.email=worker@example.com",
+        ];
+        v.extend_from_slice(args);
+        vcs.check(&wt, v).unwrap();
+    };
+    as_worker(&["add", "-A"]);
+    as_worker(&["commit", "-q", "-m", "wip"]);
+    as_worker(&["rebase", "-q", "main"]);
+    assert!(wt.join("src/a/x.txt").is_file(), "rebased on main");
+    let out = f
+        .app
+        .apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-2")))
+        .unwrap();
+    assert_eq!(out.result["has_code"], true);
+    // The recorded base follows: the review diff shows this ticket's work only.
+    let ws = f
+        .app
+        .store()
+        .read(|c| workspaces::get(c, ticket(&f, "AGN-2").id))
+        .unwrap()
+        .unwrap();
+    let diff = f.app.repo(&f.project).diff(&wt, &ws.base_sha).unwrap();
+    assert!(
+        diff.contains("src/b/y.txt") && !diff.contains("src/a/x.txt"),
+        "{diff}"
+    );
+}

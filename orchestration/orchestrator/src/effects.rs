@@ -86,6 +86,21 @@ pub struct CommitInfo {
     pub sha: Option<String>,
     pub head: Option<String>,
     pub has_code: bool,
+    /// Where the ticket's work starts now ([`work_base`]).
+    #[serde(default)]
+    pub base: Option<String>,
+}
+
+/// Where the ticket's own work starts: the merge-base of its worktree's HEAD with main. The base recorded when the
+/// worktree was made goes stale once the branch is rebased (by the merge queue before a failed check, or by the
+/// worker after a conflict); a diff from it would count the files other tickets merged meanwhile as this ticket's.
+pub(crate) fn work_base(repo: &Repo, wt: &Path, main: &str, recorded: &str) -> String {
+    repo.git()
+        .check(wt, ["merge-base", "HEAD", main])
+        .ok()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| recorded.to_owned())
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -413,7 +428,8 @@ impl App {
             .check(wt, ["rev-parse", "HEAD"])?
             .trim()
             .to_owned();
-        let has_code = !repo.changed_files(wt, &ws.base_sha, &head)?.is_empty();
+        let base = work_base(&repo, wt, &p.main_branch, &ws.base_sha);
+        let has_code = !repo.changed_files(wt, &base, &head)?.is_empty();
         self.store.commit(None, "system", |w| {
             complete(w, &row, t, "done", serde_json::json!({ "sha": sha }))
         })?;
@@ -421,6 +437,7 @@ impl App {
             sha,
             head: Some(head),
             has_code,
+            base: Some(base),
         })
     }
 
