@@ -1,6 +1,6 @@
 //! Path confinement (decision 16): every path is normalised and must stay inside the ticket worktree (reads may
 //! also use the read-only roots, e.g. skill folders). Symlinks are resolved on the existing part of the path so a
-//! link cannot escape. `.git` is never writable.
+//! link cannot escape; a dangling link resolves nowhere. `.git` is never writable, under any name that reaches it.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -39,11 +39,14 @@ pub fn within(p: &Path, root: &Path) -> bool {
     p == r || p.starts_with(&format!("{r}/"))
 }
 
-/// Canonical form of the deepest existing ancestor of `p`, with the remaining components re-appended.
-fn resolve_existing(p: &Path) -> PathBuf {
+/// Canonical form of the deepest existing ancestor of `p`, with the remaining components re-appended. An entry exists
+/// when it is there itself (`symlink_metadata`, which does not follow links): a dangling link is not a new name inside
+/// the root, a write through it creates its target wherever that is (Linux/macOS). It resolves nowhere (`None`), as
+/// does a link loop.
+fn resolve_existing(p: &Path) -> Option<PathBuf> {
     let mut existing = p.to_path_buf();
     let mut rest = Vec::new();
-    while !existing.exists() {
+    while std::fs::symlink_metadata(&existing).is_err() {
         match (
             existing.file_name().map(|n| n.to_owned()),
             existing.parent().map(Path::to_path_buf),
@@ -55,11 +58,19 @@ fn resolve_existing(p: &Path) -> PathBuf {
             _ => break,
         }
     }
-    let mut c = std::fs::canonicalize(&existing).unwrap_or(existing);
+    let mut c = match std::fs::canonicalize(&existing) {
+        Ok(c) => c,
+        Err(_)
+            if std::fs::symlink_metadata(&existing).is_ok_and(|m| m.file_type().is_symlink()) =>
+        {
+            return None
+        }
+        Err(_) => existing,
+    };
     for n in rest.into_iter().rev() {
         c.push(n);
     }
-    c
+    Some(c)
 }
 
 /// `true` when the absolute, lexically normalised `p` is inside `root`. The root has two names when a symlink or a
@@ -68,8 +79,72 @@ fn resolve_existing(p: &Path) -> PathBuf {
 /// it, so a link cannot escape. A root that does not exist yet is resolved like the path, through its deepest
 /// existing ancestor.
 pub fn confined(p: &Path, root: &Path) -> bool {
-    let canon_root = resolve_existing(root);
-    (within(p, root) || within(p, &canon_root)) && within(&resolve_existing(p), &canon_root)
+    let canon_root = resolve_existing(root).unwrap_or_else(|| root.to_path_buf());
+    (within(p, root) || within(p, &canon_root))
+        && resolve_existing(p).is_some_and(|r| within(&r, &canon_root))
+}
+
+/// A component that names `.git`, case-insensitively, also as Windows reads it: trailing dots and spaces dropped,
+/// an alternate data stream (`.git::$INDEX_ALLOCATION`) is the folder itself.
+fn is_git(name: &std::ffi::OsStr) -> bool {
+    let s = name.to_string_lossy();
+    let s = if cfg!(windows) {
+        s.split(':')
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches(['.', ' '])
+    } else {
+        &s
+    };
+    s.eq_ignore_ascii_case(".git")
+}
+
+/// A name Windows takes for another one: trailing dots or spaces (dropped), a `:` (an alternate data stream of the
+/// file before it), an 8.3 short name (`GIT~1`). Lexically it is not the name it reaches, so no rule on names can
+/// hold for it.
+fn windows_alias(name: &str) -> bool {
+    let short = name
+        .char_indices()
+        .any(|(i, c)| c == '~' && name[i + 1..].starts_with(|d: char| d.is_ascii_digit()));
+    name.ends_with(['.', ' ']) || name.contains(':') || short
+}
+
+/// Why a write to the absolute, lexically normalised `p` inside `root` is refused, if it is: `.git` is read-only (the
+/// orchestrator owns commits, refs, hooks and config; a hook or `core.fsmonitor` written there runs on the host at
+/// the next git call), under every name that reaches it — the path's own components, and the canonical form of its
+/// existing part (a short name, a link). On Windows a name below the root that is an alias of another one is refused
+/// outright (the root's own names are the user's: a temp folder is often `QUANGH~1`). The same rule holds for the
+/// file tools of vendor CLIs (agenium-cli-backend).
+pub fn write_refusal(root: &Path, p: &Path) -> Option<ToolError> {
+    let names_git = |p: &Path| {
+        p.components()
+            .any(|c| matches!(c, Component::Normal(n) if is_git(n)))
+    };
+    if names_git(p) || resolve_existing(p).is_some_and(|r| names_git(&r)) {
+        return Some(ToolError::new(
+            "read_only",
+            ".git is read-only; the orchestrator manages commits and refs",
+        ));
+    }
+    let below = |r: &Path| {
+        key(p)
+            .strip_prefix(&format!("{}/", key(r)))
+            .map(str::to_owned)
+    };
+    let rel = below(root)
+        .or_else(|| resolve_existing(root).and_then(|c| below(&c)))
+        .unwrap_or_default();
+    if cfg!(windows) && rel.split('/').any(windows_alias) {
+        return Some(ToolError::new(
+            "invalid_path",
+            format!(
+                "{} has a name Windows reads as another one (trailing dot or space, ':' or an 8.3 short name like \
+                 NAME~1); use the plain name",
+                p.display()
+            ),
+        ));
+    }
+    None
 }
 
 /// Resolves a tool path. `write` additionally forbids `.git` and requires the worktree root.
@@ -98,15 +173,8 @@ pub fn resolve(
             format!("{raw} is outside your worktree; to touch other paths use request_permission (kind=path)"),
         ));
     }
-    if write
-        && norm
-            .components()
-            .any(|c| c.as_os_str().to_string_lossy().eq_ignore_ascii_case(".git"))
-    {
-        return Err(ToolError::new(
-            "read_only",
-            ".git is read-only; the orchestrator manages commits and refs",
-        ));
+    if let Some(e) = write.then(|| write_refusal(root, &norm)).flatten() {
+        return Err(e);
     }
     Ok(norm)
 }
@@ -312,6 +380,96 @@ mod tests {
         let root = tmp.path().join("link").join("wt");
         assert!(confined(&root.join("src").join("a.rs"), &root));
         assert!(!confined(&tmp.path().join("real").join("x.rs"), &root));
+    }
+
+    /// A link, or `false` when this machine may not make one (Windows without the symlink privilege).
+    fn link(target: &Path, link: &Path, dir: bool) -> bool {
+        #[cfg(unix)]
+        let made = {
+            let _ = dir;
+            std::os::unix::fs::symlink(target, link)
+        };
+        #[cfg(windows)]
+        let made = if dir {
+            std::os::windows::fs::symlink_dir(target, link)
+        } else {
+            std::os::windows::fs::symlink_file(target, link)
+        };
+        made.is_ok()
+    }
+
+    /// Review of 2026-10-27: Windows reads `.git.`, `.git ` and `.git::$INDEX_ALLOCATION` as `.git`, and the test on
+    /// the raw component let `write_file(".git./hooks/post-commit")` through to the real hooks folder.
+    #[cfg(windows)]
+    #[test]
+    fn every_windows_name_of_dot_git_is_read_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("wt");
+        std::fs::create_dir_all(root.join(".git").join("hooks")).unwrap();
+        for p in [
+            ".git./hooks/post-commit",
+            ".git /hooks/post-commit",
+            ".git::$INDEX_ALLOCATION/hooks/post-commit",
+            "sub/.GIT../config",
+        ] {
+            assert_eq!(
+                resolve(&root, &[], p, true).unwrap_err().code,
+                "read_only",
+                "{p}"
+            );
+        }
+        // The 8.3 name reaches `.git` when the volume has short names; it is refused either way.
+        assert!(resolve(&root, &[], "GIT~1/hooks/post-commit", true).is_err());
+        for p in ["notes.txt.", "a.txt:hidden", "DOCUME~1/x.md"] {
+            assert_eq!(
+                resolve(&root, &[], p, true).unwrap_err().code,
+                "invalid_path",
+                "{p}"
+            );
+        }
+        assert!(resolve(&root, &[], "src/a~b.txt", true).is_ok());
+        assert!(
+            resolve(&root, &[], "GIT~1/hooks/x", false).is_ok(),
+            "reading is fine"
+        );
+    }
+
+    /// `.git` reached through a link inside the worktree is `.git`.
+    #[test]
+    fn dot_git_through_a_link_is_read_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("wt");
+        std::fs::create_dir_all(root.join(".git").join("hooks")).unwrap();
+        if !link(&root.join(".git"), &root.join("g"), true) {
+            return;
+        }
+        assert_eq!(
+            resolve(&root, &[], "g/hooks/post-commit", true)
+                .unwrap_err()
+                .code,
+            "read_only"
+        );
+    }
+
+    /// Review of 2026-10-27: a dangling link counted as a new file inside the worktree (`exists()` follows links), and
+    /// `fs::write` through it created its target outside (Linux/macOS).
+    #[test]
+    fn a_dangling_link_is_not_a_new_file_inside_the_root() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("wt");
+        std::fs::create_dir_all(&root).unwrap();
+        let planted = tmp.path().join("planted.txt");
+        if !link(&planted, &root.join("notes.txt"), false) {
+            return;
+        }
+        for write in [true, false] {
+            assert_eq!(
+                resolve(&root, &[], "notes.txt", write).unwrap_err().code,
+                "out_of_scope"
+            );
+        }
+        assert!(!confined(&root.join("notes.txt").join("x"), &root));
+        assert!(resolve(&root, &[], "other.txt", true).is_ok());
     }
 
     #[cfg(unix)]
