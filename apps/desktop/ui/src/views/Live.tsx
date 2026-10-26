@@ -298,12 +298,12 @@ function Delegations({ project, data, onWatch }: { project: string; data: LiveDa
                   <div className="h-1 flex-1 overflow-hidden rounded-full bg-line">
                     <ProgressBar value={PROGRESS[c.status]} className={c.status === "Pending" ? "bg-amber-500" : c.status === "Reopened" ? "bg-rose-500" : undefined} />
                   </div>
-                  <span className="text-[10px] text-subtle">@{c.assignee}</span>
+                  <span className="text-[11px] text-subtle">@{c.assignee}</span>
                   <TicketStatusBadge status={c.status} />
                 </div>
               </div>
               {w && (
-                <button className="btn shrink-0 px-2 py-1 text-[10px]" onClick={() => onWatch(w.agent.id)}>
+                <button className="btn shrink-0 px-2 py-1 text-[11px]" onClick={() => onWatch(w.agent.id)}>
                   <Eye className="h-3 w-3" /> {app.t("live.watch")}
                 </button>
               )}
@@ -358,7 +358,7 @@ function WorkerBus({ agent, lead, stream }: { agent: LiveAgent; lead?: string | 
                 <b>{agent.agent.name}</b>
                 <Mono className="text-cyan-600 dark:text-cyan-400">{it.ticket}</Mono>
                 <TicketStatusBadge status={it.status} />
-                <span className="ml-auto text-[10px] text-subtle">{ago(it.at)}</span>
+                <span className="ml-auto text-[11px] text-subtle">{ago(it.at)}</span>
               </div>
               <div className="mt-1.5 text-xs font-semibold">{it.title}</div>
               <div className="mt-1 line-clamp-4 text-[11px] text-muted">{it.description}</div>
@@ -380,7 +380,7 @@ function WorkerBus({ agent, lead, stream }: { agent: LiveAgent; lead?: string | 
                 <span className="chip border-line-strong text-muted">{it.kind}</span>
                 <Mono className="text-cyan-600 dark:text-cyan-400">{it.ticket}</Mono>
                 {it.resolved && <CircleCheck className="h-3 w-3 text-emerald-500" />}
-                <span className="ml-auto text-[10px] text-subtle">{ago(it.at)}</span>
+                <span className="ml-auto text-[11px] text-subtle">{ago(it.at)}</span>
               </div>
               {it.kind === "Report" && it.body.data?.criteria ? (
                 <div className="mt-1.5 space-y-1">
@@ -428,9 +428,9 @@ function CallRow({ e, open: start = false }: { e: LogEntry; open?: boolean }) {
       {open && (
         <div className="space-y-1.5 border-t border-line p-2.5">
           <div className="label">Args</div>
-          <pre className="max-h-40 overflow-auto rounded bg-elevated p-2 font-mono text-[10px]">{JSON.stringify(e.data.args, null, 2)}</pre>
+          <pre className="max-h-40 overflow-auto rounded bg-elevated p-2 font-mono text-[11px]">{JSON.stringify(e.data.args, null, 2)}</pre>
           <div className="label">Out</div>
-          <pre className={cn("max-h-56 overflow-auto whitespace-pre-wrap rounded p-2 font-mono text-[10px]", SHELL.has(c.name) ? "bg-[#0a0e14] text-zinc-300" : ok ? "bg-elevated" : "bg-rose-500/10 text-rose-600 dark:text-rose-300")}>
+          <pre className={cn("max-h-56 overflow-auto whitespace-pre-wrap rounded p-2 font-mono text-[11px]", SHELL.has(c.name) ? "bg-[#0a0e14] text-zinc-300" : ok ? "bg-elevated" : "bg-rose-500/10 text-rose-600 dark:text-rose-300")}>
             {String(e.data.result ?? "")}
           </pre>
         </div>
@@ -489,7 +489,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
               {k === "lead" ? <Crown className="h-3.5 w-3.5 text-amber-500" /> : <Bot className="h-3.5 w-3.5 text-muted" />}
               <span className="truncate text-sm font-semibold">{a.agent.name}</span>
               {k === "worker" && <Lock className="h-3 w-3 text-subtle" />}
-              <span className={cn("ml-1 flex items-center gap-1 font-mono text-[10px] font-semibold", status[1])}>
+              <span className={cn("ml-1 flex items-center gap-1 font-mono text-[11px] font-semibold", status[1])}>
                 <Dot a={act?.activity ?? "idle"} /> {status[0]}
               </span>
             </div>
@@ -513,7 +513,7 @@ function Dock({ a, data, act, prefill, onPick, onAskLead }: { a: LiveAgent; data
               · {a.agent.role}
             </div>
           </div>
-          <button className="btn px-2 py-1 text-[10px]" onClick={() => app.go("agent", a.agent.id)}>
+          <button className="btn px-2 py-1 text-[11px]" onClick={() => app.go("agent", a.agent.id)}>
             {app.t("live.profile")}
           </button>
         </div>
@@ -725,7 +725,7 @@ function PlanList({ project, data }: { project?: string | null; data: LiveData }
                             {i.tickets.map(([key, st]) => {
                               const c = cards.get(key);
                               return (
-                                <div key={key} className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                                <div key={key} className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
                                   <Mono className="text-cyan-600 dark:text-cyan-400">{key}</Mono>
                                   <TicketStatusBadge status={st} />
                                   {c?.assignee && <span className="text-muted">@{c.assignee}</span>}
@@ -990,7 +990,7 @@ export function LiveView() {
             <button key={r.id} onClick={() => setRoom(r.id)} className={cn("press flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs", on ? "bg-blue-600/15 font-semibold text-blue-600 dark:text-blue-400" : "text-muted hover:bg-elevated")}>
               {r.id === "solo" ? <Building2 className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
               {r.name}
-              <span className="font-mono text-[10px] text-subtle">({r.members.length})</span>
+              <span className="font-mono text-[11px] text-subtle">({r.members.length})</span>
               {busy > 0 && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />}
             </button>
           );
@@ -1020,7 +1020,7 @@ export function LiveView() {
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
                       <b>{r.name}</b>
                       <span className="text-subtle">{r.sub}</span>
-                      <span className="ml-auto font-mono text-[10px] text-subtle">
+                      <span className="ml-auto font-mono text-[11px] text-subtle">
                         {busyIn(r)}/{r.members.length}
                       </span>
                     </button>
@@ -1056,7 +1056,7 @@ export function LiveView() {
                   </div>
                   <div className="min-h-0 flex-1 overflow-auto p-3">
                     <PixelOffice key={current.id} agents={officeOf(current)} lead={current.lead} deskless={current.deskless} selected={focus} onSelect={pick} flights={flights} reduceMotion={!!reduce} zoom={zoom ?? undefined} signs={signsOf(current)} flows={flowsOf(current)} board={boards[current.id]} />
-                    <div className="mt-1.5 text-center text-[10px] leading-snug text-subtle">{app.t("live.officeNote")}</div>
+                    <div className="mt-1.5 text-center text-[11px] leading-snug text-subtle">{app.t("live.officeNote")}</div>
                   </div>
                 </>
               )
@@ -1065,7 +1065,7 @@ export function LiveView() {
               <div className="flex items-center gap-2 border-b border-line px-3 py-1.5 text-[11px]">
                 <ScrollText className="h-3 w-3 text-muted" />
                 <b>{app.t("live.roomLog")}</b>
-                <span className="text-[10px] text-subtle">{cctv ? app.t("live.allRooms") : current?.name}</span>
+                <span className="text-[11px] text-subtle">{cctv ? app.t("live.allRooms") : current?.name}</span>
               </div>
               <div className="min-h-0 flex-1">
                 <RoomLog lines={roomLog} />
@@ -1084,7 +1084,7 @@ export function LiveView() {
                   { value: "plan", label: <><ListChecks className="h-3 w-3" /> Plan</> },
                 ]}
               />
-              <span className="truncate text-[10px] text-subtle">{side === "agent" ? selected?.agent.name : (current?.name ?? selected?.project_name)}</span>
+              <span className="truncate text-[11px] text-subtle">{side === "agent" ? selected?.agent.name : (current?.name ?? selected?.project_name)}</span>
             </div>
             <PanelSwap id={side} className="flex min-h-0 flex-1 flex-col">
               {side === "plan" ? (

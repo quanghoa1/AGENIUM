@@ -72,14 +72,14 @@ function Segment({ u, open, onOpen, onRefresh, onReadNow, busy }: { u: VendorUsa
         <div className="absolute bottom-full right-0 z-30 mb-1.5 w-72 rounded-xl border border-line-strong bg-surface p-3 text-xs shadow-xl">
           <div className="flex items-center gap-2">
             <span className="font-semibold">{vendorName(u.vendor)}</span>
-            {u.plan && <span className="chip border-line-strong px-1.5 py-0 text-[10px] uppercase text-muted">{u.plan}</span>}
+            {u.plan && <span className="chip border-line-strong px-1.5 py-0 text-[11px] uppercase text-muted">{u.plan}</span>}
             {!onReadNow && (
               <button className="ml-auto rounded p-1 text-subtle hover:bg-elevated hover:text-fg" title={t("footer.refresh")} onClick={onRefresh} disabled={busy}>
                 <RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} />
               </button>
             )}
           </div>
-          <div className="mt-0.5 text-[10px] text-subtle">{u.updated_at ? `${t("footer.updated")} ${ago(u.updated_at)}` : t("footer.never")}</div>
+          <div className="mt-0.5 text-[11px] text-subtle">{u.updated_at ? `${t("footer.updated")} ${ago(u.updated_at)}` : t("footer.never")}</div>
           <div className="mt-2.5 space-y-2">
             {u.windows.map((w) => (
               <div key={w.window}>
@@ -89,7 +89,7 @@ function Segment({ u, open, onOpen, onRefresh, onReadNow, busy }: { u: VendorUsa
                 </div>
                 <Bar p={w.used_percent} className="mt-1 w-full" />
                 {w.resets_at && (
-                  <div className="mt-0.5 text-[10px] text-subtle">
+                  <div className="mt-0.5 text-[11px] text-subtle">
                     {t("footer.resetsIn")} {until(w.resets_at)} · {new Date(w.resets_at).toLocaleString()}
                   </div>
                 )}

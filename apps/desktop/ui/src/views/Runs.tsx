@@ -207,7 +207,7 @@ export function RunView({ id }: { id: string }) {
         <div className="space-y-2">
           {d.log.map((e) =>
             raw ? (
-              <pre key={e.n} className="overflow-x-auto rounded-md bg-background p-2 font-mono text-[10px]">
+              <pre key={e.n} className="overflow-x-auto rounded-md bg-background p-2 font-mono text-[11px]">
                 {JSON.stringify(e, null, 2)}
               </pre>
             ) : (

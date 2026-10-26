@@ -101,10 +101,10 @@ export function TemplatesView() {
                     {r.planner ? "planner" : r.kind}
                     {r.count > 1 ? ` ×${r.count}` : ""}
                   </span>
-                  {r.default_model && <span className="truncate font-mono text-[10px] text-subtle">{r.default_model}</span>}
+                  {r.default_model && <span className="truncate font-mono text-[11px] text-subtle">{r.default_model}</span>}
                 </div>
                 <div className="mt-1.5 line-clamp-4 whitespace-pre-line text-[11px] text-subtle">{r.prompt}</div>
-                {r.allowed_paths.length > 0 && <div className="mt-2 font-mono text-[10px] text-muted">scope: {r.allowed_paths.join(", ")}</div>}
+                {r.allowed_paths.length > 0 && <div className="mt-2 font-mono text-[11px] text-muted">scope: {r.allowed_paths.join(", ")}</div>}
               </div>
             ))}
           </div>
@@ -247,7 +247,7 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
         <label className="mt-3 block text-xs">
           <span className="label">{app.t("templates.preMerge")}</span>
           <input className="input mt-1 font-mono" placeholder="cargo test" value={t.pre_merge ?? ""} onChange={(e) => setT({ ...t, pre_merge: e.target.value })} />
-          <span className="mt-1 block text-[10px] text-subtle">{app.t("templates.preMergeNote")}</span>
+          <span className="mt-1 block text-[11px] text-subtle">{app.t("templates.preMergeNote")}</span>
         </label>
       </Section>
       <Section title={`${app.t("templates.roles")} (${t.roles.length})`}>

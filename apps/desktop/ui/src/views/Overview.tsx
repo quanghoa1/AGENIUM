@@ -141,6 +141,16 @@ export function OverviewView() {
 
       <Section title={app.t("overview.recent")}>
         <table className="w-full text-xs">
+          <thead>
+            <tr className="label border-b border-line text-left">
+              <th className="py-2 pr-3">{app.t("runs.outcome")}</th>
+              <th className="pr-3">{app.t("runs.agent")}</th>
+              <th className="pr-3">{app.t("common.model")}</th>
+              <th className="pr-3">{app.t("runs.steps")}</th>
+              <th className="pr-3">{app.t("ticket.tokens")}</th>
+              <th className="text-right">{app.t("runs.started")}</th>
+            </tr>
+          </thead>
           <tbody className="divide-y divide-line">
             {o.recent_runs.map((r) => (
               <tr key={r.id} className="cursor-pointer hover:bg-elevated/60" onClick={() => app.go("run", r.id)}>
@@ -149,7 +159,7 @@ export function OverviewView() {
                 </td>
                 <td className="pr-3 font-medium">{r.agent_name}</td>
                 <td className="pr-3 text-muted">{r.model}</td>
-                <td className="pr-3 font-mono text-subtle">{r.steps} steps</td>
+                <td className="pr-3 font-mono text-subtle">{r.steps}</td>
                 <td className="pr-3 font-mono text-subtle">{tokens(r.usage.tokens_in + r.usage.tokens_out)}</td>
                 <td className="text-right font-mono text-subtle">{ago(r.started_at)}</td>
               </tr>

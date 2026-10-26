@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
 import { PageEnter } from "./components/motion";
 import { Shell } from "./components/Shell";
+// The UI and code fonts ship with the app (OFL; Latin, Vietnamese and more subsets, loaded on demand).
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
 import { AgentView, AgentsView, ProjectsView, TeamsView } from "./views/Organize";

@@ -428,7 +428,7 @@ function McpKeys({ agent }: { agent: string }) {
                 <Mono className="text-subtle">{r.name}</Mono>
                 <span className={cn("chip", r.own ? "border-accent/40 text-accent" : "border-line-strong text-muted")}>{r.own ? app.t("agents.ownKey") : app.t("agents.systemKey")}</span>
               </div>
-              <div className="mt-1 truncate font-mono text-[10px] text-subtle" title={r.system ?? ""}>
+              <div className="mt-1 truncate font-mono text-[11px] text-subtle" title={r.system ?? ""}>
                 {app.t("agents.systemKey")}: {r.system || "–"}
               </div>
             </div>
@@ -458,7 +458,7 @@ function Toggle({ on, onChange, title, sub }: { on: boolean; onChange: (v: boole
       </span>
       <span className="min-w-0">
         <span className="block truncate text-xs font-medium">{title}</span>
-        {sub && <span className="block truncate text-[10px] text-subtle">{sub}</span>}
+        {sub && <span className="block truncate text-[11px] text-subtle">{sub}</span>}
       </span>
     </button>
   );
@@ -970,7 +970,7 @@ export function AgentView({ id }: { id: string }) {
                   <Mono className="ml-auto text-subtle">{f.source}</Mono>
                 </div>
                 <div className="mt-1.5 text-xs">{f.text}</div>
-                <div className="mt-1 text-[10px] text-subtle">
+                <div className="mt-1 text-[11px] text-subtle">
                   {ago(f.created_at)}
                   {f.used_at ? ` · used ${ago(f.used_at)}` : ""}
                 </div>
@@ -1102,7 +1102,7 @@ function TeamComposer({ data, onDone }: { data: TeamsData; onDone: () => void })
                     <span className="truncate text-xs font-semibold">{a.name}</span>
                     {planner(a) && <span className="chip border-cyan-500/30 text-cyan-600 dark:text-cyan-300">planner</span>}
                   </div>
-                  <div className="truncate text-[10px] text-subtle">
+                  <div className="truncate text-[11px] text-subtle">
                     {a.role} · {a.backend === "Cli" ? `CLI:${a.model.provider}` : a.model.provider}/{a.model.model}
                   </div>
                 </div>
@@ -1294,7 +1294,7 @@ export function TeamsView() {
                           {isLead && <Crown className="h-3.5 w-3.5 text-purple-500" />}
                           <span className="truncate text-xs font-semibold hover:text-accent">{m.name}</span>
                         </div>
-                        <div className="truncate text-[10px] text-subtle">
+                        <div className="truncate text-[11px] text-subtle">
                           {m.role}
                           {plannerIds.has(m.id) ? " · planner" : ""}
                         </div>
@@ -1331,7 +1331,7 @@ export function TeamsView() {
                 </button>
               </div>
             )}
-            <div className="mt-2 text-[10px] text-subtle">{project_name ? `${app.t("teams.worksOn")} ${project_name}` : app.t("teams.noProjectNote")}</div>
+            <div className="mt-2 text-[11px] text-subtle">{project_name ? `${app.t("teams.worksOn")} ${project_name}` : app.t("teams.noProjectNote")}</div>
           </Section>
         );
       })}
@@ -1343,7 +1343,7 @@ export function TeamsView() {
                 <Avatar name={a.name} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-semibold">{a.name}</div>
-                  <div className="truncate text-[10px] text-subtle">{a.role}</div>
+                  <div className="truncate text-[11px] text-subtle">{a.role}</div>
                 </div>
                 <AgentStatusBadge status={a.status} />
               </button>

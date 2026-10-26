@@ -512,7 +512,7 @@ function SkillsPanel() {
       )}
       <Modal open={!!view} title={view?.name ?? ""} onClose={() => setView(null)}>
         <div className="max-h-[60vh] overflow-y-auto text-xs">{view && <Markdown text={view.body} />}</div>
-        {view && view.files.length > 0 && <div className="mt-3 font-mono text-[10px] text-subtle">{view.files.join(" · ")}</div>}
+        {view && view.files.length > 0 && <div className="mt-3 font-mono text-[11px] text-subtle">{view.files.join(" · ")}</div>}
       </Modal>
       <ConfirmModal
         open={!!del}

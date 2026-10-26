@@ -36,7 +36,7 @@ function FactRow({ f, hideBelow, onRetire }: { f: Fact; hideBelow: number; onRet
               {f.cue}
             </div>
           )}
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
             {scope.length === 0 ? (
               <span className="chip border-line-strong text-subtle">{app.t("memory.everywhere")}</span>
             ) : (
@@ -60,7 +60,7 @@ function FactRow({ f, hideBelow, onRetire }: { f: Fact; hideBelow: number; onRet
             </Mono>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 text-[10px] text-subtle">
+        <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-subtle">
           <span className="flex items-center gap-1.5" title={app.t("memory.confidenceHint")}>
             {app.t("memory.confidence")} <Bar value={f.confidence} tone="bg-blue-500" /> <Mono>{Math.round(f.confidence * 100)}%</Mono>
           </span>
@@ -72,7 +72,7 @@ function FactRow({ f, hideBelow, onRetire }: { f: Fact; hideBelow: number; onRet
           </button>
         </div>
       </div>
-      {f.evidence && <div className="mt-2 border-t border-line pt-1.5 text-[10px] text-subtle">{f.evidence}</div>}
+      {f.evidence && <div className="mt-2 border-t border-line pt-1.5 text-[11px] text-subtle">{f.evidence}</div>}
     </div>
   );
 }
@@ -162,10 +162,10 @@ export function MemoryView() {
                 onClick={() => setAgent(a.agent.id)}
                 className={cn("flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs", a.agent.id === agent ? "bg-blue-600/15 text-blue-600 dark:text-blue-400" : "hover:bg-elevated")}
               >
-                <Avatar name={a.agent.name} className="h-7 w-7 text-[10px]" />
+                <Avatar name={a.agent.name} className="h-7 w-7 text-[11px]" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{a.agent.name}</span>
-                  <span className="block truncate text-[10px] text-subtle">
+                  <span className="block truncate text-[11px] text-subtle">
                     {a.agent.role}
                     {a.team ? ` · ${a.team}` : ""}
                   </span>

@@ -17,7 +17,7 @@ export default function Terminal({ text }: { text: string }) {
       disableStdin: true,
       convertEol: true,
       cursorBlink: false,
-      fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
+      fontFamily: '"JetBrains Mono Variable", "Cascadia Mono", Consolas, monospace',
       fontSize: 12,
       scrollback: 20_000,
       theme: THEME,

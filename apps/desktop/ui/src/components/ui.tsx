@@ -52,7 +52,7 @@ const agentTone: Record<AgentStatus, [string, ReactNode]> = {
 export function AgentStatusBadge({ status }: { status: AgentStatus }) {
   const [tone, icon] = agentTone[status] ?? agentTone.Offline;
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium", tone)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", tone)}>
       {icon}
       {status === "QuotaExhausted" ? "Quota exhausted" : status}
     </span>
@@ -91,7 +91,7 @@ export function PriorityBadge({ p }: { p: number }) {
 
 /** A model whose catalogue price is 0 for input and output. */
 export function FreeTag({ className }: { className?: string }) {
-  return <span className={cn("chip border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0 text-[10px] font-bold text-emerald-600 dark:text-emerald-300", className)}>FREE</span>;
+  return <span className={cn("chip border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0 text-[11px] font-bold text-emerald-600 dark:text-emerald-300", className)}>FREE</span>;
 }
 
 export function RuntimeBadge({ backend, model }: { backend: BackendKind; model: ModelBinding }) {
@@ -152,8 +152,8 @@ export function PageHeader({ title, sub, children }: { title: string; sub?: stri
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
-        {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {sub && <p className="mt-1 text-[13px] text-muted">{sub}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>

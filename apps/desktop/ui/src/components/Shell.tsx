@@ -129,9 +129,9 @@ export function Shell({ children }: { children: ReactNode }) {
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-bold tracking-tight">AGENIUM</span>
-                  <span className="rounded border border-blue-500/30 bg-blue-500/15 px-1.5 font-mono text-[10px] text-blue-500">v{app.status?.version ?? "0.1"}</span>
+                  <span className="rounded border border-blue-500/30 bg-blue-500/15 px-1.5 font-mono text-[11px] text-blue-500">v{app.status?.version ?? "0.1"}</span>
                 </div>
-                <p className="truncate text-[10px] text-subtle">{t("brand.sub")}</p>
+                <p className="truncate text-[11px] text-subtle">{t("brand.sub")}</p>
               </div>
             )}
           </button>
@@ -141,7 +141,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         {!collapsed && (
           <div className="border-b border-line p-3">
-            <button onClick={() => go("chat")} className="btn-primary w-full justify-center">
+            <button onClick={() => go("chat")} className="btn-primary btn-lg w-full justify-center">
               <MessageSquare className="h-3.5 w-3.5" />
               {t("top.talk")}
             </button>
@@ -173,7 +173,7 @@ export function Shell({ children }: { children: ReactNode }) {
                     {!collapsed && it.badge !== undefined && (
                       <CountBadge
                         count={it.badge}
-                        className={cn("relative z-10 min-w-[1.5rem] rounded border px-1.5 font-mono text-[10px]", it.tone ? badgeTone[it.tone] : "border-line-strong bg-elevated text-subtle")}
+                        className={cn("relative z-10 min-w-[1.5rem] rounded border px-1.5 font-mono text-[11px]", it.tone ? badgeTone[it.tone] : "border-line-strong bg-elevated text-subtle")}
                       />
                     )}
                   </button>
@@ -188,7 +188,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
           <div className="flex items-center gap-2">
             <span className="label">{t("top.project")}</span>
-            <select className="input w-44 py-1" value={app.project ?? ""} onChange={(e) => app.setProject(e.target.value || null)}>
+            <select className="input w-52" value={app.project ?? ""} onChange={(e) => app.setProject(e.target.value || null)}>
               {app.projects.length === 0 && <option value="">–</option>}
               {app.projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -198,11 +198,12 @@ export function Shell({ children }: { children: ReactNode }) {
             </select>
           </div>
           {!inTauri && <span className="chip border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300">{t("top.demo")}</span>}
-          <button onClick={() => setPalette(true)} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-background px-3 py-1.5 text-left text-xs text-subtle hover:border-line-strong">
+          <button onClick={() => setPalette(true)} className="flex min-w-0 max-w-lg flex-1 items-center gap-2 rounded-lg border border-line bg-background px-3 py-[7px] text-left text-xs text-subtle hover:border-line-strong">
             <Search className="h-3.5 w-3.5" />
             <span className="truncate">{t("top.search")}</span>
-            <kbd className="ml-auto rounded border border-line-strong px-1 font-mono text-[10px]">Ctrl K</kbd>
+            <kbd className="ml-auto rounded border border-line-strong px-1 font-mono text-[11px]">Ctrl K</kbd>
           </button>
+          <div className="flex-1" />
           <RunControl />
           <button
             onClick={() => {

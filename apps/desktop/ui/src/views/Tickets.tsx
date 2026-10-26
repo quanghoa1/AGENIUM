@@ -109,7 +109,7 @@ function Board({ project }: { project: string }) {
             className={cn(
               "flex flex-col rounded-xl border bg-surface/60 transition-all",
               // Every column the same width, whether it has cards or not.
-              "min-w-[200px] flex-1 basis-0",
+              "min-w-[256px] flex-1 basis-0",
               over === c.status && drag ? (allowed(drag.from, c.status) ? "border-accent bg-blue-600/5" : "border-rose-500/50") : "border-line",
             )}
           >
@@ -133,7 +133,7 @@ function Board({ project }: { project: string }) {
                     <PriorityBadge p={k.priority} />
                   </div>
                   <div className="mt-1.5 line-clamp-2 text-xs font-medium">{k.title}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-subtle">
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-subtle">
                     <span className="chip border-line-strong bg-elevated">{k.plan_item}</span>
                     {k.assignee && <span className="truncate">@{k.assignee}</span>}
                   </div>

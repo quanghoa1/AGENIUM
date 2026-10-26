@@ -5,8 +5,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "Segoe UI", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "Cascadia Mono", "Consolas", "monospace"],
+        sans: ["Inter Variable", "Inter", "Segoe UI", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", "Consolas", "monospace"],
       },
       colors: {
         background: "var(--bg-primary)",

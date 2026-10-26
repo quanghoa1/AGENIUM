@@ -23,7 +23,8 @@ html.dark {
   --border-strong: #2e374f;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  /* 5.5:1 on surfaces (WCAG AA for the 11 px labels), still below the secondary text's 7.1:1. */
+  --text-muted: #7e8fa6;
   color-scheme: dark;
 }
 
@@ -36,8 +37,9 @@ body,
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  font-size: 13px;
+  font-family: "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Press feedback: 0.97 for controls, 0.985 for cards and rows, on ease.out; hover
@@ -69,24 +71,31 @@ body {
 
 @layer components {
   .card {
-    @apply rounded-xl border border-line bg-surface;
+    @apply rounded-xl border border-line bg-surface shadow-sm dark:shadow-none;
   }
   .label {
-    @apply font-mono text-[10px] font-semibold uppercase tracking-wider text-subtle;
+    @apply font-mono text-[11px] font-semibold uppercase tracking-wider text-subtle;
   }
+  /* Controls are 32 px high; `.btn-lg` / `.input-lg` (36 px) are for a view's main action. */
   .btn {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-elevated px-2.5 py-1.5 text-xs font-medium text-fg hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-elevated px-2.5 py-[7px] text-xs font-medium text-fg hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-[7px] text-xs font-medium text-white shadow-sm hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-500/20 dark:text-rose-300;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-[7px] text-xs font-medium text-rose-600 hover:bg-rose-500/20 dark:text-rose-300;
+  }
+  .btn-lg {
+    @apply px-3.5 py-2 text-[13px] leading-5;
   }
   .input {
-    @apply w-full rounded-lg border border-line-strong bg-background px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-subtle focus:border-accent;
+    @apply w-full rounded-lg border border-line-strong bg-background px-2.5 py-[7px] text-xs text-fg outline-none placeholder:text-subtle focus:border-accent;
+  }
+  .input-lg {
+    @apply py-2 text-[13px] leading-5;
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium;
+    @apply inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] font-medium;
   }
 }

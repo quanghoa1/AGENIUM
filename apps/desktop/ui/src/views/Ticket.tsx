@@ -171,6 +171,15 @@ export function TicketView({ id }: { id: string }) {
           {tab === "audit" && (
             <div className="card overflow-x-auto">
               <table className="w-full text-xs">
+                <thead>
+                  <tr className="label border-b border-line text-left">
+                    <th className="px-3 py-2">{app.t("ticket.auditAt")}</th>
+                    <th className="px-3">{app.t("ticket.auditActor")}</th>
+                    <th className="px-3">{app.t("ticket.auditAction")}</th>
+                    <th className="px-3">{app.t("ticket.auditResult")}</th>
+                    <th className="px-3">{app.t("ticket.auditDetail")}</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-line">
                   {d.audit.map((e, i) => (
                     <tr key={i}>
@@ -178,7 +187,7 @@ export function TicketView({ id }: { id: string }) {
                       <td className="px-3 font-medium">{e.actor}</td>
                       <td className="px-3">{e.action}</td>
                       <td className="px-3">{e.accepted ? <span className="text-emerald-600 dark:text-emerald-400">{app.t("ticket.applied")}</span> : <span className="text-rose-600 dark:text-rose-400">{app.t("ticket.refused")}</span>}</td>
-                      <td className="max-w-[360px] truncate px-3 font-mono text-[10px] text-subtle" title={JSON.stringify(e.detail)}>
+                      <td className="max-w-[360px] truncate px-3 font-mono text-[11px] text-subtle" title={JSON.stringify(e.detail)}>
                         {JSON.stringify(e.detail)}
                       </td>
                     </tr>

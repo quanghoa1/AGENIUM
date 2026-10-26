@@ -49,7 +49,7 @@ export function AuditView() {
                 </td>
                 <td className="px-3">{e.action}</td>
                 <td className="px-3">{e.accepted ? <span className="text-emerald-600 dark:text-emerald-400">{app.t("ticket.applied")}</span> : <span className="text-rose-600 dark:text-rose-400">{app.t("ticket.refused")}</span>}</td>
-                <td className="max-w-[420px] truncate px-3 font-mono text-[10px] text-subtle" title={JSON.stringify(e.detail)}>
+                <td className="max-w-[420px] truncate px-3 font-mono text-[11px] text-subtle" title={JSON.stringify(e.detail)}>
                   {JSON.stringify(e.detail)}
                 </td>
               </tr>

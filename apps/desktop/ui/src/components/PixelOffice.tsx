@@ -221,12 +221,14 @@ function R(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: numb
 }
 
 function floor(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number) {
-  // Wooden planks, 4 px high, seams staggered by row.
+  // Long slate planks, 4 px high, joints staggered by row: the app's dark tones, so the warm desks and shelves stand
+  // out. Low-contrast seams keep it a floor, not a brick wall.
   for (let y = y0; y < y0 + h; y += 4) {
     const row = (y - y0) / 4;
-    R(g, x0, y, w, 4, row % 2 ? "#8f5734" : "#9a5f39");
-    R(g, x0, y + 3, w, 1, "#7a4a2c");
-    for (let x = x0 + ((row * 11) % 24); x < x0 + w; x += 24) R(g, x, y, 1, 3, "#7a4a2c");
+    R(g, x0, y, w, 4, row % 2 ? "#2b3244" : "#2e3548");
+    R(g, x0, y, w, 1, "#323a4e");
+    R(g, x0, y + 3, w, 1, "#272d3c");
+    for (let x = x0 + ((row * 23) % 56); x < x0 + w; x += 56) R(g, x, y + 1, 1, 2, "#262c3a");
   }
 }
 
@@ -449,6 +451,8 @@ function vendorChip(g: CanvasRenderingContext2D, rightX: number, cy: number, pro
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(v.initial[0], x + s / 2, y + s / 2 + 0.5);
+  // Back to the canvas default for whatever is drawn next (the whiteboard in the next frame).
+  g.textAlign = "left";
   return s + 1;
 }
 
@@ -459,6 +463,8 @@ function label(g: CanvasRenderingContext2D, cx: number, y: number, text: string,
   const x = Math.round(cx - w / 2);
   R(g, x, y, w, 6, bg);
   g.fillStyle = fg;
+  // Left-aligned: a vendor chip drawn before leaves the canvas centred, which pushed names out of their pill.
+  g.textAlign = "left";
   g.textBaseline = "top";
   g.fillText(t, x + 2, y + 1);
 }
@@ -905,12 +911,15 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
         const top = Math.round(w.y - 18) - (w.sitting === "desk" ? 3 : w.sitting === "sofa" ? 2 : 0);
         const lw = labelWidth(g, oa.agent.agent.name);
         const lx = Math.round(w.x - lw / 2);
+        // The name pill and the vendor chip left of it (8 px) take this box.
+        const bx = lx - 8;
+        const bw = lw + 8;
         let ly = top - 7;
-        while (placed.some((p) => lx < p.x + p.w + 1 && p.x < lx + lw + 1 && Math.abs(p.y - ly) < 7)) ly -= 7;
-        placed.push({ x: lx, y: ly, w: lw });
+        while (placed.some((p) => bx < p.x + p.w + 1 && p.x < bx + bw + 1 && Math.abs(p.y - ly) < 7)) ly -= 7;
+        placed.push({ x: bx, y: ly, w: bw });
         label(g, Math.round(w.x), ly, oa.agent.agent.name, id === selected ? "#2563eb" : "#111827e6", "#ffffff");
-        // The vendor behind this agent's model, as a small chip left of the name.
-        vendorChip(g, lx - 1, ly, oa.agent.agent.model.provider, oa.agent.agent.model.model);
+        // The vendor behind this agent's model, as a small chip left of the name, centred on the pill.
+        vendorChip(g, lx - 1, ly + 3, oa.agent.agent.model.provider, oa.agent.agent.model.model);
       }
       // envelopes between a Lead and a worker
       const now = performance.now();
@@ -961,7 +970,7 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
       {hovered && (
         <div className="pointer-events-none absolute z-10 max-w-xs rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-[11px] shadow-lg" style={{ left: Math.min(hover!.x + 12, width - 200), top: hover!.y + 12 }}>
           <div className="font-semibold">{hovered.agent.agent.name}</div>
-          <div className="truncate font-mono text-[10px] text-muted">{hovered.ticker}</div>
+          <div className="truncate font-mono text-[11px] text-muted">{hovered.ticker}</div>
         </div>
       )}
     </div>

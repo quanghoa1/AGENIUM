@@ -40,6 +40,7 @@ export default function MonacoDiff({ path, original, modified }: { path: string;
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       fontSize: 12,
+      fontFamily: '"JetBrains Mono Variable", "Cascadia Mono", Consolas, monospace',
       theme: dark() ? "vs-dark" : "vs",
     });
     ed.setModel({ original: a, modified: b });
