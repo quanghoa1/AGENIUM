@@ -156,8 +156,15 @@ impl Desktop {
 
     /// Opens the root (reconcile included) and builds the runtime; live run output goes to `agenium://run`.
     pub fn open(&self, handle: &AppHandle) -> R<Arc<Opened>> {
-        let keyring: Arc<dyn agenium_secrets::KeyringBackend> =
-            Arc::new(agenium_secrets::OsKeyring::default());
+        // UI tests (debug builds only): a vault key kept in memory, so a throwaway root leaves nothing in the OS
+        // keyring. A release build always uses the OS keyring.
+        let keyring: Arc<dyn agenium_secrets::KeyringBackend> = if cfg!(debug_assertions)
+            && std::env::var("AGENIUM_UI_TEST_KEYRING").as_deref() == Ok("memory")
+        {
+            Arc::new(agenium_secrets::MemoryKeyring::default())
+        } else {
+            Arc::new(agenium_secrets::OsKeyring::default())
+        };
         let (app, report) = App::open(
             &self.root,
             AppOptions {
