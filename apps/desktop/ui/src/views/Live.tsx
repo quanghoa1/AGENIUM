@@ -965,7 +965,8 @@ export function LiveView() {
   const roomLog = current ? log.filter((l) => (l.agent && current.members.includes(l.agent)) || (l.project && current.project === l.project)) : log;
 
   return (
-    <div className="-m-5 flex h-[calc(100%+2.5rem)] min-h-0 flex-col">
+    // Edge to edge over the page's padding; `overflow-x-clip` keeps a panel sliding in (PanelSwap) from scrolling the page sideways.
+    <div className="-m-5 flex h-[calc(100%+2.5rem)] min-h-0 flex-col overflow-x-clip">
       {/* top bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
         <Radio className="h-4 w-4 text-rose-500" />
