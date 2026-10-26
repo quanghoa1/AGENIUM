@@ -218,7 +218,7 @@ impl App {
                     comment: None,
                     created_at: spec.locked_at.clone().unwrap_or_default(),
                     text: format!(
-                        "Spec v{} is approved and plan v{} still follows spec v{}: revise_plan (base_version {}) so every requirement of the new spec has an item: keep the done items as they are and put new work in new items (new ids); items with open tickets stay (you approve it: the user agreed on the spec).{}",
+                        "Spec v{} is approved and plan v{} still follows spec v{}: revise_plan (base_version {}) so every requirement of the new spec has an item: keep the done items as they are and put new work in new items (new ids); items with open tickets stay (you approve it: the user agreed on the spec). The new items get new tickets (a closed ticket is never reopened); a new ticket that goes on from a closed one links to it with confirm_link (kind follow_up_of).{}",
                         spec.version,
                         plan.version,
                         plan.spec_version,

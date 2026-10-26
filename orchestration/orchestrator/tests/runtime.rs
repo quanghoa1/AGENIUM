@@ -217,6 +217,7 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
     let mut reused = items.clone();
     reused[0].title = "Write the farewell file".into();
     reused[0].trace_to.push("REQ-2".into());
+    reused.truncate(1);
     let err = app
         .apply(
             &lead,
@@ -224,7 +225,7 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
                 base_version: 1,
                 reason: "the farewell of spec v2".into(),
                 milestones: plan(&[]).milestones,
-                items: reused,
+                items: reused.clone(),
             }),
         )
         .unwrap_err();
@@ -233,10 +234,40 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
             .contains("plan item PI-1 is done (AGN-1 closed)"),
         "{err}"
     );
+    // A plan revised before that rule, with the new work under PI-1 (the showcase team's plan v2), is repaired by
+    // giving PI-1 back what it read in v1 and the new work its own item.
+    use agenium_store::core::plans::{self, PlanRow};
+    app.store()
+        .commit(None, "test", |w| {
+            plans::insert_plan(
+                w.tx,
+                &PlanRow {
+                    id: "legacy-v2".into(),
+                    project,
+                    version: 2,
+                    spec_version: 2,
+                    reason: Some("new work under PI-1".into()),
+                    diff: None,
+                    body: agenium_core::plan::TicketPlan {
+                        spec_version: 2,
+                        milestones: plan(&[]).milestones,
+                        items: reused.clone(),
+                    },
+                    proposed_by: "agent".into(),
+                    approved_by: Some("agent".into()),
+                },
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        app.run_state(project).unwrap(),
+        RunState::Done,
+        "the new work reads as done"
+    );
     app.apply(
         &lead,
         Intent::RevisePlan(PlanRevision {
-            base_version: 1,
+            base_version: 2,
             reason: "the farewell of spec v2".into(),
             milestones: plan(&[]).milestones,
             items,

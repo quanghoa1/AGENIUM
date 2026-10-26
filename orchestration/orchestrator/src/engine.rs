@@ -618,17 +618,31 @@ impl App {
                 }
             }
             // A done item (its tickets ended, one closed) keeps its work: new work under its id would count as done
-            // by the old tickets, and nobody would do it.
+            // by the old tickets, and nobody would do it. It may take back what it read in an earlier version (a
+            // revision that put new work there is repaired that way).
             for old in &base.body.items {
                 let of: Vec<_> = all.iter().filter(|t| t.plan_item == old.id && t.status != TicketStatus::Cancelled).collect();
                 let done = of.iter().all(|t| t.status.is_terminal()) && of.iter().any(|t| t.status == TicketStatus::Closed);
                 let Some(new) = rev.items.iter().find(|i| i.id == old.id) else {
                     continue;
                 };
-                if done && (new.title != old.title || new.acceptance != old.acceptance) {
+                let same = |i: &agenium_core::plan::PlanItem| i.title == new.title && i.acceptance == new.acceptance;
+                if !done || same(old) {
+                    continue;
+                }
+                let mut earlier = false;
+                for v in 1..base.version {
+                    if let Some(p) = plans::plan(w.tx, project, v)? {
+                        if p.body.items.iter().any(|i| i.id == old.id && same(i)) {
+                            earlier = true;
+                            break;
+                        }
+                    }
+                }
+                if !earlier {
                     let keys: Vec<String> = of.iter().map(|t| t.key.to_string()).collect();
                     return Err(invalid(format!(
-                        "plan item {} is done ({} closed): keep its title and acceptance as they are and put the new work in a new item",
+                        "plan item {} is done ({} closed): keep its title and acceptance (as now, or as in an earlier plan version) and put the new work in a new item",
                         old.id,
                         keys.join(", ")
                     )));

@@ -40,4 +40,7 @@ a declared team member started by the scheduler, not a subagent an agent spawns.
 - Only the initial plan is drafted by the planner: a new spec version on a project that already has a plan is the
   Lead's to revise. Once agreed, it is a Planning item in the Lead's inbox (`revise_plan` from the latest plan) and
   the project runs until the plan follows it (2026-10-27: a done project used to stay Done, so nothing planned the
-  user's next request; `runtime.rs::solo_agent_takes_a_request_to_a_closed_merged_ticket`).
+  user's next request; `runtime.rs::solo_agent_takes_a_request_to_a_closed_merged_ticket`). A done item keeps its
+  title and acceptance (as now, or as in an earlier plan version, which repairs a revision that put new work there):
+  new work is a new item with new tickets, a closed ticket is never reopened, and a new ticket that goes on from a
+  closed one is linked to it (`follow_up_of`).
