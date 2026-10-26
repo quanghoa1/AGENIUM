@@ -1,11 +1,15 @@
 //! Retry policy (decision 15): base 1 s doubling, cap 30 s, jitter, at most 8 attempts or 5 minutes; honours
-//! `retry-after`. A dropped stream resends the identical frozen request (history is append-only so it still hits
+//! `retry-after` up to [`MAX_PROVIDER_DELAY`]. A dropped stream resends the identical frozen request (history is append-only so it still hits
 //! the cache). Exhausting the policy makes the agent Offline; quota errors make it QuotaExhausted.
 
 use std::future::Future;
 use std::time::{Duration, Instant};
 
 use crate::error::{classify, Classified, LlmError};
+
+/// The longest `retry-after` that is waited out (learned from pi: hour-long waits stalled runs). A provider that asks
+/// for longer is not called again now: the agent goes Offline and the background probe resumes it later.
+pub const MAX_PROVIDER_DELAY: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RetryPolicy {
@@ -48,7 +52,7 @@ impl RetryPolicy {
         let lo = exp / 2;
         let jittered = lo + (exp - lo).mul_f64(jitter01.clamp(0.0, 1.0));
         match retry_after {
-            Some(ra) => ra.max(jittered),
+            Some(ra) => ra.min(MAX_PROVIDER_DELAY).max(jittered),
             None => jittered,
         }
     }
@@ -76,6 +80,12 @@ impl RetryPolicy {
                 Err(e) => match classify(&e) {
                     Classified::Fatal => return Err(CallError::Fatal(e)),
                     Classified::Quota => return Err(CallError::Quota(e)),
+                    Classified::Retry(Some(ra)) if ra > MAX_PROVIDER_DELAY => {
+                        return Err(CallError::Offline {
+                            attempts: attempt + 1,
+                            last: e,
+                        });
+                    }
                     Classified::Retry(ra) => {
                         let d = self.delay(attempt, ra, rand::random::<f64>());
                         let elapsed = start.elapsed().max(slept);
@@ -121,6 +131,11 @@ mod tests {
         assert_eq!(
             p.delay(0, Some(Duration::from_secs(12)), 1.0),
             Duration::from_secs(12)
+        );
+        assert_eq!(
+            p.delay(0, Some(Duration::from_secs(3600)), 1.0),
+            MAX_PROVIDER_DELAY,
+            "a provider cannot stall a run for an hour"
         );
     }
 
@@ -171,7 +186,7 @@ mod tests {
 
     #[test]
     fn total_time_budget_and_non_retryable() {
-        // Two 4-minute retry-afters exceed the 5-minute total.
+        // A 4-minute retry-after is not waited out: Offline at once (the background probe resumes the agent).
         let p = RetryPolicy::default();
         let ra = LlmError::Http {
             status: 429,
@@ -189,7 +204,7 @@ mod tests {
             |_, _, _| {},
         ));
         assert!(
-            matches!(r, Err(CallError::Offline { attempts: 2, .. })),
+            matches!(r, Err(CallError::Offline { attempts: 1, .. })),
             "{r:?}"
         );
         let r: Result<(), _> =
