@@ -2,9 +2,10 @@
 //!
 //! * **Full** = a consistent snapshot image of each database (SQLite online-backup API), zstd-compressed, with
 //!   sha256 and a per-table logical content hash.
-//! * **Incremental** (core only) = zstd JSONL relative to a full: append-only tables (`event`, `intent`,
-//!   `run_log`) carry only rows past the base's cut; the small mutable tables are dumped whole. Restoring =
-//!   base snapshot + apply. Agent databases are snapshotted in full in every set (their incremental form is M1.5).
+//! * **Incremental** (core only) = zstd JSONL relative to a full: append-only tables (`event`, `intent`) carry
+//!   only rows past the base's cut; the mutable tables are dumped whole (`run_log` too: compaction deletes its rows,
+//!   ADR-76). Restoring = base snapshot + apply. Agent databases are snapshotted in full in every set (their
+//!   incremental form is M1.5).
 //! * Retention: 24 hourly / 7 daily / 4 weekly sets, plus the 3 newest pre-migrate snapshots.
 //! * Never contains secrets (they are not in any database) and never duplicates git content.
 
@@ -26,8 +27,10 @@ use crate::StoreError;
 pub const MANIFEST: &str = "manifest.json";
 const ZSTD_LEVEL: i32 = 3;
 
-/// Tables whose rows are never updated or deleted: incremental backups carry only new rows (by rowid).
-const APPEND_ONLY: &[&str] = &["event", "intent", "run_log"];
+/// Tables whose rows are never updated or deleted: incremental backups carry only new rows (by rowid). Not `run_log`:
+/// `runs::compact_logs` deletes rows of old runs and adds a marker, so an incremental that carried only rows past the
+/// cut restored the deleted rows and failed its content hash (and a reused rowid could fall below the cut).
+const APPEND_ONLY: &[&str] = &["event", "intent"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BackupKind {
@@ -77,6 +80,20 @@ pub(crate) fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
+/// The bytes of a hex string; `None` when its length is odd or a character is not a hex digit. Checked byte by byte:
+/// slicing the text two bytes at a time panicked on a malformed import file (odd length, or a non-ASCII character
+/// split in two).
+pub(crate) fn unhex(h: &str) -> Option<Vec<u8>> {
+    let digit = |c: u8| (c as char).to_digit(16);
+    let b = h.as_bytes();
+    if !b.len().is_multiple_of(2) {
+        return None;
+    }
+    b.chunks(2)
+        .map(|p| Some(((digit(p[0])? << 4) | digit(p[1])?) as u8))
+        .collect()
+}
+
 fn compress(src: &Path, dst: &Path) -> Result<(), StoreError> {
     let input = File::open(src).map_err(|e| StoreError::io(src, e))?;
     let out = File::create(dst).map_err(|e| StoreError::io(dst, e))?;
@@ -101,19 +118,53 @@ fn decompress(src: &Path, dst: &Path) -> Result<(), StoreError> {
         .map_err(|e| StoreError::io(dst, e))
 }
 
-/// Copies a consistent image of `src` into a new database file `dst` (rollback journal, not WAL).
+/// Runs `f` in one read transaction on `c` (every statement sees the same snapshot); a transaction the caller already
+/// holds is used as it is.
+fn in_read_tx<T>(
+    c: &Connection,
+    f: impl FnOnce(&Connection) -> Result<T, StoreError>,
+) -> Result<T, StoreError> {
+    if !c.is_autocommit() {
+        return f(c);
+    }
+    // `BEGIN` is deferred: the snapshot is taken by the first read.
+    c.execute_batch("BEGIN")?;
+    let r = c
+        .query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
+        .map_err(StoreError::from)
+        .and_then(|()| f(c));
+    let end = c.execute_batch("COMMIT");
+    let v = r?;
+    end?;
+    Ok(v)
+}
+
+/// Copies a consistent image of `src` into a new database file `dst` (rollback journal, not WAL). The copy runs in
+/// one read transaction on `src`: without one, the stepped online backup restarts whenever another connection
+/// commits between two steps, so under steady WAL writes it never finished.
 pub fn snapshot(src: &Connection, dst: &Path) -> Result<(), StoreError> {
+    snapshot_in_steps(src, dst, 1000, None)
+}
+
+fn snapshot_in_steps(
+    src: &Connection,
+    dst: &Path,
+    pages: i32,
+    progress: Option<fn(rusqlite::backup::Progress)>,
+) -> Result<(), StoreError> {
     register_sqlite_vec();
     if dst.exists() {
         fs::remove_file(dst).map_err(|e| StoreError::io(dst, e))?;
     }
-    let mut out = Connection::open(dst)?;
-    {
-        let b = Backup::new(src, &mut out)?;
-        b.run_to_completion(1000, std::time::Duration::ZERO, None)?;
-    }
-    out.pragma_update(None, "journal_mode", "DELETE")?;
-    Ok(())
+    in_read_tx(src, |src| {
+        let mut out = Connection::open(dst)?;
+        {
+            let b = Backup::new(src, &mut out)?;
+            b.run_to_completion(pages, std::time::Duration::ZERO, progress)?;
+        }
+        out.pragma_update(None, "journal_mode", "DELETE")?;
+        Ok(())
+    })
 }
 
 /// Names of virtual tables and their shadow tables (excluded from logical hashes; rebuilt by SQLite/extensions).
@@ -324,11 +375,14 @@ pub fn create_full_from(
     let mut entries = Vec::new();
     let mut cuts = BTreeMap::new();
     for (name, src) in dbs {
+        // The cuts and the image come from the same snapshot.
         let mut f = |c: &Connection| -> Result<DbEntry, StoreError> {
-            if name == "core" {
-                cuts = append_cuts(c)?;
-            }
-            snapshot_entry(c, name, &tmp_dir)
+            in_read_tx(c, |c| {
+                if name == "core" {
+                    cuts = append_cuts(c)?;
+                }
+                snapshot_entry(c, name, &tmp_dir)
+            })
         };
         let e = match src {
             Source::Open(db) => db.read(|c| f(c))?,
@@ -377,12 +431,7 @@ pub(crate) fn json_to_value(v: &serde_json::Value) -> Result<Value, StoreError> 
         }
         serde_json::Value::Object(o) if o.contains_key("b") => {
             let h = o["b"].as_str().unwrap_or_default();
-            let bytes = (0..h.len())
-                .step_by(2)
-                .map(|i| u8::from_str_radix(&h[i..i + 2], 16))
-                .collect::<Result<Vec<u8>, _>>()
-                .map_err(|_| StoreError::Corrupt("bad blob".into()))?;
-            Value::Blob(bytes)
+            Value::Blob(unhex(h).ok_or_else(|| StoreError::Corrupt("bad blob".into()))?)
         }
         other => {
             return Err(StoreError::Corrupt(format!(
@@ -418,7 +467,8 @@ pub fn create_incremental(
             let out = File::create(&path).map_err(|e| StoreError::io(&path, e))?;
             let mut enc = zstd::Encoder::new(BufWriter::new(out), ZSTD_LEVEL).map_err(|e| StoreError::io(&path, e))?;
             for t in logical_tables(c)? {
-                let cut = base.cuts.get(&t).copied();
+                // A full set made before `run_log` left APPEND_ONLY still has a cut for it: dump that table whole.
+                let cut = base.cuts.get(&t).copied().filter(|_| APPEND_ONLY.contains(&t.as_str()));
                 // Keep rowids (content hashes order by rowid) unless an INTEGER PRIMARY KEY already aliases it.
                 let explicit_rowid = !has_rowid_alias(c, &t)?;
                 let sel = if explicit_rowid { "rowid, *" } else { "*" };
@@ -721,4 +771,94 @@ pub fn prune(backups_dir: &Path, r: Retention) -> Result<Vec<String>, StoreError
         }
     }
     Ok(removed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A malformed blob in an import or incremental file is an error, never a panic (odd length; a non-ASCII
+    /// character that two-byte slicing split; a sign `from_str_radix` accepted).
+    #[test]
+    fn a_malformed_blob_is_an_error_not_a_panic() {
+        let blob = |h: &str| json_to_value(&serde_json::json!({ "b": h }));
+        assert_eq!(blob("00ff").unwrap(), Value::Blob(vec![0, 255]));
+        assert_eq!(blob("").unwrap(), Value::Blob(vec![]));
+        for bad in ["abc", "a\u{e9}a", "+f", "zz"] {
+            assert!(matches!(blob(bad), Err(StoreError::Corrupt(_))), "{bad:?}");
+        }
+    }
+
+    /// A snapshot of a database under steady writes is one pass, never restarted. Without one read transaction around
+    /// it, the stepped backup started over from the first page whenever a step saw new commits, and only got through
+    /// when a whole pass ran between two restarts (measured: 12 000 pages in 1000-page steps took 17 s, recopying the
+    /// first 1000 pages again and again; on this database dozens of restarts in 25 ms).
+    #[test]
+    fn a_snapshot_under_steady_writes_never_restarts() {
+        use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+        use std::sync::Arc;
+        use std::time::{Duration, Instant};
+
+        static LAST: AtomicI64 = AtomicI64::new(i64::MAX);
+        static RESTARTS: AtomicI64 = AtomicI64::new(0);
+        fn watch(p: rusqlite::backup::Progress) {
+            let remaining = i64::from(p.remaining);
+            if remaining > LAST.swap(remaining, Ordering::SeqCst) {
+                RESTARTS.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        // No write-path WAL gate: it pauses the writer once the WAL is large, which let a restarting backup through.
+        let opts = crate::db::DbOptions {
+            synchronous_full: false,
+            wal_limit_bytes: u64::MAX,
+            ..Default::default()
+        };
+        let db = Arc::new(
+            Db::open(&tmp.path().join("busy.db"), opts, |c| {
+                c.execute_batch("CREATE TABLE t (x BLOB) STRICT;")?;
+                Ok(())
+            })
+            .unwrap(),
+        );
+        // One row per page: ~2000 pages, 400 steps of 5 pages per pass.
+        db.write(|tx| -> Result<(), StoreError> {
+            for _ in 0..2000 {
+                tx.execute("INSERT INTO t (x) VALUES (zeroblob(3000))", [])?;
+            }
+            Ok(())
+        })
+        .unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let writer = {
+            let (db, stop) = (db.clone(), stop.clone());
+            std::thread::spawn(move || {
+                let start = Instant::now();
+                while !stop.load(Ordering::Relaxed) {
+                    if start.elapsed() > Duration::from_secs(10) {
+                        return false; // stopped writing before the snapshot finished
+                    }
+                    db.write(|tx| -> Result<(), StoreError> {
+                        tx.execute("INSERT INTO t (x) VALUES (x'00')", [])?;
+                        Ok(())
+                    })
+                    .unwrap();
+                }
+                true
+            })
+        };
+        std::thread::sleep(Duration::from_millis(50));
+        let copy = tmp.path().join("copy.db");
+        db.read(|c| snapshot_in_steps(c, &copy, 5, Some(watch)))
+            .unwrap();
+        stop.store(true, Ordering::Relaxed);
+        assert!(writer.join().unwrap(), "the writes went on throughout");
+        assert_eq!(RESTARTS.load(Ordering::SeqCst), 0, "the backup restarted");
+        let n: i64 = Connection::open(&copy)
+            .unwrap()
+            .query_row("SELECT count(*) FROM t", [], |r| r.get(0))
+            .unwrap();
+        assert!(n >= 2000, "{n}");
+    }
 }

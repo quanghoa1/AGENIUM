@@ -195,3 +195,103 @@ fn retention_keeps_24_hourly_7_daily_4_weekly_and_bases() {
         .unwrap()
         .is_empty());
 }
+
+/// Run-log compaction (ADR-76) deletes rows: an incremental made after it restores without them. It carried only the
+/// rows past the full's cut, so the restore kept the deleted rows and failed its content-hash check.
+#[test]
+fn an_incremental_after_run_log_compaction_restores() {
+    use agenium_core::{
+        now_iso, AgentId, AgentStatus, BackendKind, Effort, ModelBinding, RoleKind, RunId, TeamId,
+    };
+    use agenium_store::core::{agents, runs};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    let backups = root.join("backups");
+    let core = CoreStore::open(&root.join("db/core.db"), &backups).unwrap();
+    let team = agents::Team {
+        id: TeamId::new(),
+        name: "solo".into(),
+        template: "coding@1".into(),
+        project: None,
+        lead: None,
+        solo: true,
+        created_at: now_iso(),
+    };
+    let agent = agents::Agent {
+        id: AgentId::new(),
+        name: "ada".into(),
+        team: Some(team.id),
+        role: "lead".into(),
+        role_kind: RoleKind::Lead,
+        tags: vec![],
+        status: AgentStatus::Idle,
+        backend: BackendKind::Api,
+        model: ModelBinding {
+            provider: "mock".into(),
+            model: "m".into(),
+            effort: Effort::HIGH,
+            max_tokens: None,
+        },
+        mcp: serde_json::json!([]),
+        skills: vec![],
+        created_at: now_iso(),
+    };
+    let run = RunId::new();
+    core.commit(None, "system", |w| -> Result<(), StoreError> {
+        agents::insert_team(w.tx, &team)?;
+        agents::insert_agent(w.tx, &agent)?;
+        runs::insert(
+            w.tx,
+            &runs::Run {
+                id: run,
+                ticket: None,
+                agent: agent.id,
+                provider: "mock".into(),
+                model: "m".into(),
+                started_at: "2026-01-01T00:00:00.000Z".into(),
+                ended_at: Some("2026-01-01T00:01:00.000Z".into()),
+                outcome: Some("Completed".into()),
+                steps: 3,
+                usage: Default::default(),
+                heartbeat: None,
+            },
+        )?;
+        for i in 0..5 {
+            runs::log(w.tx, run, "llm", &serde_json::json!({ "call": i }))?;
+        }
+        Ok(())
+    })
+    .unwrap();
+    let t0 = Utc.with_ymd_and_hms(2026, 10, 23, 10, 0, 0).unwrap();
+    let (_, full) = backup::create_full(&backups, &[("core", core.db())], t0).unwrap();
+
+    let (compacted, removed) = core
+        .commit(None, "system", |w| {
+            runs::compact_logs(w.tx, "2026-06-01T00:00:00Z")
+        })
+        .unwrap()
+        .value;
+    assert_eq!((compacted, removed), (1, 5));
+    let (_, incr) = backup::create_incremental(
+        &backups,
+        &backups.join(&full.id),
+        core.db(),
+        t0 + Duration::hours(1),
+    )
+    .unwrap();
+    let live = core.read(backup::content_hash).unwrap();
+    assert_eq!(incr.dbs[0].tables, live);
+
+    let r = root.join("restore/db");
+    backup::restore(&backups, &incr.id, &r).unwrap();
+    let c = CoreStore::open(&r.join("core.db"), &root.join("restore/backups")).unwrap();
+    assert_eq!(c.read(backup::content_hash).unwrap(), live);
+    let kinds: Vec<String> = c
+        .read(|c| runs::log_entries(c, run))
+        .unwrap()
+        .into_iter()
+        .map(|e| e.kind)
+        .collect();
+    assert_eq!(kinds, ["compacted"]);
+}
