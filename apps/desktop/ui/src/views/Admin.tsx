@@ -204,9 +204,10 @@ function JudgeSection() {
         setForm({
           base_url: j.base_url || "https://api.typesafe.ai",
           model: j.model || "jev-1.14.0",
-          review_assist: j.configured ? j.review_assist : true,
+          // A first setup starts with the two uses measured to take work off the agents (docs/jev-comparison.md).
+          review_assist: j.review_assist,
           skill_hint: j.configured ? j.skill_hint : true,
-          memory_gate: j.memory_gate,
+          memory_gate: j.configured ? j.memory_gate : true,
           skill_quality: j.skill_quality,
         });
         setKey("");

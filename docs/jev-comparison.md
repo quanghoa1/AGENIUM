@@ -15,6 +15,18 @@ Jev is not an accuracy upgrade — it is a token offload that is at least as cor
 main agent's model is expensive or its context is tight; on a cheap model the dollar figure is small even though the
 token figure is large.
 
+## What each use has behind it (2026-10-27)
+
+| Use | Automated test (mock Jev) | With the real Jev | Value |
+|---|---|---|---|
+| `skill_hint` | `skill_hint_is_off_by_default_and_needs_two_skills`, `skill_hint_prepends_the_judges_pick` | offload measured (`jev_offload`, 12 real skills) | clearest: ~5–27k agent tokens per run when an agent has several skills |
+| `memory_gate` | `memory_gate_skips_only_on_a_confident_no` | offload measured; the `worth_remembering` shape in the A/B | saves the extraction call on routine tickets; never runs when the episode has a signal, shown memories or a reopen, so lessons are not skipped |
+| `review_assist` | `review_assist_reads_each_criterion_only_when_on` | the evidence-per-criterion shape in the A/B (accuracy tied with DeepSeek flash, calibration worse) | additive: a first opinion for the Lead, no tokens saved; better answers were not shown |
+| `skill_quality` | `skill_quality_is_off_by_default_and_reads_each_principle` | not run | advisory only; unmeasured |
+
+Not done for any use: a project run end to end with the judge on, to see the saving and any avoided reopen in real
+work. The settings page turns on `skill_hint` and `memory_gate` on a first setup; the other two stay off until chosen.
+
 ## Prices and assumptions
 
 - Agent model, cheap: `deepseek-v4.1-flash` — **$0.14 / 1M input, $0.28 / 1M output** (price catalogue, Oct 2026).

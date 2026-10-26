@@ -1684,6 +1684,76 @@ async fn skill_hint_prepends_the_judges_pick() {
     );
 }
 
+/// ADR-75: before a review the judge reads the worker's report against each criterion. Off by default; on, each
+/// criterion gets a verdict with its probability (found / unclear / no evidence) for the review task, and a criterion
+/// the judge did not answer is left out.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn review_assist_reads_each_criterion_only_when_on() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // A one-shot mock Jev that replies with the given answer body to the first request.
+    async fn mock(answer: &'static str) -> String {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = l.accept().await.unwrap();
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = sock.read(&mut buf).await.unwrap();
+                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let body = answer.as_bytes();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
+                body.len()
+            );
+            sock.write_all(resp.as_bytes()).await.unwrap();
+            sock.write_all(body).await.unwrap();
+            sock.flush().await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Write the greeting", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+    let ac = t.acceptance[0].id.clone();
+    let report = "Wrote deliverables/hello.txt with the greeting; read it back.";
+    assert!(
+        f.app.review_evidence(&t, report).await.is_none(),
+        "off by default"
+    );
+
+    let base = mock(r#"{"answers":{"AC-1":{"type":"noul","noul":0.92}}}"#).await;
+    f.app
+        .update_config(|c| {
+            c.judge = agenium_config::JudgeSection {
+                base_url: base,
+                model: "jev-latest".into(),
+                review_assist: true,
+                ..Default::default()
+            }
+        })
+        .unwrap();
+    let read = f.app.review_evidence(&t, report).await.expect("a read");
+    assert_eq!(ac, "AC-1");
+    assert!(read.contains("- AC-1: evidence found (92%)"), "{read}");
+
+    let base = mock(r#"{"answers":{"AC-1":{"type":"noul","noul":0.5}}}"#).await;
+    f.app.update_config(|c| c.judge.base_url = base).unwrap();
+    let read = f.app.review_evidence(&t, report).await.expect("a read");
+    assert!(read.contains("- AC-1: unclear (50%)"), "{read}");
+
+    let base = mock(r#"{"answers":{}}"#).await;
+    f.app.update_config(|c| c.judge.base_url = base).unwrap();
+    assert!(
+        f.app.review_evidence(&t, report).await.is_none(),
+        "no answer, no read"
+    );
+}
+
 /// ADR-85: the memory gate is fail-open. Off by default it returns None (extract as usual); on, it returns Some(false)
 /// only when the judge is confident nothing is worth remembering, Some(true) when it is, and None when unsure.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
