@@ -287,3 +287,64 @@ async fn a_delete_of_trusted_memory_needs_its_trusted_fact() {
     }
     assert!(!store.live(10).unwrap().iter().any(|f| f.id == pref.id));
 }
+
+/// A fact learned without a scope holds in its own project only; a preference is the user's and holds everywhere. A
+/// memory starts as sure as what backs it: accepted work above reopened work, the user's own chat words most.
+#[tokio::test]
+async fn an_unscoped_fact_stays_in_its_project_and_confidence_starts_from_the_evidence() {
+    use agenium_memory::retrieve::{recall, RecallContext};
+    let tmp = tempfile::tempdir().unwrap();
+    let e = HashEmbedder::new(384);
+    let store = AgentStore::open(
+        &tmp.path().join("a.db"),
+        384,
+        e.model_id(),
+        &tmp.path().join("b"),
+    )
+    .unwrap();
+    let p = ScriptedProvider::new("mock");
+    p.push_text(
+        "{\"facts\": [\
+         {\"text\": \"The build command of the shop repository is make shop.\", \"kind\": \"fact\"},\
+         {\"text\": \"The user wants the build command named in every report.\", \"kind\": \"preference\"}]}",
+    );
+    learn(&p, &model(), &store, &e, &episode("ticket:AGN-1"), &clean)
+        .await
+        .unwrap();
+    p.push_text("{\"facts\": [{\"text\": \"The user writes to the Lead in Vietnamese.\", \"kind\": \"preference\"}]}");
+    // The memory already holds facts, so the model decides: a new one.
+    p.push_text("{\"ops\": [{\"op\": \"ADD\", \"fact\": 0}]}");
+    learn(&p, &model(), &store, &e, &episode("chat:shop"), &clean)
+        .await
+        .unwrap();
+    let live = store.live(100).unwrap();
+    let conf = |t: &str| live.iter().find(|f| f.text.contains(t)).unwrap().confidence;
+    assert!((conf("make shop") - 0.6).abs() < 1e-9);
+    assert!((conf("Vietnamese") - 0.7).abs() < 1e-9);
+
+    let q = "build command";
+    let at = |project: &str| {
+        let ctx = RecallContext {
+            project: Some(project.into()),
+            scope: serde_json::json!({}),
+        };
+        recall(&store, &e, q, &ctx, 8)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.text)
+            .collect::<Vec<_>>()
+    };
+    let here = at("p1");
+    assert!(here.iter().any(|t| t.contains("make shop")), "{here:?}");
+    let elsewhere = at("p2");
+    assert!(
+        !elsewhere.iter().any(|t| t.contains("make shop")),
+        "{elsewhere:?}"
+    );
+    assert!(
+        elsewhere
+            .iter()
+            .any(|t| t.contains("named in every report")),
+        "{elsewhere:?}"
+    );
+}

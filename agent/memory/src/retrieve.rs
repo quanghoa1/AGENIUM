@@ -162,6 +162,9 @@ pub fn recall(
         if !f.is_live() || f.untrusted || f.weight < agenium_store::agent::HIDE_BELOW_WEIGHT {
             continue;
         }
+        if !holds_in_project(&f, ctx.project.as_deref()) {
+            continue;
+        }
         let item_scope = normalize_scope(&f.scope);
         let exact = item_scope
             .as_object()
@@ -232,6 +235,17 @@ pub fn recall(
     out.truncate(k - first.len());
     first.append(&mut out);
     Ok(first)
+}
+
+/// A fact without a scope holds in the project it was learned in (its commands, paths and conventions are that
+/// project's): another project's work never sees it. Preferences are the user's and lessons name their scope, so
+/// both hold wherever their scope does.
+fn holds_in_project(f: &Fact, project: Option<&str>) -> bool {
+    let unscoped = f.scope.as_object().is_none_or(|o| o.is_empty());
+    match (f.kind, f.project.as_deref(), project) {
+        (agenium_store::FactKind::Fact, Some(learned), Some(here)) if unscoped => learned == here,
+        _ => true,
+    }
 }
 
 /// How a recalled memory is shown to the work (decision 35): a lesson whose scope matches the work exactly is a rule,
