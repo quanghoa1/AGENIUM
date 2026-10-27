@@ -2,11 +2,36 @@ import { Users } from "lucide-react";
 import { ChatPane } from "../components/ChatPane";
 import { NeedsProject } from "../components/GettingStarted";
 import { PageHeader } from "../components/ui";
+import { useState } from "react";
 import { useApp } from "../lib/store";
+import type { Prefill } from "../components/ChatPane";
+
+const DRAFT = "agenium-chat-draft";
+
+/** Opens the chat with `text` ready to send (a follow-up on a closed ticket, more work on a done project). */
+export function askLead(go: (v: "chat") => void, text: string) {
+  try {
+    sessionStorage.setItem(DRAFT, text);
+  } catch {
+    /* the chat opens empty */
+  }
+  go("chat");
+}
+
+function takeDraft(): Prefill | null {
+  try {
+    const t = sessionStorage.getItem(DRAFT);
+    sessionStorage.removeItem(DRAFT);
+    return t ? { text: t, nonce: Date.now() } : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Talk to the project's Lead (or Solo agent) in your language: discovery, spec, plan, steering. */
 export function ChatView() {
   const app = useApp();
+  const [prefill] = useState(takeDraft);
   const p = app.projects.find((x) => x.id === app.project);
   if (!p) return <NeedsProject title={app.t("chat.title")} />;
   const lead = p.team ? (p.team.solo ? "Solo" : "Lead") : "–";
@@ -23,7 +48,7 @@ export function ChatView() {
         </div>
       )}
       <div className="card flex min-h-0 flex-1 flex-col">
-        <ChatPane key={p.id} project={p.id} agentName={p.team?.name ?? "lead"} agentId={p.team?.lead} enabled={!!p.team} />
+        <ChatPane key={p.id} project={p.id} agentName={p.team?.name ?? "lead"} agentId={p.team?.lead} enabled={!!p.team} prefill={prefill} />
       </div>
     </div>
   );

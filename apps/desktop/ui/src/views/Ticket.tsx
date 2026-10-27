@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Crown, FileCode2, GitBranch, HelpCircle, Lock, Maximize2, MessageSquare, Package, RotateCcw, Send, ShieldAlert, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Crown, FileCode2, GitBranch, HelpCircle, Lock, MessageSquare, MessageSquarePlus, Package, RotateCcw, Send, ShieldAlert, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { DiffView } from "../components/DiffView";
@@ -19,6 +19,7 @@ import {
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
+import { askLead } from "./Chat";
 import type { AgentEntry, CommentRow, TicketDetail } from "../lib/types";
 
 type Tab = "timeline" | "changes" | "runs" | "audit";
@@ -39,8 +40,7 @@ function linkLabel(t: (k: Key) => string, kind: string, out: boolean): string {
   return kind === "related_to" ? t("ticket.link.related_to") : t(`ticket.link.${kind}.${out ? "out" : "in"}` as Key);
 }
 
-/** A ticket's page; `onClose` set = shown in the board's popup (a Close button and a link to the full page instead of
- * the way back to the board). */
+/** A ticket's page; `onClose` set = shown in the board's popup (a Close button instead of the way back to the board). */
 export function TicketView({ id, onClose }: { id: string; onClose?: () => void }) {
   const app = useApp();
   const [d, setD] = useState<TicketDetail | null>(null);
@@ -142,9 +142,6 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
               <button className="btn" onClick={onClose} title="Esc">
                 <X className="h-3.5 w-3.5" /> {app.t("common.close")}
               </button>
-              <button className="btn" onClick={() => (onClose(), app.go("ticket", id))}>
-                <Maximize2 className="h-3.5 w-3.5" /> {app.t("tickets.openPage")}
-              </button>
             </>
           ) : (
             <button className="btn" onClick={() => app.go("tickets")}>
@@ -161,6 +158,16 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {t.status === "Closed" && (
+            // A closed ticket is never reopened: more work on it is a new ticket that follows it (ADR-59).
+            <button
+              className="btn"
+              title={app.t("ticket.closedNote")}
+              onClick={() => (onClose?.(), askLead(app.go, app.t("ticket.followUpDraft").replace("{k}", t.key)))}
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" /> {app.t("ticket.followUp")}
+            </button>
+          )}
           <TicketStatusBadge status={t.status} />
           {t.reopen_count > 0 && (
             <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300">

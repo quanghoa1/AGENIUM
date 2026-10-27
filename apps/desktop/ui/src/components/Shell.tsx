@@ -1,36 +1,9 @@
-import {
-  BarChart3,
-  Bell,
-  Bot,
-  Brain,
-  ChevronLeft,
-  ChevronRight,
-  Cpu,
-  FileClock,
-  FolderKanban,
-  KanbanSquare,
-  Layers,
-  LayoutDashboard,
-  MessageSquare,
-  Monitor,
-  Moon,
-  OctagonX,
-  Pause,
-  Play,
-  CheckCheck,
-  MessagesSquare,
-  Radio,
-  Search,
-  Settings,
-  Sun,
-  Terminal,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { BarChart3, Bell, Bot, Brain, CheckCheck, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Search, Settings, Sun, Terminal, Users, Wrench } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
 import { inTauri, useApp, useLive, type View } from "../lib/store";
+import { askLead } from "../views/Chat";
 import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
 import { Logo } from "./Logo";
@@ -87,6 +60,7 @@ export function Shell({ children }: { children: ReactNode }) {
         { id: "needs", label: "nav.needs", icon: <Bell className="h-4 w-4" />, badge: needs || undefined, tone: "amber" },
         { id: "tickets", label: "nav.tickets", icon: <KanbanSquare className="h-4 w-4" />, badge: current?.tickets || undefined, tone: "cyan" },
         { id: "runs", label: "nav.runs", icon: <Terminal className="h-4 w-4" /> },
+        { id: "browser", label: "nav.browser", icon: <Globe className="h-4 w-4" /> },
       ],
     },
     {
@@ -295,6 +269,12 @@ function RunControl() {
       {s === "Paused" && (
         <button className="btn-primary" onClick={() => act(api.resumeProject)}>
           <Play className="h-3.5 w-3.5" /> {app.t("run.resume")}
+        </button>
+      )}
+      {s === "Done" && (
+        // Done is not closed: a new request starts the team again (ADR-59 addendum).
+        <button className="btn" onClick={() => askLead(app.go, "")}>
+          <MessagesSquare className="h-3.5 w-3.5" /> {app.t("run.more")}
         </button>
       )}
     </div>

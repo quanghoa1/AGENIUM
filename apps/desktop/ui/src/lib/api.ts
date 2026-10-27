@@ -76,6 +76,15 @@ export const api = {
   retryEmbeddingModel: () => call<void>("retry_embedding_model"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setUnsandboxed: (on: boolean) => call<CommandPolicy>("set_unsandboxed", { on }),
+  // Preview browser (ADR-121): one native view per tab, placed over the page; logical pixels.
+  browserOpen: (tab: string, url: string, x: number, y: number, w: number, h: number) => call<void>("browser_open", { tab, url, x, y, w, h }),
+  browserBounds: (tab: string, x: number, y: number, w: number, h: number) => call<void>("browser_bounds", { tab, x, y, w, h }),
+  browserVisible: (tab: string, show: boolean) => call<void>("browser_visible", { tab, show }),
+  browserHideAll: () => call<void>("browser_hide_all"),
+  browserClose: (tab: string) => call<void>("browser_close", { tab }),
+  browserCloseAll: () => call<void>("browser_close_all"),
+  browserAction: (tab: string, action: "back" | "forward" | "reload" | "pick-on" | "pick-off") => call<void>("browser_action", { tab, action }),
+  browserUrl: (tab: string) => call<string | null>("browser_url", { tab }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
   overview: () => call<Overview>("overview"),
@@ -228,6 +237,21 @@ export async function onRun(f: (run: string, ev: any, agent: string | null) => v
   return listen<{ run: string; agent?: string | null; event: any }>("agenium://run", (e) =>
     f(e.payload.run, e.payload.event, e.payload.agent ?? null),
   );
+}
+
+/** The preview browser's events, per tab: its page changed, an element was picked, the page left picking (Esc). */
+export async function onBrowser(f: {
+  url: (tab: string, u: string) => void;
+  picked: (tab: string, json: string) => void;
+  pickOff: (tab: string) => void;
+}): Promise<UnlistenFn> {
+  if (!inTauri) return () => {};
+  const offs = await Promise.all([
+    listen<{ tab: string; url: string }>("agenium://browser-url", (e) => f.url(e.payload.tab, e.payload.url)),
+    listen<{ tab: string; pick: string }>("agenium://browser-picked", (e) => f.picked(e.payload.tab, e.payload.pick)),
+    listen<{ tab: string }>("agenium://browser-pick-off", (e) => f.pickOff(e.payload.tab)),
+  ]);
+  return () => offs.forEach((o) => o());
 }
 
 /** The embedding model's preparation moved on (`agenium://model`). */

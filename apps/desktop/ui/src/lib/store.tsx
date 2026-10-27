@@ -37,7 +37,8 @@ export type View =
   | "settings"
   | "chat"
   | "live"
-  | "library";
+  | "library"
+  | "browser";
 
 export interface Route {
   view: View;

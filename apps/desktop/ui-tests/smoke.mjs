@@ -117,7 +117,7 @@ await js("location.reload()");
 await until("!!document.querySelector('main')", 30000);
 
 // 4. Every view renders, without console errors.
-const views = ["overview", "tickets", "runs", "needs", "projects", "agents", "teams", "providers", "templates", "memory", "audit", "usage", "settings", "live", "library", "chat"];
+const views = ["overview", "tickets", "runs", "needs", "projects", "agents", "teams", "providers", "templates", "memory", "audit", "usage", "settings", "live", "library", "chat", "browser"];
 for (const v of views) {
   const before = errors.length;
   await js(`window.location.hash = '/${v}'`);

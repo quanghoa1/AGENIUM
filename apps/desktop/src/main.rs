@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod browser;
 mod live;
 mod manage;
 mod model;
@@ -43,6 +44,14 @@ fn main() {
             api::command_policy,
             api::set_command_policy,
             api::set_unsandboxed,
+            browser::browser_open,
+            browser::browser_bounds,
+            browser::browser_visible,
+            browser::browser_action,
+            browser::browser_url,
+            browser::browser_hide_all,
+            browser::browser_close,
+            browser::browser_close_all,
             api::setup,
             api::projects,
             api::overview,
@@ -247,6 +256,11 @@ fn spawn_maintenance(handle: tauri::AppHandle) {
 fn nav_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("nav-guard")
         .on_navigation(|webview, url| {
+            // The preview browser (ADR-121) shows other pages by design; its own rule (http and https only, never the
+            // app's origins) is in `browser.rs`.
+            if webview.label().starts_with(browser::PREFIX) {
+                return true;
+            }
             let ok = app_page(
                 url,
                 webview
