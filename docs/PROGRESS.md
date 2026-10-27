@@ -16,7 +16,7 @@ test (25 checks on the real app) PASS.
 | Strict Content Security Policy in the app window | DONE: only the app's own scripts, no remote content, workers and Monaco allowed; `freezePrototype` left off (it breaks Monaco) | `apps/desktop/tauri.conf.json`; release build checked on a test instance: inline script and external fetch blocked, all 16 views and the Monaco/xterm chunks load with no violation |
 | Real team run on a mixed team after the latest changes | DONE: Claude Opus Lead, Codex, Grok, agy, DeepSeek; 4/4 tickets merged, the delivered app's tests pass; 4 findings fixed (ADR-116) | [results/team-mixed-20261027.md](../quality/eval/results/team-mixed-20261027.md) |
 | Documentation for users | DONE: README (English, Vietnamese), Jev guide, changelog, NOTICE with bundled third-party licenses | [README](../README.md), [README.vi](../README.vi.md), [JEV.md](JEV.md) |
-| Windows installer, tested on a clean VM | @@WIN@@ | |
+| Windows installer, tested on a clean VM | DONE: NSIS (77 MB) and MSI (102 MB), per-user install, embedding model bundled. Clean Windows 11 23H2 VM: silent install, model copied at first start without a download, **28/28 UI smoke checks pass on the installed app**, silent uninstall leaves nothing. Found and fixed: the before-build paths, a language dialog that blocked `/S`, the first-start language, the missing-Git message. Found, not fixed: **MXC containers are not available on Windows 11 23H2**, so there every agent command waits for approval (decision pending) | `apps/desktop/tauri.bundle.json`; VM run 2026-10-27 |
 | Linux (Ubuntu) package, tested on a VM | @@LINUX@@ | |
 | Code signing, auto-update | NOT DONE: needs a certificate and an update host (owner decision) | |
 

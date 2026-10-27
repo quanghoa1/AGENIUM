@@ -50,7 +50,7 @@ team.
 | **Teams** | Solo agent (Lead and worker in one) or a Lead with workers and an optional planner. Team templates for coding, research, content and security testing; 27 ready-made roles (backend, frontend, API tester, UI tester, code reviewer, technical writer, SRE …); compose a team from your own agents. |
 | **Any model, mixed** | API providers with vendor presets and a custom OpenAI-compatible endpoint (your headers, per-model settings, extra request fields — [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md)). Vendor CLIs driven headless, every tool call decided by Agenium. Effort levels per agent; a fallback model when a CLI cannot run. |
 | **Desktop app** | Overview, chat with the Lead, Kanban board, ticket pages with side-by-side diffs (Monaco), live office view of who is doing what, run logs with a terminal view, memory browser, team organiser, settings. English and Vietnamese. |
-| **Safety** | Agent commands run in an OS sandbox (Windows MXC containers, Linux bubblewrap, macOS Seatbelt): writes only in the ticket's worktree, no access to your secrets. Secrets live in an encrypted vault keyed by the OS keyring and never reach agents, logs or git; commits are secret-scanned. |
+| **Safety** | Agent commands run in an OS sandbox (Linux bubblewrap, macOS Seatbelt, Windows MXC containers where Windows provides them): writes only in the ticket's worktree, no access to your secrets; without a sandbox every command waits for your approval. Secrets live in an encrypted vault keyed by the OS keyring and never reach agents, logs or git; commits are secret-scanned. |
 | **Memory that learns, carefully** | Each agent keeps memories (facts, lessons, a knowledge graph) found by a local embedding model (bge-small, runs on your machine, installed with the app) plus keyword and graph search. New skills and lessons need evidence and pass strict gates, so an agent does not drift. |
 | **Skills and tools** | `SKILL.md` skills per role or agent (13 built in), MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth) bound per agent with their own credentials, image viewing for vision models (`view_image`). |
 | **Cost and control** | Tokens and estimated cost per run, ticket and agent; prompt caching; context compaction for long runs; pause, cancel, re-run. |
@@ -103,8 +103,10 @@ agenium board --project shop
 - **Platforms:** Windows 11 (development machine and a clean VM), Ubuntu 25.10 (real VM, sandbox escape tests:
   0 escapes), macOS (Apple Silicon VM: full suite, sandbox containment).
 
-Known limits of 0.1.0: Anthropic, Gemini and OpenAI APIs are contract-tested but have not been called with a real
-key; the extra request fields of [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md) apply to
+Known limits of 0.1.0: on Windows the agent sandbox uses MXC process containers, which current stable Windows 11
+releases (23H2 tested) do not provide yet — there every agent command waits for your approval; Git must be installed
+(Agenium tells you where to get it). Anthropic, Gemini and OpenAI APIs are contract-tested but have not been called
+with a real key; the extra request fields of [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md) apply to
 OpenAI-compatible endpoints only; Devin's CLI cannot be driven; installers are not code-signed yet.
 
 ## Repository layout

@@ -48,7 +48,7 @@ sẵn (Claude Code, Codex, Gemini/Antigravity, Grok, OpenCode). Ví dụ: Lead l
 | **Nhóm** | Agent Solo (vừa Lead vừa worker) hoặc Lead cùng các worker và một planner tùy chọn. Mẫu nhóm cho lập trình, nghiên cứu, nội dung và kiểm thử bảo mật; 27 vai trò dựng sẵn (backend, frontend, kiểm thử API, kiểm thử giao diện, review code, viết tài liệu, SRE …); tự ghép nhóm từ các agent của bạn. |
 | **Mọi model, trộn được** | Nhà cung cấp API với cấu hình sẵn và endpoint OpenAI-compatible tùy chỉnh (header riêng, cài đặt theo model, trường bổ sung trong request — [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md)). CLI của các hãng được điều khiển không giao diện, mọi lệnh gọi tool do Agenium quyết. Mức effort theo từng agent; model dự phòng khi CLI không chạy được. |
 | **Ứng dụng desktop** | Tổng quan, chat với Lead, bảng Kanban, trang ticket với diff hai cột (Monaco), văn phòng trực tiếp xem ai đang làm gì, log từng lượt chạy dạng terminal, trình xem memory, sắp xếp nhóm, cài đặt. Tiếng Anh và tiếng Việt. |
-| **An toàn** | Lệnh của agent chạy trong sandbox của hệ điều hành (Windows MXC, Linux bubblewrap, macOS Seatbelt): chỉ ghi được trong worktree của ticket, không chạm được bí mật của bạn. Bí mật nằm trong vault mã hóa, khóa giữ bởi keyring của hệ điều hành, không bao giờ tới agent, log hay git; mọi commit được quét bí mật. |
+| **An toàn** | Lệnh của agent chạy trong sandbox của hệ điều hành (Linux bubblewrap, macOS Seatbelt, Windows MXC ở bản Windows có hỗ trợ; không có sandbox thì mọi lệnh chờ bạn duyệt): chỉ ghi được trong worktree của ticket, không chạm được bí mật của bạn. Bí mật nằm trong vault mã hóa, khóa giữ bởi keyring của hệ điều hành, không bao giờ tới agent, log hay git; mọi commit được quét bí mật. |
 | **Memory biết học, có kiểm soát** | Mỗi agent có memory (sự kiện, bài học, đồ thị tri thức), tìm bằng model embedding chạy trên máy (bge-small, cài cùng app) cộng tìm từ khóa và tìm theo đồ thị. Skill và bài học mới phải có bằng chứng và qua các cổng kiểm tra chặt, để agent không bị trôi. |
 | **Skill và tool** | Skill `SKILL.md` theo vai trò hoặc theo agent (13 skill có sẵn), MCP server (stdio, Streamable HTTP, SSE cũ, OAuth) gắn cho từng agent với thông tin đăng nhập riêng, xem ảnh cho model có thị giác (`view_image`). |
 | **Chi phí và kiểm soát** | Token và chi phí ước tính theo lượt chạy, ticket và agent; prompt caching; nén ngữ cảnh cho lượt chạy dài; tạm dừng, hủy, chạy lại. |
@@ -79,7 +79,8 @@ giống hệt nhau.
 - **Nền tảng:** Windows 11 (máy phát triển và một máy ảo sạch), Ubuntu 25.10 (máy ảo thật, test thoát sandbox: 0 lần
   thoát), macOS (máy ảo Apple Silicon: đủ bộ test, kiểm tra cô lập sandbox).
 
-Giới hạn của 0.1.0: API Anthropic, Gemini và OpenAI mới qua contract test, chưa gọi bằng key thật; trường bổ sung trong
+Giới hạn của 0.1.0: trên Windows, sandbox của agent dùng MXC container, mà các bản Windows 11 ổn định hiện tại (đã thử
+23H2) chưa có — trên các máy đó mọi lệnh của agent phải chờ bạn duyệt; máy cần cài Git (Agenium sẽ chỉ chỗ tải). API Anthropic, Gemini và OpenAI mới qua contract test, chưa gọi bằng key thật; trường bổ sung trong
 request (ADR-115) chỉ áp dụng cho endpoint OpenAI-compatible; CLI của Devin không điều khiển được; bộ cài chưa được ký
 số.
 

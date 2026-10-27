@@ -57,3 +57,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 ### Operations
 - Backups (hourly incremental, daily full, retention), restore into a new root, migrations with a backup first,
   support bundle without secrets, Markdown project reports, cost per run/ticket/agent.
+
+### Known limits
+- Windows: the agent sandbox needs MXC process containers, which stable Windows 11 releases (23H2 tested) do not
+  provide yet; there every agent command waits for your approval. Git must be installed.
+- Anthropic, Gemini and OpenAI APIs are contract-tested, not yet called with a real key; ADR-115's extra request
+  fields apply to OpenAI-compatible endpoints only; Devin's CLI cannot be driven.
+- Installers are not code-signed and there is no auto-update yet; no macOS build yet.
