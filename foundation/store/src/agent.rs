@@ -33,6 +33,10 @@ pub const AGENT_MIGRATIONS: &[Migration] = &[
         version: 4,
         sql: include_str!("schema/agent_004.sql"),
     },
+    Migration {
+        version: 5,
+        sql: include_str!("schema/agent_005.sql"),
+    },
 ];
 
 /// Tables carried by an agent export (in dependency order). `agent_meta`, vectors and the ANN journal are
@@ -730,12 +734,25 @@ impl AgentStore {
         ticket: Option<&str>,
         used: &[(i64, u32, Via)],
     ) -> Result<(), StoreError> {
+        let rows: Vec<(i64, u32, Via, bool)> =
+            used.iter().map(|(f, r, v)| (*f, *r, *v, false)).collect();
+        self.record_shown(run, ticket, &rows)
+    }
+
+    /// [`Self::record_usage`] with, per fact, whether it was shown as a rule of the work's context (a lesson whose
+    /// scope matched exactly, ADR-118).
+    pub fn record_shown(
+        &self,
+        run: &str,
+        ticket: Option<&str>,
+        used: &[(i64, u32, Via, bool)],
+    ) -> Result<(), StoreError> {
         self.db.write(|tx| {
-            for (fact, rank, via) in used {
+            for (fact, rank, via, as_rule) in used {
                 tx.execute(
-                    "INSERT INTO fact_usage(fact, ticket, run, rank, via) VALUES (?1, ?2, ?3, ?4, ?5)
+                    "INSERT INTO fact_usage(fact, ticket, run, rank, via, as_rule) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                      ON CONFLICT(run, fact) DO NOTHING",
-                    params![fact, ticket, run, *rank as i64, via.as_str()],
+                    params![fact, ticket, run, *rank as i64, via.as_str(), *as_rule as i64],
                 )?;
                 tx.execute("UPDATE fact SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1", [fact])?;
             }
@@ -941,6 +958,21 @@ impl AgentStore {
         self.db.write(|tx| {
             tx.execute("DELETE FROM skill_overlay WHERE skill = ?1", [skill])?;
             Ok(())
+        })
+    }
+
+    /// Lessons that were in play in `run` (ADR-118): shown as a rule of its context and found by the work's own words
+    /// (a text or graph channel), not only put in front of every run of the project.
+    pub fn lessons_in_play(
+        &self,
+        run: &str,
+    ) -> Result<std::collections::BTreeSet<i64>, StoreError> {
+        self.db.read(|c| {
+            let mut st = c.prepare_cached(
+                "SELECT fact FROM fact_usage WHERE run = ?1 AND as_rule = 1 AND via NOT IN ('rule', 'recent')",
+            )?;
+            let rows = st.query_map([run], |r| r.get::<_, i64>(0))?;
+            rows.collect::<Result<_, _>>().map_err(Into::into)
         })
     }
 

@@ -88,6 +88,16 @@ async fn main() -> Result<()> {
             }
         }
     };
+    // `--compare <dir>`: two conditions of earlier runs with 95 % paired bootstrap intervals (stats.rs).
+    if let Some(dir) = arg(&args, "--compare") {
+        let a = arg(&args, "--a").unwrap_or_else(|| "memory-reuse-on".into());
+        let b = arg(&args, "--b").unwrap_or_else(|| "memory-reuse-off".into());
+        print!(
+            "{}",
+            agenium_eval::stats::compare(std::path::Path::new(&dir), &a, &b)?
+        );
+        return Ok(());
+    }
     let only = arg(&args, "--task");
     let mut results = Vec::new();
     // `--team`: the team task (M4 acceptance) instead of the single-agent tasks.

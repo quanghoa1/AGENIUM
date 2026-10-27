@@ -301,6 +301,33 @@ fn diff_texts(base: &str, overlay: &str) -> Result<String> {
 }
 
 impl App {
+    /// The contexts a lesson held in that the record backs (ADR-118): `<project>/ticket:<key>` naming a ticket of
+    /// that project that exists and closed. A context the record cannot show (a chat, a ticket deleted or cancelled
+    /// since, an unknown project) does not count toward a skill or the shared pool.
+    pub(crate) fn evidenced_contexts(&self, lesson: &agenium_store::Fact) -> Vec<String> {
+        lesson
+            .validated
+            .iter()
+            .filter(|c| {
+                let Some((project, key)) = c
+                    .split_once('/')
+                    .and_then(|(p, s)| Some((p, s.strip_prefix("ticket:")?)))
+                else {
+                    return false;
+                };
+                let (Ok(project), Ok(key)) =
+                    (project.parse::<ProjectId>(), key.parse::<TicketKey>())
+                else {
+                    return false;
+                };
+                self.store()
+                    .read(|c| agenium_store::core::tickets::get_by_key(c, project, &key))
+                    .is_ok_and(|t| t.status == TicketStatus::Closed)
+            })
+            .cloned()
+            .collect()
+    }
+
     /// The base version of an agent's skill `name`: its role's skill, else the library's.
     fn base_skill(&self, agent: &agenium_store::core::agents::Agent, name: &str) -> Option<Skill> {
         let reg = self.skill_registry();
@@ -381,11 +408,12 @@ impl App {
                 u.lesson
             )));
         }
-        if lesson.validated.len() < MIN_CONTEXTS {
+        let held = self.evidenced_contexts(&lesson).len();
+        if held < MIN_CONTEXTS {
             return Err(invalid(format!(
-                "lesson #{} held in {} context(s); a skill changes only after a lesson held in {MIN_CONTEXTS}",
-                u.lesson,
-                lesson.validated.len()
+                "lesson #{} held in {held} context(s) on record (closed tickets); a skill changes only after a lesson \
+                 held in {MIN_CONTEXTS}",
+                u.lesson
             )));
         }
         if u.reason.trim().is_empty() {

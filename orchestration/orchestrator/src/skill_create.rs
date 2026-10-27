@@ -112,11 +112,12 @@ impl App {
                 u.lesson
             ));
         }
-        if lesson.validated.len() < MIN_CONTEXTS {
+        let held = self.evidenced_contexts(&lesson).len();
+        if held < MIN_CONTEXTS {
             return refuse(format!(
-                "lesson #{} held in {} context(s); a new skill needs a lesson that held in {MIN_CONTEXTS}",
-                u.lesson,
-                lesson.validated.len()
+                "lesson #{} held in {held} context(s) on record (closed tickets); a new skill needs a lesson that \
+                 held in {MIN_CONTEXTS}",
+                u.lesson
             ));
         }
         let mut created = load(&mem)?;

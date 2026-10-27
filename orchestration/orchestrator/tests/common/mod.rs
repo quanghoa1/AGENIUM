@@ -259,3 +259,45 @@ pub fn write(path: &Path, rel: &str, content: &str) {
     std::fs::create_dir_all(p.parent().unwrap()).unwrap();
     std::fs::write(p, content).unwrap();
 }
+
+/// A context a lesson can be validated in that the record backs (ADR-118): `<project>/ticket:<key>` naming a closed
+/// ticket of the fixture's project.
+pub fn closed_context(f: &Fixture, key: &str) -> String {
+    use agenium_store::core::tickets;
+    f.app
+        .store()
+        .commit(
+            None,
+            "test",
+            |w| -> std::result::Result<(), agenium_store::StoreError> {
+                let mut t = tickets::insert(
+                    w.tx,
+                    &tickets::TicketInsert {
+                        id: TicketId::new(),
+                        key: key.parse().unwrap(),
+                        project: f.project.id,
+                        parent: None,
+                        kind: TicketKind::Task,
+                        title: "earlier work".into(),
+                        description: String::new(),
+                        acceptance: vec![AcceptanceCriterion {
+                            id: "AC-1".into(),
+                            text: "done".into(),
+                        }],
+                        plan_item: "PI-0".into(),
+                        priority: 2,
+                        depends_on: vec![],
+                        required_role: None,
+                        required_tags: vec![],
+                        scope_paths: vec![],
+                        report_template: "default".into(),
+                        created_at: "2026-10-27T00:00:00.000Z".into(),
+                    },
+                )?;
+                t.status = TicketStatus::Closed;
+                tickets::update(w.tx, &t)
+            },
+        )
+        .unwrap();
+    format!("{}/ticket:{key}", f.project.id)
+}

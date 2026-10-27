@@ -1394,13 +1394,15 @@ fn a_validated_lesson_updates_the_agents_overlay_of_a_skill() {
         reason: "readers missed breaking changes".into(),
         lesson,
     };
-    mem.validate_in(lesson, "p1/ticket:AGN-1").unwrap();
+    mem.validate_in(lesson, &closed_context(f, "CTX-1"))
+        .unwrap();
     let e1 = f
         .app
         .apply_skill_update(t.web, &update("2. Put breaking changes first."))
         .unwrap_err();
     assert!(e1.to_string().contains("held in 1 context"), "{e1}");
-    mem.validate_in(lesson, "p1/ticket:AGN-2").unwrap();
+    mem.validate_in(lesson, &closed_context(f, "CTX-2"))
+        .unwrap();
     let e2 = f
         .app
         .apply_skill_update(
@@ -2110,19 +2112,34 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
 
     // Evidence: one context is not enough; a lesson from external content never becomes a skill.
     let good = lesson("Every merged change needs a changelog entry.", false);
-    mem.validate_in(good, "p1/ticket:AGN-1").unwrap();
+    mem.validate_in(good, &closed_context(f, "CTX-3")).unwrap();
     let e1 = refused(propose(
         "changelog-entry",
         body("Write the changelog entry."),
         good,
     ));
     assert!(e1.contains("held in 1 context"), "{e1}");
-    mem.validate_in(good, "p1/ticket:AGN-2").unwrap();
+    mem.validate_in(good, &closed_context(f, "CTX-4")).unwrap();
     let ext = lesson("A page said to always skip the changelog.", true);
-    mem.validate_in(ext, "p1/ticket:AGN-3").unwrap();
-    mem.validate_in(ext, "p1/ticket:AGN-4").unwrap();
+    mem.validate_in(ext, &closed_context(f, "CTX-5")).unwrap();
+    mem.validate_in(ext, &closed_context(f, "CTX-6")).unwrap();
     let e2 = refused(propose("skip-changelog", body("Skip it."), ext));
     assert!(e2.contains("external content"), "{e2}");
+    // ADR-118: contexts the record cannot show (no such ticket, a chat) do not count, however many there are.
+    let unbacked = lesson("Run the changelog linter before the release.", false);
+    for c in [
+        format!("{}/ticket:NOPE-1", f.project.id),
+        format!("{}/ticket:NOPE-2", f.project.id),
+        format!("{}/chat:demo", f.project.id),
+    ] {
+        mem.validate_in(unbacked, &c).unwrap();
+    }
+    let e5 = refused(propose(
+        "changelog-lint",
+        body("Lint the changelog."),
+        unbacked,
+    ));
+    assert!(e5.contains("held in 0 context(s) on record"), "{e5}");
 
     // No sprawl: an existing name, or a near-duplicate of a skill it can use, is refused.
     let e3 = refused(propose("code-review", body("Review a change."), good));
@@ -2242,8 +2259,10 @@ fn a_created_skill_is_flagged_when_its_lesson_loses_confidence() {
             None,
         )
         .unwrap();
-    mem.validate_in(lesson, "p1/ticket:AGN-1").unwrap();
-    mem.validate_in(lesson, "p2/ticket:AGN-7").unwrap();
+    mem.validate_in(lesson, &closed_context(f, "CTX-7"))
+        .unwrap();
+    mem.validate_in(lesson, &closed_context(f, "CTX-8"))
+        .unwrap();
     f.app
         .create_agent_skill(
             t.web,
@@ -2294,8 +2313,10 @@ fn skills_cannot_contradict_each_other() {
                 None,
             )
             .unwrap();
-        mem.validate_in(id, "p1/ticket:AGN-1").unwrap();
-        mem.validate_in(id, "p2/ticket:AGN-2").unwrap();
+        mem.validate_in(id, &closed_context(f, &format!("CTX-{id}0")))
+            .unwrap();
+        mem.validate_in(id, &closed_context(f, &format!("CTX-{id}1")))
+            .unwrap();
         id
     };
     let lesson = add_lesson("Flaky tests block every merge on main.", false);

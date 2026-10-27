@@ -522,16 +522,21 @@ pub async fn learn(
                 report.misleading.push(*id);
             }
         } else if !shown.is_empty() {
-            // A lesson that held again counts the context (decision 35: two make it a skill-update candidate).
+            // A lesson that held again counts the context (decision 35: two make it a skill-update candidate). Only
+            // one that was in play does (ADR-118): shown as a rule of this context and found by the work's own words.
+            // A hint from another context, or a project rule put before every run, says nothing by a quiet close.
             let context = format!("{}/{}", ep.project.as_deref().unwrap_or("-"), ep.source);
+            let in_play = store.lessons_in_play(run)?;
             for id in &shown {
                 store.adjust_confidence(*id, HELPED_DELTA)?;
                 // The ticket a lesson was learned on is not a second context: a lesson holds only where it was
                 // applied afresh (found by the learning chain: a lesson counted the ticket it came from).
-                if store.get(*id).is_ok_and(|f| {
-                    f.kind == FactKind::Lesson
-                        && !(f.source == ep.source && f.project == ep.project)
-                }) {
+                if in_play.contains(id)
+                    && store.get(*id).is_ok_and(|f| {
+                        f.kind == FactKind::Lesson
+                            && !(f.source == ep.source && f.project == ep.project)
+                    })
+                {
                     store.validate_in(*id, &context)?;
                     report.validated += 1;
                 }

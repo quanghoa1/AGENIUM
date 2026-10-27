@@ -256,13 +256,16 @@ impl MemoryRetriever {
         used: &[Recalled],
     ) -> Result<(), MemoryError> {
         // Shared-pool hits (ADR-87) carry pool fact ids, not this agent's, so they are not logged as its usage.
-        let rows: Vec<(i64, u32, Via)> = used
+        let rows: Vec<(i64, u32, Via, bool)> = used
             .iter()
             .filter(|r| !r.shared)
             .enumerate()
-            .map(|(i, r)| (r.id, i as u32 + 1, r.via))
+            .map(|(i, r)| {
+                let as_rule = r.exact && r.kind == agenium_store::FactKind::Lesson;
+                (r.id, i as u32 + 1, r.via, as_rule)
+            })
             .collect();
-        Ok(self.store.record_usage(run, ticket, &rows)?)
+        Ok(self.store.record_shown(run, ticket, &rows)?)
     }
 
     pub fn store(&self) -> &Arc<AgentStore> {

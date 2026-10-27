@@ -20,6 +20,7 @@ use serde_json::{json, Value};
 
 pub mod learning;
 pub mod memory_reuse;
+pub mod stats;
 pub mod team;
 
 pub struct Task {

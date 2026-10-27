@@ -316,10 +316,27 @@ async fn lessons_need_a_cue_and_a_signal_and_are_rules_only_in_their_scope() {
         "{r:?}"
     );
 
-    // The lesson shown to a later run that closed cleanly counts that context.
+    // ADR-118: a quiet close says nothing about a lesson that was not in play. Shown as a hint from another
+    // context, or put before the run as a project rule without the work's words finding it: no context counted.
     let id = lesson.id;
+    for (run, via, as_rule) in [("run-h", Via::Hybrid, false), ("run-r", Via::Rule, true)] {
+        w.store
+            .record_shown(run, Some("NET-3"), &[(id, 1, via, as_rule)])
+            .unwrap();
+        w.p.push_text(&json!({"facts": []}).to_string());
+        let r = w
+            .learn(Episode {
+                run: Some(run.into()),
+                used: vec![(id, lesson.text.clone())],
+                ..episode("ticket:NET-3")
+            })
+            .await;
+        assert_eq!(r.validated, 0, "{run}: {r:?}");
+    }
+    assert!(w.store.get(id).unwrap().validated.is_empty());
+    // Shown as a rule of the context and found by the work's words, then a clean close: that context counts.
     w.store
-        .record_usage("run-2", Some("NET-2"), &[(id, 1, Via::Hybrid)])
+        .record_shown("run-2", Some("NET-2"), &[(id, 1, Via::Hybrid, true)])
         .unwrap();
     w.p.push_text(&json!({"facts": []}).to_string());
     let r = w

@@ -436,8 +436,8 @@ impl Runtime {
                 .is_some_and(|o| o.contains_key("project"));
             let general = f.kind == agenium_store::FactKind::Lesson
                 && !f.untrusted
-                && f.validated.len() >= crate::skill_overlay::MIN_CONTEXTS
-                && !project_scoped;
+                && !project_scoped
+                && self.app.evidenced_contexts(&f).len() >= crate::skill_overlay::MIN_CONTEXTS;
             if !general || have.contains(&norm(&f.text)) {
                 continue;
             }

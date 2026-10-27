@@ -1,0 +1,100 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 11 steps; recall showed 6 fact(s)",
+    "runs": 6,
+    "steps": 31,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 331417,
+    "tokens_out": 5662,
+    "tokens_cached": 297344,
+    "cost_usd": 0.0,
+    "elapsed_ms": 149501,
+    "learning": {
+      "chain": null,
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, write new text files as UTF-8 without a BOM so header and content checks pass.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, new files can be left untracked in the worktree (git status shows them as `??`); the system commits the worktree on submit and merges to main, so no manual git commit is needed.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt is the reference team document, consisting of `Owner: docs-team` on line 1 followed by its keyword line.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/ and reports/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, verify document headers exactly with PowerShell [IO.File]::ReadAllLines and a case-sensitive compare (-ceq) rather than whitespace/case-insensitive display output.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the root agenium.toml holds the project settings: name \"docs\", key_prefix \"AGN\", main_branch \"main\", template \"coding@1\", plus [worktree] and [network] allowlist sections.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: the docs project enforces the `Owner: docs-team` first-line rule even though agenium.toml shows `[checks] pre_merge = \"\"`, so do not treat an empty pre_merge value as proof that no pre-merge rule exists.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) docs project work is done in a git worktree under projects/docs/.agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: the pre-merge check rejects team documents that lack the `Owner: docs-team` first line, so add that header before submitting any file under deliverables/ or reports/ in the docs project.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, exactly `Owner: docs-team`; this is enforced by the pre-merge check."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, verify document headers exactly with PowerShell [IO.File]::ReadAllLines and a case-sensitive compare (-ceq) rather than whitespace/case-insensitive display output.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the root agenium.toml holds the project settings: name \"docs\", key_prefix \"AGN\", main_branch \"main\", template \"coding@1\", plus [worktree] and [network] allowlist sections.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: the docs project enforces the `Owner: docs-team` first-line rule even though agenium.toml shows `[checks] pre_merge = \"\"`, so do not treat an empty pre_merge value as proof that no pre-merge rule exists.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) docs project work is done in a git worktree under projects/docs/.agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: the pre-merge check rejects team documents that lack the `Owner: docs-team` first line, so add that header before submitting any file under deliverables/ or reports/ in the docs project.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, exactly `Owner: docs-team`; this is enforced by the pre-merge check."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 20,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 187136,
+        "tokens_in": 215189,
+        "tokens_out": 3355
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 11,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 110208,
+        "tokens_in": 116228,
+        "tokens_out": 2307
+      },
+      "ticket2_facts_shown": 6,
+      "ticket2_shown": [
+        "run 01M5YDEW44QEFKQ4SWDBT436E5 #1 hybrid: Lesson from AGN-1: the docs project enforces the `Owner: docs-team` first-line rule even though agenium.toml shows `[checks] pre_merge = \"\"`, so do not treat an empty pre_merge value as proof that no pre-merge rule exists.",
+        "run 01M5YDEW44QEFKQ4SWDBT436E5 #2 hybrid: Lesson from AGN-1: the pre-merge check rejects team documents that lack the `Owner: docs-team` first line, so add that header before submitting any file under deliverables/ or reports/ in the docs project.",
+        "run 01M5YDEW44QEFKQ4SWDBT436E5 #3 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, exactly `Owner: docs-team`; this is enforced by the pre-merge check.",
+        "run 01M5YDEW44QEFKQ4SWDBT436E5 #4 hybrid: In the docs project, verify document headers exactly with PowerShell [IO.File]::ReadAllLines and a case-sensitive compare (-ceq) rather than whitespace/case-insensitive display output.",
+        "run 01M5YDEW44QEFKQ4SWDBT436E5 #5 hybrid: In the docs project, the root agenium.toml holds the project settings: name \"docs\", key_prefix \"AGN\", main_branch \"main\", template \"coding@1\", plus [worktree] and [network] allowlist sections.",
+        "run 01M5YDEW44QEFKQ4SWDBT436E5 #6 hybrid: docs project work is done in a git worktree under projects/docs/.agenium/worktrees/<ticket-id> on branch agenium/<ticket-id>."
+      ]
+    }
+  }
+]
