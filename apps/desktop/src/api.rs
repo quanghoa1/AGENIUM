@@ -711,6 +711,39 @@ pub async fn detected_clis(d: &Desktop, refresh: bool) -> R<Vec<agenium_cli_back
     Ok(found)
 }
 
+/// A CLI with no login-status command (agy, grok) that listed its models from its vendor's server is signed in.
+fn signed_in_by_models(
+    clis: &mut [agenium_cli_backend::CliInfo],
+    models: &crate::state::CliModels,
+) {
+    use agenium_cli_backend::detect::{CliKind, Login};
+    for c in clis.iter_mut() {
+        let listed = models.get(c.kind.program()).is_some_and(|m| !m.is_empty());
+        if c.login == Login::Unknown && listed && matches!(c.kind, CliKind::Agy | CliKind::Grok) {
+            c.login = Login::LoggedIn;
+        }
+    }
+}
+
+/// Finds the agent CLIs and their models in the background once the root is open, so the first look at the
+/// providers page or the agent form does not wait for them (about 8 s cold, every CLI started twice).
+pub(crate) async fn warm_cli_caches(handle: tauri::AppHandle) {
+    use tauri::Manager;
+    for _ in 0..600 {
+        let d = handle.state::<Desktop>();
+        if let Ok(o) = d.opened() {
+            match detected_clis(&d, false).await {
+                Ok(clis) => {
+                    cli_models(&d, &o, &clis, false).await;
+                }
+                Err(e) => tracing::warn!(error = %e, "the agent CLIs were not detected in advance"),
+            }
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
 /// Models each driven CLI can run (`model/list`, `agy models`, ...), listed at most every 5 minutes.
 async fn cli_models(
     d: &Desktop,
@@ -877,14 +910,27 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
     let providers: Vec<Value> = cfg
         .providers
         .iter()
-        .map(|p| json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
-                          "models": p.models.iter().filter(|m| o.app.api_serves(&p.id, m)).collect::<Vec<_>>(),
-                          "max_concurrency": p.max_concurrency }))
+        .map(|p| {
+            // Headers for the form: a secret one by name only (its value stays in the vault).
+            let headers: Vec<Value> = p
+                .headers
+                .iter()
+                .map(|(k, v)| {
+                    let secret = v.starts_with("${secret:");
+                    json!({ "name": k, "secret": secret, "value": if secret { "" } else { v.as_str() } })
+                })
+                .collect();
+            json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
+                    "models": p.models.iter().filter(|m| o.app.api_serves(&p.id, m)).collect::<Vec<_>>(),
+                    "max_concurrency": p.max_concurrency, "headers": headers, "model_caps": p.model_caps })
+        })
         .collect();
-    let clis = detected_clis(&d, refresh == Some(true)).await?;
+    let mut clis = detected_clis(&d, refresh == Some(true)).await?;
+    let models = cli_models(&d, &o, &clis, refresh == Some(true)).await;
+    signed_in_by_models(&mut clis, &models);
     Ok(json!({
         "providers": providers, "clis": clis,
-        "cli_models": cli_models(&d, &o, &clis, refresh == Some(true)).await,
+        "cli_models": models,
         "templates": o.app.team_templates().map_err(err)?,
         "cli_fallback": { "provider": cfg.cli.fallback_provider, "model": cfg.cli.fallback_model },
     }))

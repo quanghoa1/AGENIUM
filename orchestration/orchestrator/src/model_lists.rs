@@ -33,13 +33,28 @@ impl App {
 
 /// The models each installed, signed-in CLI that Agenium drives can run (by CLI program name).
 pub async fn cli_models(app: &App, clis: &[CliInfo]) -> BTreeMap<String, Vec<ModelInfo>> {
-    let mut out = BTreeMap::new();
     let scratch = app.layout().agents().join(".models-probe");
-    for c in clis
+    // All CLIs at once: each listing is a CLI start (and for some a server call).
+    let lists = clis
         .iter()
         .filter(|c| c.compatible && c.login != Login::NotLoggedIn)
+        .map(|c| one_cli(app, c, &scratch));
+    crate::runtime::futures_join_all(lists)
+        .await
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// One CLI's models (`None` when it lists none).
+async fn one_cli(
+    app: &App,
+    c: &CliInfo,
+    scratch: &std::path::Path,
+) -> Option<(String, Vec<ModelInfo>)> {
     {
-        let Some(program) = &c.path else { continue };
+        let program = c.path.as_ref()?;
+        let scratch = scratch.to_path_buf();
         // OpenCode names no levels (its agents keep the CLI's own setting); Grok and Claude Code run their vendor's
         // models, whose levels are known per model.
         let ids = |v: Vec<String>| {
@@ -69,14 +84,14 @@ pub async fn cli_models(app: &App, clis: &[CliInfo]) -> BTreeMap<String, Vec<Mod
                 })
                 .collect()),
             CliKind::Grok => agenium_cli_backend::grok::models(program).await.map(ids),
-            CliKind::Devin => continue,
+            CliKind::Devin => return None,
         };
         match models {
-            Ok(m) => {
-                out.insert(c.kind.program().to_owned(), m);
+            Ok(m) => Some((c.kind.program().to_owned(), m)),
+            Err(e) => {
+                tracing::warn!(cli = c.kind.program(), error = %e, "models not listed");
+                None
             }
-            Err(e) => tracing::warn!(cli = c.kind.program(), error = %e, "models not listed"),
         }
     }
-    out
 }

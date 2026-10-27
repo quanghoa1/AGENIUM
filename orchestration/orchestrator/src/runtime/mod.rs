@@ -105,7 +105,36 @@ impl ProviderSource for ConfiguredProviders {
                 ))
             }
         };
+        // The user's headers (secret ones from the vault) and the effort levels given to models by hand.
+        let secret = |n: &str| {
+            self.app
+                .secret(n)
+                .ok()
+                .flatten()
+                .and_then(|s| s.expose_str().ok().map(str::to_owned))
+        };
+        let mut headers = Vec::new();
+        for (k, v) in &pc.headers {
+            let v = agenium_mcp::resolve(v, &secret, &|_| None)
+                .map_err(|e| OrchError::NotFound(format!("provider {id}: header {k}: {e}")))?;
+            headers.push((k.clone(), v));
+        }
+        let efforts = pc
+            .model_caps
+            .iter()
+            .filter_map(|c| {
+                let levels: Vec<Effort> = c
+                    .efforts
+                    .as_ref()?
+                    .iter()
+                    .filter_map(|e| e.parse().ok())
+                    .collect();
+                (!levels.is_empty()).then(|| (c.model.clone(), levels))
+            })
+            .collect();
         let spec = ProviderSpec {
+            headers,
+            efforts,
             id: pc.id.clone(),
             kind: kind.into(),
             base_url: pc.base_url.clone(),
@@ -218,6 +247,12 @@ pub fn apply_caps(cfg: &agenium_config::ProviderConfig, info: &mut agenium_llm::
         info.supports_tools = c.tools.or(info.supports_tools);
         info.supports_vision = c.vision.or(info.supports_vision);
         info.context_window = c.context_window.or(info.context_window);
+        if let Some(levels) = &c.efforts {
+            info.efforts = Some(levels.iter().filter_map(|e| e.parse().ok()).collect());
+        }
+        if let Some(d) = &c.default_effort {
+            info.default_effort = d.parse().ok();
+        }
     }
 }
 
@@ -2785,7 +2820,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     }
 }
 
-async fn futures_join_all<F: std::future::Future>(futs: impl Iterator<Item = F>) -> Vec<F::Output> {
+pub(crate) async fn futures_join_all<F: std::future::Future>(
+    futs: impl Iterator<Item = F>,
+) -> Vec<F::Output> {
     let v: Vec<F> = futs.collect();
     let mut out = Vec::with_capacity(v.len());
     // Runs of different agents proceed concurrently.

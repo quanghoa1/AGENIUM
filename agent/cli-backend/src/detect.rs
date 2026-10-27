@@ -65,11 +65,31 @@ impl CliKind {
                 None
             }
         }
+        /// `claude auth status` answers JSON: `"loggedIn": true`.
+        fn claude(out: &str) -> Option<bool> {
+            let o: String = out.to_ascii_lowercase().split_whitespace().collect();
+            if o.contains("\"loggedin\":true") {
+                Some(true)
+            } else if o.contains("\"loggedin\":false") {
+                Some(false)
+            } else {
+                codex(out)
+            }
+        }
+        /// `opencode auth list` lists the stored credentials. None stored is not "logged out": OpenCode's free
+        /// models need no login, so the state stays unknown then.
+        fn opencode(out: &str) -> Option<bool> {
+            let o = out.to_ascii_lowercase();
+            (o.contains(" stored") || o.contains(" oauth") || o.contains(" api")).then_some(true)
+        }
         match self {
             CliKind::Codex => Some((&["login", "status"], codex)),
             CliKind::Devin => Some((&["auth", "status"], codex)),
-            CliKind::Claude => Some((&["auth", "status"], codex)),
-            CliKind::Agy | CliKind::Opencode | CliKind::Grok => None,
+            CliKind::Claude => Some((&["auth", "status"], claude)),
+            CliKind::Opencode => Some((&["auth", "list"], opencode)),
+            // No status command: a model list read from their servers says they are signed in (the app's model
+            // listing upgrades the state then).
+            CliKind::Agy | CliKind::Grok => None,
         }
     }
 }
@@ -193,8 +213,18 @@ pub fn detect(kind: CliKind) -> CliInfo {
 }
 
 /// Every known CLI, installed or not.
+/// Every known CLI, each probed on its own thread (one slow CLI no longer adds up with the others).
 pub fn detect_all() -> Vec<CliInfo> {
-    CliKind::ALL.iter().map(|k| detect(*k)).collect()
+    std::thread::scope(|s| {
+        let hs: Vec<_> = CliKind::ALL
+            .iter()
+            .map(|k| s.spawn(move || detect(*k)))
+            .collect();
+        hs.into_iter()
+            .zip(CliKind::ALL.iter())
+            .map(|(h, k)| h.join().unwrap_or_else(|_| detect(*k)))
+            .collect()
+    })
 }
 
 #[cfg(test)]
