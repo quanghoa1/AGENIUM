@@ -334,11 +334,21 @@ fn teams_are_composed_from_pool_agents_and_the_lead_is_only_suggested() {
         .apply(&ctx(&f, Actor::Lead(lea.id)), Intent::ProposeSpec(spec()))
         .unwrap();
     f.app.approve_spec(f.project.id, 1).unwrap();
+    // The team has a planner: its draft comes first (ADR-116).
+    let p = plan(&[("PI-1", &[])]);
     f.app
         .apply(
-            &ctx(&f, Actor::Lead(lea.id)),
-            Intent::CreatePlan(plan(&[("PI-1", &[])])),
+            &ctx(&f, Actor::Worker(pat.id)),
+            Intent::SubmitPlanDraft(agenium_core::plan::PlanDraft {
+                spec_version: 1,
+                milestones: p.milestones.clone(),
+                items: p.items.clone(),
+                rationale: "One item.".into(),
+            }),
         )
+        .unwrap();
+    f.app
+        .apply(&ctx(&f, Actor::Lead(lea.id)), Intent::CreatePlan(p))
         .unwrap();
     let out = f
         .app

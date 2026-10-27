@@ -153,6 +153,16 @@ impl CommandGate for RunGate {
                 }
                 GateDecision::Allow
             }
+            // A hooked CLI also has our sandboxed `shell` where a sandbox works (`Runtime::run`): say so, or the
+            // agent gives up on running anything and checks its work by reading only.
+            Approval::Deny(reason)
+                if !self.contained && agenium_sandbox::detect().backend.is_some() =>
+            {
+                GateDecision::Deny(format!(
+                    "the user denied the command: {reason}. Run it with the `shell` tool of the MCP server \
+\"agenium\" instead: it runs in Agenium's sandbox without asking"
+                ))
+            }
             Approval::Deny(reason) => {
                 GateDecision::Deny(format!("the user denied the command: {reason}"))
             }

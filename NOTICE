@@ -15,4 +15,12 @@ Code adapted from OpenAI Codex (Copyright OpenAI, Apache License 2.0):
 Third-party library: mxc-sdk (Microsoft Corporation, MIT License, https://github.com/microsoft/mxc) provides the MXC
 process containers on Windows.
 
-Desktop UI libraries (apps/desktop/ui): motion (MIT, https://motion.dev) for animations.
+Desktop UI libraries (apps/desktop/ui), bundled with the app:
+- motion (MIT, https://motion.dev) for animations
+- Monaco Editor (Microsoft Corporation, MIT, https://github.com/microsoft/monaco-editor) for side-by-side diffs
+- xterm.js (The xterm.js authors, MIT, https://github.com/xtermjs/xterm.js) for run terminals
+- React (Meta Platforms, MIT), lucide icons (ISC), Tailwind CSS (MIT)
+- Inter and JetBrains Mono fonts through Fontsource (SIL Open Font License 1.1)
+
+Local embedding model shipped with the installer: bge-small-en-v1.5 (BAAI, MIT License,
+https://huggingface.co/BAAI/bge-small-en-v1.5), run with candle (Hugging Face, Apache-2.0 / MIT).

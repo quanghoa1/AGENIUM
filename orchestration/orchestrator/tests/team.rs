@@ -525,13 +525,24 @@ fn team_from_template_and_write_scope() {
     let (team, members) = f.app.team_of_project(f.project.id).unwrap().unwrap();
     let lead = Actor::Lead(team.lead.unwrap());
     let web = members.iter().find(|a| a.name == "acme-web").unwrap().id;
+    let planner = f.app.planner(f.project.id).unwrap().unwrap().id;
     f.app
         .apply(&ctx(&f, lead), Intent::ProposeSpec(spec()))
         .unwrap();
     f.app.approve_spec(f.project.id, 1).unwrap();
+    let p = plan(&[("PI-1", &[])]);
     f.app
-        .apply(&ctx(&f, lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .apply(
+            &ctx(&f, Actor::Worker(planner)),
+            Intent::SubmitPlanDraft(agenium_core::plan::PlanDraft {
+                spec_version: 1,
+                milestones: p.milestones.clone(),
+                items: p.items.clone(),
+                rationale: "One item.".into(),
+            }),
+        )
         .unwrap();
+    f.app.apply(&ctx(&f, lead), Intent::CreatePlan(p)).unwrap();
     let k = started(&f, web, "PI-1", "Test the login page", &[], &[]);
     let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
     let wt = worktree(&f, k.as_str());
@@ -704,6 +715,13 @@ fn planner_drafts_and_the_lead_creates_the_plan() {
     assert!(kinds().is_empty(), "the planner drafts first");
 
     let p = plan(&[("PI-1", &[]), ("PI-2", &["PI-1"])]);
+    // A Lead asked in chat does not plan around the planner (ADR-116).
+    let early = f
+        .app
+        .apply(&ctx(&f, lead), Intent::CreatePlan(p.clone()))
+        .unwrap_err()
+        .to_string();
+    assert!(early.contains("acme-planner drafts plan v1"), "{early}");
     let draft = |v: u32| PlanDraft {
         spec_version: v,
         milestones: p.milestones.clone(),

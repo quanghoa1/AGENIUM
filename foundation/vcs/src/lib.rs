@@ -54,6 +54,21 @@ pub fn ticket_branch(key: &str) -> String {
     format!("agenium/{key}")
 }
 
+/// Files tools generate while an agent builds or tests (caches, installed packages, OS litter): never part of a
+/// ticket's change. Kept out of every commit and of the write-scope check through `.git/info/exclude`, so a
+/// `python -m unittest` does not put `__pycache__` in `main` or fail a ticket for a file nobody wrote.
+pub const LOCAL_EXCLUDES: &[&str] = &[
+    "__pycache__/",
+    "*.py[cod]",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    ".venv/",
+    "node_modules/",
+    ".DS_Store",
+    "Thumbs.db",
+];
+
 /// A project repository (its own working tree has `main` checked out).
 #[derive(Debug, Clone)]
 pub struct Repo {
@@ -165,7 +180,7 @@ impl Repo {
     }
 
     /// Makes `root` a repository with branch `main` and at least one commit (git init when needed), adds
-    /// `.agenium/` to `.git/info/exclude`. Idempotent. A repository Agenium creates gets
+    /// `.agenium/` and the [`LOCAL_EXCLUDES`] to `.git/info/exclude`. Idempotent. A repository Agenium creates gets
     /// `core.autocrlf=false` so agent output is stored byte for byte.
     pub fn init_local(&self) -> Result<(), VcsError> {
         std::fs::create_dir_all(&self.root).map_err(|e| io(&self.root, e))?;
@@ -175,7 +190,7 @@ impl Repo {
             self.git
                 .check(&self.root, ["config", "core.autocrlf", "false"])?;
         }
-        self.exclude_agenium_dir()?;
+        self.exclude_local()?;
         if self.head_sha(&self.main)?.is_none() {
             let current = self
                 .git
@@ -260,18 +275,27 @@ impl Repo {
         }
     }
 
-    fn exclude_agenium_dir(&self) -> Result<(), VcsError> {
+    /// Adds `.agenium/` and the [`LOCAL_EXCLUDES`] missing from `.git/info/exclude` (local to this clone: the
+    /// project's own `.gitignore` is not touched, and files already tracked stay tracked).
+    fn exclude_local(&self) -> Result<(), VcsError> {
         let git_dir = self.common_dir()?;
         let info = git_dir.join("info");
         std::fs::create_dir_all(&info).map_err(|e| io(&info, e))?;
         let exclude = info.join("exclude");
         let cur = std::fs::read_to_string(&exclude).unwrap_or_default();
-        if !cur.lines().any(|l| l.trim() == ".agenium/") {
+        let missing: Vec<&str> = std::iter::once(".agenium/")
+            .chain(LOCAL_EXCLUDES.iter().copied())
+            .filter(|p| !cur.lines().any(|l| l.trim() == *p))
+            .collect();
+        if !missing.is_empty() {
             let mut s = cur;
             if !s.is_empty() && !s.ends_with('\n') {
                 s.push('\n');
             }
-            s.push_str(".agenium/\n");
+            for p in missing {
+                s.push_str(p);
+                s.push('\n');
+            }
             std::fs::write(&exclude, s).map_err(|e| io(&exclude, e))?;
         }
         Ok(())
@@ -364,6 +388,8 @@ impl Repo {
     /// branch), its rebase is aborted, and its directory is never deleted. Treating it as unregistered once deleted the
     /// directory and then failed for good ("missing but already registered worktree").
     pub fn add_worktree(&self, key: &str, base: &str) -> Result<WorktreeInfo, VcsError> {
+        // Projects created before a pattern joined the list get it here, before an agent works.
+        self.exclude_local()?;
         let path = self.worktree_path(key);
         let branch = ticket_branch(key);
         let registered = self

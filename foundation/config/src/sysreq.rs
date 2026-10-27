@@ -120,9 +120,9 @@ pub fn evaluate(f: &Facts) -> SysReport {
         ),
     });
     let os_level = match f.family {
-        "linux" | "macos" => Level::Ok,
-        // Not a v1 release target (ADR-39); the sandbox depends on MXC availability (ADR-53).
-        "windows" => Level::BelowRecommended,
+        // Windows is the first release target (ADR-39 reversed by the 0.1 release); its sandbox needs MXC (ADR-53),
+        // shown on the sandbox line.
+        "linux" | "macos" | "windows" => Level::Ok,
         _ => Level::BelowMinimum,
     };
     checks.push(Check {
@@ -132,7 +132,7 @@ pub fn evaluate(f: &Facts) -> SysReport {
         message: match f.family {
             "linux" => "Linux: the sandbox needs bubblewrap or Landlock ABI >= 3 (kernel 6.2+), otherwise agents only run with per-command approval".into(),
             "macos" => "macOS 12+ (Seatbelt sandbox is experimental)".into(),
-            "windows" => "Windows is not a v1 release target (ADR-39); agent commands are sandboxed only where MXC process containers work (ADR-53, see the sandbox line), otherwise they need your approval".into(),
+            "windows" => "Windows 10/11: agent commands run in MXC process containers where Windows provides them (ADR-53, see the sandbox line), otherwise they need your approval".into(),
             _ => "This OS has no sandbox backend: YOLO mode is refused; commands need your approval".into(),
         },
     });
@@ -261,11 +261,12 @@ mod tests {
                 .filter(|c| c.level == Level::BelowMinimum)
                 .count(),
             4,
-            "cores, RAM, disk, git; Windows itself is below recommended (ADR-39/53)"
+            "cores, RAM, disk, git"
         );
-        assert!(r
-            .warnings()
-            .any(|c| c.name == "os" && c.level == Level::BelowRecommended));
+        assert!(
+            !r.warnings().any(|c| c.name == "os"),
+            "Windows is supported"
+        );
     }
 
     #[test]

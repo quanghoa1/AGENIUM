@@ -496,6 +496,20 @@ impl App {
 
     fn create_plan(&self, ctx: &CallCtx, plan: agenium_core::plan::TicketPlan) -> Result<Outcome> {
         let project = ctx.project;
+        // ADR-59: a team with a planner builds plan v1 from its draft. A Lead asked in chat used to plan alone and
+        // the planner (often the stronger model, chosen for this) never ran; it waits for the draft unless the
+        // planner gave up.
+        if let Some(planner) = self.planner(project)? {
+            if self.plan_draft(project, plan.spec_version)?.is_none()
+                && !self.planner_gave_up(&planner, project, plan.spec_version)?
+            {
+                return Err(invalid(format!(
+                    "{} drafts plan v1 for spec v{} first: its draft comes to your inbox as a Planning item, then you \
+create the plan from it. Tell the user the plan is being drafted",
+                    planner.name, plan.spec_version
+                )));
+            }
+        }
         self.commit(ctx, |w| {
             let team = require_lead(w, project, &ctx.actor)?;
             let spec = plans::spec(w.tx, project, plan.spec_version)?.ok_or_else(|| {
@@ -575,6 +589,31 @@ impl App {
                 ops: vec![],
             })
         })
+    }
+
+    /// Whether the planner ended `MAX_FAILED_RUNS` runs since `spec_version` was approved without a draft (the user
+    /// was told the Lead can plan instead). A run the user stopped does not count.
+    fn planner_gave_up(
+        &self,
+        planner: &agents::Agent,
+        project: ProjectId,
+        spec_version: u32,
+    ) -> Result<bool> {
+        let Some(locked) = self
+            .store
+            .read(|c| plans::spec(c, project, spec_version))?
+            .and_then(|s| s.locked_at)
+        else {
+            return Ok(false);
+        };
+        let failed = self
+            .store
+            .read(|c| runs::for_agent(c, planner.id, 20))?
+            .into_iter()
+            .filter(|r| r.started_at >= locked)
+            .filter(|r| r.ended_at.is_some() && r.outcome.as_deref() != Some("Cancelled"))
+            .count();
+        Ok(failed >= crate::runtime::MAX_FAILED_RUNS)
     }
 
     /// The planner's latest draft for `spec_version`.

@@ -193,7 +193,7 @@ impl ToolHost for Bridge {
 }
 
 /// The work order as one prompt: the CLI keeps its own system prompt, so Agenium's goes first as instructions.
-pub fn render(order: &WorkOrder, protocol: &[String], control: Control) -> String {
+pub fn render(order: &WorkOrder, protocol: &[String], control: Control, shell: bool) -> String {
     let mut s = String::from("<agenium_instructions>\n");
     for b in &order.system {
         s.push_str(b.text.trim_end());
@@ -202,6 +202,12 @@ pub fn render(order: &WorkOrder, protocol: &[String], control: Control) -> Strin
     let commands = match control {
         Control::Sandbox => {
             "Shell commands run inside Agenium's sandbox: only the worktree is writable."
+        }
+        Control::Hook if shell => {
+            "Agenium checks every tool call: files outside the worktree and web tools are refused. Run shell commands \
+(tests, builds, scripts, servers you start to check your work) with the `shell` tool of the MCP server \"agenium\": it \
+runs them in Agenium's sandbox, where the worktree is writable, without asking anyone. Your own shell tool runs on \
+the user's machine, so each of its commands waits for the user's approval and is usually refused."
         }
         Control::Hook => {
             "Agenium checks every tool call: shell commands need its approval, files outside the worktree and web \
@@ -445,7 +451,8 @@ impl CliRun<'_> {
             read_only: self.read_only,
         };
         let turns = self.driver.turns();
-        let mut first = render(order, &self.protocol_names(), self.driver.control());
+        let shell = self.tools.iter().any(|t| t.name() == "shell");
+        let mut first = render(order, &self.protocol_names(), self.driver.control(), shell);
         if self.steer.is_some() {
             // Said once, before the task: how the user's messages during the run look.
             first = first.replacen(
@@ -1065,5 +1072,28 @@ ask_question if you are blocked.",
                 images: vec![],
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_hooked_cli_is_told_to_run_commands_through_agenium_s_shell() {
+        let order = WorkOrder {
+            system: vec![],
+            messages: vec![],
+        };
+        let protocol = ["submit_report".to_owned()];
+        let with = render(&order, &protocol, Control::Hook, true);
+        assert!(
+            with.contains("`shell` tool of the MCP server \"agenium\""),
+            "{with}"
+        );
+        assert!(with.contains("without asking anyone"));
+        let without = render(&order, &protocol, Control::Hook, false);
+        assert!(!without.contains("`shell` tool"), "{without}");
+        assert!(without.contains("shell commands need its approval"));
     }
 }

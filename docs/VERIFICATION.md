@@ -1,4 +1,4 @@
-# Verification map (2026-10-26)
+# Verification map (2026-10-27)
 
 What each part of Agenium does, where it is implemented, what tests hold it, and what ran on real models. "Real" means
 a real model or vendor CLI, not the scripted provider. The last section lists what has not been verified.
@@ -24,6 +24,9 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Mandatory report: text-only turns nudged, then NoProgress; loop and step limits | `text_only_turns_are_nudged_then_stopped`, `repeated_step_is_a_loop`, `step_limit_stops_with_a_checkpoint` | — |
 | Messaging a running CLI Lead (ADR-110) | `the_user_messages_a_running_cli_lead` | Claude Haiku, Grok, Codex (`cli_steer`), runtime on Claude and Grok (`cli_lead_steer`) |
 | API fallback when the CLI cannot run | `runtime.rs::cli_agent_falls_back_to_the_api_when_configured` | — |
+| A CLI that runs commands on the host (Claude, Grok, agy, OpenCode) also gets Agenium's sandboxed `shell` (ADR-116) | `run.rs::a_hooked_cli_is_told_to_run_commands_through_agenium_s_shell` | mixed team run 2026-10-27: agy ran 9 commands through it, the Claude Lead ran the code before approving (before the change both were refused) |
+| The planner drafts plan v1 before the Lead creates the plan (ADR-116) | `team.rs::planner_drafts_and_the_lead_creates_the_plan` | — |
+| Tool caches and installed packages never reach a commit (ADR-116) | `vcs.rs::generated_files_stay_out_of_commits` | — |
 
 ## Orchestration: tickets as the only channel for work — `orchestration/orchestrator`
 

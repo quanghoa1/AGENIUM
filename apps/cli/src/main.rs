@@ -11,7 +11,7 @@ use agenium_core::*;
 use agenium_orchestrator::app::{App, AppOptions, CheckFactory, CreateAgent, CreateProject};
 use agenium_orchestrator::maintenance::BackupRequest;
 use agenium_orchestrator::runtime::{Approval, Approver, ConfiguredProviders, Runtime};
-use agenium_store::core::{comments, events, projects::Project, runs};
+use agenium_store::core::{comments, projects::Project, runs};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use clap::{Parser, Subcommand};
@@ -265,7 +265,7 @@ enum AgentCmd {
         model: String,
         #[arg(long, default_value = "high")]
         effort: String,
-        /// Run through a vendor CLI (--provider names it: codex, claude, agy).
+        /// Run through a vendor CLI (--provider names it: claude, codex, agy, grok, opencode).
         #[arg(long)]
         cli: bool,
         /// Capability tag (repeatable; default: the role's tags).
@@ -305,7 +305,7 @@ enum AgentCmd {
     /// Run an agent through a vendor CLI you are logged in to (CliBackend, ADR-56); `agent model` switches back.
     Cli {
         name: String,
-        /// CLI program (the CLIs `doctor` lists as usable: codex, agy).
+        /// CLI program (the CLIs `doctor` lists as usable: claude, codex, agy, grok, opencode).
         #[arg(long)]
         cli: String,
         /// The CLI's model (default: the CLI's own default).
@@ -1956,14 +1956,10 @@ async fn main() -> Result<()> {
             if rs.is_empty() {
                 println!("nothing to run (no ready tickets or reviews)");
             }
-            let needs = app
-                .store()
-                .read(|c| events::recent_of_kind(c, "NeedsUser", 5))?;
-            for e in needs {
-                println!(
-                    "needs you: {}",
-                    e.payload["reason"].as_str().unwrap_or_default()
-                );
+            // What still waits for the user in this project (answered and other projects' items are not shown).
+            for n in app.needs_you(p.id)? {
+                let on = n.ticket.map(|t| format!("{t}: ")).unwrap_or_default();
+                println!("needs you: {on}{}", n.text);
             }
         }
         Cmd::Ticket(tc) => {

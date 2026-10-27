@@ -320,6 +320,12 @@ pub fn fetch_tool() -> Arc<dyn Tool> {
     Arc::new(FetchTool)
 }
 
+/// The `shell` tool on its own, for a vendor CLI whose own commands run on the host: through it a command runs in
+/// Agenium's sandbox (the worktree writable, nothing else), so it needs nobody's approval where a sandbox works.
+pub fn shell_tool() -> Arc<dyn Tool> {
+    Arc::new(ShellTool)
+}
+
 /// The `view_image` tool on its own, for a vendor CLI: its image comes back as MCP image content, which the CLI shows
 /// to its model the same way whatever its own file tools can open.
 pub fn view_image_tool() -> Arc<dyn Tool> {

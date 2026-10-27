@@ -1,6 +1,32 @@
-# PROGRESS — Agenium (fresh implementation)
+# PROGRESS — Agenium
 
-Last full verification: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
+Where Agenium stands, what has been verified and how, and what has not. The history below is kept as written; the
+first section is current. Plain-language overview: [README](../README.md); evidence map:
+[VERIFICATION.md](VERIFICATION.md); decisions: [adr/](adr/README.md).
+
+## Release 0.1 (status 2026-10-27)
+
+Last full verification: 2026-10-27 on Windows 11 Pro (10 cores, 32 GB), Rust `x86_64-pc-windows-gnu`: fmt PASS,
+clippy `-D warnings` PASS (workspace and desktop app), `cargo test --workspace` **438 passed, 0 failed**, UI smoke
+test (25 checks on the real app) PASS.
+
+| Release item | Status | Evidence |
+|---|---|---|
+| Features for a first release | DONE | [CHANGELOG](../CHANGELOG.md) |
+| Strict Content Security Policy in the app window | DONE: only the app's own scripts, no remote content, workers and Monaco allowed; `freezePrototype` left off (it breaks Monaco) | `apps/desktop/tauri.conf.json`; release build checked on a test instance: inline script and external fetch blocked, all 16 views and the Monaco/xterm chunks load with no violation |
+| Real team run on a mixed team after the latest changes | DONE: Claude Opus Lead, Codex, Grok, agy, DeepSeek; 4/4 tickets merged, the delivered app's tests pass; 4 findings fixed (ADR-116) | [results/team-mixed-20261027.md](../quality/eval/results/team-mixed-20261027.md) |
+| Documentation for users | DONE: README (English, Vietnamese), Jev guide, changelog, NOTICE with bundled third-party licenses | [README](../README.md), [README.vi](../README.vi.md), [JEV.md](JEV.md) |
+| Windows installer, tested on a clean VM | @@WIN@@ | |
+| Linux (Ubuntu) package, tested on a VM | @@LINUX@@ | |
+| Code signing, auto-update | NOT DONE: needs a certificate and an update host (owner decision) | |
+
+Known limits of 0.1.0: Anthropic, Gemini and OpenAI APIs contract-tested, not called with a real key; ADR-115's extra
+request fields for OpenAI-compatible endpoints only; Devin's CLI not drivable; macOS desktop build not made yet.
+
+## History
+
+
+Verification at M3: 2026-10-24 (Asia/Saigon) on Windows 11 Pro (10 cores, 32 GB), Rust 1.99.1
 `x86_64-pc-windows-gnu`, git 2.45. After M3: fmt PASS, clippy `-D warnings` PASS, `cargo test --workspace` PASS (**210 passed**, 0 failed, 2
 helpers ignored; run without `AGENIUM_TEST_MODELS`, the local embedding-model tests were last run with it after M1.5), `xtask schemas --check` PASS, scripted golden tasks **5/5** PASS. Decisions and deviations of this implementation: [`adr/ADR-52-fresh-implementation.md`](adr/ADR-52-fresh-implementation.md).
 Front-ends: the headless CLI `agenium` and the desktop app `apps/desktop` (Tauri 2, [ADR-60](adr/ADR-60-desktop-app.md)).
@@ -235,6 +261,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   298 passed / 1 failed, a root not created yet kept its `/var` name, fixed; stream_run and git status pass).
 
 ## Next steps (proposed order, 2026-10-25)
+(Superseded by [Release 0.1](#release-01-status-2026-10-27) at the top; kept as written.)
 M4, M4.5 and the self-contained M5 items are done (ADR-64..93). What remains needs an owner decision or real
 infrastructure, not mechanical work:
 - **egress proxy** — DROPPED ([ADR-83](adr/ADR-83-no-egress-proxy.md), [ADR-84](adr/ADR-84-network-posture-and-unified-fetch.md)):

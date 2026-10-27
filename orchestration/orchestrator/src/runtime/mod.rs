@@ -272,7 +272,7 @@ pub fn apply_caps(cfg: &agenium_config::ProviderConfig, info: &mut agenium_llm::
 
 /// Two stopped/failed runs in a row on one ticket: stop auto-restarting it and ask the user (avoids burning tokens on
 /// a deterministic failure; the stall-nudge of M4 builds on this).
-const MAX_FAILED_RUNS: usize = 2;
+pub(crate) const MAX_FAILED_RUNS: usize = 2;
 
 /// Prefixes of the System comments of the stall-nudge.
 const STALL_NOTE: &str = "Stall nudge";
@@ -890,6 +890,15 @@ impl Runtime {
         } else {
             work
         };
+        // A CLI checked through its hook runs its own commands on the host, where each one needs the allowlist or the
+        // user. Where a sandbox works it also gets our `shell`: tests, builds and scripts then run contained, without
+        // asking (a team run cannot wait on the user for every `ls`).
+        if cli_ready.as_ref().is_some_and(|(d, _)| {
+            d.control() == agenium_cli_backend::Control::Hook
+                && agenium_sandbox::detect().backend.is_some()
+        }) {
+            work.push(agenium_tools::shell_tool());
+        }
         // Images reach the model only when it takes them (the provider says so, or `[[providers.model_caps]]
         // vision`): `view_image` is offered then only. The vendor CLIs' models all take images; the image reaches them
         // as MCP image content.

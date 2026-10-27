@@ -43,6 +43,34 @@ fn init_is_idempotent_and_excludes_agenium_dir() {
 }
 
 #[test]
+fn generated_files_stay_out_of_commits() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    // A project made before the list grew: the worktree adds what is missing, once.
+    std::fs::write(r.root.join(".git/info/exclude"), ".agenium/\n").unwrap();
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    r.add_worktree("AGN-1", "main").unwrap();
+    let excl = std::fs::read_to_string(r.root.join(".git/info/exclude")).unwrap();
+    assert_eq!(excl.matches("__pycache__/").count(), 1, "{excl}");
+    write(&w.path, "app.py", "print(1)\n");
+    write(&w.path, "__pycache__/app.cpython-313.pyc", "x");
+    write(&w.path, "tests/__pycache__/t.pyc", "x");
+    write(&w.path, "web/node_modules/left-pad/index.js", "x");
+    r.commit_all(&w.path, "Add app", AUTHOR, &[])
+        .unwrap()
+        .unwrap();
+    let files = r
+        .git()
+        .check(&w.path, ["show", "--name-only", "--format=", "HEAD"])
+        .unwrap();
+    assert_eq!(files.trim(), "app.py");
+    assert!(
+        r.status(&w.path).unwrap().is_empty(),
+        "caches do not dirty the tree"
+    );
+}
+
+#[test]
 fn worktree_commit_and_secret_blocking() {
     let tmp = tempfile::tempdir().unwrap();
     let r = repo(tmp.path());
