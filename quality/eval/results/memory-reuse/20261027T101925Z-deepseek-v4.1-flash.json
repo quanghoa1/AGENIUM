@@ -1,0 +1,98 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 6 fact(s)",
+    "runs": 6,
+    "steps": 24,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 256963,
+    "tokens_out": 4480,
+    "tokens_cached": 241024,
+    "cost_usd": 0.0,
+    "elapsed_ms": 124232,
+    "learning": {
+      "chain": null,
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project the reports/ directory may not exist in a fresh worktree; writing reports/<name>.txt creates it and leaves it untracked until commit.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt is the reference document: first line exactly 'Owner: docs-team' followed by the body word 'hello'.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project has an agenium.toml config at the repo root defining project name 'docs' and ticket key prefix 'AGN', with main_branch = \"main\" and template = \"coding@1\", and leaving [checks] pre_merge empty; it also defines the standard directories deliverables/, reports/, notes/, artifacts/ (each with a .gitkeep).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Reading a file back and confirming its content satisfies the ticket's acceptance criteria does not guarantee merge; before submitting a document deliverable, project-wide document rules (such as the required 'Owner: docs-team' first line) must also be checked, since content-only verification can pass review but still fail the pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Tickets in this project are worked in a git worktree on branch agenium/<ticket-id>, created under the .agenium/worktrees directory.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any document under deliverables/ or reports/, add the required 'Owner: docs-team' first line before submitting, or the pre-merge check fails and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The pre-merge check for this project rejects documents in deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line in the exact form 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project has an agenium.toml config at the repo root defining project name 'docs' and ticket key prefix 'AGN', plus standard directories deliverables/, reports/, notes/, artifacts/ (each with a .gitkeep).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Reading a file back and confirming its content satisfies the ticket's acceptance criteria does not guarantee merge; before submitting a document deliverable, project-wide document rules (such as the required 'Owner: docs-team' first line) must also be checked, since content-only verification can pass review but still fail the pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Tickets in this project are worked in a git worktree on branch agenium/<ticket-id>, created under the .agenium/worktrees directory.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating or editing any document under deliverables/ or reports/, add the required 'Owner: docs-team' first line before submitting, or the pre-merge check fails and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The pre-merge check for this project rejects documents in deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line in the exact form 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 141312,
+        "tokens_in": 150706,
+        "tokens_out": 2586
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 99712,
+        "tokens_in": 106257,
+        "tokens_out": 1894
+      },
+      "ticket2_facts_shown": 6,
+      "ticket2_shown": [
+        "run 01M5YDWT5KYXBJVK97EW8MJ8E9 #1 hybrid: Reading a file back and confirming its content satisfies the ticket's acceptance criteria does not guarantee merge; before submitting a document deliverable, project-wide document rules (such as the required 'Owner: docs-team' first line) must also be checked, since content-only verification can pass review but still fail the pre-merge check.",
+        "run 01M5YDWT5KYXBJVK97EW8MJ8E9 #2 hybrid: When creating or editing any document under deliverables/ or reports/, add the required 'Owner: docs-team' first line before submitting, or the pre-merge check fails and the ticket is reopened.",
+        "run 01M5YDWT5KYXBJVK97EW8MJ8E9 #3 hybrid: The docs project has an agenium.toml config at the repo root defining project name 'docs' and ticket key prefix 'AGN', plus standard directories deliverables/, reports/, notes/, artifacts/ (each with a .gitkeep).",
+        "run 01M5YDWT5KYXBJVK97EW8MJ8E9 #4 hybrid: In this docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line in the exact form 'Owner: docs-team'.",
+        "run 01M5YDWT5KYXBJVK97EW8MJ8E9 #5 hybrid: The pre-merge check for this project rejects documents in deliverables/ or reports/ whose first line is not exactly 'Owner: docs-team'.",
+        "run 01M5YDWT5KYXBJVK97EW8MJ8E9 #6 hybrid: Tickets in this project are worked in a git worktree on branch agenium/<ticket-id>, created under the .agenium/worktrees directory."
+      ]
+    }
+  }
+]

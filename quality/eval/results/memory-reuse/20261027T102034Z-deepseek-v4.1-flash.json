@@ -1,0 +1,75 @@
+[
+  {
+    "id": "memory-reuse-off",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 0 fact(s)",
+    "runs": 6,
+    "steps": 27,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 277603,
+    "tokens_out": 4868,
+    "tokens_cached": 251136,
+    "cost_usd": 0.0,
+    "elapsed_ms": 69449,
+    "learning": {
+      "chain": null,
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [],
+      "memories_before_ticket2": [],
+      "memory": false,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 18,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 164352,
+        "tokens_in": 188285,
+        "tokens_out": 3731
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 86784,
+        "tokens_in": 89318,
+        "tokens_out": 1137
+      },
+      "ticket2_facts_shown": 0,
+      "ticket2_shown": []
+    }
+  }
+]

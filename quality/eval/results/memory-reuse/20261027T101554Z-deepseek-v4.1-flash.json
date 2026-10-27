@@ -1,0 +1,95 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 14 steps; recall showed 4 fact(s)",
+    "runs": 6,
+    "steps": 33,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 351350,
+    "tokens_out": 4991,
+    "tokens_cached": 336000,
+    "cost_usd": 0.0,
+    "elapsed_ms": 145793,
+    "learning": {
+      "chain": null,
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's deliverables/hello.txt follows the owning-team format: line 1 'Owner: docs-team', line 2 'hello', saved as UTF-8 without a BOM.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"language\":\"powershell\",\"os\":\"windows\"}) On Windows PowerShell, write files without a UTF-8 BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false), so the first line stays byte-exact (starts with 'O', not 239,187,191).",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\", and an empty pre_merge check.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {}) Agenium's write_file tool refuses to overwrite an existing file that has not been read in the session (read_first error), so read_file the target before writing.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When writing any file into deliverables/ or reports/ in the docs project, put the owning-team line first (e.g. line 1 'Owner: docs-team') with the requested content lines after it, and save without a UTF-8 BOM so the first line is byte-exact; this makes the pre-merge check pass.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project pre-merge check enforces the owning-team first line even when the ticket's acceptance criteria only describe content, so a deliverables/ or reports/ file whose first line is not exactly 'Owner: docs-team' fails the merge and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps team documents in deliverables/ and reports/, with README.md and agenium.toml at the repo root.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {}) Agenium's write_file tool refuses to overwrite an existing file that has not been read in the session (read_first error), so read_file the target before writing.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When writing any file into deliverables/ or reports/ in the docs project, put the owning-team line first (e.g. line 1 'Owner: docs-team') with the requested content lines after it, and save without a UTF-8 BOM so the first line is byte-exact; this makes the pre-merge check pass.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project pre-merge check enforces the owning-team first line even when the ticket's acceptance criteria only describe content, so a deliverables/ or reports/ file whose first line is not exactly 'Owner: docs-team' fails the merge and the ticket is reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps team documents in deliverables/ and reports/, with README.md and agenium.toml at the repo root.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 19,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 196480,
+        "tokens_in": 205101,
+        "tokens_out": 2785
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 139520,
+        "tokens_in": 146249,
+        "tokens_out": 2206
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M5YDPAXP99ZK2EB5NJJSWRWK #1 hybrid: When writing any file into deliverables/ or reports/ in the docs project, put the owning-team line first (e.g. line 1 'Owner: docs-team') with the requested content lines after it, and save without a UTF-8 BOM so the first line is byte-exact; this makes the pre-merge check pass.",
+        "run 01M5YDPAXP99ZK2EB5NJJSWRWK #2 hybrid: The docs project pre-merge check enforces the owning-team first line even when the ticket's acceptance criteria only describe content, so a deliverables/ or reports/ file whose first line is not exactly 'Owner: docs-team' fails the merge and the ticket is reopened.",
+        "run 01M5YDPAXP99ZK2EB5NJJSWRWK #3 hybrid: The docs project keeps team documents in deliverables/ and reports/, with README.md and agenium.toml at the repo root.",
+        "run 01M5YDPAXP99ZK2EB5NJJSWRWK #4 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+      ]
+    }
+  }
+]

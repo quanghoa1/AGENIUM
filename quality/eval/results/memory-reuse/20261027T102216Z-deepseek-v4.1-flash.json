@@ -1,0 +1,102 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 7 fact(s)",
+    "runs": 6,
+    "steps": 25,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 260464,
+    "tokens_out": 3863,
+    "tokens_cached": 247424,
+    "cost_usd": 0.0,
+    "elapsed_ms": 101793,
+    "learning": {
+      "chain": null,
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project worktree on Windows, file content can be verified with PowerShell Get-Content and Select-String -SimpleMatch.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) deliverables/hello.txt in the docs project is the reference example of the team-document convention: first line 'Owner: docs-team', second line the payload word.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch = \"main\" and template = \"coding@1\".",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, add the required 'Owner: <owning team>' first line when first creating a team document in deliverables/ or reports/, so the pre-merge check passes; otherwise the check rejects it and the ticket gets reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) README.md of the docs project states that team documents live in deliverables/ and reports/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, write_file refuses to overwrite an existing file until it has been read with read_file (error code 'read_first').",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Check the project's own document conventions and pre-merge rules before submitting a report, since satisfying the acceptance criteria alone does not guarantee the pre-merge check passes.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project worktree root contains README.md, agenium.toml, and the directories deliverables/, reports/, notes/ and artifacts/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project pre-merge check enforces the 'Owner: <team>' first-line rule on documents in deliverables/ and reports/, and merge fails if it is missing.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule for the docs project: every team document in deliverables/ or reports/ must name its owning team on its first line as 'Owner: <team>' (e.g. 'Owner: docs-team')."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, add the required 'Owner: <owning team>' first line when first creating a team document in deliverables/ or reports/, so the pre-merge check passes; otherwise the check rejects it and the ticket gets reopened.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) README.md of the docs project states that team documents live in deliverables/ and reports/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, write_file refuses to overwrite an existing file until it has been read with read_file (error code 'read_first').",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Check the project's own document conventions and pre-merge rules before submitting a report, since satisfying the acceptance criteria alone does not guarantee the pre-merge check passes.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project worktree root contains README.md, agenium.toml, and the directories deliverables/, reports/, notes/ and artifacts/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project pre-merge check enforces the 'Owner: <team>' first-line rule on documents in deliverables/ and reports/, and merge fails if it is missing.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule for the docs project: every team document in deliverables/ or reports/ must name its owning team on its first line as 'Owner: <team>' (e.g. 'Owner: docs-team')."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 170240,
+        "tokens_in": 178462,
+        "tokens_out": 2668
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 77184,
+        "tokens_in": 82002,
+        "tokens_out": 1195
+      },
+      "ticket2_facts_shown": 7,
+      "ticket2_shown": [
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #1 hybrid: In the docs project, add the required 'Owner: <owning team>' first line when first creating a team document in deliverables/ or reports/, so the pre-merge check passes; otherwise the check rejects it and the ticket gets reopened.",
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #2 hybrid: Check the project's own document conventions and pre-merge rules before submitting a report, since satisfying the acceptance criteria alone does not guarantee the pre-merge check passes.",
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #3 hybrid: README.md of the docs project states that team documents live in deliverables/ and reports/.",
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #4 hybrid: In the docs project, write_file refuses to overwrite an existing file until it has been read with read_file (error code 'read_first').",
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #5 hybrid: The docs project worktree root contains README.md, agenium.toml, and the directories deliverables/, reports/, notes/ and artifacts/.",
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #6 hybrid: Project rule for the docs project: every team document in deliverables/ or reports/ must name its owning team on its first line as 'Owner: <team>' (e.g. 'Owner: docs-team').",
+        "run 01M5YE2PV39RRFYMCYSAXH178Z #7 hybrid: The docs project pre-merge check enforces the 'Owner: <team>' first-line rule on documents in deliverables/ and reports/, and merge fails if it is missing."
+      ]
+    }
+  }
+]

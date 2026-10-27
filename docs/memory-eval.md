@@ -123,6 +123,26 @@ Now the report enters the plan only when the measured ticket is created.
 - One run of the first batch was lost to the machine running out of disk and memory (`git worktree add`: out of memory;
   the page file could not grow on a full system drive); it was replaced.
 
+### 3b. With intervals — DeepSeek, n = 10 pairs (2026-10-27, ADR-118)
+
+Five more interleaved pairs (same scenario and settings) took the sample to 10 per condition; the comparison is the
+mean paired difference with a 95 % bootstrap interval (`cargo run -p agenium-eval -- --compare
+quality/eval/results/memory-reuse`, 10 000 resamples). The new runs used the current pipeline (ADR-118 does not change
+what ticket 2 recalls).
+
+| Metric | memory on | memory off | Difference | 95 % interval |
+|---|---|---|---|---|
+| first merge of ticket 2 passed | **10/10** | 6/10 | +0.40 | [+0.10, +0.70] |
+| steps, both tickets | 28.4 | 32.4 | −4.0 | [−6.9, −1.1] |
+| input tokens, both tickets | 296 k | 335 k | −39 k | [−69 k, −8 k] |
+| reopens | 1.0 | 1.4 | −0.4 | [−0.7, −0.1] |
+| steps of ticket 2 | 10.1 | 14.2 | −4.1 | [−8.2, 0.0] (touches 0) |
+
+**Finding:** with memory the second ticket is right the first time every time, and the pair of tickets costs ~12 %
+fewer input tokens and ~4 fewer steps; all four intervals exclude zero. The ticket-2 step count alone is not yet
+significant (a failed merge doubles it, so it is driven by the same 4 failures). Cost of the five new pairs on
+DeepSeek v4.1 Flash: about 3.3 M input tokens, mostly cache reads.
+
 ## 4. Memory reuse on the CLI models — Claude and Codex, n = 3
 
 This is the scenario of §3, run through the agents' own CLIs: Claude Haiku, Sonnet and Opus 5.5 (`claude`), and
