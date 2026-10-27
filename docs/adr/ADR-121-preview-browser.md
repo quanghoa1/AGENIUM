@@ -28,8 +28,18 @@ running app inside the tool, let the user click the element, and give the agent 
    cancelled by the webview's navigation handler and handed to the main webview as an event (≤64 KB). The app drives a
    page only with fixed scripts (history, reload, picker on/off). Only http(s) opens, never the app's own origins; the
    app's navigation guard, which keeps the main window on Agenium's pages, exempts the browser's webviews only.
-5. Not done: a cropped screenshot of the element (WebView2's capture API on Windows, WebKitGTK's snapshot on Linux),
-   drawing on the page, voice.
+5. **Which tab is which project's app.** A local address is tied to a project once ("This is X's app", or choosing
+   the project in the tab's selector): every tab on that origin then shows the project and sends to its Lead. A tab
+   shows its project, "reference site" (outside the machine) or "no project" (a local port nobody claimed) — google.com,
+   :3000 and :2000 open together read as reference, the project's app, and unclaimed.
+6. **Regions.** While picking, dragging selects an area: the outermost elements lying in it (a group of elements), or,
+   for a blank area, the element that holds it — for what a click cannot pick.
+7. **Screenshots and marks.** Every pick carries a screenshot of its box with a margin (WebView2 `CapturePreview`,
+   cropped to the box in device pixels; the highlight is hidden first). The user can draw on it (box, arrow, pen, four
+   colours, undo); the native page hides while the drawing dialog is open. On send the pictures are saved to
+   `<project>/.agenium/picks/<id>.png` (outside git), every run of the project may read that folder, and the message
+   gives each path to open with `view_image`.
+8. Not done: screenshots on Linux (WebKitGTK snapshot) and macOS; voice.
 
 ## Verified (2026-10-27, debug build, DeepSeek via OpenCode Go)
 
@@ -37,6 +47,12 @@ A project holding a small shop page served on :3001: the checkout button picked 
 (#16a34a), bold"; the Lead's plan targeted `#checkout` by id and kept the shared `.btn` rule untouched; after the
 ticket merged and the page reloaded, the button's computed style was `rgb(22, 163, 74)`, weight 700. Two tabs (the
 local page and example.com) at once; a pick on example.com marked as a reference. The UI smoke test visits the view.
+
+Second round (same day): tabs on :3000 (linked), :2000 (unclaimed) and an external site read as the project, "no
+project" and "reference"; a click and two drags (a blank area, a two-element cluster) produced picks with screenshots
+(147×79, 718×113, the cluster); a box drawn on the first replaced its picture; on send the three pictures were saved
+under `.agenium/picks`, and a Claude Haiku Lead opened one with `view_image`. Found and fixed: cancelling
+`pointerdown` stopped the mouse events the picker listened to (it now listens to pointer events).
 
 ## Consequences
 

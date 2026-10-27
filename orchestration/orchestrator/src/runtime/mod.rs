@@ -886,6 +886,11 @@ impl Runtime {
             ctx.capabilities.push(format!("Backend: {n}"));
         }
         ctx.read_roots = skills.dirs();
+        // Pictures the user picked in the app's browser (ADR-121): every run of the project may look at them.
+        let picks = std::path::Path::new(&p.path).join(".agenium").join("picks");
+        if picks.is_dir() {
+            ctx.read_roots.push(picks.clone());
+        }
         if let (RunKind::Work, Some(t)) = (kind, ticket) {
             let (all_of, granted) = self.app.write_scope(t, &agent.role)?;
             ctx.write_scope = agenium_tools::paths::WriteScope::new(all_of, granted)
@@ -900,6 +905,9 @@ impl Runtime {
         }
         // Skill scripts run through the shell: their folders are readable inside the sandbox too.
         ctx.policy.read_roots.extend(skills.dirs());
+        if picks.is_dir() {
+            ctx.policy.read_roots.push(picks);
+        }
         // ADR-84: whether a sandboxed shell command may reach the network. The sandbox (worktree-only writes, no host
         // home, cleared environment) is the boundary, not the network switch; default on so agents can install
         // dependencies. For an in-sandbox vendor CLI the container keeps network for its own API regardless.

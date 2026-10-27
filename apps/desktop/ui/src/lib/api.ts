@@ -85,6 +85,10 @@ export const api = {
   browserCloseAll: () => call<void>("browser_close_all"),
   browserAction: (tab: string, action: "back" | "forward" | "reload" | "pick-on" | "pick-off") => call<void>("browser_action", { tab, action }),
   browserUrl: (tab: string) => call<string | null>("browser_url", { tab }),
+  /** PNG (base64) of a box of the tab's page, in CSS pixels; `dpr` = the page's device pixel ratio. */
+  browserCapture: (tab: string, x: number, y: number, w: number, h: number, dpr: number) => call<string>("browser_capture", { tab, x, y, w, h, dpr }),
+  /** Saves a pick's picture into the project (where its agents can view it); returns the file path. */
+  browserSavePick: (project: string, png: string) => call<string>("browser_save_pick", { project, png }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
   overview: () => call<Overview>("overview"),

@@ -52,6 +52,8 @@ fn main() {
             browser::browser_hide_all,
             browser::browser_close,
             browser::browser_close_all,
+            browser::browser_capture,
+            browser::browser_save_pick,
             api::setup,
             api::projects,
             api::overview,

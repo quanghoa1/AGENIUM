@@ -34,6 +34,14 @@ tauri-plugin-notification = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base64 = "0.22"
+png = "0.18"
+ulid = "1"
+
+# The browser's screenshots (ADR-121): WebView2's CapturePreview, the versions Tauri's wry uses.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage"] }
 
 [profile.dev]
 debug = "line-tables-only"

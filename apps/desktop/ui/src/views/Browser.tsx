@@ -3,9 +3,11 @@
 // elements gather on the right with a note each and go to that project's Lead in one message, with what lets an agent
 // find them: selector, tag and classes, text, HTML, computed styles, size and place, and the component and source
 // file when the page is a development build. A page outside the user's machine is sent as a reference to follow.
-import { ArrowLeft, ArrowRight, Crosshair, Globe, Plus, RotateCw, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Crosshair, Globe, Link2, Pencil, Plus, RotateCw, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Annotate } from "../components/Annotate";
 import { NeedsProject } from "../components/GettingStarted";
+import { Overlay } from "../components/motion";
 import { Empty, Mono, cn } from "../components/ui";
 import { api, onBrowser } from "../lib/api";
 import { inTauri, useApp } from "../lib/store";
@@ -26,6 +28,15 @@ export interface Picked {
   styles: Record<string, string>;
   component: { framework: string; name: string | null; file: string | null } | null;
   parent: string | null;
+  /** "element" (a click) or "region" (a drag: a blank area or several elements). */
+  kind?: "element" | "region";
+  dpr?: number;
+  /** The elements a region holds. */
+  elements?: { element: string; selector: string; text: string }[];
+  /** Screenshot of the element or region (PNG, base64), annotated or not; saved into the project when sent. */
+  image?: string | null;
+  /** Ties a screenshot that arrives later to its pick. */
+  key?: string;
   note: string;
 }
 
@@ -57,6 +68,33 @@ const readUrl = (project: string) => {
   }
 };
 
+// Which project's app a local address serves (`origin` -> project id): a tab on that origin belongs to the project.
+const ORIGINS = "agenium-browser-origins";
+function origins(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(ORIGINS) || "{}");
+  } catch {
+    return {};
+  }
+}
+function linkOrigin(url: string, project: string) {
+  try {
+    const o = new URL(url).origin;
+    localStorage.setItem(ORIGINS, JSON.stringify({ ...origins(), [o]: project }));
+  } catch {
+    /* per-viewer convenience only */
+  }
+}
+/** The project whose app `url` is, if the user said so. */
+export function projectOf(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return origins()[new URL(url).origin] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** A page served from this machine (the app being built), as opposed to a site to take as a reference. */
 export function isLocal(url: string): boolean {
   try {
@@ -68,7 +106,7 @@ export function isLocal(url: string): boolean {
 }
 
 /** The message the Lead gets: the user's words first, then each element with what locates it. */
-export function pickMessage(message: string, picks: Picked[]): string {
+export function pickMessage(message: string, picks: Picked[], shots: (string | null)[] = []): string {
   const parts: string[] = [];
   if (message.trim()) parts.push(message.trim());
   const page = picks[0];
@@ -78,9 +116,11 @@ export function pickMessage(message: string, picks: Picked[]): string {
       : `Elements picked on an external site as a reference — not part of this project (${page.url}). Apply what each note asks to our project, taking the look and structure from these:`,
   );
   picks.forEach((p, i) => {
-    const lines = [`${i + 1}. ${p.element}${p.text ? ` "${p.text.slice(0, 120)}"` : ""}`];
+    const lines = [`${i + 1}. ${p.kind === "region" ? "Region: " : ""}${p.element}${p.text ? ` "${p.text.slice(0, 120)}"` : ""}`];
     if (p.note.trim()) lines.push(`   ${isLocal(p.url) ? "Change" : "Wanted"}: ${p.note.trim()}`);
-    lines.push(`   Selector: ${p.selector}`);
+    if (shots[i]) lines.push(`   Screenshot (with the user's marks if any; view it with view_image): ${shots[i]}`);
+    lines.push(`   ${p.kind === "region" ? "Inside" : "Selector"}: ${p.selector}`);
+    for (const e of p.elements ?? []) lines.push(`   - ${e.element} (${e.selector})${e.text ? ` "${e.text}"` : ""}`);
     if (p.component) lines.push(`   Component: ${[p.component.name, p.component.file].filter(Boolean).join(" at ")} (${p.component.framework})`);
     if (p.url !== page.url) lines.push(`   Page: ${p.url}`);
     lines.push(`   Box: ${p.rect[2]}×${p.rect[3]} at (${p.rect[0]}, ${p.rect[1]})`);
@@ -109,6 +149,8 @@ export function BrowserView() {
   const [tabs, setTabsState] = useState<Tab[]>(kept.tabs);
   const [active, setActiveState] = useState<string | null>(kept.active);
   const [sending, setSending] = useState(false);
+  // The pick whose screenshot is being drawn on (the native page hides meanwhile: it would cover the dialog).
+  const [drawing, setDrawing] = useState<{ tab: string; index: number } | null>(null);
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
   const activeRef = useRef(active);
@@ -206,14 +248,22 @@ export function BrowserView() {
     let gone = false;
     onBrowser({
       url: (tab, u) => {
-        patch(tab, { current: u, opened: true });
+        const owner = isLocal(u) ? projectOf(u) : null;
+        patch(tab, owner ? { current: u, opened: true, project: owner } : { current: u, opened: true });
         // A new page has a fresh picker: turn it on again if the user is picking there.
         if (tabsRef.current.find((t) => t.id === tab)?.picking) setTimeout(() => api.browserAction(tab, "pick-on").catch(() => undefined), 300);
       },
       picked: (tab, raw) => {
         try {
           const p = JSON.parse(raw) as Omit<Picked, "note">;
-          setTabs((ts) => ts.map((t) => (t.id === tab ? { ...t, picks: [...t.picks, { ...p, note: "" }] } : t)));
+          const key = `${p.selector}@${Date.now()}`;
+          setTabs((ts) => ts.map((t) => (t.id === tab ? { ...t, picks: [...t.picks, { ...p, note: "", image: null, key }] } : t)));
+          // Its screenshot: the box of the element or region, with a margin.
+          const [x, y, w, h] = p.rect;
+          api
+            .browserCapture(tab, x, y, w, h, p.dpr ?? 1)
+            .then((png) => setTabs((ts) => ts.map((t) => (t.id === tab ? { ...t, picks: t.picks.map((q) => (q.key === key ? { ...q, image: png } : q)) } : t))))
+            .catch(() => undefined);
         } catch {
           /* not a pick */
         }
@@ -284,8 +334,8 @@ export function BrowserView() {
   const send = () => {
     if (!tab || tab.picks.length === 0) return;
     setSending(true);
-    api
-      .chat(tab.project, pickMessage(tab.message, tab.picks))
+    Promise.all(tab.picks.map((p) => (p.image ? api.browserSavePick(tab.project, p.image).catch(() => null) : Promise.resolve(null))))
+      .then((shots) => api.chat(tab.project, pickMessage(tab.message, tab.picks, shots)))
       .then(() => {
         app.notify(app.t("browser.sent"));
         patch(tab.id, { picks: [], message: "" });
@@ -315,7 +365,7 @@ export function BrowserView() {
             >
               <Globe className="h-3 w-3 shrink-0" />
               <span className="truncate">{hostOf(t.current) ?? app.t("browser.newTab")}</span>
-              <span className="shrink-0 rounded bg-elevated px-1 font-mono text-[10px] text-subtle">{projectName(t.project)}</span>
+              <TabKind t={t} name={projectName} />
               {t.picks.length > 0 && <span className="shrink-0 rounded-full bg-accent/15 px-1.5 text-[10px] text-accent">{t.picks.length}</span>}
               <button
                 className="shrink-0 rounded p-0.5 opacity-60 hover:bg-elevated hover:opacity-100"
@@ -344,7 +394,15 @@ export function BrowserView() {
             <button className="btn px-2" title={app.t("browser.reload")} disabled={!tab.opened} onClick={() => api.browserAction(tab.id, "reload")}>
               <RotateCw className="h-3.5 w-3.5" />
             </button>
-            <select className="input w-36 text-xs" title={app.t("browser.tabProject")} value={tab.project} onChange={(e) => patch(tab.id, { project: e.target.value })}>
+            <select
+              className="input w-36 text-xs"
+              title={app.t("browser.tabProject")}
+              value={tab.project}
+              onChange={(e) => {
+                if (tab.current && isLocal(tab.current)) linkOrigin(tab.current, e.target.value);
+                patch(tab.id, { project: e.target.value });
+              }}
+            >
               {app.projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -374,6 +432,15 @@ export function BrowserView() {
         {tab?.current && (
           <div className="flex items-center gap-2 truncate border-t border-line px-3 py-1 font-mono text-[11px] text-subtle">
             {external && <span className="chip shrink-0 border-amber-500/30 bg-amber-500/10 font-sans text-amber-600 dark:text-amber-300">{app.t("browser.reference")}</span>}
+            {!external && !projectOf(tab.current) && (
+              <button
+                className="chip shrink-0 border-line-strong bg-elevated font-sans text-muted hover:text-foreground"
+                title={app.t("browser.linkHint")}
+                onClick={() => (linkOrigin(tab.current!, tab.project), patch(tab.id, {}))}
+              >
+                <Link2 className="h-3 w-3" /> {app.t("browser.link").replace("{p}", projectName(tab.project))}
+              </button>
+            )}
             <span className="truncate">{tab.current}</span>
           </div>
         )}
@@ -402,6 +469,15 @@ export function BrowserView() {
                 {!isLocal(p.url) && `${hostOf(p.url)} · `}
                 {p.selector}
               </div>
+              {p.image === null && <div className="mt-1.5 h-10 animate-pulse rounded bg-elevated" />}
+              {p.image && (
+                <button className="group relative mt-1.5 block w-full overflow-hidden rounded border border-line" title={app.t("browser.draw")} onClick={() => (api.browserVisible(tab.id, false), setDrawing({ tab: tab.id, index: i }))}>
+                  <img className="max-h-40 w-full object-contain" src={`data:image/png;base64,${p.image}`} alt="" />
+                  <span className="absolute right-1 top-1 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white opacity-80 group-hover:opacity-100">
+                    <Pencil className="h-3 w-3" /> {app.t("browser.draw")}
+                  </span>
+                </button>
+              )}
               <textarea
                 className="input mt-1.5 h-14 w-full resize-none text-xs"
                 placeholder={isLocal(p.url) ? app.t("browser.notePlaceholder") : app.t("browser.referencePlaceholder")}
@@ -421,6 +497,37 @@ export function BrowserView() {
           </div>
         )}
       </div>
+      <Overlay open={!!drawing} onClose={() => (drawing && api.browserVisible(drawing.tab, true), setDrawing(null))} kind="dialog" top="pt-[4vh]">
+        <div className="card p-4 shadow-2xl">
+          {drawing && (() => {
+            const t = tabs.find((x) => x.id === drawing.tab);
+            const p = t?.picks[drawing.index];
+            if (!t || !p?.image) return null;
+            const close = () => (api.browserVisible(t.id, true), setDrawing(null));
+            return (
+              <Annotate
+                image={p.image}
+                onCancel={close}
+                onDone={(png) => (patch(t.id, { picks: t.picks.map((q, j) => (j === drawing.index ? { ...q, image: png } : q)) }), close())}
+              />
+            );
+          })()}
+        </div>
+      </Overlay>
     </div>
+  );
+}
+
+/** What a tab is: the app of a project (its address was linked to it), a reference site, or a local page no project
+ * claims yet. */
+function TabKind({ t, name }: { t: Tab; name: (id: string) => string }) {
+  const app = useApp();
+  if (!t.current) return <span className="shrink-0 rounded bg-elevated px-1 font-mono text-[10px] text-subtle">{name(t.project)}</span>;
+  if (!isLocal(t.current)) return <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[10px] text-amber-600 dark:text-amber-300">{app.t("browser.reference")}</span>;
+  const owner = projectOf(t.current);
+  return owner ? (
+    <span className="shrink-0 rounded bg-cyan-500/15 px-1 font-mono text-[10px] text-cyan-600 dark:text-cyan-400">{name(owner)}</span>
+  ) : (
+    <span className="shrink-0 rounded border border-dashed border-line-strong px-1 text-[10px] text-subtle">{app.t("browser.unlinked")}</span>
   );
 }
