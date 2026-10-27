@@ -230,6 +230,7 @@ pub fn price_as_eval(
     app.update_config(|c| {
         c.providers.retain(|p| p.id != "eval");
         c.providers.push(agenium_config::ProviderConfig {
+            headers: Default::default(),
             id: "eval".into(),
             kind,
             base_url: None,

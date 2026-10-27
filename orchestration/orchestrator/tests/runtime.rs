@@ -1414,6 +1414,7 @@ async fn model_without_tool_calling_is_refused() {
     let (project, _) = solo(&app);
     app.update_config(|c| {
         c.providers.push(agenium_config::ProviderConfig {
+            headers: Default::default(),
             id: "mock".into(),
             kind: agenium_config::ProviderKind::Mock,
             base_url: None,
@@ -1421,6 +1422,8 @@ async fn model_without_tool_calling_is_refused() {
             max_concurrency: 1,
             models: vec![],
             model_caps: vec![agenium_config::ModelCaps {
+                efforts: None,
+                default_effort: None,
                 model: "scripted".into(),
                 tools: Some(false),
                 vision: None,
@@ -2616,6 +2619,7 @@ async fn view_image_is_offered_to_a_model_that_takes_images_only() {
         app.update_config(|c| {
             c.memory.learn = false;
             c.providers.push(agenium_config::ProviderConfig {
+                headers: Default::default(),
                 id: "mock".into(),
                 kind: agenium_config::ProviderKind::Mock,
                 base_url: None,
@@ -2623,6 +2627,8 @@ async fn view_image_is_offered_to_a_model_that_takes_images_only() {
                 max_concurrency: 1,
                 models: vec![],
                 model_caps: vec![agenium_config::ModelCaps {
+                    efforts: None,
+                    default_effort: None,
                     model: "scripted".into(),
                     tools: None,
                     vision: Some(vision),

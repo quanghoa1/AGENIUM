@@ -363,7 +363,18 @@ export interface CliInfo {
 }
 
 export interface Capabilities {
-  providers: { id: string; kind: string; base_url?: string | null; has_key: boolean; models: string[]; max_concurrency: number }[];
+  providers: {
+    id: string;
+    kind: string;
+    base_url?: string | null;
+    has_key: boolean;
+    models: string[];
+    max_concurrency: number;
+    /** Extra headers; a secret one comes by name only. */
+    headers?: { name: string; secret: boolean; value: string }[];
+    /** Per-model settings set by hand. */
+    model_caps?: ModelCapsRow[];
+  }[];
   clis: CliInfo[];
   templates: TeamTemplate[];
   cli_fallback: { provider: string; model: string };
@@ -565,6 +576,16 @@ export interface JudgeForm extends JudgeUses {
   model: string;
   api_key?: string | null;
   clear_key?: boolean;
+}
+
+/** A model's settings set by hand on a provider (`[[providers.model_caps]]`). */
+export interface ModelCapsRow {
+  model: string;
+  tools?: boolean | null;
+  vision?: boolean | null;
+  context_window?: number | null;
+  efforts?: string[] | null;
+  default_effort?: string | null;
 }
 
 export interface ModelInfo {

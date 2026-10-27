@@ -93,6 +93,10 @@ pub struct OpenAiCompat {
     api_key: Option<String>,
     flavor: Flavor,
     http: Http,
+    /// Headers the user added for this endpoint.
+    extra_headers: Vec<(String, String)>,
+    /// Effort levels the user gave a model of this endpoint.
+    user_efforts: std::collections::BTreeMap<String, Vec<Effort>>,
 }
 
 impl OpenAiCompat {
@@ -104,7 +108,20 @@ impl OpenAiCompat {
             base_url: base,
             api_key: api_key.filter(|k| !k.is_empty()).map(str::to_owned),
             http,
+            extra_headers: Vec::new(),
+            user_efforts: Default::default(),
         }
+    }
+
+    /// The user's own headers and per-model effort levels for this endpoint.
+    pub fn customized(
+        mut self,
+        headers: Vec<(String, String)>,
+        efforts: std::collections::BTreeMap<String, Vec<Effort>>,
+    ) -> Self {
+        self.extra_headers = headers;
+        self.user_efforts = efforts;
+        self
     }
 
     /// `GET /models` as the server reports it (OpenRouter adds `context_length`).
@@ -144,8 +161,8 @@ impl OpenAiCompat {
             .collect())
     }
 
-    fn headers(&self) -> Vec<(&'static str, String)> {
-        let mut h = Vec::new();
+    fn headers(&self) -> Vec<(&str, String)> {
+        let mut h: Vec<(&str, String)> = Vec::new();
         if let Some(k) = &self.api_key {
             h.push(("authorization", format!("Bearer {k}")));
             if self.flavor == Flavor::Azure {
@@ -155,10 +172,13 @@ impl OpenAiCompat {
         if self.flavor == Flavor::OpenRouter {
             h.push(("x-title", "Agenium".into()));
         }
+        for (k, v) in &self.extra_headers {
+            h.push((k.as_str(), v.clone()));
+        }
         h
     }
 
-    fn request_headers(&self, req: &ChatRequest) -> Vec<(&'static str, String)> {
+    fn request_headers(&self, req: &ChatRequest) -> Vec<(&str, String)> {
         let mut h = self.headers();
         if self.flavor == Flavor::OpenCode {
             let key = req
@@ -596,7 +616,15 @@ impl Provider for OpenAiCompat {
         req: &ChatRequest,
         emit: &(dyn Fn(ChatEvent) + Send + Sync),
     ) -> Result<ChatResponse, LlmError> {
-        let body = build_body(self.flavor, req);
+        let mut body = build_body(self.flavor, req);
+        // A level the user gave this model on this endpoint is sent even where Agenium knows nothing of the model.
+        if body.get("reasoning_effort").is_none() && body.get("reasoning").is_none() {
+            if let Some(levels) = self.user_efforts.get(&req.model) {
+                if levels.contains(&req.effort) {
+                    body["reasoning_effort"] = json!(req.effort.as_str());
+                }
+            }
+        }
         let mut st = StreamState::default();
         let r = self
             .http

@@ -367,10 +367,14 @@ pub struct ProviderConfig {
     /// Capability flags set by hand (ADR-31); they win over what the endpoint reports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub model_caps: Vec<ModelCaps>,
+    /// Extra HTTP headers sent with every request of an OpenAI-compatible endpoint (a gateway's tenant or routing
+    /// header). A value is plain text or `${secret:<name>}` (a vault secret): secrets never appear in this file.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub headers: std::collections::BTreeMap<String, String>,
 }
 
 /// Capabilities of one model of a provider (`[[providers.model_caps]]`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelCaps {
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -379,6 +383,12 @@ pub struct ModelCaps {
     pub vision: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context_window: Option<u64>,
+    /// The model's reasoning effort levels, lowest first, as the endpoint names them; a chosen level is sent as
+    /// `reasoning_effort`. Unset: what Agenium knows of the model (an unknown model on a custom endpoint gets none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub efforts: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_effort: Option<String>,
 }
 
 impl ProviderConfig {

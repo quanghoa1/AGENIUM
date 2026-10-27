@@ -122,6 +122,10 @@ pub struct ProviderSpec {
     pub base_url: Option<String>,
     pub api_key: Option<String>,
     pub max_concurrency: usize,
+    /// Extra headers (OpenAI-compatible endpoints), already resolved.
+    pub headers: Vec<(String, String)>,
+    /// Effort levels set by hand per model (OpenAI-compatible endpoints): a chosen level is sent for these models.
+    pub efforts: std::collections::BTreeMap<String, Vec<agenium_core::Effort>>,
 }
 
 pub fn build_provider(spec: &ProviderSpec) -> Result<Arc<dyn Provider>, LlmError> {
@@ -164,12 +168,10 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Arc<dyn Provider>, LlmError
             if opencode::is_opencode(base) && !key.is_empty() {
                 Arc::new(opencode::OpenCode::new(&spec.id, base, &key, http))
             } else {
-                Arc::new(openai::OpenAiCompat::new(
-                    &spec.id,
-                    base,
-                    spec.api_key.as_deref(),
-                    http,
-                ))
+                Arc::new(
+                    openai::OpenAiCompat::new(&spec.id, base, spec.api_key.as_deref(), http)
+                        .customized(spec.headers.clone(), spec.efforts.clone()),
+                )
             }
         }
         other => return Err(LlmError::Config(format!("unknown provider kind {other:?}"))),

@@ -68,8 +68,10 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           ? caps?.clis
               .filter((c) => c.compatible)
               .map((c) => (
-                <option key={c.kind} value={c.kind.toLowerCase()}>
+                // Signed out: not offered (its runs would fail at once). Unknown: offered, and said so.
+                <option key={c.kind} value={c.kind.toLowerCase()} disabled={c.login === "not_logged_in"}>
                   {c.kind.toLowerCase()} {c.version}
+                  {c.login === "not_logged_in" ? ` (${app.t("providers.notLoggedIn")})` : c.login === "logged_in" ? "" : ` (${app.t("model.loginUnknown")})`}
                 </option>
               ))
           : caps?.providers.map((p) => (

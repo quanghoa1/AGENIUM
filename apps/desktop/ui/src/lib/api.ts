@@ -19,6 +19,7 @@ import type {
   LocalServer,
   McpServerConfig,
   McpServerRow,
+  ModelCapsRow,
   ModelInfo,
   RoleInfo,
   TeamRecord,
@@ -187,7 +188,17 @@ export const api = {
   logoutMcp: (id: string) => call<void>("logout_mcp", { id }),
   testMcp: (id: string) =>
     call<{ server: any; protocol: string; tools: { name: string; description?: string | null; read_only: boolean }[] }>("test_mcp", { id }),
-  putProvider: (form: { id: string; kind: string; base_url?: string | null; api_key?: string | null; clear_key?: boolean; max_concurrency?: number; models?: string[] }) =>
+  putProvider: (form: {
+    id: string;
+    kind: string;
+    base_url?: string | null;
+    api_key?: string | null;
+    clear_key?: boolean;
+    max_concurrency?: number;
+    models?: string[];
+    headers?: { name: string; value: string | null; secret: boolean }[];
+    model_caps?: ModelCapsRow[];
+  }) =>
     call<void>("put_provider", { form }),
   removeProvider: (id: string) => call<void>("remove_provider", { id }),
   providerModels: (id: string) => call<ModelInfo[]>("provider_models", { id }),

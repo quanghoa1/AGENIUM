@@ -116,6 +116,17 @@ pub struct LeadSuggestion {
     pub reasons: Vec<String>,
 }
 
+/// One extra header of a provider. A secret one is kept in the vault (`provider/<id>/header/<name>`) and the
+/// configuration holds a `${secret:...}` placeholder; its value `None` keeps the stored secret.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HeaderInput {
+    pub name: String,
+    #[serde(default)]
+    pub value: Option<String>,
+    #[serde(default)]
+    pub secret: bool,
+}
+
 /// A provider as the user enters it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProviderInput {
@@ -134,6 +145,12 @@ pub struct ProviderInput {
     /// Models listed by hand (endpoints that cannot list them).
     #[serde(default)]
     pub models: Vec<String>,
+    /// Extra headers (OpenAI-compatible endpoints); `None` keeps the stored ones.
+    #[serde(default)]
+    pub headers: Option<Vec<HeaderInput>>,
+    /// Per-model capabilities set by hand (tools, vision, context, effort levels); `None` keeps the stored ones.
+    #[serde(default)]
+    pub model_caps: Option<Vec<agenium_config::ModelCaps>>,
 }
 
 fn four() -> u32 {
@@ -886,6 +903,60 @@ impl App {
     // ------------------------------------------------------------ providers
 
     /// Adds or replaces a provider. A new key goes to the vault (`provider/<id>`), never to config.toml.
+    /// A provider's extra headers as stored: plain values as they are, secret ones in the vault behind a placeholder
+    /// (a secret header left empty keeps its stored value). Headers no longer listed lose their secret.
+    fn provider_headers(
+        &self,
+        id: &str,
+        hs: &[HeaderInput],
+        old: Option<&ProviderConfig>,
+    ) -> Result<std::collections::BTreeMap<String, String>> {
+        let mut out = std::collections::BTreeMap::new();
+        for h in hs {
+            let name = h.name.trim();
+            if name.is_empty() {
+                continue;
+            }
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-_".contains(c))
+            {
+                return Err(invalid(format!(
+                    "header name {name:?}: letters, digits, '-' and '_'"
+                )));
+            }
+            let secret = format!("provider/{id}/header/{}", name.to_ascii_lowercase());
+            let value = h.value.as_deref().map(str::trim).unwrap_or("");
+            if h.secret {
+                if !value.is_empty() {
+                    self.secrets().set(&secret, value.as_bytes())?;
+                } else if self.secret(&secret)?.is_none() {
+                    return Err(invalid(format!("header {name}: give its value")));
+                }
+                out.insert(name.to_owned(), format!("${{secret:{secret}}}"));
+            } else {
+                if value.contains("${") {
+                    return Err(invalid(format!(
+                        "header {name}: mark it secret instead of writing a placeholder"
+                    )));
+                }
+                let _ = self.secrets().delete(&secret);
+                out.insert(name.to_owned(), value.to_owned());
+            }
+        }
+        for gone in old
+            .into_iter()
+            .flat_map(|o| o.headers.keys())
+            .filter(|k| !out.contains_key(*k))
+        {
+            let _ = self.secrets().delete(&format!(
+                "provider/{id}/header/{}",
+                gone.to_ascii_lowercase()
+            ));
+        }
+        Ok(out)
+    }
+
     pub fn put_provider(&self, p: &ProviderInput) -> Result<ProviderConfig> {
         if !slug_ok(&p.id) {
             return Err(invalid(format!(
@@ -930,14 +1001,31 @@ impl App {
         if key_ref.is_empty() && matches!(p.kind, ProviderKind::Anthropic | ProviderKind::Gemini) {
             return Err(invalid("this provider needs an API key"));
         }
+        let headers = match &p.headers {
+            Some(hs) => self.provider_headers(&p.id, hs, old.as_ref())?,
+            None => old.as_ref().map(|o| o.headers.clone()).unwrap_or_default(),
+        };
+        for c in p.model_caps.iter().flatten() {
+            for e in c.efforts.iter().flatten().chain(c.default_effort.iter()) {
+                e.parse::<agenium_core::Effort>().map_err(invalid)?;
+            }
+        }
         let pc = ProviderConfig {
+            headers,
             id: p.id.clone(),
             kind: p.kind,
             base_url: p.base_url.clone().filter(|u| !u.trim().is_empty()),
             api_key_ref: key_ref,
             max_concurrency: p.max_concurrency.max(1),
             models: p.models.clone(),
-            model_caps: old.map(|o| o.model_caps).unwrap_or_default(),
+            model_caps: match &p.model_caps {
+                Some(c) => c
+                    .iter()
+                    .filter(|c| !c.model.trim().is_empty())
+                    .cloned()
+                    .collect(),
+                None => old.map(|o| o.model_caps).unwrap_or_default(),
+            },
         };
         self.update_config(|c| {
             c.providers.retain(|x| x.id != pc.id);

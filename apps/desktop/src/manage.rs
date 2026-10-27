@@ -437,6 +437,10 @@ pub struct ProviderForm {
     max_concurrency: Option<u32>,
     #[serde(default)]
     models: Vec<String>,
+    #[serde(default)]
+    headers: Option<Vec<agenium_orchestrator::registry::HeaderInput>>,
+    #[serde(default)]
+    model_caps: Option<Vec<agenium_config::ModelCaps>>,
 }
 
 #[tauri::command]
@@ -450,6 +454,8 @@ pub fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<()> {
     };
     o.app
         .put_provider(&ProviderInput {
+            headers: form.headers,
+            model_caps: form.model_caps,
             id: form.id.trim().to_owned(),
             kind,
             base_url: form
@@ -480,7 +486,30 @@ pub async fn provider_models(d: State<'_, Desktop>, id: String) -> R<Value> {
     let o = d.opened()?;
     let p = o.rt.providers.provider(&id).map_err(err)?;
     let pc = o.app.config().provider(&id).cloned();
-    let mut models = p.list_models().await.map_err(|e| e.to_string())?;
+    // An endpoint that cannot list its models still has the ones the user named.
+    let listed = p.list_models().await;
+    let named = pc
+        .iter()
+        .flat_map(|c| c.models.iter().chain(c.model_caps.iter().map(|m| &m.model)));
+    let mut models = match listed {
+        Ok(m) => m,
+        Err(_)
+            if pc
+                .as_ref()
+                .is_some_and(|c| !c.models.is_empty() || !c.model_caps.is_empty()) =>
+        {
+            vec![]
+        }
+        Err(e) => return Err(e.to_string()),
+    };
+    for n in named.cloned().collect::<Vec<_>>() {
+        if !models.iter().any(|m| m.id == n) {
+            models.push(agenium_llm::ModelInfo {
+                id: n,
+                ..Default::default()
+            });
+        }
+    }
     // Only what the API serves (OpenCode's free models need the opencode CLI backend, ADR-68).
     models.retain(|m| o.app.api_serves(&id, &m.id));
     if let Some(pc) = &pc {

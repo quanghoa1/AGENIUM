@@ -12,6 +12,8 @@ use common::*;
 fn provider(f: &Fixture) {
     f.app
         .put_provider(&ProviderInput {
+            headers: None,
+            model_caps: None,
             id: "local".into(),
             kind: ProviderKind::OpenaiCompat,
             base_url: Some("http://127.0.0.1:9/v1".into()),
@@ -496,6 +498,8 @@ fn providers_keep_their_keys_in_the_vault() {
     let key = "sk-test-0123456789abcdefghij";
     f.app
         .put_provider(&ProviderInput {
+            headers: None,
+            model_caps: None,
             id: "deepseek".into(),
             kind: ProviderKind::OpenaiCompat,
             base_url: Some("https://api.deepseek.example/v1".into()),
@@ -522,6 +526,8 @@ fn providers_keep_their_keys_in_the_vault() {
     // Editing without a key keeps the stored one.
     f.app
         .put_provider(&ProviderInput {
+            headers: None,
+            model_caps: None,
             id: "deepseek".into(),
             kind: ProviderKind::OpenaiCompat,
             base_url: Some("https://api.deepseek.example/v1".into()),
@@ -541,6 +547,8 @@ fn providers_keep_their_keys_in_the_vault() {
     // Checks: a key for Anthropic/Gemini, a base URL for OpenAI-compatible endpoints, valid ids.
     let bad = |p: ProviderInput| f.app.put_provider(&p).is_err();
     let p = |id: &str, kind, url: Option<&str>| ProviderInput {
+        headers: None,
+        model_caps: None,
         id: id.into(),
         kind,
         base_url: url.map(str::to_owned),
@@ -666,6 +674,8 @@ fn projects_from_a_folder_name_or_a_repository() {
 fn every_vendor_preset_builds_an_adapter() {
     for pr in agenium_config::presets::PRESETS {
         let spec = agenium_llm::ProviderSpec {
+            headers: vec![],
+            efforts: Default::default(),
             id: pr.id.into(),
             kind: match pr.kind {
                 agenium_config::ProviderKind::Anthropic => "anthropic",
@@ -680,4 +690,74 @@ fn every_vendor_preset_builds_an_adapter() {
         let p = agenium_llm::build_provider(&spec).unwrap_or_else(|e| panic!("{}: {e}", pr.id));
         assert_eq!(p.id(), pr.id);
     }
+}
+
+/// A custom endpoint's extra headers: a plain one is written as it is, a secret one goes to the vault behind a
+/// placeholder (never into config.toml) and an empty value keeps it; per-model effort levels are kept and checked.
+#[test]
+fn custom_endpoint_headers_and_model_settings_are_stored() {
+    let f = fixture();
+    let put = |headers: Vec<HeaderInput>, caps: Option<Vec<agenium_config::ModelCaps>>| {
+        f.app.put_provider(&ProviderInput {
+            headers: Some(headers),
+            model_caps: caps,
+            id: "gw".into(),
+            kind: ProviderKind::OpenaiCompat,
+            base_url: Some("https://gateway.example/v1".into()),
+            api_key: Some("gw-key-123".into()),
+            clear_key: false,
+            max_concurrency: 2,
+            models: vec!["house-model".into()],
+        })
+    };
+    let h = |name: &str, value: Option<&str>, secret: bool| HeaderInput {
+        name: name.into(),
+        value: value.map(str::to_owned),
+        secret,
+    };
+    let caps = agenium_config::ModelCaps {
+        model: "house-model".into(),
+        tools: Some(true),
+        vision: None,
+        context_window: Some(64_000),
+        efforts: Some(vec!["low".into(), "high".into()]),
+        default_effort: Some("high".into()),
+    };
+    let pc = put(
+        vec![
+            h("X-Tenant", Some("team-7"), false),
+            h("X-Gateway-Token", Some("tok-s3cret"), true),
+        ],
+        Some(vec![caps.clone()]),
+    )
+    .unwrap();
+    assert_eq!(pc.headers["X-Tenant"], "team-7");
+    assert_eq!(
+        pc.headers["X-Gateway-Token"],
+        "${secret:provider/gw/header/x-gateway-token}"
+    );
+    assert_eq!(pc.model_caps, vec![caps.clone()]);
+    let toml = std::fs::read_to_string(f.app.layout().config()).unwrap();
+    assert!(!toml.contains("tok-s3cret"), "{toml}");
+    assert!(f
+        .app
+        .secret("provider/gw/header/x-gateway-token")
+        .unwrap()
+        .is_some());
+    // Saved again without the secret's value: the stored one stays; a header left out loses its secret.
+    let pc = put(vec![h("X-Gateway-Token", None, true)], None).unwrap();
+    assert_eq!(pc.headers.len(), 1);
+    assert_eq!(pc.model_caps, vec![caps], "settings not sent are kept");
+    put(vec![], None).unwrap();
+    assert!(f
+        .app
+        .secret("provider/gw/header/x-gateway-token")
+        .unwrap()
+        .is_none());
+    // A level with a space is not an effort level.
+    let bad = agenium_config::ModelCaps {
+        efforts: Some(vec!["very high".into()]),
+        ..Default::default()
+    };
+    assert!(put(vec![], Some(vec![bad])).is_err());
 }

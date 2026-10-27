@@ -50,6 +50,8 @@ async fn main() -> Result<()> {
                 Some(var) => {
                     let key = std::env::var(&var).map_err(|_| anyhow!("{var} is not set"))?;
                     agenium_llm::build_provider(&agenium_llm::ProviderSpec {
+                        headers: vec![],
+                        efforts: Default::default(),
                         id: provider_id.clone(),
                         kind: arg(&args, "--kind").unwrap_or_else(|| "openai_compat".into()),
                         base_url: arg(&args, "--base-url").filter(|b| b != "default"),

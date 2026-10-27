@@ -1149,3 +1149,24 @@ async fn openrouter_models_carry_their_effort_levels() {
     assert_eq!(m[0].default_effort, Some(Effort::MEDIUM));
     assert_eq!(m[1].efforts, None);
 }
+
+/// A custom endpoint gets the user's headers on every request, and a model the user gave effort levels gets the
+/// chosen level as `reasoning_effort` (a model Agenium knows nothing of gets none otherwise).
+#[tokio::test]
+async fn a_custom_endpoint_sends_the_users_headers_and_effort() {
+    let (base, seen) = server(vec![sse(200, OPENAI_STREAM), sse(200, OPENAI_STREAM)]).await;
+    let mut efforts = std::collections::BTreeMap::new();
+    efforts.insert(
+        "house-model".to_owned(),
+        vec!["low".parse().unwrap(), "high".parse().unwrap()],
+    );
+    let p = openai::OpenAiCompat::new("gw", &format!("{base}/v1"), Some("sk-gw"), http())
+        .customized(vec![("X-Tenant-Id".into(), "team-7".into())], efforts);
+    p.chat(&request("house-model"), &|_| {}).await.unwrap();
+    p.chat(&request("other-model"), &|_| {}).await.unwrap();
+    let s = seen.lock().unwrap().clone();
+    assert_eq!(s[0].header("x-tenant-id"), Some("team-7"));
+    assert_eq!(s[0].header("authorization"), Some("Bearer sk-gw"));
+    assert_eq!(s[0].body["reasoning_effort"], "high");
+    assert!(s[1].body.get("reasoning_effort").is_none(), "{}", s[1].body);
+}
