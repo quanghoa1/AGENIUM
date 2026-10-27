@@ -69,6 +69,7 @@ pub fn status(d: State<'_, Desktop>) -> Value {
         "ready": opened.is_some(),
         "version": env!("CARGO_PKG_VERSION"),
         "ui_language": cfg.as_ref().map(|c| c.app.language.clone()),
+        "model": d.model_prep(),
     })
 }
 
@@ -99,6 +100,9 @@ pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R
     // A second click (or a second window) while the root is open: one App and one runtime per root.
     if d.opened().is_ok() {
         return Ok(status(d));
+    }
+    if d.model_prep().phase != "ready" {
+        return Err("the embedding model is not in place yet".into());
     }
     let input = agenium_config::setup::SetupInput {
         root: Some(d.root.clone()),
@@ -1377,6 +1381,14 @@ pub fn embedding_model(d: State<'_, Desktop>) -> R<Value> {
         "installed": installed(&SPEC, &models),
         "active": o.rt.embedder.model_id(),
     }))
+}
+
+/// Prepares the embedding model again after a failure (the window shows the preparation until it is ready).
+#[tauri::command]
+pub fn retry_embedding_model(d: State<'_, Desktop>, handle: AppHandle) {
+    if d.model_prep().phase == "error" {
+        tauri::async_runtime::spawn(crate::model::ensure(handle));
+    }
 }
 
 /// Downloads the local embedding model (pinned revision, sha256-checked).

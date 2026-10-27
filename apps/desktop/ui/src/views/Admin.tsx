@@ -1,4 +1,4 @@
-import { Copy, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Copy, Loader2, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Logo } from "../components/Logo";
 import { Empty, FreeTag, Mono, PageHeader, Section, ago, cn, tokens } from "../components/ui";
@@ -356,6 +356,36 @@ function CommandPolicySection() {
         {p.backend ? app.t("settings.sandboxOn") : app.t("settings.sandboxOff")}
       </div>
     </Section>
+  );
+}
+
+/** The embedding model is put in place before the app opens (memory recalls by meaning with it; ADR-47). */
+export function ModelPrepView() {
+  const app = useApp();
+  const m = app.status!.model!;
+  return (
+    <div className="flex h-full items-center justify-center bg-background p-6">
+      <div className="card w-[460px] p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <Logo className="h-10 w-10 shrink-0 rounded-lg shadow-sm" />
+          <div className="text-base font-semibold">{app.t("model.title")}</div>
+        </div>
+        <div className="text-xs text-muted">{app.t("model.why").replace("{mb}", String(m.mb))}</div>
+        {m.phase === "error" ? (
+          <>
+            <div className="mt-3 rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-[11px] text-rose-600 dark:text-rose-300">{m.error}</div>
+            <button className="btn-primary mt-4 w-full justify-center" onClick={() => api.retryEmbeddingModel().then(app.reloadStatus)}>
+              {app.t("model.retry")}
+            </button>
+          </>
+        ) : (
+          <div className="mt-3 flex items-center gap-2 text-[11px] text-subtle">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Mono>{m.step || app.t(m.phase === "checking" ? "model.checking" : "model.installing")}</Mono>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

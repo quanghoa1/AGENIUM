@@ -13,7 +13,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { api, inTauri, onApproval, onEvent, onRun } from "./api";
+import { api, inTauri, onApproval, onEvent, onModel, onRun } from "./api";
 import { dictionaries, type Key, type Lang } from "./i18n";
 import type { CommandApproval, ProjectSummary, Status } from "./types";
 
@@ -176,6 +176,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api.status().then(setStatus, () => window.setTimeout(() => api.status().then(setStatus, () => {}), 2000));
   }, []);
   useEffect(reloadStatus, [reloadStatus]);
+  useEffect(() => {
+    const off = onModel(reloadStatus);
+    return () => void off.then((f) => f());
+  }, [reloadStatus]);
 
   useEffect(() => {
     const f = () => setRoute(parseHash());

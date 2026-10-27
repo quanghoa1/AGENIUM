@@ -8,3 +8,4 @@
 /apps/desktop/ui/node_modules
 /apps/desktop/ui/dist
 /apps/desktop/ui/*.tsbuildinfo
+/apps/desktop/resources

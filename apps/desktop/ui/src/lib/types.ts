@@ -38,6 +38,15 @@ export interface Status {
   ready: boolean;
   version: string;
   ui_language?: string | null;
+  /** The embedding model's preparation: the app opens once it is ready. */
+  model?: ModelPrep;
+}
+
+export interface ModelPrep {
+  phase: "checking" | "installing" | "ready" | "error";
+  step: string;
+  error?: string | null;
+  mb: number;
 }
 
 export interface ProjectSummary {

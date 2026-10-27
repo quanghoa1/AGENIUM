@@ -72,6 +72,7 @@ export const api = {
   refreshPrices: () => call<{ priced: number | null; view: PriceView }>("refresh_prices"),
   embeddingModel: () => call<{ id: string; mb: number; installed: boolean; active: string }>("embedding_model"),
   installEmbeddingModel: () => call<void>("install_embedding_model"),
+  retryEmbeddingModel: () => call<void>("retry_embedding_model"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
@@ -213,6 +214,12 @@ export async function onRun(f: (run: string, ev: any, agent: string | null) => v
   return listen<{ run: string; agent?: string | null; event: any }>("agenium://run", (e) =>
     f(e.payload.run, e.payload.event, e.payload.agent ?? null),
   );
+}
+
+/** The embedding model's preparation moved on (`agenium://model`). */
+export async function onModel(f: () => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => {};
+  return listen("agenium://model", () => f());
 }
 
 /** The vendors' usage was read again (`agenium://usage`). */

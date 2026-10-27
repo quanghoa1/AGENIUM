@@ -4,6 +4,7 @@
 mod api;
 mod live;
 mod manage;
+mod model;
 mod state;
 
 use std::time::Duration;
@@ -28,12 +29,8 @@ fn main() {
         .manage(Desktop::new(root))
         .setup(|app| {
             let handle = app.handle().clone();
-            let d = app.state::<Desktop>();
-            if !agenium_config::setup::needs_setup(&d.root) {
-                if let Err(e) = d.open(&handle) {
-                    tracing::error!("cannot open the Agenium root: {e}");
-                }
-            }
+            // The root opens once the embedding model is in place (memory needs it).
+            tauri::async_runtime::spawn(model::ensure(handle.clone()));
             spawn_event_forwarder(handle.clone());
             spawn_usage_refresh(handle.clone());
             spawn_maintenance(handle.clone());
@@ -78,6 +75,7 @@ fn main() {
             api::prices,
             api::refresh_prices,
             api::embedding_model,
+            api::retry_embedding_model,
             api::install_embedding_model,
             api::vendor_usage,
             api::refresh_vendor_usage,

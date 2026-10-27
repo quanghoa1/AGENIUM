@@ -768,6 +768,14 @@ fn open(root: &Path) -> Result<Arc<App>> {
             root.display()
         );
     }
+    // The embedding model is required (ADR-47): without it memory would recall by shared words only.
+    let models = agenium_config::RootLayout::new(root).models();
+    if !agenium_memory::local::installed(&agenium_memory::local::BGE_SMALL_EN, &models) {
+        bail!(
+            "the embedding model is not installed in {}: run `agenium models download`",
+            models.display()
+        );
+    }
     let keyring: Arc<dyn agenium_secrets::KeyringBackend> =
         Arc::new(agenium_secrets::OsKeyring::default());
     let (app, report) = App::open(
@@ -796,7 +804,7 @@ async fn models_cmd(cli: &Cli, action: &str) -> Result<()> {
                 println!("{} installed in {}", SPEC.id, dir.display());
             } else {
                 println!(
-                    "{} not installed ({} MB): run `agenium models download`; until then memory uses keyword-level hashing",
+                    "{} not installed ({} MB): run `agenium models download` (required: agents do not run without it)",
                     SPEC.id,
                     SPEC.total_bytes() >> 20
                 );
@@ -1266,6 +1274,19 @@ async fn main() -> Result<()> {
                 "Suggested parallel agents: {}",
                 out.report.suggested_parallel
             );
+            // The embedding model is required (ADR-47): memory recalls and learns by meaning with it.
+            use agenium_memory::local::{self, BGE_SMALL_EN as SPEC};
+            let models = agenium_config::RootLayout::new(&out.root).models();
+            if !local::installed(&SPEC, &models) {
+                println!(
+                    "Installing the embedding model ({} MB, once)",
+                    SPEC.total_bytes() >> 20
+                );
+                let http = agenium_llm::http::Http::default_client()?;
+                local::install(&SPEC, &models, &http, &|m| println!("  {m}"))
+                    .await
+                    .map_err(|e| anyhow!("{e}; run `agenium models download` to try again"))?;
+            }
         }
         Cmd::Support { out } => {
             let app = open(&root(&cli)?)?;
