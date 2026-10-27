@@ -85,10 +85,17 @@ async fn prepare(handle: &AppHandle, models: &Path) -> Result<(), String> {
         return Ok(());
     }
     set(handle, "installing", "", None);
-    // The installer's copy, when there is one.
+    // The installer's copy, when there is one; a development build also finds the copy the installer build fetched.
+    let mut bundled: Vec<std::path::PathBuf> = Vec::new();
     if let Ok(res) = handle.path().resource_dir() {
-        let src = SPEC.dir(&res.join("models"));
-        if local::installed(&SPEC, &res.join("models")) {
+        bundled.push(res.join("models"));
+    }
+    if cfg!(debug_assertions) {
+        bundled.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join("models"));
+    }
+    for res in bundled {
+        let src = SPEC.dir(&res);
+        if local::installed(&SPEC, &res) {
             set(handle, "installing", "copying the bundled model", None);
             match copy(&src, &SPEC.dir(models)).map_err(|e| e.to_string()) {
                 Ok(()) if local::verify(&SPEC, models).is_empty() => return Ok(()),

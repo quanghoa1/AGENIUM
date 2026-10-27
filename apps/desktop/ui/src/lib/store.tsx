@@ -183,6 +183,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api.status().then(setStatus, () => window.setTimeout(() => api.status().then(setStatus, () => {}), 2000));
   }, []);
   useEffect(reloadStatus, [reloadStatus]);
+  // The language chosen at setup or in Settings is kept in the config: it wins over this window's stored choice,
+  // which is lost with the webview's data.
+  const savedLang = status?.ui_language;
+  useEffect(() => {
+    if (savedLang === "vi" || savedLang === "en") {
+      setLangState(savedLang);
+      writeLocal("agenium-lang", savedLang);
+    }
+  }, [savedLang]);
   useEffect(() => {
     const off = onModel(reloadStatus);
     return () => void off.then((f) => f());
