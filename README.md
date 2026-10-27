@@ -27,9 +27,11 @@ team.
 ```
  You ──chat──▶ Lead ──spec──▶ You approve ──▶ Lead: plan + tickets ──▶ Workers (one worktree per ticket)
                  ▲                                                          │
-                 │            review against acceptance criteria ◀── report ┘
-                 └── questions, permission requests ◀── Workers         │
-                                                       approved ──▶ merge queue ──▶ main ──▶ ticket Closed
+                 ├── questions, permission requests ◀───────────────────────┤
+                 └── review against acceptance criteria ◀── report ─────────┘
+                         │ approved
+                         ▼
+                   merge queue ──▶ main ──▶ ticket Closed
 ```
 
 - **Tickets are the only channel for work.** Agents change state only through typed, validated tool calls
@@ -59,7 +61,9 @@ team.
 
 ## Install and first run
 
-**Desktop app.** Download the installer for your system from the releases page and run it. On first start the app
+**Desktop app.** Download the installer for your system from the releases page: `Agenium_0.1.0_x64-setup.exe` (or
+the `.msi`) on Windows 10/11, `Agenium_0.1.0_amd64.deb` (`sudo apt install ./Agenium_0.1.0_amd64.deb`) or the
+AppImage on Linux. Agenium needs **Git** (on Windows: https://git-scm.com/downloads). On first start the app
 prepares the local embedding model (bundled with the installer, so no download), then a short setup asks for your
 language and where Agenium keeps its data. Add a model provider (an API key goes straight to the encrypted vault) or
 use a coding CLI you are logged in to, create a project, pick a team, and start chatting with the Lead.

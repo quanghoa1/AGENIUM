@@ -25,9 +25,11 @@ sẵn (Claude Code, Codex, Gemini/Antigravity, Grok, OpenCode). Ví dụ: Lead l
 ```
  Bạn ──chat──▶ Lead ──spec──▶ Bạn duyệt ──▶ Lead: kế hoạch + ticket ──▶ Worker (mỗi ticket một worktree)
                  ▲                                                          │
-                 │          review theo tiêu chí nghiệm thu ◀── báo cáo ────┘
-                 └── câu hỏi, xin quyền ◀── Worker                          │
-                                                  đạt ──▶ hàng đợi merge ──▶ main ──▶ ticket Closed
+                 ├── câu hỏi, xin quyền ◀───────────────────────────────────┤
+                 └── review theo tiêu chí nghiệm thu ◀── báo cáo ───────────┘
+                         │ đạt
+                         ▼
+                   hàng đợi merge ──▶ main ──▶ ticket Closed
 ```
 
 - **Ticket là kênh duy nhất để giao việc.** Agent chỉ đổi trạng thái qua các lệnh có kiểu và được kiểm tra
