@@ -62,6 +62,9 @@ async function launch(args) {
     ...process.env,
     ...opt.env,
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${opt.port}`,
+    // Its own browser profile: the user's app keeps its own (language, theme, the selected project), and two
+    // instances never share one profile with different arguments (WebView2 refuses that).
+    WEBVIEW2_USER_DATA_FOLDER: join(root, ".webview2"),
   };
   if (opt.agenium) {
     // A throwaway Agenium root whose vault key lives in memory: nothing reaches the user's data or OS keyring.
