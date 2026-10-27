@@ -31,7 +31,7 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
   const [busy, setBusy] = useState(false);
   const act = (p: Promise<unknown>, msg: string) => {
     setBusy(true);
-    p.then(() => (app.notify(msg), app.refresh()))
+    p.then((r) => (app.notify((r as { routed_to?: string } | null)?.routed_to === "lead" ? app.t("needs.toLead") : msg), app.refresh()))
       .catch((e) => app.notify(String(e)))
       .finally(() => setBusy(false));
   };

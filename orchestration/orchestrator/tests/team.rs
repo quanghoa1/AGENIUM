@@ -480,9 +480,53 @@ fn lead_inbox_order_sla_and_escalation() {
         .collect();
     assert_eq!(kinds, [K::Permission, K::Plan, K::Question]);
     assert_eq!(ticket(f, k.as_str()).status, TicketStatus::Pending);
-    f.app
-        .user_answer(f.project.id, &k, blocking, "8080", None)
+    // In a team the user answers the Lead, never the worker (ADR-122): the answer becomes a message to the Lead and
+    // nothing lands on the ticket until the Lead answers there.
+    let before = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::comments::for_ticket(c, ticket(f, k.as_str()).id))
+        .unwrap()
+        .len();
+    let routed = f
+        .app
+        .route_user_answer(f.project.id, &k, blocking, "8080", None)
         .unwrap();
+    let agenium_orchestrator::engine::UserAnswer::ToLead(msg) = routed else {
+        panic!("a team's answer goes to the Lead: {routed:?}");
+    };
+    assert!(
+        msg.contains("8080") && msg.contains(&blocking.to_string()) && msg.contains(k.as_str()),
+        "{msg}"
+    );
+    assert_eq!(
+        f.app
+            .store()
+            .read(|c| agenium_store::core::comments::for_ticket(c, ticket(f, k.as_str()).id))
+            .unwrap()
+            .len(),
+        before
+    );
+    f.app
+        .apply(
+            &ctx(f, lead),
+            Intent::AnswerQuestion(AnswerQuestion {
+                ticket_id: k.clone(),
+                reply_to: blocking,
+                answer: "The user says: 8080.".into(),
+                chosen_option: None,
+                escalate: false,
+            }),
+        )
+        .unwrap();
+    // The Lead's answer to an escalated question is the user's decision for the next tickets (ADR-120).
+    let decided = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::comments::user_answers(c, f.project.id, 8))
+        .unwrap();
+    assert_eq!(decided.len(), 1);
+    assert!(matches!(&decided[0].0.body, CommentBody::Answer(a) if a.resolution.contains("8080")));
     // Still Pending: the permission request is blocking too.
     assert_eq!(ticket(f, k.as_str()).status, TicketStatus::Pending);
 }

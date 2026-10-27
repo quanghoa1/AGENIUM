@@ -5,14 +5,18 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   AlertTriangle,
+  Bell,
   Bot,
   Brain,
+  CheckCheck,
   CheckCircle2,
   CircleDashed,
   CircleDot,
   Clock,
   Cpu,
   Loader2,
+  MessagesSquare,
+  Pause,
   PauseCircle,
   Terminal,
   WifiOff,
@@ -77,6 +81,57 @@ const ticketTone: Record<TicketStatus, string> = {
   Closed: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
   Cancelled: "border-zinc-500/30 bg-zinc-500/5 text-zinc-500",
 };
+
+export type RunState = "Agreeing" | "Running" | "Paused" | "Done";
+
+/** Colour of a project's run state, like a ticket's status: running glows green, paused amber, done blue. */
+export const runTone: Record<RunState, string> = {
+  Agreeing: "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
+  Running: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+  Paused: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  Done: "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+};
+
+/** The glow around a project's card: running, or waiting for the user. */
+export function projectGlow(state: RunState | undefined, needsYou: number): string {
+  if (needsYou > 0) return "border-amber-500/50 shadow-[0_0_22px_-6px_rgba(245,158,11,0.55)]";
+  if (state === "Running") return "border-emerald-500/50 shadow-[0_0_22px_-6px_rgba(16,185,129,0.55)]";
+  return "";
+}
+
+export function RunStateIcon({ state }: { state: RunState }) {
+  if (state === "Running")
+    return (
+      <span className="relative inline-flex h-2 w-2">
+        <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/60" />
+        <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+      </span>
+    );
+  if (state === "Paused") return <Pause className="h-3.5 w-3.5" />;
+  if (state === "Done") return <CheckCheck className="h-3.5 w-3.5" />;
+  return <MessagesSquare className="h-3.5 w-3.5" />;
+}
+
+/** A project's state at a glance: its run state, and how many things wait for the user. */
+export function ProjectStateChips({ state, needsYou, cancelled }: { state?: RunState; needsYou: number; cancelled?: boolean }) {
+  const app = useApp();
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {needsYou > 0 && (
+        <span className="chip border-amber-500/50 bg-amber-500/15 font-semibold text-amber-600 dark:text-amber-300" title={app.t("nav.needs")}>
+          <Bell className="h-3 w-3 animate-pulse" /> {needsYou} {app.t("needs.waiting")}
+        </span>
+      )}
+      {cancelled ? (
+        <span className="chip border-zinc-500/30 bg-zinc-500/5 text-zinc-500">{app.t("projects.status.Cancelled")}</span>
+      ) : state ? (
+        <span className={cn("chip font-semibold", runTone[state])} title={app.t(`run.${state}.hint`)}>
+          <RunStateIcon state={state} /> {app.t(`run.${state}`)}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 export function TicketStatusBadge({ status }: { status: TicketStatus }) {
   return (

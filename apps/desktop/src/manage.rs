@@ -160,6 +160,29 @@ pub fn teams(d: State<'_, Desktop>) -> R<Value> {
     let name_of = |p: Option<ProjectId>| {
         p.and_then(|p| projects.iter().find(|x| x.id == p).map(|x| x.name.clone()))
     };
+    // The projects each team worked on before its current one, newest first (a team works one project at a time).
+    let moves = o
+        .app
+        .store()
+        .read(|c| agenium_store::core::events::recent_of_kind(c, "TeamProjectChanged", 1000))
+        .map_err(err)?;
+    let past_of = |team: agenium_core::TeamId, now: Option<ProjectId>| -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for e in &moves {
+            if let Some(agenium_core::DomainEvent::TeamProjectChanged {
+                team: t,
+                project: Some(p),
+            }) = e.decode()
+            {
+                if t == team && Some(p) != now {
+                    if let Some(n) = name_of(Some(p)).filter(|n| !out.contains(n)) {
+                        out.push(n);
+                    }
+                }
+            }
+        }
+        out
+    };
     let teams: Vec<Value> = o
         .app
         .teams()
@@ -170,7 +193,8 @@ pub fn teams(d: State<'_, Desktop>) -> R<Value> {
                 .iter()
                 .find(|m| !t.solo && o.app.is_planner_role(&m.role))
                 .map(|m| m.id);
-            json!({ "team": t, "project_name": name_of(t.project), "members": members, "planner": planner })
+            let past = past_of(t.id, t.project);
+            json!({ "team": t, "project_name": name_of(t.project), "past_projects": past, "members": members, "planner": planner })
         })
         .collect();
     let pool: Vec<_> = o

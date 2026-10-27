@@ -2,6 +2,7 @@
 // from it): one set of tokens below for every animation; transforms and opacity only; selections glide, lists close
 // their gaps, numbers roll; the whole app sits inside MotionConfig reducedMotion="user" (under the OS "reduce motion"
 // setting fades and blurs stay, movement goes).
+import { createPortal } from "react-dom";
 import { AnimatePresence, animate, motion, useAnimate, useMotionValue, useReducedMotion, useTransform, type Transition } from "motion/react";
 import { Trash2 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
@@ -22,8 +23,8 @@ export const spring = {
   bump: { type: "spring", stiffness: 600, damping: 14 },
   /** A toast arriving. */
   toast: { type: "spring", stiffness: 340, damping: 28 },
-  /** A dialog tipping up into place. */
-  dialog: { type: "spring", stiffness: 300, damping: 26 },
+  /** A dialog or palette growing into place (Apple-like: quick, a hint of overshoot). */
+  sheet: { type: "spring", stiffness: 420, damping: 30, mass: 0.9 },
   /** A progress bar growing (no overshoot). */
   progress: { type: "spring", stiffness: 140, damping: 26, bounce: 0 },
 } satisfies Record<string, Transition>;
@@ -38,7 +39,7 @@ export const tx = {
   panelOut: { duration: 0.12, ease: easeIn },
   panelIn: { duration: 0.24, ease: easeOut },
   menu: { duration: 0.16, ease: easeOut },
-  dialogFade: { duration: 0.2, ease: easeOut },
+  sheetFade: { duration: 0.22, ease: easeOut },
   dismiss: { duration: 0.14, ease: easeIn },
   count: { duration: 0.9, ease: easeOut },
 } satisfies Record<string, Transition>;
@@ -236,45 +237,34 @@ export function Overlay({
   top?: string;
 }) {
   const reduce = useReducedMotion();
-  const tipped = reduce ? "perspective(500px) rotateX(0deg) scale(1)" : "perspective(500px) rotateX(-20deg) scale(0.8)";
-  return (
+  // Apple-style: the surface grows from slightly smaller with a soft spring while the page behind dims and blurs;
+  // it leaves quicker than it came, shrinking a little.
+  const from = reduce ? { opacity: 0 } : { opacity: 0, scale: kind === "palette" ? 0.96 : 0.94, y: kind === "palette" ? -4 : 10 };
+  const gone = reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 0 };
+  // On <body>: a route's animated filter would otherwise make `fixed` cover only that route's box.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
           key="backdrop"
-          className={cn("fixed inset-0 z-50 flex items-start justify-center bg-black/40", top)}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: kind === "palette" ? tx.menu : tx.dialogFade }}
-          exit={{ opacity: 0, transition: kind === "palette" ? tx.menu : tx.dismiss }}
+          className={cn("fixed inset-0 z-50 flex items-start justify-center bg-black/35", top)}
+          initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+          animate={{ opacity: 1, backdropFilter: "blur(6px)", transition: tx.sheetFade }}
+          exit={{ opacity: 0, backdropFilter: "blur(0px)", transition: tx.dismiss }}
           onClick={onClose}
         >
-          {kind === "palette" ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1, transition: tx.menu }}
-              exit={{ opacity: 0, scale: 0.9, transition: tx.menu }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {children}
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, filter: blur.surface, transform: tipped }}
-              animate={{
-                opacity: 1,
-                filter: "blur(0px)",
-                transform: "perspective(500px) rotateX(0deg) scale(1)",
-                transition: { ...spring.dialog, opacity: tx.dialogFade, filter: tx.dialogFade },
-              }}
-              exit={{ opacity: 0, filter: blur.surface, transform: tipped, transition: tx.dismiss }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {children}
-            </motion.div>
-          )}
+          <motion.div
+            initial={from}
+            animate={{ opacity: 1, scale: 1, y: 0, transition: { ...spring.sheet, opacity: tx.sheetFade } }}
+            exit={{ ...gone, transition: tx.dismiss }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {children}
+          </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

@@ -434,7 +434,7 @@ export function BrowserView() {
             {external && <span className="chip shrink-0 border-amber-500/30 bg-amber-500/10 font-sans text-amber-600 dark:text-amber-300">{app.t("browser.reference")}</span>}
             {!external && !projectOf(tab.current) && (
               <button
-                className="chip shrink-0 border-line-strong bg-elevated font-sans text-muted hover:text-foreground"
+                className="chip shrink-0 border-line-strong bg-elevated font-sans text-muted hover:text-fg"
                 title={app.t("browser.linkHint")}
                 onClick={() => (linkOrigin(tab.current!, tab.project), patch(tab.id, {}))}
               >

@@ -126,14 +126,17 @@ pub fn of_open_tickets(
 }
 
 /// The user's answers to agents' questions in a project, newest first, each with the question it answers (ADR-120:
-/// a decision on one ticket, such as "no Python here, use PowerShell", holds for the next ones).
+/// a decision on one ticket, such as "no Python here, use PowerShell", holds for the next ones). In a team the user
+/// answers the Lead, who answers on the ticket: the Lead's answers to questions it escalated to the user count too.
 pub fn user_answers(
     c: &Connection,
     project: agenium_core::ProjectId,
     limit: usize,
 ) -> Result<Vec<(Comment, Option<Comment>)>, StoreError> {
     let mut st = c.prepare_cached(&format!(
-        "SELECT {COLS} {FROM} WHERE t.project = ?1 AND c.kind = 'Answer' AND c.author = 'user'
+        "SELECT {COLS} {FROM} WHERE t.project = ?1 AND c.kind = 'Answer'
+           AND (c.author = 'user' OR EXISTS (SELECT 1 FROM comment e WHERE e.reply_to = c.reply_to
+                AND e.author <> 'user' AND e.body LIKE '%Escalated to the user%'))
          ORDER BY c.created_at DESC, c.rowid DESC LIMIT ?2"
     ))?;
     let rows = st.query_map(params![project.to_string(), limit as i64], map)?;

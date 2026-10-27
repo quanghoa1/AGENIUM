@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowLeft, Check, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
-import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, modelLabel, tokens } from "../components/ui";
+import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, ProjectStateChips, RoleChip, RuntimeBadge, Section, ago, cn, modelLabel, projectGlow, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
 import { friendly } from "../lib/errors";
 import { missionOf } from "../lib/roles";
@@ -166,12 +166,12 @@ export function ProjectsView() {
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         {app.projects.map((p) => (
-          <div key={p.id} className="card p-4">
+          <div key={p.id} className={cn("card p-4 transition-shadow", projectGlow(p.run_state, p.needs_you))}>
             <div className="flex items-center justify-between">
               <div>
                 <Mono className="text-cyan-600 dark:text-cyan-400">{p.key_prefix}</Mono> <span className="text-sm font-semibold">{p.name}</span>
               </div>
-              <span className="chip border-line-strong bg-elevated text-muted">{app.t(`projects.status.${p.status}` as Key)}</span>
+              <ProjectStateChips state={p.run_state} needsYou={p.needs_you} cancelled={p.status === "Cancelled"} />
             </div>
             <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
               {[
@@ -716,7 +716,7 @@ export function AgentsView() {
                 </div>
                 <AgentStatusBadge status={a.status} />
               </button>
-              {(a.tags.length > 0 || a.skills.length > 0) && (
+              {(a.tags.length > 0 || a.skills.length > 0 || (a.mcp?.length ?? 0) > 0) && (
                 <div className="mt-3 flex flex-wrap gap-1">
                   {a.tags.map((t) => (
                     <span key={t} className="chip border-line-strong bg-elevated text-muted">
@@ -728,10 +728,30 @@ export function AgentsView() {
                       <Wrench className="h-2.5 w-2.5" /> {s}
                     </span>
                   ))}
+                  {(a.mcp ?? []).map((m) => (
+                    <span key={m.server} className="chip border-purple-500/30 text-purple-600 dark:text-purple-300" title={m.tools?.length ? m.tools.join(", ") : undefined}>
+                      <Plug className="h-2.5 w-2.5" /> {m.server}
+                    </span>
+                  ))}
                 </div>
               )}
               <div className="mt-3 flex items-center justify-between gap-2">
-                <RuntimeBadge backend={a.backend} model={a.model} />
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <RuntimeBadge backend={a.backend} model={a.model} />
+                  {/* How much the agent works with, at a glance: its skills and MCP servers. */}
+                  <span
+                    className={cn("chip", a.skills.length ? "border-cyan-500/30 text-cyan-600 dark:text-cyan-300" : "border-line text-subtle")}
+                    title={a.skills.join(", ") || app.t("agents.usesNone")}
+                  >
+                    <Wrench className="h-2.5 w-2.5" /> {app.t("agents.skillCount").replace("{n}", String(a.skills.length))}
+                  </span>
+                  <span
+                    className={cn("chip", a.mcp?.length ? "border-purple-500/30 text-purple-600 dark:text-purple-300" : "border-line text-subtle")}
+                    title={(a.mcp ?? []).map((m) => m.server).join(", ") || app.t("agents.usesNone")}
+                  >
+                    <Plug className="h-2.5 w-2.5" /> {app.t("agents.mcpCount").replace("{n}", String(a.mcp?.length ?? 0))}
+                  </span>
+                </div>
                 <div className="flex gap-1.5">
                   {(a.status === "QuotaExhausted" || a.status === "Offline") && (
                     <button className="btn" title={app.t("agents.toIdle")} onClick={() => api.setAgentIdle(a.id).then(app.refresh)}>
@@ -1316,8 +1336,11 @@ export function TeamsView() {
           <TemplateQuickStart />
         </Section>
       )}
-      {data.teams.map(({ team, members, project_name }) => {
+      {data.teams.map(({ team, members, project_name, past_projects }) => {
         const free = app.projects.filter((p) => !p.team || p.id === team.project);
+        // A team works one project at a time: it moves on once its project has no open ticket left.
+        const current = app.projects.find((p) => p.id === team.project);
+        const open = current ? Object.entries(current.by_status ?? {}).filter(([s]) => s !== "Closed" && s !== "Cancelled").reduce((n, [, c]) => n + c, 0) : 0;
         const sorted = [...members].sort((a, b) => Number(b.id === team.lead) - Number(a.id === team.lead) || Number(plannerIds.has(b.id)) - Number(plannerIds.has(a.id)));
         return (
           <Section
@@ -1330,7 +1353,13 @@ export function TeamsView() {
             }
             right={
               <div className="flex items-center gap-2">
-                <select className="input h-7 w-52 py-0 text-[11px]" value={team.project ?? ""} onChange={(e) => act(api.setTeamProject(team.id, e.target.value || null))}>
+                <select
+                  className="input h-7 w-52 py-0 text-[11px]"
+                  value={team.project ?? ""}
+                  disabled={open > 0}
+                  title={open > 0 ? app.t("teams.busyHint").replace("{p}", current?.name ?? "").replace("{n}", String(open)) : undefined}
+                  onChange={(e) => act(api.setTeamProject(team.id, e.target.value || null))}
+                >
                   <option value="">{app.t("teams.noProject")}</option>
                   {free.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -1393,7 +1422,22 @@ export function TeamsView() {
                 </button>
               </div>
             )}
-            <div className="mt-2 text-[11px] text-subtle">{project_name ? `${app.t("teams.worksOn")} ${project_name}` : app.t("teams.noProjectNote")}</div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-subtle">
+              {current ? (
+                <span className="flex items-center gap-2">
+                  {app.t("teams.worksOn")} <b className="text-fg">{project_name}</b>
+                  <ProjectStateChips state={current.run_state} needsYou={current.needs_you} cancelled={current.status === "Cancelled"} />
+                  {open > 0 && <span>· {app.t("teams.openTickets").replace("{n}", String(open))}</span>}
+                </span>
+              ) : (
+                <span>{app.t("teams.noProjectNote")}</span>
+              )}
+              {!!past_projects?.length && (
+                <span>
+                  · {app.t("teams.workedOn")} {past_projects.join(", ")}
+                </span>
+              )}
+            </div>
           </Section>
         );
       })}

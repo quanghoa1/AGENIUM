@@ -91,7 +91,11 @@ async fn prepare(handle: &AppHandle, models: &Path) -> Result<(), String> {
         bundled.push(res.join("models"));
     }
     if cfg!(debug_assertions) {
-        bundled.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join("models"));
+        bundled.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join("models"),
+        );
     }
     for res in bundled {
         let src = SPEC.dir(&res);

@@ -961,7 +961,7 @@ function CommentCard({
                   key={i}
                   disabled={c.resolved}
                   className={cn("btn", d.recommendation === i && "border-accent/60")}
-                  onClick={() => api.answer(project, ticket, c.id, o.label, i).then(app.refresh)}
+                  onClick={() => api.answer(project, ticket, c.id, o.label, i).then((r) => (r?.routed_to === "lead" && app.notify(app.t("needs.toLead")), app.refresh()))}
                 >
                   {d.recommendation === i && <Sparkles className="h-3 w-3 text-cyan-400" />}
                   {o.label}
@@ -1002,7 +1002,7 @@ function CommentCard({
               <button
                 className="btn-primary shrink-0"
                 disabled={!ans.trim()}
-                onClick={() => api.answer(project, ticket, c.id, ans).then(app.refresh)}
+                onClick={() => api.answer(project, ticket, c.id, ans).then((r) => (r?.routed_to === "lead" && app.notify(app.t("needs.toLead")), app.refresh()))}
               >
                 <Send className="h-3.5 w-3.5" />
               </button>

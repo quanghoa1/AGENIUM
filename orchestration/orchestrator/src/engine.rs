@@ -67,6 +67,15 @@ impl Outcome {
     }
 }
 
+/// What became of the user's answer to a question (ADR-122).
+#[derive(Debug, Clone, PartialEq)]
+pub enum UserAnswer {
+    /// Answered on the ticket (a Solo agent's question).
+    Answered(Outcome),
+    /// A message for the Lead's chat: the Lead answers on the ticket.
+    ToLead(String),
+}
+
 fn denied(msg: impl Into<String>) -> OrchError {
     OrchError::Denied(msg.into())
 }
@@ -1023,7 +1032,71 @@ create the plan from it. Tell the user the plan is being drafted",
             .map(|c| c.value)
     }
 
-    /// The user answers an open Question (Solo agents, or escalations).
+    /// Where the user's answer to an open Question goes (ADR-122). A Solo agent is the one the user talks to: the
+    /// answer goes on its ticket. In a team the user talks to the Lead only: the answer becomes a message to the
+    /// Lead, who answers on the ticket — the worker hears it from the Lead, never from the user.
+    pub fn route_user_answer(
+        &self,
+        project: ProjectId,
+        key: &TicketKey,
+        question: CommentId,
+        answer: &str,
+        chosen_option: Option<usize>,
+    ) -> Result<UserAnswer> {
+        let team = self
+            .store
+            .read(|c| agents::teams_of_project(c, project))?
+            .into_iter()
+            .next();
+        if team.as_ref().is_none_or(|t| t.solo) {
+            return Ok(UserAnswer::Answered(self.user_answer(
+                project,
+                key,
+                question,
+                answer,
+                chosen_option,
+            )?));
+        }
+        let t = self.store.read(|c| tickets::get_by_key(c, project, key))?;
+        let q = self
+            .store
+            .read(|c| comments::find(c, question))?
+            .ok_or_else(|| invalid(format!("comment {question} does not exist")))?;
+        let CommentBody::Question(qq) = &q.body else {
+            return Err(invalid("this comment is not a question"));
+        };
+        if q.ticket != t.id {
+            return Err(invalid("this question is not on that ticket"));
+        }
+        if q.resolved {
+            return Err(invalid("this question is already answered"));
+        }
+        let mut answer = answer.trim().to_owned();
+        if let Some(o) = chosen_option.and_then(|i| qq.options.get(i)) {
+            answer = if answer.is_empty() {
+                o.label.clone()
+            } else {
+                format!("{} — {answer}", o.label)
+            };
+        }
+        if answer.is_empty() {
+            return Err(invalid("the answer is empty"));
+        }
+        let message = if self.config().app.language == "vi" {
+            format!(
+                "Trả lời câu hỏi trên {key} mà bạn chuyển cho tôi:\n> {}\n\n{answer}\n\n(Hãy trả lời câu hỏi {question} trên ticket cho team.)",
+                qq.question.trim()
+            )
+        } else {
+            format!(
+                "My answer to the question on {key} you passed to me:\n> {}\n\n{answer}\n\n(Answer question {question} on the ticket for the team.)",
+                qq.question.trim()
+            )
+        };
+        Ok(UserAnswer::ToLead(message))
+    }
+
+    /// The user answers an open Question on its ticket (Solo agents; tests and scripted evaluations).
     pub fn user_answer(
         &self,
         project: ProjectId,

@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Bot, Brain, CheckCheck, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Search, Settings, Sun, Terminal, Users, Wrench } from "lucide-react";
+import { BarChart3, Bell, Bot, Brain, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Search, Settings, Sun, Terminal, Users, Wrench } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
@@ -8,7 +8,7 @@ import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
 import { Logo } from "./Logo";
 import { ConfirmModal, CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
-import { cn } from "./ui";
+import { RunStateIcon, cn, runTone } from "./ui";
 import { UsageFooter } from "./UsageFooter";
 
 interface NavItem {
@@ -236,29 +236,11 @@ function RunControl() {
   if (!p?.run_state) return null;
   const s = p.run_state;
   const act = (f: (id: string) => Promise<void>) => f(p.id).then(() => app.refresh()).catch((e) => app.notify(String(e)));
-  const tone =
-    s === "Running"
-      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-      : s === "Paused"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300"
-        : s === "Done"
-          ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-300"
-          : "border-line-strong text-muted";
+  const tone = runTone[s];
   return (
     <div className="flex shrink-0 items-center gap-1" title={app.t(`run.${s}.hint`)}>
       <span className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium", tone)}>
-        {s === "Running" ? (
-          <span className="relative inline-flex h-2 w-2">
-            <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/60" />
-            <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
-          </span>
-        ) : s === "Paused" ? (
-          <Pause className="h-3.5 w-3.5" />
-        ) : s === "Done" ? (
-          <CheckCheck className="h-3.5 w-3.5" />
-        ) : (
-          <MessagesSquare className="h-3.5 w-3.5" />
-        )}
+        <RunStateIcon state={s} />
         {app.t(`run.${s}`)}
       </span>
       {s === "Running" && (

@@ -10,6 +10,32 @@ import { Markdown } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
 
+// A long paste shows as one label in the input ("[Pasted #1 · 120 lines · 8.4 KB]") and is put back on send.
+const PASTE_CHARS = 1000;
+const PASTE_LINES = 15;
+const PASTE_TOKEN = /\[(?:Pasted|Đã dán) #(\d+)[^\]]*\]/g;
+const lineCount = (t: string) => t.split("\n").length;
+const size = (t: string) => {
+  const b = new Blob([t]).size;
+  return b < 1024 ? `${b} B` : `${(b / 1024).toFixed(1)} KB`;
+};
+
+/** A long message of the user's, folded to its first lines until asked for. */
+function Folded({ text }: { text: string }) {
+  const app = useApp();
+  const [open, setOpen] = useState(false);
+  const n = lineCount(text);
+  if (n <= PASTE_LINES && text.length <= PASTE_CHARS * 1.5) return <>{text}</>;
+  return (
+    <>
+      {open ? text : text.split("\n").slice(0, 8).join("\n").slice(0, 900) + "…"}
+      <button className="mt-1.5 block text-[11px] font-semibold underline underline-offset-2 opacity-90 hover:opacity-100" onClick={() => setOpen(!open)}>
+        {open ? app.t("chat.showLess") : app.t("chat.showMore").replace("{n}", String(n))}
+      </button>
+    </>
+  );
+}
+
 export interface Prefill {
   text: string;
   /** Changes on every request so the same text can be asked for twice. */
@@ -88,6 +114,7 @@ export function ChatPane({
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const pastes = useRef(new Map<number, string>());
   // The turn in progress: the agent's run when known, else (chat page) this agent's newest live run while we wait.
   const current =
     stream && !stream.done
@@ -145,9 +172,37 @@ export function ChatPane({
     };
   }, []);
 
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = e.clipboardData.getData("text");
+    if (pasted.length <= PASTE_CHARS && lineCount(pasted) <= PASTE_LINES) return;
+    e.preventDefault();
+    const id = pastes.current.size + 1;
+    pastes.current.set(id, pasted);
+    const label = `[${app.t("chat.pasted")} #${id} · ${lineCount(pasted)} ${app.t("chat.lines")} · ${size(pasted)}]`;
+    const el = e.currentTarget;
+    const [a, b] = [el.selectionStart, el.selectionEnd];
+    const next = text.slice(0, a) + label + text.slice(b);
+    setText(next);
+    window.setTimeout(() => el.setSelectionRange(a + label.length, a + label.length));
+  };
+  // Backspace right after a paste label removes the whole label (and the paste with it).
+  const dropLabel = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    if (el.selectionStart !== el.selectionEnd) return false;
+    const before = text.slice(0, el.selectionStart);
+    const m = before.match(/\[(?:Pasted|Đã dán) #\d+[^\]]*\]$/);
+    if (!m) return false;
+    e.preventDefault();
+    const at = before.length - m[0].length;
+    setText(text.slice(0, at) + text.slice(el.selectionStart));
+    window.setTimeout(() => el.setSelectionRange(at, at));
+    return true;
+  };
+
   const send = () => {
     if (!text.trim() || !enabled) return;
-    const msg = text.trim();
+    const msg = text.trim().replace(PASTE_TOKEN, (label, id) => pastes.current.get(Number(id)) ?? label);
+    pastes.current.clear();
     setText("");
     setLines((l) => [...l, { role: "user", text: msg }]);
     setBusy(true);
@@ -174,7 +229,7 @@ export function ChatPane({
                 l.role === "user" ? "bg-accent text-white" : l.role === "system" ? "border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300" : "border border-line bg-elevated",
               )}
             >
-              {l.role === "assistant" ? <Markdown text={l.text} /> : l.text}
+              {l.role === "assistant" ? <Markdown text={l.text} /> : l.role === "user" ? <Folded text={l.text} /> : l.text}
             </div>
           </ListItem>
         ))}
@@ -191,7 +246,9 @@ export function ChatPane({
           value={text}
           disabled={busy || !enabled}
           onChange={(e) => setText(e.target.value)}
+          onPaste={onPaste}
           onKeyDown={(e) => {
+            if (e.key === "Backspace" && dropLabel(e)) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send();

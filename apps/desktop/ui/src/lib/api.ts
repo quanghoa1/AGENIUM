@@ -125,7 +125,8 @@ export const api = {
   approve: (project: string, what: "spec" | "plan" | "merge", target: string) =>
     call<void>("approve", { project, what, target }),
   answer: (project: string, ticket: string, question: string, answer: string, option?: number) =>
-    call<unknown>("answer", { project, ticket, question, answer, option }),
+    // In a team the answer goes to the Lead, who answers on the ticket (`routed_to: "lead"`, ADR-122).
+    call<{ routed_to?: string }>("answer", { project, ticket, question, answer, option }),
   decidePermission: (project: string, ticket: string, request: string, approve: boolean, always = false, note?: string) =>
     call<unknown>("decide_permission", { project, ticket, request, approve, always, note }),
   decideCommand: (id: number, decision: "allow" | "always" | "deny", reason?: string) =>

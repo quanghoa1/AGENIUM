@@ -2587,14 +2587,24 @@ async fn main() -> Result<()> {
         } => {
             let app = open(&root(&cli)?)?;
             let p = project(&app, pname)?;
-            let out = app.user_answer(
+            match app.route_user_answer(
                 p.id,
                 &ticket.parse().map_err(|e: IdParseError| anyhow!(e))?,
                 question.parse().map_err(|e: IdParseError| anyhow!(e))?,
                 answer,
                 *option,
-            )?;
-            println!("{}", out.result);
+            )? {
+                agenium_orchestrator::engine::UserAnswer::Answered(out) => {
+                    println!("{}", out.result)
+                }
+                // In a team the user answers the Lead, who answers on the ticket (ADR-122).
+                agenium_orchestrator::engine::UserAnswer::ToLead(message) => {
+                    let rt = runtime(app);
+                    let r = rt.chat(p.id, &message).await?;
+                    println!();
+                    print_runs(&[r]);
+                }
+            }
         }
         Cmd::Permission {
             project: pname,

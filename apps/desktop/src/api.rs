@@ -1119,12 +1119,27 @@ pub fn answer(
     answer: String,
     option: Option<usize>,
 ) -> R<Value> {
+    use agenium_orchestrator::engine::UserAnswer;
     let o = d.opened()?;
+    let p = pid(&project)?;
     let q: CommentId = question.parse().map_err(|e: IdParseError| e.to_string())?;
-    Ok(o.app
-        .user_answer(pid(&project)?, &key(&ticket)?, q, &answer, option)
+    match o
+        .app
+        .route_user_answer(p, &key(&ticket)?, q, &answer, option)
         .map_err(err)?
-        .result)
+    {
+        UserAnswer::Answered(out) => Ok(out.result),
+        // In a team the answer is a message to the Lead (ADR-122); its turn runs in the background.
+        UserAnswer::ToLead(message) => {
+            let rt = o.rt.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = rt.chat(p, &message).await {
+                    tracing::warn!(error = %e, "the answer did not reach the Lead");
+                }
+            });
+            Ok(json!({ "routed_to": "lead" }))
+        }
+    }
 }
 
 #[tauri::command]

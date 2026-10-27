@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, FileText, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AgentStatusBadge, Avatar, Empty, Metric, Mono, OutcomeBadge, PageHeader, RuntimeBadge, Section, ago, tokens } from "../components/ui";
+import { AgentStatusBadge, Avatar, Empty, Metric, Mono, OutcomeBadge, PageHeader, ProjectStateChips, RuntimeBadge, Section, ago, cn, projectGlow, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { Overview } from "../lib/types";
@@ -90,12 +90,17 @@ export function OverviewView() {
         <Section className="xl:col-span-2" title={app.t("overview.projects")}>
           <div className="space-y-2">
             {app.projects.map((p) => (
-              <button key={p.id} onClick={() => (app.setProject(p.id), app.go("tickets"))} className="press w-full rounded-lg border border-line bg-elevated/50 p-3 text-left hover:border-accent/40 hover:shadow-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">
+              <button
+                key={p.id}
+                onClick={() => (app.setProject(p.id), app.go("tickets"))}
+                className={cn("press w-full rounded-lg border border-line bg-elevated/50 p-3 text-left hover:border-accent/40 hover:shadow-md", projectGlow(p.run_state, p.needs_you))}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-xs font-semibold">
                     <Mono className="text-cyan-600 dark:text-cyan-400">{p.key_prefix}</Mono> {p.name}
+                    <span className="ml-2 font-normal text-subtle">{p.team ? `${p.team.name}${p.team.solo ? "" : ` · ${p.team.members}`}` : app.t("overview.noTeam")}</span>
                   </span>
-                  <span className="text-[11px] text-subtle">{p.team ? `${p.team.name}${p.team.solo ? "" : ` · ${p.team.members}`}` : app.t("overview.noTeam")}</span>
+                  <ProjectStateChips state={p.run_state} needsYou={0} cancelled={p.status === "Cancelled"} />
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background">
                   <ProgressBar value={p.plan_items ? p.plan_done / p.plan_items : 0} />

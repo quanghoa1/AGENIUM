@@ -149,6 +149,22 @@ pub fn request(
         read.extend(policy.writable_roots.iter().map(|p| long_path(p)));
     }
     read.retain(|r| !write.iter().any(|w| w == r));
+    // Node (and other runtimes) read the attributes of every folder from the drive root down to a file
+    // (`fs.realpathSync`): the parents of what the command may use can be listed, never read.
+    let parents: Vec<PathBuf> = if BaseContainerRunner::supports_enumerate_paths() {
+        let mut out: Vec<PathBuf> = Vec::new();
+        for p in write.iter().chain(read.iter()).chain(std::iter::once(cwd)) {
+            for a in p.ancestors().skip(1).filter(|a| a.has_root()) {
+                let a = a.to_path_buf();
+                if !out.contains(&a) && !write.contains(&a) && !read.contains(&a) {
+                    out.push(a);
+                }
+            }
+        }
+        out
+    } else {
+        Vec::new()
+    };
     let mut req = ExecutionRequest {
         script_code: codex_derived::mxc_policy::command_line(argv)
             .map_err(|e| ExecError::Refused(format!("command line: {e}")))?,
@@ -164,6 +180,7 @@ pub fn request(
         ),
         ..Default::default()
     };
+    req.policy.enumerate_paths = unicode(parents)?;
     req.policy = codex_derived::mxc_policy::normalize(req.policy)
         .map_err(|e| ExecError::Refused(format!("MXC policy: {e}")))?;
     Ok(req)

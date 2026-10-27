@@ -1131,6 +1131,50 @@ mod tests {
         }
     }
 
+    /// Node resolves every `require` with `fs.realpathSync`, which reads the attributes of each folder from the
+    /// drive root down to the file: inside the sandbox those parents must be listable (found by a team run whose
+    /// `node --test` died with `EPERM: lstat 'C:\'`).
+    #[tokio::test]
+    async fn node_resolves_paths_inside_the_sandbox() {
+        if detect().backend.is_none() || find_program("node").is_none() {
+            eprintln!("skipped: no sandbox backend or no node here");
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let _temp = RunTemp(tmp.path());
+        std::fs::write(tmp.path().join("m.js"), "module.exports = 41 + 1;").unwrap();
+        // A file next to the worktree: its folder may be listed, the file must stay unreadable.
+        let beside = tempfile::NamedTempFile::new_in(tmp.path().parent().unwrap()).unwrap();
+        std::fs::write(beside.path(), "secret").unwrap();
+        std::fs::write(
+            tmp.path().join("t.js"),
+            format!(
+                "console.log('got', require('./m.js'));
+try {{ require('fs').readFileSync({:?}); console.log('LEAK') }} catch (e) {{ console.log('denied', e.code) }}",
+                beside.path().to_string_lossy()
+            ),
+        )
+        .unwrap();
+        let ex = Executor::new(Shell::detect());
+        let out = ex
+            .run(
+                &CommandSpec {
+                    command: "node t.js".into(),
+                    cwd: tmp.path().into(),
+                    timeout: Duration::from_secs(60),
+                    env: BTreeMap::new(),
+                },
+                &policy(tmp.path()),
+            )
+            .await
+            .unwrap();
+        assert!(out.stdout.contains("got 42"), "{out:?}");
+        assert!(
+            out.stdout.contains("denied") && !out.stdout.contains("LEAK"),
+            "{out:?}"
+        );
+    }
+
     #[tokio::test]
     async fn timeout_kills_the_process_tree() {
         let tmp = tempfile::tempdir().unwrap();

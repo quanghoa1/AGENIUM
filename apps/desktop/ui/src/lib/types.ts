@@ -292,6 +292,8 @@ export interface AgentEntry {
     backend: BackendKind;
     model: ModelBinding;
     skills: string[];
+    /** MCP servers the agent may use, with the tools it is limited to (none = all). */
+    mcp?: { server: string; tools?: string[] }[];
     created_at: string;
   };
   project: string | null;
@@ -482,7 +484,8 @@ export interface TeamRecord {
 }
 
 export interface TeamsData {
-  teams: { team: TeamRecord; project_name?: string | null; members: AgentRecord[]; planner?: string | null }[];
+  /** `past_projects`: what the team worked on before its current project, newest first (one project at a time). */
+  teams: { team: TeamRecord; project_name?: string | null; past_projects?: string[]; members: AgentRecord[]; planner?: string | null }[];
   pool: AgentRecord[];
 }
 
