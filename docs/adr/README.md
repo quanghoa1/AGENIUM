@@ -86,3 +86,4 @@ ADR-52 records this fresh implementation.
 | [116](ADR-116-team-run-findings.md) | Mixed real-model team run: sandboxed shell for hooked CLIs, generated files out of commits, the planner drafts first |
 | [117](ADR-117-cli-yolo-agenium-tools-unsandboxed.md) | Vendor CLIs work through Agenium's tools (their own shell is off, nothing asks the user); a machine without a sandbox may run unsandboxed by the user's choice (Settings), Codex included |
 | [118](ADR-118-learning-evidence-from-hermit.md) | From hermit: a lesson counts a context only when it was in play (shown as a rule and found by the work); skills and the pool count only contexts naming closed tickets; learning claims are reported with paired bootstrap intervals |
+| [119](ADR-119-cli-runs-see-no-user-configuration.md) | A vendor CLI run by Agenium sees none of the user's configuration: per-run home and HOME for every CLI, Claude's claude.ai connectors and skills off; checked by an isolation probe |

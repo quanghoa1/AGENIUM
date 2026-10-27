@@ -6,7 +6,9 @@
 //! - Isolation: `CLAUDE_CONFIG_DIR` = the per-run home with Agenium's `settings.json` (its hook only), its MCP
 //!   config (`--strict-mcp-config`, so no other MCP server) and a copy of the user's login (`.credentials.json`; a
 //!   login refreshed during the run is handed back). `--setting-sources user` loads only that directory's settings,
-//!   not the repository's. The user's `~/.claude.json`, settings, CLAUDE.md, skills and plugins are not used.
+//!   not the repository's. The user's `~/.claude.json`, settings, CLAUDE.md, skills and plugins are not used; the
+//!   connectors and skills of the user's claude.ai account, which come with the login, are off
+//!   (`ENABLE_CLAUDEAI_MCP_SERVERS=false`, `--disable-slash-commands`). Claude Code's own `@builtin` plugins stay.
 //!   (macOS keeps the login in the Keychain: not verified there.)
 //! - Control: YOLO (`--dangerously-skip-permissions`) on the host with a `PreToolUse` hook on every tool that asks
 //!   Agenium. Claude Code runs hooks through a POSIX shell (Git Bash on Windows) and treats only exit code 2 as
@@ -113,6 +115,9 @@ impl Driver for Claude {
             "--setting-sources",
             "user",
             "--strict-mcp-config",
+            // Skills and slash commands: the ones of the user's claude.ai account would come with the login.
+            // Agenium's skills reach the agent through `load_skill`.
+            "--disable-slash-commands",
             "--no-session-persistence",
         ]
         .map(str::to_owned)
@@ -169,6 +174,9 @@ impl Driver for Claude {
             .unwrap_or(s.mcp_authorization);
         Ok([
             ("CLAUDE_CONFIG_DIR".to_owned(), s.home.display().to_string()),
+            // The connectors of the user's claude.ai account (Gmail, Drive, Slack ...) come with the login, not the
+            // configuration folder: off, so the agent has Agenium's MCP server only.
+            ("ENABLE_CLAUDEAI_MCP_SERVERS".to_owned(), "false".to_owned()),
             (HOOK_URL_ENV.to_owned(), s.hook_url.to_owned()),
             (HOOK_TOKEN_ENV.to_owned(), token.to_owned()),
         ]
@@ -714,6 +722,7 @@ mod tests {
             .args("haiku", None, Path::new("/h"), None, false)
             .contains(&"--effort".to_owned()));
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
+        assert!(a.contains(&"--disable-slash-commands".to_owned()));
         let i = a.iter().position(|x| x == "--tools").unwrap();
         assert_eq!(
             a[i + 1],

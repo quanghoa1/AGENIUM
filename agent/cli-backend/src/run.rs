@@ -267,6 +267,20 @@ web tools are refused. Tools named above that are not in that list map to Ageniu
     s
 }
 
+/// The driver's environment with the user's home replaced by the per-run home, unless the driver set it: a CLI that
+/// looks for skills, rules or settings under the home (`~/.agents`, `~/.config/...`) finds only what Agenium put
+/// there, never the user's (their files are not touched; their own CLI keeps using them).
+pub fn isolated_home(
+    home: &std::path::Path,
+    mut env: BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    for k in ["HOME", "USERPROFILE"] {
+        env.entry(k.to_owned())
+            .or_insert_with(|| home.display().to_string());
+    }
+    env
+}
+
 /// The mark of a relayed user message in a CLI run: the API loop's, with the run's tag.
 fn steered_mark(tag: &str) -> String {
     format!(
@@ -444,7 +458,7 @@ impl CliRun<'_> {
             .prepare(&setup)
             .map_err(|e| failed(format!("cannot prepare the CLI's per-run home: {e}")))?;
         let mut env = self.env.clone();
-        env.extend(home_env);
+        env.extend(isolated_home(home.path(), home_env));
 
         let outcome = self
             .converse(order, st, &env, home.path(), &mut calls)
