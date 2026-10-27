@@ -128,6 +128,11 @@ pub const LIBRARY: &[Builtin] = &[
         "references/checklist.md",
         "scripts/preflight.py"
     ),
+    skill!(
+        "app-ui-testing",
+        "references/ui-review.md",
+        "scripts/ui.mjs"
+    ),
 ];
 
 use crate::app::App;

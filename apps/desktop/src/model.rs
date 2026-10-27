@@ -71,6 +71,15 @@ pub async fn ensure(handle: AppHandle) {
     }
 }
 
+/// Copies the model's files from `src` to `dst`.
+fn copy(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for f in SPEC.files {
+        std::fs::copy(src.join(f.name), dst.join(f.name))?;
+    }
+    Ok(())
+}
+
 async fn prepare(handle: &AppHandle, models: &Path) -> Result<(), String> {
     if local::installed(&SPEC, models) {
         return Ok(());
@@ -81,15 +90,7 @@ async fn prepare(handle: &AppHandle, models: &Path) -> Result<(), String> {
         let src = SPEC.dir(&res.join("models"));
         if local::installed(&SPEC, &res.join("models")) {
             set(handle, "installing", "copying the bundled model", None);
-            let dst = SPEC.dir(models);
-            let copied = (|| -> std::io::Result<()> {
-                std::fs::create_dir_all(&dst)?;
-                for f in SPEC.files {
-                    std::fs::copy(src.join(f.name), dst.join(f.name))?;
-                }
-                Ok(())
-            })();
-            match copied.map_err(|e| e.to_string()) {
+            match copy(&src, &SPEC.dir(models)).map_err(|e| e.to_string()) {
                 Ok(()) if local::verify(&SPEC, models).is_empty() => return Ok(()),
                 Ok(()) => tracing::warn!(
                     "the bundled embedding model does not match its sha256; downloading it"
@@ -97,6 +98,25 @@ async fn prepare(handle: &AppHandle, models: &Path) -> Result<(), String> {
                 Err(e) => {
                     tracing::warn!(error = %e, "the bundled embedding model could not be copied; downloading it")
                 }
+            }
+        }
+    }
+    // The model this machine's own root already has (a second root, such as a UI test's, copies it).
+    let mut own = agenium_config::root::RootInputs::from_system();
+    own.env = None;
+    if let Ok((root, _)) = agenium_config::root::resolve_root_with(&own) {
+        let theirs = agenium_config::RootLayout::new(&root).models();
+        if theirs != models && local::installed(&SPEC, &theirs) {
+            set(
+                handle,
+                "installing",
+                "copying the model from this computer's Agenium",
+                None,
+            );
+            if copy(&SPEC.dir(&theirs), &SPEC.dir(models)).is_ok()
+                && local::verify(&SPEC, models).is_empty()
+            {
+                return Ok(());
             }
         }
     }

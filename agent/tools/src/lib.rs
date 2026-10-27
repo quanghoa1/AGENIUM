@@ -319,3 +319,9 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
 pub fn fetch_tool() -> Arc<dyn Tool> {
     Arc::new(FetchTool)
 }
+
+/// The `view_image` tool on its own, for a vendor CLI: its image comes back as MCP image content, which the CLI shows
+/// to its model the same way whatever its own file tools can open.
+pub fn view_image_tool() -> Arc<dyn Tool> {
+    Arc::new(ViewImage)
+}

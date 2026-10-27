@@ -122,6 +122,15 @@ pub struct Opened {
 /// Models per CLI program (ADR-68 follow-up).
 pub type CliModels = std::collections::BTreeMap<String, Vec<agenium_llm::ModelInfo>>;
 
+/// Marks a root set up for a UI test (`AGENIUM_UI_TEST_KEYRING=memory`): only such a root opens with its vault key in
+/// memory in a release build (the skill app-ui-testing launches one).
+pub const TEST_ROOT_MARK: &str = ".ui-test-root";
+
+/// The UI-test keyring was asked for in this process's environment.
+pub fn memory_keyring_asked() -> bool {
+    std::env::var("AGENIUM_UI_TEST_KEYRING").as_deref() == Ok("memory")
+}
+
 pub struct Desktop {
     pub root: PathBuf,
     pub opened: RwLock<Option<Arc<Opened>>>,
@@ -163,10 +172,10 @@ impl Desktop {
 
     /// Opens the root (reconcile included) and builds the runtime; live run output goes to `agenium://run`.
     pub fn open(&self, handle: &AppHandle) -> R<Arc<Opened>> {
-        // UI tests (debug builds only): a vault key kept in memory, so a throwaway root leaves nothing in the OS
-        // keyring. A release build always uses the OS keyring.
-        let keyring: Arc<dyn agenium_secrets::KeyringBackend> = if cfg!(debug_assertions)
-            && std::env::var("AGENIUM_UI_TEST_KEYRING").as_deref() == Ok("memory")
+        // UI tests: a vault key kept in memory, so a throwaway root leaves nothing in the OS keyring. A release build
+        // does so only for a root set up that way (`TEST_ROOT_MARK`); any other root uses the OS keyring.
+        let keyring: Arc<dyn agenium_secrets::KeyringBackend> = if memory_keyring_asked()
+            && (cfg!(debug_assertions) || self.root.join(TEST_ROOT_MARK).exists())
         {
             Arc::new(agenium_secrets::MemoryKeyring::default())
         } else {

@@ -834,14 +834,18 @@ impl Runtime {
         // the agent's MCP tools plus our `fetch` — the one allowlisted, logged, out-of-sandbox path for reading URLs.
         let cli = cli_ready.is_some();
         let mut work = if cli {
-            vec![agenium_tools::fetch_tool()]
+            vec![
+                agenium_tools::fetch_tool(),
+                agenium_tools::view_image_tool(),
+            ]
         } else {
             work
         };
         // Images reach the model only when it takes them (the provider says so, or `[[providers.model_caps]]
-        // vision`): `view_image` is offered then only. A vendor CLI looks at images with its own tools.
+        // vision`): `view_image` is offered then only. The vendor CLIs' models all take images; the image reaches them
+        // as MCP image content.
         let vision = !cli && self.vision(agent).await;
-        if !vision {
+        if !cli && !vision {
             work.retain(|t| t.name() != "view_image");
         }
         work.extend(mcp_tools);

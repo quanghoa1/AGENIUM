@@ -1949,6 +1949,7 @@ fn the_starter_skill_library_is_seeded_and_valid() {
         "root-cause-debugging",
         "perf-audit",
         "doc-writing",
+        "app-ui-testing",
     ] {
         assert!(
             names.contains(&want.to_string()),
