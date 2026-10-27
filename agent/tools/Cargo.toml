@@ -1,6 +1,6 @@
 [package]
 name = "agenium-tools"
-description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, todo."
+description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, todo, view_image."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 agenium-sandbox.workspace = true
 async-trait.workspace = true
+base64 = "0.22"
 globset = "0.4"
 ignore = "0.4"
 regex = "1"

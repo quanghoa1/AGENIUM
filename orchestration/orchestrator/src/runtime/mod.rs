@@ -517,6 +517,7 @@ impl Runtime {
             long_cache: true,
             context_window: 200_000,
             max_compactions: 2,
+            vision: false,
         }
     }
 
@@ -837,6 +838,12 @@ impl Runtime {
         } else {
             work
         };
+        // Images reach the model only when it takes them (the provider says so, or `[[providers.model_caps]]
+        // vision`): `view_image` is offered then only. A vendor CLI looks at images with its own tools.
+        let vision = !cli && self.vision(agent).await;
+        if !vision {
+            work.retain(|t| t.name() != "view_image");
+        }
         work.extend(mcp_tools);
         let mut exclude = exclude.to_vec();
         if kind != RunKind::Plan {
@@ -940,6 +947,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         if let Some(c) = info.and_then(|i| i.context_window) {
             cfg.context_window = c;
         }
+        cfg.vision = vision;
         let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
         let r = Run {
             provider: provider.as_ref(),
@@ -1076,6 +1084,19 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 .insert(key, info.clone());
         }
         info
+    }
+
+    /// Whether `agent`'s API model takes images (unknown counts as no: an image sent to a text model fails the call).
+    async fn vision(&self, agent: &agenium_store::core::agents::Agent) -> bool {
+        match self.providers.provider(&agent.model.provider) {
+            Ok(p) => {
+                self.model_info(&agent.model.provider, &agent.model.model, p.as_ref())
+                    .await
+                    .and_then(|i| i.supports_vision)
+                    == Some(true)
+            }
+            Err(_) => false,
+        }
     }
 
     /// The CLI's detection, made off the async threads (it runs the CLI's version and login probes) and reused for

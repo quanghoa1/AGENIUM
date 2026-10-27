@@ -399,7 +399,17 @@ impl Tool for McpTool {
         if r.is_error {
             return Err(ToolError::new("mcp_tool_error", r.text));
         }
-        Ok(ctx.finish_output(r.text, true))
+        let mut out = ctx.finish_output(r.text, true);
+        out.images = r
+            .images
+            .into_iter()
+            .map(|(media_type, data_b64)| agenium_tools::ImageData {
+                media_type,
+                data_b64,
+                label: format!("from {}", self.name),
+            })
+            .collect();
+        Ok(out)
     }
 }
 

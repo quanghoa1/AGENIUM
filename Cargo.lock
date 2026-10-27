@@ -299,6 +299,7 @@ dependencies = [
  "agenium-core",
  "agenium-sandbox",
  "async-trait",
+ "base64 0.22.1",
  "globset",
  "ignore",
  "regex",

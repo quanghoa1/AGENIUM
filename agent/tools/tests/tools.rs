@@ -65,6 +65,7 @@ fn catalogue_is_sorted_and_described() {
             "read_file",
             "shell",
             "todo",
+            "view_image",
             "write_file"
         ]
     );
@@ -546,4 +547,37 @@ async fn edits_keep_line_ends_and_bom_and_match_typographic_text() {
         std::fs::read_to_string(&f).unwrap(),
         "\u{feff}var s = \"hello\";\r\nreturn s;\r\n"
     );
+}
+
+/// `view_image` hands an image of the worktree to the model: the type comes from the bytes, not the name; a file that
+/// is not an image, one too large or one outside the worktree is refused.
+#[tokio::test]
+async fn view_image_returns_the_image_and_refuses_the_rest() {
+    let (_t, c) = setup();
+    let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0];
+    std::fs::write(c.root.join("shot.jpg"), png).unwrap();
+    let out = call(&c, "view_image", json!({"path": "shot.jpg"}))
+        .await
+        .unwrap();
+    assert_eq!(out.images.len(), 1);
+    assert_eq!(out.images[0].media_type, "image/png");
+    assert_eq!(out.images[0].label, "shot.jpg");
+    assert_eq!(out.images[0].data_b64, "iVBORw0KGgoAAAAA");
+    assert!(out.text.contains("image/png"), "{}", out.text);
+    let e = call(&c, "view_image", json!({"path": "README.md"}))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, "not_an_image");
+    std::fs::write(
+        c.root.join("big.png"),
+        vec![0u8; (agenium_tools::MAX_IMAGE_BYTES + 1) as usize],
+    )
+    .unwrap();
+    let e = call(&c, "view_image", json!({"path": "big.png"}))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, "too_large");
+    assert!(call(&c, "view_image", json!({"path": "../outside.png"}))
+        .await
+        .is_err());
 }

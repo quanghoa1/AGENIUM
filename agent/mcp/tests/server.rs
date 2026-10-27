@@ -42,14 +42,17 @@ impl ToolHost for Host {
             "status" => CallResult {
                 text: "InProgress".into(),
                 is_error: false,
+                images: vec![("image/png".into(), "iVBO".into())],
             },
             _ if args["summary"].is_string() => CallResult {
                 text: "report accepted".into(),
                 is_error: false,
+                ..Default::default()
             },
             _ => CallResult {
                 text: "summary is required".into(),
                 is_error: true,
+                ..Default::default()
             },
         }
     }
@@ -87,7 +90,13 @@ async fn client_lists_and_calls_tools() {
     let bad = c.call_tool("submit_report", json!({}), T).await.unwrap();
     assert!(bad.is_error);
     let st = c.call_tool("status", Value::Null, T).await.unwrap();
-    assert_eq!(st.text, "InProgress");
+    // An image a tool returns reaches the CLI as image content.
+    assert_eq!(
+        st.text,
+        "InProgress
+[image (image/png): shown after the tool results]"
+    );
+    assert_eq!(st.images, vec![("image/png".to_owned(), "iVBO".to_owned())]);
     assert!(matches!(
         c.call_tool("rm_rf", json!({}), T).await,
         Err(McpError::Rpc { code: -32602, .. })

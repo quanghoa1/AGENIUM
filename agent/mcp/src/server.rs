@@ -301,10 +301,14 @@ async fn handle(s: &Shared, msg: &Value) -> Option<Value> {
                     _ => json!({}),
                 };
                 let r = s.host.call(name, args).await;
-                Ok(json!({
-                    "content": [{ "type": "text", "text": r.text }],
-                    "isError": r.is_error,
-                }))
+                // Images (an MCP screenshot passed on) go as image content: the CLI shows them to its model.
+                let mut content = vec![json!({ "type": "text", "text": r.text })];
+                content.extend(
+                    r.images
+                        .iter()
+                        .map(|(t, d)| json!({ "type": "image", "mimeType": t, "data": d })),
+                );
+                Ok(json!({ "content": content, "isError": r.is_error }))
             }
             Some(name) => Err((-32602, format!("unknown tool {name}"))),
             None => Err((-32602, "tools/call without a tool name".to_owned())),

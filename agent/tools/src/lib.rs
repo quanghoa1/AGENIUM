@@ -46,6 +46,20 @@ pub struct ToolOutput {
     pub full: Option<String>,
     /// Content came from outside the trust boundary (fetch, MCP); the harness labels it untrusted (decision 34).
     pub untrusted: bool,
+    /// Images for the model to look at (`view_image`, an MCP screenshot): the loop sends them after the results when
+    /// the model takes images.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<ImageData>,
+}
+
+/// An image a tool hands to the model.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImageData {
+    /// `image/png`, `image/jpeg`, `image/gif` or `image/webp`.
+    pub media_type: String,
+    pub data_b64: String,
+    /// Where it came from, shown to the model with it (a worktree path, an MCP tool).
+    pub label: String,
 }
 
 impl ToolOutput {
@@ -55,6 +69,7 @@ impl ToolOutput {
             truncated: false,
             full: None,
             untrusted: false,
+            images: Vec::new(),
         }
     }
 }
@@ -245,6 +260,7 @@ impl ToolCtx {
             truncated,
             full: saved,
             untrusted,
+            images: Vec::new(),
         }
     }
 
@@ -292,6 +308,7 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
         Arc::new(ShellTool),
         Arc::new(FetchTool),
         Arc::new(TodoTool),
+        Arc::new(ViewImage),
     ];
     v.sort_by(|a, b| a.name().cmp(b.name()));
     v

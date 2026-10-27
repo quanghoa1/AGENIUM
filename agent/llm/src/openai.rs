@@ -126,6 +126,10 @@ impl OpenAiCompat {
                     id: m["id"].as_str().unwrap_or_default().to_owned(),
                     display_name: m["name"].as_str().map(str::to_owned),
                     context_window: m["context_length"].as_u64(),
+                    // OpenRouter lists what a model takes in (`["text", "image"]`).
+                    supports_vision: m["architecture"]["input_modalities"]
+                        .as_array()
+                        .map(|a| a.iter().any(|x| x == "image")),
                     ..Default::default()
                 };
                 match self.flavor {

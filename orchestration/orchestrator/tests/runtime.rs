@@ -2604,3 +2604,46 @@ async fn a_ticket_cancelled_under_its_run_stops_it() {
     assert_eq!(p.remaining(), 1, "no model call after the cancel");
     assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
 }
+
+/// `view_image` is offered only to a model that takes images (an image sent to a text model fails the call); here the
+/// provider's hand-set capabilities say so.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn view_image_is_offered_to_a_model_that_takes_images_only() {
+    for vision in [false, true] {
+        let f = fixture();
+        let p = Arc::new(ScriptedProvider::new("mock"));
+        let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+        app.update_config(|c| {
+            c.memory.learn = false;
+            c.providers.push(agenium_config::ProviderConfig {
+                id: "mock".into(),
+                kind: agenium_config::ProviderKind::Mock,
+                base_url: None,
+                api_key_ref: String::new(),
+                max_concurrency: 1,
+                models: vec![],
+                model_caps: vec![agenium_config::ModelCaps {
+                    model: "scripted".into(),
+                    tools: None,
+                    vision: Some(vision),
+                    context_window: None,
+                }],
+            })
+        })
+        .unwrap();
+        let (project, _) = solo_with_tickets(&app, &["PI-1"]);
+        p.push_calls(
+            "",
+            vec![(
+                "submit_report",
+                serde_json::to_value(report("AGN-1")).unwrap(),
+            )],
+        );
+        assert_eq!(
+            rt.run_ticket(project, &key("AGN-1")).await.unwrap().outcome,
+            "Completed"
+        );
+        let offered = p.requests()[0].tools.iter().any(|t| t.name == "view_image");
+        assert_eq!(offered, vision);
+    }
+}

@@ -1037,3 +1037,59 @@ async fn clearing_an_old_result_drops_the_thinking_written_after_it() {
         .await;
     assert_eq!(r.outcome, Outcome::Completed);
 }
+
+/// A tiny PNG: the signature and an IHDR chunk are all `view_image` checks.
+const PNG: &[u8] = &[
+    0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, b'I', b'H', b'D', b'R', 0, 0, 0,
+    1, 0, 0, 0, 1, 8, 6, 0, 0, 0,
+];
+
+/// `view_image` shows the image to a model that takes images, after the tool results and under its path; a model
+/// that does not is told the image was not shown, and gets no image part.
+#[tokio::test]
+async fn an_image_reaches_a_vision_model_after_the_results() {
+    for vision in [true, false] {
+        let (_t, ctx, tools, proto) = harness();
+        std::fs::create_dir_all(ctx.root.join("shots")).unwrap();
+        std::fs::write(ctx.root.join("shots/home.png"), PNG).unwrap();
+        let p = ScriptedProvider::new("m");
+        p.push_calls(
+            "",
+            vec![
+                ("view_image", json!({"path": "shots/home.png"})),
+                ("list_dir", json!({})),
+            ],
+        );
+        p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1"}))]);
+        let r = run(&p, &ctx, &tools, &proto, LoopConfig { vision, ..cfg() })
+            .run(&order())
+            .await;
+        assert_eq!(r.outcome, Outcome::Completed);
+        let reqs = p.requests();
+        let results = &reqs[1].messages.last().unwrap().parts;
+        let kinds: Vec<&str> = results
+            .iter()
+            .map(|p| match p {
+                Part::ToolResult { .. } => "result",
+                Part::Text { .. } => "text",
+                Part::Image { .. } => "image",
+                _ => "other",
+            })
+            .collect();
+        if vision {
+            assert_eq!(kinds, ["result", "result", "text", "image"]);
+            assert!(
+                matches!(&results[2], Part::Text { text } if text == "[image: shots/home.png]")
+            );
+            assert!(
+                matches!(&results[3], Part::Image { media_type, .. } if media_type == "image/png")
+            );
+        } else {
+            assert_eq!(kinds, ["result", "result"]);
+            assert!(
+                matches!(&results[0], Part::ToolResult { content, .. } if content.contains("1 image(s) not shown")),
+                "{results:?}"
+            );
+        }
+    }
+}

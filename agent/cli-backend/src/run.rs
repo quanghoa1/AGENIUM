@@ -163,6 +163,7 @@ impl ToolHost for Bridge {
         let ended = CallResult {
             text: "the Agenium run has ended".into(),
             is_error: true,
+            images: vec![],
         };
         if self
             .tx
@@ -1002,6 +1003,7 @@ ask_question if you are blocked.",
             return CallResult {
                 text: "not executed: the run is ending".into(),
                 is_error: true,
+                images: vec![],
             };
         }
         if let Some(t) = self.tools.iter().find(|t| t.name() == name) {
@@ -1015,14 +1017,25 @@ ask_question if you are blocked.",
                         o.text
                     ),
                     is_error: false,
+                    images: o
+                        .images
+                        .iter()
+                        .map(|i| (i.media_type.clone(), i.data_b64.clone()))
+                        .collect(),
                 },
                 Ok(o) => CallResult {
+                    images: o
+                        .images
+                        .iter()
+                        .map(|i| (i.media_type.clone(), i.data_b64.clone()))
+                        .collect(),
                     text: o.text,
                     is_error: false,
                 },
                 Err(e) => CallResult {
                     text: json!({"error": {"code": e.code, "message": e.message}}).to_string(),
                     is_error: true,
+                    images: vec![],
                 },
             };
         }
@@ -1043,11 +1056,13 @@ ask_question if you are blocked.",
                 CallResult {
                     text: shown.unwrap_or_default(),
                     is_error: false,
+                    images: vec![],
                 }
             }
             Err(e) => CallResult {
                 text: json!({"error": {"code": e.code, "message": e.message}}).to_string(),
                 is_error: true,
+                images: vec![],
             },
         }
     }

@@ -96,10 +96,32 @@ pub struct ToolInfo {
     pub read_only: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CallResult {
     pub text: String,
     pub is_error: bool,
+    /// The result's images (a screenshot): `(media type, base64)`.
+    pub images: Vec<(String, String)>,
+}
+
+/// Image types a model takes.
+const IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+/// The images of an MCP content list that a model can look at.
+pub fn content_images(result: &Value) -> Vec<(String, String)> {
+    result["content"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|c| c["type"] == "image")
+        .filter_map(|c| {
+            let t = c["mimeType"].as_str()?;
+            let d = c["data"].as_str()?;
+            IMAGE_TYPES
+                .contains(&t)
+                .then(|| (t.to_owned(), d.to_owned()))
+        })
+        .collect()
 }
 
 #[async_trait]
@@ -836,6 +858,11 @@ pub fn render_content(result: &Value) -> String {
     for c in result["content"].as_array().into_iter().flatten() {
         match c["type"].as_str() {
             Some("text") => parts.push(c["text"].as_str().unwrap_or("").to_owned()),
+            Some("image") if IMAGE_TYPES.contains(&c["mimeType"].as_str().unwrap_or("")) => parts
+                .push(format!(
+                    "[image ({}): shown after the tool results]",
+                    c["mimeType"].as_str().unwrap_or("")
+                )),
             Some("image") | Some("audio") => parts.push(format!(
                 "[{} content omitted ({})]",
                 c["type"].as_str().unwrap_or(""),
@@ -1128,6 +1155,7 @@ impl Client {
         Ok(CallResult {
             text: render_content(&r),
             is_error: r["isError"].as_bool().unwrap_or(false),
+            images: content_images(&r),
         })
     }
 }
@@ -1253,13 +1281,19 @@ mod tests {
     fn content_rendering() {
         let r = json!({"content": [
             {"type": "text", "text": "hello"},
-            {"type": "image", "data": "...", "mimeType": "image/png"},
+            {"type": "image", "data": "iVBO", "mimeType": "image/png"},
+            {"type": "image", "data": "...", "mimeType": "image/tiff"},
             {"type": "resource", "resource": {"uri": "file:///a", "text": "inside"}},
             {"type": "resource_link", "uri": "file:///b", "name": "b"}
         ]});
         assert_eq!(
             render_content(&r),
-            "hello\n[image content omitted (image/png)]\ninside\n[resource link file:///b]"
+            "hello\n[image (image/png): shown after the tool results]\n[image content omitted (image/tiff)]\ninside\n[resource link file:///b]"
+        );
+        // Only the types a model takes are handed on.
+        assert_eq!(
+            content_images(&r),
+            vec![("image/png".to_owned(), "iVBO".to_owned())]
         );
         assert_eq!(
             render_content(&json!({"content": [], "structuredContent": {"n": 1}})),
