@@ -1,6 +1,7 @@
 ---
 name: refactoring
 description: Restructure code without changing its behaviour: small steps, green tests after each.
+tags: coding
 ---
 
 ## Job

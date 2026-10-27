@@ -1,6 +1,7 @@
 ---
 name: doc-writing
 description: Write or update user-facing docs for a change so a reader can use it without the code.
+tags: coding docs
 ---
 
 ## Job

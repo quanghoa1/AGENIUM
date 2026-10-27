@@ -13,6 +13,7 @@ use serde::Serialize;
 
 pub const SKILL_FILE: &str = "SKILL.md";
 pub const MAX_NAME: usize = 64;
+pub const MAX_TAGS: usize = 12;
 pub const MAX_DESCRIPTION: usize = 1024;
 pub const MAX_SKILL_MD: u64 = 256 * 1024;
 pub const MAX_FILES: usize = 1000;
@@ -57,6 +58,9 @@ pub struct SkillMeta {
     pub name: String,
     pub description: String,
     pub version: Option<String>,
+    /// Domains the skill belongs to (`pentest`, `coding`, `research`, `finance`, …), from the `tags` frontmatter
+    /// field (comma- or space-separated). Lets the user see which fields an agent's skills cover.
+    pub tags: Vec<String>,
     pub origin: Origin,
     pub dir: PathBuf,
 }
@@ -188,6 +192,18 @@ pub fn parse(text: &str) -> Result<(Frontmatter, String)> {
     }
     let body: Vec<&str> = text.lines().skip(consumed).collect();
     Ok((fm, body.join("\n")))
+}
+
+/// Tags of a skill, from a comma- or space-separated `tags:` field; lowercased, deduplicated, order kept.
+pub fn parse_tags(raw: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for t in raw.split([',', ' ', '\t', '\n']) {
+        let t = t.trim().to_ascii_lowercase();
+        if !t.is_empty() && !out.contains(&t) {
+            out.push(t);
+        }
+    }
+    out
 }
 
 /// Skill names: 1-64 characters of `a-z`, `0-9` and single hyphens, not at the ends.
@@ -359,11 +375,23 @@ fn validate_named(dir: &Path, origin: Origin, check_dir_name: bool) -> Result<Sk
             )));
         }
     }
+    let tags = parse_tags(fm.get("tags").unwrap_or(""));
+    for t in &tags {
+        if !valid_name(t) {
+            return Err(invalid(format!(
+                "tag {t:?} must be 1-{MAX_NAME} characters of a-z, 0-9 and single hyphens"
+            )));
+        }
+    }
+    if tags.len() > MAX_TAGS {
+        return Err(invalid(format!("at most {MAX_TAGS} tags")));
+    }
     Ok(Skill {
         meta: SkillMeta {
             name,
             description,
             version: fm.get("version").map(str::to_owned),
+            tags,
             origin,
             dir: dir.to_path_buf(),
         },

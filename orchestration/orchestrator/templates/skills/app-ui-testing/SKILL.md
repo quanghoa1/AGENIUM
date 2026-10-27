@@ -1,6 +1,7 @@
 ---
 name: app-ui-testing
 description: Use a desktop app the way a user would (a test instance you launch), check every function and judge the UI from screenshots.
+tags: coding testing
 ---
 
 ## Job

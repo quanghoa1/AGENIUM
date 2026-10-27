@@ -1,6 +1,7 @@
 ---
 name: root-cause-debugging
 description: Find and fix the cause of a bug (not the symptom): reproduce, isolate, fix, and prove it with a regression test.
+tags: coding debugging
 ---
 
 ## Job

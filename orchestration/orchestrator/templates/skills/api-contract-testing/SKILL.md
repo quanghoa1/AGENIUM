@@ -1,6 +1,7 @@
 ---
 name: api-contract-testing
 description: Verify an API endpoint against its stated contract: status codes, shapes, errors and edge cases.
+tags: coding testing
 ---
 
 ## Job

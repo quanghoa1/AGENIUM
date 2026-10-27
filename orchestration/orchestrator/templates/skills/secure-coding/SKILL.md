@@ -1,6 +1,7 @@
 ---
 name: secure-coding
 description: Defensive secure-coding review: input validation, authz, secrets, and injection-safe patterns.
+tags: coding security
 ---
 
 ## Job

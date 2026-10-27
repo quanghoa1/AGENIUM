@@ -103,6 +103,40 @@ fn validation_rules() {
 }
 
 #[test]
+fn tags() {
+    // Comma- or space-separated, lowercased, deduplicated, order kept.
+    assert_eq!(
+        parse_tags("Pentest, reverse-engineering  pentest"),
+        ["pentest", "reverse-engineering"]
+    );
+    assert_eq!(parse_tags(""), Vec::<String>::new());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let d = tmp.path();
+    write(
+        &d.join("tagged/SKILL.md"),
+        "---\nname: tagged\ndescription: d\ntags: pentest, firmware\n---\nbody",
+    );
+    let s = validate(&d.join("tagged"), Origin::Role).unwrap();
+    assert_eq!(s.meta.tags, ["pentest", "firmware"]);
+
+    // A skill with no tags is fine.
+    skill(d, "untagged", "d", "body");
+    assert!(validate(&d.join("untagged"), Origin::Role)
+        .unwrap()
+        .meta
+        .tags
+        .is_empty());
+
+    // An invalid tag slug is rejected.
+    write(
+        &d.join("badtag/SKILL.md"),
+        "---\nname: badtag\ndescription: d\ntags: Pen Test!\n---\nbody",
+    );
+    assert!(validate(&d.join("badtag"), Origin::Role).is_err());
+}
+
+#[test]
 fn registry_resolution_and_binding() {
     let tmp = tempfile::tempdir().unwrap();
     let reg = Registry::new(tmp.path().join("agents"), tmp.path().join("roles"));

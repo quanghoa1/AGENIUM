@@ -512,7 +512,31 @@ pub fn agents(d: State<'_, Desktop>) -> R<Vec<Value>> {
         let project_name = project
             .and_then(|p| projects.iter().find(|x| x.id == p))
             .map(|p| p.name.clone());
+        // What the agent works with, counted for its card (names are on its page): every skill it uses (library,
+        // role, its own), those it learned itself (its own skills and its own versions of shared ones), MCP servers.
+        let set = o.rt.skills(&a);
+        let learned = set
+            .skills
+            .iter()
+            .filter(|s| {
+                matches!(
+                    s.meta.origin,
+                    agenium_skills::Origin::Agent | agenium_skills::Origin::Overlay
+                )
+            })
+            .count();
+        // The fields the agent's skills cover (their tags, deduplicated): pentest, coding, research, finance…
+        let mut domains: Vec<String> = Vec::new();
+        for s in &set.skills {
+            for t in &s.meta.tags {
+                if !domains.contains(t) {
+                    domains.push(t.clone());
+                }
+            }
+        }
         out.push(json!({
+            "skill_count": set.skills.len(), "learned_skills": learned, "mcp_count": a.mcp.as_array().map_or(0, Vec::len),
+            "skill_domains": domains,
             "agent": a, "project": project, "project_name": project_name,
             "team": team.as_ref().map(|t| t.name.clone()), "team_id": team.as_ref().map(|t| t.id),
             "solo": team.as_ref().is_some_and(|t| t.solo),
@@ -556,7 +580,7 @@ pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
     let skills: Vec<Value> = set
         .skills
         .iter()
-        .map(|s| json!({ "name": s.meta.name, "description": s.meta.description, "version": s.meta.version, "origin": s.meta.origin }))
+        .map(|s| json!({ "name": s.meta.name, "description": s.meta.description, "version": s.meta.version, "tags": s.meta.tags, "origin": s.meta.origin }))
         .collect();
     Ok(json!({
         "agent": a, "planner": o.app.is_planner_role(&a.role), "runs": runs, "facts": facts,

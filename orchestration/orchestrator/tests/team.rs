@@ -546,6 +546,8 @@ fn team_from_template_and_write_scope() {
             "acme-planner",
             "acme-web",
             "acme-mobile",
+            "acme-app",
+            "acme-reverser",
             "acme-recon"
         ]
     );
@@ -685,7 +687,10 @@ fn agent_names_are_role_names_and_unique() {
         .create_team_from_template(f.project.id, "pentest", &model(), None, None, "")
         .unwrap();
     let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(names, ["lead", "planner", "web", "mobile", "recon"]);
+    assert_eq!(
+        names,
+        ["lead", "planner", "web", "mobile", "app", "reverser", "recon"]
+    );
     let project = |name: &str| {
         f.app
             .create_project(&agenium_orchestrator::CreateProject {

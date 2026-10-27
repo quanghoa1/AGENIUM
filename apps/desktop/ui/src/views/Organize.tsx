@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Check, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Sparkles, Trash2, UserMinus, UserPlus, Users, Wrench, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, ProjectStateChips, RoleChip, RuntimeBadge, Section, ago, cn, modelLabel, projectGlow, tokens } from "../components/ui";
@@ -716,21 +716,11 @@ export function AgentsView() {
                 </div>
                 <AgentStatusBadge status={a.status} />
               </button>
-              {(a.tags.length > 0 || a.skills.length > 0 || (a.mcp?.length ?? 0) > 0) && (
+              {a.tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1">
                   {a.tags.map((t) => (
                     <span key={t} className="chip border-line-strong bg-elevated text-muted">
                       {t}
-                    </span>
-                  ))}
-                  {a.skills.map((s) => (
-                    <span key={s} className="chip border-cyan-500/30 text-cyan-600 dark:text-cyan-300">
-                      <Wrench className="h-2.5 w-2.5" /> {s}
-                    </span>
-                  ))}
-                  {(a.mcp ?? []).map((m) => (
-                    <span key={m.server} className="chip border-purple-500/30 text-purple-600 dark:text-purple-300" title={m.tools?.length ? m.tools.join(", ") : undefined}>
-                      <Plug className="h-2.5 w-2.5" /> {m.server}
                     </span>
                   ))}
                 </div>
@@ -738,19 +728,24 @@ export function AgentsView() {
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <RuntimeBadge backend={a.backend} model={a.model} />
-                  {/* How much the agent works with, at a glance: its skills and MCP servers. */}
-                  <span
-                    className={cn("chip", a.skills.length ? "border-cyan-500/30 text-cyan-600 dark:text-cyan-300" : "border-line text-subtle")}
-                    title={a.skills.join(", ") || app.t("agents.usesNone")}
-                  >
-                    <Wrench className="h-2.5 w-2.5" /> {app.t("agents.skillCount").replace("{n}", String(a.skills.length))}
-                  </span>
-                  <span
-                    className={cn("chip", a.mcp?.length ? "border-purple-500/30 text-purple-600 dark:text-purple-300" : "border-line text-subtle")}
-                    title={(a.mcp ?? []).map((m) => m.server).join(", ") || app.t("agents.usesNone")}
-                  >
-                    <Plug className="h-2.5 w-2.5" /> {app.t("agents.mcpCount").replace("{n}", String(a.mcp?.length ?? 0))}
-                  </span>
+                  {/* How much the agent works with, at a glance (the names are on its page). */}
+                  {(
+                    [
+                      ["agents.skillCount", r.skill_count ?? a.skills.length, "border-cyan-500/30 text-cyan-600 dark:text-cyan-300", Wrench],
+                      ["agents.learnedCount", r.learned_skills ?? 0, "border-emerald-500/30 text-emerald-600 dark:text-emerald-300", Sparkles],
+                      ["agents.mcpCount", r.mcp_count ?? a.mcp?.length ?? 0, "border-purple-500/30 text-purple-600 dark:text-purple-300", Plug],
+                    ] as const
+                  ).map(([k, n, tone, Icon]) => (
+                    <span key={k} className={cn("chip font-mono", n ? tone : "border-line text-subtle")}>
+                      <Icon className="h-2.5 w-2.5" /> {app.t(k)}: {n}
+                    </span>
+                  ))}
+                  {/* The fields the agent's skills cover (their tags). */}
+                  {(r.skill_domains ?? []).map((t) => (
+                    <span key={t} className="chip border-indigo-500/30 text-indigo-600 dark:text-indigo-300">
+                      {t}
+                    </span>
+                  ))}
                 </div>
                 <div className="flex gap-1.5">
                   {(a.status === "QuotaExhausted" || a.status === "Offline") && (
@@ -1066,6 +1061,15 @@ export function AgentView({ id }: { id: string }) {
                       {s.version && <Mono className="text-subtle">v{s.version}</Mono>}
                       <span className="chip ml-auto border-line-strong text-muted">{String(s.origin)}</span>
                     </div>
+                    {!!s.tags?.length && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {s.tags.map((t) => (
+                          <span key={t} className="chip border-indigo-500/30 text-indigo-600 dark:text-indigo-300">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="mt-1 text-[11px] text-subtle">{s.description}</div>
                   </div>
                 ))}

@@ -23,6 +23,7 @@ agenium-memory = { path = "../../agent/memory" }
 agenium-orchestrator = { path = "../../orchestration/orchestrator" }
 agenium-sandbox = { path = "../../security/sandbox" }
 agenium-secrets = { path = "../../security/secrets" }
+agenium-skills = { path = "../../agent/skills" }
 agenium-store = { path = "../../foundation/store" }
 async-trait = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

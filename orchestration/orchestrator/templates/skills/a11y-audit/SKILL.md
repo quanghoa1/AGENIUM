@@ -1,6 +1,7 @@
 ---
 name: a11y-audit
 description: Check a UI change against accessibility basics (keyboard, labels, contrast, roles) and fix what fails.
+tags: coding frontend
 ---
 
 ## Job

@@ -1,6 +1,7 @@
 ---
 name: release-readiness
 description: Decide if a change is ready to ship: tests, docs, migration, rollback, and a clean tree.
+tags: coding
 ---
 
 ## Job

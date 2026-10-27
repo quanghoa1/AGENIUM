@@ -133,6 +133,11 @@ pub const LIBRARY: &[Builtin] = &[
         "references/ui-review.md",
         "scripts/ui.mjs"
     ),
+    skill!("bug-report", "references/gotchas.md"),
+    skill!("reverse-engineering"),
+    skill!("firmware-analysis"),
+    skill!("web-pentest", "references/classes.md"),
+    skill!("recon-enumeration"),
 ];
 
 use crate::app::App;
@@ -245,10 +250,24 @@ mod tests {
 
     #[test]
     fn a_built_in_skill_passes_its_own_checks() {
+        // Each skill against every other: no missing section, not too long, and not a near-duplicate of another.
+        let bodies: Vec<(String, String)> = LIBRARY
+            .iter()
+            .map(|b| (b.name.to_owned(), strip_frontmatter(&b.skill_md())))
+            .collect();
+        let mut names = std::collections::HashSet::new();
         for b in LIBRARY {
-            let notes = lint_skill(b.name, strip_frontmatter(&b.skill_md()).as_str(), &[]);
+            assert!(names.insert(b.name), "duplicate skill name {}", b.name);
+            let notes = lint_skill(b.name, strip_frontmatter(&b.skill_md()).as_str(), &bodies);
             assert!(notes.is_empty(), "{}: {notes:?}", b.name);
             assert!(b.skill_md().starts_with("---\nname: "));
+            // Every built-in carries at least one domain tag (ADR-123) so an agent's fields are visible.
+            let (fm, _) = agenium_skills::parse(&b.skill_md()).unwrap();
+            assert!(
+                !agenium_skills::parse_tags(fm.get("tags").unwrap_or("")).is_empty(),
+                "{} has no tags",
+                b.name
+            );
         }
     }
 

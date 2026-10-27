@@ -1,6 +1,7 @@
 ---
 name: writing-tests
 description: Design tests that catch real regressions: pick cases that matter, assert behaviour, cover the edges.
+tags: coding testing
 ---
 
 ## Job

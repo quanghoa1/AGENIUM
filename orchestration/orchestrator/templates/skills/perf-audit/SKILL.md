@@ -1,6 +1,7 @@
 ---
 name: perf-audit
 description: Find and fix a performance problem by measuring first, changing one thing, and measuring again.
+tags: coding performance
 ---
 
 ## Job

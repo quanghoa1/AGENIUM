@@ -300,6 +300,12 @@ export interface AgentEntry {
   project_name: string | null;
   team: string | null;
   team_id?: string | null;
+  /** Skills the agent uses (library, role, its own); of them learned by itself; MCP servers. */
+  skill_count?: number;
+  learned_skills?: number;
+  mcp_count?: number;
+  /** The fields the agent's skills cover (their tags): pentest, coding, research, finance… */
+  skill_domains?: string[];
   solo: boolean;
   is_lead: boolean;
   is_planner: boolean;
@@ -443,7 +449,7 @@ export interface AgentDetail {
   runs: RunRow[];
   facts: Fact[];
   facts_total: number;
-  skills: { name: string; description: string; version?: string | null; origin: string }[];
+  skills: { name: string; description: string; version?: string | null; tags?: string[]; origin: string }[];
   mcp: any;
   /** Prompt cache over the agent's recent API runs (absent for CLI agents). */
   cache?: { hit: number; runs: number; input: number; cached: number } | null;

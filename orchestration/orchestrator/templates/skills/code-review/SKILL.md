@@ -1,6 +1,7 @@
 ---
 name: code-review
 description: Review a change for correctness, safety and clarity before it is approved; report issues with evidence.
+tags: coding
 ---
 
 ## Job

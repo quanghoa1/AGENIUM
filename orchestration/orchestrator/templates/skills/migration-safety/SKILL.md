@@ -1,6 +1,7 @@
 ---
 name: migration-safety
 description: Change a schema or data safely: reversible, idempotent, and safe to deploy without downtime.
+tags: coding data
 ---
 
 ## Job
