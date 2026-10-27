@@ -301,6 +301,13 @@ fn shell_text(shell: &agenium_sandbox::Shell) -> String {
                  [IO.File]::WriteAllText(path, text) (UTF-8 without a BOM)",
             );
         }
+        // Inside an MXC container PowerShell's Remove-Item and cmd's del fail with "Access is denied" while the .NET
+        // and Python calls delete (measured 2026-10-27): agents gave up on a deletion or asked for permission.
+        if agenium_sandbox::detect().backend == Some(agenium_sandbox::Backend::WindowsMxc) {
+            s.push_str(
+                "; in this sandbox Remove-Item and del fail with \"Access is denied\": delete files with                  [IO.File]::Delete(path) and folders with [IO.Directory]::Delete(path, $true), or with your file                  tool (apply_patch \"*** Delete File\")",
+            );
+        }
     }
     s
 }

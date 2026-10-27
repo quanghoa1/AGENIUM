@@ -58,6 +58,7 @@ pub fn ticket_branch(key: &str) -> String {
 /// ticket's change. Kept out of every commit and of the write-scope check through `.git/info/exclude`, so a
 /// `python -m unittest` does not put `__pycache__` in `main` or fail a ticket for a file nobody wrote.
 pub const LOCAL_EXCLUDES: &[&str] = &[
+    "artifacts/tool-output/",
     "__pycache__/",
     "*.py[cod]",
     ".pytest_cache/",
@@ -517,6 +518,19 @@ impl Repo {
     ) -> Result<Option<String>, VcsError> {
         let g = self.git_for(worktree)?;
         g.check(worktree, ["add", "-A"])?;
+        // Tools' full outputs are never part of a change; one committed before they were excluded leaves the branch
+        // here (the file stays on disk for the agent).
+        g.check(
+            worktree,
+            [
+                "rm",
+                "-r",
+                "-q",
+                "--cached",
+                "--ignore-unmatch",
+                TOOL_OUTPUT_DIR,
+            ],
+        )?;
         let staged = g.run(worktree, ["diff", "--cached", "--quiet"])?;
         if staged.ok() {
             return Ok(None);
@@ -778,7 +792,7 @@ impl Repo {
             )));
         }
         let main_before = self.head_sha(&self.main)?.unwrap_or_default();
-        let head = match self.rebase(&wt, &self.main)? {
+        let head = match self.with_tool_output_aside(&wt, key, || self.rebase(&wt, &self.main))? {
             RebaseOutcome::Rebased { head } => head,
             RebaseOutcome::Conflict { files } => return Ok(MergeOutcome::Conflict { files }),
         };
@@ -808,6 +822,37 @@ impl Repo {
             sha: head,
             changed_files: changed,
         })
+    }
+
+    /// Runs `f` with the worktree's tool outputs moved into the git directory: a commit of the branch made before
+    /// they were kept out may hold one, and replaying it on a rebase fails over the untracked copy on disk. They are
+    /// put back afterwards when the place is free (else they stay under `<git dir>/agenium-tool-output/<key>`).
+    fn with_tool_output_aside<T>(
+        &self,
+        wt: &Path,
+        key: &str,
+        f: impl FnOnce() -> Result<T, VcsError>,
+    ) -> Result<T, VcsError> {
+        let dir = wt.join(TOOL_OUTPUT_DIR);
+        if !dir.is_dir() {
+            return f();
+        }
+        let aside = self.common_dir()?.join("agenium-tool-output").join(key);
+        let _ = std::fs::remove_dir_all(&aside);
+        if let Some(parent) = aside.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| io(parent, e))?;
+        }
+        std::fs::rename(&dir, &aside).map_err(|e| io(&dir, e))?;
+        let r = f();
+        if !dir.exists() {
+            // Best effort: on failure they stay in the git directory, which is no loss to the work. The rebase may
+            // have removed the emptied `artifacts/`.
+            if let Some(parent) = dir.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::rename(&aside, &dir);
+        }
+        r
     }
 
     /// Tests a remote: read (`ls-remote`) and write (`push --dry-run`).

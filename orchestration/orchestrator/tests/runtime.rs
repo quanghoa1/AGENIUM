@@ -213,7 +213,7 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
     );
     let mut items = plan(&[("PI-1", &[]), ("PI-2", &[])]).items;
     items[1].trace_to = vec!["REQ-2".into()];
-    // New work under the id of a done item would count as done by its closed ticket: refused.
+    // New work under the id of a done item would count as done by its closed ticket: refused with the text to keep.
     let mut reused = items.clone();
     reused[0].title = "Write the farewell file".into();
     reused[0].trace_to.push("REQ-2".into());
@@ -231,7 +231,7 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         .unwrap_err();
     assert!(
         err.to_string()
-            .contains("plan item PI-1 is done (AGN-1 closed)"),
+            .contains("plan item PI-1 is done (AGN-1 closed): keep its title and acceptance as they are: title"),
         "{err}"
     );
     // A plan revised before that rule, with the new work under PI-1 (the showcase team's plan v2), is repaired by
@@ -285,6 +285,32 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
         app.run_state(project).unwrap(),
         RunState::Running,
         "PI-2 waits for its ticket"
+    );
+    // A Lead that retypes a done item (case, spacing, punctuation) is not refused: the item keeps its own text.
+    let mut retyped = plan(&[("PI-1", &[]), ("PI-2", &[])]).items;
+    retyped[1].trace_to = vec!["REQ-2".into()];
+    retyped[0].title = format!("  {}. ", retyped[0].title.to_uppercase());
+    let out = app
+        .apply(
+            &lead,
+            Intent::RevisePlan(PlanRevision {
+                base_version: 3,
+                reason: "a later revision".into(),
+                milestones: plan(&[]).milestones,
+                items: retyped,
+            }),
+        )
+        .unwrap();
+    assert_eq!(out.result["plan_version"], 4);
+    let v4 = app
+        .store()
+        .read(|c| plans::plan(c, project, 4))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        v4.body.items[0].title,
+        plan(&[("PI-1", &[])]).items[0].title,
+        "PI-1 kept"
     );
 
     // Work order structure: cache-stable order, protocol + work tools, no sampling knobs.

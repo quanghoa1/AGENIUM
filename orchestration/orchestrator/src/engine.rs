@@ -656,11 +656,12 @@ create the plan from it. Tell the user the plan is being drafted",
                 }
             }
             // A done item (its tickets ended, one closed) keeps its work: new work under its id would count as done
-            // by the old tickets, and nobody would do it. It may take back what it read in an earlier version (a
-            // revision that put new work there is repaired that way). Every item of the revision is checked, also one
-            // the base plan dropped: re-adding a done id with new work is the same mistake.
+            // by the old tickets, and nobody would do it. One the revision only retyped (case, spacing, punctuation)
+            // gets its text back silently; one with other words is refused with the text to keep, so the Lead can
+            // copy it instead of retyping a long plan until its run gives up (release check 2026-10-27).
+            let mut items = rev.items.clone();
             let mut versions: Vec<PlanRow> = Vec::new();
-            for new in &rev.items {
+            for new in items.iter_mut() {
                 let of: Vec<_> = all.iter().filter(|t| t.plan_item == new.id && t.status != TicketStatus::Cancelled).collect();
                 let done = of.iter().all(|t| t.status.is_terminal()) && of.iter().any(|t| t.status == TicketStatus::Closed);
                 let same = |i: &agenium_core::plan::PlanItem| i.id == new.id && i.title == new.title && i.acceptance == new.acceptance;
@@ -672,16 +673,37 @@ create the plan from it. Tell the user the plan is being drafted",
                         versions.extend(plans::plan(w.tx, project, v)?);
                     }
                 }
-                if !versions.iter().any(|p| p.body.items.iter().any(same)) {
-                    let keys: Vec<String> = of.iter().map(|t| t.key.to_string()).collect();
-                    return Err(invalid(format!(
-                        "plan item {} is done ({} closed): keep its title and acceptance (as now, or as in an earlier plan version) and put the new work in a new item",
-                        new.id,
-                        keys.join(", ")
-                    )));
+                if versions.iter().any(|p| p.body.items.iter().any(same)) {
+                    continue;
+                }
+                let was = base
+                    .body
+                    .items
+                    .iter()
+                    .chain(versions.iter().rev().flat_map(|p| p.body.items.iter()))
+                    .find(|i| i.id == new.id)
+                    .cloned();
+                let keys: Vec<String> = of.iter().map(|t| t.key.to_string()).collect();
+                match was {
+                    Some(was) if retyped(&was, new) => {
+                        new.title = was.title;
+                        new.acceptance = was.acceptance;
+                    }
+                    was => {
+                        let keep = was.map(|w| {
+                            let acs: Vec<String> = w.acceptance.iter().map(|a| format!("{} {:?}", a.id, a.text)).collect();
+                            format!(": title {:?}, acceptance {}", w.title, acs.join("; "))
+                        });
+                        return Err(invalid(format!(
+                            "plan item {} is done ({} closed): keep its title and acceptance as they are{} — and put the new work in a new item",
+                            new.id,
+                            keys.join(", "),
+                            keep.unwrap_or_default()
+                        )));
+                    }
                 }
             }
-            let (diff, scope_change) = plan_diff(&base.body.items, &rev.items);
+            let (diff, scope_change) = plan_diff(&base.body.items, &items);
             // Every item traces to the agreed spec, so a revision stays inside what the user agreed (ADR-63): the
             // Lead approves it and the user is informed. New requirements need a new spec, which the user approves.
             let self_approve = true;
@@ -693,7 +715,7 @@ create the plan from it. Tell the user the plan is being drafted",
                 spec_version: spec.version,
                 reason: Some(rev.reason.clone()),
                 diff: Some(diff.clone()),
-                body: agenium_core::plan::TicketPlan { spec_version: spec.version, milestones: rev.milestones, items: rev.items },
+                body: agenium_core::plan::TicketPlan { spec_version: spec.version, milestones: rev.milestones, items },
                 proposed_by: ctx.actor.label(),
                 approved_by: self_approve.then(|| ctx.actor.label()),
             };
@@ -1848,6 +1870,26 @@ fn check_roles(
         theirs.join(", "),
         workers.into_iter().collect::<Vec<_>>().join(", ")
     )))
+}
+
+/// Whether `new` only retypes `was` (case, spacing, punctuation): the same words, ids and criteria.
+fn retyped(was: &agenium_core::plan::PlanItem, new: &agenium_core::plan::PlanItem) -> bool {
+    let norm = |s: &str| -> String {
+        s.chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    };
+    norm(&was.title) == norm(&new.title)
+        && was.acceptance.len() == new.acceptance.len()
+        && was
+            .acceptance
+            .iter()
+            .zip(&new.acceptance)
+            .all(|(a, b)| a.id == b.id && norm(&a.text) == norm(&b.text))
 }
 
 fn check_trace(spec: &SpecRow, items: &[agenium_core::plan::PlanItem]) -> Result<()> {

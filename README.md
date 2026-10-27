@@ -108,7 +108,8 @@ agenium board --project shop
   0 escapes), macOS (Apple Silicon VM: full suite, sandbox containment).
 
 Known limits of 0.1.0: on Windows the agent sandbox uses MXC process containers, which current stable Windows 11
-releases (23H2 tested) do not provide yet — there every agent command waits for your approval; Git must be installed
+releases (23H2 tested) do not provide yet — there every agent command waits for your approval unless you choose, in
+Settings, to let agents run without a sandbox (ADR-117); Git must be installed
 (Agenium tells you where to get it). Anthropic, Gemini and OpenAI APIs are contract-tested but have not been called
 with a real key; the extra request fields of [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md) apply to
 OpenAI-compatible endpoints only; Devin's CLI cannot be driven; installers are not code-signed yet.

@@ -82,7 +82,8 @@ giống hệt nhau.
   thoát), macOS (máy ảo Apple Silicon: đủ bộ test, kiểm tra cô lập sandbox).
 
 Giới hạn của 0.1.0: trên Windows, sandbox của agent dùng MXC container, mà các bản Windows 11 ổn định hiện tại (đã thử
-23H2) chưa có — trên các máy đó mọi lệnh của agent phải chờ bạn duyệt; máy cần cài Git (Agenium sẽ chỉ chỗ tải). API Anthropic, Gemini và OpenAI mới qua contract test, chưa gọi bằng key thật; trường bổ sung trong
+23H2) chưa có — trên các máy đó mọi lệnh của agent phải chờ bạn duyệt, trừ khi bạn chọn trong Cài đặt cho agent chạy
+không sandbox (ADR-117); máy cần cài Git (Agenium sẽ chỉ chỗ tải). API Anthropic, Gemini và OpenAI mới qua contract test, chưa gọi bằng key thật; trường bổ sung trong
 request (ADR-115) chỉ áp dụng cho endpoint OpenAI-compatible; CLI của Devin không điều khiển được; bộ cài chưa được ký
 số.
 

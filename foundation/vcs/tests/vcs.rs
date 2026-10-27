@@ -68,6 +68,53 @@ fn generated_files_stay_out_of_commits() {
         r.status(&w.path).unwrap().is_empty(),
         "caches do not dirty the tree"
     );
+    // A tool output committed before it was excluded leaves the branch with the next commit, and stays on disk.
+    write(
+        &w.path,
+        "artifacts/tool-output/run-1/0001.log",
+        "long output",
+    );
+    r.git()
+        .check(
+            &w.path,
+            ["add", "-f", "artifacts/tool-output/run-1/0001.log"],
+        )
+        .unwrap();
+    r.git()
+        .check(&w.path, ["commit", "-q", "-m", "stray log"])
+        .unwrap();
+    write(&w.path, "app.py", "print(2)\n");
+    r.commit_all(&w.path, "Fix app", AUTHOR, &[])
+        .unwrap()
+        .unwrap();
+    let tracked = r.git().check(&w.path, ["ls-files"]).unwrap();
+    assert_eq!(tracked.trim(), "app.py", "{tracked}");
+    assert!(w
+        .path
+        .join("artifacts/tool-output/run-1/0001.log")
+        .is_file());
+    // Merging after main moved replays the commit that held the log: the copy on disk does not block the rebase.
+    write(
+        &r.root,
+        "other.txt",
+        "x
+",
+    );
+    r.commit_all(&r.root, "other", AUTHOR, &[])
+        .unwrap()
+        .unwrap();
+    let m = r.merge_ticket("AGN-1", &NoCheck).unwrap();
+    assert!(matches!(m, MergeOutcome::Merged { .. }), "{m:?}");
+    assert!(
+        !r.root.join("artifacts/tool-output").exists(),
+        "no log in main"
+    );
+    assert!(
+        w.path
+            .join("artifacts/tool-output/run-1/0001.log")
+            .is_file(),
+        "put back"
+    );
 }
 
 #[test]

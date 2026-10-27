@@ -24,8 +24,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   extra request fields and the effort field, under rules checked on save and on every request (ADR-115).
 - Vendor CLIs driven headless with every tool call decided by Agenium: Claude Code, Codex, Gemini (Antigravity),
   Grok, OpenCode; login and usability detected; a fallback API model when a CLI cannot run.
-- CLIs that run commands on the host get Agenium's sandboxed `shell`, so they test their work without asking
-  (ADR-116).
+- Vendor CLIs run in their YOLO mode and work through Agenium's own tools (files, apply_patch, shell): their own
+  shells are off, nothing asks the user, and every change keeps the ticket's write scope (ADR-116, ADR-117).
+- A machine without a working sandbox can run agents without one by the user's choice (Settings; Codex included).
 - Effort levels per model by the vendor's own names, prompt caching across vendors, context clearing and compaction,
   retries with back-off, quota and offline states.
 
@@ -60,7 +61,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 
 ### Known limits
 - Windows: the agent sandbox needs MXC process containers, which stable Windows 11 releases (23H2 tested) do not
-  provide yet; there every agent command waits for your approval. Git must be installed.
+  provide yet; there every agent command waits for your approval unless you allow running without a sandbox in
+  Settings. Git must be installed.
 - Anthropic, Gemini and OpenAI APIs are contract-tested, not yet called with a real key; ADR-115's extra request
   fields apply to OpenAI-compatible endpoints only; Devin's CLI cannot be driven.
 - Installers are not code-signed and there is no auto-update yet; no macOS build yet.
