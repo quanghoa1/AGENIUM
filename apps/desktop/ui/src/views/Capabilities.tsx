@@ -807,24 +807,22 @@ function SkillsPanel() {
       <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
         {lib?.skills.filter((s) => tag === null || (s.tags ?? []).includes(tag)).map((s) => (
           <div key={s.name} className="card flex flex-col p-4">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-cyan-500" />
+            <div className="flex items-start gap-2">
+              <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-cyan-500" />
               <span className="text-sm font-semibold">{s.name}</span>
-              {s.version && <Mono className="text-subtle">v{s.version}</Mono>}
-              <Mono className="ml-auto text-subtle">
-                {s.files} {app.t(s.files === 1 ? "library.file" : "library.files")}
-              </Mono>
+              {s.version && <Mono className="mt-0.5 text-subtle">v{s.version}</Mono>}
+              {/* The skill's domain tags on the right of the name row: a glance shows which fields it belongs to. */}
+              {!!s.tags?.length && (
+                <div className="ml-auto flex flex-wrap justify-end gap-1">
+                  {s.tags.map((t) => (
+                    <button key={t} className="chip border-indigo-500/30 text-indigo-600 dark:text-indigo-300" onClick={() => setTag(t)} title={app.t("library.filterTag")}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="mt-1.5 line-clamp-3 text-xs text-muted">{s.description}</div>
-            {!!s.tags?.length && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {s.tags.map((t) => (
-                  <button key={t} className="chip border-indigo-500/30 text-indigo-600 dark:text-indigo-300" onClick={() => setTag(t)} title={app.t("library.filterTag")}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-            )}
             <div className="mt-2 flex flex-1 flex-wrap items-center gap-1">
               <span className="label mr-1">{app.t("library.enabledBy")}</span>
               {s.users.length ? (
@@ -836,6 +834,9 @@ function SkillsPanel() {
               ) : (
                 <span className="text-[11px] text-subtle">–</span>
               )}
+              <Mono className="ml-auto text-subtle">
+                {s.files} {app.t(s.files === 1 ? "library.file" : "library.files")}
+              </Mono>
             </div>
             <div className="mt-3 flex gap-2">
               <button className="btn" onClick={() => api.skillText(s.name).then(setView)}>
