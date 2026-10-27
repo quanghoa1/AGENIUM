@@ -320,8 +320,8 @@ pub fn fetch_tool() -> Arc<dyn Tool> {
     Arc::new(FetchTool)
 }
 
-/// The `shell` tool on its own, for a vendor CLI whose own commands run on the host: through it a command runs in
-/// Agenium's sandbox (the worktree writable, nothing else), so it needs nobody's approval where a sandbox works.
+/// The `shell` tool on its own: a hooked vendor CLI gets it in runs whose tools are read-only (a review, a chat), so the
+/// Lead can run the work it judges; the sandbox keeps those runs read-only.
 pub fn shell_tool() -> Arc<dyn Tool> {
     Arc::new(ShellTool)
 }

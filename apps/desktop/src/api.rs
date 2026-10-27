@@ -79,7 +79,8 @@ pub fn command_policy(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let sb = agenium_sandbox::detect();
     Ok(
-        json!({ "approval": o.app.config().sandbox.approval, "backend": sb.backend, "reason": sb.reason }),
+        json!({ "approval": o.app.config().sandbox.approval, "unsandboxed": o.app.config().sandbox.unsandboxed,
+                "backend": sb.backend, "reason": sb.reason }),
     )
 }
 
@@ -91,6 +92,16 @@ pub fn set_command_policy(
     d.opened()?
         .app
         .update_config(|c| c.sandbox.approval = approval)
+        .map_err(err)?;
+    command_policy(d)
+}
+
+/// Whether agents may run their commands without a sandbox on a machine that has none (ADR-117).
+#[tauri::command]
+pub fn set_unsandboxed(d: State<'_, Desktop>, on: bool) -> R<Value> {
+    d.opened()?
+        .app
+        .update_config(|c| c.sandbox.unsandboxed = on)
         .map_err(err)?;
     command_policy(d)
 }

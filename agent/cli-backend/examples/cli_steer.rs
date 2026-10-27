@@ -144,6 +144,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         nudge: None,
         subagents: false,
         read_only: false,
+        uncontained: false,
         on_limits: None,
         steer: Some(steer.clone()),
     };

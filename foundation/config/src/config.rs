@@ -305,6 +305,11 @@ pub struct SandboxSection {
     /// off for a strict project where reads go through the `fetch` allowlist only. It does not touch a vendor CLI's
     /// own host-run commands (`Control::Hook`), which the command gate governs.
     pub network: bool,
+    /// What happens on a machine where no sandbox backend works (stable Windows 11 releases without MXC process
+    /// containers, ADR-117): off, each command waits for the user's approval; on, the user accepted that agents run
+    /// their commands directly in the ticket's worktree without asking (Codex's full-access level) and a CLI that
+    /// runs contained elsewhere runs on the host. Has no effect where a sandbox works.
+    pub unsandboxed: bool,
 }
 
 impl Default for SandboxSection {
@@ -312,6 +317,7 @@ impl Default for SandboxSection {
         Self {
             approval: ApprovalPolicy::default(),
             network: true,
+            unsandboxed: false,
         }
     }
 }

@@ -75,6 +75,7 @@ export const api = {
   installEmbeddingModel: () => call<void>("install_embedding_model"),
   retryEmbeddingModel: () => call<void>("retry_embedding_model"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
+  setUnsandboxed: (on: boolean) => call<CommandPolicy>("set_unsandboxed", { on }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
   overview: () => call<Overview>("overview"),

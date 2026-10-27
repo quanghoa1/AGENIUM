@@ -100,6 +100,9 @@ pub struct CliRun<'a> {
     pub subagents: bool,
     /// Only a work run writes files; chat, review, inbox and plan runs read ([`CheckCtx::read_only`]).
     pub read_only: bool,
+    /// A `Control::Sandbox` CLI runs on the host: no sandbox backend works and the user accepted running without one
+    /// (`[sandbox] unsandboxed`, ADR-117).
+    pub uncontained: bool,
     /// Receives the vendor's subscription usage when the CLI reports it.
     pub on_limits: Option<Arc<dyn Fn(agenium_llm::vendor_usage::VendorUsage) + Send + Sync>>,
     /// The user's messages to this running Lead (ADR-104/110): handed over with the next result of an Agenium tool,
@@ -193,34 +196,49 @@ impl ToolHost for Bridge {
 }
 
 /// The work order as one prompt: the CLI keeps its own system prompt, so Agenium's goes first as instructions.
-pub fn render(order: &WorkOrder, protocol: &[String], control: Control, shell: bool) -> String {
+/// How a run's commands and files are handled, as the CLI is told (ADR-117).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Commands {
+    /// The CLI runs inside Agenium's sandbox (its own tools do the work).
+    Contained,
+    /// A CLI that runs contained elsewhere runs on the host: no sandbox works here and the user accepted that.
+    Unsandboxed,
+    /// A hooked CLI: Agenium's tools over MCP do the work; its own shell is refused.
+    AgeniumTools,
+}
+
+pub fn render(order: &WorkOrder, protocol: &[String], commands: Commands) -> String {
     let mut s = String::from("<agenium_instructions>\n");
     for b in &order.system {
         s.push_str(b.text.trim_end());
         s.push_str("\n\n");
     }
-    let commands = match control {
-        Control::Sandbox => {
-            "Shell commands run inside Agenium's sandbox: only the worktree is writable."
-        }
-        Control::Hook if shell => {
-            "Agenium checks every tool call: files outside the worktree and web tools are refused. Run shell commands \
-(tests, builds, scripts, servers you start to check your work) with the `shell` tool of the MCP server \"agenium\": it \
-runs them in Agenium's sandbox, where the worktree is writable, without asking anyone. Your own shell tool runs on \
-the user's machine, so each of its commands waits for the user's approval and is usually refused."
-        }
-        Control::Hook => {
-            "Agenium checks every tool call: shell commands need its approval, files outside the worktree and web \
-tools are refused."
-        }
+    let protocol = protocol.join(", ");
+    let how = match commands {
+        Commands::Contained | Commands::Unsandboxed => format!(
+            "How this run works: you are an Agenium agent running in your own harness. Do the work with your own \
+file, search and shell tools inside the current directory (the ticket worktree); tools named above that you do not \
+have map to your own equivalents. Agenium's protocol tools ({protocol}) come from the MCP server \"{MCP_SERVER}\": \
+call them there. {}\n",
+            if commands == Commands::Contained {
+                "Shell commands run inside Agenium's sandbox: only the worktree is writable."
+            } else {
+                "This machine has no sandbox: your commands run directly on the user's machine, in the ticket \
+worktree. Keep every change and every command inside it."
+            }
+        ),
+        Commands::AgeniumTools => format!(
+            "How this run works: you are an Agenium agent running in your own harness, and you work through the \
+tools of the MCP server \"{MCP_SERVER}\", not your own: `read_file`, `list_dir`, `glob` and `grep` to read; \
+`edit_file`, `multi_edit`, `apply_patch` and `write_file` to change files; `shell` for every command (tests, builds, \
+scripts, a server you start to check your work). Use those this run offers. They keep the ticket's write scope and \
+run commands under Agenium's rules without asking anyone. Your own shell tool is turned off; your own file tools still \
+work inside the current directory (the ticket worktree), but use Agenium's. Files outside the worktree and your own \
+web tools are refused. Tools named above that are not in that list map to Agenium's equivalents. The protocol tools \
+({protocol}) come from the same server.\n"
+        ),
     };
-    s.push_str(&format!(
-        "How this run works: you are an Agenium agent running in your own harness. Do the work with your own file, \
-search and shell tools inside the current directory (the ticket worktree); tools named above that you do not have \
-map to your own equivalents. Agenium's protocol tools ({}) come from the MCP server \"{MCP_SERVER}\": call them \
-there. {commands}\n",
-        protocol.join(", ")
-    ));
+    s.push_str(&how);
     s.push_str("</agenium_instructions>\n");
     for m in &order.messages {
         let who = match m.role {
@@ -365,7 +383,10 @@ impl CliRun<'_> {
 
     async fn drive(&self, order: &WorkOrder, st: &mut State) -> Result<Outcome, Outcome> {
         let control = self.driver.control();
-        if control == Control::Sandbox && agenium_sandbox::detect().backend.is_none() {
+        if control == Control::Sandbox
+            && !self.uncontained
+            && agenium_sandbox::detect().backend.is_none()
+        {
             return Err(failed(
                 "this CLI runs only inside Agenium's sandbox and no sandbox backend works on this machine",
             ));
@@ -451,8 +472,12 @@ impl CliRun<'_> {
             read_only: self.read_only,
         };
         let turns = self.driver.turns();
-        let shell = self.tools.iter().any(|t| t.name() == "shell");
-        let mut first = render(order, &self.protocol_names(), self.driver.control(), shell);
+        let commands = match (self.driver.control(), self.uncontained) {
+            (Control::Hook, _) => Commands::AgeniumTools,
+            (Control::Sandbox, false) => Commands::Contained,
+            (Control::Sandbox, true) => Commands::Unsandboxed,
+        };
+        let mut first = render(order, &self.protocol_names(), commands);
         if self.steer.is_some() {
             // Said once, before the task: how the user's messages during the run look.
             first = first.replacen(
@@ -612,8 +637,8 @@ ask_question if you are blocked.",
         let (in_tx, in_rx) = mpsc::unbounded_channel::<String>();
         let (out_tx, lines) = mpsc::unbounded_channel::<Value>();
         let tail: Arc<Mutex<Vec<u8>>> = Arc::default();
-        match self.driver.control() {
-            Control::Hook => {
+        match (self.driver.control(), self.uncontained) {
+            (Control::Hook, _) | (Control::Sandbox, true) => {
                 let mut child = agenium_sandbox::service_command(&name, &args, env, &self.cwd)
                     .spawn()
                     .map_err(|e| failed(format!("cannot start {name}: {e}")))?;
@@ -693,7 +718,7 @@ ask_question if you are blocked.",
                     },
                 })
             }
-            Control::Sandbox => {
+            (Control::Sandbox, false) => {
                 let mut policy = self.ctx.policy.clone();
                 policy.network = true;
                 policy.writable_roots.push(home.to_path_buf());
@@ -1080,20 +1105,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_hooked_cli_is_told_to_run_commands_through_agenium_s_shell() {
+    fn each_cli_is_told_how_its_commands_run() {
         let order = WorkOrder {
             system: vec![],
             messages: vec![],
         };
         let protocol = ["submit_report".to_owned()];
-        let with = render(&order, &protocol, Control::Hook, true);
+        let hooked = render(&order, &protocol, Commands::AgeniumTools);
+        assert!(hooked.contains("not your own"), "{hooked}");
+        assert!(hooked.contains("`shell` for every command"));
+        assert!(hooked.contains("Your own shell tool is turned off"));
+        let contained = render(&order, &protocol, Commands::Contained);
         assert!(
-            with.contains("`shell` tool of the MCP server \"agenium\""),
-            "{with}"
+            contained.contains("inside Agenium's sandbox"),
+            "{contained}"
         );
-        assert!(with.contains("without asking anyone"));
-        let without = render(&order, &protocol, Control::Hook, false);
-        assert!(!without.contains("`shell` tool"), "{without}");
-        assert!(without.contains("shell commands need its approval"));
+        let host = render(&order, &protocol, Commands::Unsandboxed);
+        assert!(host.contains("no sandbox"), "{host}");
     }
 }

@@ -100,6 +100,8 @@ export type ApprovalPolicy = "sandboxed" | "on-request" | "never";
 
 export interface CommandPolicy {
   approval: ApprovalPolicy;
+  /** Run without a sandbox, without asking, where this machine has none (ADR-117). */
+  unsandboxed: boolean;
   backend: string | null;
   reason: string;
 }

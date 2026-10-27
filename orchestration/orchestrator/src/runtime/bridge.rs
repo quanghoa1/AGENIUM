@@ -107,11 +107,16 @@ fn allowlisted(command: &str, list: &[String]) -> bool {
 #[async_trait]
 impl CommandGate for RunGate {
     async fn check(&self, command: &str, cwd: &Path) -> GateDecision {
-        let policy = self.app.config().sandbox.approval;
+        let cfg = self.app.config().sandbox;
+        let policy = cfg.approval;
         let sandbox = agenium_sandbox::detect();
         if self.contained {
             match (policy, sandbox.backend) {
                 (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, Some(_)) => {
+                    return GateDecision::Allow
+                }
+                // ADR-117: the user accepted running without a sandbox on a machine that has none.
+                (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, None) if cfg.unsandboxed => {
                     return GateDecision::Allow
                 }
                 (ApprovalPolicy::Never, None) => {
@@ -129,6 +134,15 @@ impl CommandGate for RunGate {
         };
         if allowlisted(command, &list) {
             return GateDecision::Allow;
+        }
+        // A hooked CLI's own shell runs on the host, outside every rule of Agenium's tools: it is never put to the
+        // user (a team cannot wait on each `ls`) but refused with the way through Agenium's `shell` (ADR-117).
+        if !self.contained {
+            return GateDecision::Deny(
+                "run commands with the `shell` tool of the MCP server \"agenium\" (it runs them in the ticket's \
+worktree under Agenium's rules); your own shell tool is turned off in Agenium runs"
+                    .into(),
+            );
         }
         match self
             .approver
@@ -152,16 +166,6 @@ impl CommandGate for RunGate {
                     tracing::warn!(error = %e, "could not save always-allow entry");
                 }
                 GateDecision::Allow
-            }
-            // A hooked CLI also has our sandboxed `shell` where a sandbox works (`Runtime::run`): say so, or the
-            // agent gives up on running anything and checks its work by reading only.
-            Approval::Deny(reason)
-                if !self.contained && agenium_sandbox::detect().backend.is_some() =>
-            {
-                GateDecision::Deny(format!(
-                    "the user denied the command: {reason}. Run it with the `shell` tool of the MCP server \
-\"agenium\" instead: it runs in Agenium's sandbox without asking"
-                ))
             }
             Approval::Deny(reason) => {
                 GateDecision::Deny(format!("the user denied the command: {reason}"))

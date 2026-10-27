@@ -398,8 +398,9 @@ impl Approver for Denier {
     }
 }
 
-/// ADR-64: with the default policy a contained command runs without asking when a sandbox backend works, and goes to
-/// the user without one; a vendor CLI's host command always goes to the user; YOLO without a sandbox is refused.
+/// ADR-64/117: with the default policy a contained command runs without asking when a sandbox backend works, and goes
+/// to the user without one unless the user accepted running unsandboxed; a vendor CLI's own host command is refused
+/// with the way through Agenium's `shell`, never put to the user; YOLO without a sandbox is refused.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn sandboxed_commands_run_without_asking() {
     use agenium_config::ApprovalPolicy;
@@ -431,7 +432,25 @@ async fn sandboxed_commands_run_without_asking() {
         assert!(asked(&d), "{d:?}");
     }
     let d = gate(false).check("cargo test", &cwd).await;
-    assert!(asked(&d), "a host command goes to the user: {d:?}");
+    assert!(
+        matches!(&d, GateDecision::Deny(r) if r.contains("`shell` tool of the MCP server") && !r.contains("not now")),
+        "a CLI's own shell is refused without asking: {d:?}"
+    );
+    app.update_config(|c| c.sandbox.unsandboxed = true).unwrap();
+    assert_eq!(
+        gate(true).check("cargo test", &cwd).await,
+        GateDecision::Allow,
+        "with a sandbox, or accepted without one"
+    );
+    assert!(
+        matches!(
+            gate(false).check("cargo test", &cwd).await,
+            GateDecision::Deny(_)
+        ),
+        "the CLI's own shell stays off"
+    );
+    app.update_config(|c| c.sandbox.unsandboxed = false)
+        .unwrap();
     app.update_config(|c| c.sandbox.approval = ApprovalPolicy::OnRequest)
         .unwrap();
     let d = gate(true).check("cargo test", &cwd).await;

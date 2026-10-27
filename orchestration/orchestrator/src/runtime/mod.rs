@@ -879,10 +879,15 @@ impl Runtime {
                     .map(|t| t as Arc<dyn Tool>),
             );
         }
-        // A vendor CLI brings its own file and shell tools, but its native web is off (ADR-84): from Agenium it gets
-        // the agent's MCP tools plus our `fetch` — the one allowlisted, logged, out-of-sandbox path for reading URLs.
+        // A CLI that runs contained brings its own file and shell tools; its native web is off (ADR-84), so from
+        // Agenium it gets the agent's MCP tools plus our `fetch` (the one allowlisted, logged path for reading URLs).
+        // A CLI checked through its hook works through the run's own tools instead (ADR-117): its shell would run on
+        // the host, outside the sandbox and the write scope, so it is refused and these do the work.
         let cli = cli_ready.is_some();
-        let mut work = if cli {
+        let hooked = cli_ready
+            .as_ref()
+            .is_some_and(|(d, _)| d.control() == agenium_cli_backend::Control::Hook);
+        let mut work = if cli && !hooked {
             vec![
                 agenium_tools::fetch_tool(),
                 agenium_tools::view_image_tool(),
@@ -890,13 +895,12 @@ impl Runtime {
         } else {
             work
         };
-        // A CLI checked through its hook runs its own commands on the host, where each one needs the allowlist or the
-        // user. Where a sandbox works it also gets our `shell`: tests, builds and scripts then run contained, without
-        // asking (a team run cannot wait on the user for every `ls`).
-        if cli_ready.as_ref().is_some_and(|(d, _)| {
-            d.control() == agenium_cli_backend::Control::Hook
-                && agenium_sandbox::detect().backend.is_some()
-        }) {
+        // Its own shell is refused, so a hooked CLI's read-only run (a review, a chat) keeps ours where a sandbox makes
+        // that run read-only: the Lead runs the tests of the work it judges instead of only reading it.
+        if hooked
+            && !work.iter().any(|t| t.name() == "shell")
+            && agenium_sandbox::detect().backend.is_some()
+        {
             work.push(agenium_tools::shell_tool());
         }
         // Images reach the model only when it takes them (the provider says so, or `[[providers.model_caps]]
@@ -1236,9 +1240,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 "{name} is not logged in; log in with the {name} CLI first"
             ));
         }
-        if driver.control() == Control::Sandbox && agenium_sandbox::detect().backend.is_none() {
+        if driver.control() == Control::Sandbox
+            && agenium_sandbox::detect().backend.is_none()
+            && !self.app.config().sandbox.unsandboxed
+        {
             return Err(format!(
-                "{name} runs only inside Agenium's sandbox and no sandbox backend works here"
+                "{name} runs only inside Agenium's sandbox and no sandbox backend works here (Settings can allow \
+running without one)"
             ));
         }
         Ok((driver, program))
@@ -1297,6 +1305,9 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             // Only a work run changes files: a Lead's chat in the main checkout, a review of the worktree it judges,
             // an inbox or plan run must not edit them behind the tickets (the CLI's own Write/Edit tools included).
             read_only: kind != RunKind::Work,
+            // `cli_ready` let it through: no sandbox works and the user accepted running without one (ADR-117).
+            uncontained: driver.control() == agenium_cli_backend::Control::Sandbox
+                && agenium_sandbox::detect().backend.is_none(),
             on_limits: {
                 let app = self.app.clone();
                 Some(Arc::new(move |u| {

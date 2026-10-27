@@ -145,6 +145,7 @@ async fn run_steered(
         nudge: None,
         subagents: false,
         read_only: false,
+        uncontained: false,
         on_limits: None,
         steer,
     };

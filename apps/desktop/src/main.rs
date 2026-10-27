@@ -42,6 +42,7 @@ fn main() {
             api::status,
             api::command_policy,
             api::set_command_policy,
+            api::set_unsandboxed,
             api::setup,
             api::projects,
             api::overview,

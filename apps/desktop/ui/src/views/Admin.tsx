@@ -1,6 +1,7 @@
 import { Copy, Loader2, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Logo } from "../components/Logo";
+import { ConfirmModal } from "../components/motion";
 import { Empty, FreeTag, Mono, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { isFree, priceOf, usePrices } from "../lib/prices";
@@ -361,9 +362,11 @@ function JudgeSection() {
 function CommandPolicySection() {
   const app = useApp();
   const [p, setP] = useState<CommandPolicy | null>(null);
+  const [ask, setAsk] = useState(false);
   useEffect(() => {
     api.commandPolicy().then(setP).catch(() => setP(null));
   }, []);
+  const setUnsandboxed = (on: boolean) => api.setUnsandboxed(on).then(setP).catch((e) => app.notify(String(e)));
   if (!p) return null;
   return (
     <Section title={app.t("settings.commands")}>
@@ -383,6 +386,29 @@ function CommandPolicySection() {
         {p.backend ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
         {p.backend ? app.t("settings.sandboxOn") : app.t("settings.sandboxOff")}
       </div>
+      {!p.backend && (
+        <label className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={p.unsandboxed}
+            onChange={(e) => (e.target.checked ? setAsk(true) : setUnsandboxed(false))}
+          />
+          <span>
+            <span className="font-medium">{app.t("settings.unsandboxed")}</span>
+            <span className="mt-0.5 block text-[11px] text-subtle">{app.t("settings.unsandboxed.hint")}</span>
+          </span>
+        </label>
+      )}
+      <ConfirmModal
+        open={ask}
+        title={app.t("settings.unsandboxed")}
+        note={app.t("settings.unsandboxed.warn")}
+        confirm={app.t("settings.unsandboxed.ok")}
+        icon={<ShieldAlert className="h-3.5 w-3.5" />}
+        onClose={() => setAsk(false)}
+        onConfirm={() => (setAsk(false), setUnsandboxed(true))}
+      />
     </Section>
   );
 }
