@@ -21,7 +21,7 @@ use agenium_backend::{
     sorted_specs, work_specs, Cancel, LoopConfig, Outcome, Run, RunReport, WorkOrder,
 };
 use agenium_core::*;
-use agenium_llm::{ChatEvent, Message, Provider, ProviderSpec, RetryPolicy, SystemBlock, ToolSpec};
+use agenium_llm::{ChatEvent, Message, Provider, RetryPolicy, SystemBlock, ToolSpec};
 use agenium_memory::{Embedder, MemoryRetriever};
 use agenium_skills::SkillSet;
 use agenium_store::core::{comments, runs, tickets, workspaces};
@@ -32,6 +32,8 @@ use crate::app::App;
 use crate::{OrchError, Result};
 pub use bridge::{Approval, Approver, AutoApprove, DenyApprover, RunKind};
 use bridge::{RunGate, RunObserver, RunProtocol};
+mod providers;
+pub use providers::{ConfiguredProviders, ProviderSource, StaticProviders};
 
 /// Text-only answers in a review run: the review ends with a decision, then the close.
 const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_ticket (Approve, or Reopen with feedback per unmet acceptance criterion). Once an approved ticket is merged, or has no code, call close_ticket with a reason. Stop only when a tool result tells you to.";
@@ -53,125 +55,6 @@ fn nudge_for(kind: RunKind) -> Option<String> {
     }
 }
 
-/// Supplies providers by id (from `config.toml` + the secret store, or injected in tests/evals).
-pub trait ProviderSource: Send + Sync {
-    fn provider(&self, id: &str) -> Result<Arc<dyn Provider>>;
-    /// Drops what was built for `id` (its configuration or key changed).
-    fn forget(&self, _id: &str) {}
-}
-
-/// Providers built from configuration; API keys are read from the secret store at first use.
-pub struct ConfiguredProviders {
-    app: Arc<App>,
-    cache: Mutex<std::collections::HashMap<String, Arc<dyn Provider>>>,
-}
-
-impl ConfiguredProviders {
-    pub fn new(app: Arc<App>) -> Self {
-        Self {
-            app,
-            cache: Mutex::new(Default::default()),
-        }
-    }
-}
-
-impl ProviderSource for ConfiguredProviders {
-    fn provider(&self, id: &str) -> Result<Arc<dyn Provider>> {
-        if let Some(p) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(id) {
-            return Ok(p.clone());
-        }
-        let cfg = self.app.config();
-        let pc = cfg.provider(id).ok_or_else(|| {
-            OrchError::NotFound(format!("provider {id:?} is not configured in config.toml"))
-        })?;
-        let key = if pc.api_key_ref.is_empty() {
-            None
-        } else {
-            let s = self.app.secret(&pc.api_key_ref)?.ok_or_else(|| {
-                OrchError::NotFound(format!(
-                    "secret {:?} for provider {id} is not set",
-                    pc.api_key_ref
-                ))
-            })?;
-            Some(s.expose_str()?.to_owned())
-        };
-        let kind = match pc.kind {
-            agenium_config::ProviderKind::Anthropic => "anthropic",
-            agenium_config::ProviderKind::Gemini => "gemini",
-            agenium_config::ProviderKind::OpenaiCompat => "openai_compat",
-            agenium_config::ProviderKind::Mock => {
-                return Err(OrchError::Invalid(
-                    "mock providers are injected by tests, not configured".into(),
-                ))
-            }
-        };
-        // The user's headers (secret ones from the vault) and the effort levels given to models by hand.
-        let secret = |n: &str| {
-            self.app
-                .secret(n)
-                .ok()
-                .flatten()
-                .and_then(|s| s.expose_str().ok().map(str::to_owned))
-        };
-        let mut headers = Vec::new();
-        for (k, v) in &pc.headers {
-            let v = agenium_mcp::resolve(v, &secret, &|_| None)
-                .map_err(|e| OrchError::NotFound(format!("provider {id}: header {k}: {e}")))?;
-            headers.push((k.clone(), v));
-        }
-        let efforts = pc
-            .model_caps
-            .iter()
-            .filter_map(|c| {
-                let levels: Vec<Effort> = c
-                    .efforts
-                    .as_ref()?
-                    .iter()
-                    .filter_map(|e| e.parse().ok())
-                    .collect();
-                (!levels.is_empty()).then(|| (c.model.clone(), levels))
-            })
-            .collect();
-        let spec = ProviderSpec {
-            custom: agenium_llm::custom::Custom {
-                headers,
-                efforts,
-                // Checked when saved; a field edited into the file that breaks the rules is left out.
-                body: pc
-                    .body
-                    .iter()
-                    .filter_map(|f| {
-                        agenium_llm::custom::check_field(&f.path, &f.value, f.model.as_deref()).ok()
-                    })
-                    .collect(),
-                effort_field: pc
-                    .effort_field
-                    .as_deref()
-                    .and_then(|f| agenium_llm::custom::check_path(f).ok()),
-            },
-            id: pc.id.clone(),
-            kind: kind.into(),
-            base_url: pc.base_url.clone(),
-            api_key: key,
-            max_concurrency: pc.max_concurrency as usize,
-        };
-        let p =
-            agenium_llm::build_provider(&spec).map_err(|e| OrchError::Invalid(e.to_string()))?;
-        self.cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(id.to_owned(), p.clone());
-        Ok(p)
-    }
-
-    fn forget(&self, id: &str) {
-        self.cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(id);
-    }
-}
-
 /// How long an agent CLI's detection is reused (a login or upgrade shows up within this).
 const CLI_INFO_TTL: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -184,19 +67,6 @@ struct AbortOnDrop(tokio::task::JoinHandle<()>);
 impl Drop for AbortOnDrop {
     fn drop(&mut self) {
         self.0.abort();
-    }
-}
-
-/// Fixed providers by id (tests, evals).
-pub struct StaticProviders(pub Vec<(String, Arc<dyn Provider>)>);
-
-impl ProviderSource for StaticProviders {
-    fn provider(&self, id: &str) -> Result<Arc<dyn Provider>> {
-        self.0
-            .iter()
-            .find(|(k, _)| k == id)
-            .map(|(_, p)| p.clone())
-            .ok_or_else(|| OrchError::NotFound(format!("provider {id}")))
     }
 }
 

@@ -6,6 +6,7 @@ pub mod app;
 pub mod check;
 pub mod effects;
 pub mod engine;
+mod engine_support;
 mod error;
 pub mod inbox;
 pub mod judge;
