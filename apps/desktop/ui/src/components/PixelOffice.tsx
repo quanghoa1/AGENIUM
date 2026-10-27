@@ -220,23 +220,31 @@ function R(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: numb
   g.fillRect(x, y, w, h);
 }
 
-function floor(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number) {
-  // Long slate planks, 4 px high, joints staggered by row: the app's dark tones, so the warm desks and shelves stand
-  // out. Low-contrast seams keep it a floor, not a brick wall.
+/** Floor and wall tones per theme: slate in the dark theme; on the light one a pale oak floor and a soft blue-grey
+ *  wall, so the room is not a dark block on a white page. The furniture keeps its colours in both. */
+const ROOM = {
+  dark: { plank: ["#2e3548", "#2b3244"], top: "#323a4e", bottom: "#272d3c", joint: "#262c3a", wall: "#2b3654", wallTop: "#161c2c", wallBase: "#1f2840", rail: "#323e60" },
+  light: { plank: ["#e6d6bd", "#e1d0b5"], top: "#ecdec8", bottom: "#d6c3a6", joint: "#cdb894", wall: "#c9d6e6", wallTop: "#9fb1c8", wallBase: "#aebfd3", rail: "#dbe4ef" },
+};
+type RoomTones = (typeof ROOM)["dark"];
+
+function floor(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, c: RoomTones) {
+  // Long planks, 4 px high, joints staggered by row, so the warm desks and shelves stand out. Low-contrast seams keep
+  // it a floor, not a brick wall.
   for (let y = y0; y < y0 + h; y += 4) {
     const row = (y - y0) / 4;
-    R(g, x0, y, w, 4, row % 2 ? "#2b3244" : "#2e3548");
-    R(g, x0, y, w, 1, "#323a4e");
-    R(g, x0, y + 3, w, 1, "#272d3c");
-    for (let x = x0 + ((row * 23) % 56); x < x0 + w; x += 56) R(g, x, y + 1, 1, 2, "#262c3a");
+    R(g, x0, y, w, 4, c.plank[row % 2]);
+    R(g, x0, y, w, 1, c.top);
+    R(g, x0, y + 3, w, 1, c.bottom);
+    for (let x = x0 + ((row * 23) % 56); x < x0 + w; x += 56) R(g, x, y + 1, 1, 2, c.joint);
   }
 }
 
-function wall(g: CanvasRenderingContext2D, x0: number, w: number) {
-  R(g, x0, 0, w, 2 * T, "#2b3654");
-  R(g, x0, 0, w, 3, "#161c2c");
-  R(g, x0, 2 * T - 3, w, 3, "#1f2840");
-  R(g, x0, T + 2, w, 1, "#323e60");
+function wall(g: CanvasRenderingContext2D, x0: number, w: number, c: RoomTones) {
+  R(g, x0, 0, w, 2 * T, c.wall);
+  R(g, x0, 0, w, 3, c.wallTop);
+  R(g, x0, 2 * T - 3, w, 3, c.wallBase);
+  R(g, x0, T + 2, w, 1, c.rail);
 }
 
 function bookshelf(g: CanvasRenderingContext2D, x: number, y: number) {
@@ -746,8 +754,9 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
       const still = !!reduceMotion;
       const frame = still ? 0 : Math.floor(t / 180);
       // the room
-      floor(g, 0, 2 * T, W, H - 2 * T);
-      wall(g, 0, W);
+      const tones = document.documentElement.classList.contains("dark") ? ROOM.dark : ROOM.light;
+      floor(g, 0, 2 * T, W, H - 2 * T, tones);
+      wall(g, 0, W, tones);
       bookshelf(g, T, 4);
       if (lay.cols >= 11) bookshelf(g, W - 3 * T, 4);
       clock(g, Math.floor(W / 2) - 6, 8, t);
@@ -760,7 +769,8 @@ export function PixelOffice({ agents, lead, deskless = [], selected, onSelect, f
       coffeeTable(g, lay.tableAt.tx * T, lay.tableAt.ty * T);
       cooler(g, lay.coolerAt.tx * T, lay.coolerAt.ty * T);
       for (const p of lay.plants) plant(g, p.tx * T, p.ty * T, t, still);
-      g.strokeStyle = "#11151f";
+      // The room's edge: dark on the dark theme, a soft grey on the light one.
+      g.strokeStyle = tones === ROOM.dark ? "#11151f" : "#94a3b8";
       g.lineWidth = 2;
       g.strokeRect(1, 1, W - 2, H - 2);
 

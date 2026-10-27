@@ -1,8 +1,11 @@
-import { AlertTriangle, ArrowLeft, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Crown, Download, FileUp, FolderPlus, Lightbulb, Pencil, Plug, Plus, RotateCcw, Settings2, Trash2, UserMinus, UserPlus, Users, Wrench, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Modal, Overlay, PanelSwap, Segmented } from "../components/motion";
-import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../components/ui";
+import { AgentStatusBadge, Avatar, CacheHit, Empty, FreeTag, Mono, OutcomeBadge, PageHeader, RoleChip, RuntimeBadge, Section, ago, cn, modelLabel, tokens } from "../components/ui";
 import { api, type ModelArg } from "../lib/api";
+import { friendly } from "../lib/errors";
+import { missionOf } from "../lib/roles";
+import type { Key } from "../lib/i18n";
 import { isFree, priceLabel, priceOf, usePrices } from "../lib/prices";
 import { inTauri, useApp } from "../lib/store";
 import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, Capabilities, LeadSuggestion, LibrarySkill, McpServerRow, ModelInfo, RoleInfo, TeamTemplate, TeamsData } from "../lib/types";
@@ -118,11 +121,22 @@ export function ProjectsView() {
   const app = useApp();
   const [name, setName] = useState("");
   const [source, setSource] = useState("");
+  const [busy, setBusy] = useState(false);
+  // The project just made: the page stays here and points to the next step (a team), instead of jumping away.
+  const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
   const suggested = nameFrom(source);
   const finalName = name.trim() || suggested;
+  const create = () => {
+    setBusy(true);
+    api
+      .createProject(finalName, source.trim() || undefined)
+      .then((p) => (app.setProject(p.id), setName(""), setSource(""), setCreated(p), app.refresh()))
+      .catch((e) => app.notify(friendly(e, app.t)))
+      .finally(() => setBusy(false));
+  };
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.projects")} />
+      <PageHeader title={app.t("nav.projects")} sub={app.t("projects.sub")} />
       <div className="card flex flex-wrap items-end gap-2 p-4">
         <label className="w-64">
           <span className="label">{app.t("common.name")}</span>
@@ -132,20 +146,22 @@ export function ProjectsView() {
           <span className="label">{app.t("projects.folder")}</span>
           <input className="input mt-1" value={source} placeholder={app.t("projects.folderHint")} onChange={(e) => setSource(e.target.value)} />
         </label>
-        <button
-          className="btn-primary"
-          disabled={!finalName}
-          title={finalName ? undefined : app.t("projects.needName")}
-          onClick={() =>
-            api
-              .createProject(finalName, source.trim() || undefined)
-              .then((p) => (app.setProject(p.id), setName(""), setSource(""), app.refresh(), app.go("teams")))
-              .catch((e) => app.notify(String(e)))
-          }
-        >
-          <FolderPlus className="h-3.5 w-3.5" /> {app.t("projects.create")}
+        <button className="btn-primary" disabled={!finalName || busy} title={finalName ? undefined : app.t("projects.needName")} onClick={create}>
+          <FolderPlus className="h-3.5 w-3.5" /> {busy ? app.t("projects.creating") : app.t("projects.create")}
         </button>
       </div>
+      {created && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs">
+          <Check className="h-4 w-4 text-emerald-500" />
+          <span>{app.t("projects.created").replace("{x}", created.name)}</span>
+          <button className="btn-primary ml-auto" onClick={() => (app.setProject(created.id), app.go("teams"))}>
+            <Users className="h-3.5 w-3.5" /> {app.t("projects.nextTeam")}
+          </button>
+          <button className="btn" onClick={() => setCreated(null)}>
+            {app.t("common.close")}
+          </button>
+        </div>
+      )}
       <div className="grid gap-4 lg:grid-cols-2">
         {app.projects.map((p) => (
           <div key={p.id} className="card p-4">
@@ -153,13 +169,13 @@ export function ProjectsView() {
               <div>
                 <Mono className="text-cyan-600 dark:text-cyan-400">{p.key_prefix}</Mono> <span className="text-sm font-semibold">{p.name}</span>
               </div>
-              <span className="chip border-line-strong bg-elevated text-muted">{p.status}</span>
+              <span className="chip border-line-strong bg-elevated text-muted">{app.t(`projects.status.${p.status}` as Key)}</span>
             </div>
             <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
               {[
-                [app.t("projects.team"), p.team ? (p.team.solo ? "solo" : `${p.team.members} ${app.t("projects.members")}`) : "–"],
+                [app.t("projects.team"), p.team ? (p.team.solo ? app.t("teams.solo") : `${p.team.members} ${app.t("projects.members")}`) : "–"],
                 [app.t("nav.tickets"), p.tickets],
-                ["plan", `${p.plan_done}/${p.plan_items}`],
+                [app.t("projects.plan"), `${p.plan_done}/${p.plan_items}`],
                 [app.t("nav.needs"), p.needs_you],
               ].map(([k, v]) => (
                 <div key={String(k)} className="rounded-lg border border-line bg-elevated/50 p-2">
@@ -184,7 +200,7 @@ export function ProjectsView() {
           </div>
         ))}
       </div>
-      {app.projects.length === 0 && <Empty>{app.t("common.none")}</Empty>}
+      {app.projects.length === 0 && <Empty>{app.t("projects.empty")}</Empty>}
     </div>
   );
 }
@@ -202,7 +218,7 @@ function AgentModel({ id, backend, model, onSaved }: { id: string; backend: stri
       <div className="text-[11px] text-subtle">{app.t("agents.keep")}</div>
       <button
         className="btn-primary"
-        disabled={!m.provider}
+        disabled={!m.provider || (m.provider === model.provider && m.model === model.model && m.effort === model.effort && m.backend === (backend === "Cli" ? "cli" : "api"))}
         onClick={() =>
           api
             .setAgentModel(id, m)
@@ -210,7 +226,7 @@ function AgentModel({ id, backend, model, onSaved }: { id: string; backend: stri
             .catch((e) => app.notify(String(e)))
         }
       >
-        {app.t("common.save")}
+        {app.t("agents.saveModel")}
       </button>
     </div>
   );
@@ -262,7 +278,7 @@ function RolePicker({ roles, value, onChange, draft, setDraft }: { roles: RoleIn
       </select>
       {r && (
         <div className="rounded-lg border border-line bg-elevated/40 p-2.5 text-[11px]">
-          <div className="line-clamp-3 text-muted">{r.prompt}</div>
+          <div className="line-clamp-3 text-muted">{missionOf(r.prompt)}</div>
           <div className="mt-1.5 flex flex-wrap gap-1">
             {r.lead && <span className="chip border-purple-500/30 text-purple-600 dark:text-purple-300">lead</span>}
             {r.planner && <span className="chip border-cyan-500/30 text-cyan-600 dark:text-cyan-300">planner</span>}
@@ -504,10 +520,22 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!open) return;
+    // Each opening starts clean: what was typed before a Cancel does not come back.
+    setName("");
+    setRole("");
+    setDraft(emptyRole);
+    setSkills([]);
+    setMcp([]);
+    setModel(emptyModel);
     api.roles().then((r) => setRoles(r ?? []));
     api.capabilities().then((c) => {
       setCaps(c);
-      if (c?.providers[0]) setModel((m) => ({ ...m, provider: m.provider || c.providers[0].id }));
+      // An API provider with a key first; with none, a CLI this computer can already run.
+      const keyed = c?.providers.find((p) => p.has_key);
+      const cli = c?.clis.find((x) => x.compatible && x.login === "logged_in") ?? c?.clis.find((x) => x.compatible && x.login !== "not_logged_in");
+      if (keyed) setModel({ ...emptyModel, provider: keyed.id });
+      else if (cli) setModel({ ...emptyModel, backend: "cli", provider: cli.kind.toLowerCase() });
+      else if (c?.providers[0]) setModel({ ...emptyModel, provider: c.providers[0].id });
     });
   }, [open]);
   const flip = (xs: string[], x: string, on: boolean) => (on ? [...new Set([...xs, x])] : xs.filter((y) => y !== x));
@@ -518,22 +546,17 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
       const r = await saveRoleIfNew(role, draft);
       const a = await api.createAgent({ name: name.trim(), role: r, model, skills, mcp });
       app.notify(`${a.name}: ${app.t("agents.inPool")}`);
-      setName("");
-      setRole("");
-      setDraft(emptyRole);
-      setSkills([]);
-      setMcp([]);
       app.refresh();
       onClose();
     } catch (e) {
-      app.notify(String(e));
+      app.notify(friendly(e, app.t));
     } finally {
       setBusy(false);
     }
   };
   return (
     <Overlay open={open} onClose={onClose} kind="dialog" top="pt-10">
-      <div className="card max-h-[86vh] w-[760px] max-w-[94vw] overflow-y-auto p-5 shadow-2xl">
+      <div className="card max-h-[86vh] w-[760px] max-w-[94vw] overflow-y-auto p-5 pb-0 shadow-2xl">
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
           <UserPlus className="h-4 w-4 text-accent" /> {app.t("agents.create")}
         </div>
@@ -543,7 +566,7 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
             <input className="input mt-1" value={name} placeholder="recon-worker" onChange={(e) => setName(e.target.value)} autoFocus />
           </label>
           <div>
-            <div className="label mb-1">role</div>
+            <div className="label mb-1">{app.t("agents.role")}</div>
             <RolePicker roles={roles} value={role} onChange={setRole} draft={draft} setDraft={setDraft} />
           </div>
           <div>
@@ -552,7 +575,8 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
           </div>
           <Switches skills={skills} mcp={mcp} lib={lib} servers={servers} onSkills={(s, on) => setSkills((xs) => flip(xs, s, on))} onMcp={(s, on) => setMcp((xs) => flip(xs, s, on))} />
           <div className="text-[11px] text-subtle">{app.t("agents.poolNote")}</div>
-          <div className="flex justify-end gap-2">
+          {/* Always in view, however long the form grows. */}
+          <div className="sticky bottom-0 -mx-5 flex justify-end gap-2 border-t border-line bg-surface px-5 py-3">
             <button className="btn" onClick={onClose}>
               {app.t("common.cancel")}
             </button>
@@ -761,7 +785,7 @@ function AgentRole({ agent }: { agent: AgentRecord }) {
             .catch((e) => app.notify(String(e)))
         }
       >
-        {app.t("common.save")}
+        {app.t("agents.saveRole")}
       </button>
     </div>
   );
@@ -818,7 +842,7 @@ function AgentName({ id, name }: { id: string; name: string }) {
     api
       .renameAgent(id, draft)
       .then(() => (setDraft(null), app.refresh(), app.notify(app.t("common.done"))))
-      .catch((e) => app.notify(String(e)));
+      .catch((e) => app.notify(friendly(e, app.t)));
   return (
     <span className="flex items-center gap-1.5">
       <input
@@ -829,11 +853,11 @@ function AgentName({ id, name }: { id: string; name: string }) {
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => (e.key === "Enter" ? save() : e.key === "Escape" ? setDraft(null) : undefined)}
       />
-      <button className="btn-primary" disabled={!draft.trim() || draft.trim() === name} onClick={save}>
-        {app.t("common.save")}
+      <button className="btn-primary px-2" title={app.t("agents.saveName")} aria-label={app.t("agents.saveName")} disabled={!draft.trim() || draft.trim() === name} onClick={save}>
+        <Check className="h-3.5 w-3.5" />
       </button>
-      <button className="btn" onClick={() => setDraft(null)}>
-        {app.t("common.cancel")}
+      <button className="btn px-2" title={app.t("common.cancel")} aria-label={app.t("common.cancel")} onClick={() => setDraft(null)}>
+        <X className="h-3.5 w-3.5" />
       </button>
     </span>
   );
@@ -987,7 +1011,7 @@ export function AgentView({ id }: { id: string }) {
                 <div className="mt-1.5 text-xs">{f.text}</div>
                 <div className="mt-1 text-[11px] text-subtle">
                   {ago(f.created_at)}
-                  {f.used_at ? ` · used ${ago(f.used_at)}` : ""}
+                  {f.used_at ? ` · ${app.t("memory.used")} ${ago(f.used_at)}` : ""}
                 </div>
               </div>
             ))}
@@ -1036,7 +1060,15 @@ export function AgentView({ id }: { id: string }) {
 // ---------------------------------------------------------------- teams
 
 /** Compose a team from pool agents: pick members, the Lead (the system suggests one, with its reasons), a project. */
-function TeamComposer({ data, onDone }: { data: TeamsData; onDone: () => void }) {
+/** Why an agent is suggested as Lead, in the interface language (the server says `role X is meant to lead`, `tag Y`). */
+function leadReason(r: string, t: (k: Key) => string): string {
+  const m = r.match(/^role (.+) is meant to lead$/) ?? r.match(/^(role|tag|skill) (.+)$/);
+  if (!m) return r;
+  if (m.length === 2) return t("teams.why.leadRole").replace("{x}", m[1]);
+  return t(`teams.why.${m[1]}` as Key).replace("{x}", m[2]);
+}
+
+function TeamComposer({ data, onDone, onCancel }: { data: TeamsData; onDone: () => void; onCancel: () => void }) {
   const app = useApp();
   const [name, setName] = useState("");
   const [solo, setSolo] = useState(false);
@@ -1072,7 +1104,7 @@ function TeamComposer({ data, onDone }: { data: TeamsData; onDone: () => void })
     api
       .composeTeam({ name: name.trim(), project: project || null, lead: chosenLead!, members: solo ? [] : picked.filter((x) => x !== chosenLead), solo })
       .then(() => (app.notify(app.t("common.done")), setName(""), setPicked([]), setLead(null), onDone(), app.refresh()))
-      .catch((e) => app.notify(String(e)));
+      .catch((e) => app.notify(friendly(e, app.t)));
   const byId = new Map(data.pool.map((a) => [a.id, a]));
   return (
     <div className="space-y-3">
@@ -1118,7 +1150,7 @@ function TeamComposer({ data, onDone }: { data: TeamsData; onDone: () => void })
                     {planner(a) && <span className="chip border-cyan-500/30 text-cyan-600 dark:text-cyan-300">planner</span>}
                   </div>
                   <div className="truncate text-[11px] text-subtle">
-                    {a.role} · {a.backend === "Cli" ? `CLI:${a.model.provider}` : a.model.provider}/{a.model.model}
+                    {a.role} · {modelLabel(a.backend, a.model, app.t("model.default"))}
                   </div>
                 </div>
               </button>
@@ -1136,7 +1168,7 @@ function TeamComposer({ data, onDone }: { data: TeamsData; onDone: () => void })
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/5 p-2.5 text-xs">
           <Lightbulb className="h-4 w-4 text-purple-500" />
           <span>
-            {app.t("teams.suggested")} <b>{byId.get(suggestion.agent)?.name}</b> — {suggestion.reasons.join(", ")}
+            {app.t("teams.suggested")} <b>{byId.get(suggestion.agent)?.name}</b> — {suggestion.reasons.map((r) => leadReason(r, app.t)).join(", ")}
           </span>
           {lead && lead !== suggestion.agent && (
             <button className="btn ml-auto" onClick={() => setLead(null)}>
@@ -1153,9 +1185,14 @@ function TeamComposer({ data, onDone }: { data: TeamsData; onDone: () => void })
           {lead === null && suggestion?.agent === chosenLead ? ` (${app.t("teams.bySuggestion")})` : ""}
         </div>
       )}
-      <button className="btn-primary" disabled={!ok} onClick={create}>
-        <Users className="h-3.5 w-3.5" /> {app.t("teams.compose")}
-      </button>
+      <div className="flex gap-2">
+        <button className="btn-primary" disabled={!ok} onClick={create}>
+          <Users className="h-3.5 w-3.5" /> {app.t("teams.compose")}
+        </button>
+        <button className="btn" onClick={onCancel}>
+          {app.t("common.cancel")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1252,16 +1289,24 @@ export function TeamsView() {
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.teams")} sub={`${data.teams.length} ${app.t(data.teams.length === 1 ? "teams.one" : "teams.many")} · ${data.pool.length} ${app.t("agents.pool")}`}>
-        <button className={cn(mode === "compose" ? "btn-primary" : "btn")} onClick={() => setMode(mode === "compose" ? "none" : "compose")}>
-          <Users className="h-3.5 w-3.5" /> {app.t("teams.compose")}
-        </button>
-        <button className={cn(mode === "template" ? "btn-primary" : "btn")} onClick={() => setMode(mode === "template" ? "none" : "template")}>
-          <Plus className="h-3.5 w-3.5" /> {app.t("teams.fromTemplate")}
-        </button>
+        {mode === "none" ? (
+          <>
+            <button className="btn" onClick={() => setMode("compose")}>
+              <Users className="h-3.5 w-3.5" /> {app.t("teams.compose")}
+            </button>
+            <button className="btn" onClick={() => setMode("template")}>
+              <Plus className="h-3.5 w-3.5" /> {app.t("teams.fromTemplate")}
+            </button>
+          </>
+        ) : (
+          <button className="btn" onClick={() => setMode("none")}>
+            <X className="h-3.5 w-3.5" /> {app.t("common.close")}
+          </button>
+        )}
       </PageHeader>
       {mode === "compose" && (
         <Section title={app.t("teams.compose")}>
-          <TeamComposer data={data} onDone={() => setMode("none")} />
+          <TeamComposer data={data} onDone={() => setMode("none")} onCancel={() => setMode("none")} />
         </Section>
       )}
       {mode === "template" && (

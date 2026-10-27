@@ -34,7 +34,7 @@ import { inTauri, useApp, useLive, type View } from "../lib/store";
 import { motion } from "motion/react";
 import { CommandPalette } from "./CommandPalette";
 import { Logo } from "./Logo";
-import { CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
+import { ConfirmModal, CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
 import { cn } from "./ui";
 import { UsageFooter } from "./UsageFooter";
 
@@ -53,6 +53,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const glide = spring.selection;
   const [palette, setPalette] = useState(false);
+  // Stopping everything is asked first: it ends every run and pauses every working project.
+  const [stopAsk, setStopAsk] = useState(false);
   const current = app.projects.find((p) => p.id === app.project);
   const needs = app.projects.reduce((n, p) => n + p.needs_you, 0) + app.approvals.length;
   // Runs streaming right now (the Live tab's badge).
@@ -205,18 +207,18 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
           <div className="flex-1" />
           <RunControl />
-          <button
-            onClick={() => {
-              api.stopAll().then(() => (app.notify(t("top.stopped")), app.refresh()));
-            }}
-            className="btn-danger"
-            title={t("top.stop")}
-          >
+          <button onClick={() => setStopAsk(true)} className="btn-danger" title={t("top.stop")}>
             <OctagonX className="h-3.5 w-3.5" />
+            {t("top.stopShort")}
           </button>
-          <button onClick={() => app.setLang(app.lang === "vi" ? "en" : "vi")} className="btn font-mono" title={t("settings.language")}>
-            {app.lang.toUpperCase()}
-          </button>
+          {/* Both languages shown, the current one lit: a lone "VI" did not say whether it was the state or the switch. */}
+          <Segmented
+            id="lang"
+            value={app.lang}
+            onChange={app.setLang}
+            itemClassName="px-2 py-1.5 font-mono text-[11px]"
+            items={(["vi", "en"] as const).map((l) => ({ value: l, label: l.toUpperCase() }))}
+          />
           <Segmented
             id="theme"
             value={app.themeMode}
@@ -235,6 +237,18 @@ export function Shell({ children }: { children: ReactNode }) {
       <Overlay open={palette} onClose={() => setPalette(false)} kind="palette" top="pt-24">
         <CommandPalette onClose={() => setPalette(false)} />
       </Overlay>
+      <ConfirmModal
+        open={stopAsk}
+        title={t("top.stopAsk")}
+        note={t("top.stopNote")}
+        confirm={t("top.stopShort")}
+        icon={<OctagonX className="h-3.5 w-3.5" />}
+        onClose={() => setStopAsk(false)}
+        onConfirm={() => {
+          setStopAsk(false);
+          api.stopAll().then(() => (app.notify(t("top.stopped")), app.refresh()));
+        }}
+      />
       <Toast message={app.toast} />
     </div>
   );

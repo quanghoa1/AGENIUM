@@ -27,13 +27,20 @@ export function cn(...v: (string | false | null | undefined)[]) {
   return twMerge(clsx(v));
 }
 
+/** The interface language for `ago` (set by the store when the language changes). */
+let agoLang: "vi" | "en" = "vi";
+export function setAgoLang(l: "vi" | "en") {
+  agoLang = l;
+}
+
+/** How long ago `iso` was, in the interface language: "11 phút trước" / "11m ago". */
 export function ago(iso?: string | null): string {
   if (!iso) return "–";
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return `${Math.round(s)}s`;
-  if (s < 3600) return `${Math.round(s / 60)}m`;
-  if (s < 86400) return `${Math.round(s / 3600)}h`;
-  return `${Math.round(s / 86400)}d`;
+  const [n, unit] =
+    s < 60 ? [Math.round(s), 0] : s < 3600 ? [Math.round(s / 60), 1] : s < 86400 ? [Math.round(s / 3600), 2] : [Math.round(s / 86400), 3];
+  if (agoLang === "vi") return s < 10 ? "vừa xong" : `${n} ${["giây", "phút", "giờ", "ngày"][unit]} trước`;
+  return s < 10 ? "just now" : `${n}${["s", "m", "h", "d"][unit]} ago`;
 }
 
 export function tokens(n: number): string {
@@ -101,7 +108,7 @@ export function RuntimeBadge({ backend, model }: { backend: BackendKind; model: 
   return (
     <span className="chip border-line-strong bg-elevated text-muted">
       {cli ? <Terminal className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
-      {cli ? `CLI:${model.provider}` : model.provider} · {model.model || "default"}
+      {cli ? `CLI:${model.provider}` : model.provider} · {model.model || useApp().t("model.default")}
       <span className="text-subtle">· {model.effort}</span>
       {!cli && isFree(priceOf(prices, model.provider, model.model)) && <FreeTag />}
     </span>
@@ -141,12 +148,27 @@ export function RoleChip({ lead, planner, solo }: { lead?: boolean; planner?: bo
   return <span className="chip border-line-strong bg-elevated text-muted">WORKER</span>;
 }
 
+/** Two or three letters for an agent's name: `sc-backend` -> BA, `lead-1` -> L1 (a numbered name keeps its number). */
+export function initials(name: string): string {
+  const parts = name.split(/[-_\s.]+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  const last = parts[parts.length - 1];
+  if (parts.length > 1 && /^\d+$/.test(last)) return (parts[0][0] + last).slice(0, 3).toUpperCase();
+  return last.slice(0, 2).toUpperCase();
+}
+
+/** `CLI:codex/gpt-6` or `deepseek/v4`; a CLI left on its own default model says so instead of ending in a slash. */
+export function modelLabel(backend: string, model: { provider: string; model: string }, defaultWord: string): string {
+  const who = backend === "Cli" || backend === "cli" ? `CLI:${model.provider}` : model.provider;
+  return model.model ? `${who}/${model.model}` : `${who} (${defaultWord})`;
+}
+
 export function Avatar({ name, className }: { name: string; className?: string }) {
   const hues = ["from-blue-600 to-cyan-500", "from-purple-600 to-fuchsia-500", "from-emerald-600 to-teal-500", "from-amber-500 to-orange-500", "from-rose-600 to-pink-500"];
   const h = hues[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % hues.length];
   return (
     <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br font-mono text-xs font-bold text-white", h, className)}>
-      {name.replace(/^[^-]*-/, "").slice(0, 2).toUpperCase() || <Bot className="h-4 w-4" />}
+      {initials(name) || <Bot className="h-4 w-4" />}
     </div>
   );
 }

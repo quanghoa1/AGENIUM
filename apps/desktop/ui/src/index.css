@@ -4,14 +4,16 @@
 
 :root,
 html.light {
-  --bg-primary: #f8fafc;
+  /* The page sits a step below the white cards and the borders are firm enough to see columns and empty states
+     (a review found the light theme washed out: page, cards and borders nearly one tone). */
+  --bg-primary: #eef2f6;
   --bg-surface: #ffffff;
-  --bg-elevated: #f1f5f9;
-  --border-subtle: #e2e8f0;
-  --border-strong: #cbd5e1;
+  --bg-elevated: #f3f5f8;
+  --border-subtle: #d8dee7;
+  --border-strong: #c2cbd7;
   --text-primary: #0f172a;
   --text-secondary: #334155;
-  --text-muted: #64748b;
+  --text-muted: #526075;
   color-scheme: light;
 }
 
@@ -81,7 +83,7 @@ body {
     @apply inline-flex items-center gap-1.5 rounded-lg border border-line-strong bg-elevated px-2.5 py-[7px] text-xs font-medium text-fg hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-[7px] text-xs font-medium text-white shadow-sm hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-[7px] text-xs font-medium text-white shadow-sm hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle disabled:shadow-none;
   }
   .btn-danger {
     @apply inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-[7px] text-xs font-medium text-rose-600 hover:bg-rose-500/20 dark:text-rose-300;
@@ -90,7 +92,8 @@ body {
     @apply px-3.5 py-2 text-[13px] leading-5;
   }
   .input {
-    @apply w-full rounded-lg border border-line-strong bg-background px-2.5 py-[7px] text-xs text-fg outline-none placeholder:text-subtle focus:border-accent;
+    /* White on the light theme's white cards (a grey field read as disabled), sunken on the dark one. */
+    @apply w-full rounded-lg border border-line-strong bg-surface px-2.5 py-[7px] text-xs text-fg outline-none placeholder:text-subtle focus:border-accent disabled:cursor-not-allowed disabled:bg-elevated disabled:text-subtle dark:bg-background;
   }
   .input-lg {
     @apply py-2 text-[13px] leading-5;

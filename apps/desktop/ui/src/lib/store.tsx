@@ -16,6 +16,7 @@ import {
 import { api, inTauri, onApproval, onEvent, onModel, onRun } from "./api";
 import { dictionaries, type Key, type Lang } from "./i18n";
 import type { CommandApproval, ProjectSummary, Status } from "./types";
+import { setAgoLang } from "../components/ui";
 
 export type View =
   | "overview"
@@ -162,6 +163,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [route, setRoute] = useState<Route>(parseHash);
   const [lang, setLangState] = useState<Lang>((readLocal("agenium-lang") as Lang) || "vi");
+  // Relative times (`ago`) follow the interface language.
+  setAgoLang(lang);
   const [themeMode, setThemeModeState] = useState<ThemeMode>((readLocal("agenium-theme") as ThemeMode) || "dark");
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProjectState] = useState<string | null>(readLocal("agenium-project"));

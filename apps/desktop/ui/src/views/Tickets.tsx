@@ -1,7 +1,8 @@
-import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion } from "lucide-react";
+import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
 import { ListItem, Modal, ProgressBar, Segmented } from "../components/motion";
+import { NeedsProject } from "../components/GettingStarted";
 import { Empty, Mono, PageHeader, PriorityBadge, Section, TicketStatusBadge, cn } from "../components/ui";
 import { AnimatePresence } from "motion/react";
 import { useRef } from "react";
@@ -16,10 +17,13 @@ export function TicketsView() {
   const app = useApp();
   const tab: Tab = (["board", "plan", "inbox"].includes(app.route.id ?? "") ? app.route.id : "board") as Tab;
   const p = app.projects.find((x) => x.id === app.project);
-  if (!app.project || !p) return <Empty>{app.t("common.none")}</Empty>;
+  if (!app.project || !p) return <NeedsProject title={app.t("nav.tickets")} />;
   return (
     <div>
-      <PageHeader title={`${p.key_prefix} — ${p.name}`}>
+      <PageHeader title={`${p.key_prefix} — ${p.name}`} sub={app.t("tickets.howMade")}>
+        <button className="btn" onClick={() => app.go("chat")}>
+          <MessageSquare className="h-3.5 w-3.5" /> {app.t("tickets.askLead")}
+        </button>
         <Segmented
           id="tickets-tab"
           value={tab}

@@ -8,6 +8,8 @@ import type { AgentEntry, Card } from "../lib/types";
 import { cn } from "./ui";
 
 interface Hit {
+  /** Unique across the list (two projects may share a name). */
+  id: string;
   cat: string;
   title: string;
   sub: string;
@@ -31,22 +33,33 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const hits = useMemo<Hit[]>(() => {
     const s = q.trim().toLowerCase();
     const m = (...v: (string | null | undefined)[]) => !s || v.some((x) => x?.toLowerCase().includes(s));
+    // Every screen of the sidebar, plus the chat with the Lead.
     const views: [View, string][] = [
       ["overview", app.t("nav.overview")],
+      ["live", app.t("nav.live")],
       ["needs", app.t("nav.needs")],
       ["tickets", app.t("nav.tickets")],
       ["runs", app.t("nav.runs")],
       ["chat", app.t("top.talk")],
+      ["projects", app.t("nav.projects")],
       ["agents", app.t("nav.agents")],
+      ["memory", app.t("nav.memory")],
       ["teams", app.t("nav.teams")],
+      ["providers", app.t("nav.providers")],
+      ["library", app.t("nav.library")],
+      ["templates", app.t("nav.templates")],
+      ["audit", app.t("nav.audit")],
+      ["usage", app.t("nav.usage")],
       ["settings", app.t("nav.settings")],
     ];
     const out: Hit[] = [];
-    for (const [v, label] of views) if (m(label, v)) out.push({ cat: "VIEW", title: label, sub: v, go: () => app.go(v) });
-    for (const c of cards) if (m(c.key, c.title)) out.push({ cat: "TICKET", title: `${c.key} ${c.title}`, sub: c.assignee ?? "–", go: () => app.go("ticket", c.key) });
-    for (const a of agents) if (m(a.agent.name, a.agent.role)) out.push({ cat: "AGENT", title: a.agent.name, sub: `${a.agent.role} · ${a.project_name}`, go: () => app.go("agent", a.agent.id) });
-    for (const p of app.projects) if (m(p.name, p.key_prefix)) out.push({ cat: "PROJECT", title: `${p.key_prefix} — ${p.name}`, sub: p.status, go: () => (app.setProject(p.id), app.go("tickets")) });
-    return out.slice(0, 14);
+    const cat = { view: app.t("palette.view"), ticket: app.t("palette.ticket"), agent: app.t("palette.agent"), project: app.t("palette.project") };
+    for (const [v, label] of views) if (m(label, v)) out.push({ id: `view:${v}`, cat: cat.view, title: label, sub: "", go: () => app.go(v) });
+    for (const c of cards) if (m(c.key, c.title)) out.push({ id: `ticket:${c.key}`, cat: cat.ticket, title: `${c.key} ${c.title}`, sub: c.assignee ?? "–", go: () => app.go("ticket", c.key) });
+    for (const a of agents) if (m(a.agent.name, a.agent.role)) out.push({ id: `agent:${a.agent.id}`, cat: cat.agent, title: a.agent.name, sub: [a.agent.role, a.project_name].filter(Boolean).join(" · "), go: () => app.go("agent", a.agent.id) });
+    for (const p of app.projects) if (m(p.name, p.key_prefix)) out.push({ id: `project:${p.id}`, cat: cat.project, title: `${p.key_prefix} — ${p.name}`, sub: p.path, go: () => (app.setProject(p.id), app.go("tickets")) });
+    // Views first; typing narrows the list, so a query reaches every match.
+    return out.slice(0, s ? 30 : views.length);
   }, [q, cards, agents, app]);
 
   useEffect(() => setSel(0), [q]);
@@ -79,7 +92,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         <div className="max-h-[420px] overflow-y-auto p-1.5">
           {hits.map((h, i) => (
             <button
-              key={h.cat + h.title}
+              key={h.id}
               onMouseEnter={() => setSel(i)}
               onClick={() => run(h)}
               className={cn("relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left", i !== sel && "hover:bg-elevated")}

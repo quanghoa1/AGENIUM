@@ -201,7 +201,8 @@ export function CountUp({ value }: { value: number }) {
 /** Toast rising from the bottom edge, out of a blur; leaving with a short fade. */
 export function Toast({ message }: { message: string | null }) {
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50" aria-live="polite">
+    // Above the usage footer (32 px), never over it.
+    <div className="pointer-events-none fixed bottom-12 right-4 z-50" aria-live="polite">
       <AnimatePresence initial={false}>
         {message && (
           <motion.div
@@ -297,6 +298,7 @@ export function ConfirmModal({
   confirm,
   onConfirm,
   onClose,
+  icon,
 }: {
   open: boolean;
   title: ReactNode;
@@ -305,6 +307,8 @@ export function ConfirmModal({
   confirm: ReactNode;
   onConfirm: () => void;
   onClose: () => void;
+  /** The danger button's icon (a bin by default). */
+  icon?: ReactNode;
 }) {
   const app = useApp();
   return (
@@ -315,7 +319,7 @@ export function ConfirmModal({
           {app.t("common.cancel")}
         </button>
         <button className="btn-danger" onClick={onConfirm}>
-          <Trash2 className="h-3.5 w-3.5" /> {confirm}
+          {icon ?? <Trash2 className="h-3.5 w-3.5" />} {confirm}
         </button>
       </div>
     </Modal>

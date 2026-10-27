@@ -41,10 +41,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChatPane, LiveTurn, type Prefill } from "../components/ChatPane";
+import { GettingStarted } from "../components/GettingStarted";
 import { Markdown } from "../components/Markdown";
 import { ListItem, PanelSwap, ProgressBar, Segmented } from "../components/motion";
 import { PixelOffice, type Activity, type CallKind, type OfficeAgent } from "../components/PixelOffice";
-import { Avatar, CacheHit, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
+import { Avatar, CacheHit, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, modelLabel, tokens } from "../components/ui";
 import { VendorBadge } from "../components/VendorBadge";
 import { api, onEvent, onRun } from "../lib/api";
 import { useApp, useLive, type LiveRun as Stream } from "../lib/store";
@@ -560,11 +561,11 @@ function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: LiveAgent
             <VendorBadge provider={a.agent.model.provider} model={a.agent.model.model} size={14} />
             <span className="text-subtle">{app.t("common.model")}</span>
             <b className="font-mono">
-              {a.agent.backend === "Cli" ? `CLI:${a.agent.model.provider}` : a.agent.model.provider}/{a.agent.model.model}
+              {modelLabel(a.agent.backend, a.agent.model, app.t("model.default"))}
             </b>
           </span>
           <span className="chip border-line-strong">
-            <span className="text-subtle">effort</span>
+            <span className="text-subtle">{app.t("live.effort")}</span>
             <b className="font-mono">{a.agent.model.effort || "–"}</b>
           </span>
         </div>
@@ -1014,13 +1015,9 @@ export function LiveView() {
         </button>
       </div>
       {data.agents.length === 0 ? (
-        <div className="p-6">
-          <Empty>
-            {app.t("live.empty")}{" "}
-            <button className="text-accent hover:underline" onClick={() => app.go("agents")}>
-              {app.t("agents.create")}
-            </button>
-          </Empty>
+        <div className="mx-auto w-full max-w-2xl p-6">
+          <div className="mb-3 text-xs text-muted">{app.t("live.empty")}</div>
+          <GettingStarted />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -1094,8 +1091,8 @@ export function LiveView() {
                 onChange={setSide}
                 items={[
                   { value: "agent", label: <><Bot className="h-3 w-3" /> {app.t("live.agentTab")}</> },
-                  { value: "tools", label: <><Wrench className="h-3 w-3" /> Tool / Skill / MCP</> },
-                  { value: "plan", label: <><ListChecks className="h-3 w-3" /> Plan</> },
+                  { value: "tools", label: <><Wrench className="h-3 w-3" /> {app.t("live.toolsTab")}</> },
+                  { value: "plan", label: <><ListChecks className="h-3 w-3" /> {app.t("live.planTab")}</> },
                 ]}
               />
               <span className="truncate text-[11px] text-subtle">{side === "plan" ? (current?.name ?? selected?.project_name) : selected?.agent.name}</span>

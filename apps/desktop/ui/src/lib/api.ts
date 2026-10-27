@@ -123,7 +123,7 @@ export const api = {
     action: "priority" | "assign" | "approve" | "reopen" | "close" | "cancel",
     extra: { reason?: string; agent?: string; priority?: number; feedback?: { ac_id: string; feedback: string }[] } = {},
   ) => call<unknown>("ticket_action", { project, ticket, action, ...extra }),
-  createProject: (name: string, source?: string) => call<{ id: string }>("create_project", { name, source }),
+  createProject: (name: string, source?: string) => call<{ id: string; name: string }>("create_project", { name, source }),
   createTeam: (project: string, template: string, model: ModelArg, leadModel?: ModelArg, plannerModel?: ModelArg, prefix?: string) =>
     call<{ agents: [string, string][]; missing_skills: string[] }>("create_team", {
       project,

@@ -1,11 +1,13 @@
 // Capabilities the user manages (ADR-61): model providers (API key or local model; agent CLIs are detected), and the
 // system's skill library and MCP servers that each agent switches on or off.
-import { CheckCircle2, Eye, FileUp, KeyRound, Laptop, ListTree, Pencil, Plug, Plus, RefreshCw, Search, Trash2, Wrench, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, FileUp, KeyRound, Laptop, ListTree, Pencil, Plug, Plus, RefreshCw, Search, Trash2, Wrench, XCircle } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
 import { ConfirmModal, Modal, PanelSwap, Segmented } from "../components/motion";
 import { Empty, Mono, PageHeader, Section, cn } from "../components/ui";
 import { api, inTauri } from "../lib/api";
+import { friendly } from "../lib/errors";
+import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import type { Capabilities, LibrarySkill, LocalServer, McpServerConfig, McpServerRow, ModelInfo } from "../lib/types";
 
@@ -69,7 +71,14 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
           .filter(Boolean),
       })
       .then(() => (app.notify(app.t("common.done")), onDone()))
-      .catch((e) => app.notify(String(e)));
+      .catch((e) => app.notify(friendly(e, app.t)));
+  // What Save still needs: a name, an address for an OpenAI-compatible endpoint, a key for a cloud provider (kept
+  // when editing one that has it).
+  const missing: Key[] = [
+    ...(!d.id.trim() ? (["providers.needId"] as Key[]) : []),
+    ...(d.kind === "openai_compat" && !d.base_url.trim() ? (["providers.needUrl"] as Key[]) : []),
+    ...(!d.local && !d.api_key.trim() && !(d.editing && d.has_key && !d.clear_key) ? (["providers.needKey"] as Key[]) : []),
+  ];
   return (
     <div className="max-w-4xl space-y-3 rounded-lg border border-line bg-elevated/40 p-4">
       {d.local && (
@@ -96,7 +105,7 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
       )}
       <div className="grid gap-3 md:grid-cols-2">
         <label>
-          <span className="label">id</span>
+          <span className="label">{app.t("providers.id")}</span>
           <input className="input mt-1" value={d.id} disabled={d.editing} placeholder="my-provider" onChange={(e) => set({ id: e.target.value.toLowerCase() })} />
         </label>
         <label>
@@ -134,13 +143,14 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
           <input type="checkbox" checked={d.clear_key} onChange={(e) => set({ clear_key: e.target.checked, api_key: "" })} /> {app.t("providers.clearKey")}
         </label>
       )}
-      <div className="flex gap-2">
-        <button className="btn-primary" disabled={!d.id.trim()} onClick={save}>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="btn-primary" disabled={missing.length > 0} onClick={save}>
           {app.t("common.save")}
         </button>
         <button className="btn" onClick={onDone}>
           {app.t("common.cancel")}
         </button>
+        {missing.length > 0 && <span className="text-[11px] text-amber-600 dark:text-amber-400">{missing.map((k) => app.t(k)).join(" · ")}</span>}
       </div>
     </div>
   );
@@ -183,6 +193,19 @@ function ModelsList({ id }: { id: string }) {
   );
 }
 
+/** A CLI's login in words: signed in, not signed in, or not known (the CLI gives no way to ask). */
+function LoginState({ login, installed }: { login: unknown; installed: boolean }) {
+  const app = useApp();
+  if (!installed) return <span className="text-subtle">–</span>;
+  const [key, tone] =
+    login === "logged_in"
+      ? (["providers.loggedIn", "text-emerald-600 dark:text-emerald-300"] as const)
+      : login === "not_logged_in"
+        ? (["providers.notLoggedIn", "text-rose-600 dark:text-rose-300"] as const)
+        : (["providers.loginUnknown", "text-amber-600 dark:text-amber-300"] as const);
+  return <span className={tone}>{app.t(key)}</span>;
+}
+
 export function ProvidersView() {
   const app = useApp();
   const [c, setC] = useState<Capabilities | null>(null);
@@ -201,7 +224,15 @@ export function ProvidersView() {
       .then((v) => setVendors((v ?? []).map((p) => ({ id: p.id, label: p.name, kind: p.kind, base_url: p.base_url ?? undefined, key: p.key_env !== "", local: p.key_env === "" }))))
       .catch(() => setVendors([]));
   }, []);
-  if (!c) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
+  if (!c)
+    return (
+      <div className="space-y-4">
+        <PageHeader title={app.t("nav.providers")} sub={app.t("providers.sub")} />
+        <div className="card flex items-center gap-2 p-4 text-xs text-muted">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" /> {app.t("providers.detecting")}
+        </div>
+      </div>
+    );
   const fromPreset = (p: Preset): ProviderDraft => ({
     editing: false,
     id: c.providers.some((x) => x.id === p.id) ? "" : p.id,
@@ -353,10 +384,10 @@ export function ProvidersView() {
           <thead>
             <tr className="label border-b border-line text-left">
               <th className="py-2">CLI</th>
-              <th>version</th>
-              <th>login</th>
+              <th>{app.t("providers.version")}</th>
+              <th>{app.t("providers.login")}</th>
               <th>{app.t("providers.usable")}</th>
-              <th>note</th>
+              <th>{app.t("providers.note")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -364,8 +395,21 @@ export function ProvidersView() {
               <tr key={x.kind}>
                 <td className="py-2 font-medium">{x.kind.toLowerCase()}</td>
                 <td className="font-mono">{x.version ?? "–"}</td>
-                <td className="text-muted">{typeof x.login === "string" ? x.login : JSON.stringify(x.login)}</td>
-                <td>{x.compatible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-subtle" />}</td>
+                <td>
+                  <LoginState login={x.login} installed={!!x.path} />
+                </td>
+                <td>
+                  {/* Usable, but a login not confirmed is a warning, not a tick. */}
+                  {!x.compatible ? (
+                    <XCircle className="h-4 w-4 text-subtle" />
+                  ) : x.login === "logged_in" ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <span title={app.t("providers.loginUnsure")}>
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    </span>
+                  )}
+                </td>
                 <td className="text-[11px] text-subtle">{x.note ?? (x.path ? "" : app.t("providers.notInstalled"))}</td>
               </tr>
             ))}

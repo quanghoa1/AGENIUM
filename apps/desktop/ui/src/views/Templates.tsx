@@ -1,11 +1,11 @@
 // Team templates and their wizard (M4): the built-in templates, the user's own (saved under the root, a copy of a
 // built-in with the same id overrides it), a template made from a team as it is, import and export as TOML.
-import { Markdown } from "../components/Markdown";
 import { Download, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "../components/motion";
 import { PageHeader, Section, cn } from "../components/ui";
 import { api } from "../lib/api";
+import { missionOf } from "../lib/roles";
 import { useApp } from "../lib/store";
 import type { RoleInfo, RoleSpec, TeamTemplate, TeamsData } from "../lib/types";
 
@@ -61,7 +61,7 @@ export function TemplatesView() {
           key={t.id}
           title={
             <span className="flex items-center gap-2">
-              {t.name} · {t.id}@{t.version} · report {t.report_template}
+              <span title={`${t.id}@${t.version} · ${app.t("templates.report")} ${t.report_template}`}>{t.name}</span>
               {t.custom ? (
                 <span className="chip border-cyan-500/30 normal-case text-cyan-600 dark:text-cyan-300">{t.builtin ? app.t("templates.customCopy") : app.t("templates.custom")}</span>
               ) : (
@@ -71,7 +71,11 @@ export function TemplatesView() {
           }
         >
           <div className="mb-3 flex items-start gap-3">
-            <div className="min-w-0 flex-1 text-xs text-muted">{t.description}</div>
+            <div className="min-w-0 flex-1 text-xs text-muted">
+              {t.description}
+              {/* Role texts are what the agents read, so they stay in English (as tickets and plans do). */}
+              <div className="mt-1 text-[11px] text-subtle">{app.t("templates.englishNote")}</div>
+            </div>
             <button className="btn" onClick={() => setEdit(structuredClone(t))}>
               <Pencil className="h-3.5 w-3.5" /> {app.t("templates.edit")}
             </button>
@@ -104,8 +108,8 @@ export function TemplatesView() {
                   </span>
                   {r.default_model && <span className="truncate font-mono text-[11px] text-subtle">{r.default_model}</span>}
                 </div>
-                <div className="mt-1.5 line-clamp-4 text-[11px] text-subtle">
-                  <Markdown text={r.prompt} />
+                <div className="mt-1.5 line-clamp-4 text-[11px] text-subtle" title={r.prompt}>
+                  {missionOf(r.prompt)}
                 </div>
                 {r.allowed_paths.length > 0 && <div className="mt-2 font-mono text-[11px] text-muted">scope: {r.allowed_paths.join(", ")}</div>}
               </div>

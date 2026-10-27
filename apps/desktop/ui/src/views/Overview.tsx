@@ -7,6 +7,7 @@ import type { Overview } from "../lib/types";
 import { AnimatePresence } from "motion/react";
 import { CountUp, ListItem, ProgressBar } from "../components/motion";
 import { CommandRow, NeedRow, needKey } from "./Needs";
+import { GettingStarted } from "../components/GettingStarted";
 
 export function OverviewView() {
   const app = useApp();
@@ -29,6 +30,7 @@ export function OverviewView() {
         <button
           className="btn"
           disabled={!app.project}
+          title={app.project ? app.t("overview.reportHint") : app.t("overview.reportNeedsProject")}
           onClick={() =>
             app.project &&
             api
@@ -45,11 +47,14 @@ export function OverviewView() {
         </button>
       </PageHeader>
 
+      {/* Until a team has been talked to, the way there. */}
+      {!app.projects.some((p) => p.team && (p.tickets > 0 || (p.run_state && p.run_state !== "Agreeing"))) && <GettingStarted />}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Metric label={app.t("overview.agents")} value={<CountUp value={o.agents.length} />} sub={`${working} ${app.t("overview.working")}${blocked ? ` · ${blocked} ${app.t("overview.blocked")}` : ""}`} tone={blocked ? "rose" : "neutral"} onClick={() => app.go("agents")} />
         <Metric label={app.t("overview.live")} value={<CountUp value={o.live_runs.length} />} tone="blue" onClick={() => app.go("runs")} />
         <Metric label={app.t("overview.needs")} value={<CountUp value={needCount} />} tone={needCount ? "amber" : "emerald"} onClick={() => app.go("needs")} />
-        <Metric label={app.t("overview.tokens")} value={tokens(o.usage_today.tokens_in + o.usage_today.tokens_out)} sub={`${o.runs_today} runs`} />
+        <Metric label={app.t("overview.tokens")} value={tokens(o.usage_today.tokens_in + o.usage_today.tokens_out)} sub={`${o.runs_today} ${app.t(o.runs_today === 1 ? "overview.run" : "overview.runs")}`} />
         <Metric label={app.t("overview.cost")} value={`$${o.usage_today.estimated_cost_usd.toFixed(3)}`} sub={app.t("overview.costNote")} />
       </div>
 

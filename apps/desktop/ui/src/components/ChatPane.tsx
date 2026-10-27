@@ -179,7 +179,7 @@ export function ChatPane({
           </ListItem>
         ))}
         {(busy || current) && <LiveTurn name={agentName} stream={current} />}
-        {lines.length === 0 && !busy && <Empty>{app.t("chat.placeholder")}</Empty>}
+        {lines.length === 0 && !busy && <Empty>{app.t("chat.intro")}</Empty>}
         <div ref={end} />
       </div>
       <div className="flex gap-2 border-t border-line p-3">

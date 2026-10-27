@@ -2,7 +2,7 @@ import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, Key
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ListItem } from "../components/motion";
-import { Empty, Mono, PageHeader, Section, ago, cn } from "../components/ui";
+import { Mono, PageHeader, Section, ago, cn } from "../components/ui";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
@@ -164,7 +164,7 @@ export function NeedsView() {
   const total = items.reduce((n, r) => n + r.items.length, 0) + app.approvals.length;
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.needs")} sub={total ? `${total} ${app.t("needs.waiting")}` : undefined} />
+      <PageHeader title={app.t("nav.needs")} sub={total ? `${total} ${app.t("needs.waiting")}` : app.t("needs.sub")} />
       {items
         .map((r) => ({ ...r, cmds: app.approvals.filter((a) => a.project === r.id) }))
         .filter((r) => r.items.length || r.cmds.length)
@@ -191,7 +191,6 @@ export function NeedsView() {
           <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {app.t("needs.empty")}
         </div>
       )}
-      {items.length === 0 && app.projects.length === 0 && <Empty>{app.t("common.none")}</Empty>}
     </div>
   );
 }

@@ -8,6 +8,30 @@ import { useApp } from "../lib/store";
 import type { Key } from "../lib/i18n";
 import type { AuditEntry, CommandPolicy, JudgeActivity, JudgeConfig, JudgeForm, JudgeUses, RunRow } from "../lib/types";
 
+/** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
+export function actionLabel(action: string, t: (k: Key) => string): string {
+  const key = `audit.ev.${action}` as Key;
+  const said = t(key);
+  if (said !== key) return said;
+  const words = action.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** An event's detail as `field: value` pairs (ids shortened), not a line of JSON. */
+function detailText(d: unknown): string {
+  if (d === null || d === undefined) return "";
+  if (typeof d !== "object") return String(d);
+  return Object.entries(d as Record<string, unknown>)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => {
+      const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+      // ULIDs are 26 characters: the first 8 tell them apart on one screen.
+      const short = /^[0-9A-HJKMNP-TV-Z]{26}$/.test(s) ? `${s.slice(0, 8)}…` : s.length > 80 ? `${s.slice(0, 79)}…` : s;
+      return `${k.replace(/_/g, " ")}: ${short}`;
+    })
+    .join(" · ");
+}
+
 export function AuditView() {
   const app = useApp();
   const [rows, setRows] = useState<AuditEntry[]>([]);
@@ -18,7 +42,10 @@ export function AuditView() {
   const shown = rows.filter((r) => !onlyRefused || !r.accepted);
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.audit")} sub={app.t("audit.sub")}>
+      <PageHeader
+        title={app.t("nav.audit")}
+        sub={`${app.t("audit.sub")} ${app.t("audit.scope").replace("{x}", app.projects.find((p) => p.id === app.project)?.name ?? "–")}`}
+      >
         <label className="flex items-center gap-1.5 text-xs">
           <input type="checkbox" checked={onlyRefused} onChange={(e) => setOnlyRefused(e.target.checked)} /> {app.t("audit.refusedOnly")}
         </label>
@@ -48,7 +75,7 @@ export function AuditView() {
             {[...shown].reverse().map((e, i) => (
               <tr key={i}>
                 <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-subtle">{e.at.replace("T", " ").slice(0, 19)}</td>
-                <td className="px-3 font-medium">{e.actor}</td>
+                <td className="px-3 font-medium">{e.actor === "user" ? app.t("audit.you") : e.actor}</td>
                 <td className="px-3">
                   {e.ticket ? (
                     <button className="font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.go("ticket", e.ticket!)}>
@@ -58,10 +85,12 @@ export function AuditView() {
                     "–"
                   )}
                 </td>
-                <td className="px-3">{e.action}</td>
+                <td className="px-3" title={e.action}>
+                  {actionLabel(e.action, app.t)}
+                </td>
                 <td className="px-3">{e.accepted ? <span className="text-emerald-600 dark:text-emerald-400">{app.t("ticket.applied")}</span> : <span className="text-rose-600 dark:text-rose-400">{app.t("ticket.refused")}</span>}</td>
-                <td className="max-w-[420px] truncate px-3 font-mono text-[11px] text-subtle" title={JSON.stringify(e.detail)}>
-                  {JSON.stringify(e.detail)}
+                <td className="max-w-[520px] truncate px-3 text-[11px] text-subtle" title={JSON.stringify(e.detail, null, 2)}>
+                  {detailText(e.detail)}
                 </td>
               </tr>
             ))}
@@ -98,7 +127,7 @@ export function UsageView() {
   const total = agg.reduce((s, [, x]) => s + x.cost, 0);
   return (
     <div className="space-y-4">
-      <PageHeader title={app.t("nav.usage")} sub={`${app.t("usage.sub")} ${rows.length} runs · $${total.toFixed(3)}`}>
+      <PageHeader title={app.t("nav.usage")} sub={`${app.t("usage.sub")} ${rows.length} ${app.t(rows.length === 1 ? "overview.run" : "overview.runs")} · $${total.toFixed(3)}`}>
         <span className="text-[11px] text-subtle">
           {prices?.fetched_at ? `${app.t("usage.pricesFrom")} ${prices.source?.replace(/^https?:\/\//, "").split("/")[0]} · ${ago(prices.fetched_at)}` : app.t("usage.noPrices")}
         </span>
@@ -162,7 +191,7 @@ export function SettingsView() {
           <div className="flex gap-2">
             {(["light", "dark", "system"] as const).map((m) => (
               <button key={m} className={cn("btn", app.themeMode === m && "border-accent text-accent")} onClick={() => app.setThemeMode(m)}>
-                {m}
+                {app.t(`settings.theme.${m}` as Key)}
               </button>
             ))}
           </div>
@@ -289,8 +318,7 @@ function JudgeSection() {
         {uses.map(([k, label]) => (
           <label key={k} className="flex items-center gap-2 text-xs">
             <input type="checkbox" checked={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.checked })} />
-            <span>{app.t(label)}</span>
-            <Mono className="text-subtle">{k}</Mono>
+            <span title={k}>{app.t(label)}</span>
           </label>
         ))}
       </div>
