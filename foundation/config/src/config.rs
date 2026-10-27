@@ -371,6 +371,23 @@ pub struct ProviderConfig {
     /// header). A value is plain text or `${secret:<name>}` (a vault secret): secrets never appear in this file.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub headers: std::collections::BTreeMap<String, String>,
+    /// Extra fields of the request body (`[[providers.body]]`), OpenAI-compatible endpoints only. None set: the
+    /// request Agenium builds; set: sent as given (Agenium's own fields cannot be replaced, see `agenium_llm::custom`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub body: Vec<BodyField>,
+    /// Where the effort level goes (`reasoning.effort`) instead of `reasoning_effort`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort_field: Option<String>,
+}
+
+/// One extra body field of a provider: a dotted path, its value as text (JSON when it parses) and the one model it is
+/// for (none: every model).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BodyField {
+    pub path: String,
+    pub value: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// Capabilities of one model of a provider (`[[providers.model_caps]]`).

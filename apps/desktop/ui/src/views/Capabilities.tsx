@@ -41,6 +41,25 @@ interface ProviderDraft {
   headers: { name: string; value: string; secret: boolean; stored?: boolean }[];
   /** Per-model settings, as typed. */
   caps: CapsDraft[];
+  /** Extra request body fields (`model` "" = every model) and where the effort goes ("" = Agenium's own). */
+  body: { path: string; value: string; model: string }[];
+  effort_field: string;
+}
+
+/** Suggested fields (nothing is sent unless the user adds it). */
+const FIELD_HINTS = ["temperature", "top_p", "top_k", "seed", "presence_penalty", "frequency_penalty", "reasoning.effort", "reasoning.max_tokens", "thinking.type", "thinking.budget_tokens", "verbosity", "parallel_tool_calls"];
+const EFFORT_FIELD_HINTS = ["reasoning_effort", "reasoning.effort", "thinking.effort", "effort"];
+/** Agenium's own fields (`agenium_llm::custom::RESERVED_FIELDS`): the server refuses them, the form says so first. */
+const RESERVED = ["model", "messages", "input", "instructions", "prompt", "tools", "tool_choice", "functions", "function_call", "stream", "stream_options", "n", "response_format", "max_tokens", "max_completion_tokens", "max_output_tokens", "prompt_cache_key"];
+
+/** Why a field path would be refused, if it would be. */
+function fieldProblem(path: string, t: (k: Key) => string): string | null {
+  const p = path.trim();
+  if (!p) return null;
+  const segs = p.split(".");
+  if (segs.length > 4 || segs.some((s) => !/^[A-Za-z0-9_-]{1,64}$/.test(s))) return t("providers.fieldBadName");
+  if (RESERVED.includes(segs[0].toLowerCase())) return t("providers.fieldReserved");
+  return null;
 }
 
 /** One model's settings in the form: "" = as the endpoint says. */
@@ -71,7 +90,7 @@ export function capsDraft(rows: ModelCapsRow[] | undefined): CapsDraft[] {
 /** Extra headers and per-model settings of a custom endpoint (its gateway's headers, the effort levels it takes). */
 function Advanced({ d, set }: { d: ProviderDraft; set: (p: Partial<ProviderDraft>) => void }) {
   const app = useApp();
-  const [open, setOpen] = useState(d.headers.length > 0 || d.caps.length > 0);
+  const [open, setOpen] = useState(d.headers.length > 0 || d.caps.length > 0 || d.body.length > 0 || !!d.effort_field);
   const hs = d.headers;
   const cs = d.caps;
   const setH = (i: number, p: Partial<ProviderDraft["headers"][number]>) => set({ headers: hs.map((h, j) => (j === i ? { ...h, ...p } : h)) });
@@ -191,6 +210,58 @@ function Advanced({ d, set }: { d: ProviderDraft; set: (p: Partial<ProviderDraft
               <Plus className="h-3.5 w-3.5" /> {app.t("providers.addModelSettings")}
             </button>
           </div>
+          <div>
+            <div className="label mb-1">{app.t("providers.requestFields")}</div>
+            <div className="mb-2 text-[11px] text-subtle">{app.t("providers.requestFieldsNote")}</div>
+            <label className="mb-2 flex items-center gap-2 text-xs">
+              <span className="w-40 text-muted">{app.t("providers.effortField")}</span>
+              <input
+                className="input w-64 font-mono"
+                list="effort-field-hints"
+                placeholder={`reasoning_effort (${app.t("model.default")})`}
+                value={d.effort_field}
+                onChange={(e) => set({ effort_field: e.target.value })}
+              />
+              {fieldProblem(d.effort_field, app.t) && <span className="text-[11px] text-rose-600 dark:text-rose-400">{fieldProblem(d.effort_field, app.t)}</span>}
+            </label>
+            <datalist id="effort-field-hints">
+              {EFFORT_FIELD_HINTS.map((h) => (
+                <option key={h} value={h} />
+              ))}
+            </datalist>
+            <div className="space-y-1.5">
+              {d.body.map((f, i) => {
+                const problem = fieldProblem(f.path, app.t);
+                const setF = (p: Partial<ProviderDraft["body"][number]>) => set({ body: d.body.map((x, j) => (j === i ? { ...x, ...p } : x)) });
+                return (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <input className={cn("input w-56 font-mono", problem && "border-rose-500")} list="field-hints" placeholder="temperature" value={f.path} onChange={(e) => setF({ path: e.target.value })} />
+                    <input className="input w-56 font-mono" placeholder={app.t("providers.fieldValue")} value={f.value} onChange={(e) => setF({ value: e.target.value })} />
+                    <select className="input w-48" value={f.model} onChange={(e) => setF({ model: e.target.value })}>
+                      <option value="">{app.t("providers.fieldAllModels")}</option>
+                      {[...new Set([...listed, ...cs.map((c) => c.model).filter(Boolean), ...(f.model ? [f.model] : [])])].map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn px-2" title={app.t("common.delete")} onClick={() => set({ body: d.body.filter((_, j) => j !== i) })}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    {problem && <span className="text-[11px] text-rose-600 dark:text-rose-400">{problem}</span>}
+                  </div>
+                );
+              })}
+              <datalist id="field-hints">
+                {FIELD_HINTS.map((h) => (
+                  <option key={h} value={h} />
+                ))}
+              </datalist>
+              <button className="btn" onClick={() => set({ body: [...d.body, { path: "", value: "", model: "" }] })}>
+                <Plus className="h-3.5 w-3.5" /> {app.t("providers.addField")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -244,6 +315,8 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
               default_effort: efforts.includes(c.default_effort) ? c.default_effort : null,
             };
           }),
+        body: d.body.filter((f) => f.path.trim()).map((f) => ({ path: f.path.trim(), value: f.value, model: f.model || null })),
+        effort_field: d.effort_field.trim(),
       })
       .then(() => (app.notify(app.t("common.done")), onDone()))
       .catch((e) => app.notify(friendly(e, app.t)));
@@ -253,6 +326,7 @@ function ProviderForm({ draft, onDone }: { draft: ProviderDraft; onDone: () => v
     ...(!d.id.trim() ? (["providers.needId"] as Key[]) : []),
     ...(d.kind === "openai_compat" && !d.base_url.trim() ? (["providers.needUrl"] as Key[]) : []),
     ...(!d.local && !d.api_key.trim() && !(d.editing && d.has_key && !d.clear_key) ? (["providers.needKey"] as Key[]) : []),
+    ...([d.effort_field, ...d.body.map((f) => f.path)].some((p) => fieldProblem(p, app.t)) ? (["providers.needFields"] as Key[]) : []),
   ];
   return (
     <div className="max-w-4xl space-y-3 rounded-lg border border-line bg-elevated/40 p-4">
@@ -431,6 +505,8 @@ export function ProvidersView() {
     has_key: false,
     headers: [],
     caps: [],
+    body: [],
+    effort_field: "",
   });
   return (
     <div className="space-y-4">
@@ -529,6 +605,8 @@ export function ProvidersView() {
                             has_key: p.has_key,
                             headers: (p.headers ?? []).map((h) => ({ name: h.name, value: h.value, secret: h.secret, stored: h.secret })),
                             caps: capsDraft(p.model_caps),
+                            body: (p.body ?? []).map((f) => ({ path: f.path, value: f.value, model: f.model ?? "" })),
+                            effort_field: p.effort_field ?? "",
                           })
                         }
                       >

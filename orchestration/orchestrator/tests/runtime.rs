@@ -1414,6 +1414,8 @@ async fn model_without_tool_calling_is_refused() {
     let (project, _) = solo(&app);
     app.update_config(|c| {
         c.providers.push(agenium_config::ProviderConfig {
+            body: vec![],
+            effort_field: None,
             headers: Default::default(),
             id: "mock".into(),
             kind: agenium_config::ProviderKind::Mock,
@@ -2619,6 +2621,8 @@ async fn view_image_is_offered_to_a_model_that_takes_images_only() {
         app.update_config(|c| {
             c.memory.learn = false;
             c.providers.push(agenium_config::ProviderConfig {
+                body: vec![],
+                effort_field: None,
                 headers: Default::default(),
                 id: "mock".into(),
                 kind: agenium_config::ProviderKind::Mock,

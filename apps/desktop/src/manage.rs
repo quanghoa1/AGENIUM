@@ -441,6 +441,10 @@ pub struct ProviderForm {
     headers: Option<Vec<agenium_orchestrator::registry::HeaderInput>>,
     #[serde(default)]
     model_caps: Option<Vec<agenium_config::ModelCaps>>,
+    #[serde(default)]
+    body: Option<Vec<agenium_config::BodyField>>,
+    #[serde(default)]
+    effort_field: Option<String>,
 }
 
 #[tauri::command]
@@ -455,6 +459,8 @@ pub fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<()> {
     o.app
         .put_provider(&ProviderInput {
             headers: form.headers,
+            body: form.body,
+            effort_field: form.effort_field,
             model_caps: form.model_caps,
             id: form.id.trim().to_owned(),
             kind,

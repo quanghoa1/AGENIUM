@@ -922,7 +922,8 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
                 .collect();
             json!({ "id": p.id, "kind": p.kind, "base_url": p.base_url, "has_key": !p.api_key_ref.is_empty(),
                     "models": p.models.iter().filter(|m| o.app.api_serves(&p.id, m)).collect::<Vec<_>>(),
-                    "max_concurrency": p.max_concurrency, "headers": headers, "model_caps": p.model_caps })
+                    "max_concurrency": p.max_concurrency, "headers": headers, "model_caps": p.model_caps,
+                    "body": p.body, "effort_field": p.effort_field })
         })
         .collect();
     let mut clis = detected_clis(&d, refresh == Some(true)).await?;

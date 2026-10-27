@@ -30,8 +30,7 @@ async fn main() -> Result<()> {
         .map_err(|e: String| anyhow!(e))?;
     let key = std::env::var(&var).map_err(|_| anyhow!("{var} is not set"))?;
     let p = build_provider(&ProviderSpec {
-        headers: vec![],
-        efforts: Default::default(),
+        custom: Default::default(),
         id: "anthropic".into(),
         kind: "anthropic".into(),
         base_url: None,

@@ -1020,6 +1020,8 @@ fn the_price_catalogue_prices_earlier_runs() {
     f.app
         .update_config(|c| {
             c.providers.push(agenium_config::ProviderConfig {
+                body: vec![],
+                effort_field: None,
                 headers: Default::default(),
                 id: "go".into(),
                 kind: agenium_config::ProviderKind::OpenaiCompat,
@@ -1118,6 +1120,8 @@ fn the_lead_proposes_a_role_and_the_user_decides() {
     f.app
         .update_config(|c| {
             c.providers.push(agenium_config::ProviderConfig {
+                body: vec![],
+                effort_field: None,
                 headers: Default::default(),
                 id: "mock".into(),
                 kind: agenium_config::ProviderKind::Mock,

@@ -5,6 +5,7 @@
 //! crate knows nothing about tickets.
 
 pub mod anthropic;
+pub mod custom;
 pub mod effort;
 pub mod error;
 pub mod gemini;
@@ -122,10 +123,8 @@ pub struct ProviderSpec {
     pub base_url: Option<String>,
     pub api_key: Option<String>,
     pub max_concurrency: usize,
-    /// Extra headers (OpenAI-compatible endpoints), already resolved.
-    pub headers: Vec<(String, String)>,
-    /// Effort levels set by hand per model (OpenAI-compatible endpoints): a chosen level is sent for these models.
-    pub efforts: std::collections::BTreeMap<String, Vec<agenium_core::Effort>>,
+    /// The user's additions to an OpenAI-compatible endpoint's requests (headers resolved, fields checked).
+    pub custom: custom::Custom,
 }
 
 pub fn build_provider(spec: &ProviderSpec) -> Result<Arc<dyn Provider>, LlmError> {
@@ -170,7 +169,7 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Arc<dyn Provider>, LlmError
             } else {
                 Arc::new(
                     openai::OpenAiCompat::new(&spec.id, base, spec.api_key.as_deref(), http)
-                        .customized(spec.headers.clone(), spec.efforts.clone()),
+                        .customized(spec.custom.clone()),
                 )
             }
         }

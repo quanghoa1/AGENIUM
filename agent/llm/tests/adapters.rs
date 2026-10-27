@@ -1161,12 +1161,18 @@ async fn a_custom_endpoint_sends_the_users_headers_and_effort() {
         vec!["low".parse().unwrap(), "high".parse().unwrap()],
     );
     let p = openai::OpenAiCompat::new("gw", &format!("{base}/v1"), Some("sk-gw"), http())
-        .customized(vec![("X-Tenant-Id".into(), "team-7".into())], efforts);
+        .customized(agenium_llm::custom::Custom {
+            headers: vec![("X-Tenant-Id".into(), "team-7".into())],
+            efforts,
+            body: vec![agenium_llm::custom::check_field("temperature", "0.2", None).unwrap()],
+            ..Default::default()
+        });
     p.chat(&request("house-model"), &|_| {}).await.unwrap();
     p.chat(&request("other-model"), &|_| {}).await.unwrap();
     let s = seen.lock().unwrap().clone();
     assert_eq!(s[0].header("x-tenant-id"), Some("team-7"));
     assert_eq!(s[0].header("authorization"), Some("Bearer sk-gw"));
     assert_eq!(s[0].body["reasoning_effort"], "high");
+    assert_eq!(s[0].body["temperature"], 0.2);
     assert!(s[1].body.get("reasoning_effort").is_none(), "{}", s[1].body);
 }

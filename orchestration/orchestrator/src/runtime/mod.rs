@@ -133,8 +133,22 @@ impl ProviderSource for ConfiguredProviders {
             })
             .collect();
         let spec = ProviderSpec {
-            headers,
-            efforts,
+            custom: agenium_llm::custom::Custom {
+                headers,
+                efforts,
+                // Checked when saved; a field edited into the file that breaks the rules is left out.
+                body: pc
+                    .body
+                    .iter()
+                    .filter_map(|f| {
+                        agenium_llm::custom::check_field(&f.path, &f.value, f.model.as_deref()).ok()
+                    })
+                    .collect(),
+                effort_field: pc
+                    .effort_field
+                    .as_deref()
+                    .and_then(|f| agenium_llm::custom::check_path(f).ok()),
+            },
             id: pc.id.clone(),
             kind: kind.into(),
             base_url: pc.base_url.clone(),

@@ -13,6 +13,8 @@ fn provider(f: &Fixture) {
     f.app
         .put_provider(&ProviderInput {
             headers: None,
+            body: None,
+            effort_field: None,
             model_caps: None,
             id: "local".into(),
             kind: ProviderKind::OpenaiCompat,
@@ -499,6 +501,8 @@ fn providers_keep_their_keys_in_the_vault() {
     f.app
         .put_provider(&ProviderInput {
             headers: None,
+            body: None,
+            effort_field: None,
             model_caps: None,
             id: "deepseek".into(),
             kind: ProviderKind::OpenaiCompat,
@@ -527,6 +531,8 @@ fn providers_keep_their_keys_in_the_vault() {
     f.app
         .put_provider(&ProviderInput {
             headers: None,
+            body: None,
+            effort_field: None,
             model_caps: None,
             id: "deepseek".into(),
             kind: ProviderKind::OpenaiCompat,
@@ -548,6 +554,8 @@ fn providers_keep_their_keys_in_the_vault() {
     let bad = |p: ProviderInput| f.app.put_provider(&p).is_err();
     let p = |id: &str, kind, url: Option<&str>| ProviderInput {
         headers: None,
+        body: None,
+        effort_field: None,
         model_caps: None,
         id: id.into(),
         kind,
@@ -674,8 +682,7 @@ fn projects_from_a_folder_name_or_a_repository() {
 fn every_vendor_preset_builds_an_adapter() {
     for pr in agenium_config::presets::PRESETS {
         let spec = agenium_llm::ProviderSpec {
-            headers: vec![],
-            efforts: Default::default(),
+            custom: Default::default(),
             id: pr.id.into(),
             kind: match pr.kind {
                 agenium_config::ProviderKind::Anthropic => "anthropic",
@@ -700,6 +707,8 @@ fn custom_endpoint_headers_and_model_settings_are_stored() {
     let put = |headers: Vec<HeaderInput>, caps: Option<Vec<agenium_config::ModelCaps>>| {
         f.app.put_provider(&ProviderInput {
             headers: Some(headers),
+            body: None,
+            effort_field: None,
             model_caps: caps,
             id: "gw".into(),
             kind: ProviderKind::OpenaiCompat,
@@ -760,4 +769,183 @@ fn custom_endpoint_headers_and_model_settings_are_stored() {
         ..Default::default()
     };
     assert!(put(vec![], Some(vec![bad])).is_err());
+}
+
+/// Extra request fields of a custom endpoint: kept as typed when they follow the rules; Agenium's own fields, a
+/// placeholder, an odd name, a reserved header or a header broken across lines are refused with the reason.
+#[test]
+fn extra_request_fields_follow_the_rules() {
+    let f = fixture();
+    let put = |body: Vec<(&str, &str, Option<&str>)>, effort: &str, headers: Vec<HeaderInput>| {
+        f.app.put_provider(&ProviderInput {
+            headers: Some(headers),
+            body: Some(
+                body.into_iter()
+                    .map(|(p, v, m)| agenium_config::BodyField {
+                        path: p.into(),
+                        value: v.into(),
+                        model: m.map(str::to_owned),
+                    })
+                    .collect(),
+            ),
+            effort_field: Some(effort.into()),
+            model_caps: None,
+            id: "gw".into(),
+            kind: ProviderKind::OpenaiCompat,
+            base_url: Some("https://gateway.example/v1".into()),
+            api_key: Some("gw-key-123".into()),
+            clear_key: false,
+            max_concurrency: 2,
+            models: vec!["house-model".into()],
+        })
+    };
+    let pc = put(
+        vec![
+            ("temperature", "0.2", None),
+            ("thinking.budget", " 2048 ", Some("house-model")),
+        ],
+        "reasoning.effort",
+        vec![],
+    )
+    .unwrap();
+    assert_eq!(pc.body.len(), 2);
+    assert_eq!(pc.body[1].value, "2048");
+    assert_eq!(pc.effort_field.as_deref(), Some("reasoning.effort"));
+    for (path, value) in [
+        ("model", "x"),
+        ("messages", "[]"),
+        ("stream", "false"),
+        ("a b", "1"),
+        ("x", "${secret:provider/gw}"),
+    ] {
+        let e = put(vec![(path, value, None)], "", vec![])
+            .unwrap_err()
+            .to_string();
+        assert!(!e.is_empty(), "{path}");
+    }
+    assert!(
+        put(vec![], "max_tokens", vec![]).is_err(),
+        "the effort field cannot be one of Agenium's"
+    );
+    let header = |n: &str, v: &str| HeaderInput {
+        name: n.into(),
+        value: Some(v.into()),
+        secret: false,
+    };
+    assert!(put(vec![], "", vec![header("Host", "evil.example")]).is_err());
+    assert!(put(vec![], "", vec![header("X-A", "a\r\nX-Injected: 1")]).is_err());
+    // An empty effort field goes back to Agenium's own.
+    assert_eq!(put(vec![], "", vec![]).unwrap().effort_field, None);
+}
+
+/// End to end: what the user saved for a custom endpoint reaches it. A local server records one request made through
+/// the configured provider: the user's headers (the secret one from the vault), the extra fields (the model's own
+/// value winning) and the effort level at the user's field.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_custom_endpoint_receives_what_the_user_set() {
+    use agenium_orchestrator::runtime::{ConfiguredProviders, ProviderSource};
+    use std::io::{Read, Write};
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = l.local_addr().unwrap().port();
+    let seen = std::thread::spawn(move || {
+        let (mut s, _) = l.accept().unwrap();
+        let mut buf = Vec::new();
+        let mut tmp = [0u8; 8192];
+        loop {
+            let n = s.read(&mut tmp).unwrap();
+            buf.extend_from_slice(&tmp[..n]);
+            let text = String::from_utf8_lossy(&buf).to_string();
+            if let Some(h) = text.find("\r\n\r\n") {
+                let len: usize = text[..h]
+                    .lines()
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(|v| v.trim().parse().unwrap())
+                    })
+                    .unwrap_or(0);
+                if buf.len() >= h + 4 + len {
+                    break;
+                }
+            }
+        }
+        let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+        let _ = s.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\n{sse}").as_bytes());
+        String::from_utf8_lossy(&buf).to_string()
+    });
+    let f = fixture();
+    // The configured providers hold the app.
+    let app = std::sync::Arc::new(open_app(
+        &f.root.parent().unwrap().join("rt-root"),
+        f.keyring.clone(),
+        None,
+    ));
+    let field = |p: &str, v: &str, m: Option<&str>| agenium_config::BodyField {
+        path: p.into(),
+        value: v.into(),
+        model: m.map(str::to_owned),
+    };
+    app.put_provider(&ProviderInput {
+        headers: Some(vec![
+            HeaderInput {
+                name: "X-Tenant".into(),
+                value: Some("team-7".into()),
+                secret: false,
+            },
+            HeaderInput {
+                name: "X-Gateway-Token".into(),
+                value: Some("tok-s3cret".into()),
+                secret: true,
+            },
+        ]),
+        body: Some(vec![
+            field("temperature", "0.2", None),
+            field("temperature", "0.7", Some("house-model")),
+            field("metadata", r#"{"team": "a"}"#, None),
+        ]),
+        effort_field: Some("reasoning.effort".into()),
+        model_caps: Some(vec![agenium_config::ModelCaps {
+            model: "house-model".into(),
+            efforts: Some(vec!["low".into(), "high".into()]),
+            ..Default::default()
+        }]),
+        id: "gw".into(),
+        kind: ProviderKind::OpenaiCompat,
+        base_url: Some(format!("http://127.0.0.1:{port}/v1")),
+        api_key: Some("gw-key-123".into()),
+        clear_key: false,
+        max_concurrency: 1,
+        models: vec!["house-model".into()],
+    })
+    .unwrap();
+    let p = ConfiguredProviders::new(app.clone())
+        .provider("gw")
+        .unwrap();
+    let req = agenium_llm::ChatRequest {
+        model: "house-model".into(),
+        system: vec![],
+        messages: vec![agenium_llm::Message::user_text("hi")],
+        tools: vec![],
+        effort: Effort::HIGH,
+        max_tokens: 100,
+        cache_key: None,
+        long_cache: false,
+        tools_off: false,
+    };
+    let r = p.chat(&req, &|_| {}).await.unwrap();
+    assert_eq!(r.message.text(), "ok");
+    let raw = seen.join().unwrap();
+    let lower = raw.to_ascii_lowercase();
+    assert!(lower.contains("x-tenant: team-7"), "{raw}");
+    assert!(
+        lower.contains("x-gateway-token: tok-s3cret"),
+        "the secret header is resolved from the vault"
+    );
+    let body: serde_json::Value =
+        serde_json::from_str(&raw[raw.find("\r\n\r\n").unwrap() + 4..]).unwrap();
+    assert_eq!(body["temperature"], 0.7);
+    assert_eq!(body["metadata"]["team"], "a");
+    assert_eq!(body["reasoning"]["effort"], "high");
+    assert!(body.get("reasoning_effort").is_none());
+    assert_eq!(body["model"], "house-model");
 }

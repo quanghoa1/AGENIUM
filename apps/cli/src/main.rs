@@ -1477,6 +1477,8 @@ async fn main() -> Result<()> {
                         _ => ProviderKind::OpenaiCompat,
                     };
                     let pc = ProviderConfig {
+                        body: vec![],
+                        effort_field: None,
                         headers: Default::default(),
                         id: id.clone(),
                         kind,

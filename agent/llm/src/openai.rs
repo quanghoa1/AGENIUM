@@ -93,10 +93,8 @@ pub struct OpenAiCompat {
     api_key: Option<String>,
     flavor: Flavor,
     http: Http,
-    /// Headers the user added for this endpoint.
-    extra_headers: Vec<(String, String)>,
-    /// Effort levels the user gave a model of this endpoint.
-    user_efforts: std::collections::BTreeMap<String, Vec<Effort>>,
+    /// The user's headers, effort levels, body fields and effort field for this endpoint.
+    custom: crate::custom::Custom,
 }
 
 impl OpenAiCompat {
@@ -108,19 +106,13 @@ impl OpenAiCompat {
             base_url: base,
             api_key: api_key.filter(|k| !k.is_empty()).map(str::to_owned),
             http,
-            extra_headers: Vec::new(),
-            user_efforts: Default::default(),
+            custom: Default::default(),
         }
     }
 
-    /// The user's own headers and per-model effort levels for this endpoint.
-    pub fn customized(
-        mut self,
-        headers: Vec<(String, String)>,
-        efforts: std::collections::BTreeMap<String, Vec<Effort>>,
-    ) -> Self {
-        self.extra_headers = headers;
-        self.user_efforts = efforts;
+    /// The user's own additions to this endpoint's requests.
+    pub fn customized(mut self, custom: crate::custom::Custom) -> Self {
+        self.custom = custom;
         self
     }
 
@@ -172,8 +164,11 @@ impl OpenAiCompat {
         if self.flavor == Flavor::OpenRouter {
             h.push(("x-title", "Agenium".into()));
         }
-        for (k, v) in &self.extra_headers {
-            h.push((k.as_str(), v.clone()));
+        // Checked when saved; checked again here, since the file can be edited by hand.
+        for (k, v) in &self.custom.headers {
+            if crate::custom::check_header(k, v).is_ok() {
+                h.push((k.as_str(), v.clone()));
+            }
         }
         h
     }
@@ -619,12 +614,13 @@ impl Provider for OpenAiCompat {
         let mut body = build_body(self.flavor, req);
         // A level the user gave this model on this endpoint is sent even where Agenium knows nothing of the model.
         if body.get("reasoning_effort").is_none() && body.get("reasoning").is_none() {
-            if let Some(levels) = self.user_efforts.get(&req.model) {
+            if let Some(levels) = self.custom.efforts.get(&req.model) {
                 if levels.contains(&req.effort) {
                     body["reasoning_effort"] = json!(req.effort.as_str());
                 }
             }
         }
+        crate::custom::apply(&mut body, &self.custom, &req.model);
         let mut st = StreamState::default();
         let r = self
             .http

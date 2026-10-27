@@ -198,6 +198,8 @@ export const api = {
     models?: string[];
     headers?: { name: string; value: string | null; secret: boolean }[];
     model_caps?: ModelCapsRow[];
+    body?: { path: string; value: string; model?: string | null }[];
+    effort_field?: string;
   }) =>
     call<void>("put_provider", { form }),
   removeProvider: (id: string) => call<void>("remove_provider", { id }),

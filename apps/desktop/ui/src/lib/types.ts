@@ -374,6 +374,9 @@ export interface Capabilities {
     headers?: { name: string; secret: boolean; value: string }[];
     /** Per-model settings set by hand. */
     model_caps?: ModelCapsRow[];
+    /** Extra request body fields and where the effort level goes. */
+    body?: { path: string; value: string; model?: string | null }[];
+    effort_field?: string | null;
   }[];
   clis: CliInfo[];
   templates: TeamTemplate[];

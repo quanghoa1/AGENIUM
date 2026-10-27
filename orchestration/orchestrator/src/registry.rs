@@ -151,6 +151,12 @@ pub struct ProviderInput {
     /// Per-model capabilities set by hand (tools, vision, context, effort levels); `None` keeps the stored ones.
     #[serde(default)]
     pub model_caps: Option<Vec<agenium_config::ModelCaps>>,
+    /// Extra request body fields (OpenAI-compatible endpoints); `None` keeps the stored ones.
+    #[serde(default)]
+    pub body: Option<Vec<agenium_config::BodyField>>,
+    /// Where the effort level goes; `None` keeps the stored one, `""` goes back to `reasoning_effort`.
+    #[serde(default)]
+    pub effort_field: Option<String>,
 }
 
 fn four() -> u32 {
@@ -917,16 +923,9 @@ impl App {
             if name.is_empty() {
                 continue;
             }
-            if !name
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || "-_".contains(c))
-            {
-                return Err(invalid(format!(
-                    "header name {name:?}: letters, digits, '-' and '_'"
-                )));
-            }
             let secret = format!("provider/{id}/header/{}", name.to_ascii_lowercase());
             let value = h.value.as_deref().map(str::trim).unwrap_or("");
+            agenium_llm::custom::check_header(name, value).map_err(invalid)?;
             if h.secret {
                 if !value.is_empty() {
                     self.secrets().set(&secret, value.as_bytes())?;
@@ -1010,7 +1009,47 @@ impl App {
                 e.parse::<agenium_core::Effort>().map_err(invalid)?;
             }
         }
+        // Extra body fields and the effort field follow the same rules here as when a request is built.
+        let body = match &p.body {
+            Some(fs) => {
+                let fs: Vec<&agenium_config::BodyField> =
+                    fs.iter().filter(|f| !f.path.trim().is_empty()).collect();
+                if fs.len() > agenium_llm::custom::MAX_FIELDS {
+                    return Err(invalid(format!(
+                        "at most {} extra fields",
+                        agenium_llm::custom::MAX_FIELDS
+                    )));
+                }
+                for f in &fs {
+                    agenium_llm::custom::check_field(&f.path, &f.value, f.model.as_deref())
+                        .map_err(invalid)?;
+                }
+                fs.into_iter()
+                    .map(|f| agenium_config::BodyField {
+                        path: f.path.trim().to_owned(),
+                        value: f.value.trim().to_owned(),
+                        model: f
+                            .model
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|m| !m.is_empty())
+                            .map(str::to_owned),
+                    })
+                    .collect()
+            }
+            None => old.as_ref().map(|o| o.body.clone()).unwrap_or_default(),
+        };
+        let effort_field = match &p.effort_field {
+            Some(f) if f.trim().is_empty() => None,
+            Some(f) => {
+                agenium_llm::custom::check_path(f).map_err(invalid)?;
+                Some(f.trim().to_owned())
+            }
+            None => old.as_ref().and_then(|o| o.effort_field.clone()),
+        };
         let pc = ProviderConfig {
+            body,
+            effort_field,
             headers,
             id: p.id.clone(),
             kind: p.kind,
