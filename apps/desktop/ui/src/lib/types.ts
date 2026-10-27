@@ -504,6 +504,8 @@ export interface LibrarySkill {
   name: string;
   description: string;
   version?: string | null;
+  /** Free-form domain tags from the SKILL.md frontmatter (no fixed vocabulary): pentest, web, finance, legal… */
+  tags?: string[];
   files: number;
   users: string[];
   dir: string;

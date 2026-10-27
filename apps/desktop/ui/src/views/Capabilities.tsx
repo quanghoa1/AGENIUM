@@ -1,6 +1,6 @@
 // Capabilities the user manages (ADR-61): model providers (API key or local model; agent CLIs are detected), and the
 // system's skill library and MCP servers that each agent switches on or off.
-import { AlertTriangle, CheckCircle2, Eye, FileUp, KeyRound, Laptop, ListTree, Pencil, Plug, Plus, RefreshCw, Search, Trash2, Wrench, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, FileUp, KeyRound, Laptop, ListTree, Pencil, Plug, Plus, RefreshCw, Search, Sparkles, Tag, Trash2, Wrench, XCircle } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
 import { ConfirmModal, Modal, PanelSwap, Segmented } from "../components/motion";
@@ -713,7 +713,22 @@ function SkillsPanel() {
   const [view, setView] = useState<{ name: string; body: string; files: string[] } | null>(null);
   const [del, setDel] = useState<LibrarySkill | null>(null);
   const [drop, setDrop] = useState(false);
+  const [tag, setTag] = useState<string | null>(null);
+  // On-demand evaluation (ADR-88/90/92): which skill is running, and the result shown in a popup (keeps the cards the
+  // same size — it does not grow the card).
+  const [evaluating, setEvaluating] = useState<string | null>(null);
+  const [evalResult, setEvalResult] = useState<{ name: string; shape_notes: string[]; quality: string[] | null } | null>(null);
   const load = () => api.skillLibrary().then(setLib);
+  const evaluate = (name: string) => {
+    setEvaluating(name);
+    api
+      .evaluateSkill(name)
+      .then((r) => setEvalResult({ name, ...r }))
+      .catch((err) => app.notify(String(err)))
+      .finally(() => setEvaluating(null));
+  };
+  // Every tag used in the library, for the filter (free-form; no fixed vocabulary).
+  const allTags = (lib?.skills ?? []).flatMap((s) => s.tags ?? []).filter((t, i, a) => a.indexOf(t) === i).sort();
   useEffect(() => {
     load();
   }, [app.tick]);
@@ -776,8 +791,21 @@ function SkillsPanel() {
         </div>
       </div>
       {!lib && <div className="text-xs text-subtle">{app.t("common.loading")}</div>}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Tag className="h-3.5 w-3.5 text-subtle" />
+          <button className={cn("chip", tag === null ? "border-accent text-accent" : "border-line-strong text-muted")} onClick={() => setTag(null)}>
+            {app.t("library.allTags")}
+          </button>
+          {allTags.map((t) => (
+            <button key={t} className={cn("chip", tag === t ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" : "border-line-strong text-muted")} onClick={() => setTag(tag === t ? null : t)}>
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-        {lib?.skills.map((s) => (
+        {lib?.skills.filter((s) => tag === null || (s.tags ?? []).includes(tag)).map((s) => (
           <div key={s.name} className="card flex flex-col p-4">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-cyan-500" />
@@ -787,8 +815,17 @@ function SkillsPanel() {
                 {s.files} {app.t(s.files === 1 ? "library.file" : "library.files")}
               </Mono>
             </div>
-            <div className="mt-1.5 line-clamp-3 flex-1 text-xs text-muted">{s.description}</div>
-            <div className="mt-3 flex flex-wrap items-center gap-1">
+            <div className="mt-1.5 line-clamp-3 text-xs text-muted">{s.description}</div>
+            {!!s.tags?.length && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {s.tags.map((t) => (
+                  <button key={t} className="chip border-indigo-500/30 text-indigo-600 dark:text-indigo-300" onClick={() => setTag(t)} title={app.t("library.filterTag")}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="mt-2 flex flex-1 flex-wrap items-center gap-1">
               <span className="label mr-1">{app.t("library.enabledBy")}</span>
               {s.users.length ? (
                 s.users.map((u) => (
@@ -804,10 +841,14 @@ function SkillsPanel() {
               <button className="btn" onClick={() => api.skillText(s.name).then(setView)}>
                 <Eye className="h-3.5 w-3.5" /> {app.t("library.read")}
               </button>
+              <button className="btn" disabled={evaluating === s.name} onClick={() => evaluate(s.name)}>
+                <Sparkles className="h-3.5 w-3.5" /> {evaluating === s.name ? app.t("library.evaluating") : app.t("library.evaluate")}
+              </button>
               <button className="btn" onClick={() => setDel(s)}>
                 <Trash2 className="h-3.5 w-3.5" /> {app.t("common.delete")}
               </button>
             </div>
+
           </div>
         ))}
       </div>
@@ -824,6 +865,35 @@ function SkillsPanel() {
       <Modal open={!!view} title={view?.name ?? ""} onClose={() => setView(null)}>
         <div className="max-h-[60vh] overflow-y-auto text-xs">{view && <Markdown text={view.body} />}</div>
         {view && view.files.length > 0 && <div className="mt-3 font-mono text-[11px] text-subtle">{view.files.join(" · ")}</div>}
+      </Modal>
+      <Modal open={!!evalResult} title={`${app.t("library.evaluate")}: ${evalResult?.name ?? ""}`} onClose={() => setEvalResult(null)}>
+        {evalResult && (
+          <div className="space-y-1.5 text-xs">
+            {evalResult.shape_notes.length === 0 ? (
+              <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-4 w-4" /> {app.t("library.shapeOk")}
+              </div>
+            ) : (
+              evalResult.shape_notes.map((n, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {n}
+                </div>
+              ))
+            )}
+            <div className="border-t border-line pt-2">
+              {evalResult.quality === null ? (
+                <div className="text-subtle">{app.t("library.qualityOff")}</div>
+              ) : (
+                evalResult.quality.map((q, i) => (
+                  <div key={i} className="font-mono text-[11px] text-muted">
+                    <Sparkles className="mr-1 inline h-3 w-3 text-cyan-500" />
+                    {q}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
       <ConfirmModal
         open={!!del}

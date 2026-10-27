@@ -4,11 +4,38 @@ Where Agenium stands, what has been verified and how, and what has not. The hist
 first section is current. Plain-language overview: [README](../README.md); evidence map:
 [VERIFICATION.md](VERIFICATION.md); decisions: [adr/](adr/README.md).
 
-## Release 0.1 (status 2026-10-27)
+## Release 0.1 (status 2026-10-28)
 
-Last full verification: 2026-10-27 on Windows 11 Pro (10 cores, 32 GB), Rust `x86_64-pc-windows-gnu`: fmt PASS,
-clippy `-D warnings` PASS (workspace and desktop app), `cargo test --workspace` **439 passed, 0 failed**, UI smoke
-test (25 checks on the real app) PASS.
+Last full verification: 2026-10-28 on Windows 11 Pro (10 cores, 32 GB), Rust `x86_64-pc-windows-gnu`: fmt PASS,
+clippy `-D warnings` PASS (workspace and desktop app), `cargo test --workspace` **445 passed, 0 failed**, UI smoke
+test (30 checks on the real app) PASS.
+
+### Post-0.1 work toward more team kinds (2026-10-28)
+
+The owner asked Agenium to fit teams of more kinds, not only coding, and reviewed it live; done and verified on a test
+root:
+
+- **The user answers the Lead, never a worker** (ADR-122). A question the Lead escalated to the user: the user's answer
+  becomes a message to the Lead, who answers on the ticket; nothing of the user's lands on a worker's ticket. Solo
+  agents unchanged. Verified: `route_user_answer` returns a Lead message, adds no comment; the Lead's answer resolves
+  it and counts as the user's decision for later tickets (test `agenium-orchestrator::team`).
+- **Node works in the Windows sandbox** (ADR-122): the parents of a command's folders are listable (`enumerate_paths`),
+  so `fs.realpathSync` no longer dies with `EPERM lstat 'C:'`; a file beside the worktree stays unreadable (test
+  `agenium-sandbox::node_resolves_paths_inside_the_sandbox`).
+- **Free-form skill domain tags** (ADR-123): a skill's frontmatter may carry any tags (no fixed vocabulary; several per
+  skill), so the fields a team covers are visible. Shown on the agent (SKILL / SELF-LEARNED SKILL / MCP counts + domain
+  chips), on the agent page, and on the skill library with a tag filter. A team template can declare extra worker roles
+  for a domain, and new library skills keep per-variant depth in `references/` (progressive disclosure) rather than
+  splitting into near-duplicate skills.
+- **Skill evaluation surfaced in the app.** Three layers already existed (shape lint ADR-88, opposite-directive
+  conflicts ADR-92, Jev calibrated quality read ADR-90) but ran only at import. Added an on-demand **Evaluate** action
+  on every library skill. Verified with Jev's `skill_quality` run over the whole library (`agenium-eval --example
+  skill_quality`): every library skill reads as one job with actionable steps, evidence-backed proof and no stale code;
+  one that had bundled two jobs was reframed and rose from 54% to 81% on "one job". Evaluate works end-to-end in the app
+  (shape "good" + the Jev scores).
+- Projects are coloured by run state like tickets; a team shows its current and past projects (one at a time); the
+  Lead's delegations are a collapsible bar over the chat; a long chat paste shows as one label; popups open
+  Apple-style, rendered on `<body>` so the backdrop blur covers the whole window.
 
 | Release item | Status | Evidence |
 |---|---|---|

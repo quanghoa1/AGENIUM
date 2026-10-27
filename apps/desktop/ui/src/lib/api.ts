@@ -195,6 +195,8 @@ export const api = {
     call<{ name: string; description: string; shape_notes: string[]; quality: string[] }>("import_skill", { path, replace }),
   removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),
   skillText: (name: string) => call<{ name: string; body: string; files: string[] }>("skill_text", { name }),
+  // Re-run the shape, conflict and (when the judge is on) quality checks on a library skill on demand (ADR-88/90/92).
+  evaluateSkill: (name: string) => call<{ shape_notes: string[]; quality: string[] | null }>("evaluate_skill", { name }),
   mcpServers: () => call<McpServerRow[]>("mcp_servers"),
   putMcp: (server: McpServerConfig) => call<void>("put_mcp", { server }),
   importMcpJson: (text: string) => call<{ servers: string[] }>("import_mcp_json", { text }),

@@ -135,6 +135,7 @@ fn main() {
             manage::import_skill,
             manage::remove_skill,
             manage::skill_text,
+            manage::evaluate_skill,
             manage::mcp_servers,
             manage::put_mcp,
             manage::import_mcp_json,

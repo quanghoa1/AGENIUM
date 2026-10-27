@@ -292,7 +292,7 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
                 .map(|a| a.name.as_str())
                 .collect();
             json!({ "name": s.meta.name, "description": s.meta.description, "version": s.meta.version,
-                    "files": s.files.len(), "users": users, "dir": s.meta.dir })
+                    "tags": s.meta.tags, "files": s.files.len(), "users": users, "dir": s.meta.dir })
         })
         .collect();
     let problems: Vec<Value> = set
@@ -319,6 +319,22 @@ pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) ->
     Ok(
         json!({ "name": meta.name, "description": meta.description, "shape_notes": notes, "quality": quality }),
     )
+}
+
+/// Re-runs the three skill checks on a library skill already in place (not only at import): the shape lint (ADR-88),
+/// opposite-directive conflicts against the rest of the library (ADR-92), and, when the judge is on, its calibrated
+/// quality read (ADR-90, a Jev call). On demand because the quality read costs a judge call.
+#[tauri::command]
+pub async fn evaluate_skill(d: State<'_, Desktop>, name: String) -> R<Value> {
+    let o = d.opened()?;
+    let body = o
+        .app
+        .library_skill_body(&name)
+        .ok_or_else(|| format!("no library skill {name:?}"))?;
+    let mut notes = o.app.lint_skill(&name, &body);
+    notes.extend(o.app.library_skill_conflicts(&name));
+    let quality = o.app.skill_quality(&body).await;
+    Ok(json!({ "shape_notes": notes, "quality": quality }))
 }
 
 #[tauri::command]
