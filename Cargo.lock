@@ -134,6 +134,7 @@ dependencies = [
  "agenium-memory",
  "agenium-orchestrator",
  "agenium-secrets",
+ "agenium-skills",
  "agenium-store",
  "agenium-tools",
  "agenium-vcs",

@@ -12,7 +12,7 @@ A ticket needs a binary, managed assembly, mobile package or wire protocol under
 
 ## Steps
 1. **Triage.** Identify the file: `file`, `strings`, size, packing/obfuscation, architecture, symbols. For .NET note the obfuscator; for mobile unpack the package; for a protocol capture a sample exchange. Decide static-first or dynamic-first.
-2. **Static.** Recover structure without running it: a disassembler/decompiler (r2/Ghidra/IDA, dnSpy for .NET, jadx for APK), cross-references, data flow to the interesting sinks (auth checks, crypto, parsers, update/transport). Note each finding with the address or offset.
+2. **Static.** Recover structure without running it: a disassembler/decompiler (r2/Ghidra/IDA, dnSpy for .NET, jadx for APK), cross-references, data flow to the interesting sinks (auth checks, crypto, parsers, update/transport). The toolchain and pitfalls differ by target (native / managed / mobile / protocol) — `references/targets.md` has each. Note each finding with the address or offset.
 3. **Dynamic, only where the rules allow and in a sandbox.** Run under a debugger or hook (gdb/Frida/Qiling) to confirm a path, dump a decrypted buffer, or watch a check at runtime. Never run an untrusted sample outside isolation.
 4. **Conclude Evidence → Finding → Path.** For each weakness: the evidence (offset, decompiled snippet, runtime trace), what it is (e.g. hardcoded key, missing signature check, parser overflow), and the path it opens for a tester. Hand it off; do not keep raw dumps in the report.
 

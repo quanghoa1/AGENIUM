@@ -14,6 +14,7 @@ agenium-llm.workspace = true
 agenium-memory.workspace = true
 agenium-orchestrator.workspace = true
 agenium-secrets.workspace = true
+agenium-skills.workspace = true
 agenium-store.workspace = true
 agenium-vcs.workspace = true
 anyhow.workspace = true

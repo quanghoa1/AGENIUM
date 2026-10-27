@@ -134,7 +134,12 @@ pub const LIBRARY: &[Builtin] = &[
         "scripts/ui.mjs"
     ),
     skill!("bug-report", "references/gotchas.md"),
-    skill!("reverse-engineering"),
+    skill!("reverse-engineering", "references/targets.md"),
+    skill!(
+        "binary-exploitation",
+        "references/classes.md",
+        "references/mitigations.md"
+    ),
     skill!("firmware-analysis"),
     skill!("web-pentest", "references/classes.md"),
     skill!("recon-enumeration"),

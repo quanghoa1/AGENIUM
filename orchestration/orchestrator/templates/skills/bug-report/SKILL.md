@@ -1,14 +1,14 @@
 ---
 name: bug-report
-description: Write a triager-grade security finding and self-check it before it is submitted: a minimal reproducible PoC, stated impact, and the per-class proof a triager expects. Use when a tester writes up a confirmed finding. (Learned from YesWeHack's reporting guidance; our own wording.)
+description: Produce a submittable security finding a triager can reproduce and accept: a minimal reproducible PoC, stated impact, and the per-class proof a triager expects, checked against what gets rejected. Use when a tester writes up a confirmed finding. (Learned from YesWeHack's reporting guidance; our own wording.)
 tags: pentest security reporting
 ---
 
 ## Job
-Turn a confirmed finding into a report a triager can reproduce and accept, and catch what a triager would reject before it is sent.
+Turn a confirmed finding into a report a triager can reproduce and accept — the pre-submit check is the final step of writing it, not a separate task.
 
 ## When to use
-A pentest or bug-bounty tester has a confirmed finding to write up, or a draft to check. Not for unconfirmed hunches — reproduce it first.
+A pentest or bug-bounty tester has a confirmed finding to write up, or a draft to finish. Not for unconfirmed hunches — reproduce it first.
 
 ## Steps
 1. **Scope first.** State the asset and that it is in the authorized scope and rules of engagement. Never infer scope from a domain name; if the scope is unclear, ask.
