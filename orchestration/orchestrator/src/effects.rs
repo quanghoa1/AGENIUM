@@ -512,6 +512,77 @@ impl App {
             }
             Ok(())
         })?;
+        if let MergeOutcome::Merged { changed_files, .. } = &outcome {
+            if let Err(e) = self.nudge_rebase(p, repo, t, changed_files) {
+                tracing::warn!(error = %e, "early rebase nudge failed");
+            }
+        }
+        Ok(())
+    }
+
+    /// Decision 18: after a merge, a ticket in progress whose branch changes one of the merged files is told at once
+    /// to rebase, instead of meeting the conflict at its own merge after all its work.
+    fn nudge_rebase(
+        &self,
+        p: &projects::Project,
+        repo: &Repo,
+        merged: &Ticket,
+        changed: &[String],
+    ) -> Result<()> {
+        if changed.is_empty() {
+            return Ok(());
+        }
+        let open = self
+            .store
+            .read(|c| tickets::list(c, p.id, &Default::default()))?;
+        for other in open.iter().filter(|o| {
+            o.id != merged.id
+                && matches!(
+                    o.status,
+                    TicketStatus::InProgress | TicketStatus::Pending | TicketStatus::Reopened
+                )
+        }) {
+            let Some(ws) = self
+                .store
+                .read(|c| workspaces::get(c, other.id))?
+                .filter(|w| !w.removed)
+            else {
+                continue;
+            };
+            let wt = std::path::Path::new(&ws.worktree);
+            if !wt.join(".git").exists() {
+                continue;
+            }
+            let base = work_base(repo, wt, &p.main_branch, &ws.base_sha);
+            let mut mine = repo.changed_files(wt, &base, "HEAD").unwrap_or_default();
+            mine.extend(
+                repo.status(wt)
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|l| l.get(3..))
+                    .map(|s| s.trim().to_owned()),
+            );
+            let both: Vec<&String> = changed
+                .iter()
+                .filter(|f| mine.iter().any(|m| m == *f))
+                .collect();
+            if both.is_empty() {
+                continue;
+            }
+            let text = format!(
+                "{} was merged into {} and changed files you are changing too: {}. Rebase your branch on {} now (commit or                  stash first, then `git rebase {}`) and resolve any conflict while the change is small.",
+                merged.key,
+                p.main_branch,
+                both.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "),
+                p.main_branch,
+                p.main_branch
+            );
+            self.store.commit(None, "system", |w| -> Result<()> {
+                let o = tickets::get(w.tx, other.id)?;
+                crate::engine::system_comment(w, &o, text.clone())?;
+                Ok(())
+            })?;
+        }
         Ok(())
     }
 

@@ -88,6 +88,97 @@ pub struct RunGate {
     pub contained: bool,
 }
 
+/// What a command would install on the user's machine (outside the worktree), if anything: a system package
+/// manager, a global package, an installer script piped to a shell. Project dependencies installed into the worktree
+/// (a virtual environment, `node_modules`, `pip --target`) are not. Each statement of the command is checked.
+pub fn system_install(command: &str) -> Option<&'static str> {
+    let lower = command.to_lowercase();
+    let piped_installer = (lower.contains("curl ")
+        || lower.contains("wget ")
+        || lower.contains("irm ")
+        || lower.contains("invoke-restmethod")
+        || lower.contains("iwr ")
+        || lower.contains("invoke-webrequest"))
+        && [
+            "| sh",
+            "|sh",
+            "| bash",
+            "|bash",
+            "| iex",
+            "|iex",
+            "| invoke-expression",
+        ]
+        .iter()
+        .any(|p| lower.contains(p));
+    if piped_installer {
+        return Some("an installer script piped to a shell");
+    }
+    for stmt in lower.split(['\n', ';', '|', '&']) {
+        let w: Vec<&str> = stmt.split_whitespace().collect();
+        let Some(first) = w.first() else { continue };
+        let prog = first
+            .trim_start_matches(['.', '\\', '/'])
+            .rsplit(['\\', '/'])
+            .next()
+            .unwrap_or(first)
+            .trim_end_matches(".exe")
+            .trim_end_matches(".cmd");
+        let sub = w.get(1).copied().unwrap_or("");
+        let has = |f: &str| w.contains(&f);
+        let found = match prog {
+            "winget" | "choco" | "scoop" if matches!(sub, "install" | "upgrade" | "add") => {
+                Some("a system package manager")
+            }
+            "apt" | "apt-get" | "dnf" | "yum" | "zypper" | "apk" | "snap" | "flatpak" | "port"
+            | "brew"
+                if matches!(sub, "install" | "upgrade" | "add" | "reinstall") =>
+            {
+                Some("a system package manager")
+            }
+            "pacman" if sub.starts_with("-s") => Some("a system package manager"),
+            "sudo" | "doas" => Some("a command as administrator"),
+            "msiexec" => Some("a Windows installer"),
+            "add-appxpackage" | "install-module" | "install-package" | "install-script" => {
+                Some("a PowerShell installer")
+            }
+            "npm" | "pnpm" | "bun"
+                if matches!(sub, "i" | "install" | "add") && (has("-g") || has("--global")) =>
+            {
+                Some("a global package")
+            }
+            "yarn" if sub == "global" => Some("a global package"),
+            "cargo" | "go" | "gem" if sub == "install" => Some("a program in the user's home"),
+            "dotnet" if sub == "tool" && (has("-g") || has("--global")) => {
+                Some("a global .NET tool")
+            }
+            "pip" | "pip3" | "pipx" | "uv" | "python" | "python3" | "py" => {
+                let pip = matches!(prog, "pip" | "pip3") && sub == "install"
+                    || matches!(prog, "python" | "python3" | "py")
+                        && w.windows(3).any(|x| x == ["-m", "pip", "install"])
+                    || prog == "pipx" && sub == "install"
+                    || prog == "uv"
+                        && (w.windows(2).any(|x| x == ["tool", "install"])
+                            || w.windows(2).any(|x| x == ["pip", "install"]) && has("--system"));
+                // A path to an interpreter or pip inside the worktree's virtual environment, or an install into a
+                // folder of the worktree, stays in the project.
+                let local = first.contains("venv")
+                    || stmt.contains("venv")
+                    || has("--target")
+                    || has("-t")
+                    || has("--prefix")
+                    || has("--root");
+                (pip && !local && prog != "uv" || prog == "pipx" || prog == "uv" && pip)
+                    .then_some("a Python package outside a virtual environment")
+            }
+            _ => None,
+        };
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
+}
+
 /// Exact entries match the whole command; `prefix*` entries match commands starting with the prefix that contain
 /// no shell control characters (so `npm run *` cannot be extended into `npm run x; curl ...`). Control characters
 /// and Unicode line breaks count too: PowerShell ends a statement at a bare CR as at a newline.
@@ -110,7 +201,10 @@ impl CommandGate for RunGate {
         let cfg = self.app.config().sandbox;
         let policy = cfg.approval;
         let sandbox = agenium_sandbox::detect();
-        if self.contained {
+        // ADR-120: installing software on the user's machine is the user's call under every policy, sandbox or not;
+        // dependencies installed inside the worktree are not (a venv, node_modules, the build's own fetch).
+        let installs = system_install(command).is_some();
+        if self.contained && !installs {
             match (policy, sandbox.backend) {
                 (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, Some(_)) => {
                     return GateDecision::Allow
@@ -514,5 +608,45 @@ mod tests {
             assert!(!allowlisted(&c, &l), "{c:?}");
         }
         assert!(!allowlisted("crates.io", &l));
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use super::system_install;
+
+    #[test]
+    fn installs_on_the_machine_are_told_from_project_dependencies() {
+        for c in [
+            "winget install Python.Python.3.12",
+            "choco install nodejs -y",
+            "sudo apt-get install -y python3",
+            "brew install jq",
+            "npm install -g typescript",
+            "pip install requests",
+            "python -m pip install flask",
+            "cargo install ripgrep",
+            "msiexec /i tool.msi /qn",
+            "Install-Module PSScriptAnalyzer -Scope CurrentUser",
+            "curl -fsSL https://example.com/install.sh | sh",
+            "irm https://get.example.com | iex",
+            "cd x; winget install Git.Git",
+            "C:\\ProgramData\\chocolatey\\bin\\choco.exe install git",
+        ] {
+            assert!(system_install(c).is_some(), "{c}");
+        }
+        for c in [
+            "npm install",
+            "npm install express",
+            "pip install -r requirements.txt --target ./vendor",
+            ".venv\\Scripts\\pip install requests",
+            "python -m venv .venv; .venv\\Scripts\\python -m pip install flask",
+            "cargo build",
+            "python -m unittest",
+            "go test ./...",
+            "git status",
+        ] {
+            assert!(system_install(c).is_none(), "{c}");
+        }
     }
 }

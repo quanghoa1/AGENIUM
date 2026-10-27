@@ -1762,20 +1762,45 @@ fn insert_ticket(
         }
         dep_ids.push(d.id);
     }
-    // Overlapping scope with an open ticket requires a dependency path between them (decision 18).
-    if !nt.scope_paths.is_empty() {
+    // Overlapping scope with an open ticket requires a dependency path between them (decision 18). A ticket that
+    // declares no scope is read for the files it names (ADR-120): two tickets that both write `check.py` in parallel
+    // duplicate the work and collide at the merge; the later one waits for the earlier and starts from its result.
+    let own = effective_scope(&nt.scope_paths, &nt.title, &nt.acceptance);
+    if !own.is_empty() {
         let graph = tickets::dep_graph(w.tx, pid)?;
         let ancestors = closure(&graph, &dep_ids);
         for other in tickets::list(w.tx, pid, &Default::default())? {
-            if !other.status.is_terminal()
-                && !ancestors.contains(&other.id)
-                && scopes_overlap(&nt.scope_paths, &other.scope_paths)
-            {
-                return Err(invalid(format!(
+            if other.status.is_terminal() || ancestors.contains(&other.id) {
+                continue;
+            }
+            let theirs = effective_scope(&other.scope_paths, &other.title, &other.acceptance);
+            if !scopes_overlap(&own, &theirs) {
+                continue;
+            }
+            let named = nt.scope_paths.is_empty() || other.scope_paths.is_empty();
+            let shared: Vec<&String> = own
+                .iter()
+                .filter(|p| {
+                    theirs
+                        .iter()
+                        .any(|q| scopes_overlap(std::slice::from_ref(*p), std::slice::from_ref(q)))
+                })
+                .collect();
+            return Err(invalid(if named {
+                format!(
+                    "this ticket and open ticket {} both change {}: add {} to depends_on (it starts once {} is merged, from \
+                     its work), or put the work in one ticket; if they change different files, declare scope_paths",
+                    other.key,
+                    shared.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "),
+                    other.key,
+                    other.key
+                )
+            } else {
+                format!(
                     "scope_paths overlap with open ticket {} ({:?}); add it to depends_on or narrow the scope",
                     other.key, other.scope_paths
-                )));
-            }
+                )
+            }));
         }
     }
     let key = projects::next_ticket_key(w.tx, pid)?;
@@ -1890,6 +1915,24 @@ fn retyped(was: &agenium_core::plan::PlanItem, new: &agenium_core::plan::PlanIte
             .iter()
             .zip(&new.acceptance)
             .all(|(a, b)| a.id == b.id && norm(&a.text) == norm(&b.text))
+}
+
+/// What a ticket may change, for the overlap rule: its declared `scope_paths`, else the files it names in its title
+/// and acceptance criteria (ADR-120).
+fn effective_scope(
+    declared: &[String],
+    title: &str,
+    acceptance: &[AcceptanceCriterion],
+) -> Vec<String> {
+    if !declared.is_empty() {
+        return declared.to_vec();
+    }
+    let mut text = title.to_owned();
+    for a in acceptance {
+        text.push('\n');
+        text.push_str(&a.text);
+    }
+    agenium_core::graph::paths_named(&text)
 }
 
 fn check_trace(spec: &SpecRow, items: &[agenium_core::plan::PlanItem]) -> Result<()> {

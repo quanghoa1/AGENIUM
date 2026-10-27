@@ -59,6 +59,47 @@ pub fn scopes_overlap(a: &[String], b: &[String]) -> bool {
     a.iter().any(|x| b.iter().any(|y| glob_pair_overlaps(x, y)))
 }
 
+/// The files a ticket names in `text` (its title and acceptance criteria), for a ticket that declares no scope
+/// (ADR-120): a path with a folder and a file extension (`deliverables/check.py`), or a file name in backticks
+/// (`` `check.py` ``). Folders alone, URLs and names such as `Node.js` outside backticks are not taken. Lower case.
+pub fn paths_named(text: &str) -> Vec<String> {
+    let file_like = |p: &str| {
+        let last = p.rsplit('/').next().unwrap_or(p);
+        let ext = last.rsplit_once('.');
+        matches!(ext, Some((n, e)) if !n.is_empty() && (1..=6).contains(&e.len()) && e.chars().all(|c| c.is_ascii_alphanumeric()) && e.chars().any(|c| c.is_ascii_alphabetic()))
+    };
+    let clean = |t: &str| -> String {
+        t.trim_matches(|c: char| !(c.is_ascii_alphanumeric() || "_./-".contains(c)))
+            .trim_end_matches('.')
+            .trim_start_matches("./")
+            .replace('\\', "/")
+            .to_lowercase()
+    };
+    let mut out: Vec<String> = Vec::new();
+    let mut push = |p: String| {
+        if !p.is_empty() && !out.contains(&p) {
+            out.push(p);
+        }
+    };
+    for (i, part) in text.split('`').enumerate() {
+        let quoted = i % 2 == 1;
+        for tok in part.split(|c: char| c.is_whitespace() || ",;()[]{}\"'<>".contains(c)) {
+            if tok.contains("://") || tok.starts_with("//") {
+                continue;
+            }
+            let p = clean(tok);
+            if file_like(&p)
+                && (p.contains('/') || quoted)
+                && p.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "_./-".contains(c))
+            {
+                push(p);
+            }
+        }
+    }
+    out
+}
+
 fn glob_pair_overlaps(x: &str, y: &str) -> bool {
     let (px, gx) = literal_prefix(x);
     let (py, gy) = literal_prefix(y);
@@ -73,6 +114,30 @@ fn glob_pair_overlaps(x: &str, y: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn files_named_by_a_ticket() {
+        assert_eq!(
+            paths_named("Create deliverables/hello.txt and deliverables/check.py, run the script."),
+            ["deliverables/hello.txt", "deliverables/check.py"]
+        );
+        assert_eq!(
+            paths_named("Update the `README.md` usage section"),
+            ["readme.md"]
+        );
+        for none in [
+            "Write files under deliverables/ only",
+            "Built with Node.js and served at https://example.com/app.js",
+            "Bump version to 1.2.3",
+        ] {
+            assert!(
+                paths_named(none).is_empty(),
+                "{none}: {:?}",
+                paths_named(none)
+            );
+        }
+        assert_eq!(paths_named(r"Fix src\main.rs"), ["src/main.rs"]);
+    }
 
     #[test]
     fn detects_cycles() {

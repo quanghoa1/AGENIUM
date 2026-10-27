@@ -558,6 +558,57 @@ fn merge_conflict_reopens_with_file_list() {
     ));
 }
 
+/// Decision 18: when a merge changes a file that a ticket still in progress changes too, that ticket is told at once
+/// to rebase, not at its own merge.
+#[test]
+fn a_merge_nudges_work_in_progress_on_the_same_file_to_rebase() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    let k1 = started(&f, a.id, "PI-1", "First", &[], &[]);
+    let r1 = f.app.start_run(f.project.id, &k1, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-1"), "notes/shared.md", "from one\n");
+    f.app
+        .apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-1")))
+        .unwrap();
+    f.app
+        .finish_run(r1.run, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+    // AGN-2 is still at work on the same file (and on another one) when AGN-1 merges.
+    let k2 = started(&f, a.id, "PI-2", "Second", &[], &[]);
+    f.app.start_run(f.project.id, &k2, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-2"), "notes/shared.md", "from two\n");
+    write(&worktree(&f, "AGN-2"), "notes/other.md", "mine\n");
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k1.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    assert!(ticket(&f, "AGN-1").merged);
+    let t2 = ticket(&f, "AGN-2");
+    assert_eq!(t2.status, TicketStatus::InProgress);
+    let cs = f
+        .app
+        .store()
+        .read(|c| comments::for_ticket(c, t2.id))
+        .unwrap();
+    let nudge = cs.iter().find_map(|c| match &c.body {
+        CommentBody::System { text } if text.contains("AGN-1 was merged") => Some(text.clone()),
+        _ => None,
+    });
+    let nudge = nudge.expect("AGN-2 is told to rebase");
+    assert!(
+        nudge.contains("notes/shared.md") && !nudge.contains("notes/other.md"),
+        "{nudge}"
+    );
+}
+
 /// Found with a real model: after a new spec version adds a requirement, a plan revision must trace to the newest
 /// approved spec, not to the spec of the base plan.
 #[test]
@@ -905,6 +956,55 @@ fn a_dropped_done_item_cannot_come_back_with_new_work() {
     assert!(e.to_string().contains("plan item PI-1 is done"), "{e}");
     // Back as it was in v1: the done item returns with its own work.
     revise(2, v1.items.clone()).unwrap();
+}
+
+/// ADR-120: two tickets without declared scopes that name the same file do not run in parallel: the later one is
+/// refused until it depends on the earlier (it then starts from the earlier one's merged work); naming different
+/// files, or declaring different scopes, keeps them parallel.
+#[test]
+fn tickets_naming_the_same_file_run_one_after_the_other() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let create = |t: NewTicket| {
+        f.app
+            .apply(&ctx(&f, Actor::Lead(a.id)), Intent::CreateTicket(t))
+    };
+    create(new_ticket(
+        "PI-1",
+        "Create deliverables/hello.txt and deliverables/check.py",
+        &[],
+        &[],
+    ))
+    .unwrap();
+    let e = create(new_ticket(
+        "PI-2",
+        "Create deliverables/check.py that prints hello.txt",
+        &[],
+        &[],
+    ))
+    .unwrap_err()
+    .to_string();
+    assert!(
+        e.contains("open ticket AGN-1 both change deliverables/check.py")
+            && e.contains("depends_on"),
+        "{e}"
+    );
+    create(new_ticket(
+        "PI-2",
+        "Create deliverables/check.py that prints hello.txt",
+        &["AGN-1"],
+        &[],
+    ))
+    .unwrap();
+    // Another file, or a declared scope apart from the named ones: parallel.
+    create(new_ticket("PI-2", "Write deliverables/notes.md", &[], &[])).unwrap();
+    create(new_ticket(
+        "PI-2",
+        "Polish deliverables/check.py",
+        &[],
+        &["deliverables/style.css"],
+    ))
+    .unwrap();
 }
 
 /// Moving a file out of the write scope deletes it there: a rename into the scope is outside it too (only the new

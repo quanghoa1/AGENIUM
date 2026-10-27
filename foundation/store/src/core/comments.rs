@@ -125,6 +125,30 @@ pub fn of_open_tickets(
     Ok(out)
 }
 
+/// The user's answers to agents' questions in a project, newest first, each with the question it answers (ADR-120:
+/// a decision on one ticket, such as "no Python here, use PowerShell", holds for the next ones).
+pub fn user_answers(
+    c: &Connection,
+    project: agenium_core::ProjectId,
+    limit: usize,
+) -> Result<Vec<(Comment, Option<Comment>)>, StoreError> {
+    let mut st = c.prepare_cached(&format!(
+        "SELECT {COLS} {FROM} WHERE t.project = ?1 AND c.kind = 'Answer' AND c.author = 'user'
+         ORDER BY c.created_at DESC, c.rowid DESC LIMIT ?2"
+    ))?;
+    let rows = st.query_map(params![project.to_string(), limit as i64], map)?;
+    let mut out = Vec::new();
+    for r in rows {
+        let a = decode(r?)?;
+        let q = match a.reply_to {
+            Some(id) => find(c, id)?,
+            None => None,
+        };
+        out.push((a, q));
+    }
+    Ok(out)
+}
+
 /// Unresolved questions per ticket of a project (tickets without one are left out).
 pub fn open_questions(
     c: &Connection,

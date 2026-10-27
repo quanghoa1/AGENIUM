@@ -475,6 +475,16 @@ async fn sandboxed_commands_run_without_asking() {
         ),
         "the CLI's own shell stays off"
     );
+    // ADR-120: installing on the user's machine asks the user even when commands run without asking.
+    let d = gate(true)
+        .check("winget install Python.Python.3.12", &cwd)
+        .await;
+    assert!(asked(&d), "an install goes to the user: {d:?}");
+    assert_eq!(
+        gate(true).check("npm install express", &cwd).await,
+        GateDecision::Allow,
+        "a project dependency does not"
+    );
     app.update_config(|c| c.sandbox.unsandboxed = false)
         .unwrap();
     app.update_config(|c| c.sandbox.approval = ApprovalPolicy::OnRequest)
@@ -600,6 +610,40 @@ async fn denied_command_question_and_continuation() {
         app.ticket(project, &key("AGN-1")).unwrap().status,
         TicketStatus::Resolved
     );
+
+    // ADR-120: the next ticket starts knowing what the user decided on AGN-1, so it does not ask again.
+    app.apply(
+        &ctxp(lead),
+        Intent::CreateTicket(new_ticket("PI-1", "second", &[], &[])),
+    )
+    .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-2"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+    p.push(Box::new(|req| {
+        let first = req.messages[0].text();
+        assert!(
+            first.contains("The user's decisions on other tickets")
+                && first.contains("On AGN-1: asked \"May I download the example page?\"")
+                && first.contains("No, work offline."),
+            "{first}"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "submit_report",
+                serde_json::to_value(report("AGN-2")).unwrap(),
+            )],
+        ))
+    }));
+    let s = rt.run_ticket(project, &key("AGN-2")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

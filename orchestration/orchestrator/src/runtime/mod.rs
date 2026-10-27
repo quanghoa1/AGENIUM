@@ -309,7 +309,59 @@ fn shell_text(shell: &agenium_sandbox::Shell) -> String {
             );
         }
     }
+    // ADR-120: what an agent may install itself, and what goes to the user.
+    s.push_str(
+        "; install project dependencies inside the worktree (a virtual environment, node_modules, the build's own          fetch). Installing software on the user's machine (winget, choco, apt, brew, npm -g, pip outside a virtual          environment, cargo install, an installer script) waits for the user's approval: if a tool is missing, ask          instead of working around it silently",
+    );
     s
+}
+
+impl Runtime {
+    /// The user's answers on the project's other tickets, newest first (ADR-120): what the user decided for one ticket
+    /// (a tool not to install, a convention, a choice) holds for the next, so the agent does not ask again.
+    fn user_decisions(&self, project: ProjectId, own: &TicketKey) -> Result<String> {
+        use agenium_core::comment::CommentBody;
+        let answers = self
+            .app
+            .store()
+            .read(|c| comments::user_answers(c, project, 8))?;
+        let cut = |s: &str, n: usize| -> String {
+            let s = s.trim();
+            match s.char_indices().nth(n) {
+                Some((i, _)) => format!("{}…", &s[..i]),
+                None => s.to_owned(),
+            }
+        };
+        let lines: Vec<String> = answers
+            .iter()
+            .filter(|(a, _)| &a.ticket_key != own)
+            .take(5)
+            .filter_map(|(a, q)| {
+                let CommentBody::Answer(ans) = &a.body else {
+                    return None;
+                };
+                let asked = match q.as_ref().map(|q| &q.body) {
+                    Some(CommentBody::Question(q)) => {
+                        format!("asked \"{}\" — ", cut(&q.question, 300))
+                    }
+                    _ => String::new(),
+                };
+                Some(format!(
+                    "- On {}: {asked}the user answered: {}",
+                    a.ticket_key,
+                    cut(&ans.resolution, 400)
+                ))
+            })
+            .collect();
+        if lines.is_empty() {
+            return Ok(String::new());
+        }
+        Ok(format!(
+            "\n## The user's decisions on other tickets of this project\nThey hold for this ticket too: do not ask them \
+             again.\n{}\n",
+            lines.join("\n")
+        ))
+    }
 }
 
 /// The message queue of one run of a Lead.
@@ -1526,6 +1578,7 @@ running without one)"
                     requirements
                 );
                 first.push_str(&prompt::comments_text(&all_comments));
+                first.push_str(&self.user_decisions(project, &t.key)?);
                 if let Some(n) = &note {
                     first.push_str(&format!("\n## Notes from your previous run\n{n}\n"));
                 }
