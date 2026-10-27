@@ -256,6 +256,16 @@ impl App {
                 "project name {name:?} must be non-empty and contain no path separators"
             )));
         }
+        // Two projects of one name cannot be told apart in the project picker.
+        if self
+            .projects()?
+            .iter()
+            .any(|p| p.name.trim().eq_ignore_ascii_case(name))
+        {
+            return Err(OrchError::Conflict(format!(
+                "a project named {name:?} already exists; pick another name"
+            )));
+        }
         let path = match &req.path {
             Some(p) => p.clone(),
             None => {

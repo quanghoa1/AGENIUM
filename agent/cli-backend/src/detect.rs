@@ -156,7 +156,9 @@ pub fn detect(kind: CliKind) -> CliInfo {
     };
     let banner = run(&path, &["--version"], Duration::from_secs(20));
     let version = banner.as_deref().and_then(parse_version);
-    let compatible = version.is_some_and(|v| v >= kind.min_version());
+    // Usable: a checked version, and a CLI Agenium drives (devin is detected but not driven, ADR-56).
+    let driven = crate::driver(kind).is_some();
+    let compatible = driven && version.is_some_and(|v| v >= kind.min_version());
     let login = match kind.login_probe() {
         Some((args, read)) => run(&path, args, Duration::from_secs(20))
             .as_deref()
@@ -172,6 +174,7 @@ pub fn detect(kind: CliKind) -> CliInfo {
         None => Login::Unknown,
     };
     let note = match (version, compatible) {
+        _ if !driven => Some("Agenium does not drive this CLI".into()),
         (None, _) => Some("cannot read its version".into()),
         (Some(_), false) => Some(format!(
             "older than the checked minimum {}",
