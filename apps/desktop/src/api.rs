@@ -112,7 +112,13 @@ pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R
     // A root given by AGENIUM_HOME is this process's override: nothing is remembered machine-wide.
     let by_env = std::env::var_os(agenium_config::root::ENV_HOME).is_some_and(|v| !v.is_empty());
     let bootstrap = agenium_config::Bootstrap::default_path().filter(|_| !by_env);
+    let fresh = agenium_config::setup::needs_setup(&d.root);
     agenium_config::setup::complete_setup(&input, &home, bootstrap.as_deref()).map_err(err)?;
+    // A root set up for a UI test (a throwaway one, under AGENIUM_HOME) is marked as such: it alone opens with the
+    // in-memory vault key in a release build.
+    if fresh && by_env && crate::state::memory_keyring_asked() {
+        std::fs::write(d.root.join(crate::state::TEST_ROOT_MARK), "").map_err(err)?;
+    }
     d.open(&handle)?;
     Ok(status(d))
 }
@@ -331,13 +337,15 @@ pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
         })
         .collect();
     // Links to other tickets (related, aggregates...), each with the other ticket's key and title and its direction.
-    let others: HashMap<_, _> = o
-        .app
-        .tickets(p)
-        .map_err(err)?
-        .into_iter()
-        .map(|x| (x.id, (x.key, x.title)))
+    let all = o.app.tickets(p).map_err(err)?;
+    // The tickets that wait for this one (their depends_on names it): the other side of "depends on".
+    let dependents: Vec<&TicketKey> = all
+        .iter()
+        .filter(|x| x.depends_on.contains(&t.key))
+        .map(|x| &x.key)
         .collect();
+    let dependents = json!(dependents);
+    let others: HashMap<_, _> = all.into_iter().map(|x| (x.id, (x.key, x.title))).collect();
     let links: Vec<Value> = o
         .app
         .store()
@@ -353,7 +361,7 @@ pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
         .collect();
     Ok(json!({
         "ticket": t, "assignee_name": t.assignee.and_then(|a| names.get(&a).cloned()),
-        "comments": comments, "runs": rs, "workspace": ws, "links": links,
+        "comments": comments, "runs": rs, "workspace": ws, "links": links, "dependents": dependents,
         "audit": o.app.audit(p, Some(&k)).map_err(err)?,
     }))
 }

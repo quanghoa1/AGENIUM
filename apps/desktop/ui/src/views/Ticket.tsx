@@ -34,6 +34,7 @@ import {
   tokens,
 } from "../components/ui";
 import { api } from "../lib/api";
+import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import type { AgentEntry, CommentRow, TicketDetail } from "../lib/types";
 
@@ -48,11 +49,11 @@ function acTone(status: string): string {
       : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300";
 }
 
-/** A link's kind read from this ticket's side (`aggregates` seen from the part is "part of"). */
-function linkLabel(kind: string, out: boolean): string {
-  if (kind === "aggregates") return out ? "aggregates" : "part of";
-  if (kind === "blocks") return out ? "blocks" : "blocked by";
-  return kind.replace(/_/g, " ");
+/** A link's kind read from this ticket's side: "B follows up A" shows on A as "followed up by B". */
+function linkLabel(t: (k: Key) => string, kind: string, out: boolean): string {
+  const known = ["aggregates", "blocks", "follow_up_of", "duplicates", "related_to"];
+  if (!known.includes(kind)) return kind.replace(/_/g, " ");
+  return kind === "related_to" ? t("ticket.link.related_to") : t(`ticket.link.${kind}.${out ? "out" : "in"}` as Key);
 }
 
 export function TicketView({ id }: { id: string }) {
@@ -466,6 +467,22 @@ export function TicketView({ id }: { id: string }) {
                 </DetailRow>
               )}
 
+              {(d.dependents ?? []).length > 0 && (
+                <DetailRow label={app.t("ticket.dependents")}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {d.dependents!.map((k) => (
+                      <button
+                        key={k}
+                        className="chip border-line-strong bg-elevated text-muted hover:underline"
+                        onClick={() => app.go("ticket", k)}
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                </DetailRow>
+              )}
+
               {(d.links ?? []).length > 0 && (
                 <DetailRow label={app.t("ticket.links")}>
                   <div className="flex flex-wrap gap-1.5">
@@ -481,7 +498,7 @@ export function TicketView({ id }: { id: string }) {
                         })`}
                         onClick={() => app.go("ticket", l.key)}
                       >
-                        <span className="text-subtle">{linkLabel(l.kind, l.out)}</span>
+                        <span className="text-subtle">{linkLabel(app.t, l.kind, l.out)}</span>
                         <span className="font-mono text-cyan-600 dark:text-cyan-400">{l.key}</span>
                         {!l.confirmed && "?"}
                       </button>

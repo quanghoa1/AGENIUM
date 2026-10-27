@@ -249,6 +249,8 @@ export interface TicketDetail {
   workspace?: { worktree: string; branch: string; base_sha: string; head_sha?: string | null; removed: boolean } | null;
   /** Links to other tickets of the project; `out` = this ticket is the link's source. */
   links?: { kind: string; out: boolean; key: string; title: string; proposed_by: string; confirmed: boolean; note?: string | null }[];
+  /** Tickets whose depends_on names this one: they start once it is done. */
+  dependents?: string[];
   audit: AuditEntry[];
 }
 
