@@ -81,7 +81,13 @@ await js(`localStorage.setItem('agenium-lang','en')`);
 await send("Page.reload");
 await until("document.body.innerText.length > 20", 30000);
 
-// 1. First start: the setup screen, then the app.
+// 1. First start: the embedding model is put in place (the script seeds the root with it, so this is quick), then the
+// setup screen, then the app.
+const modelReady = await until(
+  "window.__TAURI_INTERNALS__.invoke('status').then((s) => s.model?.phase === 'ready')",
+  180000,
+);
+check("the embedding model is in place before the app opens", modelReady);
 const setupShown = await until("document.body.innerText.includes('Set up') || document.body.innerText.includes('Start')", 15000);
 await shot("01-setup");
 const started = setupShown && (await js(`(() => { const b = document.querySelector('.btn-primary'); if (!b) return false; b.click(); return true; })()`));
@@ -136,6 +142,12 @@ const pick = (value) =>
 await until("[...document.querySelectorAll('main select')].some(s => [...s.options].some(o => o.value === 'azure-openai'))");
 await pick("azure-openai");
 const hint = await until("document.querySelector('main').innerText.includes('Replace the <')", 5000);
+// Save waits for what is missing (here the API key), then the server refuses the unfilled URL.
+const saveOff = await js(`[...document.querySelectorAll('main button')].find(b => b.textContent.trim() === 'Save')?.disabled === true`);
+check("Save waits for the missing API key", saveOff);
+await js(`(() => { const el = document.querySelector('main input[type=password]'); if (!el) return false;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, 'test-key-not-real');
+  el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
 await clickText("Save", "document.querySelector('main')");
 const refused = await until("document.body.innerText.includes('replace <resource>')", 8000);
 await shot("providers-placeholder");
