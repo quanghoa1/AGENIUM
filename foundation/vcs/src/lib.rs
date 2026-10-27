@@ -492,7 +492,21 @@ impl Repo {
                 .git
                 .run(&self.root, ["worktree", "remove", "--force", &p])?;
             if !out.ok() && path.exists() {
-                std::fs::remove_dir_all(&path).map_err(|e| io(&path, e))?;
+                // Windows: a process that just ended (the agent's CLI, a server it started, an antivirus scan) can
+                // hold a file for a moment; a few short retries spare a journaled retry and its warning.
+                let mut wait = std::time::Duration::from_millis(200);
+                let mut tries = 0;
+                while let Err(e) = std::fs::remove_dir_all(&path) {
+                    tries += 1;
+                    if tries >= 5 || !path.exists() {
+                        if path.exists() {
+                            return Err(io(&path, e));
+                        }
+                        break;
+                    }
+                    std::thread::sleep(wait);
+                    wait *= 2;
+                }
             }
         }
         self.git.check(&self.root, ["worktree", "prune"])?;

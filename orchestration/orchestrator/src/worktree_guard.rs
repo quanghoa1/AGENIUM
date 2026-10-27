@@ -27,6 +27,16 @@ impl App {
         else {
             return Ok(());
         };
+        // A worktree being removed (its ticket merged; the folder may still be there for a moment, or until a
+        // journaled removal retries) has nothing of the run's to keep.
+        let ended = self
+            .store
+            .read(|c| agenium_store::core::tickets::get(c, ticket))?
+            .status
+            .is_terminal();
+        if ended || !Path::new(&ws.worktree).join(".git").exists() {
+            return Ok(());
+        }
         let repo = self.repo(&self.project(project)?);
         match repo.worktree_state(Path::new(&ws.worktree)) {
             Ok(s) => self.run_log(run, STATE_LOG, serde_json::to_value(s).unwrap_or_default()),

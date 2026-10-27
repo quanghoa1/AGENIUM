@@ -72,7 +72,7 @@ giống hệt nhau.
 0.1.0 là bản ứng viên phát hành đầu tiên. Đã kiểm chứng (chi tiết trong [docs/PROGRESS.md](docs/PROGRESS.md) và
 [docs/VERIFICATION.md](docs/VERIFICATION.md)):
 
-- **438 test tự động** (unit, contract test với server HTTP giả, test runtime trọn đường với model giả lập, test giết
+- **439 test tự động** (unit, contract test với server HTTP giả, test runtime trọn đường với model giả lập, test giết
   tiến trình giữa lúc ghi), clippy sạch, chính sách dependency kiểm bằng `cargo-deny`, smoke test 25 bước điều khiển app
   thật.
 - **Model thật:** bài coding mẫu 5/5 trên DeepSeek (API) và qua CLI của Claude, Codex, Gemini (Antigravity), Grok và

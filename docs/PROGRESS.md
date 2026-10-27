@@ -7,7 +7,7 @@ first section is current. Plain-language overview: [README](../README.md); evide
 ## Release 0.1 (status 2026-10-27)
 
 Last full verification: 2026-10-27 on Windows 11 Pro (10 cores, 32 GB), Rust `x86_64-pc-windows-gnu`: fmt PASS,
-clippy `-D warnings` PASS (workspace and desktop app), `cargo test --workspace` **438 passed, 0 failed**, UI smoke
+clippy `-D warnings` PASS (workspace and desktop app), `cargo test --workspace` **439 passed, 0 failed**, UI smoke
 test (25 checks on the real app) PASS.
 
 | Release item | Status | Evidence |

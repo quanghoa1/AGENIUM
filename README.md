@@ -98,7 +98,7 @@ agenium board --project shop
 0.1.0 is the first release candidate. What has been verified (details and evidence in
 [docs/PROGRESS.md](docs/PROGRESS.md) and [docs/VERIFICATION.md](docs/VERIFICATION.md)):
 
-- **438 automated tests** across the workspace (unit, contract tests against local HTTP servers, end-to-end runtime
+- **439 automated tests** across the workspace (unit, contract tests against local HTTP servers, end-to-end runtime
   tests with a scripted model, crash tests that kill the process mid-write), clippy clean, dependency policy checked
   with `cargo-deny`, a 25-check UI smoke test that drives the real app.
 - **Real models:** golden coding tasks 5/5 on DeepSeek (API) and through the Claude, Codex, Gemini (Antigravity),
