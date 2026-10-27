@@ -6,6 +6,7 @@ const KNOWN: [RegExp, Key][] = [
   [/a project named "?(.+?)"? already exists/i, "err.projectNameTaken"],
   [/the folder (.+?) already exists/i, "err.folderTaken"],
   [/git clone failed: (.+)/i, "err.cloneFailed"],
+  [/git is not available/i, "err.noGit"],
   [/an agent named "?(.+?)"? already exists|agent name "?(.+?)"? is (?:already )?(?:taken|in use)/i, "err.agentNameTaken"],
   [/a provider named "?(.+?)"? already exists|provider "?(.+?)"? already exists/i, "err.providerTaken"],
 ];

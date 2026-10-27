@@ -162,7 +162,10 @@ function writeLocal(k: string, v: string) {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [route, setRoute] = useState<Route>(parseHash);
-  const [lang, setLangState] = useState<Lang>((readLocal("agenium-lang") as Lang) || "vi");
+  // First start: the system's language when the app has it (Vietnamese), else English; the user's choice wins after.
+  const [lang, setLangState] = useState<Lang>(
+    (readLocal("agenium-lang") as Lang) || (navigator.language?.toLowerCase().startsWith("vi") ? "vi" : "en"),
+  );
   // Relative times (`ago`) follow the interface language.
   setAgoLang(lang);
   const [themeMode, setThemeModeState] = useState<ThemeMode>((readLocal("agenium-theme") as ThemeMode) || "dark");
