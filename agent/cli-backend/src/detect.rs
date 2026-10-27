@@ -98,13 +98,18 @@ pub struct CliInfo {
 
 /// Runs a command with a deadline; returns combined stdout + stderr.
 fn run(program: &PathBuf, args: &[&str], timeout: Duration) -> Option<String> {
-    let mut child = Command::new(program)
-        .args(args)
+    let mut cmd = Command::new(program);
+    cmd.args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .ok()?;
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // The desktop app has no console: without this each probe opens a terminal window.
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let mut child = cmd.spawn().ok()?;
     let start = Instant::now();
     loop {
         match child.try_wait() {

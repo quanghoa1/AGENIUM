@@ -94,7 +94,7 @@ fn apply_patch(text: &str, patch: &str) -> Result<String> {
     std::fs::write(&patch_file, &p)?;
     let mut errors = Vec::new();
     for strip in ["-p1", "-p0"] {
-        let out = std::process::Command::new("git")
+        let out = git()
             .args(["-c", "core.autocrlf=false", "-c", "core.eol=lf"])
             .args(["apply", "--recount", "--whitespace=nowarn", strip])
             .arg(&patch_file)
@@ -219,7 +219,7 @@ fn unapply_patch(overlay: &str, patch: &str) -> Result<String> {
     // `diff_texts` writes under a/ and b/ subdirs, so git's own a/ b/ prefix makes the paths a/a/SKILL.md, b/b/SKILL.md
     // (strip 2); -p1/-p0 cover a patch stored in another shape.
     for strip in ["-p2", "-p1", "-p0"] {
-        let out = std::process::Command::new("git")
+        let out = git()
             .args(["-c", "core.autocrlf=false", "-c", "core.eol=lf"])
             .args([
                 "apply",
@@ -252,7 +252,7 @@ fn merge_three(new_base: &str, old_base: &str, overlay: &str) -> Result<(String,
     std::fs::write(&cur, new_base.replace("\r\n", "\n"))?;
     std::fs::write(&anc, old_base.replace("\r\n", "\n"))?;
     std::fs::write(&oth, overlay.replace("\r\n", "\n"))?;
-    let out = std::process::Command::new("git")
+    let out = git()
         .args([
             "-c",
             "core.autocrlf=false",
@@ -287,7 +287,7 @@ fn diff_texts(base: &str, overlay: &str) -> Result<String> {
         std::fs::create_dir_all(d)?;
         std::fs::write(d.join("SKILL.md"), t)?;
     }
-    let out = std::process::Command::new("git")
+    let out = git()
         .args([
             "diff",
             "--no-index",
@@ -664,6 +664,18 @@ impl App {
         })?;
         Ok(())
     }
+}
+
+/// `git` without a console window (the desktop app has none: each call would open a terminal window).
+fn git() -> std::process::Command {
+    #[allow(unused_mut)]
+    let mut c = std::process::Command::new("git");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    c
 }
 
 #[cfg(test)]

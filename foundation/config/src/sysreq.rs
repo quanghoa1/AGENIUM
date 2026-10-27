@@ -180,8 +180,15 @@ pub fn gather(root: &Path) -> Facts {
         .max_by_key(|d| d.mount_point().as_os_str().len())
         .map(|d| d.available_space());
 
-    let git = Command::new("git")
-        .arg("--version")
+    let mut cmd = Command::new("git");
+    cmd.arg("--version");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // The desktop app has no console: without this the check opens a terminal window.
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let git = cmd
         .output()
         .ok()
         .filter(|o| o.status.success())

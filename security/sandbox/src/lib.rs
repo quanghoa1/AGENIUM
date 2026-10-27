@@ -886,6 +886,7 @@ pub async fn kill_tree(pid: u32) {
     {
         let _ = tokio::process::Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW: the desktop app has no console
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
