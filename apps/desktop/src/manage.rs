@@ -321,6 +321,98 @@ pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) ->
     )
 }
 
+/// The empty SKILL.md template (the recommended sections) for authoring a new skill in the app.
+#[tauri::command]
+pub fn skill_skeleton(d: State<'_, Desktop>) -> R<Value> {
+    Ok(json!({ "body": d.opened()?.app.skill_skeleton() }))
+}
+
+/// Evaluates SKILL.md text that is not saved yet (the editor's "Evaluate" button): the shape lint (ADR-88) and, when
+/// the judge is on, the Jev quality read (ADR-90). Conflicts (ADR-92) need the saved skill, so they run on save.
+#[tauri::command]
+pub async fn evaluate_skill_text(d: State<'_, Desktop>, content: String) -> R<Value> {
+    let o = d.opened()?;
+    let (fm, body) = agenium_skills::parse(&content).map_err(|e| e.to_string())?;
+    let name = fm.get("name").unwrap_or("").to_owned();
+    let notes = o.app.lint_skill(&name, &body);
+    let quality = o.app.skill_quality(&body).await;
+    Ok(json!({ "shape_notes": notes, "quality": quality }))
+}
+
+/// A relative path inside a skill folder, restricted to `references/` and `scripts/` with safe segments.
+fn skill_rel(rel: &str) -> R<PathBuf> {
+    let rel = rel.trim().replace('\\', "/");
+    let ok = (rel.starts_with("references/") || rel.starts_with("scripts/"))
+        && !rel.contains("..")
+        && rel
+            .split('/')
+            .all(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)));
+    if !ok {
+        return Err(format!(
+            "path must be under references/ or scripts/ (a-z, 0-9, . _ - only); got {rel:?}"
+        ));
+    }
+    Ok(PathBuf::from(rel))
+}
+
+/// A skill's library folder on disk.
+fn skill_dir(o: &crate::state::Opened, name: &str) -> R<PathBuf> {
+    let set = o.app.skill_registry().library();
+    Ok(set
+        .get(name)
+        .ok_or_else(|| format!("no library skill {name:?}"))?
+        .meta
+        .dir
+        .clone())
+}
+
+/// One of a skill's files (reference or script) for editing in the app.
+#[tauri::command]
+pub fn skill_file(d: State<'_, Desktop>, name: String, path: String) -> R<Value> {
+    let o = d.opened()?;
+    let p = skill_dir(&o, &name)?.join(skill_rel(&path)?);
+    let text = std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+    Ok(json!({ "path": path, "content": text }))
+}
+
+/// Writes one of a skill's reference/script files (create or edit), then re-validates the skill folder.
+#[tauri::command]
+pub fn save_skill_file(d: State<'_, Desktop>, name: String, path: String, content: String) -> R<Value> {
+    let o = d.opened()?;
+    let dir = skill_dir(&o, &name)?;
+    let rel = skill_rel(&path)?;
+    let full = dir.join(&rel);
+    if let Some(parent) = full.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&full, &content).map_err(|e| e.to_string())?;
+    // A bad file (e.g. a reference the SKILL.md does not point at is fine; this just confirms the skill still loads).
+    let body = o.app.library_skill_body(&name).unwrap_or_default();
+    let notes = o.app.lint_skill(&name, &body);
+    Ok(json!({ "path": path, "shape_notes": notes }))
+}
+
+/// Writes a library skill's SKILL.md from the editor (create or edit), validates it, then returns the three checks so
+/// the author sees the advice right away: shape lint (ADR-88), library conflicts (ADR-92), Jev quality (ADR-90).
+#[tauri::command]
+pub async fn save_skill(
+    d: State<'_, Desktop>,
+    name: String,
+    content: String,
+    create: bool,
+) -> R<Value> {
+    let o = d.opened()?;
+    let meta = o
+        .app
+        .save_library_skill(name.trim(), &content, create)
+        .map_err(err)?;
+    let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
+    let mut notes = o.app.lint_skill(&meta.name, &body);
+    notes.extend(o.app.library_skill_conflicts(&meta.name));
+    let quality = o.app.skill_quality(&body).await;
+    Ok(json!({ "name": meta.name, "shape_notes": notes, "quality": quality }))
+}
+
 /// Re-runs the three skill checks on a library skill already in place (not only at import): the shape lint (ADR-88),
 /// opposite-directive conflicts against the rest of the library (ADR-92), and, when the judge is on, its calibrated
 /// quality read (ADR-90, a Jev call). On demand because the quality read costs a judge call.
@@ -345,7 +437,7 @@ pub fn remove_skill(d: State<'_, Desktop>, name: String, force: bool) -> R<()> {
         .map_err(err)
 }
 
-/// One skill's instructions (SKILL.md body) for reading in the app.
+/// One skill's instructions (SKILL.md body) for reading, and the full SKILL.md (`raw`) for editing in the app.
 #[tauri::command]
 pub fn skill_text(d: State<'_, Desktop>, name: String) -> R<Value> {
     let o = d.opened()?;
@@ -353,7 +445,8 @@ pub fn skill_text(d: State<'_, Desktop>, name: String) -> R<Value> {
     let s = set
         .get(&name)
         .ok_or_else(|| format!("no library skill {name:?}"))?;
-    Ok(json!({ "name": s.meta.name, "body": s.body, "files": s.files }))
+    let raw = std::fs::read_to_string(s.meta.dir.join("SKILL.md")).unwrap_or_default();
+    Ok(json!({ "name": s.meta.name, "body": s.body, "raw": raw, "files": s.files }))
 }
 
 // ---------------------------------------------------------------- MCP servers

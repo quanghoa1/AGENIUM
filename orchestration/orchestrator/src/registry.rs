@@ -867,6 +867,19 @@ impl App {
             .map_err(io)
     }
 
+    /// Writes a library skill's SKILL.md from text (create a new one or edit in place), validating it; its other
+    /// files are kept. The frontmatter `name` must equal `name`.
+    pub fn save_library_skill(
+        &self,
+        name: &str,
+        content: &str,
+        create: bool,
+    ) -> Result<agenium_skills::SkillMeta> {
+        self.skill_registry()
+            .write(&agenium_skills::Owner::Library, name, content, create)
+            .map_err(io)
+    }
+
     /// Removes a library skill. Agents that enable it lose it when `force`; otherwise refused while in use.
     pub fn remove_library_skill(&self, name: &str, force: bool) -> Result<()> {
         let users: Vec<agents::Agent> = self

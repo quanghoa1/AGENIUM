@@ -1047,7 +1047,7 @@ async fn skill_cmd(cli: &Cli, sc: &SkillCmd) -> Result<()> {
                 println!("(no skills)");
             }
             for s in &set.skills {
-                let origin = serde_json::to_value(&s.meta.origin)?;
+                let origin = serde_json::to_value(s.meta.origin)?;
                 println!(
                     "{}	{}	{}	{}",
                     s.meta.name,

@@ -40,7 +40,7 @@ fn invalid(m: impl Into<String>) -> SkillError {
 }
 
 /// Where a skill comes from.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
     /// The system's skill library (`<root>/skills`), used by the agents that enable it (ADR-61).
@@ -473,7 +473,7 @@ fn scan(
         if name.starts_with('.') || !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             continue;
         }
-        match validate(&p, origin.clone()) {
+        match validate(&p, origin) {
             Ok(mut s) => {
                 if origin == Origin::Agent
                     && set
@@ -633,6 +633,66 @@ impl Registry {
             Ok(validate(&dest, origin)?.meta)
         })();
         let _ = std::fs::remove_dir_all(&staging);
+        result
+    }
+
+    /// Writes a skill's SKILL.md from text (create or edit in place). The frontmatter `name` must equal `name` and the
+    /// content must validate; the folder's other files (references/, scripts/) are kept. `create` requires the folder
+    /// not to exist yet. The write is atomic: it validates against a temp copy, then replaces SKILL.md.
+    pub fn write(
+        &self,
+        owner: &Owner,
+        name: &str,
+        content: &str,
+        create: bool,
+    ) -> Result<SkillMeta> {
+        if !valid_name(name) {
+            return Err(invalid(format!("invalid skill name {name:?}")));
+        }
+        // The content must name this very skill, so the folder name and the frontmatter agree.
+        let (fm, _) = parse(content)?;
+        if fm.get("name") != Some(name) {
+            return Err(invalid(format!(
+                "the frontmatter name must be {name:?} (it is {:?})",
+                fm.get("name").unwrap_or("")
+            )));
+        }
+        let origin = match owner {
+            Owner::Agent(_) => Origin::Agent,
+            Owner::Role(_) => Origin::Role,
+            Owner::Library => Origin::Library,
+        };
+        let dir = self.dir_of(owner).join(name);
+        let exists = dir.join(SKILL_FILE).exists();
+        if create && exists {
+            return Err(SkillError::Exists(name.to_owned()));
+        }
+        if !create && !exists {
+            return Err(SkillError::NotFound(name.into()));
+        }
+        // Validate the whole folder as it would be after the write, in a staging copy, before touching the real one.
+        std::fs::create_dir_all(&dir)?;
+        let staging = self
+            .dir_of(owner)
+            .join(format!(".edit-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&staging);
+        // copy_dir only copies files; a new skill's folder is empty, so make the staging dir first.
+        std::fs::create_dir_all(&staging)?;
+        copy_dir(&dir, &staging)?;
+        let result = (|| {
+            std::fs::write(staging.join(SKILL_FILE), content)?;
+            validate_named(&staging, origin, false)?;
+            // The staged SKILL.md is good: commit it to the real folder (temp + rename so a crash cannot truncate it).
+            let tmp = dir.join(format!(".{SKILL_FILE}.{}", std::process::id()));
+            std::fs::write(&tmp, content)?;
+            std::fs::rename(&tmp, dir.join(SKILL_FILE))?;
+            Ok(validate(&dir, origin)?.meta)
+        })();
+        let _ = std::fs::remove_dir_all(&staging);
+        if result.is_err() && create && !exists {
+            // A failed create leaves no empty folder behind.
+            let _ = std::fs::remove_dir_all(&dir);
+        }
         result
     }
 

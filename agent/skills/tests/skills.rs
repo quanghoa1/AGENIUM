@@ -137,6 +137,60 @@ fn tags() {
 }
 
 #[test]
+fn write_create_and_edit() {
+    let tmp = tempfile::tempdir().unwrap();
+    let reg = Registry::new(tmp.path().join("agents"), tmp.path().join("roles"));
+    let lib = Owner::Library;
+    let good =
+        "---\nname: shaper\ndescription: Shape a thing.\ntags: coding\n---\n## Job\nShape it.";
+
+    // Create writes the folder from the text.
+    let m = reg.write(&lib, "shaper", good, true).unwrap();
+    assert_eq!(m.name, "shaper");
+    assert_eq!(m.tags, ["coding"]);
+    assert!(reg.dir_of(&lib).join("shaper/SKILL.md").is_file());
+
+    // Create again is refused (already exists); editing is not.
+    assert!(reg.write(&lib, "shaper", good, true).is_err());
+    let edited = "---\nname: shaper\ndescription: Shape a thing well.\ntags: coding, craft\n---\n## Job\nShape it well.";
+    let m2 = reg.write(&lib, "shaper", edited, false).unwrap();
+    assert_eq!(m2.tags, ["coding", "craft"]);
+    assert_eq!(
+        validate(&reg.dir_of(&lib).join("shaper"), Origin::Library)
+            .unwrap()
+            .body
+            .trim(),
+        "## Job\nShape it well."
+    );
+
+    // The frontmatter name must equal the target name.
+    assert!(reg
+        .write(
+            &lib,
+            "shaper",
+            "---\nname: other\ndescription: d\n---\n## Job\nx",
+            false
+        )
+        .is_err());
+    // Invalid content does not overwrite the good file.
+    assert!(reg.write(&lib, "shaper", "no frontmatter", false).is_err());
+    assert!(reg.dir_of(&lib).join("shaper/SKILL.md").is_file());
+    assert!(validate(&reg.dir_of(&lib).join("shaper"), Origin::Library)
+        .unwrap()
+        .body
+        .contains("well"));
+    // Editing a skill that does not exist is refused.
+    assert!(reg
+        .write(
+            &lib,
+            "ghost",
+            good.replace("shaper", "ghost").as_str(),
+            false
+        )
+        .is_err());
+}
+
+#[test]
 fn registry_resolution_and_binding() {
     let tmp = tempfile::tempdir().unwrap();
     let reg = Registry::new(tmp.path().join("agents"), tmp.path().join("roles"));
