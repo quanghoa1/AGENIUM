@@ -1,7 +1,8 @@
 import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
-import { ListItem, Modal, ProgressBar, Segmented } from "../components/motion";
+import { ListItem, Modal, Overlay, ProgressBar, Segmented } from "../components/motion";
+import { TicketView } from "./Ticket";
 import { NeedsProject } from "../components/GettingStarted";
 import { Empty, Mono, PageHeader, PriorityBadge, Section, TicketStatusBadge, cn } from "../components/ui";
 import { AnimatePresence } from "motion/react";
@@ -57,6 +58,14 @@ function Board({ project }: { project: string }) {
   const [drop, setDrop] = useState<Drop>(null);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [value, setValue] = useState("");
+  // The ticket opened in a popup over the board (Esc or a click outside closes it).
+  const [peek, setPeek] = useState<string | null>(null);
+  useEffect(() => {
+    if (!peek) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPeek(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [peek]);
   // The dialog keeps its last content while it leaves.
   const last = useRef<Drop>(null);
   if (drop) last.current = drop;
@@ -130,25 +139,27 @@ function Board({ project }: { project: string }) {
                   draggable
                   onDragStart={() => setDrag({ card: k, from: c.status })}
                   onDragEnd={() => (setDrag(null), setOver(null))}
-                  onClick={() => app.go("ticket", k.key)}
+                  onClick={() => setPeek(k.key)}
                   className={cn("press cursor-grab rounded-lg border border-line bg-surface p-2.5 shadow-sm hover:border-accent/50 hover:shadow-md active:cursor-grabbing", drag?.card.key === k.key && "opacity-40")}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1.5">
                     <Mono className="font-semibold text-cyan-600 dark:text-cyan-400">{k.key}</Mono>
-                    <PriorityBadge p={k.priority} />
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {k.blocked_by.length > 0 && (
+                        <span className="chip truncate border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300" title={app.t("tickets.blockedBy")}>
+                          <Link2 className="h-3 w-3 shrink-0" /> {k.blocked_by.join(",")}
+                        </span>
+                      )}
+                      <PriorityBadge p={k.priority} />
+                    </span>
                   </div>
                   <div className="mt-1.5 line-clamp-2 text-xs font-medium">{k.title}</div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-subtle">
                     <span className="chip border-line-strong bg-elevated">{k.plan_item}</span>
                     {k.assignee && <span className="truncate">@{k.assignee}</span>}
                   </div>
-                  {(k.blocked_by.length > 0 || k.open_questions > 0 || k.approved || k.merged || k.escalated || k.reopen_count > 0) && (
+                  {(k.open_questions > 0 || k.approved || k.merged || k.escalated || k.reopen_count > 0) && (
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {k.blocked_by.length > 0 && (
-                        <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300">
-                          <Link2 className="h-3 w-3" /> {k.blocked_by.join(",")}
-                        </span>
-                      )}
                       {k.open_questions > 0 && (
                         <span className="chip border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300">
                           <MessageCircleQuestion className="h-3 w-3" /> {k.open_questions}
@@ -168,6 +179,11 @@ function Board({ project }: { project: string }) {
           </div>
         ))}
       </div>
+      <Overlay open={!!peek} onClose={() => setPeek(null)} kind="dialog" top="pt-[4vh]">
+        <div className="card max-h-[90vh] w-[min(1100px,94vw)] overflow-y-auto p-5 shadow-2xl">
+          {peek && <TicketView id={peek} onClose={() => setPeek(null)} />}
+        </div>
+      </Overlay>
       <Modal
         open={!!drop}
         title={dlg ? `${dlg.card.key} → ${dlg.kind === "assign" ? app.t("tickets.assignTo") : dlg.kind === "close" ? app.t("ticket.close") : app.t("ticket.cancel")}` : ""}

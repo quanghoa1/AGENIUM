@@ -1,21 +1,4 @@
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  Crown,
-  FileCode2,
-  GitBranch,
-  HelpCircle,
-  Lock,
-  MessageSquare,
-  Package,
-  RotateCcw,
-  Send,
-  ShieldAlert,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Crown, FileCode2, GitBranch, HelpCircle, Lock, Maximize2, MessageSquare, Package, RotateCcw, Send, ShieldAlert, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { DiffView } from "../components/DiffView";
@@ -56,7 +39,9 @@ function linkLabel(t: (k: Key) => string, kind: string, out: boolean): string {
   return kind === "related_to" ? t("ticket.link.related_to") : t(`ticket.link.${kind}.${out ? "out" : "in"}` as Key);
 }
 
-export function TicketView({ id }: { id: string }) {
+/** A ticket's page; `onClose` set = shown in the board's popup (a Close button and a link to the full page instead of
+ * the way back to the board). */
+export function TicketView({ id, onClose }: { id: string; onClose?: () => void }) {
   const app = useApp();
   const [d, setD] = useState<TicketDetail | null>(null);
   const [tab, setTab] = useState<Tab>("timeline");
@@ -152,9 +137,20 @@ export function TicketView({ id }: { id: string }) {
       {/* ─── TOP BAR: Breadcrumb Navigation & Ticket Status Strip ─── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3.5">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <button className="btn" onClick={() => app.go("tickets")}>
-            <ArrowLeft className="h-3.5 w-3.5" /> {app.t("nav.tickets")}
-          </button>
+          {onClose ? (
+            <>
+              <button className="btn" onClick={onClose} title="Esc">
+                <X className="h-3.5 w-3.5" /> {app.t("common.close")}
+              </button>
+              <button className="btn" onClick={() => (onClose(), app.go("ticket", id))}>
+                <Maximize2 className="h-3.5 w-3.5" /> {app.t("tickets.openPage")}
+              </button>
+            </>
+          ) : (
+            <button className="btn" onClick={() => app.go("tickets")}>
+              <ArrowLeft className="h-3.5 w-3.5" /> {app.t("nav.tickets")}
+            </button>
+          )}
           <span className="text-subtle">/</span>
           <Mono className="text-muted">{t.plan_item}</Mono>
           <span className="text-subtle">/</span>

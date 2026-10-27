@@ -27,6 +27,14 @@ the agent asked on AGN-1, the user said "use PowerShell", and AGN-2 asked the sa
 Following up (order) was preferred to merging parallel worktrees for the same file: the later ticket builds on the
 earlier result instead of writing it twice and resolving the conflict afterwards.
 
+## Verified on the clean Windows VM (2026-10-27, DeepSeek via OpenCode Go, running without a sandbox)
+
+The same request as before: the plan's later tickets that named `deliverables/check.py` were made to depend on the
+first (AGN-2 after AGN-1, AGN-3 after both); the agent asked about the missing Python once, on AGN-1; AGN-2 and AGN-3
+did not ask again; 51 shell commands ran, all succeeded; all three tickets closed. The review of AGN-3 still doubted
+the PowerShell substitute and tried to ask (refused: a review cannot ask), so the user's decisions now reach review
+work orders too.
+
 ## Consequences
 
 - `agenium_core::graph::paths_named`; `engine::effective_scope`; `comments::user_answers`; `Runtime::user_decisions`;

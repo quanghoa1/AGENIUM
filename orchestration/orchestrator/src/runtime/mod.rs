@@ -1747,6 +1747,9 @@ running without one)"
         let soul = self.soul_and_role(&lead);
         let solo = team.solo;
         let started = Instant::now();
+        // The reviewer judges against what the user decided, also on other tickets (ADR-120): a reviewer that
+        // did not know "no Python here, use PowerShell" doubted the substitute and wanted to ask again.
+        let decisions = self.user_decisions(project, &t.key)?;
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let (manifest, run_context) =
                 self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow);
@@ -1782,7 +1785,7 @@ running without one)"
                 prompt::ticket_text(&t, None),
                 requirements,
                 evidence,
-                prompt::comments_text(&all_comments),
+                format_args!("{}{decisions}", prompt::comments_text(&all_comments)),
                 diff
             );
             Ok(WorkOrder {
