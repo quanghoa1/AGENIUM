@@ -1,0 +1,136 @@
+import { useEffect, useRef, useState } from "react";
+import { FreeTag, cn } from "../../components/ui";
+import { api, type ModelArg } from "../../lib/api";
+import { isFree, priceLabel, priceOf, usePrices } from "../../lib/prices";
+import { useApp } from "../../lib/store";
+import type { Capabilities, ModelInfo } from "../../lib/types";
+
+/** Provider (API) or CLI program, model and effort. The model list comes from the provider when it can list them. */
+export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChange: (m: ModelArg) => void; caps: Capabilities | null }) {
+  const app = useApp();
+  const cli = value.backend === "cli";
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  useEffect(() => {
+    setModels([]);
+    if (cli) {
+      // What this CLI runs with the user's login (codex model/list, agy models, Claude aliases, OpenCode's free models).
+      setModels(caps?.cli_models?.[value.provider] ?? []);
+      return;
+    }
+    if (!value.provider) return;
+    const listed = caps?.providers.find((p) => p.id === value.provider)?.models ?? [];
+    if (listed.length) setModels(listed.map((id) => ({ id })));
+    // A late answer for a provider the user already left is dropped.
+    let stale = false;
+    api
+      .providerModels(value.provider)
+      .then((ms) => !stale && ms.length && setModels(ms))
+      .catch(() => undefined);
+    return () => {
+      stale = true;
+    };
+  }, [value.provider, cli, caps]);
+  const listId = `models-${value.provider || "none"}`;
+  // Only the model's own effort levels (ADR-114): reported by its vendor or known per model. [] = the model has no
+  // effort setting; unknown = its vendor's default applies.
+  const info = models.find((m) => m.id === value.model);
+  const levels = info?.efforts ?? null;
+  const levelKey = levels?.join(",");
+  const shownModel = useRef(value.model);
+  useEffect(() => {
+    // A newly chosen model starts at its own default level; a level the model does not have becomes its default too.
+    const changed = shownModel.current !== value.model;
+    shownModel.current = value.model;
+    if (levels?.length && (changed || !levels.includes(value.effort))) {
+      const d = info?.default_effort;
+      const effort = d && levels.includes(d) ? d : levels.includes(value.effort) ? value.effort : levels[0];
+      if (effort !== value.effort) onChange({ ...value, effort });
+    }
+  }, [value.model, levelKey]);
+  const prices = usePrices(app.tick);
+  // Only the opencode CLI's list is OpenCode's free models; the other CLIs list what their login can run.
+  const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []).map((m) => m.id) : []);
+  const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      <select className="input" value={value.backend ?? "api"} onChange={(e) => onChange({ ...value, backend: e.target.value as "api" | "cli", provider: "", model: "" })}>
+        <option value="api">API</option>
+        <option value="cli">CLI</option>
+      </select>
+      <select className="input" value={value.provider} onChange={(e) => onChange({ ...value, provider: e.target.value, model: "" })}>
+        <option value="">{cli ? "CLI…" : app.t("model.provider")}</option>
+        {cli
+          ? caps?.clis
+              .filter((c) => c.compatible)
+              .map((c) => (
+                // Signed out: not offered (its runs would fail at once). Unknown: offered, and said so.
+                <option key={c.kind} value={c.kind.toLowerCase()} disabled={c.login === "not_logged_in"}>
+                  {c.kind.toLowerCase()} {c.version}
+                  {c.login === "not_logged_in" ? ` (${app.t("providers.notLoggedIn")})` : c.login === "logged_in" ? "" : ` (${app.t("model.loginUnknown")})`}
+                </option>
+              ))
+          : caps?.providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.id}
+              </option>
+            ))}
+      </select>
+      <div className="relative">
+        <input className={cn("input w-full", isFree(price(value.model)) && "pr-14")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
+        {isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />}
+      </div>
+      <datalist id={listId}>
+        {models.map((m) => {
+          const p = price(m.id);
+          return (
+            <option key={m.id} value={m.id}>
+              {[isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
+            </option>
+          );
+        })}
+      </datalist>
+      {levels?.length ? (
+        <select className="input" value={value.effort} onChange={(e) => onChange({ ...value, effort: e.target.value })}>
+          {levels.map((x) => (
+            <option key={x} value={x}>
+              {x === info?.default_effort ? `${x} (${app.t("model.default")})` : x}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <select className="input" disabled title={levels ? app.t("model.noEffortTitle") : app.t("model.vendorDefaultTitle")}>
+          <option>{levels ? app.t("model.noEffort") : app.t("model.vendorDefault")}</option>
+        </select>
+      )}
+    </div>
+  );
+}
+
+export const emptyModel: ModelArg = { provider: "", model: "", effort: "high", backend: "api" };
+
+export function AgentModel({ id, backend, model, onSaved }: { id: string; backend: string; model: { provider: string; model: string; effort: string }; onSaved: () => void }) {
+  const app = useApp();
+  const [caps, setCaps] = useState<Capabilities | null>(null);
+  const [m, setM] = useState<ModelArg>({ provider: model.provider, model: model.model, effort: model.effort, backend: backend === "Cli" ? "cli" : "api" });
+  useEffect(() => {
+    api.capabilities().then(setCaps);
+  }, []);
+  return (
+    <div className="space-y-2">
+      <ModelPicker value={m} onChange={setM} caps={caps} />
+      <div className="text-[11px] text-subtle">{app.t("agents.keep")}</div>
+      <button
+        className="btn-primary"
+        disabled={!m.provider || (m.provider === model.provider && m.model === model.model && m.effort === model.effort && m.backend === (backend === "Cli" ? "cli" : "api"))}
+        onClick={() =>
+          api
+            .setAgentModel(id, m)
+            .then(() => (onSaved(), app.refresh(), app.notify(app.t("common.done"))))
+            .catch((e) => app.notify(String(e)))
+        }
+      >
+        {app.t("agents.saveModel")}
+      </button>
+    </div>
+  );
+}
