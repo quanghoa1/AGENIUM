@@ -308,6 +308,35 @@ fn tool_error(e: &OrchError) -> ToolError {
     ToolError::new(&te.code, message)
 }
 
+impl RunProtocol {
+    /// The unverified-done check for this run's report (asked at most once per run).
+    async fn unverified_done(&self, r: &agenium_core::forms::WorkReport) -> Option<String> {
+        if self.kind != RunKind::Work || !self.app.config().judge.done_check {
+            return None;
+        }
+        let log = self
+            .app
+            .store()
+            .read(|c| agenium_store::core::runs::log_entries(c, self.run))
+            .ok()?;
+        if log
+            .iter()
+            .any(|e| e.kind == "judge" && e.data["use"] == "done_check")
+        {
+            return None;
+        }
+        let t = self.app.ticket(self.project, &r.ticket_id).ok()?;
+        let facts = crate::judge::done_check::run_facts(&log);
+        let msg = self.app.unverified_done(&t, r, &facts).await?;
+        let _ = self.app.run_log(
+            self.run,
+            "judge",
+            serde_json::json!({ "use": "done_check", "sent_back": true, "text": msg }),
+        );
+        Some(msg)
+    }
+}
+
 #[async_trait]
 impl Protocol for RunProtocol {
     async fn call(
@@ -436,6 +465,13 @@ impl Protocol for RunProtocol {
                 }
             }
             return Ok((v, Effect::Continue));
+        }
+        // ADR-126: a report that reads as done while nothing checked the work after its last change goes back to
+        // the worker once, in this run. Only with the judge on and `done_check` enabled; fail-open.
+        if let Intent::SubmitReport(r) = &intent {
+            if let Some(msg) = self.unverified_done(r).await {
+                return Err(ToolError::new("unverified", msg));
+            }
         }
         let tool = intent.tool();
         let actor = match (tool.group(), self.role) {

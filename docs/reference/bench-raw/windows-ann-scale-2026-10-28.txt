@@ -1,0 +1,6 @@
+machine: 16 threads; 218162 real facts, 200 queries
+| Facts | ingest/s | exact KNN p50/p95 ms | ANN build s | sidecar MB | ANN KNN p50/p95 ms | recall@10 | hybrid exact → ANN p50 ms | hybrid top-8 = exact | recall exact → ANN p50 ms | recall top-8 = exact | reopen ms | live adds/s | peak RSS MB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 100000 | kept | 32.5 / 34.7 | 8.0 | 104 | 1.36 / 1.78 | 0.9950 | 39.2 → 6.0 | 0.9912 | 41.3 → 6.6 | 0.9888 | 103 | 682 | n/a |
+| 500000 | kept | 159.7 / 167.6 | 74.9 | 522 | 4.41 / 5.43 | 0.9925 | 191.0 → 26.9 | 0.9931 | 197.5 → 27.6 | 0.9894 | 437 | 330 | n/a |
+| 1000000 | kept | 328.6 / 350.9 | 190.7 | 1044 | 4.96 / 6.10 | 0.9920 | 393.8 → 51.5 | 0.9956 | 407.2 → 52.2 | 0.9919 | 942 | 406 | n/a |

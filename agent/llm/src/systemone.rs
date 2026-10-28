@@ -14,6 +14,7 @@
 //! A question refers to a state entry by its key in backticks, e.g. `` `report` ``.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -34,7 +35,7 @@ pub enum Question {
 }
 
 impl Question {
-    fn to_json(&self) -> Value {
+    pub fn to_json(&self) -> Value {
         match self {
             Question::Noul { instructions } => {
                 json!({"type": "noul", "instructions": instructions})
@@ -82,6 +83,30 @@ impl Judging {
         self.state.insert(key.to_owned(), json!(text));
         self
     }
+
+    /// Adds `other`'s questions, state and images to this request, so two uses that fire at the same moment cost one
+    /// request (jev-fanout-bench: 8 questions in one request used 76–86 % fewer input tokens than 8 requests, with the
+    /// same answers). A state key or question id both define must agree, else `Err` names it.
+    pub fn merge(mut self, other: Judging) -> Result<Self, String> {
+        for (k, v) in other.state {
+            match self.state.get(&k) {
+                Some(have) if *have != v => return Err(format!("state `{k}` differs")),
+                _ => {
+                    self.state.insert(k, v);
+                }
+            }
+        }
+        for (k, v) in other.images {
+            self.images.entry(k).or_insert(v);
+        }
+        for (id, q) in other.questions {
+            if self.questions.contains_key(&id) {
+                return Err(format!("question `{id}` is asked twice"));
+            }
+            self.questions.insert(id, q);
+        }
+        Ok(self)
+    }
 }
 
 /// One answer, kept close to the wire so callers read what they asked for.
@@ -112,9 +137,26 @@ impl Answer {
 struct Response {
     #[serde(default)]
     answers: BTreeMap<String, Answer>,
+    /// What the request was billed (input tokens etc.), as the API reports it; kept as is.
+    #[serde(default)]
+    usage: Option<Value>,
 }
 
-/// A configured Jev endpoint (ADR-75). Cheap, calibrated judgments; never an agent's chat model.
+/// The answers of one request and its billed usage (when the API reports it).
+#[derive(Debug, Clone, Default)]
+pub struct Asked {
+    pub answers: BTreeMap<String, Answer>,
+    pub usage: Option<Value>,
+}
+
+/// Deadline of one request. Every use is fail-open, so waiting longer only delays the work: a warm call answers in
+/// about 0.2-0.4 s, a cold one (TLS) in about 1.5-1.7 s (jev-fanout-bench, `docs/reference/JEV-OPPORTUNITIES.md`).
+const ATTEMPT_DEADLINE: Duration = Duration::from_secs(5);
+/// Waits before the retries of a busy answer (429, 503, 529) or a timeout.
+const RETRY_BACKOFF: [Duration; 2] = [Duration::from_millis(500), Duration::from_millis(1000)];
+
+/// A configured Jev endpoint (ADR-75). Cheap, calibrated judgments; never an agent's chat model. Clones share one
+/// connection pool: keep one `Judge` and reuse it rather than building one per call.
 #[derive(Clone)]
 pub struct Judge {
     http: Http,
@@ -133,10 +175,20 @@ impl Judge {
         })
     }
 
+    /// The model this endpoint is asked with.
+    pub fn model(&self) -> &str {
+        &self.model
+    }
+
     /// Asks the questions in one request; returns each answer by id.
     pub async fn ask(&self, j: &Judging) -> Result<BTreeMap<String, Answer>, LlmError> {
+        Ok(self.ask_full(j).await?.answers)
+    }
+
+    /// [`Judge::ask`] with the request's billed usage.
+    pub async fn ask_full(&self, j: &Judging) -> Result<Asked, LlmError> {
         if j.questions.is_empty() {
-            return Ok(BTreeMap::new());
+            return Ok(Asked::default());
         }
         let assets: BTreeMap<String, Value> = j
             .images
@@ -161,12 +213,68 @@ impl Judge {
         if !assets.is_empty() {
             headers.push(("typesafe-danger-zone-images", "true".to_owned()));
         }
-        let v = self
-            .http
-            .post_json(&self.url, &headers, &body, map_err)
-            .await?;
+        let mut attempt = 0;
+        let v = loop {
+            match self
+                .http
+                .post_json_within(&self.url, &headers, &body, map_err, ATTEMPT_DEADLINE)
+                .await
+            {
+                Err(e) if attempt < RETRY_BACKOFF.len() && retryable(&e) => {
+                    tokio::time::sleep(RETRY_BACKOFF[attempt]).await;
+                    attempt += 1;
+                }
+                r => break r?,
+            }
+        };
         let r: Response = serde_json::from_value(v).map_err(|e| LlmError::Decode(e.to_string()))?;
-        Ok(r.answers)
+        let mut answers = r.answers;
+        answers.retain(|id, a| j.questions.get(id).is_some_and(|q| a.fits(q)));
+        Ok(Asked {
+            answers,
+            usage: r.usage,
+        })
+    }
+}
+
+/// Busy or slow, worth another try: a rate limit, an overloaded or unavailable service, a timeout.
+fn retryable(e: &LlmError) -> bool {
+    match e {
+        LlmError::Timeout => true,
+        LlmError::Network(m) => m.contains("rate limited") || m.contains("busy"),
+        _ => false,
+    }
+}
+
+impl Answer {
+    /// Is this a well-formed answer to `q`? A malformed one counts as no answer (the caller goes ahead without it):
+    /// a Noul is a probability; a choice is one of the offered ids, its probabilities cover exactly those ids, are
+    /// probabilities summing to 1 (+/- 0.02), and the choice is the most probable (as jev-ultrafast checks).
+    fn fits(&self, q: &Question) -> bool {
+        let p01 = |p: f64| p.is_finite() && (0.0..=1.0).contains(&p);
+        match q {
+            Question::Noul { .. } => self.noul.is_some_and(p01),
+            Question::Choice { criteria, .. } => {
+                let Some(choice) = self.choice.as_ref().filter(|c| criteria.contains_key(*c))
+                else {
+                    return false;
+                };
+                if self.confidence.is_some_and(|c| !p01(c)) {
+                    return false;
+                }
+                match &self.probabilities {
+                    None => true,
+                    Some(ps) => {
+                        let top = ps.values().copied().fold(f64::NEG_INFINITY, f64::max);
+                        ps.len() == criteria.len()
+                            && ps.keys().all(|k| criteria.contains_key(k))
+                            && ps.values().all(|p| p01(*p))
+                            && (ps.values().sum::<f64>() - 1.0).abs() <= 0.02
+                            && ps.get(choice) == Some(&top)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -180,10 +288,17 @@ fn map_err(status: u16, _: &reqwest::header::HeaderMap, body: &str) -> LlmError 
                 .map(str::to_owned)
         })
         .unwrap_or_else(|| body.chars().take(200).collect());
+    let lower = detail.to_lowercase();
+    let exhausted = ["quota", "credit", "insufficient", "billing", "payment"]
+        .iter()
+        .any(|w| lower.contains(w));
     match status {
         401 | 403 => LlmError::Config(format!("TypeSafe key rejected: {detail}")),
+        402 => LlmError::Config(format!("TypeSafe quota exhausted: {detail}")),
+        429 if exhausted => LlmError::Config(format!("TypeSafe quota exhausted: {detail}")),
         400 | 422 => LlmError::Config(format!("TypeSafe request invalid: {detail}")),
         429 => LlmError::Network(format!("TypeSafe rate limited: {detail}")),
+        503 | 529 => LlmError::Network(format!("TypeSafe busy (HTTP {status}): {detail}")),
         _ => LlmError::Network(format!("TypeSafe HTTP {status}: {detail}")),
     }
 }

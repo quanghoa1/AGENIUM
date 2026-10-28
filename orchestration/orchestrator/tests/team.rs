@@ -2542,3 +2542,119 @@ async fn the_judge_reads_contradictions_only_when_on() {
         "names a skill the agent can use: {hits:?}"
     );
 }
+
+/// ADR-126: a report that reads as done while nothing checked the work after its last change goes back once — only
+/// with the judge on and `done_check` enabled, only when a check applies, never when a check passed after the change.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unverified_done_goes_back_only_when_the_judge_is_sure() {
+    use agenium_orchestrator::judge::done_check::run_facts;
+    use agenium_store::core::runs::LogEntry;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    async fn mock(answer: &'static str) -> String {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = l.accept().await.unwrap();
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = sock.read(&mut buf).await.unwrap();
+                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{answer}",
+                answer.len()
+            );
+            sock.write_all(resp.as_bytes()).await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+    let entry = |n: u32, tool: &str, args: serde_json::Value, result: &str| LogEntry {
+        n,
+        kind: "tool".into(),
+        data: serde_json::json!({ "tool": tool, "args": args, "ok": true, "result": result }),
+        at: String::new(),
+    };
+
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Fix the parser", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+    let report: agenium_core::forms::WorkReport = serde_json::from_value(serde_json::json!({
+        "ticket_id": k.to_string(),
+        "summary": "Fixed the parser; all tests pass.",
+        "confidence": 0.9,
+        "acceptance": t.acceptance.iter().map(|ac| serde_json::json!({"ac_id": ac.id, "status": "Met", "evidence": "fixed"})).collect::<Vec<_>>(),
+    }))
+    .unwrap();
+    let unchecked = run_facts(&[entry(
+        1,
+        "edit_file",
+        serde_json::json!({"path": "src/parser.rs"}),
+        "edited",
+    )]);
+    let sure = r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.9},"claims_checked":{"type":"noul","noul":0.85}}}"#;
+
+    // Judge off: nothing is asked, the report goes through.
+    assert!(f
+        .app
+        .unverified_done(&t, &report, &unchecked)
+        .await
+        .is_none());
+
+    let on = |base: String| {
+        f.app
+            .update_config(|c| {
+                c.judge = agenium_config::JudgeSection {
+                    base_url: base,
+                    model: "jev-latest".into(),
+                    done_check: true,
+                    ..Default::default()
+                }
+            })
+            .unwrap()
+    };
+    on(mock(sure).await);
+    let msg = f
+        .app
+        .unverified_done(&t, &report, &unchecked)
+        .await
+        .expect("a confident unverified done goes back");
+    assert!(
+        msg.contains("no command ran after your last change"),
+        "{msg}"
+    );
+    assert!(msg.contains("says checks passed"), "{msg}");
+    let seen = &f.app.judge_activity(1)[0];
+    assert_eq!(seen.use_, "done_check");
+    assert!(seen.outcome.starts_with("sent back"), "{}", seen.outcome);
+
+    // A check that passed after the last change settles it without asking.
+    let checked = run_facts(&[
+        entry(
+            1,
+            "edit_file",
+            serde_json::json!({"path": "src/parser.rs"}),
+            "edited",
+        ),
+        entry(
+            2,
+            "shell",
+            serde_json::json!({"command": "cargo test"}),
+            "exit code 0\nok",
+        ),
+    ]);
+    let before = f.app.judge_activity(50).len();
+    assert!(f.app.unverified_done(&t, &report, &checked).await.is_none());
+    assert_eq!(f.app.judge_activity(50).len(), before, "not asked");
+
+    // Not sure a check applies (prose, notes): accepted.
+    on(mock(r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.2},"claims_checked":{"type":"noul","noul":0.1}}}"#).await);
+    assert!(f
+        .app
+        .unverified_done(&t, &report, &unchecked)
+        .await
+        .is_none());
+    assert!(f.app.judge_activity(1)[0].outcome.starts_with("accepted"));
+}

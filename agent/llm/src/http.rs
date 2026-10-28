@@ -69,10 +69,23 @@ impl Http {
         body: &serde_json::Value,
         map_err: fn(u16, &HeaderMap, &str) -> LlmError,
     ) -> Result<serde_json::Value, LlmError> {
+        self.post_json_within(url, headers, body, map_err, Duration::from_secs(60))
+            .await
+    }
+
+    /// [`Http::post_json`] with its own deadline for the whole request.
+    pub async fn post_json_within(
+        &self,
+        url: &str,
+        headers: &[(&str, String)],
+        body: &serde_json::Value,
+        map_err: fn(u16, &HeaderMap, &str) -> LlmError,
+        deadline: Duration,
+    ) -> Result<serde_json::Value, LlmError> {
         let mut rb = self
             .client
             .post(url)
-            .timeout(Duration::from_secs(60))
+            .timeout(deadline)
             .header("content-type", "application/json");
         for (k, v) in headers {
             rb = rb.header(*k, v);

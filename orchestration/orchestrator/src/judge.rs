@@ -15,6 +15,11 @@ use agenium_llm::LlmError;
 use serde::{Deserialize, Serialize};
 
 use crate::app::App;
+
+pub mod done_check;
+
+/// The judge's client with the endpoint, model and key it was built for.
+pub(crate) type KeptJudge = ((String, String, String), Judge);
 use crate::{OrchError, Result};
 
 /// A Noul at or above this reads as "met", at or below `1 - this` as "not met", between as "unsure" (decision 35).
@@ -57,7 +62,7 @@ const ACTIVITY_KEEP: usize = 300;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JudgeActivity {
     pub at: String,
-    /// `skill_hint`, `memory_gate`, `review_assist`, `skill_quality`, `skill_contradiction` or `test`.
+    /// `skill_hint`, `memory_gate`, `review_assist`, `skill_quality`, `skill_contradiction`, `done_check` or `test`.
     #[serde(rename = "use")]
     pub use_: String,
     #[serde(default)]
@@ -84,6 +89,8 @@ pub struct JudgeInput {
     pub memory_gate: bool,
     #[serde(default)]
     pub skill_quality: bool,
+    #[serde(default)]
+    pub done_check: bool,
 }
 
 /// Whether the judge is usable now and, if not, why (persisted in `<root>/judge-health.json`).
@@ -95,17 +102,11 @@ pub struct JudgeHealth {
     pub at: Option<String>,
 }
 
-/// A key/quota failure disables the judge (the user must act); a one-off run error does not.
+/// A rejected key or an exhausted quota disables the judge (the user must act). A rate limit, a busy service or a bad
+/// request does not: the client retried the busy ones, and the call just goes ahead without the judge. (Before, any
+/// 429 turned the judge off until the user re-enabled it, and so did a 422 whose detail named a state key.)
 fn is_credential_or_quota(e: &LlmError) -> bool {
-    match e {
-        // systemone maps 401/403/400/422 to Config and 429 to a "rate limited" Network error.
-        LlmError::Config(m) => {
-            let m = m.to_lowercase();
-            m.contains("key") || m.contains("subscription") || m.contains("rejected")
-        }
-        LlmError::Network(m) => m.to_lowercase().contains("rate limited"),
-        _ => false,
-    }
+    matches!(e, LlmError::Config(m) if m.starts_with("TypeSafe key rejected") || m.starts_with("TypeSafe quota exhausted"))
 }
 
 impl App {
@@ -127,7 +128,7 @@ impl App {
 
     /// Asks the judge for `use_` and records the ask (`record` adds what the answer meant). A key/quota failure
     /// disables the judge; any failure returns `None` (fail-open).
-    async fn ask(
+    pub(crate) async fn ask(
         &self,
         judge: &Judge,
         j: &Judging,
@@ -152,7 +153,14 @@ impl App {
     }
 
     /// Appends one ask to the judge's activity (best effort: the activity is for the user to see, never a gate).
-    fn record(&self, use_: &str, ticket: Option<&str>, outcome: String, ok: bool, ms: u64) {
+    pub(crate) fn record(
+        &self,
+        use_: &str,
+        ticket: Option<&str>,
+        outcome: String,
+        ok: bool,
+        ms: u64,
+    ) {
         use std::io::Write;
         let a = JudgeActivity {
             at: agenium_core::now_iso(),
@@ -232,9 +240,19 @@ impl App {
                 .map_err(|e| OrchError::Invalid(e.to_string()))?
                 .to_owned()
         };
-        Judge::new(&j.base_url, &key, &j.model)
-            .map(Some)
-            .map_err(|e| OrchError::Invalid(e.to_string()))
+        // One client per endpoint, model and key: its connections are reused (a new one per call paid the TLS
+        // handshake every time, about 1.5 s against 0.3 s warm).
+        let id = (j.base_url.clone(), j.model.clone(), key);
+        let mut cached = self.judge_client.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some((have, judge)) = cached.as_ref() {
+            if *have == id {
+                return Ok(Some(judge.clone()));
+            }
+        }
+        let judge =
+            Judge::new(&id.0, &id.2, &id.1).map_err(|e| OrchError::Invalid(e.to_string()))?;
+        *cached = Some((id, judge.clone()));
+        Ok(Some(judge))
     }
 
     /// Re-enables the judge and checks it with a trivial request; clears the disabled state on success. For the user
@@ -269,6 +287,7 @@ impl App {
             skill_hint: j.skill_hint,
             memory_gate: j.memory_gate,
             skill_quality: j.skill_quality,
+            done_check: j.done_check,
         };
         if next.enabled() && next.api_key_ref.is_empty() && !local {
             return Err(OrchError::Invalid("the judge needs its API key".into()));
@@ -551,5 +570,33 @@ impl App {
             "\n## Independent evidence read (TypeSafe Jev, calibrated — a first opinion, verify it yourself)\n{}\n",
             lines.join("\n")
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only a rejected key or an exhausted quota turns the judge off; a rate limit, a busy service or a bad request
+    /// (even one whose detail names a state key) does not.
+    #[test]
+    fn only_key_and_quota_failures_disable_the_judge() {
+        let cfg = |m: &str| LlmError::Config(m.to_owned());
+        assert!(is_credential_or_quota(&cfg(
+            "TypeSafe key rejected: bad key"
+        )));
+        assert!(is_credential_or_quota(&cfg(
+            "TypeSafe quota exhausted: add credit"
+        )));
+        assert!(!is_credential_or_quota(&cfg(
+            "TypeSafe request invalid: unknown state key `report`"
+        )));
+        assert!(!is_credential_or_quota(&LlmError::Network(
+            "TypeSafe rate limited: slow down".into()
+        )));
+        assert!(!is_credential_or_quota(&LlmError::Network(
+            "TypeSafe busy (HTTP 503): x".into()
+        )));
+        assert!(!is_credential_or_quota(&LlmError::Timeout));
     }
 }

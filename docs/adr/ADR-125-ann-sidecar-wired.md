@@ -72,6 +72,14 @@ cover.
 10. **Saves are serialized**: a compaction build and a write could save at the same time through the same temporary
    files (found by the build-failure reporting).
 
+11. **Query embedding on our own encoder** (`agenium_memory::bert`): bge-small through candle-transformers' BERT spent
+   1.2 of 1.6 s of a whole-ticket query in its generic softmax. Agenium's encoder has the same weights and math
+   with the fused softmax and no mask when nothing is padded; its embeddings equal the reference's (`tests/local_model.rs`,
+   max difference < 1e-4, batched and single, past 512 tokens). A work run's recall embeds the query once, for both
+   the agent's memory and the shared pool.
+12. **Agent databases map 4 GiB** (ADR-50 §8 said 1 GiB): address space only; a 1 M-fact database is 1.9 GB and BM25
+   on it fell from 81 to 45 ms p50. BM25 is then what remains at 1 M (hybrid ~52 ms p50, `STORE-SCALE.md` §15).
+
 ## Consequences
 
 - A C++17 toolchain is needed to build the store (MSYS2 gcc on Windows-GNU, verified; MSVC not tried).
@@ -79,4 +87,5 @@ cover.
   facts: ~1 250 adds/s against ~4 000 exact-only) — memory writes a few facts per closed ticket, so this is accepted.
 - Measured at 100 000 facts (`STORE-SCALE.md` §13–14): with the §8 defaults, KNN 32.4 → 1.1 ms p50, `hybrid` 39 → 6
   ms, `recall` 62 → 28 ms (most of it is embedding the query), and agents get exact search's top 8 99 % of the time.
-  Not measured yet: 1 M facts with the sidecar, Linux and macOS.
+- At 1 M facts (`STORE-SCALE.md` §15): KNN 329 → 5 ms, hybrid 394 → 52 ms, agents get exact search's top 8 in 99 %
+  of recalls; sidecar 1 GB, built in 191 s in the background.

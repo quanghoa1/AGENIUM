@@ -176,6 +176,9 @@ pub struct JudgeSection {
     /// demands evidence, no stale embedded code) when a skill is imported or an agent upgrades one (ADR-90). The
     /// deterministic shape check always runs; this adds a calibrated semantic read. Fail-open.
     pub skill_quality: bool,
+    /// Before a worker's report is accepted: when nothing checked the work after its last change, let it read the
+    /// report against the run's facts and send a confident unverified "done" back once (ADR-126). Fail-open.
+    pub done_check: bool,
 }
 
 impl JudgeSection {

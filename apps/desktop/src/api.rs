@@ -822,7 +822,7 @@ pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
     Ok(json!({
         "base_url": j.base_url, "model": j.model, "has_key": has_key,
         "review_assist": j.review_assist, "skill_hint": j.skill_hint, "memory_gate": j.memory_gate,
-        "skill_quality": j.skill_quality,
+        "skill_quality": j.skill_quality, "done_check": j.done_check,
         "configured": j.enabled(), "disabled": h.disabled, "reason": h.reason,
     }))
 }

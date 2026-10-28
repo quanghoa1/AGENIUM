@@ -56,6 +56,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 ### Optional judge
 - TypeSafe Jev for small decisions that save the main agents' tokens (memory gate, skill hint, review assist, skill
   quality). Off by default, fail-open. See [docs/JEV.md](docs/JEV.md).
+- A report that says done while nothing checked the work after its last change can be sent back once (done check,
+  ADR-126); a short rate limit no longer turns the judge off, calls give up after 5 s and reuse one connection.
 
 ### Operations
 - Backups (hourly incremental, daily full, retention), restore into a new root, migrations with a backup first,

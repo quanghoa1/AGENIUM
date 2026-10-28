@@ -67,6 +67,8 @@ pub struct App {
     /// Journaled operations whose replays keep failing (`replay_pending_ops` backs off on them).
     pub(crate) op_retries: Mutex<HashMap<i64, crate::effects::OpRetry>>,
     agent_stores: Mutex<HashMap<AgentId, Arc<AgentStore>>>,
+    /// The judge's client, kept while its endpoint, model and key stay the same (connections reused, ADR-75).
+    pub(crate) judge_client: Mutex<Option<crate::judge::KeptJudge>>,
     /// Serializes writes of `<root>/vendor-usage.json`.
     pub(crate) vendor_usage_lock: Mutex<()>,
     /// The last price list read and the file times it was read at ([`App::prices`]).
@@ -165,6 +167,7 @@ impl App {
             faults: Arc::new(Mutex::new(Vec::new())),
             op_retries: Mutex::new(HashMap::new()),
             agent_stores: Mutex::new(HashMap::new()),
+            judge_client: Mutex::new(None),
             vendor_usage_lock: Mutex::new(()),
             prices_cache: Mutex::default(),
         };

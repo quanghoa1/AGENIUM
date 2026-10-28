@@ -253,6 +253,7 @@ function JudgeSection() {
           skill_hint: j.configured ? j.skill_hint : true,
           memory_gate: j.configured ? j.memory_gate : true,
           skill_quality: j.skill_quality,
+          done_check: j.done_check,
         });
         setKey("");
       })
@@ -277,6 +278,7 @@ function JudgeSection() {
     ["skill_hint", "settings.judgeSkill"],
     ["memory_gate", "settings.judgeMemory"],
     ["skill_quality", "settings.judgeQuality"],
+    ["done_check", "settings.judgeDone"],
   ];
   return (
     <Section title={app.t("settings.judge")}>

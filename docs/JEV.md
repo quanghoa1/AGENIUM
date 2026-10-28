@@ -26,6 +26,7 @@ Each use is a separate switch in **Settings → Judge** (`[judge]` in `config.to
 | **Skill hint** (`skill_hint`) | Before a run, for an agent with two or more skills | "Which of these skills fits this ticket, if any?" (from one-line descriptions) | The pick is put in front of the agent, so it opens one `SKILL.md` instead of reading several to choose. |
 | **Review assist** (`review_assist`) | Before the Lead reviews a report | "Is there evidence for each acceptance criterion?" | A first opinion per criterion (found / unclear / missing, with confidence) in the Lead's review context. The Lead still decides. |
 | **Skill quality** (`skill_quality`) | When you import a skill, or an agent upgrades one | Four checks: one job, actionable steps, proof that demands evidence, no stale embedded code | Notes shown beside the always-on structural check. Advisory only. |
+| **Done check** (`done_check`, ADR-126) | When a worker submits its report and the run changed files with no test/build/check passing after the last change | "Does the report read as done, would a check apply, does it claim checks passed?" (with the run's changed files and commands as facts) | On a confident unverified done, the report goes back to the worker once, in the same run, to run the check. Off by default; not yet measured on a real team. |
 
 What is sent to Jev: the text the question needs (a ticket's report and criteria, skill descriptions, a transcript
 summary for the memory gate) and nothing else: no API keys, no files outside what the question names. Every call is

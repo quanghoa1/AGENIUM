@@ -392,3 +392,48 @@ top 8 of `hybrid` and of the full `recall` pipeline, sidecar vs exact search on 
 Decision: M32 + ef256 (512 from 200 k). Sidecar 104 MB at 100 k (M16: 92 MB). §13 was measured with the old
 defaults on synthetic text; its recall (0.967) is superseded by this section.
 
+## 15. Memory from 100 000 to 1 000 000 facts (2026-10-28; ADR-125 §11–12)
+
+`ann_scale` (`agent/memory/examples`): facts are the 218 162 real sentences of §14's corpus with their bge-small
+vectors (embedded once, `ann_scale embed`), and past those, blends of two real facts (vector `normalize(w·a + (1-w)·b)`,
+`w` ∈ [0.3, 0.7], text = half of each) that keep the clustered shape of real embeddings — not real sentences. 200
+held-out queries; `recall` is the full pipeline (vector + BM25 + graph + scope + rules) with a project scope, the query
+vector given (`recall_with`), so the model is not needed at run time. Sidecar with the ADR-125 §8 defaults (M 32,
+ef 256 → 512 from 200 k). Raw: `bench-raw/windows-ann-scale-2026-10-28.txt`.
+
+**Windows 11, 10 cores / 16 threads, 32 GB:**
+
+| Facts | exact KNN p50/p95 ms | ANN KNN p50/p95 ms | recall@10 | hybrid exact → ANN p50 ms | hybrid top-8 = exact | recall exact → ANN p50 ms | recall top-8 = exact | build s | sidecar MB | reopen ms | live adds/s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 100 000 | 32.5 / 34.7 | 1.36 / 1.78 | 0.995 | 39.2 → 6.0 | 0.991 | 41.3 → 6.6 | 0.989 | 8.0 | 104 | 103 | 682 |
+| 500 000 | 159.7 / 167.6 | 4.41 / 5.43 | 0.993 | 191.0 → 26.9 | 0.993 | 197.5 → 27.6 | 0.989 | 74.9 | 522 | 437 | 330 |
+| 1 000 000 | 328.6 / 350.9 | 4.96 / 6.10 | 0.992 | 393.8 → 51.5 | 0.996 | 407.2 → 52.2 | 0.992 | 190.7 | 1 044 | 942 | 406 |
+
+**Ubuntu 25.10 VM (VMware), 2 vCPU, 5 GB RAM** (same build, same data; raw `bench-raw/ubuntu-vm-ann-scale-2026-10-28.txt`):
+
+| Facts | exact KNN p50/p95 ms | ANN KNN p50/p95 ms | recall@10 | hybrid exact → ANN p50 ms | hybrid top-8 = exact | recall exact → ANN p50 ms | recall top-8 = exact | build s | peak RSS MB | reopen ms | live adds/s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 100 000 | 34.0 / 35.5 | 1.66 / 2.19 | 0.998 | 40.4 → 6.2 | 0.996 | 42.5 → 7.0 | 0.991 | 30.5 | 683 | 82 | 611 |
+| 500 000 | 167.3 / 170.9 | 5.46 / 6.52 | 0.994 | 197.6 → 29.0 | 0.993 | 204.2 → 29.7 | 0.989 | 283.1 | 1 824 | 681 | 406 |
+| 1 000 000 | 342.0 / 359.9 | 6.68 / 8.23 | 0.992 | 404.9 → 54.8 | 0.995 | 415.2 → 55.0 | 0.992 | 734.4 | 2 886 | 1 171 | 297 |
+
+Reading it:
+- **Linux gives the same answers as Windows** (recall and top-8 agreement within the run-to-run spread of a parallel
+  build), and the same query latency: a query runs on one thread, so 2 vCPU are enough. Builds are what the cores
+  buy: 1 M facts take 12 min on 2 vCPU against 3 min on 16 threads, in the background while exact search serves. A
+  1 M-fact agent fits a 5 GB machine (peak 2.9 GB including the build).
+- **Agents get exact search's top 8 in 99 % of recalls at every size**; KNN stays near 5 ms at 1 M (66× faster).
+- **What is left at 1 M is BM25** (FTS5 scoring every posting of the query's words): 45 / 130 ms p50/p95 alone.
+  Tried and rejected: dropping the query's most frequent words (fast, but the keyword top 8 kept only 47–88 %);
+  FTS5 `optimize` (no change); ranking inside FTS5 before the liveness join (no change).
+- **mmap 4 GiB** (was 1 GiB): the 1 M database is 1.9 GB; BM25 81 → 45 ms p50 and hybrid 216 → 52 ms (first run
+  with the 1 GiB map: exact KNN 580 ms, hybrid 684 → 216 ms).
+- Build time grows faster than linearly (8 s → 191 s); it runs in the background while exact search serves, and a
+  saved sidecar reopens in under a second.
+
+**Query embedding** (bge-small, CPU, `agent/memory/src/bert.rs`): a whole ticket as the query (400 words, 512
+tokens) 1.6 s → 405 ms; 100 words 240 → 120 ms; short queries unchanged (~22 ms, per-operation overhead). Corpus
+ingest 60 → 141 sentences/s (length-sorted batches, 3 threads). The cause was candle-transformers' generic softmax
+(101 ms per layer at 512 tokens, the fused one 11 ms). `recall_in` now embeds once for the agent's memory and the
+shared pool (it embedded twice).
+
