@@ -100,6 +100,10 @@ fn find(root: &Path, frozen: &BTreeMap<String, u64>) -> Result<Findings> {
         shrunk: vec![],
     };
     for p in sources(root)? {
+        // Tracked but deleted in the working tree (a file split, not yet staged).
+        if !root.join(&p).exists() {
+            continue;
+        }
         let (size, allowed) = measure(&root.join(&p))?;
         if allowed {
             continue;

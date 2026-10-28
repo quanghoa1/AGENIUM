@@ -24,7 +24,6 @@
     "foundation/store/src/graph.rs": 35961,
     "foundation/vcs/src/lib.rs": 37285,
     "orchestration/orchestrator/src/effects.rs": 32236,
-    "orchestration/orchestrator/src/engine.rs": 71317,
     "orchestration/orchestrator/src/registry.rs": 42528,
     "orchestration/orchestrator/src/runtime/mod.rs": 65457,
     "orchestration/orchestrator/src/skill_overlay.rs": 35068,
