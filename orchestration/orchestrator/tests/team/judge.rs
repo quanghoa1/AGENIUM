@@ -158,33 +158,6 @@ async fn skill_hint_is_off_by_default_and_needs_two_skills() {
 /// adds nothing.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn skill_hint_prepends_the_judges_pick() {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    // A one-shot mock Jev that replies with the given answer body to the first request.
-    async fn mock(answer: &'static str) -> String {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = l.local_addr().unwrap();
-        tokio::spawn(async move {
-            let (mut sock, _) = l.accept().await.unwrap();
-            let mut buf = [0u8; 8192];
-            // Read until the request headers end; the body is irrelevant to the mock.
-            loop {
-                let n = sock.read(&mut buf).await.unwrap();
-                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            let body = answer.as_bytes();
-            let resp = format!(
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
-                body.len()
-            );
-            sock.write_all(resp.as_bytes()).await.unwrap();
-            sock.write_all(body).await.unwrap();
-            sock.flush().await.unwrap();
-        });
-        format!("http://{addr}")
-    }
-
     let two = [
         (
             "refactor".to_string(),
@@ -199,9 +172,10 @@ async fn skill_hint_prepends_the_judges_pick() {
     let t = ticket(&f, &k.to_string());
 
     // A confident pick becomes a hint naming the skill.
-    let base =
-        mock(r#"{"answers":{"skill":{"type":"choice","choice":"refactor","confidence":0.95}}}"#)
-            .await;
+    let base = jev_once(
+        r#"{"answers":{"skill":{"type":"choice","choice":"refactor","confidence":0.95}}}"#,
+    )
+    .await;
     f.app
         .update_config(|c| {
             c.judge = agenium_config::JudgeSection {
@@ -226,7 +200,8 @@ async fn skill_hint_prepends_the_judges_pick() {
 
     // "none" (or a low-confidence pick) adds no hint.
     let base =
-        mock(r#"{"answers":{"skill":{"type":"choice","choice":"none","confidence":0.9}}}"#).await;
+        jev_once(r#"{"answers":{"skill":{"type":"choice","choice":"none","confidence":0.9}}}"#)
+            .await;
     f.app.update_config(|c| c.judge.base_url = base).unwrap();
     assert!(
         f.app.skill_hint(&t, &two).await.is_none(),
@@ -239,32 +214,6 @@ async fn skill_hint_prepends_the_judges_pick() {
 /// the judge did not answer is left out.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn review_assist_reads_each_criterion_only_when_on() {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    // A one-shot mock Jev that replies with the given answer body to the first request.
-    async fn mock(answer: &'static str) -> String {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = l.local_addr().unwrap();
-        tokio::spawn(async move {
-            let (mut sock, _) = l.accept().await.unwrap();
-            let mut buf = [0u8; 8192];
-            loop {
-                let n = sock.read(&mut buf).await.unwrap();
-                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            let body = answer.as_bytes();
-            let resp = format!(
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
-                body.len()
-            );
-            sock.write_all(resp.as_bytes()).await.unwrap();
-            sock.write_all(body).await.unwrap();
-            sock.flush().await.unwrap();
-        });
-        format!("http://{addr}")
-    }
-
     let f = fixture();
     let a = solo_with_plan(&f, &[("PI-1", &[])]);
     let k = started(&f, a.id, "PI-1", "Write the greeting", &[], &[]);
@@ -276,7 +225,7 @@ async fn review_assist_reads_each_criterion_only_when_on() {
         "off by default"
     );
 
-    let base = mock(r#"{"answers":{"AC-1":{"type":"noul","noul":0.92}}}"#).await;
+    let base = jev_once(r#"{"answers":{"AC-1":{"type":"noul","noul":0.92}}}"#).await;
     f.app
         .update_config(|c| {
             c.judge = agenium_config::JudgeSection {
@@ -294,12 +243,12 @@ async fn review_assist_reads_each_criterion_only_when_on() {
     assert_eq!(seen.use_, "review_assist");
     assert_eq!(seen.outcome, "AC-1: evidence found (92%)");
 
-    let base = mock(r#"{"answers":{"AC-1":{"type":"noul","noul":0.5}}}"#).await;
+    let base = jev_once(r#"{"answers":{"AC-1":{"type":"noul","noul":0.5}}}"#).await;
     f.app.update_config(|c| c.judge.base_url = base).unwrap();
     let read = f.app.review_evidence(&t, report).await.expect("a read");
     assert!(read.contains("- AC-1: unclear (50%)"), "{read}");
 
-    let base = mock(r#"{"answers":{}}"#).await;
+    let base = jev_once(r#"{"answers":{}}"#).await;
     f.app.update_config(|c| c.judge.base_url = base).unwrap();
     assert!(
         f.app.review_evidence(&t, report).await.is_none(),
@@ -311,31 +260,6 @@ async fn review_assist_reads_each_criterion_only_when_on() {
 /// only when the judge is confident nothing is worth remembering, Some(true) when it is, and None when unsure.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn memory_gate_skips_only_on_a_confident_no() {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    async fn mock(answer: &'static str) -> String {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = l.local_addr().unwrap();
-        tokio::spawn(async move {
-            let (mut sock, _) = l.accept().await.unwrap();
-            let mut buf = [0u8; 8192];
-            loop {
-                let n = sock.read(&mut buf).await.unwrap();
-                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            let body = answer.as_bytes();
-            let resp = format!(
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
-                body.len()
-            );
-            sock.write_all(resp.as_bytes()).await.unwrap();
-            sock.write_all(body).await.unwrap();
-            sock.flush().await.unwrap();
-        });
-        format!("http://{addr}")
-    }
-
     let f = fixture();
     // Off by default: None, so the caller extracts as usual.
     assert_eq!(f.app.worth_remembering("routine work").await, None);
@@ -352,7 +276,7 @@ async fn memory_gate_skips_only_on_a_confident_no() {
     };
     // Confident "no" (0.05): skip is allowed.
     f.app
-        .update_config(on(mock(
+        .update_config(on(jev_once(
             r#"{"answers":{"worth":{"type":"noul","noul":0.05}}}"#,
         )
         .await))
@@ -360,7 +284,7 @@ async fn memory_gate_skips_only_on_a_confident_no() {
     assert_eq!(f.app.worth_remembering("routine work").await, Some(false));
     // Confident "yes" (0.95): do not skip.
     f.app
-        .update_config(on(mock(
+        .update_config(on(jev_once(
             r#"{"answers":{"worth":{"type":"noul","noul":0.95}}}"#,
         )
         .await))
@@ -371,7 +295,7 @@ async fn memory_gate_skips_only_on_a_confident_no() {
     );
     // Unsure (0.5): None, extract as usual.
     f.app
-        .update_config(on(mock(
+        .update_config(on(jev_once(
             r#"{"answers":{"worth":{"type":"noul","noul":0.5}}}"#,
         )
         .await))
@@ -383,7 +307,6 @@ async fn memory_gate_skips_only_on_a_confident_no() {
 /// on, a confident contradiction names the closest skill.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_judge_reads_contradictions_only_when_on() {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let t = team();
     let f = &t.f;
     let text = "## Steps\n1. Skip the regression test when the fix is small.\n";
@@ -396,30 +319,14 @@ async fn the_judge_reads_contradictions_only_when_on() {
         "off by default"
     );
 
-    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = l.local_addr().unwrap();
-    tokio::spawn(async move {
-        let (mut sock, _) = l.accept().await.unwrap();
-        let mut buf = [0u8; 16384];
-        loop {
-            let n = sock.read(&mut buf).await.unwrap();
-            if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
-                break;
-            }
-        }
-        let body = br#"{"answers":{"c0":{"type":"noul","noul":0.92},"c1":{"type":"noul","noul":0.1},"c2":{"type":"noul","noul":0.05}}}"#;
-        let head = format!(
-            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n",
-            body.len()
-        );
-        sock.write_all(head.as_bytes()).await.unwrap();
-        sock.write_all(body).await.unwrap();
-        sock.flush().await.unwrap();
-    });
+    let base = jev_once(
+        r#"{"answers":{"c0":{"type":"noul","noul":0.92},"c1":{"type":"noul","noul":0.1},"c2":{"type":"noul","noul":0.05}}}"#,
+    )
+    .await;
     f.app
         .update_config(|c| {
             c.judge = agenium_config::JudgeSection {
-                base_url: format!("http://{addr}"),
+                base_url: base,
                 model: "jev-latest".into(),
                 skill_quality: true,
                 ..Default::default()
@@ -441,27 +348,6 @@ async fn the_judge_reads_contradictions_only_when_on() {
 async fn an_unverified_done_goes_back_only_when_the_judge_is_sure() {
     use agenium_orchestrator::judge::done_check::run_facts;
     use agenium_store::core::runs::LogEntry;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    async fn mock(answer: &'static str) -> String {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = l.local_addr().unwrap();
-        tokio::spawn(async move {
-            let (mut sock, _) = l.accept().await.unwrap();
-            let mut buf = [0u8; 8192];
-            loop {
-                let n = sock.read(&mut buf).await.unwrap();
-                if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            let resp = format!(
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{answer}",
-                answer.len()
-            );
-            sock.write_all(resp.as_bytes()).await.unwrap();
-        });
-        format!("http://{addr}")
-    }
     let entry = |n: u32, tool: &str, args: serde_json::Value, result: &str| LogEntry {
         n,
         kind: "tool".into(),
@@ -507,7 +393,7 @@ async fn an_unverified_done_goes_back_only_when_the_judge_is_sure() {
             })
             .unwrap()
     };
-    on(mock(sure).await);
+    on(jev_once(sure).await);
     let msg = f
         .app
         .unverified_done(&t, &report, &unchecked)
@@ -542,7 +428,7 @@ async fn an_unverified_done_goes_back_only_when_the_judge_is_sure() {
     assert_eq!(f.app.judge_activity(50).len(), before, "not asked");
 
     // Not sure a check applies (prose, notes): accepted.
-    on(mock(r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.2},"claims_checked":{"type":"noul","noul":0.1}}}"#).await);
+    on(jev_once(r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.2},"claims_checked":{"type":"noul","noul":0.1}}}"#).await);
     assert!(f
         .app
         .unverified_done(&t, &report, &unchecked)
@@ -598,7 +484,7 @@ async fn shadow_mode_records_and_changes_nothing() {
     let t = ticket(&f, &k.to_string());
     let (report, facts) = unchecked_report(&t);
     let base = jev_once(
-        r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.9},"claims_checked":{"type":"noul","noul":0.1}},"usage":{"input_tokens":512}}"#.into(),
+        r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.9},"claims_checked":{"type":"noul","noul":0.1}},"usage":{"input_tokens":512}}"#,
     )
     .await;
     judge_on(&f, base, |j| {
@@ -636,7 +522,7 @@ async fn a_long_log_loses_only_confidently_unneeded_chunks() {
     lines[100] = "test parser::cut ... FAILED".into();
     let text = lines.join("\n");
     let base = jev_once(
-        r#"{"answers":{"chunk_1":{"type":"noul","noul":0.05},"chunk_2":{"type":"noul","noul":0.6}}}"#.into(),
+        r#"{"answers":{"chunk_1":{"type":"noul","noul":0.05},"chunk_2":{"type":"noul","noul":0.6}}}"#,
     )
     .await;
     judge_on(&f, base, |j| j.trim_output = true);
@@ -661,6 +547,7 @@ async fn a_long_log_loses_only_confidently_unneeded_chunks() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn secrets_never_reach_the_judge() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // Unlike `jev_once`, this mock keeps the request body: the test reads what reached the judge.
     let seen = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", l.local_addr().unwrap());

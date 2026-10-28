@@ -2,9 +2,11 @@
 
 > **Tóm tắt (tiếng Việt).** Jev là model "phán đoán" của TypeSafe: nó không viết code hay trò chuyện, mà trả lời các
 > câu hỏi có cấu trúc ("báo cáo này có bằng chứng cho tiêu chí AC-2 không?", "skill nào hợp với ticket này?") kèm xác
-> suất. Agenium dùng Jev ở 4 chỗ nhỏ để **agent chính đỡ tốn token**: bỏ qua việc trích memory ở ticket không có gì đáng
-> nhớ, chọn trước skill phù hợp, cho Lead một ý kiến thứ hai khi review, và đọc chất lượng một skill. Jev **mặc định tắt**,
-> và **lỗi thì bỏ qua**: hết quota, sai key hay mất mạng thì Agenium vẫn chạy y như khi không có Jev. Đo thực tế: tiết kiệm
+> suất. Agenium dùng Jev ở các chỗ nhỏ để **agent chính đỡ tốn token**: bỏ qua việc trích memory ở ticket không có gì
+> đáng nhớ, chọn trước skill phù hợp, cho Lead một ý kiến thứ hai khi review, đọc chất lượng một skill, trả báo cáo "xong"
+> chưa kiểm chứng, lược log dài, và `find_code` tìm code theo hành vi. Jev **chạy khi bạn thêm key** (mọi chức năng bật
+> sẵn; có thể nhập nhiều key đặt tên, dùng luân phiên), và **lỗi thì bỏ qua**: hết quota, sai key hay mất mạng thì Agenium
+> vẫn chạy y như khi không có Jev. Đo thực tế: tiết kiệm
 > khoảng 1–19 nghìn token mỗi ticket bình thường và 5–27 nghìn token mỗi lượt chạy có nhiều skill, và Jev đúng ngang một
 > model rẻ mạnh trên bộ câu hỏi kiểm tra. Nên bật khi model chính đắt hoặc ngữ cảnh chật.
 
@@ -26,9 +28,9 @@ Each use is a separate switch in **Settings → Judge** (`[judge]` in `config.to
 | **Skill hint** (`skill_hint`) | Before a run, for an agent with two or more skills | "Which of these skills fits this ticket, if any?" (from one-line descriptions) | The pick is put in front of the agent, so it opens one `SKILL.md` instead of reading several to choose. |
 | **Review assist** (`review_assist`) | Before the Lead reviews a report | "Is there evidence for each acceptance criterion?" | A first opinion per criterion (found / unclear / missing, with confidence) in the Lead's review context. The Lead still decides. |
 | **Skill quality** (`skill_quality`) | When you import a skill, or an agent upgrades one | Four checks: one job, actionable steps, proof that demands evidence, no stale embedded code | Notes shown beside the always-on structural check. Advisory only. |
-| **Done check** (`done_check`, ADR-126) | When a worker submits its report and the run changed files with no test/build/check passing after the last change | "Does the report read as done, would a check apply, does it claim checks passed?" (with the run's changed files and commands as facts) | On a confident unverified done, the report goes back to the worker once, in the same run, to run the check. Off by default. Measured on 10 labelled reports with the real API: 9/9 as expected, ≈ 430 input tokens per ask (ADR-127). |
-| **Output trimmer** (`trim_output`, ADR-127) | In a work run, when a `shell` or `grep` result is over 80 lines | "Does this chunk hold something the ticket needs?" (one Noul per middle chunk) | Chunks it is confident are not needed, and that rank low, are left out; head, tail and every key line (failure, error, test result) stay; the full output is saved and linked. Off by default: on six real outputs it lost nothing needed but trimmed only one (82 of 257 lines), as most of a capped test log is evidence (ADR-127). |
-| **find_code** (`find_code`, ADR-128) | A work tool for coding workers and the reviewing Lead | Which folders, files and units of source answer the agent's question about behaviour | The relevant files and the code that does it, verbatim with line numbers. On this repository: the answering file in the top 3 and its code excerpted for 10/10 questions, ≈ 3.4 s and $0.003 per search. |
+| **Done check** (`done_check`, ADR-126) | When a worker submits its report and the run changed files with no test/build/check passing after the last change | "Does the report read as done, would a check apply, does it claim checks passed?" (with the run's changed files and commands as facts) | On a confident unverified done, the report goes back to the worker once, in the same run, to run the check. Measured on 10 labelled reports with the real API: 9/9 as expected, ≈ 430 input tokens per ask (ADR-127). |
+| **Output trimmer** (`trim_output`, ADR-127) | In a work run, when a `shell` or `grep` result is over 80 lines | "Does this chunk hold something the ticket needs?" (one Noul per middle chunk) | Chunks it is confident are not needed, and that rank low, are left out; head, tail and every key line (failure, error, test result) stay; the full output is saved and linked. On six real outputs it lost nothing needed but trimmed only one (82 of 257 lines), as most of a capped test log is evidence (ADR-127). |
+| **find_code** (`find_code`, ADR-128) | A work tool for coding workers and the reviewing Lead | Which folders, files and units of source answer the agent's question about behaviour | The relevant files and the code that does it, verbatim with line numbers. On this repository: the answering file in the top 3 and its code excerpted for 10/10 questions, ≈ 3.4 s and $0.003 per search. On pinned Flask 3.1.0, every agent (four CLIs and DeepSeek over the API) spent 5–33 % fewer input tokens and fewer steps with it ([results](../quality/eval/results/find-code/README.md)). |
 | **Shadow mode** (`shadow`, ADR-127) | With any use on | — | Every use asks and records what it would do, and changes nothing: measure a use before turning it on. |
 
 What is sent to Jev: the text the question needs (a ticket's report and criteria, skill descriptions, a transcript
@@ -71,28 +73,36 @@ Vietnamese request in 4 tickets with Jev on (`quality/eval/results/team-mixed-20
 
 ## Safety and control
 
-- **Off by default.** Nothing is sent to TypeSafe until you add a key and turn a use on.
-- **Fail-open, and it turns itself off when the key stops working.** A wrong key or an exhausted quota turns the
-  judge off and puts a "Needs you" item up; one network error does not. **Re-enable and test** in Settings brings it
-  back. Meanwhile Agenium works normally.
+- **Nothing is sent until you add a key.** Then every use is on (each one can be turned off in Settings → Judge).
+- **Several named keys take turns** (one request each). A key **out of quota** is set aside and you are told which one,
+  by name; it is not used again until you re-enable it after adding credit. A key that **fails** otherwise rests 30
+  minutes, then an hour, and comes back by itself. With **every key out of quota** the judge is off until you re-enable
+  one (ADR-128).
+- **Fail-open.** Without a usable key — none added, out of quota, failing — every use returns nothing and Agenium
+  works exactly as it does without the judge, only without its help.
 - **Never in the learning path.** Agents' memories, lessons and skills never depend on Jev: every gate that decides
   what an agent learns works without it.
 - **Key handling** is the same as for model providers: the key lives in the encrypted vault.
 
 ## Turning it on
 
-Settings → **Judge**: paste your TypeSafe key, pick the uses (Agenium suggests the memory gate and the skill hint),
-then **Test**. Or in `config.toml`:
+Settings → **Judge**: add one or more TypeSafe keys, each under a name you will recognise in a notice, then **Test**.
+Every use is on; turn off the ones you do not want. Or in `config.toml`:
 
 ```toml
 [judge]
 base_url = "https://api.typesafe.ai"
 model = "jev-1.14.0"
-api_key_ref = "judge/typesafe"   # the key: agenium secret set judge/typesafe  (reads it from stdin)
+# each key's value: agenium secret set judge/key/<name>  (reads it from stdin)
+keys = [{ name = "main", secret_ref = "judge/key/main" }, { name = "backup", secret_ref = "judge/key/backup" }]
+# every use defaults to on; set one to false to turn it off
 memory_gate = true
 skill_hint = true
-review_assist = false
-skill_quality = false
+review_assist = true
+skill_quality = true
+done_check = true
+trim_output = true
+find_code = true
 ```
 
 Decisions behind this: [ADR-75](adr/ADR-75-typesafe-jev-judge.md) (the judge),

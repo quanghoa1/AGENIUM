@@ -149,7 +149,7 @@ use crate::app::App;
 use crate::Result;
 
 /// The body of a SKILL.md (everything after the frontmatter block), for linting and near-duplicate checks.
-pub(crate) fn strip_frontmatter(text: &str) -> String {
+pub fn strip_frontmatter(text: &str) -> String {
     let t = text.trim_start();
     if let Some(rest) = t.strip_prefix("---") {
         if let Some(end) = rest.find("\n---") {

@@ -56,14 +56,16 @@ fn planned(t: &Team) {
 }
 
 /// A one-request mock Jev answering `answer` (leaked: the mock outlives the test body's borrows).
-async fn jev_once(answer: String) -> String {
+/// A one-shot mock Jev: answers the first request with `answer` (the request body is not read).
+async fn jev_once(answer: impl Into<String>) -> String {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let answer: &'static str = Box::leak(answer.into_boxed_str());
+    let answer: String = answer.into();
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = l.local_addr().unwrap();
     tokio::spawn(async move {
         let (mut sock, _) = l.accept().await.unwrap();
         let mut buf = [0u8; 65536];
+        // Read until the request headers end; the body is irrelevant to the mock.
         loop {
             let n = sock.read(&mut buf).await.unwrap();
             if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {

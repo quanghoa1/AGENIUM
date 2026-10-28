@@ -89,10 +89,6 @@ impl Repo {
     }
 
     /// Scans the added lines of the staged diff.
-    pub fn scan_staged(&self, worktree: &Path) -> Result<Vec<StagedFinding>, VcsError> {
-        Self::staged_findings(&self.git_for(worktree)?, worktree)
-    }
-
     pub(super) fn staged_findings(
         g: &Git,
         worktree: &Path,

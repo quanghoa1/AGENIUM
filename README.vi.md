@@ -55,7 +55,7 @@ sẵn (Claude Code, Codex, Gemini/Antigravity, Grok, OpenCode). Ví dụ: Lead l
 | **Skill và tool** | Skill `SKILL.md` theo vai trò hoặc theo agent (13 skill có sẵn), MCP server (stdio, Streamable HTTP, SSE cũ, OAuth) gắn cho từng agent với thông tin đăng nhập riêng, xem ảnh cho model có thị giác (`view_image`). |
 | **Chi phí và kiểm soát** | Token và chi phí ước tính theo lượt chạy, ticket và agent; prompt caching; nén ngữ cảnh cho lượt chạy dài; tạm dừng, hủy, chạy lại. |
 | **Vận hành** | Sao lưu theo giờ/ngày có giữ hạn, khôi phục sang root mới, migration database có sao lưu trước, gói hỗ trợ không chứa bí mật, báo cáo dự án dạng Markdown, tùy chọn push lên remote khi ticket đóng. |
-| **Bộ phán đoán tùy chọn (Jev)** | Model Jev của TypeSafe nhận làm các quyết định nhỏ thay agent chính — ticket có đáng nhớ không, skill nào hợp — để agent chính đỡ tốn token. Mặc định tắt, lỗi thì bỏ qua. Xem [docs/JEV.md](docs/JEV.md). |
+| **Bộ phán đoán tùy chọn (Jev)** | Model Jev của TypeSafe nhận làm các quyết định nhỏ thay agent chính — ticket có đáng nhớ không, skill nào hợp — để agent chính đỡ tốn token. Chạy khi bạn thêm key (mọi chức năng bật sẵn), lỗi thì bỏ qua. Xem [docs/JEV.md](docs/JEV.md). |
 
 ## Cài đặt và lần chạy đầu
 

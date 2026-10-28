@@ -57,7 +57,7 @@ team.
 | **Skills and tools** | `SKILL.md` skills per role or agent (13 built in), MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth) bound per agent with their own credentials, image viewing for vision models (`view_image`). |
 | **Cost and control** | Tokens and estimated cost per run, ticket and agent; prompt caching; context compaction for long runs; pause, cancel, re-run. |
 | **Operations** | Hourly/daily backups with retention, restore into a new root, database migrations with a backup first, a support bundle without secrets, Markdown project reports, optional push to your remote on close. |
-| **Optional judge (Jev)** | TypeSafe's Jev model can take small decisions off the main agents — whether a ticket is worth remembering, which skill fits — to save their tokens. Off by default, fail-open. See [docs/JEV.md](docs/JEV.md). |
+| **Optional judge (Jev)** | TypeSafe's Jev model can take small decisions off the main agents — whether a ticket is worth remembering, which skill fits — to save their tokens. Used once you add a key (every use on), fail-open. See [docs/JEV.md](docs/JEV.md). |
 
 ## Install and first run
 

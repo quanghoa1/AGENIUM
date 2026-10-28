@@ -40,11 +40,6 @@ pub fn fts_search_query(text: &str) -> Option<String> {
 }
 
 impl AgentStore {
-    /// The vector-index options this store was opened with.
-    pub fn index_options(&self) -> &AgentOptions {
-        self.vectors.options()
-    }
-
     /// Which index serves KNN now, and the sidecar's state.
     pub fn index_status(&self) -> AnnStatus {
         self.vectors.status()

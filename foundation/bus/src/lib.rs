@@ -36,10 +36,6 @@ impl Bus {
             batch: 512,
         }
     }
-
-    pub fn receivers(&self) -> usize {
-        self.tx.receiver_count()
-    }
 }
 
 impl Default for Bus {

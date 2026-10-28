@@ -15,16 +15,6 @@ fn arg(args: &[String], name: &str) -> Option<String> {
         .and_then(|i| args.get(i + 1).cloned())
 }
 
-fn strip_frontmatter(text: &str) -> String {
-    let t = text.trim_start();
-    if let Some(rest) = t.strip_prefix("---") {
-        if let Some(end) = rest.find("\n---") {
-            return rest[end + 4..].trim_start_matches(['\n', '\r']).to_owned();
-        }
-    }
-    text.to_owned()
-}
-
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -55,7 +45,9 @@ async fn main() -> Result<()> {
     names.sort();
     println!("{} skills in {}\n", names.len(), dir.display());
     for name in names {
-        let body = strip_frontmatter(&std::fs::read_to_string(dir.join(&name).join("SKILL.md"))?);
+        let body = agenium_orchestrator::skill_shape::strip_frontmatter(&std::fs::read_to_string(
+            dir.join(&name).join("SKILL.md"),
+        )?);
         match app.skill_quality(&body).await {
             Some(notes) => println!("{name:<24} {}", notes.join(" · ")),
             None => {

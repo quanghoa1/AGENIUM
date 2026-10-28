@@ -25,9 +25,6 @@ import { Dot, LogLine, Room, RoomLog, roomsOf, useActivity } from "./live/activi
 import { Dock } from "./live/Dock";
 import { PlanList } from "./live/PlanList";
 
-export type { Call } from "./live/calls";
-export { classify } from "./live/calls";
-
 function Pill({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-elevated px-2.5 py-1 text-[11px]">
