@@ -42,7 +42,9 @@ root:
   untouched fact), compacted at 10 % churn; every write reaches the sidecar before it returns; a missing, corrupt,
   foreign or out-of-date sidecar (journal gap, restored older database) is detected and rebuilt. Verified:
   `agenium-store` `tests/ann.rs` (9) and 20 hard kills during writes with 0 self-hit misses (`tests/crash.rs`);
-  numbers in `STORE-SCALE.md` §13.
+  numbers in `STORE-SCALE.md` §13. **Tuned for exact answers** (§14, ADR-125 §8): on 100 000 real sentences agents
+  get exact search's top 8 99 % of the time (was 96 % with ADR-50's parameters) at 1.1 ms per KNN (exact: 32 ms);
+  two per-recall costs that grew with memory (counting every fact, scanning for lessons) removed.
 - **Large files split, behaviour unchanged:** `runtime/mod.rs` 2 858 → 1 546 lines (+ `ticket_runs`, `lead_runs`,
   `scheduling`), the CLI's `main.rs` 2 768 → 915 (+ `args` and one module per command group).
 

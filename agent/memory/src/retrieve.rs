@@ -52,7 +52,7 @@ pub fn recall(
     ctx: &RecallContext,
     k: usize,
 ) -> Result<Vec<Recalled>, MemoryError> {
-    if k == 0 || store.count_live()? == 0 {
+    if k == 0 || !store.has_live()? {
         return Ok(vec![]);
     }
     let qv = embedder.embed_query(query).map_err(MemoryError::Embedder)?;

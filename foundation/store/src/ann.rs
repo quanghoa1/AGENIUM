@@ -27,8 +27,8 @@ use crate::StoreError;
 
 /// Facts per agent from which `IndexMode::Auto` builds and uses the sidecar (ADR-50 §2, owner-approved).
 pub const DEFAULT_ANN_THRESHOLD: u64 = 100_000;
-/// From this many vectors `AnnOptions::scale_ef` doubles the search expansion (ADR-50 §3: recall@10 at 500 k goes from
-/// 0.969 to 0.9875 for +0.2 ms).
+/// From this many vectors `AnnOptions::scale_ef` doubles the search expansion (ADR-50 §3: recall falls as the index
+/// grows; doubling ef took recall@10 at 500 k from 0.969 to 0.9875 for +0.2 ms).
 pub const SCALE_EF_FROM: usize = 200_000;
 const META_VERSION: u32 = 1;
 /// Vectors read per short read transaction while building.
@@ -93,9 +93,11 @@ impl Default for AnnOptions {
     fn default() -> Self {
         Self {
             dtype: AnnDtype::F16,
-            connectivity: 16,
+            // ADR-125 §8 (sweep on 100 000 real sentences): M 32 + ef 256 gives recall@10 0.997 at 1.1 ms, and agents
+            // get the same top 8 as exact search 99 % of the time; ADR-50's M 16 + ef 128 gave 0.974 and 96 %.
+            connectivity: 32,
             expansion_add: 128,
-            expansion_search: 128,
+            expansion_search: 256,
             scale_ef: true,
             rerank: false,
             save_every: 20_000,
@@ -718,6 +720,9 @@ pub(crate) struct Vectors {
     db_id: OnceLock<String>,
     /// The journal is never trimmed past this position (a running build's start); `i64::MAX` when no build runs.
     floor: AtomicI64,
+    /// One save at a time: a compaction build saves its sidecar while writes may save the active one, through the same
+    /// temporary files.
+    saving: Mutex<()>,
 }
 
 impl Vectors {
@@ -740,6 +745,7 @@ impl Vectors {
             last_discard: Mutex::new(None),
             db_id: OnceLock::new(),
             floor: AtomicI64::new(i64::MAX),
+            saving: Mutex::new(()),
         });
         match v.opts.index_mode {
             IndexMode::Exact => {}
@@ -852,6 +858,7 @@ impl Vectors {
             let Some(mut s) = built? else { return Ok(None) };
             self.db.read(|c| s.catch_up(c, true))?;
             self.builds.fetch_add(1, Ordering::Relaxed);
+            let _one = self.saving.lock().unwrap_or_else(|p| p.into_inner());
             s.save(self.db.path(), &db_id)?;
             Ok(Some(s))
         })();
@@ -998,6 +1005,7 @@ impl Vectors {
             let Some(s) = slot.as_ref() else {
                 return Ok(());
             };
+            let _one = self.saving.lock().unwrap_or_else(|p| p.into_inner());
             s.save(self.db.path(), &db_id)?;
             s.applied_seq
         };
@@ -1091,7 +1099,7 @@ impl Vectors {
 mod tests {
     use super::*;
 
-    /// ADR-50 §3: expansion_search 128, doubled from 200 000 vectors when `scale_ef` is on.
+    /// expansion_search 256 (ADR-125 §8), doubled from 200 000 vectors when `scale_ef` is on.
     #[test]
     fn search_expansion_doubles_from_200k_vectors() {
         let opts = AnnOptions::default();
@@ -1108,10 +1116,10 @@ mod tests {
             }
         });
         s.tune();
-        assert_eq!(s.index.expansion_search(), 128);
+        assert_eq!(s.index.expansion_search(), 256);
         s.add_new(SCALE_EF_FROM as i64, &v(SCALE_EF_FROM)).unwrap();
         s.tune();
-        assert_eq!(s.index.expansion_search(), 256);
+        assert_eq!(s.index.expansion_search(), 512);
         let fixed = Sidecar {
             opts: AnnOptions {
                 scale_ef: false,
@@ -1120,6 +1128,6 @@ mod tests {
             ..s
         };
         fixed.tune();
-        assert_eq!(fixed.index.expansion_search(), 128);
+        assert_eq!(fixed.index.expansion_search(), 256);
     }
 }

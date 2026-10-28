@@ -39,6 +39,10 @@ pub const AGENT_MIGRATIONS: &[Migration] = &[
         version: 5,
         sql: include_str!("schema/agent_005.sql"),
     },
+    Migration {
+        version: 6,
+        sql: include_str!("schema/agent_006.sql"),
+    },
 ];
 
 /// Tables carried by an agent export (in dependency order). `agent_meta`, vectors and the ANN journal are
@@ -661,6 +665,17 @@ impl AgentStore {
             return Ok(vec![]);
         }
         Exact(&self.db).knn(query, k)
+    }
+
+    /// Is there any live fact? (Stops at the first one; `count_live` walks them all, ~20 ms at 1 M facts.)
+    pub fn has_live(&self) -> Result<bool, StoreError> {
+        self.db.read(|c| {
+            Ok(c.query_row(
+                "SELECT EXISTS (SELECT 1 FROM fact WHERE superseded_by IS NULL)",
+                [],
+                |r| r.get(0),
+            )?)
+        })
     }
 
     pub fn count_live(&self) -> Result<u64, StoreError> {

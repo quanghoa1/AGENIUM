@@ -366,3 +366,29 @@ Reading it:
 - Live adds through an active sidecar: 704/s on this corpus (each add catches the sidecar up before it returns).
 - Not run: 1 M facts with ANN, Linux/macOS, the concurrency phase of §9 with the sidecar.
 
+## 14. Choosing the sidecar's parameters on real text (2026-10-28; ADR-125 §8)
+
+`ann_sweep` (`agent/memory/examples`): 100 000 real technical sentences (doc comments of the crates in the cargo
+registry and Agenium's docs; 218 662 extracted, the first 100 000 stored) embedded with bge-small, 500 held-out
+sentences cut to eight words as queries (`embed_query`), the database kept so each configuration is only a rebuild.
+Raw: `bench-raw/windows-ann-sweep-bge-100k-2026-10-28.txt`. Exact KNN: 32.4 / 33.7 ms p50/p95.
+
+| Build | build s | ef_search | recall@10 | top-1 = exact | KNN p50/p95 ms |
+|---|---|---|---|---|---|
+| M16, parallel | 6.3 | 64 / 128 / 256 / 512 | 0.943 / 0.974 / 0.991 / 0.996 | 0.962 / 0.986 / 0.990 / 0.994 | 0.25 / 0.43 / 0.81 / 1.51 |
+| M16, serial | 38.9 | 64 / 128 / 256 / 512 | 0.940 / 0.973 / 0.990 / 0.996 | 0.962 / 0.984 / 0.992 / 0.994 | 0.23 / 0.43 / 0.82 / 1.53 |
+| M32, parallel | 8.1 | 64 / 128 / 256 / 512 | 0.969 / 0.989 / **0.997** / 0.999 | 0.984 / 0.992 / 0.994 / 0.998 | 0.35 / 0.63 / **1.14** / 2.08 |
+
+Rerank ×4 changed recall by ≤ 0.0003 and added ~0.5 ms in every row (raw file). What agents get (`--agent M,EF`: the
+top 8 of `hybrid` and of the full `recall` pipeline, sidecar vs exact search on the same database):
+
+| | top-8 same as exact | top-1 same | exact p50/p95 ms | ANN p50/p95 ms |
+|---|---|---|---|---|
+| hybrid, M32 ef256 | 0.994 | 0.994 | 39.0 / 46.8 | 6.1 / 13.5 |
+| recall, M32 ef256 | 0.990 | 0.994 | 61.8 / 70.9 | 28.0 / 36.2 |
+| hybrid, M16 ef128 | 0.969 | 0.962 | 38.9 / 46.3 | 5.5 / 13.1 |
+| recall, M16 ef128 | 0.959 | 0.962 | 62.5 / 71.6 | 27.6 / 37.0 |
+
+Decision: M32 + ef256 (512 from 200 k). Sidecar 104 MB at 100 k (M16: 92 MB). §13 was measured with the old
+defaults on synthetic text; its recall (0.967) is superseded by this section.
+

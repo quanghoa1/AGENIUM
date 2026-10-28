@@ -14,8 +14,8 @@ cover.
 ## Decision
 
 1. **Module `agenium_store::ann`**, behind `AgentStore` (no API change for callers): `VectorIndex` with `Exact`
-   (sqlite-vec) and `Sidecar` (usearch 2.26.5, pinned; f16, M 16, ef_add 128, ef_search 128 → 256 from 200 000
-   vectors, rerank off — all ADR-50 defaults). `AgentStore::open_with(…, AgentOptions)` takes `IndexMode::{Exact, Ann,
+   (sqlite-vec) and `Sidecar` (usearch 2.26.5, pinned; f16, ef_add 128, rerank off as in ADR-50; **M 32 and
+   ef_search 256 → 512 from 200 000 vectors**, changed from ADR-50's 16 and 128 by §8). `AgentStore::open_with(…, AgentOptions)` takes `IndexMode::{Exact, Ann,
    Auto}` and `ann_threshold`; the orchestrator passes `[memory] ann_threshold`. Files: `<db>.ann` + `<db>.ann.json`,
    removed with the agent.
 2. **Deletes are tombstones, not `remove`.** usearch reuses a removed key's slot for the next add, which rewires the
@@ -51,11 +51,32 @@ cover.
    was last counted, so the threshold is checked on every write with one O(1) read and counted only when that bound
    reaches it: the write that reaches the threshold starts the build.
 
+8. **Defaults chosen by measurement (2026-10-28, owner: "memory phải trả kết quả chuẩn xác cho agent, tốc độ ổn").**
+   A sweep on 100 000 real technical sentences (crate doc comments and Agenium's docs, bge-small embeddings, 500
+   held-out queries; `ann_sweep`, `STORE-SCALE.md` §14):
+
+   | M, ef_search | recall@10 | KNN p50 | agents' `hybrid` top 8 = exact | `recall` top 8 = exact |
+   |---|---|---|---|---|
+   | 16, 128 (ADR-50) | 0.974 | 0.43 ms | 96.9 % | 95.9 % |
+   | 16, 256 | 0.991 | 0.81 ms | | |
+   | **32, 256** | **0.997** | **1.14 ms** | **99.4 %** | **99.0 %** |
+   | 32, 512 | 0.999 | 2.08 ms | | |
+
+   Exact KNN on the same data: 32.4 ms. M 32 + ef 256 is the default: near-exact answers at 1 ms (sidecar 104 MB
+   instead of 92 MB, build 8.1 s instead of 6.3 s). Rejected: rerank ×4 (+0.0002 recall, +0.5 ms); serial builds
+   (recall 0.9732 vs 0.9740 parallel, 6× the build time; the self-hit gap of §6 came from tight synthetic clusters).
+9. **Per-recall costs that grew with memory**, found while measuring: `recall` counted every live fact to check the
+   memory was not empty (`count_live`, 1.5–2.5 ms at 100 k; now `has_live`, 0.02 ms), and `rules_in` — run on every
+   work run's recall, as work runs pass a project scope — read every live fact to find the lessons (7–12 ms at 100 k;
+   agent migration 6 adds a partial index of live facts by kind, 0.15–0.65 ms, flat with size).
+10. **Saves are serialized**: a compaction build and a write could save at the same time through the same temporary
+   files (found by the build-failure reporting).
+
 ## Consequences
 
 - A C++17 toolchain is needed to build the store (MSYS2 gcc on Windows-GNU, verified; MSVC not tried).
 - Each vector write costs a journal read and a vector lookup while a sidecar is active (≈ 0.8 ms per add at 10 k
   facts: ~1 250 adds/s against ~4 000 exact-only) — memory writes a few facts per closed ticket, so this is accepted.
-- Measured at 100 000 facts with bge-small embeddings (`STORE-SCALE.md` §13): KNN 32.5 → 0.70 ms p50, hybrid
-  38.1 → 4.1 ms p50, build 6.8 s, sidecar 92 MB, reopen with the sidecar 99 ms. **recall@10 0.967**, below ADR-50's
-  0.9885 (different, synthetic corpus; parallel build); ef_search 256 at 100 k and a serial build are not measured yet.
+- Measured at 100 000 facts (`STORE-SCALE.md` §13–14): with the §8 defaults, KNN 32.4 → 1.1 ms p50, `hybrid` 39 → 6
+  ms, `recall` 62 → 28 ms (most of it is embedding the query), and agents get exact search's top 8 99 % of the time.
+  Not measured yet: 1 M facts with the sidecar, Linux and macOS.

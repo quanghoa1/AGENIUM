@@ -104,7 +104,7 @@ fn populate(s: &AgentStore, g: &mut Gen, n: usize) -> Vec<(i64, Vec<f32>)> {
 }
 
 #[test]
-fn defaults_follow_adr_50() {
+fn defaults_follow_adr_50_and_125() {
     let o = AgentOptions::default();
     assert_eq!(o.index_mode, IndexMode::Auto);
     assert_eq!(o.ann_threshold, 100_000);
@@ -112,7 +112,7 @@ fn defaults_follow_adr_50() {
     let a = AnnOptions::default();
     assert_eq!(
         (a.connectivity, a.expansion_add, a.expansion_search),
-        (16, 128, 128)
+        (32, 128, 256)
     );
     assert!(a.scale_ef && !a.rerank);
     assert_eq!(a.save_every, 20_000);
