@@ -81,7 +81,20 @@ fn generated_files_stay_out_of_commits() {
         )
         .unwrap();
     r.git()
-        .check(&w.path, ["commit", "-q", "-m", "stray log"])
+        // An identity of its own: a machine without a global git identity runs this too.
+        .check(
+            &w.path,
+            [
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "stray log",
+            ],
+        )
         .unwrap();
     write(&w.path, "app.py", "print(2)\n");
     r.commit_all(&w.path, "Fix app", AUTHOR, &[])
