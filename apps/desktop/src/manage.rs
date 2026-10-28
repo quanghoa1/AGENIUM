@@ -344,9 +344,11 @@ fn skill_rel(rel: &str) -> R<PathBuf> {
     let rel = rel.trim().replace('\\', "/");
     let ok = (rel.starts_with("references/") || rel.starts_with("scripts/"))
         && !rel.contains("..")
-        && rel
-            .split('/')
-            .all(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)));
+        && rel.split('/').all(|s| {
+            !s.is_empty()
+                && s.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+        });
     if !ok {
         return Err(format!(
             "path must be under references/ or scripts/ (a-z, 0-9, . _ - only); got {rel:?}"
@@ -377,7 +379,12 @@ pub fn skill_file(d: State<'_, Desktop>, name: String, path: String) -> R<Value>
 
 /// Writes one of a skill's reference/script files (create or edit), then re-validates the skill folder.
 #[tauri::command]
-pub fn save_skill_file(d: State<'_, Desktop>, name: String, path: String, content: String) -> R<Value> {
+pub fn save_skill_file(
+    d: State<'_, Desktop>,
+    name: String,
+    path: String,
+    content: String,
+) -> R<Value> {
     let o = d.opened()?;
     let dir = skill_dir(&o, &name)?;
     let rel = skill_rel(&path)?;
