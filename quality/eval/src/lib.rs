@@ -19,6 +19,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 pub mod learning;
+pub mod mcp_keys;
 pub mod memory_reuse;
 pub mod stats;
 pub mod team;

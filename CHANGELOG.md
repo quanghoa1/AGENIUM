@@ -57,6 +57,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 ### Safety
 - Agent commands run in an OS sandbox (Windows MXC containers, Linux bubblewrap, macOS Seatbelt): writes only in the
   ticket's worktree. Without a working sandbox, commands wait for your approval.
+- Settings describe the three command modes at once in plain words (run in the sandbox, ask me every time, sandbox
+  only and never ask) with what each does on this computer right now; a mode's description used to show only once
+  it was chosen.
 - Encrypted vault for keys (master key in the OS keyring); secrets never reach agents, logs or git; secret scan on
   every commit; redaction in logs.
 - Tool caches and installed packages are kept out of commits (ADR-116).
@@ -70,7 +73,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Memory stays fast past 100 000 facts per agent: an approximate (HNSW) vector index takes over from exact search,
   built in the background, checked on every start and rebuilt when it cannot be trusted (ADR-50, ADR-125).
 - `SKILL.md` skills (13 built in), skill overlays and agent-created skills behind evidence gates.
-- MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth), bound per agent with their own credentials.
+- MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth), bound per agent with their own credentials: two agents
+  reach one server with different keys and so different rights (an admin's, a member's), API and CLI agents alike;
+  an own key pasted bare keeps the system key's `Bearer ` (it reached the server without it and was refused).
 - `view_image` for vision models; `fetch` through an allowlist.
 - Background commands for every agent: `shell` with `background` starts a server or watcher, `shell_output` reads it
   while it runs, `shell_stop` ends it; all stop with the run (ADR-129).

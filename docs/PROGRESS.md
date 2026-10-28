@@ -93,6 +93,10 @@ root:
   its run (none of the user's own configuration). Fixed on the way: the learning scenario that had stopped testing
   skill writing, closing a project during the Lead's chat turn, instructions naming tools a run did not have, Codex's
   and OpenCode's own skill and worktree tools, and the report fields models guess.
+- **Two agents on one MCP server with different keys** ([VERIFICATION](VERIFICATION.md), 2026-10-29): an admin's key
+  and a member's on one HTTP server, the workers on the API, Claude Code and Codex: each reached the server with its
+  own key and only the admin could delete; no key in any log. An own key pasted bare now keeps `Bearer ` (ADR-62).
+  Settings describe the three command modes at once, with what each does on this computer.
 
 | Release item | Status | Evidence |
 |---|---|---|

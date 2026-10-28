@@ -45,3 +45,23 @@ the conversation is a CLI-like chat with expandable thinking")
 - Keys in tool-call arguments (the Lead's `set_member_mcp_key`) are masked in the run log because the value is
   registered before the call is logged; a key the Lead read from an MCP output earlier in the run is masked only if
   its pattern is a known secret format.
+
+## Amended (2026-10-29)
+
+- **A bare own key keeps the scheme of a literal system key.** An entry written as a plain `Bearer <token>` (also
+  `Basic`, `Token`, `Bot`, `Digest`, `ApiKey`) given an own key without one becomes `Bearer <own key>`, as an entry
+  with a placeholder always did; an own key with a scheme of its own (it holds a space) still replaces the whole
+  value. Found while writing the two-keys scenario below: the admin's key pasted bare on the agent's page, as a user
+  does, would have reached the server as `Authorization: <key>` and been refused, leaving that agent without the
+  server's tools. The agent page now says to paste just the key.
+
+## Verified (2026-10-29)
+
+`agenium-eval --mcp-keys` (`quality/eval/src/mcp_keys.rs`): an HTTP MCP server gives each bearer key a role and lets
+only the admin delete a record; its entry's system key is the member's, the first worker's own key the admin's
+(pasted bare). Each worker's ticket: call `whoami`, try `delete_record`, report. With the workers on DeepSeek over the
+API, on Claude Code (Haiku) and on Codex (gpt-6-luna), the Lead on DeepSeek, all three passed alike: the server saw
+the admin's key only from the first worker (`role: admin`, record deleted) and the member's only from the second
+(`role: member`, delete refused with the server's own words, which the worker reported); no request came without a
+known key; both tickets were reviewed and closed; neither key showed in a run log, a ticket, an event or a file of
+the root besides the configuration and the core database that hold them.

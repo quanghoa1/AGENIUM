@@ -342,7 +342,20 @@ e0 = errors.length;
 await go("settings");
 await shot("31-settings");
 check("settings no longer hold theme or language", !(await js(`[...document.querySelectorAll('main button')].some((b) => ['Light', 'Dark', 'System', 'Tiếng Việt', 'English'].includes(b.textContent.trim()))`)));
-check("settings show the shell command modes", /run in the sandbox/i.test(await main()) && /ask me every time/i.test(await main()));
+const modes = await main();
+check(
+  "settings describe every command mode at once, and what happens on this computer now",
+  /run in the sandbox/i.test(modes) && /ask me every time/i.test(modes) && /never ask/i.test(modes) &&
+    (modes.match(/On a computer without a sandbox/g) ?? []).length === 2 && /Right now:/.test(modes),
+);
+// Choosing a mode says at once what it does here; the mode the root had is put back.
+const firstMode = await js(`document.querySelector('[role=radio][aria-checked=true]')?.innerText.split('\\n')[0]`);
+const pickMode = (title) => js(`[...document.querySelectorAll('[role=radio]')].find((b) => b.innerText.startsWith(${JSON.stringify(title)}))?.click()`);
+await pickMode("Ask me every time");
+const askedNow = await has("Right now: each command waits for your OK", 5000);
+await pickMode(firstMode ?? "Run in the sandbox");
+const modeBack = await until(`document.querySelector('[role=radio][aria-checked=true]')?.innerText.startsWith(${JSON.stringify(firstMode ?? "Run in the sandbox")})`, 5000);
+check("choosing a command mode says what it does now, and the mode is put back", askedNow && modeBack, firstMode);
 const added = await js(`(() => {
   const sec = [...document.querySelectorAll('main section')].find((s) => (s.innerText ?? '').includes('Add and test'));
   if (!sec) return false;

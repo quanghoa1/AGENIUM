@@ -1,13 +1,13 @@
-import { Copy, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
 import { ProjectPicker } from "../components/ProjectPicker";
 import { useEffect, useState } from "react";
 import { Logo } from "../components/Logo";
-import { ConfirmModal } from "../components/motion";
-import { Empty, Mono, PageHeader, Section, cn } from "../components/ui";
+import { Empty, Mono, PageHeader, Section } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { Key } from "../lib/i18n";
-import type { AuditEntry, CommandPolicy } from "../lib/types";
+import type { AuditEntry } from "../lib/types";
+import { CommandPolicySection } from "./CommandSettings";
 import { JudgeSection } from "./JudgeSettings";
 
 /** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
@@ -129,61 +129,6 @@ export function SettingsView() {
         </Section>
       </div>
     </div>
-  );
-}
-
-/** How agent shell commands are approved and whether this machine has a working sandbox (ADR-64). */
-function CommandPolicySection() {
-  const app = useApp();
-  const [p, setP] = useState<CommandPolicy | null>(null);
-  const [ask, setAsk] = useState(false);
-  useEffect(() => {
-    api.commandPolicy().then(setP).catch(() => setP(null));
-  }, []);
-  const setUnsandboxed = (on: boolean) => api.setUnsandboxed(on).then(setP).catch((e) => app.notify(String(e)));
-  if (!p) return null;
-  return (
-    <Section title={app.t("settings.commands")}>
-      <div className="flex flex-wrap gap-2">
-        {(["sandboxed", "on-request", "never"] as const).map((m) => (
-          <button
-            key={m}
-            className={cn("btn", p.approval === m && "border-accent text-accent")}
-            onClick={() => api.setCommandPolicy(m).then(setP).catch((e) => app.notify(String(e)))}
-          >
-            {app.t(`settings.commands.${m}`)}
-          </button>
-        ))}
-      </div>
-      <div className="mt-2 text-[11px] text-subtle">{app.t(`settings.commands.${p.approval}.hint`)}</div>
-      <div className={cn("mt-2 flex items-center gap-1.5 text-[11px]", p.backend ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300")}>
-        {p.backend ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
-        {p.backend ? app.t("settings.sandboxOn") : app.t("settings.sandboxOff")}
-      </div>
-      {!p.backend && (
-        <label className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={p.unsandboxed}
-            onChange={(e) => (e.target.checked ? setAsk(true) : setUnsandboxed(false))}
-          />
-          <span>
-            <span className="font-medium">{app.t("settings.unsandboxed")}</span>
-            <span className="mt-0.5 block text-[11px] text-subtle">{app.t("settings.unsandboxed.hint")}</span>
-          </span>
-        </label>
-      )}
-      <ConfirmModal
-        open={ask}
-        title={app.t("settings.unsandboxed")}
-        note={app.t("settings.unsandboxed.warn")}
-        confirm={app.t("settings.unsandboxed.ok")}
-        icon={<ShieldAlert className="h-3.5 w-3.5" />}
-        onClose={() => setAsk(false)}
-        onConfirm={() => (setAsk(false), setUnsandboxed(true))}
-      />
-    </Section>
   );
 }
 

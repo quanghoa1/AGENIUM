@@ -4,7 +4,8 @@
 //! --base-url default --key-env <VAR> --model <model>`: a provider built from a test key in the environment.
 //! With a vendor CLI (CliBackend): `--cli codex --model gpt-6-luna` or `--cli agy --model gemini-3.8-flash-low`
 //! (uses the CLI's own login and quota; codex runs inside the sandbox, agy's commands need approval).
-//! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--memory-reuse on|off` (memory
+//! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--mcp-keys` (two agents, one MCP
+//! server, two keys with different roles; ADR-62), `--memory-reuse on|off` (memory
 //! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`;
 //! `--models <dir>` gives the agent the local embedding model from `<dir>`, else memory uses the hashing embedder).
 
@@ -112,6 +113,18 @@ async fn main() -> Result<()> {
             .await?,
         );
     }
+    // `--mcp-keys`: two workers reach one MCP server with their own keys, an admin's and a member's (ADR-62).
+    if args.iter().any(|a| a == "--mcp-keys") {
+        eprintln!("running {} ...", agenium_eval::mcp_keys::ID);
+        results.push(
+            agenium_eval::mcp_keys::run(
+                &mode,
+                arg(&args, "--worker-cli")
+                    .map(|c| (c, arg(&args, "--worker-model").unwrap_or_default())),
+            )
+            .await?,
+        );
+    }
     // `--learning`: the learning-loop scenario (ADR-91/92) instead of the single-agent tasks.
     if args.iter().any(|a| a == "--learning") {
         eprintln!("running {} ...", agenium_eval::learning::ID);
@@ -156,7 +169,12 @@ async fn main() -> Result<()> {
     }
     for t in tasks()
         .iter()
-        .filter(|_| !args.iter().any(|a| a == "--team" || a == "--learning") && reuse.is_none())
+        .filter(|_| {
+            !args
+                .iter()
+                .any(|a| a == "--team" || a == "--learning" || a == "--mcp-keys")
+                && reuse.is_none()
+        })
         .filter(|t| only.as_deref().is_none_or(|o| o == t.id))
     {
         eprintln!("running {} ...", t.id);

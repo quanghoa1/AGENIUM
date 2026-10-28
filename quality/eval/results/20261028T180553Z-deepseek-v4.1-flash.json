@@ -1,0 +1,69 @@
+[
+  {
+    "id": "mcp-two-keys",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 4,
+    "steps": 15,
+    "tool_errors": 1,
+    "error_codes": {
+      "mcp_tool_error": 1
+    },
+    "errors": [
+      "work/mcp__acme__delete_record: mcp_tool_error: forbidden: the member role cannot delete records (admin only)"
+    ],
+    "tools": {
+      "review/close_ticket": 2,
+      "review/get_team": 2,
+      "review/glob": 2,
+      "review/list_dir": 2,
+      "review/read_file": 4,
+      "review/review_ticket": 2,
+      "work/mcp__acme__delete_record": 2,
+      "work/mcp__acme__whoami": 2,
+      "work/submit_report": 2
+    },
+    "outcomes": [
+      "work:worker-a:AGN-1:Completed",
+      "work:worker-b:AGN-2:Completed",
+      "review:lead:AGN-1:Completed",
+      "review:lead:AGN-2:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 212172,
+    "tokens_out": 2763,
+    "tokens_cached": 162944,
+    "cost_usd": 0.0,
+    "elapsed_ms": 44243,
+    "discipline": {
+      "agents": {
+        "worker-a": {
+          "role": "admin",
+          "status": "Closed",
+          "ticket": "AGN-1",
+          "told": [
+            "mcp__acme__whoami: account: admin@acme.example, role: admin",
+            "mcp__acme__delete_record: deleted record R-7"
+          ]
+        },
+        "worker-b": {
+          "role": "member",
+          "status": "Closed",
+          "ticket": "AGN-2",
+          "told": [
+            "mcp__acme__whoami: account: member@acme.example, role: member",
+            "mcp__acme__delete_record: mcp_tool_error: forbidden: the member role cannot delete records (admin only)"
+          ]
+        }
+      },
+      "key_leaks": [],
+      "server_calls": [
+        "member:whoami:ok",
+        "admin:whoami:ok",
+        "member:delete_record:refused",
+        "admin:delete_record:ok"
+      ]
+    }
+  }
+]

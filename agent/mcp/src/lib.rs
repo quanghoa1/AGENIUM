@@ -125,9 +125,13 @@ pub fn key_names(cfg: &McpServerConfig) -> Vec<String> {
     out
 }
 
+/// HTTP authentication schemes a system key may start with (`Bearer <token>`).
+const AUTH_SCHEMES: [&str; 6] = ["Bearer", "Basic", "Token", "Bot", "Digest", "ApiKey"];
+
 /// The value of one `env` / `headers` entry for an agent: with an own key for that entry, the key replaces the
-/// entry's placeholders (keeping a scheme such as `Bearer `), or the whole value when it has none; without one,
-/// the server's (system) value.
+/// entry's placeholders (keeping a scheme such as `Bearer `), or the whole value when it has none — still keeping
+/// the scheme of a literal `Bearer <token>` when the own key is a bare token, as a user pastes it (it reached the
+/// server without one: refused); without one, the server's (system) value.
 fn entry_value(
     name: &str,
     template: &str,
@@ -139,7 +143,14 @@ fn entry_value(
         return resolve(template, secret, &own);
     };
     if !template.contains("${") {
-        return Ok(value);
+        let scheme = template
+            .split_once(' ')
+            .map(|(s, _)| s)
+            .filter(|s| AUTH_SCHEMES.iter().any(|a| a.eq_ignore_ascii_case(s)));
+        return Ok(match scheme {
+            Some(s) if !value.contains(char::is_whitespace) => format!("{s} {value}"),
+            _ => value,
+        });
     }
     let mut out = String::new();
     let mut rest = template;
@@ -775,6 +786,22 @@ mod tests {
         assert_eq!(
             entry_value("X", "k=${cred:PERSONAL}", &secret, &b).unwrap(),
             "k=p"
+        );
+        // A literal system key with a scheme: a bare own key keeps it, one with its own scheme replaces it all.
+        assert_eq!(
+            entry_value("Authorization", "Bearer member-key", &secret, &b).unwrap(),
+            "Bearer mine"
+        );
+        b.keys
+            .insert("Authorization".into(), "Basic dXNlcjpwdw==".into());
+        assert_eq!(
+            entry_value("Authorization", "Bearer member-key", &secret, &b).unwrap(),
+            "Basic dXNlcjpwdw=="
+        );
+        assert_eq!(
+            entry_value("API_KEY", "two words", &secret, &b).unwrap(),
+            "own",
+            "a value that is no scheme and token is replaced whole"
         );
         let cfg: McpServerConfig = serde_json::from_value(serde_json::json!({
             "id": "docs", "url": "http://x", "headers": {"Authorization": "Bearer ${secret:t}"},
