@@ -1,0 +1,52 @@
+[
+  {
+    "question": "When a view raises an exception, how does Flask pick which registered error handler runs, looking at blueprint handlers and the exception's class hierarchy?",
+    "file": "sansio/app.py",
+    "line": "def _find_error_handler"
+  },
+  {
+    "question": "How is the session cookie read back on a request, and what happens when its signature does not verify?",
+    "file": "sessions.py",
+    "line": "def open_session"
+  },
+  {
+    "question": "Where are configuration values loaded from environment variables that share a prefix, with their values parsed as JSON when possible?",
+    "file": "config.py",
+    "line": "def from_prefixed_env"
+  },
+  {
+    "question": "How does the development server command decide whether the reloader and the debugger are turned on?",
+    "file": "cli.py",
+    "line": "def run_command"
+  },
+  {
+    "question": "When the command line is given a module without naming the application, how is the application object found in it?",
+    "file": "cli.py",
+    "line": "def find_best_app"
+  },
+  {
+    "question": "When a file is sent in a response, where are the cache timeout and the other options for the underlying file sender filled in?",
+    "file": "helpers.py",
+    "line": "def _prepare_send_file_kwargs"
+  },
+  {
+    "question": "Where are the URL default values registered by blueprints and the app applied when a URL is built?",
+    "file": "sansio/app.py",
+    "line": "def inject_url_defaults"
+  },
+  {
+    "question": "How are dates, UUIDs and dataclasses turned into JSON by the default JSON provider?",
+    "file": "json/provider.py",
+    "line": "def _default"
+  },
+  {
+    "question": "When one blueprint is registered on another, how does the nested blueprint get its dotted name?",
+    "file": "sansio/blueprints.py",
+    "line": "def register"
+  },
+  {
+    "question": "How can a test change the session before a request, and how is the modified session saved back?",
+    "file": "testing.py",
+    "line": "def session_transaction"
+  }
+]

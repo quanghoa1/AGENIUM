@@ -127,12 +127,14 @@ name = "agenium-eval"
 version = "0.1.0"
 dependencies = [
  "agenium-backend",
+ "agenium-cli-backend",
  "agenium-config",
  "agenium-core",
  "agenium-llm",
  "agenium-mcp",
  "agenium-memory",
  "agenium-orchestrator",
+ "agenium-sandbox",
  "agenium-secrets",
  "agenium-skills",
  "agenium-store",

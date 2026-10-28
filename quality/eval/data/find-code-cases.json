@@ -1,12 +1,12 @@
 [
   {
     "question": "Where is it checked that a worker only changed files inside the ticket's write scope before its report is accepted?",
-    "file": "orchestrator/src/engine.rs",
+    "file": "orchestrator/src/engine/permissions.rs",
     "line": "fn out_of_scope_changes"
   },
   {
     "question": "How does the vector index sidecar recover when its file is corrupt or the process crashed?",
-    "file": "store/src/ann.rs",
+    "file": "store/src/ann/sidecar.rs",
     "line": "fn load"
   },
   {

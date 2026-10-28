@@ -34,9 +34,12 @@ Learned while measuring on this repository (10 behavioural questions with the an
   attributes above included; a container (impl, class) gives way to its members (`App::run`), a function holding
   functions stays whole; other text in 80-line windows.
 
-Whether it lowers a coding agent's own tokens (jevgrep reports 25.8 % lower total cost on ten SWE-bench tasks) is
-measured by `quality/eval/examples/find_code_ab.rs` (the same questions to a real model with and without the tool); not
-run yet — it needs a model key.
+Whether it lowers a coding agent's own tokens (jevgrep reports 25.8 % lower total cost on ten SWE-bench tasks):
+`quality/eval/examples/find_code_ab.rs`, 10 questions about pallets/flask pinned at 3.1.0, each agent asked with its
+usual read tools and with `find_code` added (100 runs, 2026-10-28,
+[results](../../quality/eval/results/find-code/README.md)). Every agent used fewer input tokens and steps with it and
+none answered worse: Codex gpt-6-luna −33 %, Grok 4.7 −29 %, agy Gemini 3.8 Flash −18 % (9 → 10 right), DeepSeek v4.1
+Flash over the API −18 %, Claude Code Haiku 5.5 −5 %; the judge cost about $0.002 per run that used it.
 
 ## 2. Named judge keys that take turns
 
