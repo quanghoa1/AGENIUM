@@ -1,0 +1,463 @@
+//! A ticket from start to close: reviews, questions, dependencies, reopening.
+
+use super::*;
+
+#[test]
+fn solo_ticket_full_lifecycle() {
+    let f = fixture();
+    // Project layout + git (decision 7/11).
+    let root = std::path::Path::new(&f.project.path);
+    for d in ["deliverables", "artifacts", "notes", "agenium.toml", ".git"] {
+        assert!(root.join(d).exists(), "{d}");
+    }
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+
+    let k = started(&f, a.id, "PI-1", "Write hello", &[], &["deliverables/**"]);
+    assert_eq!(k.as_str(), "AGN-1");
+    let t = ticket(&f, "AGN-1");
+    assert_eq!((t.status, t.assignee), (TicketStatus::Assigned, Some(a.id)));
+    let wt = worktree(&f, "AGN-1");
+    assert!(
+        wt.join("agenium.toml").is_file(),
+        "worktree created on assignment"
+    );
+
+    let ready = f.app.ready_tickets(f.project.id).unwrap();
+    assert_eq!(ready.len(), 1);
+    let run = f
+        .app
+        .start_run(f.project.id, &k, "mock", "scripted")
+        .unwrap();
+    assert!(!run.continuation);
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::InProgress);
+    assert_eq!(f.app.agent(a.id).unwrap().status, AgentStatus::Working);
+    assert!(
+        f.app.ready_tickets(f.project.id).unwrap().is_empty(),
+        "a live run is not scheduled twice"
+    );
+
+    write(&wt, "deliverables/hello.txt", "hello\n");
+    let sub = f
+        .app
+        .apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-1")))
+        .unwrap();
+    assert_eq!(sub.run, RunEffect::End);
+    assert_eq!(sub.result["has_code"], true);
+    f.app
+        .finish_run(
+            run.run,
+            "Completed",
+            3,
+            &UsageSummary {
+                tokens_in: 100,
+                tokens_out: 20,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let t = ticket(&f, "AGN-1");
+    assert_eq!(t.status, TicketStatus::Resolved);
+    assert!(t.has_code && !t.approved && !t.merged);
+    assert_eq!(t.usage.tokens_in, 100);
+    assert!(
+        !root.join("deliverables/hello.txt").exists(),
+        "main untouched before merge"
+    );
+
+    // Self-review approve -> merge queue -> merged, still Resolved (merge never closes).
+    let rev = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    assert_eq!(rev.result["merged"], true);
+    assert!(rev.result["next"]
+        .as_str()
+        .unwrap()
+        .contains("close_ticket"));
+    let t = ticket(&f, "AGN-1");
+    assert!(t.approved && t.merged);
+    assert_eq!(t.status, TicketStatus::Resolved);
+    assert_eq!(
+        std::fs::read_to_string(root.join("deliverables/hello.txt")).unwrap(),
+        "hello\n"
+    );
+
+    // The worktree's command TEMP (outside the worktree) goes with it.
+    let run_temp = agenium_sandbox::run_temp_dir(&wt);
+    std::fs::create_dir_all(&run_temp).unwrap();
+    std::fs::write(run_temp.join("build.tmp"), "x").unwrap();
+    let close_ctx = ctx(&f, lead);
+    let closed = f
+        .app
+        .apply(
+            &close_ctx,
+            Intent::CloseTicket(CloseTicket {
+                ticket_id: k.clone(),
+                reason: "All AC met, merged".into(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::Closed);
+    assert!(!wt.exists(), "worktree removed on close");
+    assert!(!run_temp.exists(), "its temp dir too");
+    let repo = f.app.repo(&f.project);
+    assert!(
+        !repo.branch_exists("agenium/AGN-1").unwrap(),
+        "merged branch deleted"
+    );
+    let ws = f
+        .app
+        .store()
+        .read(|c| workspaces::get(c, t.id))
+        .unwrap()
+        .unwrap();
+    assert!(ws.removed && ws.merged_sha.is_some());
+    // Idempotent replay of the same intent: same result, nothing new.
+    let last = f.app.store().read(events::last_seq).unwrap();
+    let again = f
+        .app
+        .apply(
+            &close_ctx,
+            Intent::CloseTicket(CloseTicket {
+                ticket_id: k.clone(),
+                reason: "All AC met, merged".into(),
+            }),
+        )
+        .unwrap();
+    assert_eq!(again.result, closed.result);
+    assert_eq!(f.app.store().read(events::last_seq).unwrap(), last);
+
+    let kinds: Vec<String> = f
+        .app
+        .store()
+        .read(|c| events::since(c, 0, 10_000))
+        .unwrap()
+        .into_iter()
+        .map(|e| e.kind)
+        .collect();
+    for k in [
+        "ProjectCreated",
+        "SpecApproved",
+        "PlanApproved",
+        "TicketCreated",
+        "TicketAssigned",
+        "RunStarted",
+        "TicketMerged",
+        "PlanItemDone",
+        "VcsOpDone",
+    ] {
+        assert!(kinds.iter().any(|x| x == k), "missing event {k}");
+    }
+    assert!(f.app.store().read(ops::pending).unwrap().is_empty());
+    // The commit carries the trailers that reconcile relies on.
+    let log = repo
+        .git()
+        .check(root, ["log", "-1", "--format=%B", "main"])
+        .unwrap();
+    assert!(
+        log.contains("Ticket: AGN-1") && log.contains("Agenium-Intent: "),
+        "{log}"
+    );
+}
+
+#[test]
+fn research_ticket_without_code_closes_after_review() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Look something up", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    f.app
+        .apply(
+            &ctx(&f, Actor::Worker(a.id)),
+            Intent::SubmitReport(report(k.as_str())),
+        )
+        .unwrap();
+    let t = ticket(&f, k.as_str());
+    assert!(!t.has_code);
+    let lead = Actor::Lead(a.id);
+    let close = |f: &Fixture| {
+        f.app.apply(
+            &ctx(f, lead),
+            Intent::CloseTicket(CloseTicket {
+                ticket_id: k.clone(),
+                reason: "Answer recorded".into(),
+            }),
+        )
+    };
+    assert!(
+        matches!(close(&f), Err(OrchError::Invalid(_))),
+        "must be reviewed first"
+    );
+    let r = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    assert_eq!(r.result["merged"], false);
+    assert!(r.result["next"]
+        .as_str()
+        .unwrap()
+        .starts_with("no code to merge"));
+    close(&f).unwrap();
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Closed);
+}
+
+/// A criterion the worker reported Partial is approved only on the reviewer's own word about it.
+#[test]
+fn approving_a_partial_criterion_needs_the_reviewers_word() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Look something up", &[], &[]);
+    f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let mut rep = report(k.as_str());
+    rep.acceptance[0].status = AcStatus::Partial;
+    rep.acceptance[0].evidence = "could not run the browser check here".into();
+    f.app
+        .apply(&ctx(&f, Actor::Worker(a.id)), Intent::SubmitReport(rep))
+        .unwrap();
+    let approve = |feedback: &str| {
+        f.app.apply(
+            &ctx(&f, Actor::Lead(a.id)),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: (!feedback.is_empty())
+                    .then(|| AcFeedback {
+                        ac_id: "AC-1".into(),
+                        feedback: feedback.into(),
+                    })
+                    .into_iter()
+                    .collect(),
+                required_changes: vec![],
+            }),
+        )
+    };
+    match approve("") {
+        Err(OrchError::Invalid(m)) => assert!(m.contains("AC-1"), "{m}"),
+        other => panic!("approved a Partial criterion silently: {other:?}"),
+    }
+    assert!(
+        matches!(approve("ok"), Err(OrchError::Invalid(_))),
+        "a word is not a check"
+    );
+    assert!(!ticket(&f, k.as_str()).approved);
+    approve("Opened deliverables/hello.txt myself; it holds the answer.").unwrap();
+    assert!(ticket(&f, k.as_str()).approved);
+}
+
+#[test]
+fn blocking_question_parks_and_answer_resumes() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Ask first", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let q = Question {
+        ticket_id: k.clone(),
+        category: QuestionCategory::Requirement,
+        question: "Which greeting language should be used?".into(),
+        context: String::new(),
+        options: vec![
+            OptionProposal {
+                label: "English".into(),
+            },
+            OptionProposal {
+                label: "Vietnamese".into(),
+            },
+        ],
+        recommendation: Some(0),
+        blocking: true,
+        urgency: Urgency::Normal,
+    };
+    let out = f
+        .app
+        .apply(&ctx(&f, Actor::Worker(a.id)), Intent::AskQuestion(q))
+        .unwrap();
+    assert_eq!(out.run, RunEffect::Park);
+    assert_eq!(
+        out.result["routed_to"], "user",
+        "a Solo agent's questions go to the user"
+    );
+    f.app
+        .finish_run(run.run, "Parked", 2, &UsageSummary::default())
+        .unwrap();
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Pending);
+    assert_eq!(f.app.agent(a.id).unwrap().status, AgentStatus::Waiting);
+    assert!(f.app.ready_tickets(f.project.id).unwrap().is_empty());
+
+    let qid: CommentId = serde_json::from_value(out.result["comment_id"].clone()).unwrap();
+    // Answering with an out-of-range option is rejected.
+    assert!(f
+        .app
+        .user_answer(f.project.id, &k, qid, "x", Some(5))
+        .is_err());
+    f.app
+        .user_answer(f.project.id, &k, qid, "English", Some(0))
+        .unwrap();
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::InProgress);
+    assert_eq!(f.app.agent(a.id).unwrap().status, AgentStatus::Idle);
+    let ready = f.app.ready_tickets(f.project.id).unwrap();
+    assert!(
+        ready[0].continuation,
+        "continuation run picks the conversation up"
+    );
+    let cs = f
+        .app
+        .store()
+        .read(|c| comments::for_ticket(c, ticket(&f, k.as_str()).id))
+        .unwrap();
+    assert!(cs
+        .iter()
+        .any(|c| c.kind == CommentKind::Answer && c.reply_to == Some(qid)));
+    assert!(
+        f.app
+            .user_answer(f.project.id, &k, qid, "again", None)
+            .is_err(),
+        "answered once"
+    );
+}
+
+#[test]
+fn dependencies_unlock_on_approve_and_merge_not_close() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &["PI-1"])]);
+    let lead = Actor::Lead(a.id);
+    let k1 = started(&f, a.id, "PI-1", "Base", &[], &["src/a/**"]);
+    // Overlapping scope without a dependency is refused (decision 18).
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket("PI-2", "Overlap", &[], &["src/**"])),
+        )
+        .unwrap_err();
+    assert!(e.to_string().contains("overlap"), "{e}");
+    let k2 = started(&f, a.id, "PI-2", "Builds on base", &["AGN-1"], &["src/**"]);
+    let ready: Vec<_> = f
+        .app
+        .ready_tickets(f.project.id)
+        .unwrap()
+        .into_iter()
+        .map(|r| r.ticket.key)
+        .collect();
+    assert_eq!(ready, vec![k1.clone()], "AGN-2 waits for AGN-1");
+
+    f.app.start_run(f.project.id, &k1, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-1"), "src/a/x.txt", "x");
+    f.app
+        .apply(
+            &ctx(&f, Actor::Worker(a.id)),
+            Intent::SubmitReport(report("AGN-1")),
+        )
+        .unwrap();
+    let r = f
+        .app
+        .store()
+        .read(agenium_store::core::runs::unfinished)
+        .unwrap();
+    f.app
+        .finish_run(r[0].id, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+    assert!(
+        f.app.ready_tickets(f.project.id).unwrap().is_empty(),
+        "Resolved but not approved: still blocked"
+    );
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k1.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    let ready: Vec<_> = f
+        .app
+        .ready_tickets(f.project.id)
+        .unwrap()
+        .into_iter()
+        .map(|r| r.ticket.key)
+        .collect();
+    assert_eq!(
+        ready,
+        vec![k2],
+        "approved + merged unlocks the dependent before close_ticket"
+    );
+    assert_eq!(ticket(&f, "AGN-1").status, TicketStatus::Resolved);
+}
+
+#[test]
+fn reopen_flow_and_escalation_after_three() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    let k = started(&f, a.id, "PI-1", "Iterate", &[], &[]);
+    for round in 1..=4u32 {
+        let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+        write(
+            &worktree(&f, "AGN-1"),
+            "deliverables/n.txt",
+            &round.to_string(),
+        );
+        f.app
+            .apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-1")))
+            .unwrap();
+        f.app
+            .finish_run(run.run, "Completed", 1, &UsageSummary::default())
+            .unwrap();
+        // Reopen without feedback is refused.
+        let bad = ReviewDecision {
+            ticket_id: k.clone(),
+            decision: ReviewVerdict::Reopen,
+            ac_feedback: vec![],
+            required_changes: vec![],
+        };
+        assert!(Intent::parse(
+            "review_ticket",
+            serde_json::to_value(&bad).unwrap(),
+            RoleKind::Lead,
+            true
+        )
+        .is_err());
+        let fb = ReviewDecision {
+            ticket_id: k.clone(),
+            decision: ReviewVerdict::Reopen,
+            ac_feedback: vec![AcFeedback {
+                ac_id: "AC-1".into(),
+                feedback: "not yet".into(),
+            }],
+            required_changes: vec![],
+        };
+        f.app
+            .apply(&ctx(&f, lead), Intent::ReviewTicket(fb))
+            .unwrap();
+        let t = ticket(&f, "AGN-1");
+        assert_eq!(
+            (t.status, t.reopen_count, t.escalated),
+            (TicketStatus::Reopened, round, round > 3)
+        );
+    }
+    let needs: Vec<_> = f
+        .app
+        .store()
+        .read(|c| events::recent_of_kind(c, "TicketEscalated", 10))
+        .unwrap();
+    assert_eq!(needs.len(), 1, "escalated exactly once");
+}
