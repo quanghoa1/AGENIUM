@@ -59,6 +59,14 @@ root:
   judge use on by default, fail-open (`tests/judge_keys.rs`).
 - **Large files split, behaviour unchanged:** `runtime/mod.rs` 2 858 → 1 546 lines (+ `ticket_runs`, `lead_runs`,
   `scheduling`), the CLI's `main.rs` 2 768 → 915 (+ `args` and one module per command group).
+- **Every source file under 32 KB** (the file-size ratchet, `cargo xtask ratchet`; owner: "chia nhỏ code ra từng
+  module nhỏ cho dễ maintain"). The 32 files over the limit were split along their features, behaviour unchanged, and
+  the baseline `devtools/ratchet.json` is empty: production Rust (engine, runtime, agent store, ANN sidecar, graph,
+  backups, MCP client and OAuth, CLI backend run, sandbox, agent loop, registry, effects, skill overlays, VCS, one file
+  per work tool, the CLI's commands, the desktop IPC commands), the UI (strings per language and area, Organize,
+  Capabilities, Live, Ticket, the pixel office), the integration tests (one folder per test binary, so no extra
+  binaries are linked) and the memory dataset generator. Checked: the same test counts per binary before and after,
+  the UI strings identical key for key, the generated datasets byte-identical, the UI smoke test on the real app 29/29.
 
 | Release item | Status | Evidence |
 |---|---|---|
