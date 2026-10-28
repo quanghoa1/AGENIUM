@@ -1,5 +1,5 @@
 //! DERIVED FROM CODEX — keep in step with the vendored upstream file:
-//!   vendor/codex-sandbox/upstream/codex-rs/mxc-sandbox/src/availability.rs (openai/codex @ 970111f6cb62cc02fe36a82ea7d71b37a2889c97)
+//!   vendor/codex-sandbox/upstream/codex-rs/mxc-sandbox/src/availability.rs (openai/codex @ f021168bde5357009fceb0477835ad90bd54c17c; unchanged since 970111f)
 //! Licensed under the Apache License 2.0 (OpenAI Codex), see NOTICE.
 //! Changes from upstream: the `ContainerPolicy` default and the probe body are unchanged in substance; written with
 //! Agenium's imports (mxc-sdk 1.0.0 from crates.io instead of the git revision Codex pins).

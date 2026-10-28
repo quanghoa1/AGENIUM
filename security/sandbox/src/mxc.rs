@@ -181,8 +181,8 @@ pub fn request(
         ..Default::default()
     };
     req.policy.enumerate_paths = unicode(parents)?;
-    req.policy = codex_derived::mxc_policy::normalize(req.policy)
-        .map_err(|e| ExecError::Refused(format!("MXC policy: {e}")))?;
+    // BaseContainer resolves overlapping paths itself (deny > read-only > read-write, the more specific path wins):
+    // MXC's object normalizer is not called (Codex f021168; its metadata preflight refused usable grants).
     Ok(req)
 }
 
