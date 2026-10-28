@@ -4,6 +4,7 @@ import { Markdown } from "../../components/Markdown";
 import type { CallKind } from "../../components/PixelOffice";
 import { Mono, cn } from "../../components/ui";
 import type { LogEntry } from "../../lib/types";
+import { plainArgs, startsSubagent, subagentOf } from "../../lib/subagents";
 
 export const SHELL = new Set(["shell", "Bash", "PowerShell", "run_command"]);
 
@@ -102,14 +103,22 @@ export function JudgeRow({ e }: { e: LogEntry }) {
 /** One call of the trace: badge, label, duration, ok; arguments and output when opened. */
 export function CallRow({ e, open: start = false }: { e: LogEntry; open?: boolean }) {
   const [open, setOpen] = useState(start);
-  const c = classify(e.data.tool, e.data.args);
+  const c = classify(e.data.tool, plainArgs(e.data.args));
   const ok = e.data.ok !== false;
+  // ADR-129: a call a CLI's subagent made is indented and named; the call that starts one says so.
+  const sub = subagentOf(e.data.args);
+  const starts = startsSubagent(e.data.args);
   return (
-    <div className={cn("rounded-lg border", ok ? "border-line" : "border-rose-500/40")}>
+    <div className={cn("rounded-lg border", ok ? "border-line" : "border-rose-500/40", sub && "ml-5 border-l-2 border-l-violet-500/60")}>
       <button className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left" onClick={() => setOpen(!open)}>
         {open ? <ChevronDown className="h-3 w-3 shrink-0 text-subtle" /> : <ChevronRight className="h-3 w-3 shrink-0 text-subtle" />}
         <CallBadge kind={c.kind} />
         <span className="truncate font-mono text-[11px]">{c.label}</span>
+        {(starts ?? sub) && (
+          <span className="truncate rounded border border-violet-500/30 bg-violet-500/10 px-1 text-[10px] text-violet-600 dark:text-violet-300">
+            {starts ? `▶ ${starts}` : sub}
+          </span>
+        )}
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           {e.data.ms != null && <Mono className="text-subtle">{e.data.ms} ms</Mono>}
           {ok ? <CircleCheck className="h-3.5 w-3.5 text-emerald-500" /> : <CircleX className="h-3.5 w-3.5 text-rose-500" />}
@@ -118,7 +127,7 @@ export function CallRow({ e, open: start = false }: { e: LogEntry; open?: boolea
       {open && (
         <div className="space-y-1.5 border-t border-line p-2.5">
           <div className="label">Args</div>
-          <pre className="max-h-40 overflow-auto rounded bg-elevated p-2 font-mono text-[11px]">{JSON.stringify(e.data.args, null, 2)}</pre>
+          <pre className="max-h-40 overflow-auto rounded bg-elevated p-2 font-mono text-[11px]">{JSON.stringify(plainArgs(e.data.args), null, 2)}</pre>
           <div className="label">Out</div>
           <pre className={cn("max-h-56 overflow-auto whitespace-pre-wrap rounded p-2 font-mono text-[11px]", SHELL.has(c.name) ? "bg-[#0a0e14] text-zinc-300" : ok ? "bg-elevated" : "bg-rose-500/10 text-rose-600 dark:text-rose-300")}>
             {String(e.data.result ?? "")}

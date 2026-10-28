@@ -24,8 +24,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   extra request fields and the effort field, under rules checked on save and on every request (ADR-115).
 - Vendor CLIs driven headless with every tool call decided by Agenium: Claude Code, Codex, Gemini (Antigravity),
   Grok, OpenCode; login and usability detected; a fallback API model when a CLI cannot run.
-- Vendor CLIs run in their YOLO mode and work through Agenium's own tools (files, apply_patch, shell): their own
-  shells are off, nothing asks the user, and every change keeps the ticket's write scope (ADR-116, ADR-117).
+- Vendor CLIs run in their YOLO mode and work only through Agenium's own tools (files, apply_patch, shell, background
+  commands): nothing asks the user and every change keeps the ticket's write scope (ADR-116, ADR-117, ADR-129).
 - A machine without a working sandbox can run agents without one by the user's choice (Settings; Codex included).
 - Effort levels per model by the vendor's own names, prompt caching across vendors, context clearing and compaction,
   retries with back-off, quota and offline states.
@@ -43,6 +43,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Encrypted vault for keys (master key in the OS keyring); secrets never reach agents, logs or git; secret scan on
   every commit; redaction in logs.
 - Tool caches and installed packages are kept out of commits (ADR-116).
+- Vendor CLIs work only through Agenium's tools (ADR-129): their own shells are off, their own file and search
+  tools reach only their scratch folder, so every vendor works under the same sandbox, command gate and write scope
+  as an API agent. The vendored Codex sandbox follows upstream f021168.
 
 ### Memory, skills, tools
 - Per-agent memory with a local embedding model (bge-small), keyword and knowledge-graph search, scoped facts, lessons
@@ -52,10 +55,15 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - `SKILL.md` skills (13 built in), skill overlays and agent-created skills behind evidence gates.
 - MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth), bound per agent with their own credentials.
 - `view_image` for vision models; `fetch` through an allowlist.
+- Background commands for every agent: `shell` with `background` starts a server or watcher, `shell_output` reads it
+  while it runs, `shell_stop` ends it; all stop with the run (ADR-129).
+- A Solo agent's CLI subagents are shown as such: the run page and the Live tab label and indent each subagent's
+  steps under the step that started it (ADR-129).
 
 ### Optional judge
 - TypeSafe Jev for small decisions that save the main agents' tokens (memory gate, skill hint, review assist, skill
-  quality). Off by default, fail-open. See [docs/JEV.md](docs/JEV.md).
+  quality). Used once a Jev key is added (every use on by default), fail-open: without a usable key Agenium works as
+  it does without the judge. See [docs/JEV.md](docs/JEV.md).
 - A report that says done while nothing checked the work after its last change can be sent back once (done check,
   ADR-126); a short rate limit no longer turns the judge off, calls give up after 5 s and reuse one connection.
 - The judge can observe only (shadow mode) to measure a use before turning it on; it keeps each ask's billed usage,

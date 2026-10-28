@@ -13,6 +13,10 @@ pub struct ShellArgs {
     /// Timeout in milliseconds (default 120000, at most 600000).
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    /// Start it in the background and return at once with a job id (a server, a watcher, a long build); read its
+    /// output with shell_output, end it with shell_stop. It ends with your run at the latest.
+    #[serde(default)]
+    pub background: bool,
 }
 
 pub struct ShellTool;
@@ -54,7 +58,18 @@ Long outputs are cut; the full output is saved as an artifact."
             cwd,
             timeout,
             env: ctx.env.clone(),
+            ..Default::default()
         };
+        if a.background {
+            let id = ctx
+                .jobs
+                .start(&ctx.executor, &ctx.policy, spec)
+                .map_err(|e| ToolError::new("too_many_jobs", e))?;
+            return Ok(ToolOutput::text(format!(
+                "started in the background as job {id}: read its output with shell_output {{\"job\": {id}, \
+                 \"wait_ms\": 5000}}, end it with shell_stop {{\"job\": {id}}}"
+            )));
+        }
         let out = ctx
             .executor
             .run(&spec, &ctx.policy)

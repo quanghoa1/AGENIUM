@@ -35,7 +35,7 @@ use bridge::{Bridge, Call};
 pub(crate) use process::keep_tail;
 use process::Proc;
 use prompt::steered_mark;
-pub use prompt::{isolated_home, render, Commands};
+pub use prompt::{isolated_home, render};
 mod bridge;
 
 /// Name of Agenium's MCP server as the CLI sees it.
@@ -146,6 +146,32 @@ struct State {
     /// This run's mark on the user's relayed messages (named in the instructions; a file or tool output cannot
     /// guess it, so text that merely claims to be from the user is not taken for a message).
     tag: String,
+    /// ADR-129, the log shows a subagent's steps as its own. The subagent whose events are being handled (the id of
+    /// the step that started it).
+    parent: Option<String>,
+    /// Subagents started in this run: the id of the step that started each, and its label (`subagent 1 · what`).
+    subagents: std::collections::HashMap<String, String>,
+    /// The subagent label of a tool step, by step id.
+    labels: std::collections::HashMap<String, String>,
+    /// Steps already logged when they started (a subagent's start, so its own steps follow it).
+    logged: std::collections::HashSet<String>,
+    /// Agenium tool calls a subagent announced in the stream, waiting for their MCP request: (tool, input, label).
+    subagent_calls: Vec<(String, Value, String)>,
+    /// The CLI's own tool calls the hook refused, logged then (their end in the stream is not logged again).
+    denied: Vec<(String, Value)>,
+}
+
+/// A tool call's arguments as the run's log shows them: with the subagent that made it, if one did (ADR-129).
+fn labelled(args: &Value, label: Option<&str>) -> Value {
+    match (label, args) {
+        (None, a) => a.clone(),
+        (Some(l), Value::Object(m)) => {
+            let mut m = m.clone();
+            m.insert("_subagent".into(), Value::String(l.to_owned()));
+            Value::Object(m)
+        }
+        (Some(l), a) => serde_json::json!({"input": a, "_subagent": l}),
+    }
 }
 
 /// How much of a tool result the run's conversation keeps (the memory transcript shows 600 characters of it).
@@ -260,22 +286,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn each_cli_is_told_how_its_commands_run() {
+    fn every_cli_is_told_to_work_through_agenium_tools() {
         let order = WorkOrder {
             system: vec![],
             messages: vec![],
         };
-        let protocol = ["submit_report".to_owned()];
-        let hooked = render(&order, &protocol, Commands::AgeniumTools);
-        assert!(hooked.contains("not your own"), "{hooked}");
-        assert!(hooked.contains("`shell` for every command"));
-        assert!(hooked.contains("Your own shell tool is turned off"));
-        let contained = render(&order, &protocol, Commands::Contained);
-        assert!(
-            contained.contains("inside Agenium's sandbox"),
-            "{contained}"
-        );
-        let host = render(&order, &protocol, Commands::Unsandboxed);
-        assert!(host.contains("no sandbox"), "{host}");
+        let text = render(&order, &["submit_report".to_owned()], false);
+        assert!(text.contains("not your own"), "{text}");
+        assert!(text.contains("`shell` for every command"));
+        assert!(text.contains("`background`") && text.contains("`shell_output`"));
+        assert!(text.contains("Your own shell is turned off"));
+        assert!(text.contains("submit_report"));
+        assert!(!text.contains("subagent"));
+        // A Solo agent is told its own subagent tool stays on (Codex took "not your own" for it, 2026-10-28).
+        let solo = render(&order, &["submit_report".to_owned()], true);
+        assert!(solo.contains("you may start your own subagents"), "{solo}");
     }
 }

@@ -210,25 +210,38 @@ fn main() {
             text.chars().take(60).collect::<String>()
         ));
         match scenario.as_str() {
+            // ADR-129: its own file tools reach its scratch folder only and its own shell is off; the worktree is
+            // worked on through Agenium's tools over MCP.
             "report" => {
                 let target = std::env::current_dir().unwrap().join("a.txt");
-                if a.tool("write_file", json!({"Path": target, "Content": "hello"})) {
-                    std::fs::write(&target, "hello").unwrap();
+                if a.tool(
+                    "write_to_file",
+                    json!({"TargetFile": target, "Content": "own"}),
+                ) {
+                    std::fs::write(&target, "own").unwrap();
                 }
                 let outside = std::env::current_dir().unwrap().join("../escape.txt");
-                if a.tool("write_file", json!({"Path": outside, "Content": "x"})) {
+                if a.tool(
+                    "write_to_file",
+                    json!({"TargetFile": outside, "Content": "x"}),
+                ) {
                     std::fs::write(&outside, "x").unwrap();
+                }
+                let notes = home.join(".gemini/antigravity/brain/c1/task.md");
+                if a.tool(
+                    "write_to_file",
+                    json!({"TargetFile": notes, "Content": "plan"}),
+                ) {
+                    std::fs::create_dir_all(notes.parent().unwrap()).unwrap();
+                    std::fs::write(&notes, "plan").unwrap();
+                    log("wrote its notes");
                 }
                 if a.tool("run_command", json!({"CommandLine": "echo hi"})) {
                     log("ran: echo hi");
                 }
-                if a.tool(
-                    "run_command",
-                    json!({"CommandLine": "curl https://example.com"}),
-                ) {
-                    log("ran: curl");
-                }
                 a.tool("read_url_content", json!({"Url": "https://example.com"}));
+                let w = a.call_mcp("write_file", json!({"path": "a.txt", "content": "hello"}));
+                log(&format!("agenium write_file: {}", w.replace('\n', " ")));
                 let r = a.call_mcp("submit_report", json!({"summary": "done"}));
                 log(&format!("report: {r}"));
                 // agy keeps talking after the tool; Agenium stops it once the turn ends.
@@ -238,21 +251,22 @@ fn main() {
             "loop" | "steps" => {
                 for i in 0..6 {
                     let p = if scenario == "loop" {
-                        "a.txt".to_owned()
+                        home.join("notes.txt")
                     } else {
-                        format!("f{i}.txt")
+                        home.join(format!("f{i}.txt"))
                     };
                     a.tool("view_file", json!({"AbsolutePath": p}));
                     std::thread::sleep(std::time::Duration::from_millis(200));
                 }
                 a.end();
             }
-            // The Lead is messaged while it works: an Agenium tool result, then a shell command (whose permission
-            // check is where the test sends a second message), then the turn ends.
+            // The Lead is messaged while it works: an Agenium tool result, then a command through Agenium's shell
+            // (whose gate check is where the test sends a second message), then the turn ends.
             "steer" if turn == 1 => {
                 let r = a.call_mcp("note", json!({}));
                 log(&format!("note: {}", r.replace('\n', " ")));
-                a.tool("run_command", json!({"CommandLine": "echo hi"}));
+                let out = a.call_mcp("shell", json!({"command": "echo hi"}));
+                log(&format!("shell: {}", out.replace('\n', " ")));
                 a.say("Working on it.");
                 a.end();
             }

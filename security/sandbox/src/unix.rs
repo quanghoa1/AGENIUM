@@ -7,7 +7,6 @@
 //! with its parent. Codex's own helpers (`bwrap --ro-bind / /`, a Seatbelt profile reading everything) stay a
 //! reference (vendor/codex-sandbox): Agenium's policy forbids reading outside the worktree.
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -386,14 +385,6 @@ fn carries(pid: i32, needle: &[u8]) -> bool {
     }
 }
 
-fn reader(mut r: Box<dyn Read + Send>) -> std::thread::JoinHandle<Vec<u8>> {
-    std::thread::spawn(move || {
-        let mut b = Vec::new();
-        let _ = r.read_to_end(&mut b);
-        b
-    })
-}
-
 /// Runs a shell command line in the sandbox (blocking; call from a blocking thread).
 pub fn run(
     command: &str,
@@ -401,6 +392,8 @@ pub fn run(
     env: &[(String, String)],
     policy: &SandboxPolicy,
     timeout: Duration,
+    stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    live: Option<crate::Live>,
 ) -> Result<ExecOutput, ExecError> {
     let start = Instant::now();
     let (policy, note) = effective(policy);
@@ -415,16 +408,17 @@ pub fn run(
                 source: std::io::Error::other(e.to_string()),
             }
         })?;
-    let out = child.take_stdout().map(reader);
-    let err = child.take_stderr().map(reader);
+    let out = child.take_stdout().map(|r| crate::reader(r, live.clone()));
+    let err = child.take_stderr().map(|r| crate::reader(r, live.clone()));
     let (out_closer, err_closer) = (child.stdout_closer(), child.stderr_closer());
     let mut timed_out = false;
     let code = loop {
         if let Some(c) = child.try_wait()? {
             break Some(c);
         }
-        if start.elapsed() >= timeout {
-            timed_out = true;
+        let expired = start.elapsed() >= timeout;
+        if expired || crate::stopping(&stop) {
+            timed_out = expired;
             let _ = child.kill_for_timeout();
             let _ = child.wait();
             break None;

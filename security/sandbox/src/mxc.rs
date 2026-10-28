@@ -8,7 +8,6 @@
 //! toolchain roots and explicit read roots (repository `.git`, skill folders) are read-only; everything else is
 //! invisible; network egress, ingress and host loopback are denied unless the policy allows the network.
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -186,14 +185,6 @@ pub fn request(
     Ok(req)
 }
 
-fn reader(mut r: Box<dyn Read + Send>) -> std::thread::JoinHandle<Vec<u8>> {
-    std::thread::spawn(move || {
-        let mut b = Vec::new();
-        let _ = r.read_to_end(&mut b);
-        b
-    })
-}
-
 /// Runs `argv` in a container (blocking; call from a blocking thread). On timeout the whole tree is terminated.
 pub fn run(
     argv: &[String],
@@ -201,6 +192,8 @@ pub fn run(
     env: &[(String, String)],
     policy: &SandboxPolicy,
     timeout: Duration,
+    stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    live: Option<crate::Live>,
 ) -> Result<ExecOutput, ExecError> {
     let req = request(argv, cwd, env, policy)?;
     let start = Instant::now();
@@ -212,16 +205,17 @@ pub fn run(
             program: argv[0].clone(),
             source: std::io::Error::other(e.error_message),
         })?;
-    let out = child.take_stdout().map(reader);
-    let err = child.take_stderr().map(reader);
+    let out = child.take_stdout().map(|r| crate::reader(r, live.clone()));
+    let err = child.take_stderr().map(|r| crate::reader(r, live.clone()));
     let (out_closer, err_closer) = (child.stdout_closer(), child.stderr_closer());
     let mut timed_out = false;
     let code = loop {
         if let Some(c) = child.try_wait()? {
             break Some(c);
         }
-        if start.elapsed() >= timeout {
-            timed_out = true;
+        let expired = start.elapsed() >= timeout;
+        if expired || crate::stopping(&stop) {
+            timed_out = expired;
             let _ = child.kill_for_timeout();
             let _ = child.wait();
             break None;

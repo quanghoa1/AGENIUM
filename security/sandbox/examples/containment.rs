@@ -212,6 +212,7 @@ mod posix {
             cwd: s.wt.clone(),
             timeout: Duration::from_secs(secs),
             env: [("AGENIUM_TARGETS".to_owned(), targets(&s))].into(),
+            ..Default::default()
         };
         let exec = Executor::new(shell.clone());
         let started = Instant::now();

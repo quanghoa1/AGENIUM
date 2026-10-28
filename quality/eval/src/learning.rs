@@ -262,7 +262,10 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
                 );
             }
             let is_skill = SKILL_TOOLS.contains(&tool.as_str());
+            // A CLI call the hook refused (ADR-129: logged under its name, as refused) is no work either.
+            let refused = tool.starts_with("cli:") && e.data["ok"] == false;
             if !is_skill
+                && !refused
                 && !matches!(
                     tool.as_str(),
                     "load_skill" | "post_progress" | "cli:permission"
@@ -364,6 +367,7 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
         tool_errors,
         error_codes: Default::default(),
         errors,
+        tools: Default::default(),
         outcomes: summaries
             .iter()
             .map(|s| format!("{}:{}", s.kind, s.outcome))

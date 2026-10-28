@@ -62,11 +62,22 @@ impl CommandGate for Gate {
 struct Obs {
     tools: Mutex<Vec<(String, bool)>>,
     messages: Mutex<Vec<String>>,
+    /// With a steer queue: once the second message reached the CLI, the user sends a third (after its last Agenium
+    /// tool of the turn).
+    steer: Option<agenium_backend::Steer>,
 }
 
 impl Observer for Obs {
     fn message(&self, m: &Message) {
-        self.messages.lock().unwrap().push(m.text());
+        let t = m.text();
+        if let Some(q) = self
+            .steer
+            .as_ref()
+            .filter(|_| t.ends_with("Also add a test."))
+        {
+            q.lock().unwrap().push("Then stop.".into());
+        }
+        self.messages.lock().unwrap().push(t);
     }
     fn tool(&self, name: &str, _: &Value, r: &Result<String, ToolError>) {
         self.tools.lock().unwrap().push((name.into(), r.is_ok()));
@@ -117,12 +128,15 @@ async fn run_steered(
     steer: Option<agenium_backend::Steer>,
 ) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
     let proto = Arc::new(Proto::default());
-    let obs = Arc::new(Obs::default());
-    let ctx = agenium_tools::ToolCtx::new(
-        dir,
-        "run-1",
-        Arc::new(agenium_tools::DenyAll("no commands".into())),
-    );
+    let obs = Arc::new(Obs {
+        steer: steer.clone(),
+        ..Default::default()
+    });
+    let gate = Arc::new(Gate {
+        steer: steer.clone(),
+    });
+    // Agenium's tools the CLI works through (ADR-129); its `shell` asks the same gate.
+    let ctx = agenium_tools::ToolCtx::new(dir, "run-1", gate.clone());
     let r = CliRun {
         driver: &Agy,
         program,
@@ -133,11 +147,12 @@ async fn run_steered(
         label: "agy:fake".into(),
         protocol: proto.as_ref(),
         protocol_specs: specs(),
-        tools: vec![],
+        tools: agenium_tools::work_tools()
+            .into_iter()
+            .filter(|t| matches!(t.name(), "write_file" | "shell"))
+            .collect(),
         ctx: &ctx,
-        gate: Arc::new(Gate {
-            steer: steer.clone(),
-        }),
+        gate,
         observer: obs.as_ref(),
         cancel: Cancel::default(),
         limits,
@@ -183,20 +198,26 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
         log.contains("hooks: 1\n") && log.contains("yolo: true"),
         "{log}"
     );
-    // Agenium's answers through the hook.
-    assert_eq!(std::fs::read_to_string(wt.join("a.txt")).unwrap(), "hello");
-    assert!(log.contains("denied write_file: "), "{log}");
-    assert!(!parent.path().join("escape.txt").exists());
-    assert!(log.contains("ran: echo hi"), "{log}");
+    // Agenium's answers through the hook (ADR-129): its own tools do not reach the worktree, its own shell is off,
+    // its scratch folder stays open; the file is written through Agenium's write_file.
     assert!(
-        log.contains("denied run_command: not approved: curl"),
+        log.contains("denied write_to_file: ") && log.contains("is in the ticket worktree"),
         "{log}"
     );
-    assert!(!log.contains("ran: curl"), "{log}");
+    assert!(log.contains("outside the ticket worktree"), "{log}");
+    assert!(!parent.path().join("escape.txt").exists());
+    assert!(log.contains("wrote its notes"), "{log}");
+    assert!(
+        log.contains("denied run_command: run_command is turned off in Agenium runs"),
+        "{log}"
+    );
+    assert!(!log.contains("ran: echo hi"), "{log}");
     assert!(
         log.contains("denied read_url_content: use the `fetch` tool"),
         "{log}"
     );
+    assert!(log.contains("agenium write_file: "), "{log}");
+    assert_eq!(std::fs::read_to_string(wt.join("a.txt")).unwrap(), "hello");
     assert!(log.contains("report: report accepted"), "{log}");
     // The run's conversation keeps the calls (the memory pipeline learns from it): submit_report with its result.
     let has = |f: &dyn Fn(&agenium_llm::Part) -> bool| {
@@ -217,21 +238,26 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
     assert!(calls[0].2.starts_with("cli-"));
     let tools = obs.tools.lock().unwrap().clone();
     assert!(tools.contains(&("submit_report".into(), true)), "{tools:?}");
+    assert!(tools.contains(&("write_file".into(), true)), "{tools:?}");
     assert!(
-        tools.contains(&("cli:write_file".into(), true)),
-        "{tools:?}"
+        tools.contains(&("cli:write_to_file".into(), true)),
+        "its notes: {tools:?}"
     );
-    assert!(
-        tools.contains(&("cli:run_command".into(), true)),
-        "{tools:?}"
-    );
+    // ADR-129: a refused call is logged once, under its own name, as refused.
+    let refused: Vec<&str> = tools
+        .iter()
+        .filter(|t| !t.1)
+        .map(|t| t.0.as_str())
+        .collect();
     assert_eq!(
-        tools
-            .iter()
-            .filter(|t| t.0 == "cli:permission" && !t.1)
-            .count(),
-        3,
-        "escape, curl, web: {tools:?}"
+        refused,
+        [
+            "cli:write_to_file",
+            "cli:write_to_file",
+            "cli:run_command",
+            "cli:read_url_content"
+        ],
+        "worktree, escape, its shell, web: {tools:?}"
     );
     assert!(
         !tools.iter().any(|t| t.0 == "cli:call_mcp_tool"),
@@ -266,7 +292,8 @@ async fn text_only_turns_are_nudged_then_stopped() {
 }
 
 /// ADR-110: a running CLI Lead gets the user's messages — one sent before its next Agenium tool rides on that
-/// tool's result; one sent after it opens the next turn — and none is lost.
+/// tool's result (twice here: the note, then Agenium's shell); one sent after its last one opens the next turn — and
+/// none is lost.
 #[tokio::test(flavor = "multi_thread")]
 async fn the_user_messages_a_running_cli_lead() {
     let (_parent, wt) = worktree();
@@ -295,12 +322,17 @@ async fn the_user_messages_a_running_cli_lead() {
         "{tag}"
     );
     assert!(
-        log.contains(&format!("turn 2: {mark}{tag}] Also add")),
+        log.lines().any(|l| l.starts_with("shell: exit code 0")
+            && l.ends_with(&format!("{mark}{tag}] Also add a test."))),
+        "{log}"
+    );
+    assert!(
+        log.contains(&format!("turn 2: {mark}{tag}] Then stop.")),
         "{log}"
     );
     assert!(q.lock().unwrap().is_empty());
     let msgs = obs.messages.lock().unwrap().clone();
-    for m in ["Use blue.", "Also add a test."] {
+    for m in ["Use blue.", "Also add a test.", "Then stop."] {
         assert!(msgs.iter().any(|x| x.ends_with(m)), "{msgs:?}");
     }
 }

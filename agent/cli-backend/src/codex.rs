@@ -19,8 +19,10 @@ use crate::driver::toml_str;
 use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, Turns};
 
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
-/// plugins, image generation. `multi_agent` (subagents) follows the run (Solo only); web search is disabled.
-const WITHHELD_FEATURES: [&str; 9] = [
+/// plugins, image generation, and (ADR-129) its own shell, image viewer, sleep and tool suggestions: commands and images
+/// go through Agenium's `shell` and `view_image` over MCP, under Agenium's sandbox, gate and write scope. `multi_agent` (subagents) follows
+/// the run (Solo only); web search is disabled.
+const WITHHELD_FEATURES: [&str; 14] = [
     "browser_use",
     "browser_use_external",
     "computer_use",
@@ -30,6 +32,11 @@ const WITHHELD_FEATURES: [&str; 9] = [
     "remote_plugin",
     "plugin_sharing",
     "image_generation",
+    "shell_tool",
+    "unified_exec",
+    "view_image",
+    "sleep_tool",
+    "tool_suggest",
 ];
 
 pub struct Codex;

@@ -19,12 +19,7 @@ impl CliRun<'_> {
             read_only: self.read_only,
         };
         let turns = self.driver.turns();
-        let commands = match (self.driver.control(), self.uncontained) {
-            (Control::Hook, _) => Commands::AgeniumTools,
-            (Control::Sandbox, false) => Commands::Contained,
-            (Control::Sandbox, true) => Commands::Unsandboxed,
-        };
-        let mut first = render(order, &self.protocol_names(), commands);
+        let mut first = render(order, &self.protocol_names(), self.subagents);
         if self.steer.is_some() {
             // Said once, before the task: how the user's messages during the run look.
             first = first.replacen(
@@ -230,6 +225,17 @@ ask_question if you are blocked.",
                 st.session = Some(s);
                 None
             }
+            Event::Subagent { parent, events } => {
+                let outer = st.parent.replace(parent);
+                let mut end = None;
+                for e in events {
+                    if let Some(x) = self.on_event(e, st) {
+                        end = Some(x);
+                    }
+                }
+                st.parent = outer;
+                end
+            }
             Event::Usage(u) => {
                 st.usage.add(&u);
                 self.observer.step(st.steps, &st.usage);
@@ -258,6 +264,40 @@ ask_question if you are blocked.",
                     id: id.clone(),
                     name: name.clone(),
                 });
+                // ADR-129: the step of a subagent carries its label; a call of an Agenium tool waits for its MCP
+                // request, which carries no trace of the subagent.
+                let label = st.parent.as_ref().map(|p| {
+                    st.subagents
+                        .get(p)
+                        .cloned()
+                        .unwrap_or_else(|| "subagent".into())
+                });
+                if let Some(l) = &label {
+                    st.labels.insert(id.clone(), l.clone());
+                    if self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
+                        let tool = name.rsplit("__").next().unwrap_or(&name).to_owned();
+                        st.subagent_calls.push((tool, input.clone(), l.clone()));
+                    }
+                }
+                // A subagent's start is logged at once, so the steps it makes follow it in the log.
+                if self.subagents && self.driver.starts_subagent(&name) {
+                    let what = input["description"].as_str().unwrap_or("").trim();
+                    let n = st.subagents.len() + 1;
+                    let own = if what.is_empty() {
+                        format!("subagent {n}")
+                    } else {
+                        format!("subagent {n} · {what}")
+                    };
+                    let mut shown = labelled(&input, label.as_deref());
+                    if let Some(m) = shown.as_object_mut() {
+                        m.insert("_starts_subagent".into(), Value::String(own.clone()));
+                    }
+                    st.subagents.insert(id.clone(), own);
+                    self.observer
+                        .tool(&format!("cli:{name}"), &shown, &Ok(String::new()));
+                    self.record_tool(st, &id, &name, &input, None);
+                    st.logged.insert(id.clone());
+                }
                 st.started.insert(id, (name.clone(), input.clone()));
                 let key = format!("{name}\u{1f}{input}");
                 let limit = self.limits.same_call_limit.max(1) as usize;
@@ -286,9 +326,25 @@ ask_question if you are blocked.",
                     Some((n, i)) if name.is_empty() => (n.clone(), i.clone()),
                     _ => (name, input),
                 };
+                let label = st.labels.remove(&id);
+                if st.logged.remove(&id) {
+                    return None;
+                }
+                // Refused by the hook: logged then, under its name, as refused.
+                if let Some(k) = st
+                    .denied
+                    .iter()
+                    .position(|(n, i)| *n == name && *i == input)
+                {
+                    st.denied.remove(k);
+                    return None;
+                }
                 if !self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
-                    self.observer
-                        .tool(&format!("cli:{name}"), &input, &Ok(String::new()));
+                    self.observer.tool(
+                        &format!("cli:{name}"),
+                        &labelled(&input, label.as_deref()),
+                        &Ok(String::new()),
+                    );
                     // The CLI ran it; its result is not in the stream.
                     self.record_tool(st, &id, &name, &input, None);
                 }
@@ -300,6 +356,9 @@ ask_question if you are blocked.",
                 denied,
                 error,
             } => {
+                // A refusal whose step never showed in the stream is not kept past its turn.
+                st.denied.clear();
+                st.subagent_calls.clear();
                 st.usage.add(&usage);
                 self.observer.event(&ChatEvent::Usage(st.usage));
                 if st.text.trim().is_empty() {

@@ -89,15 +89,30 @@ impl CliRun<'_> {
             },
         };
         if !allow {
-            let mut shown = payload["toolCall"].clone();
-            if let Some(c) = command {
-                shown = json!({"command": c});
-            }
+            // Logged under the tool's own name, as refused, with the subagent that made the call if one did; the
+            // step's end in the stream is then not logged again as if it ran (ADR-129).
+            let (name, input) = crate::driver::hook_call(payload);
+            let label = st
+                .started
+                .iter()
+                .find(|(_, (n, i))| *n == name && *i == input)
+                .and_then(|(id, _)| st.labels.get(id))
+                .cloned();
+            let shown = match command {
+                Some(c) => json!({"command": c}),
+                None => input.clone(),
+            };
+            let tool = if name.is_empty() {
+                "cli:permission".to_owned()
+            } else {
+                format!("cli:{name}")
+            };
             self.observer.tool(
-                "cli:permission",
-                &shown,
+                &tool,
+                &labelled(&shown, label.as_deref()),
                 &Err(ToolError::new("denied", reason.clone())),
             );
+            st.denied.push((name, input));
         }
         let answer = self.driver.hook_answer(allow, &reason);
         // Mid-turn steering through the hook, for a CLI whose hook can add context to the model's next step.
@@ -155,7 +170,15 @@ impl CliRun<'_> {
     }
 
     pub(super) async fn offered_call(&self, name: &str, args: Value, st: &mut State) -> CallResult {
-        let mut r = self.offered_call_inner(name, args.clone(), st).await;
+        // The subagent that announced this call in the stream, if one did (ADR-129).
+        let label = st
+            .subagent_calls
+            .iter()
+            .position(|(n, i, _)| n == name && *i == args)
+            .map(|k| st.subagent_calls.remove(k).2);
+        let mut r = self
+            .offered_call_inner(name, args.clone(), label.as_deref(), st)
+            .await;
         let id = format!("cli-{}", ulid::Ulid::new());
         self.record_tool(st, &id, name, &args, Some((&r.text, r.is_error)));
         // Mid-turn steering: a message the user sent while the CLI works rides on the result of the next Agenium
@@ -189,6 +212,7 @@ impl CliRun<'_> {
         &self,
         name: &str,
         args: Value,
+        label: Option<&str>,
         st: &mut State,
     ) -> CallResult {
         if st.effect.is_some_and(|e| e != Effect::Continue) || st.stop.is_some() {
@@ -199,9 +223,11 @@ impl CliRun<'_> {
             };
         }
         if let Some(t) = self.tools.iter().find(|t| t.name() == name) {
+            // The same harmless repairs as an API agent's calls get (ADR-105), its own argument names included.
+            let args = agenium_tools::coerce::coerce(&t.parameters(), args);
             let r = t.call(self.ctx, args.clone()).await;
             let shown = r.as_ref().map(|o| o.text.clone()).map_err(Clone::clone);
-            self.observer.tool(name, &args, &shown);
+            self.observer.tool(name, &labelled(&args, label), &shown);
             return match r {
                 Ok(o) if o.untrusted => CallResult {
                     text: format!(
@@ -231,6 +257,10 @@ impl CliRun<'_> {
                 },
             };
         }
+        let args = match self.protocol_specs.iter().find(|s| s.name == name) {
+            Some(spec) => agenium_tools::coerce::coerce(&spec.parameters, args),
+            None => args,
+        };
         let call_id = format!("cli-{}", ulid::Ulid::new());
         let r = self.protocol.call(name, args.clone(), &call_id).await;
         let shown: Result<String, ToolError> = match &r {
@@ -238,7 +268,7 @@ impl CliRun<'_> {
             Ok((v, _)) => Ok(v.to_string()),
             Err(e) => Err(e.clone()),
         };
-        self.observer.tool(name, &args, &shown);
+        self.observer.tool(name, &labelled(&args, label), &shown);
         match r {
             Ok((_, eff)) => {
                 if eff != Effect::Continue {

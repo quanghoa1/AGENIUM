@@ -67,6 +67,15 @@ root:
   Capabilities, Live, Ticket, the pixel office), the integration tests (one folder per test binary, so no extra
   binaries are linked) and the memory dataset generator. Checked: the same test counts per binary before and after,
   the UI strings identical key for key, the generated datasets byte-identical, the UI smoke test on the real app 29/29.
+- **End-to-end on real models after the split**: Solo golden tasks 25/25 (DeepSeek over the API, Claude Code Haiku 5.5,
+  Codex gpt-6-luna, Grok 4.7, agy Gemini 3.8 Flash) and the team task 4/4 (a DeepSeek Lead and planner, each CLI as
+  the workers); the Ubuntu VM builds clean and its sandbox, CLI backend, MCP, tools, loop, VCS and store tests pass.
+- **Vendor CLIs work only through Agenium's tools** ([ADR-129](adr/ADR-129-cli-agenium-tools-only-background-shell.md)):
+  own shells off, own file tools limited to their scratch folder, background commands (`shell` + `shell_output` /
+  `shell_stop`) for every agent, a Solo agent's subagents labelled in the run page and the Live tab. Verified: 20/20
+  golden tasks and 4/4 team tasks on the four CLIs with no own tool doing the work; seven defects found on the way and
+  fixed (ADR-129 §Verified). `find_code` A/B on pinned Flask 3.1.0: every agent spent fewer tokens and steps
+  ([results](../quality/eval/results/find-code/README.md)).
 
 | Release item | Status | Evidence |
 |---|---|---|

@@ -5,6 +5,7 @@
 
 pub mod coerce;
 pub mod edit_match;
+pub mod jobs;
 pub mod patch;
 pub mod paths;
 pub mod text;
@@ -166,6 +167,8 @@ pub struct ToolCtx {
     ledger: Mutex<HashMap<PathBuf, [u8; 32]>>,
     todo: Mutex<Vec<TodoItem>>,
     seq: AtomicU32,
+    /// Background commands of the run (ADR-129); stopped when the context is dropped at the run's end.
+    pub jobs: jobs::Jobs,
 }
 
 impl ToolCtx {
@@ -195,6 +198,7 @@ impl ToolCtx {
             ledger: Mutex::new(HashMap::new()),
             todo: Mutex::new(vec![]),
             seq: AtomicU32::new(0),
+            jobs: Default::default(),
         }
     }
 
@@ -310,6 +314,8 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
         Arc::new(MultiEdit),
         Arc::new(ApplyPatch),
         Arc::new(ShellTool),
+        Arc::new(ShellOutput),
+        Arc::new(ShellStop),
         Arc::new(FetchTool),
         Arc::new(TodoTool),
         Arc::new(ViewImage),
@@ -318,20 +324,12 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
     v
 }
 
-/// The `fetch` tool on its own: the one allowlisted, logged, out-of-sandbox path for reading a URL. A vendor CLI
-/// brings its own file and shell tools but its native web is off, so Agenium hands it this (ADR-84).
-pub fn fetch_tool() -> Arc<dyn Tool> {
-    Arc::new(FetchTool)
-}
-
-/// The `shell` tool on its own: a hooked vendor CLI gets it in runs whose tools are read-only (a review, a chat), so the
-/// Lead can run the work it judges; the sandbox keeps those runs read-only.
-pub fn shell_tool() -> Arc<dyn Tool> {
-    Arc::new(ShellTool)
-}
-
-/// The `view_image` tool on its own, for a vendor CLI: its image comes back as MCP image content, which the CLI shows
-/// to its model the same way whatever its own file tools can open.
-pub fn view_image_tool() -> Arc<dyn Tool> {
-    Arc::new(ViewImage)
+/// `shell` with its background companions (`shell_output`, `shell_stop`): a vendor CLI gets them in runs whose tools
+/// are read-only (a review, a chat), so the Lead can run the work it judges; the sandbox keeps those runs read-only.
+pub fn shell_tools() -> Vec<Arc<dyn Tool>> {
+    vec![
+        Arc::new(ShellTool),
+        Arc::new(ShellOutput),
+        Arc::new(ShellStop),
+    ]
 }

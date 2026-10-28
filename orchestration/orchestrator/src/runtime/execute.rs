@@ -141,29 +141,24 @@ impl Runtime {
                     .map(|t| t as Arc<dyn Tool>),
             );
         }
-        // A CLI that runs contained brings its own file and shell tools; its native web is off (ADR-84), so from
-        // Agenium it gets the agent's MCP tools plus our `fetch` (the one allowlisted, logged path for reading URLs).
-        // A CLI checked through its hook works through the run's own tools instead (ADR-117): its shell would run on
-        // the host, outside the sandbox and the write scope, so it is refused and these do the work.
+        // Every vendor CLI works through the run's own tools over MCP (ADR-117, ADR-129): its own shell is off and its
+        // own file tools reach only its scratch folder, so these do the work under the sandbox, the gate and the write
+        // scope, like an API agent's.
         let cli = cli_ready.is_some();
-        let hooked = cli_ready
-            .as_ref()
-            .is_some_and(|(d, _)| d.control() == agenium_cli_backend::Control::Hook);
-        let mut work = if cli && !hooked {
-            vec![
-                agenium_tools::fetch_tool(),
-                agenium_tools::view_image_tool(),
-            ]
-        } else {
-            work
-        };
-        // Its own shell is refused, so a hooked CLI's read-only run (a review, a chat) keeps ours where a sandbox makes
-        // that run read-only: the Lead runs the tests of the work it judges instead of only reading it.
-        if hooked
+        let mut work = work;
+        // A CLI's read-only run (a review, a chat) keeps our shell where a sandbox makes that run read-only: the Lead
+        // runs the tests of the work it judges instead of only reading it.
+        if cli
             && !work.iter().any(|t| t.name() == "shell")
             && agenium_sandbox::detect().backend.is_some()
         {
-            work.push(agenium_tools::shell_tool());
+            work.retain(|t| !t.name().starts_with("shell"));
+            work.extend(agenium_tools::shell_tools());
+        }
+        // A background command is read and stopped only where it can be started: without `shell` (an API agent's
+        // read-only run) `shell_output` and `shell_stop` are not offered (ADR-129; a Lead guessed job ids otherwise).
+        if !work.iter().any(|t| t.name() == "shell") {
+            work.retain(|t| !matches!(t.name(), "shell_output" | "shell_stop"));
         }
         // Images reach the model only when it takes them (the provider says so, or `[[providers.model_caps]]
         // vision`): `view_image` is offered then only. The vendor CLIs' models all take images; the image reaches them

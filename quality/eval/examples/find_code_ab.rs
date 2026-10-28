@@ -3,8 +3,8 @@
 //! tools and once with `find_code` added. Reported per run: whether the answer names the right file, the agent's
 //! tokens (input incl. cache reads, output), steps, and the judge's tokens.
 //!
-//! The agent is an API model with Agenium's read tools (read_file, list_dir, glob, grep), or an agent CLI with its own
-//! file tools and `find_code` reaching it through Agenium's MCP bridge, as in a real run:
+//! The agent is an API model or an agent CLI; both work through Agenium's read tools (read_file, list_dir, glob, grep),
+//! the CLI's reaching it through Agenium's MCP bridge as in a real run (ADR-129):
 //!
 //! cargo run -p agenium-eval --example find_code_ab -- [--repo <checkout> --cases <cases.json>]
 //!     (--cli <claude|grok|codex|agy> [--model <id>]
@@ -149,6 +149,17 @@ impl Agent {
     }
 }
 
+/// Agenium's read tools (read_file, list_dir, glob, grep) plus `extra`: what an API agent and, since ADR-129, a CLI
+/// works through.
+fn read_tools(extra: Option<Arc<dyn Tool>>) -> Vec<Arc<dyn Tool>> {
+    let mut tools: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
+        .into_iter()
+        .filter(|t| matches!(t.name(), "read_file" | "list_dir" | "glob" | "grep"))
+        .collect();
+    tools.extend(extra);
+    tools
+}
+
 /// One run of an API model with Agenium's read tools plus `extra`.
 async fn run_api(
     provider: &dyn Provider,
@@ -158,11 +169,7 @@ async fn run_api(
     extra: Option<Arc<dyn Tool>>,
 ) -> Outcome {
     let ctx = ToolCtx::new(root, "find-code-ab", Arc::new(AllowAll));
-    let mut tools: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
-        .into_iter()
-        .filter(|t| matches!(t.name(), "read_file" | "list_dir" | "glob" | "grep"))
-        .collect();
-    tools.extend(extra);
+    let tools = read_tools(extra);
     let mut specs = work_specs(&tools);
     specs.push(report_spec());
     let report = Report::default();
@@ -192,7 +199,8 @@ async fn run_api(
     outcome(rep, &report, &calls, &case.file)
 }
 
-/// One run of an agent CLI: its own file tools, `extra` through Agenium's MCP bridge, no shell.
+/// One run of an agent CLI as in a real run (ADR-129): Agenium's read tools and `extra` through its MCP bridge, its own
+/// shell off and its own file tools limited to its scratch folder.
 async fn run_cli(
     kind: CliKind,
     model: &str,
@@ -216,7 +224,7 @@ async fn run_cli(
         label: format!("{}:{model}", kind.program()),
         protocol: &report,
         protocol_specs: vec![report_spec()],
-        tools: extra.into_iter().collect(),
+        tools: read_tools(extra),
         ctx: &ctx,
         gate: Arc::new(NoShell),
         observer: &calls,

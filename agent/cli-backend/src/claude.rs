@@ -22,26 +22,26 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
-    copy_login, file_access, hand_back_login, hook_call_secs, original, probe_dir, Check, CheckCtx,
-    Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
+    copy_login, file_access, hand_back_login, hook_call_secs, original, own_tool_off, probe_dir,
+    Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
-/// Claude Code tools an Agenium run may use: files, search, shell, and `ToolSearch` (loads the Agenium MCP tools).
-/// Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
-const BASE_TOOLS: [&str; 9] = [
-    "Bash",
-    "PowerShell",
-    "Read",
-    "Write",
-    "Edit",
-    "NotebookEdit",
-    "Glob",
-    "Grep",
-    "ToolSearch",
-];
+/// Claude Code tools an Agenium run may use (ADR-129): `ToolSearch`, which loads the Agenium MCP tools that do the
+/// work, and its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
+/// result and reads it back); the hook refuses them on the worktree. Its shells are not offered: commands go through
+/// Agenium's `shell`. Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
+const BASE_TOOLS: [&str; 6] = ["ToolSearch", "Read", "Write", "Edit", "Glob", "Grep"];
 /// Subagents and their messaging (Solo only).
-const SUBAGENT_TOOLS: [&str; 4] = ["Task", "SendMessage", "ListAgents", "TaskStop"];
+/// Claude Code 2.1 calls its subagent tool `Agent` (`Task` before; `--tools Task` still offers it under the new name).
+const SUBAGENT_TOOLS: [&str; 6] = [
+    "Agent",
+    "Task",
+    "TaskOutput",
+    "SendMessage",
+    "ListAgents",
+    "TaskStop",
+];
 
 fn allowed_tools(subagents: bool) -> Vec<&'static str> {
     let mut v = BASE_TOOLS.to_vec();
@@ -84,8 +84,79 @@ fn protected(home: &Path) -> Vec<PathBuf> {
     ]
 }
 
-/// Claude Code tools that write the file they name.
-const WRITE_TOOLS: [&str; 3] = ["Write", "Edit", "NotebookEdit"];
+impl Claude {
+    /// The events of one stream line, as the main agent's (a subagent's are wrapped by `parse`).
+    fn parse_own(&self, v: &Value) -> Vec<Event> {
+        match v["type"].as_str() {
+            Some("system") if v["subtype"] == "init" => v["session_id"]
+                .as_str()
+                .map(|s| vec![Event::Session(s.to_owned())])
+                .unwrap_or_default(),
+            Some("assistant") => v["message"]["content"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|c| match c["type"].as_str() {
+                    Some("text") => c["text"]
+                        .as_str()
+                        .filter(|t| !t.is_empty())
+                        .map(|t| Event::Text(format!("{t}\n"))),
+                    Some("tool_use") => Some(Event::Tool {
+                        id: c["id"].as_str().unwrap_or("").to_owned(),
+                        name: c["name"].as_str().unwrap_or("tool").to_owned(),
+                        input: c["input"].clone(),
+                        done: false,
+                    }),
+                    _ => None,
+                })
+                .collect(),
+            Some("user") => v["message"]["content"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|c| c["type"] == "tool_result")
+                .map(|c| Event::Tool {
+                    id: c["tool_use_id"].as_str().unwrap_or("").to_owned(),
+                    name: String::new(),
+                    input: Value::Null,
+                    done: true,
+                })
+                .collect(),
+            Some("rate_limit_event") => {
+                agenium_llm::vendor_usage::from_claude_event(v, &agenium_core::now_iso())
+                    .map(Event::Limits)
+                    .into_iter()
+                    .collect()
+            }
+            Some("result") => {
+                let u = &v["usage"];
+                let n = |k: &str| u[k].as_u64().unwrap_or(0);
+                vec![Event::TurnEnd {
+                    usage: Usage {
+                        input: n("input_tokens"),
+                        output: n("output_tokens"),
+                        cache_read: n("cache_read_input_tokens"),
+                        cache_write: n("cache_creation_input_tokens"),
+                        cache_write_1h: 0,
+                        reasoning: u["output_tokens_details"]["thinking_tokens"]
+                            .as_u64()
+                            .unwrap_or(0),
+                    },
+                    response: v["result"].as_str().unwrap_or("").to_owned(),
+                    denied: vec![],
+                    error: (v["is_error"] == true).then(|| {
+                        format!(
+                            "claude turn ended with {}: {}",
+                            v["subtype"].as_str().unwrap_or("an error"),
+                            v["result"].as_str().unwrap_or("")
+                        )
+                    }),
+                }]
+            }
+            _ => vec![],
+        }
+    }
+}
 
 impl Driver for Claude {
     fn control(&self) -> Control {
@@ -195,74 +266,19 @@ impl Driver for Claude {
     }
 
     fn parse(&self, v: &Value) -> Vec<Event> {
-        match v["type"].as_str() {
-            Some("system") if v["subtype"] == "init" => v["session_id"]
-                .as_str()
-                .map(|s| vec![Event::Session(s.to_owned())])
-                .unwrap_or_default(),
-            Some("assistant") => v["message"]["content"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|c| match c["type"].as_str() {
-                    Some("text") => c["text"]
-                        .as_str()
-                        .filter(|t| !t.is_empty())
-                        .map(|t| Event::Text(format!("{t}\n"))),
-                    Some("tool_use") => Some(Event::Tool {
-                        id: c["id"].as_str().unwrap_or("").to_owned(),
-                        name: c["name"].as_str().unwrap_or("tool").to_owned(),
-                        input: c["input"].clone(),
-                        done: false,
-                    }),
-                    _ => None,
-                })
-                .collect(),
-            Some("user") => v["message"]["content"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|c| c["type"] == "tool_result")
-                .map(|c| Event::Tool {
-                    id: c["tool_use_id"].as_str().unwrap_or("").to_owned(),
-                    name: String::new(),
-                    input: Value::Null,
-                    done: true,
-                })
-                .collect(),
-            Some("rate_limit_event") => {
-                agenium_llm::vendor_usage::from_claude_event(v, &agenium_core::now_iso())
-                    .map(Event::Limits)
-                    .into_iter()
-                    .collect()
-            }
-            Some("result") => {
-                let u = &v["usage"];
-                let n = |k: &str| u[k].as_u64().unwrap_or(0);
-                vec![Event::TurnEnd {
-                    usage: Usage {
-                        input: n("input_tokens"),
-                        output: n("output_tokens"),
-                        cache_read: n("cache_read_input_tokens"),
-                        cache_write: n("cache_creation_input_tokens"),
-                        cache_write_1h: 0,
-                        reasoning: u["output_tokens_details"]["thinking_tokens"]
-                            .as_u64()
-                            .unwrap_or(0),
-                    },
-                    response: v["result"].as_str().unwrap_or("").to_owned(),
-                    denied: vec![],
-                    error: (v["is_error"] == true).then(|| {
-                        format!(
-                            "claude turn ended with {}: {}",
-                            v["subtype"].as_str().unwrap_or("an error"),
-                            v["result"].as_str().unwrap_or("")
-                        )
-                    }),
-                }]
-            }
-            _ => vec![],
+        let events = self.parse_own(v);
+        // A subagent's messages carry the id of the `Agent` call that started it.
+        match v["parent_tool_use_id"].as_str().filter(|p| !p.is_empty()) {
+            Some(parent) if !events.is_empty() => vec![Event::Subagent {
+                parent: parent.to_owned(),
+                events,
+            }],
+            _ => events,
         }
+    }
+
+    fn starts_subagent(&self, tool: &str) -> bool {
+        matches!(tool, "Agent" | "Task")
     }
 
     fn command(&self, tool: &str, input: &Value) -> Option<String> {
@@ -294,27 +310,25 @@ impl Driver for Claude {
             return Check::Deny(NO_SUBAGENTS.into());
         }
         if !allowed_tools(cx.subagents).contains(&name) {
-            return Check::Deny(format!("{name} is not available in Agenium runs"));
+            return Check::Deny(own_tool_off(name));
         }
-        for key in ["file_path", "path", "notebook_path"] {
-            if let Some(p) = input[key].as_str() {
-                if let Err(r) = file_access(
-                    Path::new(p),
-                    WRITE_TOOLS.contains(&name),
-                    cx,
-                    &protected(cx.home),
-                ) {
-                    return Check::Deny(r);
-                }
+        if name == "ToolSearch" || SUBAGENT_TOOLS.contains(&name) {
+            return Check::Allow;
+        }
+        // Its own file and search tools: its scratch folder only.
+        let paths: Vec<&str> = ["file_path", "path", "notebook_path"]
+            .iter()
+            .filter_map(|k| input[*k].as_str())
+            .collect();
+        if paths.is_empty() {
+            return Check::Deny(own_tool_off(name));
+        }
+        for p in paths {
+            if let Err(r) = file_access(Path::new(p), cx, &protected(cx.home)) {
+                return Check::Deny(r);
             }
         }
-        match self.command(name, input) {
-            Some(c) => Check::Command(c),
-            None if matches!(name, "Bash" | "PowerShell") => {
-                Check::Deny("the command text is missing".into())
-            }
-            None => Check::Allow,
-        }
+        Check::Allow
     }
 
     fn hook_answer(&self, allow: bool, reason: &str) -> Value {
@@ -424,6 +438,36 @@ mod tests {
     use super::*;
 
     /// Lines captured from claude 2.1.310 (shortened).
+    /// ADR-129: a subagent's messages carry the id of the `Agent` call that started it; its steps come wrapped with it.
+    #[test]
+    fn a_subagents_steps_are_wrapped_with_the_call_that_started_it() {
+        let c = Claude;
+        let ev = |s: &str| c.parse(&serde_json::from_str(s).unwrap());
+        assert_eq!(
+            ev(
+                r#"{"type":"assistant","parent_tool_use_id":"toolu_A","message":{"content":[{"type":"tool_use","id":"toolu_2","name":"mcp__agenium__grep","input":{"pattern":"x"}}]}}"#
+            ),
+            vec![Event::Subagent {
+                parent: "toolu_A".into(),
+                events: vec![Event::Tool {
+                    id: "toolu_2".into(),
+                    name: "mcp__agenium__grep".into(),
+                    input: json!({"pattern": "x"}),
+                    done: false
+                }]
+            }]
+        );
+        // The main agent's messages (no parent, or a null one) are not wrapped.
+        assert!(matches!(
+            ev(r#"{"type":"assistant","parent_tool_use_id":null,"message":{"content":[{"type":"text","text":"hi"}]}}"#)
+                .as_slice(),
+            [Event::Text(_)]
+        ));
+        assert!(
+            c.starts_subagent("Agent") && c.starts_subagent("Task") && !c.starts_subagent("Read")
+        );
+    }
+
     #[test]
     fn parses_the_stream() {
         let c = Claude;
@@ -515,12 +559,16 @@ mod tests {
         // Allowlist: subagents only for Solo; scheduling, notifications, plugins, worktrees... never.
         let task = json!({"tool_name": "Task", "tool_input": {"prompt": "x"}});
         assert_eq!(Claude.check(&task, &cx), Check::Deny(NO_SUBAGENTS.into()));
+        // Its current name (Claude Code 2.1.312, a Solo run on 2026-10-28 was refused under it).
+        let agent = json!({"tool_name": "Agent", "tool_input": {"prompt": "x"}});
+        assert_eq!(Claude.check(&agent, &cx), Check::Deny(NO_SUBAGENTS.into()));
         let solo = CheckCtx {
             subagents: true,
             read_only: false,
             ..cx
         };
         assert_eq!(Claude.check(&task, &solo), Check::Allow);
+        assert_eq!(Claude.check(&agent, &solo), Check::Allow);
         for name in [
             "CronCreate",
             "RemoteTrigger",
@@ -536,13 +584,25 @@ mod tests {
         let call = |name: &str, input: Value| {
             Claude.check(&json!({"tool_name": name, "tool_input": input}), &cx)
         };
-        assert_eq!(
-            call(
-                "Write",
-                json!({"file_path": wt.path().join("a.txt"), "content": "x"})
-            ),
-            Check::Allow
-        );
+        // ADR-129: its shells are off; its own file and search tools do not reach the worktree (the refusal names
+        // Agenium's tools), nor act on it without a path.
+        for name in ["Bash", "PowerShell", "NotebookEdit"] {
+            assert_eq!(
+                call(name, json!({"command": "cargo test"})),
+                Check::Deny(own_tool_off(name))
+            );
+        }
+        assert!(own_tool_off("Bash").contains("shell for every command"));
+        for name in ["Write", "Read", "Edit", "Glob", "Grep"] {
+            assert!(
+                matches!(call(name, json!({"file_path": wt.path().join("a.txt")})), Check::Deny(r) if r.contains("read_file")),
+                "{name}"
+            );
+            assert_eq!(
+                call(name, json!({"pattern": "x"})),
+                Check::Deny(own_tool_off(name))
+            );
+        }
         assert!(matches!(
             call("Edit", json!({"file_path": wt.path().join("../x.txt")})),
             Check::Deny(_)
@@ -554,10 +614,6 @@ mod tests {
             ),
             Check::Deny(_)
         ));
-        assert_eq!(
-            call("Bash", json!({"command": "cargo test"})),
-            Check::Command("cargo test".into())
-        );
         assert_eq!(call("mcp__agenium__submit_report", json!({})), Check::Allow);
         assert!(matches!(
             call("mcp__github__create_issue", json!({})),
@@ -567,7 +623,10 @@ mod tests {
             call("WebFetch", json!({"url": "https://x"})),
             Check::Deny(_)
         ));
-        assert_eq!(call("Grep", json!({"pattern": "x"})), Check::Allow);
+        assert_eq!(
+            call("ToolSearch", json!({"query": "agenium"})),
+            Check::Allow
+        );
         assert!(
             matches!(call("TodoWrite", json!({"todos": []})), Check::Deny(_)),
             "not in the allowlist"
@@ -612,40 +671,17 @@ mod tests {
                 p.display()
             );
         }
+        assert!(matches!(
+            call("Read", "file_path", &git.join("HEAD")),
+            Check::Deny(_)
+        ));
         for (name, key, p) in [
-            ("Read", "file_path", git.join("HEAD")),
             ("Write", "file_path", h.join("projects").join("notes.md")),
             ("Read", "file_path", h.join("projects/p/tool-results/1.txt")),
             ("Grep", "path", h.join("projects")),
         ] {
             assert_eq!(call(name, key, &p), Check::Allow, "{name} {}", p.display());
         }
-        // A run that only reads (a Lead's chat in the main checkout, a review, an inbox or plan run): its Write and
-        // Edit tools change no file of the worktree; reading it, and its scratch home, stay open.
-        let reads = CheckCtx {
-            read_only: true,
-            ..cx
-        };
-        let call_ro = |name: &str, p: &Path| {
-            Claude.check(
-                &json!({"tool_name": name, "tool_input": {"file_path": p}}),
-                &reads,
-            )
-        };
-        for name in ["Write", "Edit"] {
-            assert!(
-                matches!(call_ro(name, &wt.path().join("src/main.rs")), Check::Deny(r) if r.contains("only reads")),
-                "{name}"
-            );
-        }
-        assert_eq!(
-            call_ro("Read", &wt.path().join("src/main.rs")),
-            Check::Allow
-        );
-        assert_eq!(
-            call_ro("Write", &h.join("projects").join("notes.md")),
-            Check::Allow
-        );
     }
 
     fn files_below(dir: &Path) -> Vec<PathBuf> {
@@ -724,13 +760,10 @@ mod tests {
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
         assert!(a.contains(&"--disable-slash-commands".to_owned()));
         let i = a.iter().position(|x| x == "--tools").unwrap();
-        assert_eq!(
-            a[i + 1],
-            "Bash,PowerShell,Read,Write,Edit,NotebookEdit,Glob,Grep,ToolSearch"
-        );
+        assert_eq!(a[i + 1], "ToolSearch,Read,Write,Edit,Glob,Grep");
         let s = Claude.args("haiku", None, Path::new("/h"), None, true);
         let i = s.iter().position(|x| x == "--tools").unwrap();
-        assert!(s[i + 1].ends_with(",Task,SendMessage,ListAgents,TaskStop"));
+        assert!(s[i + 1].ends_with(",Agent,Task,TaskOutput,SendMessage,ListAgents,TaskStop"));
         let i = a.iter().position(|x| x == "--setting-sources").unwrap();
         assert_eq!(a[i + 1], "user");
         let i = a.iter().position(|x| x == "--mcp-config").unwrap();

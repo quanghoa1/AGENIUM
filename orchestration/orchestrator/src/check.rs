@@ -66,7 +66,7 @@ pub fn run_check(cmd: &str, worktree: &Path) -> CheckOutcome {
         command: cmd.to_owned(),
         cwd: worktree.to_path_buf(),
         timeout: TIMEOUT,
-        env: Default::default(),
+        ..Default::default()
     };
     let policy = SandboxPolicy::workspace(worktree);
     // Run on a scratch thread so a current Tokio runtime is not blocked.

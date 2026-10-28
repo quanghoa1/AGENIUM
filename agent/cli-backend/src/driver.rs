@@ -59,18 +59,13 @@ pub fn hook_deadline(d: &dyn Driver) -> std::time::Duration {
     std::time::Duration::from_secs(hook_call_secs(d.hook_timeout()).saturating_sub(100))
 }
 
-/// Whether a hooked CLI's file tool may touch `p` (relative paths from the worktree): inside the worktree, where a
-/// write follows the API tools' rule (`.git` is read-only under any name: a hook or `core.fsmonitor` written there
-/// runs on the host at the next git call), or inside the per-run home but never Agenium's own files there
-/// (`protected`: the hook script, the configuration that names it, the login copy — a model that rewrote the hook
-/// script to `exit 0` would skip every later check), nor a folder holding them (a search of the whole home would read
-/// the login). `Err` is the reason given to the model.
-pub(crate) fn file_access(
-    p: &Path,
-    write: bool,
-    cx: &CheckCtx,
-    protected: &[PathBuf],
-) -> Result<(), String> {
+/// Whether a hooked CLI's own file tool may touch `p` (relative paths from the worktree). Only its scratch: the per-run
+/// home, where the CLI keeps what it needs for itself (a long tool result saved to read back, its task notes), but
+/// never Agenium's own files there (`protected`: the hook script, the configuration that names it, the login copy — a
+/// model that rewrote the hook script to `exit 0` would skip every later check), nor a folder holding them (a search
+/// of the whole home would read the login). The worktree and everything else are worked on through Agenium's tools
+/// (ADR-129). `Err` is the reason given to the model.
+pub(crate) fn file_access(p: &Path, cx: &CheckCtx, protected: &[PathBuf]) -> Result<(), String> {
     if protected
         .iter()
         .any(|f| inside(p, cx.worktree, f) || inside(f, cx.worktree, &normalize(p, cx.worktree)))
@@ -80,33 +75,17 @@ pub(crate) fn file_access(
             p.display()
         ));
     }
-    if inside(p, cx.worktree, cx.worktree) {
-        if write && cx.read_only {
-            return Err(read_only_refusal(p));
-        }
-        return match write.then(|| git_refusal(p, cx.worktree)).flatten() {
-            Some(r) => Err(r),
-            None => Ok(()),
-        };
-    }
     if inside(p, cx.worktree, cx.home) {
         return Ok(());
     }
+    if inside(p, cx.worktree, cx.worktree) {
+        return Err(format!(
+            "{} is in the ticket worktree: work on it through the tools of the \"agenium\" MCP server ({AGENIUM_TOOLS}); \
+             your own file tools reach only your scratch folder",
+            p.display()
+        ));
+    }
     Err(format!("{} is outside the ticket worktree", p.display()))
-}
-
-/// Why a write is refused in a run that only reads.
-pub(crate) fn read_only_refusal(p: &Path) -> String {
-    format!(
-        "{} cannot be changed in this run: it only reads (chat, review, inbox and plan runs); changes go through tickets",
-        p.display()
-    )
-}
-
-/// Why a write to `p` inside the worktree is refused, if it is: the API tools' rule (`agenium_tools::paths`).
-pub(crate) fn git_refusal(p: &Path, worktree: &Path) -> Option<String> {
-    agenium_tools::paths::write_refusal(&normalize(worktree, worktree), &normalize(p, worktree))
-        .map(|e| e.message)
 }
 
 /// A TOML basic string (JSON string escaping is valid TOML).
@@ -117,6 +96,35 @@ pub(crate) fn toml_str(s: &str) -> String {
 /// Refusal of a subagent tool in team mode.
 pub const NO_SUBAGENTS: &str =
     "subagents are not used in team mode: the Lead splits the work into tickets; do this ticket yourself";
+
+/// Agenium's tools a CLI works through instead of its own (ADR-129), as the refusal of one of its own names them.
+pub const AGENIUM_TOOLS: &str =
+    "read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, \
+apply_patch and write_file to change files; shell for every command; todo for your task list";
+
+/// Refusal of a CLI's own file, search or shell tool (ADR-129): the work goes through Agenium's tools.
+pub fn own_tool_off(name: &str) -> String {
+    format!(
+        "{name} is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead ({AGENIUM_TOOLS})"
+    )
+}
+
+/// The tool and its input in a permission-hook payload, whichever CLI sent it: Claude Code and Grok
+/// (`tool_name`/`tool_input`, Grok also `toolName`/`toolInput`), agy (`toolCall.name`/`args`), opencode
+/// (`action`/`resources`).
+pub(crate) fn hook_call(payload: &Value) -> (String, Value) {
+    let pick = |names: &[&str]| -> Value {
+        names
+            .iter()
+            .map(|n| n.split('.').fold(payload, |v, k| &v[k]))
+            .find(|v| !v.is_null())
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
+    let name = pick(&["tool_name", "toolName", "toolCall.name", "action"]);
+    let input = pick(&["tool_input", "toolInput", "toolCall.args", "resources"]);
+    (name.as_str().unwrap_or("").to_owned(), input)
+}
 
 /// What Agenium decides about one tool call of a `Control::Hook` CLI.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,6 +170,9 @@ pub enum Event {
         input: Value,
         done: bool,
     },
+    /// Steps of a subagent the CLI started (Claude Code's `parent_tool_use_id`): `parent` is the id of the tool step
+    /// that started it (ADR-129: the run's log shows them as the subagent's).
+    Subagent { parent: String, events: Vec<Event> },
     /// Tokens of one model step (CLIs that report usage per step rather than per turn).
     Usage(Usage),
     /// The vendor's subscription usage, as the CLI reported it during the run.
@@ -221,6 +232,10 @@ pub trait Driver: Send + Sync {
     fn command(&self, tool: &str, input: &Value) -> Option<String>;
     /// Whether a tool step is the CLI calling a tool of Agenium's own MCP server (Agenium logs those itself).
     fn is_agenium_call(&self, tool: &str, input: &Value, server: &str) -> bool;
+    /// Whether a tool step starts one of the CLI's own subagents (Solo agents only).
+    fn starts_subagent(&self, _tool: &str) -> bool {
+        false
+    }
     /// `Control::Hook`: seconds the CLI waits for its permission hook (see [`hook_deadline`]).
     fn hook_timeout(&self) -> u64 {
         HOOK_TIMEOUT

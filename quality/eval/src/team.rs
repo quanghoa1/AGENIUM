@@ -435,8 +435,18 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
 
     let (mut tool_errors, mut error_codes, mut errors) =
         (0u32, std::collections::BTreeMap::new(), vec![]);
+    let mut tools = std::collections::BTreeMap::new();
     for s in &summaries {
         for e in app.store().read(|c| runs::log_entries(c, s.run))? {
+            if e.kind == "tool" {
+                *tools
+                    .entry(format!(
+                        "{}/{}",
+                        s.kind,
+                        e.data["tool"].as_str().unwrap_or_default()
+                    ))
+                    .or_insert(0) += 1;
+            }
             if e.kind == "tool" && e.data["ok"] == false {
                 tool_errors += 1;
                 let res = e.data["result"].as_str().unwrap_or_default();
@@ -474,6 +484,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
         tool_errors,
         error_codes,
         errors,
+        tools,
         outcomes: summaries
             .iter()
             .map(|s| {

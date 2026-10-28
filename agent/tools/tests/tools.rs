@@ -64,6 +64,8 @@ fn catalogue_is_sorted_and_described() {
             "multi_edit",
             "read_file",
             "shell",
+            "shell_output",
+            "shell_stop",
             "todo",
             "view_image",
             "write_file"
@@ -310,6 +312,43 @@ async fn search_tools_respect_gitignore() {
         "{}",
         l.text
     );
+}
+
+/// ADR-129: a background command (a server) is started, read while it runs, stopped, and does not outlive the run.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_background_command_is_read_while_it_runs_and_stopped() {
+    let (_t, c) = setup();
+    // Prints a line, then keeps running like a server would.
+    let cmd = match c.executor.shell() {
+        agenium_sandbox::Shell::Cmd => "echo listening & ping -n 120 127.0.0.1 > nul",
+        _ => "echo listening; sleep 120",
+    };
+    let out = call(&c, "shell", json!({"command": cmd, "background": true}))
+        .await
+        .unwrap();
+    assert!(out.text.contains("job 1"), "{}", out.text);
+    let read = call(&c, "shell_output", json!({"job": 1, "wait_ms": 20000}))
+        .await
+        .unwrap();
+    assert!(read.text.contains("still running"), "{}", read.text);
+    assert!(read.text.contains("listening"), "{}", read.text);
+    // Nothing new since the last read.
+    let again = call(&c, "shell_output", json!({"job": 1})).await.unwrap();
+    assert!(again.text.contains("(no new output)"), "{}", again.text);
+    let stopped = call(&c, "shell_stop", json!({"job": 1})).await.unwrap();
+    assert!(stopped.text.contains("stopped"), "{}", stopped.text);
+    let e = call(&c, "shell_output", json!({"job": 9}))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, "unknown_job");
+    assert!(e.message.contains("1 ("), "{}", e.message);
+    // A second one ends with the run: dropping the context stops it.
+    call(&c, "shell", json!({"command": cmd, "background": true}))
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    drop(c);
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
 }
 
 #[tokio::test]

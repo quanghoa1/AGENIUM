@@ -20,31 +20,36 @@ use agenium_core::Effort;
 use serde_json::Value;
 
 use crate::driver::{
-    copy_login, file_access, hand_back_login, hook_call_secs, original, Check, CheckCtx, Control,
-    Driver, Event, Setup, Turns, NO_SUBAGENTS,
+    copy_login, file_access, hand_back_login, hook_call_secs, original, own_tool_off, Check,
+    CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
 pub struct Grok;
 
-/// Grok tools an Agenium run may use: shell, files, search, the MCP dispatchers (Agenium's protocol tools are MCP
-/// tools) and its to-do list. Scheduling, monitors, workflows, plan mode, questions to a user who is not there,
-/// feedback, image and video generation and web search are withheld.
-const BASE_TOOLS: [&str; 11] = [
-    "run_terminal_command",
-    "get_command_or_subagent_output",
-    "kill_command_or_subagent",
+/// Grok tools an Agenium run may use (ADR-129): the MCP dispatchers, which reach the Agenium tools that do the work,
+/// and its own file and search tools for its scratch folder only (the per-run home: its session notes); the hook
+/// refuses them on the worktree. Its shell and command tools and its to-do list are not offered. Scheduling, monitors,
+/// workflows, plan mode, questions to a user who is not there, feedback, image and video generation and web search
+/// are withheld too.
+const BASE_TOOLS: [&str; 7] = [
+    "search_tool",
+    "use_tool",
     "read_file",
     "write",
     "search_replace",
     "list_dir",
     "grep",
-    "todo_write",
-    "search_tool",
-    "use_tool",
 ];
-/// Subagents (Solo only).
-const SUBAGENT_TOOLS: [&str; 1] = ["spawn_subagent"];
+/// Subagents (Solo only): starting one, reading what it returned, ending it (its own commands are off, so the last two
+/// reach only subagents). Its `workflow` script, which grok 1.0.41 reaches for to run several in parallel, stays
+/// withheld: it runs on after the turn, and the process of a turn ends with it (a Solo agent that ran one on 2026-10-28
+/// answered "I will give you both answers when they finish" and nothing came).
+const SUBAGENT_TOOLS: [&str; 3] = [
+    "spawn_subagent",
+    "get_command_or_subagent_output",
+    "kill_command_or_subagent",
+];
 
 fn allowed_tools(subagents: bool) -> Vec<&'static str> {
     let mut v = BASE_TOOLS.to_vec();
@@ -82,9 +87,6 @@ fn protected(home: &Path) -> Vec<PathBuf> {
         login,
     ]
 }
-
-/// Grok tools that write the file they name.
-const WRITE_TOOLS: [&str; 2] = ["write", "search_replace"];
 
 /// The hook script and the command that runs it (PowerShell on Windows, where Grok runs hooks through it; `sh`
 /// elsewhere).
@@ -305,13 +307,19 @@ impl Driver for Grok {
         tool.starts_with(&format!("{server}__"))
             || tool.starts_with(&format!("mcp__{server}__"))
             || (tool == "use_tool"
-                && [
+                && ([
                     &input["server"],
                     &input["server_name"],
                     &input["serverName"],
                 ]
                 .iter()
-                .any(|v| v.as_str() == Some(server)))
+                .any(|v| v.as_str() == Some(server))
+                    // grok 1.0.41's stream names only the qualified tool (`agenium__grep`): without this, every
+                    // Agenium call it made was logged twice (as the call and as `cli:use_tool`).
+                    || [&input["tool_name"], &input["toolName"]]
+                        .iter()
+                        .filter_map(|v| v.as_str())
+                        .any(|t| t.starts_with(&format!("{server}__")))))
     }
 
     fn check(&self, payload: &Value, cx: &CheckCtx) -> Check {
@@ -343,9 +351,13 @@ impl Driver for Grok {
             return Check::Deny(NO_SUBAGENTS.into());
         }
         if !allowed_tools(cx.subagents).contains(&name) {
-            return Check::Deny(format!("{name} is not available in Agenium runs"));
+            return Check::Deny(own_tool_off(name));
         }
-        for key in [
+        if name == "search_tool" || SUBAGENT_TOOLS.contains(&name) {
+            return Check::Allow;
+        }
+        // Its own file and search tools: its scratch folder only.
+        let paths: Vec<&str> = [
             "path",
             "file_path",
             "filePath",
@@ -354,25 +366,19 @@ impl Driver for Grok {
             "target_directory",
             "directory",
             "dir",
-        ] {
-            if let Some(p) = input[key].as_str() {
-                if let Err(r) = file_access(
-                    Path::new(p),
-                    WRITE_TOOLS.contains(&name),
-                    cx,
-                    &protected(cx.home),
-                ) {
-                    return Check::Deny(r);
-                }
+        ]
+        .iter()
+        .filter_map(|k| input[*k].as_str())
+        .collect();
+        if paths.is_empty() {
+            return Check::Deny(own_tool_off(name));
+        }
+        for p in paths {
+            if let Err(r) = file_access(Path::new(p), cx, &protected(cx.home)) {
+                return Check::Deny(r);
             }
         }
-        match self.command(name, input) {
-            Some(c) => Check::Command(c),
-            None if name == "run_terminal_command" => {
-                Check::Deny("the command text is missing".into())
-            }
-            None => Check::Allow,
-        }
+        Check::Allow
     }
 }
 
@@ -393,24 +399,31 @@ mod tests {
             read_only: false,
         };
         let call = |name: &str, input: Value| json!({"hookEventName": "pre_tool_use", "toolName": name, "toolInput": input});
-        assert_eq!(
-            Grok.check(
-                &call("run_terminal_command", json!({"command": "cargo test"})),
-                &cx
-            ),
-            Check::Command("cargo test".into())
-        );
+        // ADR-129: its own shell, file, search and to-do tools are off, even inside the worktree.
         let inside_file = wt.path().join("src").join("a.rs");
-        assert_eq!(
-            Grok.check(
+        for name in ["run_terminal_command", "todo_write"] {
+            assert_eq!(
+                Grok.check(&call(name, json!({"command": "cargo test"})), &cx),
+                Check::Deny(own_tool_off(name))
+            );
+        }
+        for name in ["search_replace", "read_file", "write", "list_dir", "grep"] {
+            let c = Grok.check(
                 &call(
-                    "search_replace",
-                    json!({"file_path": inside_file.display().to_string()})
+                    name,
+                    json!({"file_path": inside_file.display().to_string()}),
                 ),
-                &cx
-            ),
-            Check::Allow
-        );
+                &cx,
+            );
+            assert!(
+                matches!(&c, Check::Deny(r) if r.contains("read_file")),
+                "{name}: {c:?}"
+            );
+            assert_eq!(
+                Grok.check(&call(name, json!({"pattern": "x"})), &cx),
+                Check::Deny(own_tool_off(name))
+            );
+        }
         assert!(matches!(
             Grok.check(&call("write", json!({"path": "../../escape.rs"})), &cx),
             Check::Deny(_)
@@ -419,6 +432,17 @@ mod tests {
             Grok.check(&call("agenium__submit_report", json!({})), &cx),
             Check::Allow
         );
+        // Its dispatcher's call of an Agenium tool, as the stream names it, is Agenium's (logged once).
+        assert!(Grok.is_agenium_call(
+            "use_tool",
+            &json!({"tool_name": "agenium__grep", "tool_input": {"pattern": "x"}}),
+            "agenium"
+        ));
+        assert!(!Grok.is_agenium_call(
+            "use_tool",
+            &json!({"tool_name": "linear__save_issue"}),
+            "agenium"
+        ));
         assert!(matches!(
             Grok.check(&call("linear__save_issue", json!({})), &cx),
             Check::Deny(_)
@@ -427,6 +451,19 @@ mod tests {
             Grok.check(&call("spawn_subagent", json!({})), &cx),
             Check::Deny(NO_SUBAGENTS.into())
         );
+        // A Solo agent may run them; the workflow script stays withheld (it outlives the turn).
+        let solo = CheckCtx {
+            subagents: true,
+            ..cx
+        };
+        assert_eq!(
+            Grok.check(&call("spawn_subagent", json!({})), &solo),
+            Check::Allow
+        );
+        assert!(matches!(
+            Grok.check(&call("workflow", json!({})), &solo),
+            Check::Deny(_)
+        ));
         for withheld in [
             "scheduler_create",
             "image_gen",
@@ -543,7 +580,10 @@ mod tests {
                 p.display()
             );
         }
-        assert_eq!(call("read_file", wt.path().join(".git/HEAD")), Check::Allow);
+        assert!(matches!(
+            call("read_file", wt.path().join(".git/HEAD")),
+            Check::Deny(_)
+        ));
         assert_eq!(
             call("write", home.path().join("sessions/notes.md")),
             Check::Allow

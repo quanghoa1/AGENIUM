@@ -179,6 +179,9 @@ pub struct TaskResult {
     pub error_codes: std::collections::BTreeMap<String, u32>,
     /// `<tool>: <error>` of each failed call (first 300 characters).
     pub errors: Vec<String>,
+    /// Tool calls by name over the task's runs (ADR-129: `cli:<name>` is a vendor CLI's own tool, `cli:permission` a
+    /// call its hook refused; every other name is Agenium's). The team task names the run kind first (`work/shell`).
+    pub tools: std::collections::BTreeMap<String, u32>,
     /// Outcome of each run, in order.
     pub outcomes: Vec<String>,
     pub reopened: u32,
@@ -444,6 +447,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     let mut tool_errors = 0;
     let mut error_codes = std::collections::BTreeMap::new();
     let mut errors = Vec::new();
+    let mut tools = std::collections::BTreeMap::new();
     let trace = std::env::var_os("AGENIUM_EVAL_TRACE").is_some();
     if trace {
         for op in app
@@ -464,6 +468,11 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
                     .take(400)
                     .collect();
                 eprintln!("{line}");
+            }
+            if e.kind == "tool" {
+                *tools
+                    .entry(e.data["tool"].as_str().unwrap_or_default().to_owned())
+                    .or_insert(0) += 1;
             }
             if e.kind == "tool" && e.data["ok"] == false {
                 tool_errors += 1;
@@ -504,6 +513,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         tool_errors,
         error_codes,
         errors,
+        tools,
         outcomes: summaries
             .iter()
             .map(|s| format!("{}:{}", s.kind, s.outcome))
@@ -549,6 +559,16 @@ pub fn table(results: &[TaskResult]) -> String {
             r.elapsed_ms as f64 / 1000.0,
             r.detail
         ));
+        if !r.tools.is_empty() {
+            s.push_str(&format!(
+                "  tools: {}\n",
+                r.tools
+                    .iter()
+                    .map(|(k, v)| format!("{k} {v}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
     }
     let passed = results.iter().filter(|r| r.passed).count();
     let (cached, input) = results.iter().fold((0u64, 0u64), |(c, i), r| {

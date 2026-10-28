@@ -19,8 +19,8 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
-    file_access, hook_call_secs, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
-    NO_SUBAGENTS,
+    file_access, hook_call_secs, own_tool_off, Check, CheckCtx, Control, Driver, Event, Setup,
+    Turns, NO_SUBAGENTS,
 };
 use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
@@ -83,23 +83,28 @@ fn protected(home: &Path) -> Vec<std::path::PathBuf> {
     ]
 }
 
-/// agy tools that only read the paths they name (the command tools' folder is a working directory, and the command
-/// itself is checked). Every other tool may write: `.git` and Agenium's files are refused to them.
-fn reads_only(lower: &str) -> bool {
-    [
-        "view_",
-        "list_",
-        "read_",
-        "find_",
-        "grep",
-        "search",
-        "codebase_search",
-        "run_command",
-        "command_status",
-    ]
-    .iter()
-    .any(|p| lower.starts_with(p))
-}
+/// agy's own command tools (name prefixes, lowercase): off in Agenium runs (ADR-129), commands go through Agenium's
+/// `shell`. agy has no flag that withholds a tool, so the hook refuses them.
+const COMMAND_TOOLS: [&str; 3] = ["run_command", "command_status", "send_command"];
+
+/// agy's own file and search tools (name prefixes, lowercase): its scratch folder only (the per-run home, its task
+/// notes); on the worktree the work goes through Agenium's tools (ADR-129).
+const FILE_TOOLS: [&str; 14] = [
+    "view_",
+    "list_",
+    "read_",
+    "find_",
+    "grep",
+    "search",
+    "codebase",
+    "write_",
+    "replace_",
+    "multi_replace",
+    "edit_",
+    "create_file",
+    "delete_",
+    "move_",
+];
 
 /// Argument names that hold file system paths.
 fn is_path_key(k: &str) -> bool {
@@ -311,16 +316,23 @@ impl Driver for Agy {
                 ))
             };
         }
-        for (k, v) in args.as_object().into_iter().flatten() {
-            if !is_path_key(k) {
-                continue;
-            }
-            for p in path_values(v) {
-                if let Err(r) =
-                    file_access(Path::new(&p), !reads_only(&lower), cx, &protected(cx.home))
-                {
-                    return Check::Deny(r);
-                }
+        if COMMAND_TOOLS.iter().any(|p| lower.starts_with(p)) {
+            return Check::Deny(own_tool_off(name));
+        }
+        let paths: Vec<String> = args
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter(|(k, _)| is_path_key(k))
+            .flat_map(|(_, v)| path_values(v))
+            .collect();
+        // Its own file and search tools act on the worktree when no path is named.
+        if paths.is_empty() && FILE_TOOLS.iter().any(|p| lower.starts_with(p)) {
+            return Check::Deny(own_tool_off(name));
+        }
+        for p in paths {
+            if let Err(r) = file_access(Path::new(&p), cx, &protected(cx.home)) {
+                return Check::Deny(r);
             }
         }
         match name {
@@ -520,39 +532,39 @@ mod tests {
         let call = |name: &str, args: Value| {
             Agy.check(&json!({"toolCall": {"name": name, "args": args}}), &cx)
         };
+        // ADR-129: its own command tools are off; its own file and search tools do not reach the worktree, nor act on
+        // it without a path.
+        for name in ["run_command", "command_status", "send_command_input"] {
+            assert_eq!(
+                call(name, json!({"CommandLine": "cargo test"})),
+                Check::Deny(own_tool_off(name))
+            );
+        }
+        for name in [
+            "write_to_file",
+            "view_file",
+            "list_dir",
+            "grep_search",
+            "find_by_name",
+            "codebase_search",
+            "replace_file_content",
+            "multi_replace_file_content",
+        ] {
+            let c = call(name, json!({"Path": wt.path().join("a.txt")}));
+            assert!(
+                matches!(&c, Check::Deny(r) if r.contains("read_file")),
+                "{name}: {c:?}"
+            );
+            assert_eq!(
+                call(name, json!({"Query": "x"})),
+                Check::Deny(own_tool_off(name))
+            );
+        }
+        // agy's other tools (no file, no command) stay.
         assert_eq!(
-            call(
-                "write_file",
-                json!({"Path": wt.path().join("a.txt"), "Content": "x"})
-            ),
+            call("task_boundary", json!({"TaskName": "x"})),
             Check::Allow
         );
-        assert_eq!(
-            call("view_file", json!({"AbsolutePath": "src/lib.rs"})),
-            Check::Allow
-        );
-        assert!(matches!(
-            call(
-                "write_file",
-                json!({"Path": wt.path().join("../escape.txt")})
-            ),
-            Check::Deny(_)
-        ));
-        assert!(matches!(
-            call("list_dir", json!({"DirectoryPath": std::env::temp_dir()})),
-            Check::Deny(_)
-        ));
-        assert_eq!(
-            call("run_command", json!({"CommandLine": "cargo test"})),
-            Check::Command("cargo test".into())
-        );
-        assert!(matches!(
-            call(
-                "run_command",
-                json!({"CommandLine": "dir", "Cwd": std::env::temp_dir()})
-            ),
-            Check::Deny(_)
-        ));
         assert_eq!(
             call(
                 "call_mcp_tool",
@@ -611,7 +623,10 @@ mod tests {
                 p.display()
             );
         }
-        assert_eq!(call("view_file", wt.path().join(".git/HEAD")), Check::Allow);
+        assert!(matches!(
+            call("view_file", wt.path().join(".git/HEAD")),
+            Check::Deny(_)
+        ));
         assert_eq!(
             call(
                 "write_to_file",

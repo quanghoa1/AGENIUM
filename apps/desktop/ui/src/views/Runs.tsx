@@ -5,6 +5,7 @@ import { CacheHit, Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, toke
 import { api } from "../lib/api";
 import { useApp, useLive } from "../lib/store";
 import type { LogEntry, RunDetail, RunRow } from "../lib/types";
+import { plainArgs, startsSubagent, subagentOf } from "../lib/subagents";
 
 export function RunsView() {
   const app = useApp();
@@ -104,12 +105,20 @@ function Step({ e }: { e: LogEntry }) {
   }
   const shell = SHELL.has(e.data.tool);
   const cmd = e.data.args?.command ?? e.data.args?.CommandLine;
+  // ADR-129: a step a CLI's subagent made is indented under it and named; the step that starts one says so.
+  const sub = subagentOf(e.data.args);
+  const starts = startsSubagent(e.data.args);
+  const args = plainArgs(e.data.args);
   return (
-    <div className="flex gap-3 rounded-lg border border-line p-2.5">
+    <div className={cn("flex gap-3 rounded-lg border border-line p-2.5", sub && "ml-8 border-l-2 border-l-violet-500/60")}>
       <Mono className="w-6 text-subtle">{e.n}</Mono>
       {e.data.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-500" />}
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium">{e.data.tool}</div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          {e.data.tool}
+          {starts && <span className="chip border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-300">▶ {starts}</span>}
+          {sub && <span className="chip border-violet-500/30 bg-violet-500/5 text-violet-600 dark:text-violet-300">{sub}</span>}
+        </div>
         {shell && cmd ? (
           <div className="mt-1 overflow-hidden rounded-md border border-zinc-800 bg-[#0b0e14] font-mono text-[11px] text-zinc-200">
             <div className="border-b border-zinc-800 px-2.5 py-1.5 text-emerald-400">$ {cmd}</div>
@@ -117,7 +126,7 @@ function Step({ e }: { e: LogEntry }) {
           </div>
         ) : (
           <>
-            <div className="truncate font-mono text-[11px] text-muted">{JSON.stringify(e.data.args)}</div>
+            <div className="truncate font-mono text-[11px] text-muted">{JSON.stringify(args)}</div>
             {e.data.result && <div className={cn("mt-1 line-clamp-4 whitespace-pre-wrap font-mono text-[11px]", e.data.ok ? "text-subtle" : "text-rose-600 dark:text-rose-400")}>{String(e.data.result)}</div>}
           </>
         )}

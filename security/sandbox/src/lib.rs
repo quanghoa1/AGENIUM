@@ -21,6 +21,8 @@ pub mod unix;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -122,7 +124,7 @@ pub enum ExecError {
     Io(#[from] std::io::Error),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CommandSpec {
     /// Shell command line.
     pub command: String,
@@ -130,6 +132,64 @@ pub struct CommandSpec {
     pub timeout: Duration,
     /// Extra environment (e.g. `AGENIUM_RUN_ID`; project secrets configured for the worktree).
     pub env: BTreeMap<String, String>,
+    /// A command run in the background (ADR-129): set to stop it before its timeout; its tree is ended as on a
+    /// timeout, but the output says neither `timed_out` nor an exit code.
+    pub stop: Option<Arc<AtomicBool>>,
+    /// Receives stdout and stderr as they are read (in order of arrival), so the output can be read while the command
+    /// runs. The returned output still holds both streams in full.
+    pub live: Option<Live>,
+}
+
+/// Output of a running command, shared with whoever reads it while it runs.
+pub type Live = Arc<std::sync::Mutex<Vec<u8>>>;
+
+/// Appends what a stream read to the live output, if there is one.
+pub(crate) fn feed(live: &Option<Live>, bytes: &[u8]) {
+    if let Some(l) = live {
+        l.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend_from_slice(bytes);
+    }
+}
+
+/// Reads a stream to its end, handing each chunk to the live output as it comes.
+async fn read_all(mut r: impl tokio::io::AsyncRead + Unpin, live: Option<Live>) -> Vec<u8> {
+    let mut all = Vec::new();
+    let mut buf = [0u8; 8192];
+    while let Ok(n) = r.read(&mut buf).await {
+        if n == 0 {
+            break;
+        }
+        feed(&live, &buf[..n]);
+        all.extend_from_slice(&buf[..n]);
+    }
+    all
+}
+
+/// Reads a stream of a contained process to its end on its own thread (the MXC and the bubblewrap / Seatbelt backends),
+/// handing each chunk to the live output as it comes.
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+pub(crate) fn reader(
+    mut r: Box<dyn std::io::Read + Send>,
+    live: Option<Live>,
+) -> std::thread::JoinHandle<Vec<u8>> {
+    std::thread::spawn(move || {
+        let mut all = Vec::new();
+        let mut buf = [0u8; 8192];
+        while let Ok(n) = r.read(&mut buf) {
+            if n == 0 {
+                break;
+            }
+            feed(&live, &buf[..n]);
+            all.extend_from_slice(&buf[..n]);
+        }
+        all
+    })
+}
+
+/// Whether a background command was asked to stop.
+pub(crate) fn stopping(stop: &Option<Arc<AtomicBool>>) -> bool {
+    stop.as_ref().is_some_and(|s| s.load(Ordering::Relaxed))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -241,9 +301,12 @@ impl Executor {
             policy.clone(),
             spec.timeout,
         );
-        tokio::task::spawn_blocking(move || unix::run(&command, &cwd, &env, &policy, timeout))
-            .await
-            .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
+        let (stop, live) = (spec.stop.clone(), spec.live.clone());
+        tokio::task::spawn_blocking(move || {
+            unix::run(&command, &cwd, &env, &policy, timeout, stop, live)
+        })
+        .await
+        .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
     }
 
     #[cfg(windows)]
@@ -255,9 +318,12 @@ impl Executor {
         let argv = self.argv(&spec.command);
         let env = Self::mxc_env(spec, policy)?;
         let (cwd, policy, timeout) = (spec.cwd.clone(), policy.clone(), spec.timeout);
-        tokio::task::spawn_blocking(move || mxc::run(&argv, &cwd, &env, &policy, timeout))
-            .await
-            .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
+        let (stop, live) = (spec.stop.clone(), spec.live.clone());
+        tokio::task::spawn_blocking(move || {
+            mxc::run(&argv, &cwd, &env, &policy, timeout, stop, live)
+        })
+        .await
+        .map_err(|e| ExecError::Io(std::io::Error::other(e)))?
     }
 
     /// Runs the command (the caller has already obtained approval or verified the sandbox). On timeout the
@@ -308,21 +374,19 @@ impl Executor {
                     .map(|_| j)
             })
             .ok();
-        let mut out = child.stdout.take().expect("piped stdout");
-        let mut err = child.stderr.take().expect("piped stderr");
-        let read_out = tokio::spawn(async move {
-            let mut b = Vec::new();
-            let _ = out.read_to_end(&mut b).await;
-            b
-        });
-        let read_err = tokio::spawn(async move {
-            let mut b = Vec::new();
-            let _ = err.read_to_end(&mut b).await;
-            b
-        });
-        let (status, timed_out) = match tokio::time::timeout(spec.timeout, child.wait()).await {
-            Ok(s) => (s?.code(), false),
-            Err(_) => {
+        let out = child.stdout.take().expect("piped stdout");
+        let err = child.stderr.take().expect("piped stderr");
+        let read_out = tokio::spawn(read_all(out, spec.live.clone()));
+        let read_err = tokio::spawn(read_all(err, spec.live.clone()));
+        // Waits for the exit, the timeout, or a stop of a background command; the last two end the whole tree.
+        let mut timed_out = false;
+        let status = loop {
+            if let Some(s) = child.try_wait()? {
+                break s.code();
+            }
+            let expired = start.elapsed() >= spec.timeout;
+            if expired || stopping(&spec.stop) {
+                timed_out = expired;
                 #[cfg(windows)]
                 if let Some(j) = &job {
                     j.terminate();
@@ -331,8 +395,9 @@ impl Executor {
                     kill_tree(pid).await;
                 }
                 let _ = child.kill().await;
-                (None, true)
+                break None;
             }
+            tokio::time::sleep(Duration::from_millis(20)).await;
         };
         // Grandchildren may keep the pipes open after a kill; do not wait forever for them.
         let grace = Duration::from_secs(2);
@@ -552,6 +617,7 @@ mod tests {
                     cwd: tmp.path().into(),
                     timeout: Duration::from_secs(30),
                     env: extra,
+                    ..Default::default()
                 },
                 &policy(tmp.path()),
             )
@@ -587,6 +653,7 @@ mod tests {
                     cwd: tmp.path().into(),
                     timeout: Duration::from_secs(30),
                     env: BTreeMap::new(),
+                    ..Default::default()
                 },
                 &policy(tmp.path()),
             )
@@ -639,6 +706,7 @@ mod tests {
                     cwd: tmp.path().into(),
                     timeout: Duration::from_secs(30),
                     env: BTreeMap::new(),
+                    ..Default::default()
                 },
                 &p,
             )
@@ -684,6 +752,7 @@ try {{ require('fs').readFileSync({:?}); console.log('LEAK') }} catch (e) {{ con
                     cwd: tmp.path().into(),
                     timeout: Duration::from_secs(60),
                     env: BTreeMap::new(),
+                    ..Default::default()
                 },
                 &policy(tmp.path()),
             )
@@ -713,6 +782,7 @@ try {{ require('fs').readFileSync({:?}); console.log('LEAK') }} catch (e) {{ con
                     cwd: tmp.path().into(),
                     timeout: Duration::from_millis(800),
                     env: BTreeMap::new(),
+                    ..Default::default()
                 },
                 &policy(tmp.path()),
             )

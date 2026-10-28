@@ -541,6 +541,7 @@ pub async fn run(
         tool_errors: 0,
         error_codes: Default::default(),
         errors: vec![],
+        tools: Default::default(),
         outcomes: vec![],
         reopened: tickets.iter().map(|t| t["reopened"].as_u64().unwrap_or(0) as u32).sum(),
         tokens_in: tickets.iter().map(|t| t["tokens_in"].as_u64().unwrap_or(0)).sum(),

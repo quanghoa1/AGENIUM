@@ -304,3 +304,43 @@ async fn view_image_is_offered_to_a_model_that_takes_images_only() {
         assert_eq!(offered, vision);
     }
 }
+
+/// ADR-129: a work run offers the background companions of `shell`; a review run of an API agent, which has no
+/// `shell`, offers neither (a Lead called `shell_output` with guessed job ids).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn background_shell_tools_come_only_with_shell() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, _) = solo_with_tickets(&app, &["PI-1"]);
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    let names = |i: usize| -> Vec<String> {
+        p.requests()[i]
+            .tools
+            .iter()
+            .map(|t| t.name.clone())
+            .collect()
+    };
+    let work = names(0);
+    for t in ["shell", "shell_output", "shell_stop"] {
+        assert!(work.contains(&t.to_owned()), "{t}: {work:?}");
+    }
+    p.push_text("Looks fine.");
+    let _ = rt.review(project, &key("AGN-1")).await;
+    let review = names(p.requests().len() - 1);
+    assert!(!review.contains(&"shell".to_owned()), "{review:?}");
+    assert!(
+        !review
+            .iter()
+            .any(|n| n == "shell_output" || n == "shell_stop"),
+        "{review:?}"
+    );
+}

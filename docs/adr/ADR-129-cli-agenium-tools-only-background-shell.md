@@ -1,0 +1,98 @@
+# ADR-129: Vendor CLIs work only through Agenium's tools; background commands for every agent
+
+Status: Accepted (2026-10-28). Owner: "đảm bảo chúng gọi tool của agenium chứ không phải tool riêng của chúng nhé";
+"chúng ta cần có tất cả tool cần để cli cũng như agent từ api gọi nhé". Amends ADR-117 (hooked CLIs kept their own
+file tools in the worktree; Codex kept its own shell inside the sandbox) and ADR-84 (a contained CLI got only `fetch`).
+
+## Context
+
+The `find_code` A/B (ADR-128) showed the CLIs working with their own tools: Claude Code's `Read`/`Grep`, Grok's
+`read_file`/`grep`, Codex's `command_execution`. ADR-117 had turned off a hooked CLI's own shell but left its file tools
+on in the worktree ("the instructions prefer Agenium's"), and Codex, contained in Agenium's sandbox, worked entirely
+with its own shell. So the same ticket ran under different rules depending on the vendor: write scope checked only at
+the report, no trimmed outputs, no `find_code`, no Agenium logging of what was read.
+
+Comparing the tool sets showed one capability missing on Agenium's side: a command that keeps running (a dev server to
+check the work, a watcher). Claude Code (`run_in_background`), Grok (`get_command_or_subagent_output`), agy
+(`command_status`) and Codex (`unified_exec`) all have one; Agenium's `shell` waited for the end.
+
+## Decision
+
+1. **Every vendor CLI gets the run's full tool set over MCP**, as an API agent does: `read_file`, `list_dir`, `glob`,
+   `grep`, `find_code`, `edit_file`, `multi_edit`, `apply_patch`, `write_file`, `shell` (+ `shell_output`,
+   `shell_stop`), `todo`, `fetch`, `view_image`, and the agent's MCP servers. In a read-only run (review, chat) the
+   shell trio is added where a sandbox makes the run read-only.
+2. **Its own tools are off**:
+   - its own shell, everywhere: Claude Code and Grok are started with `--tools` lists without them; agy's and
+     OpenCode's are refused by the hook / permission config; Codex runs with `shell_tool`, `unified_exec`,
+     `view_image`, `sleep_tool` and `tool_suggest` off;
+   - its own file and search tools reach **only its scratch folder** (the per-run home: Claude Code saves a long tool
+     result there and reads it back, agy keeps its task notes, Grok its session notes), never Agenium's files there.
+     On the worktree, or without a path (which means the worktree), the hook refuses them naming Agenium's tools;
+   - OpenCode's file, search, shell and to-do tools are denied in its permission config.
+   The instructions every CLI gets say so in one text (the per-backend variants are gone).
+3. **Background commands** (for API agents and CLIs alike): `shell` with `background: true` starts the command and
+   returns a job id; `shell_output {job, wait_ms}` reads what it printed since the last read and whether it ended;
+   `shell_stop {job}` ends its process tree. Same sandbox, gate, environment and write scope as `shell`; at most 4 at
+   a time, at most an hour, and every one is stopped when the run ends (the tool context is dropped). The sandbox's
+   `CommandSpec` gained `stop` and `live` (output as it is read) on all three backends (plain, MXC, bubblewrap /
+   Seatbelt).
+
+4. **A Solo agent's subagents** (owner: "verify việc solo agent gọi subagent thì trong agenium hiển thị như thế nào"):
+   - the CLI's own subagent tool stays on for Solo agents, and the instructions say so (after rule 2 Codex took "not
+     your own" for its `spawn_agent` and answered alone; Grok looked for one among Agenium's tools);
+   - Claude Code 2.1 names its subagent tool `Agent` (`Task` before): the old allowlist refused every Solo agent's
+     subagent; both names are allowed, with `TaskOutput`; Grok keeps `get_command_or_subagent_output` and
+     `kill_command_or_subagent` for its subagents (its own commands are off, so they reach only those);
+   - the run's log names the subagent of each step (Claude Code's `parent_tool_use_id`): the step that starts one is
+     logged when it starts, labelled `subagent N · <description>`, and every step the subagent makes — its own tools and
+     its calls of Agenium's tools over MCP — carries that label (`_subagent` in the logged arguments). The run page and
+     the Live tab indent those steps under a violet label. Subagents follow the same tool rules (their own tools are
+     refused on the worktree; they move to Agenium's);
+   - a call the hook refused is logged once, under its own name, as refused (it was logged as `cli:permission` and
+     then a second time as if it ran).
+5. **Arguments under another harness's names** are renamed to the schema's when the schema's is absent and the other
+   is not a field of it (`file_path`, `TargetFile`, `Path` → `path`; `new_str`, `replacement` → `new_string`; `query`
+   → `pattern`; `CommandLine` → `command`...), for CLI calls as for API calls (ADR-105's repairs now run on the MCP path
+   too). Grok's calls of Agenium tools through its `use_tool` dispatcher were logged twice; now once.
+
+What does not change: the hook still checks every call a hooked CLI makes; subagents only for Solo agents; web only
+through `fetch`; Codex itself still runs inside Agenium's sandbox (or on the host by the user's choice, ADR-117).
+
+## Consequences
+
+- `agenium_cli_backend::driver::{own_tool_off, AGENIUM_TOOLS}`; `file_access` allows the per-run home only;
+  `run::render` has no `Commands` variants; `agenium_tools::{jobs, ShellOutput, ShellStop, shell_tools}`;
+  `agenium_sandbox::{CommandSpec::{stop, live}, Live}`.
+- Tests: `claude.rs`, `grok.rs`, `agy.rs`, `opencode.rs` (own tools refused on the worktree and without a path, its
+  scratch folder open), `stream_run.rs` (a fake agy writes through Agenium's `write_file`, its own write and shell are
+  refused, its notes are written; the user's messages ride on Agenium tool results and open the next turn),
+  `tools.rs::a_background_command_is_read_while_it_runs_and_stopped`.
+- The upstream Codex sandbox was brought to f021168 the same day (MXC's object normalizer no longer called; separate
+  commits, `docs/reference/SANDBOX-MAINTENANCE.md`).
+
+## Verified on real models (2026-10-28)
+
+Golden tasks (`agenium-eval`, five single-ticket tasks, Solo agent) and the team task (Lead and planner on DeepSeek
+v4.1 Flash over the API, the workers on one CLI), with the models the owner set for tests: Claude Code Haiku 5.5,
+Codex gpt-6-luna, Grok 4.7, agy Gemini 3.8 Flash. The eval now counts tool calls by name (`cli:<name>` = the CLI's
+own).
+
+| | before (ADR-117) | after |
+|---|---|---|
+| Solo golden tasks | 25/25 (with DeepSeek over the API) | 20/20 on the four CLIs |
+| Team task | 4/4 | 4/4 |
+| The CLIs' own tools in the work | Claude `Read`/`Grep`/`Write`, Grok `read_file`/`grep`, Codex `command_execution` | none: Codex only Agenium's; Claude only `ToolSearch` (loads Agenium's); Grok only its MCP dispatchers; agy reads Agenium's tool schemas in its scratch folder; every attempt on the worktree refused and redirected |
+
+The workers used the background commands to check their pages (`shell_output`, `shell_stop`). Found while verifying,
+and fixed: an API Lead's review run was offered `shell_output` without `shell` (it guessed job ids); the other
+harnesses' argument names cost a step each; Grok's dispatched calls were logged twice; Claude Code's `Agent` was
+refused; Codex and Grok took "not your own" for their subagent tool; Grok's `workflow` (tried, then allowed, then
+withheld again) answers after the turn has ended.
+
+Subagents, Solo agents on a pinned Flask 3.1.0: Claude Code started two in parallel; the run page shows both starts and
+each subagent's steps labelled and indented under them, its own tools refused on the worktree and Agenium's
+`grep`/`read_file` used instead. Codex (gpt-6-luna, low) has its `spawn_agent` (checked in its session) but answered
+alone; Grok and agy did the work themselves. Codex's own `apply_patch` cannot be withheld by configuration in codex
+0.163 (it belongs to the model family); it runs inside Agenium's sandbox, the write scope is checked at the report, and
+it was not used in these runs.

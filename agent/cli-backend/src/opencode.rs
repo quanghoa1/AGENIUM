@@ -27,8 +27,7 @@ use tokio::sync::mpsc;
 
 use crate::driver::HOOK_URL_ENV;
 use crate::driver::{
-    git_refusal, inside, read_only_refusal, Check, CheckCtx, Control, Driver, Event, Setup, Turns,
-    NO_SUBAGENTS,
+    own_tool_off, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 
 pub struct Opencode;
@@ -98,14 +97,17 @@ impl Driver for Opencode {
             std::fs::create_dir_all(d)?;
         }
         std::fs::create_dir_all(dirs[0].join("opencode"))?;
+        // ADR-129: its own shell, file, search and to-do tools are off; the work goes through Agenium's MCP tools.
         let mut permission = json!({
             "*": "ask",
-            "read": "allow",
-            "glob": "allow",
-            "grep": "allow",
-            "list": "allow",
-            "todowrite": "allow",
-            "todoread": "allow",
+            "read": "deny",
+            "glob": "deny",
+            "grep": "deny",
+            "list": "deny",
+            "edit": "deny",
+            "bash": "deny",
+            "todowrite": "deny",
+            "todoread": "deny",
             "webfetch": "deny",
             "websearch": "deny",
             "external_directory": "deny",
@@ -234,31 +236,10 @@ impl Driver for Opencode {
     /// A `permission.asked` request of opencode (`action`, `resources`).
     fn check(&self, payload: &Value, cx: &CheckCtx) -> Check {
         let action = payload["action"].as_str().unwrap_or("");
-        let resources: Vec<&str> = payload["resources"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-            .collect();
         match action {
-            // Inside the worktree, and never `.git` (the API tools' rule).
-            "edit" | "write" | "patch" | "apply_patch" => match resources.iter().find_map(|r| {
-                let p = Path::new(r);
-                if !inside(p, cx.worktree, cx.worktree) {
-                    Some(format!("{r} is outside the ticket worktree"))
-                } else if cx.read_only {
-                    Some(read_only_refusal(p))
-                } else {
-                    git_refusal(p, cx.worktree)
-                }
-            }) {
-                None => Check::Allow,
-                Some(reason) => Check::Deny(reason),
-            },
-            "shell" | "bash" => match resources.first() {
-                Some(c) => Check::Command((*c).to_owned()),
-                None => Check::Deny("empty shell command".into()),
-            },
+            // ADR-129: its own file and shell tools are off; the work goes through Agenium's tools.
+            "edit" | "write" | "patch" | "apply_patch" | "shell" | "bash" | "read" | "glob"
+            | "grep" | "list" => Check::Deny(own_tool_off(action)),
             "task" if cx.subagents => Check::Allow,
             "task" => Check::Deny(NO_SUBAGENTS.into()),
             a if a.starts_with(&format!("{}_", cx.mcp_name)) => Check::Allow,
@@ -533,31 +514,13 @@ mod tests {
             read_only: false,
         };
         let ask = |action: &str, res: &[&str]| json!({"id": "per_1", "sessionID": "ses_1", "action": action, "resources": res});
-        assert_eq!(
-            Opencode.check(&ask("edit", &["src/a.rs"]), &cx(false)),
-            Check::Allow
-        );
-        // A run that only reads (chat, review, inbox, plan) edits nothing, though shell commands still go to the gate.
-        let reads = CheckCtx {
-            read_only: true,
-            ..cx(false)
-        };
-        assert!(matches!(
-            Opencode.check(&ask("edit", &["src/a.rs"]), &reads),
-            Check::Deny(r) if r.contains("only reads")
-        ));
-        assert!(matches!(
-            Opencode.check(&ask("bash", &["git status"]), &reads),
-            Check::Command(_)
-        ));
-        assert!(matches!(
-            Opencode.check(&ask("edit", &["../x.rs"]), &cx(false)),
-            Check::Deny(_)
-        ));
-        assert_eq!(
-            Opencode.check(&ask("shell", &["cargo test"]), &cx(false)),
-            Check::Command("cargo test".into())
-        );
+        // ADR-129: its own file and shell tools are off, whatever they name.
+        for action in ["edit", "write", "bash", "shell", "read", "grep"] {
+            assert_eq!(
+                Opencode.check(&ask(action, &["src/a.rs"]), &cx(false)),
+                Check::Deny(own_tool_off(action))
+            );
+        }
         assert_eq!(
             Opencode.check(&ask("task", &[]), &cx(false)),
             Check::Deny(NO_SUBAGENTS.into())
@@ -571,13 +534,6 @@ mod tests {
             Opencode.check(&ask("codesearch", &[]), &cx(false)),
             Check::Deny(_)
         ));
-        assert!(
-            matches!(
-                Opencode.check(&ask("edit", &[".git/hooks/pre-commit"]), &cx(false)),
-                Check::Deny(_)
-            ),
-            "the API tools' .git rule"
-        );
     }
 
     /// Review of 2026-10-27: events of other sessions were dropped before the permission branch, so the requests of
@@ -641,6 +597,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(cfg["permission"]["*"], "ask");
+        assert_eq!(cfg["permission"]["bash"], "deny");
+        assert_eq!(cfg["permission"]["read"], "deny");
         assert_eq!(cfg["permission"]["task"], "deny");
         assert_eq!(cfg["permission"]["agenium_*"], "allow");
         assert_eq!(
