@@ -79,3 +79,27 @@ interruptions, not tokens); classify an incoming user message (new request / que
 Browser/desktop/mobile control loops, games, robotics, finance, support triage, image and medical models.
 jev-ultrafast's speed is mostly browser-side (one DOM snapshot per step: 1 092 → 101 protocol calls); its Jev-side
 techniques are the one-request fan-out and the warm HTTP/2 connection (§1).
+
+## 5. jevgrep (dzhng/jevgrep), studied 2026-10-28
+
+A CLI (`jg "how are telemetry events recorded and sent?" .`) and an agent skill that find code **by what it does**:
+Jev judges, level by level, which folders are worth exploring (names + sampled content), which files help (content
+preview + declaration list; roles implementation / caller / test / fixture / helper and a "read early" priority), and
+which declarations to return verbatim with line references (relevance, scope, and "referenced by the selected
+evidence"). A navigation byte budget bounds the search, and an incomplete search says so. Reported on ten Python
+SWE-bench tasks: the same 8/10 solved as without it, at **25.8 % lower total cost including Jev** (Sol $4.18 + Jev
+$1.48 against $7.62); a later version cut Jev's cost ~59 % with combined cost 2–3 % higher. One run per task, by the
+author; not reproduced here.
+
+What Agenium takes from it:
+- **Done (ADR-127):** nothing sensitive reaches the judge — every text passes the redactor in `client::ask` (jevgrep
+  drops credential-looking files before upload); answers cached locally (as Agenium's answer cache).
+- **Shared criteria in the state:** long criteria are written once (`state.criteria.relevance`) and each question only
+  says "apply state.criteria.relevance to state.items[i]" — many questions for the price of one criteria text.
+  Applicable to review_assist and the trimmer when they grow.
+- **Candidate work tool `find_code`** for coding workers (own Rust implementation, no package): Jev-guided folder →
+  file → declaration search returning a file list and verbatim excerpts, for behavioural questions ("where is the
+  write scope checked before a merge?"); grep stays the tool for exact symbols. Its value is measured the jevgrep way:
+  same tasks solved, lower total cost (the golden tasks and a real team run).
+- **A file-size ratchet** (sources ≤ 8 000 estimated tokens, oversized files frozen at their size, checked before
+  commit) — the guard behind the owner's "small modules" rule.
