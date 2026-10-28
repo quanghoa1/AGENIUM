@@ -567,6 +567,8 @@ export interface JudgeUses {
   memory_gate: boolean;
   skill_quality: boolean;
   done_check: boolean;
+  trim_output: boolean;
+  shadow: boolean;
 }
 
 export interface JudgeConfig extends JudgeUses {

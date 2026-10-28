@@ -179,6 +179,12 @@ pub struct JudgeSection {
     /// Before a worker's report is accepted: when nothing checked the work after its last change, let it read the
     /// report against the run's facts and send a confident unverified "done" back once (ADR-126). Fail-open.
     pub done_check: bool,
+    /// Read a long `shell`/`grep` result in a work run and leave out what is confidently not needed for the ticket,
+    /// the full output saved beside it (ADR-127). Fail-open.
+    pub trim_output: bool,
+    /// Observe only: every use that is on asks and records what it would do, and changes nothing — to measure a
+    /// use's offload on real runs before it is turned on (ADR-127).
+    pub shadow: bool,
 }
 
 impl JudgeSection {

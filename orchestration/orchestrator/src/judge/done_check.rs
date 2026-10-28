@@ -121,13 +121,9 @@ impl App {
             return None;
         }
         let judge = self.judge().ok().flatten()?;
-        let evidence: String = report
-            .acceptance
-            .iter()
-            .map(|a| format!("{} ({:?}): {}\n", a.ac_id, a.status, a.evidence))
-            .collect();
+        let report_text = super::report_text(report);
         let j = Judging::default()
-            .state_text("report", &format!("{}\n{evidence}", report.summary))
+            .state_text("report", &report_text)
             .state_text("run_facts", &facts.text())
             .noul(
                 "claims_done",
@@ -143,9 +139,17 @@ impl App {
                 "claims_checked",
                 "Does `report` claim that tests, a build or another check passed?",
             );
+        // Prefetch: the review's questions read the same report, so they ride along in this request and the review
+        // run finds their answers in the cache (one request, the report sent once).
+        let j = if self.config().judge.review_assist && !t.acceptance.is_empty() {
+            let review = super::review_assist::review_questions(t, &report_text);
+            j.clone().merge(review).unwrap_or(j)
+        } else {
+            j
+        };
         let key = t.key.to_string();
-        let (answers, ms) = self.ask(&judge, &j, "done_check", Some(&key)).await?;
-        let p = |id: &str| answers.get(id).and_then(|a| a.noul).unwrap_or(0.0);
+        let reply = self.ask(&judge, &j, "done_check", Some(&key)).await?;
+        let p = |id: &str| reply.answers.get(id).and_then(|a| a.noul).unwrap_or(0.0);
         let (done, applies, claimed) = (p("claims_done"), p("check_applies"), p("claims_checked"));
         let send_back = done >= SURE && applies >= SURE;
         self.record(
@@ -158,10 +162,9 @@ impl App {
                 applies * 100.0,
                 claimed * 100.0
             ),
-            true,
-            ms,
+            &reply,
         );
-        if !send_back {
+        if !send_back || !self.judge_acts() {
             return None;
         }
         let ran = if facts.checks_after.is_empty() {

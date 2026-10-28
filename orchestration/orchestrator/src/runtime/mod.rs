@@ -851,6 +851,12 @@ impl Runtime {
             work.retain(|t| t.name() != "view_image");
         }
         work.extend(mcp_tools);
+        // ADR-127: long shell/grep results of a work run are trimmed by the judge before the model reads them.
+        if kind == RunKind::Work && self.app.config().judge.trim_output {
+            if let Some(t) = ticket {
+                work = crate::judge::trim::wrap(self.app.clone(), t, work);
+            }
+        }
         let mut exclude = exclude.to_vec();
         if kind != RunKind::Plan {
             exclude.push(ProtocolTool::SubmitPlanDraft);

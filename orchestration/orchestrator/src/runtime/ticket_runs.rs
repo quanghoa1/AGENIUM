@@ -327,19 +327,7 @@ impl Runtime {
         let guidance = self.app.project_guidance(project)?;
         // Optional judge: an independent first read of the report's evidence (ADR-75), token-light.
         let report_text = all_comments.iter().rev().find_map(|c| match &c.body {
-            CommentBody::Report(r) => Some(format!(
-                "{}
-{}",
-                r.summary,
-                r.acceptance
-                    .iter()
-                    .map(|a| format!("{}: {}", a.ac_id, a.evidence))
-                    .collect::<Vec<_>>()
-                    .join(
-                        "
-"
-                    )
-            )),
+            CommentBody::Report(r) => Some(crate::judge::report_text(r)),
             _ => None,
         });
         let evidence = match &report_text {

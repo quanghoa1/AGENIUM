@@ -240,17 +240,11 @@ impl ToolCtx {
     /// Cuts `full` to the limits; when cut, saves the whole text under the artifacts directory.
     pub fn finish_output(&self, full: String, untrusted: bool) -> ToolOutput {
         let (text, truncated) = text::truncate(&full, self.limits.max_chars, self.limits.max_lines);
-        let mut saved = None;
-        if truncated {
-            let n = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
-            let rel = format!("{}/{n:04}.log", self.artifacts_rel);
-            let p = self.root.join(&rel);
-            if p.parent().map(std::fs::create_dir_all).transpose().is_ok()
-                && std::fs::write(&p, &full).is_ok()
-            {
-                saved = Some(rel);
-            }
-        }
+        let saved = if truncated {
+            self.save_output(&full)
+        } else {
+            None
+        };
         let text = match &saved {
             Some(rel) => format!("{text}\n[full output: {rel}]"),
             None => text,
@@ -262,6 +256,16 @@ impl ToolCtx {
             untrusted,
             images: Vec::new(),
         }
+    }
+
+    /// Saves `full` as a run artifact; its worktree-relative path, for the model to read when it needs the whole.
+    pub fn save_output(&self, full: &str) -> Option<String> {
+        let n = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
+        let rel = format!("{}/{n:04}.log", self.artifacts_rel);
+        let p = self.root.join(&rel);
+        (p.parent().map(std::fs::create_dir_all).transpose().is_ok()
+            && std::fs::write(&p, full).is_ok())
+        .then_some(rel)
     }
 
     pub fn todo(&self) -> Vec<TodoItem> {

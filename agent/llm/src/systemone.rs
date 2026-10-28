@@ -180,6 +180,11 @@ impl Judge {
         &self.model
     }
 
+    /// Endpoint and model: who answers (a cached answer is reused only from the same one).
+    pub fn answerer(&self) -> String {
+        format!("{} {}", self.url, self.model)
+    }
+
     /// Asks the questions in one request; returns each answer by id.
     pub async fn ask(&self, j: &Judging) -> Result<BTreeMap<String, Answer>, LlmError> {
         Ok(self.ask_full(j).await?.answers)

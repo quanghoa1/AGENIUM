@@ -45,6 +45,13 @@ root:
   numbers in `STORE-SCALE.md` §13. **Tuned for exact answers** (§14, ADR-125 §8): on 100 000 real sentences agents
   get exact search's top 8 99 % of the time (was 96 % with ADR-50's parameters) at 1.1 ms per KNN (exact: 32 ms);
   two per-recall costs that grew with memory (counting every fact, scanning for lessons) removed.
+- **Memory at 1 M facts, Windows and Linux** (STORE-SCALE §15): agents get exact search's top 8 in 99 % of recalls at
+  100 k–1 M; hybrid 52–55 ms at 1 M (exact: ~400 ms); a whole-ticket query embeds in 0.4 s instead of 1.6 s (own BERT
+  encoder, ADR-125 §11). The Ubuntu VM (2 vCPU, 5 GB) runs a 1 M-fact agent (peak 2.9 GB).
+- **Jev, after studying jev-ultrafast and awesome-jev** (`docs/reference/JEV-OPPORTUNITIES.md`): client fixes (a rate
+  limit no longer turns the judge off, 5 s deadline, one reused connection, malformed answers ignored; ADR-126), the
+  done check and the output trimmer (both off by default), shadow mode, billed usage, an answer cache with the review
+  prefetched at submit; the judge is now one file per use (ADR-127). Not yet measured on a real team.
 - **Large files split, behaviour unchanged:** `runtime/mod.rs` 2 858 → 1 546 lines (+ `ticket_runs`, `lead_runs`,
   `scheduling`), the CLI's `main.rs` 2 768 → 915 (+ `args` and one module per command group).
 

@@ -1,5 +1,10 @@
 # Jev: what else it could do for Agenium (research, 2026-10-28)
 
+**Status (2026-10-28):** done — the client fixes of §1, the answer record (usage, cache) and batching at submit
+([ADR-126](../adr/ADR-126-jev-client-and-done-check.md), [ADR-127](../adr/ADR-127-judge-modules-shadow-cache-trim.md)),
+shadow mode, uses 1 (done check) and 2 (output trimmer) of §2. Open — uses 3–6 of §2, the §3 improvements to
+review_assist / skill_hint / skill_quality, and measuring the done check and the trimmer on a real team in shadow mode.
+
 Sources studied: [browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast) (a browser agent that picks
 each action with Jev: Google Flights search in 7.1 s, 17 Jev requests, 178 ms median Jev latency, by its own account
 "not a general reliability benchmark") and [yibie/awesome-jev](https://github.com/yibie/awesome-jev) (≈ 670 listed

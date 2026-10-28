@@ -58,6 +58,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   quality). Off by default, fail-open. See [docs/JEV.md](docs/JEV.md).
 - A report that says done while nothing checked the work after its last change can be sent back once (done check,
   ADR-126); a short rate limit no longer turns the judge off, calls give up after 5 s and reuse one connection.
+- The judge can observe only (shadow mode) to measure a use before turning it on; it keeps each ask's billed usage,
+  reuses answers it already gave, asks the review's questions together with the done check, and can leave out the
+  parts of a long test/build log a ticket does not need (ADR-127).
 
 ### Operations
 - Backups (hourly incremental, daily full, retention), restore into a new root, migrations with a backup first,

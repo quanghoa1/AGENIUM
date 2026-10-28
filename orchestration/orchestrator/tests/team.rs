@@ -2658,3 +2658,171 @@ async fn an_unverified_done_goes_back_only_when_the_judge_is_sure() {
         .is_none());
     assert!(f.app.judge_activity(1)[0].outcome.starts_with("accepted"));
 }
+
+/// A one-request mock Jev answering `answer` (leaked: the mock outlives the test body's borrows).
+async fn jev_once(answer: String) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let answer: &'static str = Box::leak(answer.into_boxed_str());
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut sock, _) = l.accept().await.unwrap();
+        let mut buf = [0u8; 65536];
+        loop {
+            let n = sock.read(&mut buf).await.unwrap();
+            if n == 0 || buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                break;
+            }
+        }
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{answer}",
+            answer.len()
+        );
+        sock.write_all(resp.as_bytes()).await.unwrap();
+    });
+    format!("http://{addr}")
+}
+
+fn judge_on(f: &Fixture, base: String, set: impl FnOnce(&mut agenium_config::JudgeSection)) {
+    f.app
+        .update_config(|c| {
+            let mut j = agenium_config::JudgeSection {
+                base_url: base,
+                model: "jev-latest".into(),
+                ..Default::default()
+            };
+            set(&mut j);
+            c.judge = j;
+        })
+        .unwrap();
+}
+
+fn unchecked_report(
+    t: &Ticket,
+) -> (
+    agenium_core::forms::WorkReport,
+    agenium_orchestrator::judge::done_check::RunFacts,
+) {
+    let report = serde_json::from_value(serde_json::json!({
+        "ticket_id": t.key.to_string(),
+        "summary": "Fixed the parser; all tests pass.",
+        "confidence": 0.9,
+        "acceptance": t.acceptance.iter().map(|ac| serde_json::json!({"ac_id": ac.id, "status": "Met", "evidence": "fixed"})).collect::<Vec<_>>(),
+    }))
+    .unwrap();
+    let facts = agenium_orchestrator::judge::done_check::run_facts(&[
+        agenium_store::core::runs::LogEntry {
+            n: 1,
+            kind: "tool".into(),
+            data: serde_json::json!({"tool": "edit_file", "args": {"path": "src/parser.rs"}, "ok": true, "result": "edited"}),
+            at: String::new(),
+        },
+    ]);
+    (report, facts)
+}
+
+/// ADR-127: the done check asks the review's questions in its own request; the review run then reads them from the
+/// answer cache and makes no request (the mock answers once and is gone).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_review_reads_answers_prefetched_at_submit() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Fix the parser", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+    assert!(!t.acceptance.is_empty());
+    let (report, facts) = unchecked_report(&t);
+    let mut answers = serde_json::json!({
+        "claims_done": {"type": "noul", "noul": 0.95},
+        "check_applies": {"type": "noul", "noul": 0.2},
+        "claims_checked": {"type": "noul", "noul": 0.1},
+    });
+    for ac in &t.acceptance {
+        answers[&ac.id] = serde_json::json!({"type": "noul", "noul": 0.9});
+    }
+    let base = jev_once(serde_json::json!({ "answers": answers }).to_string()).await;
+    judge_on(&f, base, |j| {
+        j.done_check = true;
+        j.review_assist = true;
+    });
+    assert!(
+        f.app.unverified_done(&t, &report, &facts).await.is_none(),
+        "a check does not apply: accepted"
+    );
+    let text = agenium_orchestrator::judge::report_text(&report);
+    let evidence = f
+        .app
+        .review_evidence(&t, &text)
+        .await
+        .expect("answered from the cache");
+    assert!(evidence.contains("evidence found (90%)"), "{evidence}");
+    let seen = &f.app.judge_activity(1)[0];
+    assert_eq!((seen.use_.as_str(), seen.cached), ("review_assist", true));
+}
+
+/// ADR-127: in shadow mode a use asks and records what it would do, and changes nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shadow_mode_records_and_changes_nothing() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Fix the parser", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+    let (report, facts) = unchecked_report(&t);
+    let base = jev_once(
+        r#"{"answers":{"claims_done":{"type":"noul","noul":0.95},"check_applies":{"type":"noul","noul":0.9},"claims_checked":{"type":"noul","noul":0.1}},"usage":{"input_tokens":512}}"#.into(),
+    )
+    .await;
+    judge_on(&f, base, |j| {
+        j.done_check = true;
+        j.shadow = true;
+    });
+    assert!(
+        f.app.unverified_done(&t, &report, &facts).await.is_none(),
+        "nothing sent back"
+    );
+    let seen = &f.app.judge_activity(1)[0];
+    assert!(seen.shadow);
+    assert!(
+        seen.outcome.starts_with("[shadow] sent back"),
+        "{}",
+        seen.outcome
+    );
+    assert_eq!(
+        seen.usage,
+        Some(serde_json::json!({"input_tokens": 512})),
+        "billed usage kept"
+    );
+}
+
+/// ADR-127: a long result loses only the chunks the judge is confident are not needed and that rank low; the head,
+/// the tail and anything with an error stay.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_long_log_loses_only_confidently_unneeded_chunks() {
+    let f = fixture();
+    // 150 lines = 5 chunks of 30; chunk 3 has a failure (always kept), so chunks 1 and 2 are asked about.
+    let mut lines: Vec<String> = (0..150)
+        .map(|i| format!("   Compiling crate{i} v1.0.0"))
+        .collect();
+    lines[0] = "exit code 101".into();
+    lines[100] = "test parser::cut ... FAILED".into();
+    let text = lines.join("\n");
+    let base = jev_once(
+        r#"{"answers":{"chunk_1":{"type":"noul","noul":0.05},"chunk_2":{"type":"noul","noul":0.6}}}"#.into(),
+    )
+    .await;
+    judge_on(&f, base, |j| j.trim_output = true);
+    let cut = f
+        .app
+        .trim_output("Fix the parser", "PI-1-T1", "shell", "cargo test", &text)
+        .await
+        .expect("chunk 1 goes");
+    assert!(
+        cut.contains("[... 30 lines left out by the output trimmer"),
+        "{cut}"
+    );
+    assert!(cut.starts_with("exit code 101"));
+    assert!(cut.contains("FAILED") && cut.contains("crate149") && cut.contains("crate60"));
+    assert!(!cut.contains("crate45\n") && !cut.contains("crate31\n"));
+    assert!(f.app.judge_activity(1)[0]
+        .outcome
+        .contains("left out 30 of 150 lines"));
+}
