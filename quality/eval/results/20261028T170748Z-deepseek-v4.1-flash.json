@@ -1,0 +1,722 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 7 steps; recall showed 5 fact(s)",
+    "runs": 10,
+    "steps": 39,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 421475,
+    "tokens_out": 7131,
+    "tokens_cached": 393472,
+    "cost_usd": 0.0,
+    "elapsed_ms": 194361,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criter",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "Lesson: in the docs project, put the 'Owner: <team>' line as the first line of any new file in deliverables/ or reports/, or the pre-merge check rejects the merge even after review approval."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 3,
+                "entities_new": 7,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1464,
+                "tokens_out": 1038,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project, put the 'Owner: <team>' line as the first line of any new file in deliverables/ or reports/, or the pre-merge check rejects the merge even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": false,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+                    "was": "Lesson: in the docs project, put the 'Owner: <team>' line as the first line of any new file in deliverables/ or reports/, or the pre-merge check rejects the merge even after review approval."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 3,
+                "entities_linked": 6,
+                "entities_new": 2,
+                "extracted": 3,
+                "helped": 3,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3356,
+                "tokens_out": 2234,
+                "updated": 1,
+                "validated": 0
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QH0F0Z02RBSVYJ7V0G5Z7",
+                "shown": 0,
+                "steps": 3
+              },
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QH8ZR6XT0XVM5QK61NPXD",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QHNBQ0PE9KRRCY1R3EKFJ",
+                "shown": 3,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QJ34VXRR10KM90FSWH7N2",
+                "shown": 0,
+                "steps": 5
+              }
+            ],
+            "shown": [
+              "run 01M61QHNBQ0PE9KRRCY1R3EKFJ #1 hybrid Some(Lesson): Lesson: in the docs project, put the 'Owner: <team>' line as the first line of any new file in deliverables/ or reports/, or the pre-merge check rejects the merge even after review approval.",
+              "run 01M61QHNBQ0PE9KRRCY1R3EKFJ #2 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+              "run 01M61QHNBQ0PE9KRRCY1R3EKFJ #3 graph Some(Fact): The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M61QGZQKCG3101SXC737EEZA/ticket:AGN-2"
+                ],
+                "id": 5,
+                "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criter",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval."
+                  },
+                  {
+                    "exact": false,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check."
+                  },
+                  {
+                    "exact": false,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 4,
+                "entities_new": 1,
+                "extracted": 3,
+                "helped": 5,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3410,
+                "tokens_out": 1157,
+                "updated": 0,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QJWPN4C3VEMGDEV6Y62MS",
+                "shown": 5,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QK7ZJZ3HAWQFXXF7RNJVY",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M61QJWPN4C3VEMGDEV6Y62MS #1 hybrid Some(Lesson): Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "run 01M61QJWPN4C3VEMGDEV6Y62MS #2 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+              "run 01M61QJWPN4C3VEMGDEV6Y62MS #3 graph Some(Fact): In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "run 01M61QJWPN4C3VEMGDEV6Y62MS #4 graph Some(Fact): In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "run 01M61QJWPN4C3VEMGDEV6Y62MS #5 graph Some(Fact): The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M61QGZQKCG3101SXC737EEZA/ticket:AGN-2",
+                  "01M61QGZQKCG3101SXC737EEZA/ticket:AGN-3"
+                ],
+                "id": 5,
+                "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criter",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project's Windows worktrees, verify required words case-insensitively with (Get-Content <file> -Raw).ToLower().Contains('<word>').",
+              "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ and handbook/ are not created by default and must be created when needed.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/, reports/, or handbook/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+              "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents may live in handbook/ and minutes/ in addition to deliverables/ and reports/.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": false,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check."
+                  },
+                  {
+                    "exact": false,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+                  }
+                ]
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, team documents may live in handbook/ and minutes/ in addition to deliverables/ and reports/."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document placed in deliverables/, reports/, or handbook/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+                    "was": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ and handbook/ are not created by default and must be created when needed."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project's Windows worktrees, verify required words case-insensitively with (Get-Content <file> -Raw).ToLower().Contains('<word>')."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 6,
+                "deleted": 0,
+                "edges": 5,
+                "entities_linked": 8,
+                "entities_new": 3,
+                "extracted": 4,
+                "helped": 7,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [
+                  "external content may not rewrite trusted memory 7; stored beside it as untrusted"
+                ],
+                "tokens_in": 4342,
+                "tokens_out": 4348,
+                "updated": 1,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QKTC22PSTGXR8C46PFH7Y",
+                "shown": 7,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QMFY2RNM192E9FQTR1BT2",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #1 hybrid Some(Lesson): Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #2 hybrid Some(Fact): The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed.",
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #3 graph Some(Fact): In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #4 graph Some(Fact): The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value.",
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #5 graph Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #6 graph Some(Fact): In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "run 01M61QKTC22PSTGXR8C46PFH7Y #7 graph Some(Fact): The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M61QGZQKCG3101SXC737EEZA/ticket:AGN-2",
+                  "01M61QGZQKCG3101SXC737EEZA/ticket:AGN-3",
+                  "01M61QGZQKCG3101SXC737EEZA/ticket:AGN-4"
+                ],
+                "id": 5,
+                "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criter",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/, handbook/, and minutes/ are not created by default and must be created when a ticket needs them.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/, reports/, handbook/, or minutes/ must name its owning team on its first line; the line is exactly 'Owner: docs-team', followed by the content.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project's Windows worktrees, verify required words case-insensitively with (Get-Content <file> -Raw).ToLower().Contains('<word>').",
+              "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents may live in handbook/ and minutes/ in addition to deliverables/ and reports/.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed."
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project's Windows worktrees, verify required words case-insensitively with (Get-Content <file> -Raw).ToLower().Contains('<word>')."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/, reports/, or handbook/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": false,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check."
+                  },
+                  {
+                    "exact": false,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document placed in deliverables/, reports/, handbook/, or minutes/ must name its owning team on its first line; the line is exactly 'Owner: docs-team', followed by the content.",
+                    "was": "In the docs project, every team document placed in deliverables/, reports/, or handbook/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/, handbook/, and minutes/ are not created by default and must be created when a ticket needs them.",
+                    "was": "The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ and handbook/ are not created by default and must be created when needed."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 8,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 5,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 8,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 3892,
+                "tokens_out": 1667,
+                "updated": 2,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QNMSW4TCY8PBW7A9ASV1S",
+                "shown": 8,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M61QH09HXKZX66DZA5Y2XVGA",
+                "outcome": "Completed",
+                "run": "01M61QP4ZEMAFQZAWESS4HR5QK",
+                "shown": 0,
+                "steps": 4
+              }
+            ],
+            "shown": [
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #1 hybrid Some(Lesson): Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #2 hybrid Some(Fact): The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed.",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #3 hybrid Some(Fact): In the docs project's Windows worktrees, verify required words case-insensitively with (Get-Content <file> -Raw).ToLower().Contains('<word>').",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #4 graph Some(Fact): In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #5 graph Some(Fact): The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value.",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #6 graph Some(Fact): In the docs project, every team document placed in deliverables/, reports/, or handbook/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #7 graph Some(Fact): In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+              "run 01M61QNMSW4TCY8PBW7A9ASV1S #8 graph Some(Fact): The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 9,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 95488,
+            "tokens_in": 100363,
+            "tokens_out": 2037
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 9,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 86528,
+            "tokens_in": 101233,
+            "tokens_out": 1824
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "hash-v1",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/, handbook/, and minutes/ are not created by default and must be created when a ticket needs them.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/, reports/, handbook/, or minutes/ must name its owning team on its first line; the line is exactly 'Owner: docs-team', followed by the content.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project's Windows worktrees, verify required words case-insensitively with (Get-Content <file> -Raw).ToLower().Contains('<word>').",
+        "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents may live in handbook/ and minutes/ in addition to deliverables/ and reports/.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = \"docs\", key_prefix = \"AGN\", main_branch = \"main\", template = \"coding@1\" and an empty [checks] pre_merge value.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's root contains agenium.toml plus deliverables/, reports/, notes/ and artifacts/ directories; reports/ is not created by default and must be created when needed.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 14,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 140928,
+        "tokens_in": 146038,
+        "tokens_out": 2050
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 7,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 70528,
+        "tokens_in": 73841,
+        "tokens_out": 1220
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M61QJWPN4C3VEMGDEV6Y62MS #1 hybrid: Lesson: in the docs project, add the 'Owner: docs-team' line as the first line of any new file in deliverables/ or reports/ before submitting; acceptance criteria about content alone won't remind you, and the pre-merge check rejects the merge even after review approval.",
+        "run 01M61QJWPN4C3VEMGDEV6Y62MS #2 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line; for this project the line is exactly 'Owner: docs-team'.",
+        "run 01M61QJWPN4C3VEMGDEV6Y62MS #3 graph: In the docs project, the pre-merge check is a separate gate from review: a merge can fail with 'pre-merge check failed' naming the offending file even after the agent's own review approval.",
+        "run 01M61QJWPN4C3VEMGDEV6Y62MS #4 graph: In the docs project's Windows worktrees, write text files UTF-8 without BOM using [IO.File]::WriteAllText with New-Object System.Text.UTF8Encoding($false) and verify with a byte check.",
+        "run 01M61QJWPN4C3VEMGDEV6Y62MS #5 graph: The docs project's ticket worktrees live on Windows, so shell commands use PowerShell syntax such as Get-Content and Test-Path."
+      ]
+    }
+  }
+]

@@ -280,6 +280,27 @@ pub enum RunKind {
     Plan,
 }
 
+/// A worker's tools that are about its own ticket.
+const OWN_TICKET_TOOLS: [&str; 4] = [
+    "submit_report",
+    "post_progress",
+    "ask_question",
+    "request_permission",
+];
+
+/// `args` with `ticket_id` set to `ticket` when it is missing (a given one is kept, for the engine to check).
+fn with_ticket(args: serde_json::Value, ticket: &TicketKey) -> serde_json::Value {
+    match args {
+        serde_json::Value::Object(mut m) => {
+            if m.get("ticket_id").is_none_or(serde_json::Value::is_null) {
+                m.insert("ticket_id".into(), serde_json::json!(ticket));
+            }
+            serde_json::Value::Object(m)
+        }
+        other => other,
+    }
+}
+
 /// Routes protocol tool calls of one run to the intent engine.
 pub struct RunProtocol {
     pub app: Arc<App>,
@@ -345,6 +366,12 @@ impl Protocol for RunProtocol {
         args: serde_json::Value,
         call_id: &str,
     ) -> Result<(serde_json::Value, Effect), ToolError> {
+        // A work run is about one ticket: a worker's tool sent without its `ticket_id` (agy and OpenCode left it out
+        // in the golden tasks of 2026-10-28, a step each) is about that ticket.
+        let args = match (&self.ticket, self.kind) {
+            (Some(k), RunKind::Work) if OWN_TICKET_TOOLS.contains(&name) => with_ticket(args, k),
+            _ => args,
+        };
         let intent = Intent::parse(name, args, self.role, self.solo).map_err(|e| {
             let code = match &e {
                 IntentError::UnknownTool { .. } => "unknown_tool",
@@ -684,5 +711,19 @@ mod install_tests {
         ] {
             assert!(system_install(c).is_none(), "{c}");
         }
+    }
+
+    /// A worker's report without its ticket is about the run's ticket; a given ticket is kept as it is.
+    #[test]
+    fn a_missing_ticket_is_the_runs() {
+        let k: agenium_core::TicketKey = "AGN-3".parse().unwrap();
+        assert_eq!(
+            super::with_ticket(serde_json::json!({"summary": "done"}), &k)["ticket_id"],
+            "AGN-3"
+        );
+        assert_eq!(
+            super::with_ticket(serde_json::json!({"ticket_id": "AGN-9"}), &k)["ticket_id"],
+            "AGN-9"
+        );
     }
 }

@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   AlertTriangle,
+  Archive,
   Bell,
   Bot,
   Brain,
@@ -82,7 +83,7 @@ const ticketTone: Record<TicketStatus, string> = {
   Cancelled: "border-zinc-500/30 bg-zinc-500/5 text-zinc-500",
 };
 
-export type RunState = "Agreeing" | "Running" | "Paused" | "Done";
+export type RunState = "Agreeing" | "Running" | "Paused" | "Done" | "Closed";
 
 /** Colour of a project's run state, like a ticket's status: running glows green, paused amber, done blue. */
 export const runTone: Record<RunState, string> = {
@@ -90,6 +91,7 @@ export const runTone: Record<RunState, string> = {
   Running: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
   Paused: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300",
   Done: "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+  Closed: "border-zinc-500/40 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300",
 };
 
 /** The glow around a project's card: running, or waiting for the user. */
@@ -109,6 +111,7 @@ export function RunStateIcon({ state }: { state: RunState }) {
     );
   if (state === "Paused") return <Pause className="h-3.5 w-3.5" />;
   if (state === "Done") return <CheckCheck className="h-3.5 w-3.5" />;
+  if (state === "Closed") return <Archive className="h-3.5 w-3.5" />;
   return <MessagesSquare className="h-3.5 w-3.5" />;
 }
 

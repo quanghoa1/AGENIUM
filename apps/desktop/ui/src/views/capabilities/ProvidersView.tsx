@@ -77,6 +77,8 @@ export function ProvidersView() {
   const [vendors, setVendors] = useState<Preset[]>([]);
   const load = (refresh = false) => api.capabilities(refresh).then(setC);
   useEffect(() => {
+    // The configured providers show at once; the agent CLIs (found by running each one) fill in after.
+    api.capabilities(false, false).then((x) => setC((cur) => cur ?? x));
     load();
   }, [app.tick]);
   useEffect(() => {
@@ -260,6 +262,14 @@ export function ProvidersView() {
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
+            {c.clis_pending && (
+              <tr>
+                <td colSpan={5} className="py-3 text-muted">
+                  <RefreshCw className="mr-2 inline h-3.5 w-3.5 animate-spin" />
+                  {app.t("providers.detecting")}
+                </td>
+              </tr>
+            )}
             {c.clis.map((x) => (
               <tr key={x.kind}>
                 <td className="py-2 font-medium">{x.kind.toLowerCase()}</td>

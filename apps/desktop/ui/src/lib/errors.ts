@@ -9,6 +9,11 @@ const KNOWN: [RegExp, Key][] = [
   [/git is not available/i, "err.noGit"],
   [/an agent named "?(.+?)"? already exists|agent name "?(.+?)"? is (?:already )?(?:taken|in use)/i, "err.agentNameTaken"],
   [/a provider named "?(.+?)"? already exists|provider "?(.+?)"? already exists/i, "err.providerTaken"],
+  [/(.+?) is at work on the project/i, "err.closeAtWork"],
+  [/the project is not done/i, "err.closeNotDone"],
+  [/the project is closed already/i, "err.closedAlready"],
+  [/(.+?) works on another project/i, "err.teamBusy"],
+  [/the project is closed: reopen it first/i, "err.reopenFirst"],
 ];
 
 /** `e` as the user should read it: a known error in their language (its detail kept), else the text itself. */

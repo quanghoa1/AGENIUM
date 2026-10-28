@@ -25,7 +25,18 @@ pub async fn chat(d: State<'_, Desktop>, project: String, message: String) -> R<
 pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
     let o = d.opened()?;
     let p = pid(&project)?;
-    let Some((team, _)) = o.app.team_of_project(p).map_err(err)? else {
+    // A closed project, or one waiting for its team, shows the conversation its last team's Lead had (ADR-130).
+    let team = match o.app.team_of_project(p).map_err(err)? {
+        Some((t, _)) => Some(t),
+        None => o
+            .app
+            .previous_team(p)
+            .map_err(err)?
+            .or(o.app.waits_for(p).map_err(err)?)
+            .and_then(|t| o.app.team(t).ok())
+            .map(|(t, _)| t),
+    };
+    let Some(team) = team else {
         return Ok(json!([]));
     };
     let Some(lead) = team.lead else {
@@ -257,14 +268,32 @@ pub fn ticket_action(
     }
 }
 
-/// `source`: a folder name under the app's projects folder, or a git repository to clone there.
+/// A ticket prefix made from a project name, free among the projects (the form shows it until the user gives one).
+#[tauri::command]
+pub fn suggest_key_prefix(d: State<'_, Desktop>, name: String) -> R<String> {
+    d.opened()?.app.suggest_key_prefix(&name).map_err(err)
+}
+
+/// `source`: a folder name under the app's projects folder, or a git repository to clone there. `key_prefix`: the
+/// tickets' prefix the user gave (checked), else one made from the name.
 #[tauri::command]
 pub async fn create_project(
     d: State<'_, Desktop>,
     name: String,
     source: Option<String>,
+    key_prefix: Option<String>,
 ) -> R<Value> {
     let o = d.opened()?;
+    let key_prefix = match key_prefix
+        .map(|p| p.trim().to_uppercase())
+        .filter(|p| !p.is_empty())
+    {
+        Some(p) => {
+            o.app.check_key_prefix(&p).map_err(err)?;
+            p
+        }
+        None => o.app.suggest_key_prefix(&name).map_err(err)?,
+    };
     let source = source
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty());
@@ -275,7 +304,7 @@ pub async fn create_project(
     let req = CreateProject {
         name,
         path: None,
-        key_prefix: None,
+        key_prefix: Some(key_prefix),
         template: None,
         folder,
         repo,
@@ -494,6 +523,48 @@ pub fn set_agent_status(d: State<'_, Desktop>, agent: String, status: String) ->
 }
 
 /// The user stops a project's team (its runs stop after the current step).
+/// The user reopens a closed project (ADR-130): with a free team on it, waiting for a busy one (`wait`), or none.
+#[tauri::command]
+pub fn reopen_project(
+    d: State<'_, Desktop>,
+    project: String,
+    team: Option<String>,
+    wait: Option<bool>,
+) -> R<()> {
+    use agenium_orchestrator::project_close::Taker;
+    let team = team
+        .as_deref()
+        .map(|t| t.parse())
+        .transpose()
+        .map_err(|e: IdParseError| e.to_string())?;
+    let taker = match (team, wait == Some(true)) {
+        (Some(t), true) => Taker::WaitFor(t),
+        (Some(t), false) => Taker::Team(t),
+        (None, _) => Taker::Nobody,
+    };
+    d.opened()?
+        .app
+        .reopen_project(pid(&project)?, taker)
+        .map_err(err)
+}
+
+/// The user closes a done project (ADR-130; no agent can): its team is set free to take another project. Says
+/// the freed team's name and the project waiting for it that took it at once.
+#[tauri::command]
+pub fn close_project(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    let (team, taken) = o.app.close_project(pid(&project)?).map_err(err)?;
+    let team = match team {
+        Some(t) => Some(o.app.team(t).map_err(err)?.0.name),
+        None => None,
+    };
+    let taken = match taken {
+        Some(p) => Some(o.app.project(p).map_err(err)?.name),
+        None => None,
+    };
+    Ok(json!({ "team": team, "taken_by": taken }))
+}
+
 #[tauri::command]
 pub fn pause_project(d: State<'_, Desktop>, project: String) -> R<()> {
     d.opened()?.rt.pause_project(pid(&project)?).map_err(err)

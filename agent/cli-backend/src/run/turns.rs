@@ -19,7 +19,8 @@ impl CliRun<'_> {
             read_only: self.read_only,
         };
         let turns = self.driver.turns();
-        let mut first = render(order, &self.protocol_names(), self.subagents);
+        let tools: Vec<String> = self.tools.iter().map(|t| t.name().to_owned()).collect();
+        let mut first = render(order, &self.protocol_names(), &tools, self.subagents);
         if self.steer.is_some() {
             // Said once, before the task: how the user's messages during the run look.
             first = first.replacen(

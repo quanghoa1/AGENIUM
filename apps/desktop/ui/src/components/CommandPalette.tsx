@@ -55,9 +55,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const out: Hit[] = [];
     const cat = { view: app.t("palette.view"), ticket: app.t("palette.ticket"), agent: app.t("palette.agent"), project: app.t("palette.project") };
     for (const [v, label] of views) if (m(label, v)) out.push({ id: `view:${v}`, cat: cat.view, title: label, sub: "", go: () => app.go(v) });
-    for (const c of cards) if (m(c.key, c.title)) out.push({ id: `ticket:${c.key}`, cat: cat.ticket, title: `${c.key} ${c.title}`, sub: c.assignee ?? "–", go: () => app.go("ticket", c.key) });
+    for (const c of cards) if (m(c.key, c.title)) out.push({ id: `ticket:${c.key}`, cat: cat.ticket, title: `${c.key} ${c.title}`, sub: c.assignee ?? "–", go: () => app.openTicket(c.key) });
     for (const a of agents) if (m(a.agent.name, a.agent.role)) out.push({ id: `agent:${a.agent.id}`, cat: cat.agent, title: a.agent.name, sub: [a.agent.role, a.project_name].filter(Boolean).join(" · "), go: () => app.go("agent", a.agent.id) });
-    for (const p of app.projects) if (m(p.name, p.key_prefix)) out.push({ id: `project:${p.id}`, cat: cat.project, title: `${p.key_prefix} — ${p.name}`, sub: p.path, go: () => (app.setProject(p.id), app.go("tickets")) });
+    for (const p of app.projects) if (m(p.name, p.key_prefix)) out.push({ id: `project:${p.id}`, cat: cat.project, title: p.name, sub: `${p.key_prefix}-# · ${p.path}`, go: () => (app.setProject(p.id), app.go("tickets")) });
     // Views first; typing narrows the list, so a query reaches every match.
     return out.slice(0, s ? 30 : views.length);
   }, [q, cards, agents, app]);

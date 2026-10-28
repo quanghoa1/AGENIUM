@@ -155,6 +155,7 @@ pub fn new_ticket(item: &str, title: &str, deps: &[&str], scope: &[&str]) -> New
         required_tags: vec![],
         scope_paths: scope.iter().map(|s| s.to_string()).collect(),
         report_template: None,
+        follows: None,
     }
 }
 

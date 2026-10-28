@@ -98,7 +98,7 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
           </button>
         )}
         {n.ticket && (compact || n.kind !== "Question") && (
-          <button className="btn" onClick={() => app.go("ticket", n.ticket!)}>
+          <button className="btn" onClick={() => app.openTicket(n.ticket!, n.project)}>
             {n.ticket}
           </button>
         )}

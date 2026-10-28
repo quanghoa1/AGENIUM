@@ -258,8 +258,7 @@ impl Runtime {
         .await
         .map_err(|e| e.to_string());
         if let Ok(rep) = &r {
-            if let Err(e) = self.record_side_run(agent.id, provider.id(), &model.model, &rep.usage)
-            {
+            if let Err(e) = self.record_side_run(agent.id, provider.id(), &model.model, ep, rep) {
                 tracing::warn!(error = %e, "the memory extraction's usage was not recorded");
             }
         }
@@ -267,14 +266,17 @@ impl Runtime {
     }
 
     /// Records a model call made beside the runs (memory extraction) as a finished run of `agent` with outcome
-    /// `Memory`, so its tokens and cost count in the usage views like any run's. Nothing is recorded for no tokens.
+    /// `Memory`, so its tokens and cost count in the usage views like any run's. Its log says what it learned from
+    /// (the ticket or the chat, the run) and what it changed in the memory. Nothing is recorded for no tokens.
     fn record_side_run(
         &self,
         agent: AgentId,
         provider: &str,
         model: &str,
-        u: &agenium_llm::Usage,
+        ep: &Episode,
+        rep: &LearnReport,
     ) -> Result<()> {
+        let u = &rep.usage;
         if u.total_input() + u.output == 0 {
             return Ok(());
         }
@@ -301,8 +303,13 @@ impl Runtime {
             runs::finish(w.tx, run, &now, "Memory")?;
             Ok(())
         })?;
+        self.app.run_log(
+            run,
+            "run",
+            serde_json::json!({ "kind": "memory", "source": ep.source, "project": ep.project, "from_run": ep.run }),
+        )?;
         self.app
-            .run_log(run, "run", serde_json::json!({ "kind": "memory" }))
+            .run_log(run, "memory", serde_json::to_value(rep).unwrap_or_default())
     }
 
     /// Learns from the part of the project's chat with the Lead not learned from yet, once the chat has been quiet

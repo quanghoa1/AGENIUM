@@ -109,7 +109,8 @@ export const api = {
   runs: (limit?: number) => call<RunRow[]>("runs", { limit }),
   runDetail: (run: string) => call<RunDetail>("run_detail", { run }),
   events: (since?: number, limit?: number) => call<EventRecord[]>("events", { since, limit }),
-  capabilities: (refresh = false) => call<Capabilities>("capabilities", { refresh }),
+  /** `clis: false`: without the agent CLIs (finding them takes seconds the first time). */
+  capabilities: (refresh = false, clis = true) => call<Capabilities>("capabilities", { refresh, clis }),
   templates: () => call<TeamTemplate[]>("templates"),
   memory: (agent: string) => call<MemoryData>("memory", { agent }),
   memoryAction: (agent: string, action: string, fact?: number, skill?: string) =>
@@ -139,7 +140,10 @@ export const api = {
     action: "priority" | "assign" | "approve" | "reopen" | "close" | "cancel",
     extra: { reason?: string; agent?: string; priority?: number; feedback?: { ac_id: string; feedback: string }[] } = {},
   ) => call<unknown>("ticket_action", { project, ticket, action, ...extra }),
-  createProject: (name: string, source?: string) => call<{ id: string; name: string }>("create_project", { name, source }),
+  createProject: (name: string, source?: string, keyPrefix?: string) =>
+    call<{ id: string; name: string }>("create_project", { name, source, keyPrefix }),
+  /** A free ticket prefix made from a project name. */
+  suggestKeyPrefix: (name: string) => call<string>("suggest_key_prefix", { name }),
   createTeam: (project: string, template: string, model: ModelArg, leadModel?: ModelArg, plannerModel?: ModelArg, prefix?: string) =>
     call<{ agents: [string, string][]; missing_skills: string[] }>("create_team", {
       project,
@@ -154,6 +158,10 @@ export const api = {
   setAgentModel: (agent: string, model: ModelArg) => call<void>("set_agent_model", { agent, model }),
   renameAgent: (agent: string, name: string) => call<void>("rename_agent", { agent, name }),
   setAgentIdle: (agent: string) => call<void>("set_agent_status", { agent, status: "Idle" }),
+  /** The user closes a done project (ADR-130): the freed team, and the project waiting for it that took it. */
+  closeProject: (project: string) => call<{ team: string | null; taken_by: string | null }>("close_project", { project }),
+  /** The user reopens a closed project: a free team on it now, a busy one it waits for (`wait`), or none yet. */
+  reopenProject: (project: string, team: string | null, wait: boolean) => call<void>("reopen_project", { project, team, wait }),
   pauseProject: (project: string) => call<void>("pause_project", { project }),
   resumeProject: (project: string) => call<void>("resume_project", { project }),
   stopAll: () => call<void>("stop_all"),

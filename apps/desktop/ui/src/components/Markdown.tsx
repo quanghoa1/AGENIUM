@@ -1,20 +1,44 @@
 // A small Markdown renderer for agent text (chat replies, reports, comments). It builds React elements — never HTML
 // strings — so agent output cannot inject markup. Supported: headings, paragraphs, bullet/numbered lists, fenced
 // code, inline code, bold, italic, strikethrough, links (shown, not navigated), horizontal rules.
-import { Fragment, type ReactNode } from "react";
+import { Fragment, createContext, useContext, type ReactNode } from "react";
 import { cn } from "./ui";
+
+/** One project's ticket keys made into links (the chat with its Lead): `prefix` like "AGN", `open` shows the ticket. */
+export const TicketLinks = createContext<{ prefix: string; open: (key: string) => void } | null>(null);
+
+/** Plain text, its ticket keys linked when a `TicketLinks` is around. */
+function Linked({ text }: { text: string }) {
+  const l = useContext(TicketLinks);
+  if (!l) return <>{text}</>;
+  const re = new RegExp(`\\b${l.prefix.replace(/[^A-Za-z0-9]/g, "")}-\\d+\\b`, "g");
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    out.push(text.slice(last, m.index));
+    out.push(
+      <button key={m.index} className="font-mono text-cyan-600 underline decoration-dotted hover:decoration-solid dark:text-cyan-400" onClick={() => l.open(m[0])}>
+        {m[0]}
+      </button>,
+    );
+    last = m.index + m[0].length;
+  }
+  out.push(text.slice(last));
+  return <>{out}</>;
+}
 
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
-  // `code`, **bold**, *italic* / _italic_, [label](url), ~~struck~~
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(_[^_\s][^_]*_)|(\[[^\]]+\]\([^)\s]+\))|(~~[^~]+~~)/g;
+  // `code`, **bold**, *italic* / _italic_, [label](url), ~~struck~~. An underscore inside a word is a letter, not
+  // emphasis (CommonMark): test_calc.py and __main__ stay as written.
+  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|((?<![\p{L}\p{N}_])_[^_\s](?:[^_]*[^_\s])?_(?![\p{L}\p{N}_]))|(\[[^\]]+\]\([^)\s]+\))|(~~[^~]+~~)/gu;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    const t = m[0];
     const k = `${key}-${i++}`;
+    if (m.index > last) out.push(<Linked key={`${k}t`} text={text.slice(last, m.index)} />);
+    const t = m[0];
     if (m[1]) out.push(<code key={k} className="rounded bg-background px-1 py-0.5 font-mono text-[0.92em]">{t.slice(1, -1)}</code>);
     else if (m[2]) out.push(<strong key={k}>{inline(t.slice(2, -2), i)}</strong>);
     else if (m[3] || m[4]) out.push(<em key={k}>{inline(t.slice(1, -1), i)}</em>);
@@ -30,7 +54,7 @@ function inline(text: string, key = 0): ReactNode[] {
     }
     last = m.index + t.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(<Linked key={`${key}-end`} text={text.slice(last)} />);
   return out;
 }
 

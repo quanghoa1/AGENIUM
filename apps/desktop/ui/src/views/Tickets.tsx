@@ -1,9 +1,10 @@
 import { Check, Circle, CircleCheck, Link2, MessageCircleQuestion, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
-import { ListItem, Modal, Overlay, ProgressBar, Segmented } from "../components/motion";
-import { TicketView } from "./Ticket";
+import { ListItem, Modal, ProgressBar, Segmented } from "../components/motion";
 import { NeedsProject } from "../components/GettingStarted";
+import { ProjectPicker } from "../components/ProjectPicker";
+import { SearchBox, found } from "../components/SearchBox";
 import { Empty, Mono, PageHeader, PriorityBadge, Section, TicketStatusBadge, cn } from "../components/ui";
 import { AnimatePresence } from "motion/react";
 import { useRef } from "react";
@@ -17,11 +18,14 @@ type Tab = "board" | "plan" | "inbox";
 export function TicketsView() {
   const app = useApp();
   const tab: Tab = (["board", "plan", "inbox"].includes(app.route.id ?? "") ? app.route.id : "board") as Tab;
+  const [query, setQuery] = useState("");
   const p = app.projects.find((x) => x.id === app.project);
   if (!app.project || !p) return <NeedsProject title={app.t("nav.tickets")} />;
   return (
     <div>
-      <PageHeader title={`${p.key_prefix} — ${p.name}`} sub={app.t("tickets.howMade")}>
+      <PageHeader title={p.name} sub={app.t("tickets.howMade")}>
+        <ProjectPicker />
+        {tab === "board" && <SearchBox value={query} onChange={setQuery} placeholder={app.t("search.tickets")} />}
         <button className="btn" onClick={() => app.go("chat")}>
           <MessageSquare className="h-3.5 w-3.5" /> {app.t("tickets.askLead")}
         </button>
@@ -40,7 +44,7 @@ export function TicketsView() {
           }))}
         />
       </PageHeader>
-      {tab === "board" && <Board project={app.project} />}
+      {tab === "board" && <Board project={app.project} query={query} />}
       {tab === "plan" && <Plan project={app.project} />}
       {tab === "inbox" && <Inbox project={app.project} />}
     </div>
@@ -50,7 +54,7 @@ export function TicketsView() {
 /** What dropping a card on a column means for the user (the state machine's User column). */
 type Drop = { kind: "assign" | "close" | "cancel"; card: Card } | null;
 
-function Board({ project }: { project: string }) {
+function Board({ project, query }: { project: string; query: string }) {
   const app = useApp();
   const [cols, setCols] = useState<Column[] | null>(null);
   const [drag, setDrag] = useState<{ card: Card; from: TicketStatus } | null>(null);
@@ -58,14 +62,6 @@ function Board({ project }: { project: string }) {
   const [drop, setDrop] = useState<Drop>(null);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [value, setValue] = useState("");
-  // The ticket opened in a popup over the board (Esc or a click outside closes it).
-  const [peek, setPeek] = useState<string | null>(null);
-  useEffect(() => {
-    if (!peek) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPeek(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [peek]);
   // The dialog keeps its last content while it leaves.
   const last = useRef<Drop>(null);
   if (drop) last.current = drop;
@@ -91,7 +87,7 @@ function Board({ project }: { project: string }) {
     const a = allowed(drag.from, to);
     if (a === "reopen") {
       app.notify(app.t("tickets.reopenHint"));
-      app.go("ticket", drag.card.key);
+      app.openTicket(drag.card.key);
     } else if (a) {
       setValue("");
       setDrop({ kind: a, card: drag.card });
@@ -133,13 +129,13 @@ function Board({ project }: { project: string }) {
             </div>
             <div className="min-h-[80px] space-y-2 p-2">
               <AnimatePresence initial={false} mode="popLayout">
-              {c.cards.map((k) => (
+              {c.cards.filter((k) => found(query, k.key, k.title, k.assignee)).map((k) => (
                 <ListItem key={k.key} id={k.key}>
                 <div
                   draggable
                   onDragStart={() => setDrag({ card: k, from: c.status })}
                   onDragEnd={() => (setDrag(null), setOver(null))}
-                  onClick={() => setPeek(k.key)}
+                  onClick={() => app.openTicket(k.key)}
                   className={cn("press cursor-grab rounded-lg border border-line bg-surface p-2.5 shadow-sm hover:border-accent/50 hover:shadow-md active:cursor-grabbing", drag?.card.key === k.key && "opacity-40")}
                 >
                   <div className="flex items-center justify-between gap-1.5">
@@ -179,11 +175,6 @@ function Board({ project }: { project: string }) {
           </div>
         ))}
       </div>
-      <Overlay open={!!peek} onClose={() => setPeek(null)} kind="dialog" top="pt-[4vh]">
-        <div className="card max-h-[90vh] w-[min(1100px,94vw)] overflow-y-auto p-5 shadow-2xl">
-          {peek && <TicketView id={peek} onClose={() => setPeek(null)} />}
-        </div>
-      </Overlay>
       <Modal
         open={!!drop}
         title={dlg ? `${dlg.card.key} → ${dlg.kind === "assign" ? app.t("tickets.assignTo") : dlg.kind === "close" ? app.t("ticket.close") : app.t("ticket.cancel")}` : ""}
@@ -311,7 +302,7 @@ function Plan({ project }: { project: string }) {
                         <span className="flex-1 text-xs">{i.title}</span>
                         <span className="flex gap-1">
                           {i.tickets.map(([k, s]) => (
-                            <button key={k} onClick={() => app.go("ticket", k)} title={k}>
+                            <button key={k} onClick={() => app.openTicket(k)} title={k}>
                               <TicketStatusBadge status={s} />
                             </button>
                           ))}
@@ -357,7 +348,7 @@ function Inbox({ project }: { project: string }) {
             <span className={cn("chip shrink-0", INBOX_TONE[i.kind] ?? "border-line-strong bg-surface text-muted")}>{app.t(`inbox.kind.${i.kind}` as Key)}</span>
             <Markdown className="flex-1 text-xs" text={i.text} />
             {i.ticket && (
-              <button className="btn" onClick={() => app.go("ticket", i.ticket!)}>
+              <button className="btn" onClick={() => app.openTicket(i.ticket!)}>
                 {i.ticket}
               </button>
             )}

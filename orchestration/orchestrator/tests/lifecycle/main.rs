@@ -7,6 +7,7 @@ use agenium_orchestrator::*;
 use agenium_store::core::{comments, events, ops, workspaces};
 use common::*;
 
+mod close;
 mod merge;
 mod review;
 mod scope;

@@ -186,6 +186,17 @@ pub fn runs(d: State<'_, Desktop>, limit: Option<usize>) -> R<Vec<Value>> {
                 v["ticket_key"] = json!(k);
                 v["project_name"] = json!(p);
             }
+            // A memory run belongs to no ticket: its log names what it learned from.
+            if r.outcome.as_deref() == Some("Memory") {
+                let log = o
+                    .app
+                    .store()
+                    .read(|c| runs::log_entries(c, r.id))
+                    .unwrap_or_default();
+                if let Some(e) = log.iter().find(|e| e.kind == "run") {
+                    v["source"] = e.data["source"].clone();
+                }
+            }
             v
         })
         .collect())
@@ -206,12 +217,14 @@ pub fn run_detail(d: State<'_, Desktop>, run: String) -> R<Value> {
             o.app
                 .store()
                 .read(|c| agenium_store::core::tickets::get(c, t))
-                .map_err(err)?
-                .key,
+                .map_err(err)?,
         ),
         None => None,
     };
-    Ok(json!({ "run": run_json(&r, &names), "ticket_key": ticket, "log": log }))
+    Ok(
+        json!({ "run": run_json(&r, &names), "ticket_key": ticket.as_ref().map(|t| &t.key),
+               "ticket_project": ticket.as_ref().map(|t| t.project), "log": log }),
+    )
 }
 
 #[tauri::command]
@@ -477,7 +490,13 @@ pub async fn read_claude_usage(d: State<'_, Desktop>) -> R<Value> {
 
 /// Providers, agent CLIs (detected at most every 5 minutes, or now with `refresh`), templates, CLI fallback.
 #[tauri::command]
-pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Value> {
+/// `clis: false` leaves the agent CLIs out (finding them runs each one: seconds the first time), so a page shows
+/// the providers at once and asks again for the CLIs.
+pub async fn capabilities(
+    d: State<'_, Desktop>,
+    refresh: Option<bool>,
+    clis: Option<bool>,
+) -> R<Value> {
     let o = d.opened()?;
     let cfg = o.app.config();
     let providers: Vec<Value> = cfg
@@ -499,11 +518,17 @@ pub async fn capabilities(d: State<'_, Desktop>, refresh: Option<bool>) -> R<Val
                     "body": p.body, "effort_field": p.effort_field })
         })
         .collect();
-    let mut clis = detected_clis(&d, refresh == Some(true)).await?;
-    let models = cli_models(&d, &o, &clis, refresh == Some(true)).await;
-    signed_in_by_models(&mut clis, &models);
+    let pending = clis == Some(false);
+    let (clis, models) = if pending {
+        (vec![], Default::default())
+    } else {
+        let mut clis = detected_clis(&d, refresh == Some(true)).await?;
+        let models = cli_models(&d, &o, &clis, refresh == Some(true)).await;
+        signed_in_by_models(&mut clis, &models);
+        (clis, models)
+    };
     Ok(json!({
-        "providers": providers, "clis": clis,
+        "providers": providers, "clis": clis, "clis_pending": pending,
         "cli_models": models,
         "templates": o.app.team_templates().map_err(err)?,
         "cli_fallback": { "provider": cfg.cli.fallback_provider, "model": cfg.cli.fallback_model },

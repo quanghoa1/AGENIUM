@@ -39,7 +39,7 @@ function TeamComposer({ data, onDone, onCancel }: { data: TeamsData; onDone: () 
     api.suggestLead(picked).then(setSuggestion);
   }, [picked.join(","), solo]);
   const chosenLead = solo ? picked[0] : (lead ?? suggestion?.agent ?? null);
-  const freeProjects = app.projects.filter((p) => !p.team);
+  const freeProjects = app.projects.filter((p) => !p.team && p.run_state !== "Closed");
   const pick = (id: string) =>
     setPicked((xs) => {
       if (solo) return xs[0] === id ? [] : [id];
@@ -69,7 +69,7 @@ function TeamComposer({ data, onDone, onCancel }: { data: TeamsData; onDone: () 
             <option value="">{app.t("teams.noProject")}</option>
             {freeProjects.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.key_prefix} — {p.name}
+                {p.name}
               </option>
             ))}
           </select>
@@ -164,7 +164,7 @@ function TemplateQuickStart() {
     });
   }, []);
   const t = templates.find((x) => x.id === tpl);
-  const free = app.projects.filter((p) => !p.team);
+  const free = app.projects.filter((p) => !p.team && p.run_state !== "Closed");
   return (
     <div className="space-y-3">
       <div className="text-[11px] text-subtle">{app.t("teams.templateNote")}</div>
@@ -172,7 +172,7 @@ function TemplateQuickStart() {
         <option value="">{app.t("teams.pickProject")}</option>
         {free.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.key_prefix} — {p.name}
+            {p.name}
           </option>
         ))}
       </select>
@@ -265,7 +265,8 @@ export function TeamsView() {
         </Section>
       )}
       {data.teams.map(({ team, members, project_name, past_projects }) => {
-        const free = app.projects.filter((p) => !p.team || p.id === team.project);
+        // A closed project is reopened first (its card, the header): only then does it take a team.
+        const free = app.projects.filter((p) => (!p.team && p.run_state !== "Closed") || p.id === team.project);
         // A team works one project at a time: it moves on once its project has no open ticket left.
         const current = app.projects.find((p) => p.id === team.project);
         const open = current ? Object.entries(current.by_status ?? {}).filter(([s]) => s !== "Closed" && s !== "Cancelled").reduce((n, [, c]) => n + c, 0) : 0;
@@ -291,7 +292,7 @@ export function TeamsView() {
                   <option value="">{app.t("teams.noProject")}</option>
                   {free.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.key_prefix} — {p.name}
+                      {p.name}
                     </option>
                   ))}
                 </select>

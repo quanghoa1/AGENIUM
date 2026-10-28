@@ -1,4 +1,5 @@
 import { ArrowRight, Check } from "lucide-react";
+import { ProjectPicker } from "./ProjectPicker";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
@@ -60,7 +61,9 @@ export function NeedsProject({ title }: { title: string }) {
   const app = useApp();
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title={title} sub={app.t(app.projects.length ? "start.pickProject" : "start.noProject")} />
+      <PageHeader title={title} sub={app.t(app.projects.length ? "start.pickProject" : "start.noProject")}>
+        {app.projects.length > 0 && <ProjectPicker />}
+      </PageHeader>
       <GettingStarted />
     </div>
   );

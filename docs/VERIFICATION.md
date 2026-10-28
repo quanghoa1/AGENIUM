@@ -69,6 +69,42 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 |---|---|---|
 | Anthropic, Gemini, OpenAI-compatible, Responses, OpenCode relay; 32 presets | `adapters.rs` (contract tests), `every_vendor_preset_builds_an_adapter` | OpenCode Go (DeepSeek), OpenRouter (free models); the rest are contract-tested only |
 
+## Runs of 2026-10-28 on the current code
+
+Real models, the test set of the day (DeepSeek v4.1 Flash through OpenCode Go over the API; Claude Code Haiku 5.5, Codex
+gpt-6-luna, Grok 4.7, agy Gemini 3.8 Flash, OpenCode with OpenCode Go's DeepSeek); results in `quality/eval/results/`.
+
+| Check | Result | Own CLI tools seen |
+|---|---|---|
+| Golden tasks, DeepSeek (API) | 5/5 | — |
+| Golden tasks, Claude Code Haiku 5.5 | 5/5 | `ToolSearch` (loads Agenium's MCP tools) |
+| Golden tasks, Codex gpt-6-luna | 5/5 | none |
+| Golden tasks, Grok 4.7 | 5/5 | `search_tool` (MCP discovery), `read_file` in its scratch folder |
+| Golden tasks, agy Gemini 3.8 Flash | 5/5 | `read_file` in its scratch folder; `run_command` tried and **refused** |
+| Golden tasks, OpenCode (OpenCode Go DeepSeek) | 5/5 | `execute` (code mode: runs Agenium's tools) |
+| Team task: DeepSeek Lead and planner, Codex workers | PASS (7 runs, 36 steps) | — |
+| Memory reuse chain (DeepSeek) | PASS: ticket 1 failed its pre-merge check once → lesson → ticket 2 merged first time with it recalled; the lesson held in tickets 2, 3, 4 | — |
+| Learning loop on the fixed scenario | DeepSeek: updated `commit-and-pr` as its own copy **and** made `deliverables-index`; Codex: made `index-deliverables`; Sonnet: used no skill tool. 0 violations; the system's `commit-and-pr` unchanged in every run | — |
+| MCP (`server-everything`) | an API agent and a Claude Code agent each called `echo` through Agenium | — |
+
+Found and fixed:
+- **The learning-loop scenario had stopped testing skill writing on 2026-10-27**: its lessons were validated in made-up
+  contexts (`demo/ticket:AGN-0`), which ADR-118 no longer counts, so every proposal was refused (Codex's was) and the
+  scenario passed only because doing nothing is accepted. The lessons now hold in two earlier tickets that are worked,
+  reviewed and closed before the scenario, and the scenario checks that the system's skill file is unchanged.
+- **Closing a project while its Lead answered in the chat was accepted** (ADR-130): any run of the team now blocks it.
+- **A CLI's instructions named tools its run did not offer** (a chat turn was told of `write_file`): they now name only
+  the offered ones (ADR-129).
+- **Codex's skill search, skill dependency installs and own worktrees** are off; **OpenCode 2's own management tools**
+  run inside `execute`, outside its permission system: contained in the run's scratch home (ADR-129).
+- **A worker's report without its `ticket_id`, or with its criteria under other names** (agy and OpenCode: a step
+  each, up to five retries): a worker's own-ticket tools in a work run get the run's ticket when it is missing, and
+  `ac_results`/`acceptance_criteria` and `id`/`criterion_id` are read as `acceptance` and `ac_id`. agy's golden tasks
+  rerun with it (`20261028T173227Z`): 5/5, tool errors 15 → 7, `submit_report` calls 14 → 6, steps 101 → 88, input
+  tokens −10%. Of the 7 left, 3 are its own `run_command` refused (it then uses `shell`); a review's verdict sent as
+  `action` is now read as `decision`; a missing `reason` or `summary`, and `edit_file` given `multi_edit`'s `edits`,
+  stay refused (nothing to read them from).
+
 ## Runs of 2026-10-26 on the current code
 
 **Team task** (`agenium-eval --team`; coding template: Lead, planner, backend, frontend; the harness plays the user and

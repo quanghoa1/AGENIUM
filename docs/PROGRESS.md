@@ -76,6 +76,23 @@ root:
   golden tasks and 4/4 team tasks on the four CLIs with no own tool doing the work; seven defects found on the way and
   fixed (ADR-129 §Verified). `find_code` A/B on pinned Flask 3.1.0: every agent spent fewer tokens and steps
   ([results](../quality/eval/results/find-code/README.md)).
+- **Every screen verified in the real app** (`apps/desktop/ui-tests/full.mjs`, 57 checks on a root with real work:
+  the header, the board and a ticket's popup, runs and their memory lines, the live office, a real chat turn, agents,
+  memory, providers, skills, audit, usage, settings, the palette, closing and reopening). Found and fixed on the way:
+  a ticket opened as a page from 11 places while the board used a popup (now one popup everywhere, of the ticket's own
+  project); `test_calc.py` and `__main__` rendered as italics (CommonMark's in-word underscore); the providers page
+  blank until every CLI had been run; memory runs that said only `{"kind":"memory"}`; the theme buttons without a
+  name; the project picker and search moved from the header to the pages that use them, theme and language kept in the
+  header only. Projects close and reopen by the user only ([ADR-130](adr/ADR-130-closing-and-reopening-projects.md)),
+  and a project made from a GitHub repository (an empty one) was built and pushed to it on close.
+- **End to end again on real models after the changes** ([VERIFICATION](VERIFICATION.md), runs of 2026-10-28): golden
+  tasks 5/5 on each of DeepSeek over the API, Claude Code Haiku, Codex, Grok, agy and OpenCode, with no own CLI tool
+  doing the work; the team task with Codex workers; the memory chain (a lesson learned from a failed merge, recalled and
+  held in three more tickets); the learning loop on a fixed scenario (an agent updated a system skill as its own copy
+  and wrote a new one; the system skill unchanged); MCP from an API and a CLI agent; each CLI probed for what reaches
+  its run (none of the user's own configuration). Fixed on the way: the learning scenario that had stopped testing
+  skill writing, closing a project during the Lead's chat turn, instructions naming tools a run did not have, Codex's
+  and OpenCode's own skill and worktree tools, and the report fields models guess.
 
 | Release item | Status | Evidence |
 |---|---|---|

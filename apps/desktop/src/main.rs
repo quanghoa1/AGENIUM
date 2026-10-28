@@ -101,6 +101,9 @@ fn main() {
             api::memory,
             api::memory_action,
             api::set_agent_status,
+            api::close_project,
+            api::suggest_key_prefix,
+            api::reopen_project,
             api::pause_project,
             api::resume_project,
             api::stop_all,
@@ -180,7 +183,31 @@ fn spawn_event_forwarder(handle: tauri::AppHandle) {
                 .unwrap_or(0);
             let mut sub = o.app.subscribe(last);
             while let Ok(e) = sub.recv().await {
-                // Desktop notifications only for what needs the user (decision: selective notifications).
+                // Desktop notifications only for what needs the user (decision: selective notifications): a request,
+                // and a project whose work is done (to look it over and close it, or ask for more).
+                if e.kind == "ProjectStatusChanged" && e.payload["status"] == "Completed" {
+                    let name = e.payload["project"]
+                        .as_str()
+                        .and_then(|p| p.parse().ok())
+                        .and_then(|p| o.app.project(p).ok())
+                        .map(|p| p.name);
+                    if let Some(name) = name {
+                        use tauri_plugin_notification::NotificationExt;
+                        let (title, body) = if o.app.config().app.language == "vi" {
+                            let b = "mọi mục trong plan đã hoàn thành. Hãy xem lại, rồi đóng dự án hoặc yêu cầu thêm.";
+                            ("Dự án đã xong", format!("{name}: {b}"))
+                        } else {
+                            let b = "every plan item is finished. Look it over, then close it or ask for more.";
+                            ("Project done", format!("{name}: {b}"))
+                        };
+                        let _ = handle
+                            .notification()
+                            .builder()
+                            .title(title)
+                            .body(body)
+                            .show();
+                    }
+                }
                 if e.kind == "NeedsUser" {
                     if let Some(reason) = e.payload.get("reason").and_then(|r| r.as_str()) {
                         use tauri_plugin_notification::NotificationExt;
@@ -364,7 +391,7 @@ mod tests {
         for ok in [
             "tauri://localhost/#/live",
             "http://tauri.localhost/index.html",
-            "http://localhost:5173/#/ticket/AGN-1",
+            "http://localhost:5173/#/run/AGN-1",
             "about:blank",
         ] {
             assert!(app_page(&u(ok), Some(&dev)), "{ok}");

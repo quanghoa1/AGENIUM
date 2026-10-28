@@ -90,6 +90,18 @@ impl Runtime {
         retriever
             .record(&start.run.to_string(), Some(t.key.as_str()), &recalled)
             .ok();
+        // The run page shows what the agent was reminded of: the memories its first message carries.
+        if prev.is_empty() {
+            let shown: Vec<serde_json::Value> = recalled
+                .iter()
+                .map(|r| serde_json::json!({ "id": r.id, "kind": r.kind, "text": r.text, "shared": r.shared, "exact": r.exact }))
+                .collect();
+            let _ = self.app.run_log(
+                start.run,
+                "memory",
+                serde_json::json!({ "recalled": shown }),
+            );
+        }
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;

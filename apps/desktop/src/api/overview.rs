@@ -32,6 +32,16 @@ pub(super) fn project_summary(o: &Opened, p: &agenium_store::core::projects::Pro
                     "members": m.len() })
         });
         let pv = o.app.plan_view(p.id).map_err(err)?;
+        // A reopened project waiting for its busy team (ADR-130); one with a team waits for no other.
+        let waits_for = match team {
+            None => o
+                .app
+                .waits_for(p.id)
+                .map_err(err)?
+                .and_then(|t| o.app.team(t).ok())
+                .map(|(t, _)| t.name),
+            Some(_) => None,
+        };
         Ok(json!({
             "id": p.id, "name": p.name, "path": p.path, "key_prefix": p.key_prefix, "status": p.status,
             "main_branch": p.main_branch, "team": team, "tickets": tickets.len(), "by_status": by_status,
@@ -39,6 +49,8 @@ pub(super) fn project_summary(o: &Opened, p: &agenium_store::core::projects::Pro
             "plan_version": pv.plan.as_ref().map(|x| x.version), "spec_version": pv.spec.as_ref().map(|x| x.version),
             "needs_you": o.app.needs_you(p.id).map_err(err)?.len(),
             "run_state": o.app.run_state(p.id).map_err(err)?,
+            "previous_team": o.app.previous_team(p.id).map_err(err)?,
+            "waits_for": waits_for,
             "inbox": o.app.lead_inbox(p.id).map_err(err)?.len(),
         }))
     }
@@ -49,7 +61,7 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let names = names(&o)?;
     let mut needs = vec![];
-    let mut current: HashMap<AgentId, (String, TicketKey, String)> = HashMap::new();
+    let mut current: HashMap<AgentId, (String, String, TicketKey, String)> = HashMap::new();
     let mut project_names = HashMap::new();
     for p in o.app.projects().map_err(err)? {
         project_names.insert(p.id, p.name.clone());
@@ -60,7 +72,15 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
             if let (Some(a), TicketStatus::InProgress | TicketStatus::Pending) =
                 (t.assignee, t.status)
             {
-                current.insert(a, (p.name.clone(), t.key.clone(), t.title.clone()));
+                current.insert(
+                    a,
+                    (
+                        p.id.to_string(),
+                        p.name.clone(),
+                        t.key.clone(),
+                        t.title.clone(),
+                    ),
+                );
             }
         }
     }
@@ -73,7 +93,7 @@ pub fn overview(d: State<'_, Desktop>) -> R<Value> {
             let cur = current.get(&a.id);
             json!({ "id": a.id, "name": a.name, "role": a.role, "role_kind": a.role_kind, "status": a.status,
                     "backend": a.backend, "model": a.model,
-                    "current": cur.map(|(p, k, t)| json!({ "project": p, "ticket": k, "title": t })) })
+                    "current": cur.map(|(id, p, k, t)| json!({ "project": p, "project_id": id, "ticket": k, "title": t })) })
         })
         .collect();
     let recent = o.app.store().read(|c| runs::recent(c, 400)).map_err(err)?;

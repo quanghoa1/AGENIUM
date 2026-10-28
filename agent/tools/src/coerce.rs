@@ -173,6 +173,14 @@ const ALIASES: &[(&str, &[&str])] = &[
     ("pattern", &["query", "Query", "regex", "SearchPattern"]),
     ("command", &["cmd", "CommandLine"]),
     ("workdir", &["cwd", "Cwd", "working_directory"]),
+    // A worker's report as Gemini (agy) wrote it in the golden tasks of 2026-10-28: each guess cost a step.
+    (
+        "acceptance",
+        &["ac_results", "acceptance_results", "acceptance_criteria"],
+    ),
+    ("ac_id", &["id", "criterion_id", "acId"]),
+    // A review (or a permission answer) with its verdict as `action`, as agy wrote it in the rerun of 2026-10-29.
+    ("decision", &["action", "verdict"]),
 ];
 
 /// Renames an argument sent under another harness's name to the schema's, when the schema's is absent and the other
@@ -267,6 +275,42 @@ mod tests {
         assert_eq!(
             coerce(&grep, json!({"query": "fn main", "glob": "*.rs"})),
             json!({"pattern": "fn main", "glob": "*.rs"})
+        );
+    }
+
+    /// A report's criteria under other names, nested in a list: renamed where the schema has the name and not the alias.
+    #[test]
+    fn a_reports_criteria_under_other_names_are_renamed() {
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "summary": {"type": "string"},
+                "acceptance": {"type": "array", "items": {"$ref": "#/$defs/AcResult"}}
+            },
+            "$defs": {"AcResult": {"type": "object", "properties": {
+                "ac_id": {"type": "string"}, "status": {"type": "string"}, "evidence": {"type": "string"}
+            }}}
+        });
+        let out = coerce(
+            &schema,
+            json!({"summary": "done", "ac_results": [{"id": "AC-1", "status": "Met", "evidence": "ran it"}]}),
+        );
+        assert_eq!(
+            out,
+            json!({"summary": "done", "acceptance": [{"ac_id": "AC-1", "status": "Met", "evidence": "ran it"}]})
+        );
+        // A schema with its own `id` keeps it (a ticket's criteria are `id` + `text`).
+        let own = json!({"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}}});
+        assert_eq!(
+            coerce(&own, json!({"id": "AC-1", "text": "x"})),
+            json!({"id": "AC-1", "text": "x"})
+        );
+        // A review's verdict under another name.
+        let review = json!({"type": "object", "properties": {
+            "ticket_id": {"type": "string"}, "decision": {"type": "string", "enum": ["Approve", "Reopen"]}}});
+        assert_eq!(
+            coerce(&review, json!({"ticket_id": "AGN-1", "action": "Approve"})),
+            json!({"ticket_id": "AGN-1", "decision": "Approve"})
         );
     }
 }

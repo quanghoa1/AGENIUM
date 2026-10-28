@@ -229,6 +229,19 @@ pub(crate) enum ProjectCmd {
     Resume {
         project: String,
     },
+    /// Close a done project: nothing runs on it any more and its team is set free to take another project (only
+    /// you close a project; giving it a team again reopens it).
+    Close {
+        project: String,
+    },
+    /// Reopen a closed project: by default the team that worked on it takes it (now when free, else once it is
+    /// free); `--team` gives it a free team now.
+    Reopen {
+        project: String,
+        /// A free team to put on it now.
+        #[arg(long)]
+        team: Option<String>,
+    },
     /// Project setting `review_before_merge` (Solo agents wait for you before merging).
     ReviewBeforeMerge {
         project: String,

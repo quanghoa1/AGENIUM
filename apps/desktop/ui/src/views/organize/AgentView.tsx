@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Modal, PanelSwap, Segmented } from "../../components/motion";
 import { AgentStatusBadge, Avatar, CacheHit, Empty, Mono, OutcomeBadge, RoleChip, RuntimeBadge, Section, ago, cn, tokens } from "../../components/ui";
 import { api } from "../../lib/api";
+import type { Key } from "../../lib/i18n";
 import { friendly } from "../../lib/errors";
 import { useApp } from "../../lib/store";
 import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, RoleInfo } from "../../lib/types";
@@ -340,7 +341,7 @@ export function AgentView({ id }: { id: string }) {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold">{s.name}</span>
                       {s.version && <Mono className="text-subtle">v{s.version}</Mono>}
-                      <span className="chip ml-auto border-line-strong text-muted">{String(s.origin)}</span>
+                      <SkillOrigin origin={String(s.origin)} />
                     </div>
                     {!!s.tags?.length && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -363,3 +364,24 @@ export function AgentView({ id }: { id: string }) {
     </div>
   );
 }
+
+const ORIGIN: Record<string, [Key, Key, string]> = {
+  overlay: ["skills.origin.overlay", "skills.origin.overlayHint", "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300"],
+  agent: ["skills.origin.agent", "skills.origin.agentHint", "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-300"],
+  role: ["skills.origin.role", "skills.origin.roleHint", "border-line-strong text-muted"],
+  library: ["skills.origin.library", "skills.origin.libraryHint", "border-line-strong text-muted"],
+};
+
+/** Where an agent's skill comes from: its own updated copy of a system skill (the system's stays as it is), one it
+ *  learned, its role's, or the system library's. */
+function SkillOrigin({ origin }: { origin: string }) {
+  const app = useApp();
+  const o = ORIGIN[origin.toLowerCase()];
+  if (!o) return <span className="chip ml-auto border-line-strong text-muted">{origin}</span>;
+  return (
+    <span className={cn("chip ml-auto", o[2])} title={app.t(o[1])}>
+      {app.t(o[0])}
+    </span>
+  );
+}
+

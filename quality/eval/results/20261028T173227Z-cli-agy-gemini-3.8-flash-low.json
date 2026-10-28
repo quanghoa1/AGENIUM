@@ -1,0 +1,172 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:read_file": 5,
+      "close_ticket": 1,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 113867,
+    "tokens_out": 863,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 46691
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 16,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 2
+    },
+    "errors": [
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `action`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`",
+      "close_ticket: invalid_arguments: invalid arguments for close_ticket: missing field `reason`"
+    ],
+    "tools": {
+      "cli:read_file": 1,
+      "cli:run_command": 1,
+      "close_ticket": 2,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 2,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 138575,
+    "tokens_out": 1077,
+    "tokens_cached": 5288,
+    "cost_usd": 0.0,
+    "elapsed_ms": 53948
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 34,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 2
+    },
+    "errors": [
+      "edit_file: invalid_arguments: unknown field `edits`, expected one of `path`, `old_string`, `new_string`, `replace_all`",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`"
+    ],
+    "tools": {
+      "cli:read_file": 3,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "edit_file": 4,
+      "grep": 4,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 7,
+      "submit_report": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 357581,
+    "tokens_out": 2463,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 112041
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 16,
+    "tool_errors": 1,
+    "error_codes": {
+      "denied": 1
+    },
+    "errors": [
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)"
+    ],
+    "tools": {
+      "cli:read_file": 3,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 128081,
+    "tokens_out": 1109,
+    "tokens_cached": 7305,
+    "cost_usd": 0.0,
+    "elapsed_ms": 48996
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:read_file": 1,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 131490,
+    "tokens_out": 1079,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 50258
+  }
+]

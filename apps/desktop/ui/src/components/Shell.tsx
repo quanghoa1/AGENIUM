@@ -1,10 +1,12 @@
-import { BarChart3, Bell, Bot, Brain, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Search, Settings, Sun, Terminal, Users, Wrench } from "lucide-react";
+import { BarChart3, Bell, Bot, Brain, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Settings, Sun, Terminal, Users, Wrench } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
 import { inTauri, useApp, useLive, type View } from "../lib/store";
 import { askLead } from "../views/Chat";
 import { motion } from "motion/react";
+import { CloseProject } from "./CloseProject";
+import { ReopenProject } from "./ReopenProject";
 import { CommandPalette } from "./CommandPalette";
 import { Logo } from "./Logo";
 import { ConfirmModal, CountBadge, Overlay, Segmented, spring, Toast } from "./motion";
@@ -90,7 +92,7 @@ export function Shell({ children }: { children: ReactNode }) {
     },
   ];
   const active = (id: View) =>
-    route.view === id || (id === "tickets" && route.view === "ticket") || (id === "runs" && route.view === "run") || (id === "agents" && route.view === "agent");
+    route.view === id || (id === "runs" && route.view === "run") || (id === "agents" && route.view === "agent");
   const badgeTone = { amber: "border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300", cyan: "border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300", blue: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300" };
 
   return (
@@ -162,36 +164,21 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
-          <div className="flex items-center gap-2">
-            <span className="label">{t("top.project")}</span>
-            <select className="input w-52" value={app.project ?? ""} onChange={(e) => app.setProject(e.target.value || null)}>
-              {app.projects.length === 0 && <option value="">–</option>}
-              {app.projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.key_prefix} — {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
           {!inTauri && <span className="chip border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300">{t("top.demo")}</span>}
-          <button onClick={() => setPalette(true)} className="flex min-w-0 max-w-lg flex-1 items-center gap-2 rounded-lg border border-line bg-background px-3 py-[7px] text-left text-xs text-subtle hover:border-line-strong">
-            <Search className="h-3.5 w-3.5" />
-            <span className="truncate">{t("top.search")}</span>
-            <kbd className="ml-auto rounded border border-line-strong px-1 font-mono text-[11px]">Ctrl K</kbd>
-          </button>
           <div className="flex-1" />
           <RunControl />
           <button onClick={() => setStopAsk(true)} className="btn-danger" title={t("top.stop")}>
             <OctagonX className="h-3.5 w-3.5" />
             {t("top.stopShort")}
           </button>
-          {/* Both languages shown, the current one lit: a lone "VI" did not say whether it was the state or the switch. */}
+          {/* Language and theme live here only (not in Settings). Both languages shown, the current one lit: a
+              lone "VI" did not say whether it was the state or the switch. */}
           <Segmented
             id="lang"
             value={app.lang}
             onChange={app.setLang}
             itemClassName="px-2 py-1.5 font-mono text-[11px]"
-            items={(["vi", "en"] as const).map((l) => ({ value: l, label: l.toUpperCase() }))}
+            items={(["vi", "en"] as const).map((l) => ({ value: l, label: l.toUpperCase(), title: l === "vi" ? "Tiếng Việt" : "English" }))}
           />
           <Segmented
             id="theme"
@@ -201,6 +188,7 @@ export function Shell({ children }: { children: ReactNode }) {
             items={(["light", "dark", "system"] as const).map((m) => ({
               value: m,
               label: m === "light" ? <Sun className="h-3.5 w-3.5" /> : m === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Monitor className="h-3.5 w-3.5" />,
+              title: t(`settings.theme.${m}`),
             }))}
           />
         </header>
@@ -228,8 +216,9 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-/** The selected project's team: talking about the requirements, working on its own, stopped by you, or done
- *  (ADR-63). Stop and go on are yours; everything in between the team does by itself. */
+/** The selected project's team (picked on the board, the chat, the audit trail): talking about the requirements,
+ *  working on its own, stopped by you, done (ADR-63), or closed by you (ADR-130). Stop and go on, close and reopen
+ *  are yours; everything in between the team does by itself. */
 function RunControl() {
   const app = useApp();
   const p = app.projects.find((x) => x.id === app.project);
@@ -238,8 +227,9 @@ function RunControl() {
   const act = (f: (id: string) => Promise<void>) => f(p.id).then(() => app.refresh()).catch((e) => app.notify(String(e)));
   const tone = runTone[s];
   return (
-    <div className="flex shrink-0 items-center gap-1" title={app.t(`run.${s}.hint`)}>
+    <div className="flex shrink-0 items-center gap-1" title={`${p.name}: ${app.t(`run.${s}.hint`)}`}>
       <span className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium", tone)}>
+        <span className="max-w-[14rem] truncate">{p.name}</span>
         <RunStateIcon state={s} />
         {app.t(`run.${s}`)}
       </span>
@@ -255,10 +245,14 @@ function RunControl() {
       )}
       {s === "Done" && (
         // Done is not closed: a new request starts the team again (ADR-59 addendum).
-        <button className="btn" onClick={() => askLead(app.go, "")}>
-          <MessagesSquare className="h-3.5 w-3.5" /> {app.t("run.more")}
-        </button>
+        <>
+          <button className="btn" onClick={() => askLead(app.go, "")}>
+            <MessagesSquare className="h-3.5 w-3.5" /> {app.t("run.more")}
+          </button>
+          <CloseProject p={p} />
+        </>
       )}
+      {s === "Closed" && <ReopenProject p={p} />}
     </div>
   );
 }

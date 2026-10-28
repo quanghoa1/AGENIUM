@@ -14,6 +14,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Ticket dependencies (a ticket waits for what it needs to be merged), write scopes per role, pre-merge checks,
   optional push on close, aging and stall detection, Lead inbox, messaging a running Lead.
 - Team templates (coding, research, content, pentest), 27 ready-made roles, agents composed into your own teams.
+- Projects end: only the user closes a done project (never while one of its team's runs is going), and its team goes
+  free, whole, for another project; reopening offers the team that worked on it, now or once it is free (ADR-130). A
+  follow-up of a closed ticket is a new ticket linked to it (`follows`).
+- A project's ticket prefix is made from its name (`Demo shop` → `DS-1`) unless you give one, and no two projects
+  share one; projects are shown by the name you gave them.
 - The planner drafts plan v1 before the Lead plans (ADR-116).
 
 ### Models
@@ -27,13 +32,25 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Vendor CLIs run in their YOLO mode and work only through Agenium's own tools (files, apply_patch, shell, background
   commands): nothing asks the user and every change keeps the ticket's write scope (ADR-116, ADR-117, ADR-129).
 - A machine without a working sandbox can run agents without one by the user's choice (Settings; Codex included).
+- A tool call a model gets slightly wrong costs no step where its meaning is clear: a worker's report or question
+  without its ticket is about its run's ticket, a report's criteria under other names (`ac_results`, `id`) are read
+  as `acceptance` and `ac_id`, and a review's verdict sent as `action` as `decision`; a CLI is told only the tools
+  its run offers.
 - Effort levels per model by the vendor's own names, prompt caching across vendors, context clearing and compaction,
   retries with back-off, quota and offline states.
 
 ### Desktop app
-- Overview, chat with the Lead, Kanban board, ticket pages with Monaco side-by-side diffs, live office view, run logs
-  with an xterm terminal, memory browser, team organiser, provider and skill/MCP settings, usage and audit trail.
-  English and Vietnamese.
+- Overview, chat with the Lead, Kanban board, tickets in a popup over any view with Monaco side-by-side diffs, live
+  office view, run logs with an xterm terminal, memory browser, team organiser, provider and skill/MCP settings, usage
+  and audit trail. English and Vietnamese.
+- Usage: tokens and cost per day by vendor (stacked charts with hover and a table view), rankings by vendor and model,
+  the vendors' prices (an API's per million tokens, a CLI's subscription and its windows), per agent.
+- Runs say what memory did: the memories a work run was reminded of, and what a memory run learned (added, updated,
+  retired, with the old text) and from which ticket.
+- An agent's skills say where they come from: **Updated** (its own copy of a system skill, the system's unchanged),
+  **Learned** (written from its own lessons), its role's, or the system's.
+- The team starting and a project done are told (with the way there; a done project also as a desktop notification);
+  the Lead's chat leads to the live office, the tickets and the runs, and its ticket keys open the ticket.
 - First start prepares the local embedding model (bundled with the installer) before the app opens.
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 

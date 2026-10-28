@@ -417,6 +417,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             required_tags: vec![],
             scope_paths: vec![],
             report_template: None,
+            follows: None,
         }),
     )?;
     let key: TicketKey = "AGN-1".parse()?;

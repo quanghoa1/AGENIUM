@@ -1,8 +1,8 @@
-import { AlertTriangle, ArrowLeft, Check, FileCode2, GitBranch, Lock, MessageSquare, MessageSquarePlus, RotateCcw, Send, X } from "lucide-react";
+import { AlertTriangle, Check, FileCode2, GitBranch, Lock, MessageSquare, MessageSquarePlus, RotateCcw, Send, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { DiffView } from "../components/DiffView";
-import { ListItem, PanelSwap, Segmented } from "../components/motion";
+import { ListItem, Overlay, PanelSwap, Segmented } from "../components/motion";
 import { Markdown } from "../components/Markdown";
 import { Avatar, Empty, Mono, OutcomeBadge, PriorityBadge, Section, TicketStatusBadge, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
@@ -21,8 +21,26 @@ function linkLabel(t: (k: Key) => string, kind: string, out: boolean): string {
   return kind === "related_to" ? t("ticket.link.related_to") : t(`ticket.link.${kind}.${out ? "out" : "in"}` as Key);
 }
 
-/** A ticket's page; `onClose` set = shown in the board's popup (a Close button instead of the way back to the board). */
-export function TicketView({ id, onClose }: { id: string; onClose?: () => void }) {
+/** The ticket open in the app (`app.ticket`), in a popup over the current view: Esc, a click outside or Close
+ * closes it, a link to another ticket shows that one instead. */
+export function TicketPopup() {
+  const { ticket, openTicket } = useApp();
+  useEffect(() => {
+    if (!ticket) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && openTicket(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ticket, openTicket]);
+  return (
+    <Overlay open={!!ticket} onClose={() => openTicket(null)} kind="dialog" top="pt-[4vh]">
+      <div role="dialog" aria-modal="true" aria-label={ticket?.key} className="card max-h-[90vh] w-[min(1100px,94vw)] overflow-y-auto p-5 shadow-2xl">
+        {ticket && <TicketView key={`${ticket.project}/${ticket.key}`} id={ticket.key} project={ticket.project} onClose={() => openTicket(null)} />}
+      </div>
+    </Overlay>
+  );
+}
+
+function TicketView({ id, project, onClose }: { id: string; project: string; onClose: () => void }) {
   const app = useApp();
   const [d, setD] = useState<TicketDetail | null>(null);
   const [tab, setTab] = useState<Tab>("timeline");
@@ -36,13 +54,12 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
   const [feedback, setFeedback] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (app.project) api.ticket(app.project, id).then(setD).catch((e) => app.notify(String(e)));
-  }, [app.project, id, app.tick]);
+    api.ticket(project, id).then(setD).catch((e) => app.notify(String(e)));
+  }, [project, id, app.tick]);
 
   useEffect(() => {
-    if (tab === "changes" && app.project)
-      api.ticketDiff(app.project, id).then(setDiff).catch((e) => app.notify(String(e)));
-  }, [tab, app.project, id, app.tick]);
+    if (tab === "changes") api.ticketDiff(project, id).then(setDiff).catch((e) => app.notify(String(e)));
+  }, [tab, project, id, app.tick]);
 
   useEffect(() => {
     api.agents().then(setAgents);
@@ -77,9 +94,8 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
     return m;
   }, [agents]);
 
-  if (!d || !app.project) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
+  if (!d) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
   const t = d.ticket;
-  const project = app.project;
   const act = (p: Promise<unknown>) =>
     p.then(() => (app.notify(app.t("common.done")), app.refresh())).catch((e) => app.notify(String(e)));
   const workers = agents.filter((a) => a.project === project && !a.is_planner && (a.solo || !a.is_lead));
@@ -118,17 +134,9 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
       {/* ─── TOP BAR: Breadcrumb Navigation & Ticket Status Strip ─── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3.5">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          {onClose ? (
-            <>
-              <button className="btn" onClick={onClose} title="Esc">
-                <X className="h-3.5 w-3.5" /> {app.t("common.close")}
-              </button>
-            </>
-          ) : (
-            <button className="btn" onClick={() => app.go("tickets")}>
-              <ArrowLeft className="h-3.5 w-3.5" /> {app.t("nav.tickets")}
-            </button>
-          )}
+          <button className="btn" onClick={onClose} title="Esc">
+            <X className="h-3.5 w-3.5" /> {app.t("common.close")}
+          </button>
           <span className="text-subtle">/</span>
           <Mono className="text-muted">{t.plan_item}</Mono>
           <span className="text-subtle">/</span>
@@ -144,7 +152,11 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
             <button
               className="btn"
               title={app.t("ticket.closedNote")}
-              onClick={() => (onClose?.(), askLead(app.go, app.t("ticket.followUpDraft").replace("{k}", t.key)))}
+              onClick={() => (
+                // The ticket's own project's Lead: the popup may show another project's ticket.
+                app.setProject(project),
+                askLead(app.go, app.t("ticket.followUpDraft").replace("{k}", t.key), app.t("ticket.followUpNote").split("{k}").join(t.key))
+              )}
             >
               <MessageSquarePlus className="h-3.5 w-3.5" /> {app.t("ticket.followUp")}
             </button>
@@ -316,7 +328,7 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
 
               {tab === "changes" &&
                 (diff ? (
-                  <DiffView diff={diff.diff} load={(path) => api.ticketFile(app.project!, id, path)} />
+                  <DiffView diff={diff.diff} load={(path) => api.ticketFile(project, id, path)} />
                 ) : (
                   <div className="text-xs text-subtle">{app.t("common.loading")}</div>
                 ))}
@@ -442,7 +454,7 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
                       <button
                         key={k}
                         className="chip border-cyan-500/30 bg-cyan-500/10 text-cyan-600 hover:underline dark:text-cyan-400"
-                        onClick={() => app.go("ticket", k)}
+                        onClick={() => app.openTicket(k, project)}
                       >
                         {k}
                       </button>
@@ -458,7 +470,7 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
                       <button
                         key={k}
                         className="chip border-line-strong bg-elevated text-muted hover:underline"
-                        onClick={() => app.go("ticket", k)}
+                        onClick={() => app.openTicket(k, project)}
                       >
                         {k}
                       </button>
@@ -480,7 +492,7 @@ export function TicketView({ id, onClose }: { id: string; onClose?: () => void }
                         title={`${l.title}${l.note ? ` — ${l.note}` : ""} (${l.proposed_by}${
                           l.confirmed ? "" : `, ${app.t("ticket.linkUnconfirmed")}`
                         })`}
-                        onClick={() => app.go("ticket", l.key)}
+                        onClick={() => app.openTicket(l.key, project)}
                       >
                         <span className="text-subtle">{linkLabel(app.t, l.kind, l.out)}</span>
                         <span className="font-mono text-cyan-600 dark:text-cyan-400">{l.key}</span>

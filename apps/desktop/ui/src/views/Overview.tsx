@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2, FileText, MessageSquare } from "lucide-react";
+import { ProjectPicker } from "../components/ProjectPicker";
 import { useEffect, useState } from "react";
 import { AgentStatusBadge, Avatar, Empty, Metric, Mono, OutcomeBadge, PageHeader, ProjectStateChips, RuntimeBadge, Section, ago, cn, projectGlow, tokens } from "../components/ui";
 import { api } from "../lib/api";
@@ -27,6 +28,7 @@ export function OverviewView() {
   return (
     <div className="space-y-5">
       <PageHeader title={app.t("overview.title")} sub={app.t("overview.sub")}>
+        <ProjectPicker />
         <button
           className="btn"
           disabled={!app.project}
@@ -97,7 +99,7 @@ export function OverviewView() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-xs font-semibold">
-                    <Mono className="text-cyan-600 dark:text-cyan-400">{p.key_prefix}</Mono> {p.name}
+                    {p.name}
                     <span className="ml-2 font-normal text-subtle">{p.team ? `${p.team.name}${p.team.solo ? "" : ` · ${p.team.members}`}` : app.t("overview.noTeam")}</span>
                   </span>
                   <ProjectStateChips state={p.run_state} needsYou={0} cancelled={p.status === "Cancelled"} />
@@ -135,7 +137,7 @@ export function OverviewView() {
               </div>
               <div className="min-w-0 flex-1 truncate text-xs text-muted">
                 {a.current ? (
-                  <button className="hover:text-accent" onClick={() => app.go("ticket", a.current!.ticket)}>
+                  <button className="hover:text-accent" onClick={() => app.openTicket(a.current!.ticket, a.current!.project_id)}>
                     <Mono className="text-cyan-600 dark:text-cyan-400">{a.current.ticket}</Mono> {a.current.title}
                   </button>
                 ) : (

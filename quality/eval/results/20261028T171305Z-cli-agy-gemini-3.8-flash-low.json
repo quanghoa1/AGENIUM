@@ -1,0 +1,183 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:read_file": 3,
+      "close_ticket": 1,
+      "list_dir": 2,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 131500,
+    "tokens_out": 829,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 52700
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 28,
+    "tool_errors": 7,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 6
+    },
+    "errors": [
+      "edit_file: invalid_arguments: unknown field `target`, expected one of `path`, `old_string`, `new_string`, `replace_all`",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `ac_results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `id`, expected one of `ac_id`, `status`, `evidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "cli:read_file": 3,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "edit_file": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 6
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 231915,
+    "tokens_out": 1899,
+    "tokens_cached": 5294,
+    "cost_usd": 0.0,
+    "elapsed_ms": 86122
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 35,
+    "tool_errors": 6,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 4,
+      "not_found": 1
+    },
+    "errors": [
+      "edit_file: invalid_arguments: unknown field `edit`, expected one of `path`, `old_string`, `new_string`, `replace_all`",
+      "edit_file: not_found: old_string not found in src/report.py; read the file and copy the exact text",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `ac_results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `id`, expected one of `ac_id`, `status`, `evidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "cli:read_file": 2,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "edit_file": 5,
+      "grep": 4,
+      "read_file": 7,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 4
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 330050,
+    "tokens_out": 3003,
+    "tokens_cached": 5254,
+    "cost_usd": 0.0,
+    "elapsed_ms": 114601
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 15,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `ac_results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)"
+    ],
+    "tools": {
+      "cli:read_file": 4,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 136689,
+    "tokens_out": 1340,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 55734
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 12,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:read_file": 3,
+      "close_ticket": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 138660,
+    "tokens_out": 1204,
+    "tokens_cached": 5285,
+    "cost_usd": 0.0,
+    "elapsed_ms": 56238
+  }
+]

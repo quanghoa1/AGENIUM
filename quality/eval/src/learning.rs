@@ -1,5 +1,6 @@
 //! Learning-loop scenario (ADR-91/92): does a real model use the skill-writing tools with good judgment, and do the
-//! gates hold on what it actually proposes? A Solo agent holds three lessons, each held in two contexts, that call for
+//! gates hold on what it actually proposes? A Solo agent holds three lessons, each held in two contexts (two earlier
+//! tickets of the project, closed: the only evidence ADR-118 counts), that call for
 //! three different right answers, then does an ordinary ticket:
 //!
 //! - `procedure`: a reusable project procedure no skill covers — a new skill is reasonable (or nothing);
@@ -129,34 +130,20 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
     }
     // The skill the `covered` lesson belongs to.
     app.toggle_agent_skill(agent.id, "commit-and-pr", true)?;
-
-    // Seed the three lessons, each held in two distinct contexts, with vectors so recall shows them.
-    let e = app.embedder();
-    let mem = app.agent_store(agent.id, e.dim(), e.model_id())?;
-    let mut ids: Vec<(&str, i64)> = Vec::new();
-    for (label, text, cue) in LESSONS {
-        let v = e.embed(&[text.to_owned()]).ok().and_then(|mut v| v.pop());
-        let id = mem.add(
-            &agenium_store::NewFact {
-                kind: agenium_store::FactKind::Lesson,
-                cue: Some(cue.into()),
-                ..agenium_store::NewFact::fact(text, "ticket:AGN-0")
-            },
-            v.as_deref(),
-        )?;
-        mem.validate_in(id, "demo/ticket:AGN-0")?;
-        mem.validate_in(id, "demo/ticket:AGN-7")?;
-        ids.push((label, id));
-    }
-    let label_of = |id: i64| {
-        ids.iter()
-            .find(|(_, i)| *i == id)
-            .map(|(l, _)| *l)
-            .unwrap_or("unknown")
-    };
+    // The system's copy of it: an update must be the agent's own copy (overlay), never this file.
+    let system_skill = app
+        .skill_registry()
+        .dir_of(&agenium_skills::Owner::Library)
+        .join("commit-and-pr")
+        .join("SKILL.md");
+    let system_before = std::fs::read_to_string(&system_skill)?;
 
     // An ordinary ticket, unrelated to writing skills.
     let user = CallCtx::user(project.id);
+    let ac0 = vec![AcceptanceCriterion {
+        id: "AC-1".into(),
+        text: "README.md describes the project".into(),
+    }];
     let ac = vec![AcceptanceCriterion {
         id: "AC-1".into(),
         text: "deliverables/hello.txt exists and contains the word hello".into(),
@@ -167,11 +154,18 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             goals: vec!["Add a greeting file".into()],
             scope: vec![],
             out_of_scope: vec![],
-            requirements: vec![Requirement {
-                id: "REQ-1".into(),
-                text: "Create deliverables/hello.txt containing the single line: hello".into(),
-                acceptance: ac.clone(),
-            }],
+            requirements: vec![
+                Requirement {
+                    id: "REQ-0".into(),
+                    text: "Keep the README accurate".into(),
+                    acceptance: ac0.clone(),
+                },
+                Requirement {
+                    id: "REQ-1".into(),
+                    text: "Create deliverables/hello.txt containing the single line: hello".into(),
+                    acceptance: ac.clone(),
+                },
+            ],
             constraints: vec![],
         }),
     )?;
@@ -183,20 +177,135 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
                 id: "M1".into(),
                 title: "Greeting".into(),
             }],
-            items: vec![PlanItem {
-                id: "PI-1".into(),
-                milestone: "M1".into(),
-                title: "Add a greeting file".into(),
-                trace_to: vec!["REQ-1".into()],
-                acceptance: ac.clone(),
-                role: "solo".into(),
-                depends_on: vec![],
-                estimate: Estimate::S,
-                scope_paths: vec![],
-            }],
+            items: vec![
+                PlanItem {
+                    id: "PI-0".into(),
+                    milestone: "M1".into(),
+                    title: "Earlier README work".into(),
+                    trace_to: vec!["REQ-0".into()],
+                    acceptance: ac0.clone(),
+                    role: "solo".into(),
+                    depends_on: vec![],
+                    estimate: Estimate::S,
+                    scope_paths: vec![],
+                },
+                PlanItem {
+                    id: "PI-1".into(),
+                    milestone: "M1".into(),
+                    title: "Add a greeting file".into(),
+                    trace_to: vec!["REQ-1".into()],
+                    acceptance: ac.clone(),
+                    role: "solo".into(),
+                    depends_on: vec![],
+                    estimate: Estimate::S,
+                    scope_paths: vec![],
+                },
+            ],
         }),
     )?;
-    app.apply(
+    // Two earlier tickets, worked, reviewed and closed before the scenario (no model needed): the contexts the
+    // lessons held in.
+    let lead = CallCtx {
+        actor: Actor::Lead(agent.id),
+        ..CallCtx::user(project.id)
+    };
+    let mut earlier: Vec<TicketKey> = Vec::new();
+    for title in ["Tidy the README title", "Tidy the README intro"] {
+        let out = app.apply(
+            &user,
+            Intent::CreateTicket(agenium_core::forms::NewTicket {
+                kind: TicketKind::Task,
+                plan_item: "PI-0".into(),
+                parent: None,
+                title: title.into(),
+                description: title.into(),
+                acceptance: ac0.clone(),
+                priority: 2,
+                depends_on: vec![],
+                required_role: None,
+                required_tags: vec![],
+                scope_paths: vec![],
+                report_template: None,
+                follows: None,
+            }),
+        )?;
+        let k: TicketKey = serde_json::from_value(out.result["ticket_id"].clone())?;
+        app.apply(
+            &user,
+            Intent::AssignTicket(agenium_core::forms::AssignTicket {
+                ticket_id: k.clone(),
+                worker: agent.id,
+                note: None,
+            }),
+        )?;
+        let run = app.start_run(project.id, &k, "eval", "seed")?;
+        app.apply(
+            &CallCtx {
+                actor: Actor::Worker(agent.id),
+                ..CallCtx::user(project.id)
+            },
+            Intent::SubmitReport(agenium_core::forms::WorkReport {
+                ticket_id: k.clone(),
+                summary: "README checked: it is accurate".into(),
+                acceptance: vec![agenium_core::forms::AcResult {
+                    ac_id: "AC-1".into(),
+                    status: agenium_core::forms::AcStatus::Met,
+                    evidence: "README.md read: it describes the project".into(),
+                }],
+                artifacts: vec![],
+                extension: json!({}),
+                risks: vec![],
+                follow_ups: vec![],
+                confidence: 0.9,
+            }),
+        )?;
+        app.finish_run(run.run, "Completed", 1, &UsageSummary::default())?;
+        app.apply(
+            &lead,
+            Intent::ReviewTicket(agenium_core::forms::ReviewDecision {
+                ticket_id: k.clone(),
+                decision: agenium_core::forms::ReviewVerdict::Approve,
+                ac_feedback: vec![],
+                required_changes: vec![],
+            }),
+        )?;
+        app.apply(
+            &lead,
+            Intent::CloseTicket(agenium_core::forms::CloseTicket {
+                ticket_id: k.clone(),
+                reason: "Done before the scenario".into(),
+            }),
+        )?;
+        earlier.push(k);
+    }
+    // Seed the three lessons, each held in the two earlier tickets (closed, on record: ADR-118 counts no other
+    // context), with vectors so recall shows them.
+    let e = app.embedder();
+    let mem = app.agent_store(agent.id, e.dim(), e.model_id())?;
+    let mut ids: Vec<(&str, i64)> = Vec::new();
+    for (label, text, cue) in LESSONS {
+        let v = e.embed(&[text.to_owned()]).ok().and_then(|mut v| v.pop());
+        let id = mem.add(
+            &agenium_store::NewFact {
+                kind: agenium_store::FactKind::Lesson,
+                cue: Some(cue.into()),
+                ..agenium_store::NewFact::fact(text, format!("ticket:{}", earlier[0]))
+            },
+            v.as_deref(),
+        )?;
+        for k in &earlier {
+            mem.validate_in(id, &format!("{}/ticket:{k}", project.id))?;
+        }
+        ids.push((label, id));
+    }
+    let label_of = |id: i64| {
+        ids.iter()
+            .find(|(_, i)| *i == id)
+            .map(|(l, _)| *l)
+            .unwrap_or("unknown")
+    };
+
+    let created = app.apply(
         &user,
         Intent::CreateTicket(agenium_core::forms::NewTicket {
             kind: TicketKind::Task,
@@ -211,9 +320,10 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             required_tags: vec![],
             scope_paths: vec![],
             report_template: None,
+            follows: None,
         }),
     )?;
-    let key: TicketKey = "AGN-1".parse()?;
+    let key: TicketKey = serde_json::from_value(created.result["ticket_id"].clone())?;
     app.apply(
         &user,
         Intent::AssignTicket(agenium_core::forms::AssignTicket {
@@ -335,6 +445,14 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
         }
     }
 
+    let system_unchanged = std::fs::read_to_string(&system_skill)? == system_before;
+    if !system_unchanged {
+        violations.push(
+            "the system skill commit-and-pr was changed (an update must be the agent's own copy)"
+                .into(),
+        );
+    }
+
     let work = std::fs::read_to_string(root.join("deliverables/hello.txt"))
         .map(|s| s.to_lowercase().contains("hello"))
         .unwrap_or(false);
@@ -385,6 +503,7 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             "calls": calls,
             "created": created,
             "overlays": overlays,
+            "system_skill_unchanged": system_unchanged,
             "violations": violations,
         })),
         discipline: None,

@@ -2,6 +2,7 @@ import { FileUp, Plug, RotateCcw, Settings2, Sparkles, UserPlus, Wrench } from "
 import { useEffect, useState } from "react";
 import { Modal, Overlay, Segmented } from "../../components/motion";
 import { AgentStatusBadge, Avatar, Empty, PageHeader, RoleChip, RuntimeBadge, cn } from "../../components/ui";
+import { SearchBox, found } from "../../components/SearchBox";
 import { api, type ModelArg } from "../../lib/api";
 import { friendly } from "../../lib/errors";
 import { inTauri, useApp } from "../../lib/store";
@@ -146,7 +147,7 @@ function AgentImport({ open, onClose }: { open: boolean; onClose: () => void }) 
         <select className="input mt-1" value={project} onChange={(e) => setProject(e.target.value)}>
           {free.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.key_prefix} — {p.name}
+              {p.name}
             </option>
           ))}
         </select>
@@ -178,10 +179,14 @@ export function AgentsView() {
   useEffect(() => {
     api.agents().then((r) => setRows(r ?? []));
   }, [app.tick]);
-  const shown = rows.filter((r) => filter === "all" || (filter === "pool" ? r.pool : !r.pool));
+  const [query, setQuery] = useState("");
+  const shown = rows.filter(
+    (r) => (filter === "all" || (filter === "pool" ? r.pool : !r.pool)) && found(query, r.agent.name, r.agent.role, r.agent.model.model, r.agent.model.provider, r.team, r.project_name),
+  );
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.agents")} sub={`${rows.length} · ${rows.filter((r) => r.pool).length} ${app.t("agents.pool")}`}>
+        <SearchBox value={query} onChange={setQuery} placeholder={app.t("search.agents")} />
         <Segmented
           id="agent-filter"
           value={filter}

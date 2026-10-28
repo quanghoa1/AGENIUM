@@ -11,9 +11,33 @@ impl App {
     ) -> Result<Outcome> {
         let pid = project.id;
         let default_template = self.default_template(project);
+        let follows = nt.follows.clone();
         self.commit(ctx, |w| {
             require_lead(w, pid, &ctx.actor)?;
+            // A follow-up names the closed ticket it goes on from before anything is written.
+            let prev = follows
+                .as_ref()
+                .map(|k| ticket_by_key(w, pid, k))
+                .transpose()?;
             let t = insert_ticket(w, pid, nt, default_template)?;
+            if let Some(prev) = prev {
+                tickets::add_link(
+                    w.tx,
+                    t.id,
+                    prev.id,
+                    LinkKind::FollowUpOf.as_str(),
+                    &ctx.actor.label(),
+                    Some(&ctx.actor.label()),
+                    None,
+                )?;
+                w.emit(DomainEvent::LinkAdded {
+                    ticket: t.id,
+                    from: t.key.clone(),
+                    to: prev.key.clone(),
+                    kind: LinkKind::FollowUpOf.as_str().into(),
+                    confirmed: true,
+                })?;
+            }
             Ok(Outcome::ok(
                 serde_json::json!({ "ticket_id": t.key, "status": t.status }),
             ))

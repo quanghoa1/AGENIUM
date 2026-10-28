@@ -1,0 +1,178 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 15,
+    "tool_errors": 3,
+    "error_codes": {
+      "invalid_arguments": 3
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `acceptance`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ac_id`"
+    ],
+    "tools": {
+      "cli:execute": 15,
+      "close_ticket": 1,
+      "list_dir": 2,
+      "read_file": 2,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 4,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 128493,
+    "tokens_out": 1814,
+    "tokens_cached": 111360,
+    "cost_usd": 0.0,
+    "elapsed_ms": 45305
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:execute": 11,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 3,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 101738,
+    "tokens_out": 1453,
+    "tokens_cached": 83456,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41048
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "cli:execute": 13,
+      "close_ticket": 1,
+      "glob": 1,
+      "grep": 4,
+      "list_dir": 2,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 121244,
+    "tokens_out": 2061,
+    "tokens_cached": 104832,
+    "cost_usd": 0.0,
+    "elapsed_ms": 50119
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 12,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid_arguments": 2
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `acceptance`"
+    ],
+    "tools": {
+      "cli:execute": 12,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 3,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 103037,
+    "tokens_out": 1732,
+    "tokens_cached": 87680,
+    "cost_usd": 0.0,
+    "elapsed_ms": 44265
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 19,
+    "tool_errors": 5,
+    "error_codes": {
+      "invalid_arguments": 5
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"deliverables/total.txt\", expected struct ArtifactRef",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `kind`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ref`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `ticket_id`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `acceptance`"
+    ],
+    "tools": {
+      "cli:execute": 19,
+      "close_ticket": 1,
+      "list_dir": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 5,
+      "submit_report": 6,
+      "write_file": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 172148,
+    "tokens_out": 3442,
+    "tokens_cached": 153472,
+    "cost_usd": 0.0,
+    "elapsed_ms": 68714
+  }
+]

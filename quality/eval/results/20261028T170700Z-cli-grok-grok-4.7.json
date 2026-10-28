@@ -1,0 +1,177 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 48,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 2
+    },
+    "errors": [
+      "cli:read_file: denied: D:\\Work\\AGENIUM\\docs\\design\\SCHEMAS\\tools\\submit_report.schema.json is outside the ticket worktree",
+      "cli:search_tool: denied: the run is ending"
+    ],
+    "tools": {
+      "cli:read_file": 1,
+      "cli:search_tool": 6,
+      "close_ticket": 1,
+      "glob": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "shell": 32,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 1407446,
+    "tokens_out": 11827,
+    "tokens_cached": 1173760,
+    "cost_usd": 0.0,
+    "elapsed_ms": 287718
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 15,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:search_tool": 3,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 3,
+      "list_dir": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 237834,
+    "tokens_out": 4660,
+    "tokens_cached": 176512,
+    "cost_usd": 0.0,
+    "elapsed_ms": 91776
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 38,
+    "tool_errors": 1,
+    "error_codes": {
+      "not_found": 1
+    },
+    "errors": [
+      "read_file: not_found: .gitignore does not exist"
+    ],
+    "tools": {
+      "cli:search_tool": 4,
+      "close_ticket": 1,
+      "edit_file": 3,
+      "glob": 3,
+      "grep": 4,
+      "post_progress": 1,
+      "read_file": 11,
+      "review_ticket": 1,
+      "shell": 5,
+      "submit_report": 1,
+      "todo": 3
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 433001,
+    "tokens_out": 7523,
+    "tokens_cached": 307584,
+    "cost_usd": 0.0,
+    "elapsed_ms": 149237
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 33,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 2
+    },
+    "errors": [
+      "cli:read_file: denied: D:\\Work\\AGENIUM\\docs\\adr\\ADR-58-team-templates-and-write-scope.md is outside the ticket worktree",
+      "cli:search_tool: denied: the run is ending"
+    ],
+    "tools": {
+      "cli:read_file": 1,
+      "cli:search_tool": 6,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "glob": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "shell": 17,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 878845,
+    "tokens_out": 9168,
+    "tokens_cached": 796928,
+    "cost_usd": 0.0,
+    "elapsed_ms": 212939
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 24,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:search_tool": 3,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "post_progress": 2,
+      "read_file": 5,
+      "review_ticket": 1,
+      "shell": 9,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 473637,
+    "tokens_out": 7715,
+    "tokens_cached": 344704,
+    "cost_usd": 0.0,
+    "elapsed_ms": 156671
+  }
+]

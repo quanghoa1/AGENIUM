@@ -462,6 +462,8 @@ impl Runtime {
         let out = match state {
             crate::views::RunState::Running => self.tick(project).await?,
             crate::views::RunState::Paused => Vec::new(),
+            // Closed by the user (ADR-130): nothing runs and its status stays as it was closed.
+            crate::views::RunState::Closed => return Ok(Vec::new()),
             // Not running (yet, or any more): the Lead still answers what reached it after its last step (ADR-104).
             _ => self.answer_left(project).await.into_iter().collect(),
         };

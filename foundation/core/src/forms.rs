@@ -298,6 +298,10 @@ pub struct NewTicket {
     #[serde(default)]
     #[schemars(pattern(r"^[a-z0-9_-]+@[0-9]+$"))]
     pub report_template: Option<String>,
+    /// The closed ticket this one goes on from: more work the user asked for on accepted work (a closed ticket is
+    /// never reopened). Linked `follow_up_of`, shown on both tickets.
+    #[serde(default)]
+    pub follows: Option<TicketKey>,
 }
 
 fn default_priority() -> u8 {

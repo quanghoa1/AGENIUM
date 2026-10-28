@@ -360,6 +360,12 @@ pub async fn learn(
                 Some((nf, v)) => {
                     stored.push((fact, store.add(&nf, Some(&v))?));
                     report.added += 1;
+                    report.changes.push(Change {
+                        op: "add",
+                        kind: nf.kind,
+                        text: nf.text,
+                        was: None,
+                    });
                 }
                 None => report
                     .rejected
@@ -376,6 +382,12 @@ pub async fn learn(
                     Some((nf, v)) if nf.untrusted && trusted(id) => {
                         stored.push((fact, store.add(&nf, Some(&v))?));
                         report.added += 1;
+                        report.changes.push(Change {
+                            op: "add",
+                            kind: nf.kind,
+                            text: nf.text.clone(),
+                            was: None,
+                        });
                         report.rejected.push(format!(
                             "external content may not rewrite trusted memory {id}; stored beside it as untrusted"
                         ));
@@ -384,7 +396,8 @@ pub async fn learn(
                         // A lesson refined by a later episode stays a lesson: its kind, cue, trust and the contexts it
                         // held in carry over (a clean episode yields only facts, so its merged text would otherwise
                         // turn a proven lesson into a plain fact and reset what it earned; found on Claude Haiku).
-                        let old = store.get(id).ok().filter(|o| o.kind == FactKind::Lesson);
+                        let was = store.get(id).ok();
+                        let old = was.clone().filter(|o| o.kind == FactKind::Lesson);
                         if let Some(o) = &old {
                             nf.kind = FactKind::Lesson;
                             nf.cue = nf.cue.or_else(|| o.cue.clone());
@@ -396,6 +409,12 @@ pub async fn learn(
                         }
                         stored.push((fact, new_id));
                         report.updated += 1;
+                        report.changes.push(Change {
+                            op: "update",
+                            kind: nf.kind,
+                            text: nf.text,
+                            was: was.map(|o| o.text),
+                        });
                     }
                     None => report
                         .rejected
@@ -415,8 +434,17 @@ pub async fn learn(
                     ));
                     continue;
                 }
+                let gone = store.get(id).ok();
                 store.retire(id)?;
                 report.deleted += 1;
+                if let Some(o) = gone {
+                    report.changes.push(Change {
+                        op: "delete",
+                        kind: o.kind,
+                        text: o.text,
+                        was: None,
+                    });
+                }
             }
             Op::Noop { .. } => report.noop += 1,
         }

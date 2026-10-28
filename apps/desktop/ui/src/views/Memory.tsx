@@ -248,6 +248,9 @@ export function MemoryView() {
                   title={
                     <span className="flex items-center gap-2 normal-case">
                       <Sparkles className="h-3.5 w-3.5 text-purple-500" /> {o.skill}
+                      <span className="chip border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300" title={app.t("skills.origin.overlayHint")}>
+                        {app.t("skills.origin.overlay")}
+                      </span>
                       <span className="chip border-line-strong text-muted">
                         {app.t("memory.base")} {o.base} · {o.base_version}
                       </span>

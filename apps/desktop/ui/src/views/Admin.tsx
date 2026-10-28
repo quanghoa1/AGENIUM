@@ -1,13 +1,13 @@
-import { Copy, Loader2, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Copy, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ProjectPicker } from "../components/ProjectPicker";
+import { useEffect, useState } from "react";
 import { Logo } from "../components/Logo";
 import { ConfirmModal } from "../components/motion";
-import { Empty, FreeTag, Mono, PageHeader, Section, ago, cn, tokens } from "../components/ui";
+import { Empty, Mono, PageHeader, Section, cn } from "../components/ui";
 import { api } from "../lib/api";
-import { isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
 import type { Key } from "../lib/i18n";
-import type { AuditEntry, CommandPolicy, RunRow } from "../lib/types";
+import type { AuditEntry, CommandPolicy } from "../lib/types";
 import { JudgeSection } from "./JudgeSettings";
 
 /** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
@@ -48,6 +48,7 @@ export function AuditView() {
         title={app.t("nav.audit")}
         sub={`${app.t("audit.sub")} ${app.t("audit.scope").replace("{x}", app.projects.find((p) => p.id === app.project)?.name ?? "–")}`}
       >
+        <ProjectPicker />
         <label className="flex items-center gap-1.5 text-xs">
           <input type="checkbox" checked={onlyRefused} onChange={(e) => setOnlyRefused(e.target.checked)} /> {app.t("audit.refusedOnly")}
         </label>
@@ -80,7 +81,7 @@ export function AuditView() {
                 <td className="px-3 font-medium">{e.actor === "user" ? app.t("audit.you") : e.actor}</td>
                 <td className="px-3">
                   {e.ticket ? (
-                    <button className="font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.go("ticket", e.ticket!)}>
+                    <button className="font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.openTicket(e.ticket!)}>
                       {e.ticket}
                     </button>
                   ) : (
@@ -104,110 +105,12 @@ export function AuditView() {
   );
 }
 
-export function UsageView() {
-  const app = useApp();
-  const [rows, setRows] = useState<RunRow[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const prices = usePrices(app.tick);
-  useEffect(() => {
-    api.runs(2000).then(setRows);
-  }, [app.tick]);
-  const agg = useMemo(() => {
-    const m = new Map<string, { runs: number; ok: number; tin: number; tout: number; cost: number; model: string; provider: string }>();
-    for (const r of rows) {
-      const k = r.agent_name ?? r.agent;
-      const x = m.get(k) ?? { runs: 0, ok: 0, tin: 0, tout: 0, cost: 0, model: r.model, provider: r.provider };
-      x.runs++;
-      if (r.outcome === "Completed") x.ok++;
-      x.tin += r.usage.tokens_in;
-      x.tout += r.usage.tokens_out;
-      x.cost += r.usage.estimated_cost_usd;
-      m.set(k, x);
-    }
-    return [...m.entries()].sort((a, b) => b[1].tin - a[1].tin);
-  }, [rows]);
-  const total = agg.reduce((s, [, x]) => s + x.cost, 0);
-  return (
-    <div className="space-y-4">
-      <PageHeader title={app.t("nav.usage")} sub={`${app.t("usage.sub")} ${rows.length} ${app.t(rows.length === 1 ? "overview.run" : "overview.runs")} · $${total.toFixed(3)}`}>
-        <span className="text-[11px] text-subtle">
-          {prices?.fetched_at ? `${app.t("usage.pricesFrom")} ${prices.source?.replace(/^https?:\/\//, "").split("/")[0]} · ${ago(prices.fetched_at)}` : app.t("usage.noPrices")}
-        </span>
-        <button
-          className="btn"
-          disabled={refreshing}
-          onClick={() => {
-            setRefreshing(true);
-            api
-              .refreshPrices()
-              .then((r) => (app.notify(r.priced === null ? app.t("usage.pricesOff") : `${app.t("usage.pricesUpdated")} ${r.priced}`), app.refresh()))
-              .catch((e) => app.notify(String(e)))
-              .finally(() => setRefreshing(false));
-          }}
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} /> {app.t("usage.refreshPrices")}
-        </button>
-      </PageHeader>
-      <div className="card overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="label border-b border-line text-left">
-              <th className="px-4 py-2">{app.t("runs.agent")}</th>
-              <th className="px-3">{app.t("common.model")}</th>
-              <th className="px-3">{app.t("usage.runs")}</th>
-              <th className="px-3">{app.t("usage.completed")}</th>
-              <th className="px-3">{app.t("usage.tokensIn")}</th>
-              <th className="px-3">{app.t("usage.tokensOut")}</th>
-              <th className="px-3">{app.t("ticket.cost")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {agg.map(([k, x]) => (
-              <tr key={k}>
-                <td className="px-4 py-2 font-medium">{k}</td>
-                <td className="px-3 text-muted">
-                  {x.model} {isFree(priceOf(prices, x.provider, x.model)) && <FreeTag />}
-                </td>
-                <td className="px-3 font-mono">{x.runs}</td>
-                <td className="px-3 font-mono">{Math.round((100 * x.ok) / x.runs)}%</td>
-                <td className="px-3 font-mono">{tokens(x.tin)}</td>
-                <td className="px-3 font-mono">{tokens(x.tout)}</td>
-                <td className="px-3 font-mono">${x.cost.toFixed(3)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {agg.length === 0 && <div className="p-4"><Empty>{app.t("common.none")}</Empty></div>}
-      </div>
-    </div>
-  );
-}
-
 export function SettingsView() {
   const app = useApp();
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.settings")} />
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title={app.t("settings.theme")}>
-          <div className="flex gap-2">
-            {(["light", "dark", "system"] as const).map((m) => (
-              <button key={m} className={cn("btn", app.themeMode === m && "border-accent text-accent")} onClick={() => app.setThemeMode(m)}>
-                {app.t(`settings.theme.${m}` as Key)}
-              </button>
-            ))}
-          </div>
-        </Section>
-        <Section title={app.t("settings.language")}>
-          <div className="flex gap-2">
-            {(["vi", "en"] as const).map((l) => (
-              <button key={l} className={cn("btn", app.lang === l && "border-accent text-accent")} onClick={() => app.setLang(l)}>
-                {l === "vi" ? "Tiếng Việt" : "English"}
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
-        </Section>
         <CommandPolicySection />
         <JudgeSection />
         <Section title={app.t("settings.support")}>

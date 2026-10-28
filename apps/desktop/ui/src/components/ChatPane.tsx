@@ -1,12 +1,12 @@
 // The conversation with a project's Lead (or Solo agent), like a CLI chat: history, the turn in progress (its
 // reasoning folded in an expandable "thinking" block, the tool being called, the text as it streams), the input.
 // Used by the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
-import { Brain, ChevronDown, ChevronRight, Loader2, Send, Wrench } from "lucide-react";
+import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Send, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine } from "../lib/types";
-import { Markdown } from "./Markdown";
+import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
 
@@ -38,6 +38,8 @@ function Folded({ text }: { text: string }) {
 
 export interface Prefill {
   text: string;
+  /** What the drafted message is for, shown above the input until it is sent or dropped (a follow-up on a ticket). */
+  note?: string;
   /** Changes on every request so the same text can be asked for twice. */
   nonce: number;
 }
@@ -111,6 +113,7 @@ export function ChatPane({
   const live = useLive();
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [text, setText] = useState("");
+  const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -132,6 +135,7 @@ export function ChatPane({
   useEffect(() => {
     if (!prefill) return;
     setText(prefill.text);
+    setNote(prefill.note ?? null);
     // Focus after the pane is on screen, caret at the end.
     window.setTimeout(() => {
       const el = input.current;
@@ -204,6 +208,7 @@ export function ChatPane({
     const msg = text.trim().replace(PASTE_TOKEN, (label, id) => pastes.current.get(Number(id)) ?? label);
     pastes.current.clear();
     setText("");
+    setNote(null);
     setLines((l) => [...l, { role: "user", text: msg }]);
     setBusy(true);
     api
@@ -213,7 +218,9 @@ export function ChatPane({
       .finally(() => (setBusy(false), app.refresh()));
   };
 
+  const prefix = app.projects.find((p) => p.id === project)?.key_prefix;
   return (
+    <TicketLinks.Provider value={prefix ? { prefix, open: (k) => app.openTicket(k, project) } : null}>
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {lines.map((l, i) => (
@@ -237,6 +244,15 @@ export function ChatPane({
         {lines.length === 0 && !busy && <Empty>{app.t("chat.intro")}</Empty>}
         <div ref={end} />
       </div>
+      {note && (
+        <div className="flex items-start gap-2 border-t border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs text-cyan-700 dark:text-cyan-300">
+          <MessageSquarePlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">{note}</span>
+          <button className="shrink-0 opacity-70 hover:opacity-100" title={app.t("common.close")} onClick={() => (setNote(null), setText(""))}>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
       <div className="flex gap-2 border-t border-line p-3">
         <textarea
           ref={input}
@@ -260,5 +276,6 @@ export function ChatPane({
         </button>
       </div>
     </div>
+    </TicketLinks.Provider>
   );
 }

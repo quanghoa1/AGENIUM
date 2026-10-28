@@ -9,7 +9,8 @@ import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
 import { AgentView, AgentsView, ProjectsView, TeamsView } from "./views/Organize";
-import { AuditView, ModelPrepView, SettingsView, SetupView, UsageView } from "./views/Admin";
+import { AuditView, ModelPrepView, SettingsView, SetupView } from "./views/Admin";
+import { UsageView } from "./views/usage/UsageView";
 import { MemoryView } from "./views/Memory";
 import { TemplatesView } from "./views/Templates";
 import { LibraryView, ProvidersView } from "./views/Capabilities";
@@ -19,7 +20,7 @@ import { ChatView } from "./views/Chat";
 import { NeedsView } from "./views/Needs";
 import { OverviewView } from "./views/Overview";
 import { RunView, RunsView } from "./views/Runs";
-import { TicketView } from "./views/Ticket";
+import { TicketPopup } from "./views/Ticket";
 import { TicketsView } from "./views/Tickets";
 
 function Router() {
@@ -34,8 +35,6 @@ function Router() {
         return <NeedsView />;
       case "tickets":
         return <TicketsView />;
-      case "ticket":
-        return id ? <TicketView id={id} /> : <TicketsView />;
       case "runs":
         return <RunsView />;
       case "run":
@@ -75,6 +74,7 @@ function Router() {
   return (
     <Shell>
       <PageEnter id={`${view}/${id ?? ""}`}>{page}</PageEnter>
+      <TicketPopup />
     </Shell>
   );
 }

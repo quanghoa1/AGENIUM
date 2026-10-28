@@ -1,0 +1,58 @@
+[
+  {
+    "id": "learning-loop",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 1,
+    "error_codes": {},
+    "errors": [
+      "propose_new_skill: invalid: lesson #1 held in 0 context(s) on record (closed tickets); a new skill needs a lesson that held in 2"
+    ],
+    "tools": {},
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 181718,
+    "tokens_out": 1839,
+    "tokens_cached": 117248,
+    "cost_usd": 0.0,
+    "elapsed_ms": 38311,
+    "learning": {
+      "applied_procedure": true,
+      "calls": [
+        {
+          "before_work": false,
+          "lesson": "procedure",
+          "ok": false,
+          "result": "invalid: lesson #1 held in 0 context(s) on record (closed tickets); a new skill needs a lesson that held in 2",
+          "sent": "## Job\nKeep the deliverables index accurate when adding files under deliverables/.\n\n## When to use\nUse this procedure whenever a task adds a new file under deliverables/.\n\n## Steps\n1. Read deliverables/INDEX.md if it exists.\n2. Add one line containing the file name, a dash, and its purpose.\n3. Keep all entries sorted by file name.\n4. If the index does not exist, create it with the new entry.\n5. Read back the new file and index to verify their contents.\n\n## Tools\nUse the worktree file reading and editing tools, such as read_file and apply_patch.\n\n## Proof\nAfter adding a deliverable, provide evidence by reading the added file and deliverables/INDEX.md; confirm the file appears exactly once and the entries are sorted by file name.",
+          "skill": "deliverables-index",
+          "tool": "propose_new_skill"
+        }
+      ],
+      "created": [],
+      "lessons": [
+        {
+          "id": 1,
+          "label": "procedure"
+        },
+        {
+          "id": 2,
+          "label": "covered"
+        },
+        {
+          "id": 3,
+          "label": "fact"
+        }
+      ],
+      "overlays": [],
+      "used_tools": true,
+      "violations": []
+    }
+  }
+]

@@ -22,7 +22,7 @@ use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, 
 /// plugins, image generation, and (ADR-129) its own shell, image viewer, sleep and tool suggestions: commands and images
 /// go through Agenium's `shell` and `view_image` over MCP, under Agenium's sandbox, gate and write scope. `multi_agent` (subagents) follows
 /// the run (Solo only); web search is disabled.
-const WITHHELD_FEATURES: [&str; 14] = [
+const WITHHELD_FEATURES: [&str; 17] = [
     "browser_use",
     "browser_use_external",
     "computer_use",
@@ -37,6 +37,11 @@ const WITHHELD_FEATURES: [&str; 14] = [
     "view_image",
     "sleep_tool",
     "tool_suggest",
+    // Skills are Agenium's (ADR-88): Codex's own skill search and the MCP servers its skills would install stay off,
+    // and so do its own git worktrees (the ticket's worktree is Agenium's).
+    "skill_search",
+    "skill_mcp_dependency_install",
+    "worktrees",
 ];
 
 pub struct Codex;

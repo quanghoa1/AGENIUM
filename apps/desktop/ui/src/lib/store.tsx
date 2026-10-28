@@ -1,6 +1,6 @@
-// App-wide state: route (hash based, so reload keeps the place), language, theme, selected project, a refresh
-// counter bumped by domain events, command approvals and toasts. Live run output has its own context (`useLive`):
-// it changes on every streamed token, and only the views that show it should re-render.
+// App-wide state: route (hash based, so reload keeps the place), the ticket open in its popup, language, theme,
+// selected project, a refresh counter bumped by domain events, command approvals and toasts. Live run output has its
+// own context (`useLive`): it changes on every streamed token, and only the views that show it should re-render.
 import {
   createContext,
   useCallback,
@@ -17,11 +17,11 @@ import { api, inTauri, onApproval, onEvent, onModel, onRun } from "./api";
 import { dictionaries, type Key, type Lang } from "./i18n";
 import type { CommandApproval, ProjectSummary, Status } from "./types";
 import { setAgoLang } from "../components/ui";
+import type { ToastMessage } from "../components/motion";
 
 export type View =
   | "overview"
   | "tickets"
-  | "ticket"
   | "runs"
   | "run"
   | "needs"
@@ -75,6 +75,10 @@ interface Ctx {
   status: Status | null;
   route: Route;
   go: (view: View, id?: string) => void;
+  /** The ticket shown in the popup over the current view (a ticket has no page of its own); null = none. */
+  ticket: { key: string; project: string } | null;
+  /** Opens a ticket in the popup, of `project` (default: the selected one); null closes it. */
+  openTicket: (key: string | null, project?: string | null) => void;
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (k: Key) => string;
@@ -88,8 +92,9 @@ interface Ctx {
   refresh: () => void;
   approvals: CommandApproval[];
   setApprovals: Dispatch<SetStateAction<CommandApproval[]>>;
-  toast: string | null;
-  notify: (m: string) => void;
+  toast: ToastMessage | null;
+  /** Tells the user `m` for a few seconds; `action` is a button that leads to it. */
+  notify: (m: string, action?: ToastMessage["action"]) => void;
   reloadStatus: () => void;
 }
 
@@ -163,6 +168,7 @@ function writeLocal(k: string, v: string) {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [route, setRoute] = useState<Route>(parseHash);
+  const [ticket, setTicket] = useState<{ key: string; project: string } | null>(null);
   // First start: the system's language when the app has it (Vietnamese), else English; the user's choice wins after.
   const [lang, setLangState] = useState<Lang>(
     (readLocal("agenium-lang") as Lang) || (navigator.language?.toLowerCase().startsWith("vi") ? "vi" : "en"),
@@ -175,7 +181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tick, setTick] = useState(0);
   const [live, setLive] = useState<Record<string, LiveRun>>({});
   const [approvals, setApprovals] = useState<CommandApproval[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
   const reloadStatus = useCallback(() => {
@@ -198,7 +204,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [reloadStatus]);
 
   useEffect(() => {
-    const f = () => setRoute(parseHash());
+    // Going elsewhere (a link in the ticket popup, the back button) closes the popup.
+    const f = () => (setRoute(parseHash()), setTicket(null));
     window.addEventListener("hashchange", f);
     return () => window.removeEventListener("hashchange", f);
   }, []);
@@ -275,10 +282,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const notify = useCallback((m: string) => {
-    setToast(m);
+  const notify = useCallback((m: string, action?: ToastMessage["action"]) => {
+    setToast({ text: m, action: action && { ...action, run: () => (setToast(null), action.run()) } });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(null), 5000);
+    // One with a way somewhere stays long enough to take it.
+    toastTimer.current = window.setTimeout(() => setToast(null), action ? 12000 : 5000);
   }, []);
 
   // A failed backend call nobody caught still reaches the user (as a toast), instead of a view waiting silently.
@@ -303,6 +311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const go = useCallback((view: View, id?: string) => {
+    setTicket(null);
     window.location.hash = "/" + view + (id ? "/" + encodeURIComponent(id) : "");
   }, []);
   const setLang = useCallback((l: Lang) => {
@@ -316,16 +325,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setThemeModeState(m);
     writeLocal("agenium-theme", m);
   }, []);
+  const openTicket = useCallback(
+    (key: string | null, of?: string | null) => {
+      const p = of ?? project;
+      setTicket(key && p ? { key, project: p } : null);
+    },
+    [project],
+  );
   const setProject = useCallback((id: string | null) => {
     setProjectState(id);
     if (id) writeLocal("agenium-project", id);
   }, []);
+
+  // The team starting on a project and a project getting done are told, with the way there (the first load tells
+  // nothing: only a change seen while the app is open).
+  const runStates = useRef<Record<string, string | undefined> | null>(null);
+  useEffect(() => {
+    const was = runStates.current;
+    runStates.current = Object.fromEntries(projects.map((p) => [p.id, p.run_state]));
+    if (!was) return;
+    for (const p of projects) {
+      const name = p.name;
+      // Started: after the requirements were agreed, or on new work for a done project.
+      if ((was[p.id] === "Agreeing" || was[p.id] === "Done") && p.run_state === "Running")
+        notify(t("run.startedToast").replace("{p}", name), { label: t("run.watch"), run: () => (setProject(p.id), go("live")) });
+      if (was[p.id] === "Running" && p.run_state === "Done")
+        notify(t("run.doneToast").replace("{p}", name), { label: t("run.review"), run: () => (setProject(p.id), go("projects")) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects]);
 
   const value = useMemo<Ctx>(
     () => ({
       status,
       route,
       go,
+      ticket,
+      openTicket,
       lang,
       setLang,
       t,
@@ -342,7 +378,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notify,
       reloadStatus,
     }),
-    [status, route, go, lang, setLang, t, themeMode, setThemeMode, projects, project, setProject, tick, refresh, approvals, toast, notify, reloadStatus],
+    [status, route, go, ticket, openTicket, lang, setLang, t, themeMode, setThemeMode, projects, project, setProject, tick, refresh, approvals, toast, notify, reloadStatus],
   );
   return (
     <C.Provider value={value}>

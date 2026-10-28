@@ -146,6 +146,7 @@ impl App {
                 required_tags: vec![],
                 scope_paths: vec![],
                 report_template: None,
+                follows: None,
             };
             let agg = insert_ticket(w, pid, nt, default_template)?;
             for child in &children {

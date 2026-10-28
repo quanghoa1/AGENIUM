@@ -52,6 +52,43 @@ fn an_aggregate_commits_with_its_links_or_not_at_all() {
     );
 }
 
+/// More work on a ticket is a new ticket that names it (`follows`): the two are linked `follow_up_of` as the new one
+/// is created, and a follow-up of a ticket that does not exist creates nothing.
+#[test]
+fn a_follow_up_ticket_is_linked_to_the_ticket_it_goes_on_from() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let lead = Actor::Lead(a.id);
+    let create = |title: &str, follows: Option<&str>| {
+        f.app.apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(NewTicket {
+                follows: follows.map(key),
+                ..new_ticket("PI-1", title, &[], &[])
+            }),
+        )
+    };
+    create("First", None).unwrap();
+    assert!(matches!(
+        create("Lost", Some("AGN-9")),
+        Err(OrchError::NotFound(_))
+    ));
+    assert_eq!(f.app.tickets(f.project.id).unwrap().len(), 1);
+    let out = create("More", Some("AGN-1")).unwrap();
+    assert_eq!(out.result["ticket_id"], "AGN-2");
+    let links = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::tickets::links_of(c, ticket(&f, "AGN-1").id))
+        .unwrap();
+    assert!(
+        links.iter().any(|l| l.kind == "follow_up_of"
+            && l.src == ticket(&f, "AGN-2").id
+            && l.dst == ticket(&f, "AGN-1").id),
+        "{links:?}"
+    );
+}
+
 /// A cancelled ticket is never done: a new ticket cannot wait for it, and the tickets already waiting for it go to
 /// the Lead (they could never start, and nothing said so).
 #[test]

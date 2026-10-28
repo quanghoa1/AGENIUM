@@ -1,0 +1,160 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "list_dir": 2,
+      "read_file": 2,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 155386,
+    "tokens_out": 2032,
+    "tokens_cached": 135351,
+    "cost_usd": 0.0,
+    "elapsed_ms": 27634
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 157530,
+    "tokens_out": 1872,
+    "tokens_cached": 137211,
+    "cost_usd": 0.0,
+    "elapsed_ms": 26250
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 22,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "grep: invalid_arguments: unknown field `-n`, expected one of `pattern`, `path`, `glob`, `case_insensitive`, `output`"
+    ],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 6,
+      "list_dir": 1,
+      "multi_edit": 2,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 206074,
+    "tokens_out": 3610,
+    "tokens_cached": 181619,
+    "cost_usd": 0.0,
+    "elapsed_ms": 33826
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 171840,
+    "tokens_out": 1931,
+    "tokens_cached": 151770,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29617
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 3,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 3,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 181104,
+    "tokens_out": 3010,
+    "tokens_cached": 158472,
+    "cost_usd": 0.0,
+    "elapsed_ms": 33187
+  }
+]

@@ -75,7 +75,8 @@ export function Segmented<T extends string>({
   id: string;
   value: T;
   onChange: (v: T) => void;
-  items: { value: T; label: ReactNode }[];
+  /** `title` names an item whose label is only an icon (tooltip and screen readers). */
+  items: { value: T; label: ReactNode; title?: string }[];
   className?: string;
   itemClassName?: string;
 }) {
@@ -88,6 +89,8 @@ export function Segmented<T extends string>({
             key={it.value}
             role="tab"
             aria-selected={on}
+            title={it.title}
+            aria-label={it.title}
             onClick={() => onChange(it.value)}
             className={cn("relative rounded-md px-3 py-1 transition-colors duration-200", on ? "font-medium text-fg" : "text-subtle hover:text-fg", itemClassName)}
             style={{ transitionTimingFunction: "ease" }}
@@ -200,21 +203,32 @@ export function CountUp({ value }: { value: number }) {
 }
 
 /** Toast rising from the bottom edge, out of a blur; leaving with a short fade. */
-export function Toast({ message }: { message: string | null }) {
+/** A toast: what happened, and maybe a button that leads to it. */
+export interface ToastMessage {
+  text: string;
+  action?: { label: string; run: () => void };
+}
+
+export function Toast({ message }: { message: ToastMessage | null }) {
   return (
-    // Above the usage footer (32 px), never over it.
-    <div className="pointer-events-none fixed bottom-12 right-4 z-50" aria-live="polite">
+    // Above the usage footer and the chat's input bar, never over them (a toast with a button stays 12 s).
+    <div className="pointer-events-none fixed bottom-36 right-4 z-50" aria-live="polite">
       <AnimatePresence initial={false}>
         {message && (
           <motion.div
-            key={message}
+            key={message.text}
             initial={{ opacity: 0, y: "100%", scale: 0.96, filter: blur.surface }}
             animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transition: spring.toast }}
             exit={{ opacity: 0, scale: 0.96, filter: blur.surface, transition: tx.dismiss }}
             style={{ originY: 1 }}
             className="pointer-events-auto max-w-sm rounded-xl border border-line-strong bg-surface px-4 py-3 text-xs shadow-xl"
           >
-            {message}
+            {message.text}
+            {message.action && (
+              <button className="btn mt-2 w-full justify-center" onClick={message.action.run}>
+                {message.action.label}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

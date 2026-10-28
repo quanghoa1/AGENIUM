@@ -173,6 +173,10 @@ impl Driver for Opencode {
             "autoupdate": false,
             "share": "disabled",
             "permission": permission,
+            // opencode 2's code mode offers its own management tools inside `execute` (`opencode.worktree_create`, its
+            // sessions, its models), outside `permission` and `policies` (probe of 2026-10-28): a worktree it would
+            // make lands in the run's scratch home, which goes with the run, not beside the project.
+            "worktree": {"directory": s.home.join("worktrees").to_string_lossy()},
             "mcp": {s.mcp_name: {
                 "type": "remote",
                 "url": s.mcp_url,

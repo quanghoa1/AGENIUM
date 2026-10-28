@@ -443,6 +443,22 @@ async fn closing_a_ticket_teaches_the_assignee() {
         .collect();
     assert_eq!(memory.len(), 1, "{memory:?}");
     assert!(memory[0].usage.tokens_in > 0 && memory[0].ticket.is_none());
+    // Its own log says what it learned from and what it stored, in words.
+    let own = app
+        .store()
+        .read(|c| runs::log_entries(c, memory[0].id))
+        .unwrap();
+    assert!(
+        own.iter()
+            .any(|e| e.kind == "run" && e.data["source"] == "ticket:AGN-1"),
+        "{own:?}"
+    );
+    assert!(
+        own.iter().any(|e| e.kind == "memory"
+            && e.data["changes"][0]["op"] == "add"
+            && e.data["changes"][0]["text"] == facts[0].text),
+        "{own:?}"
+    );
     // Once per ticket state.
     assert!(rt
         .learn_from_ticket(project, &key("AGN-1"), s.run)

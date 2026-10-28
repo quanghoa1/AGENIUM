@@ -1,11 +1,13 @@
 import { ArrowLeft, CheckCircle2, SquareTerminal, XCircle } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Markdown } from "../components/Markdown";
+import { SearchBox, found } from "../components/SearchBox";
 import { CacheHit, Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp, useLive } from "../lib/store";
 import type { LogEntry, RunDetail, RunRow } from "../lib/types";
 import { plainArgs, startsSubagent, subagentOf } from "../lib/subagents";
+import { MemoryStep, memorySource } from "./run/MemoryStep";
 
 export function RunsView() {
   const app = useApp();
@@ -13,9 +15,13 @@ export function RunsView() {
   useEffect(() => {
     api.runs(150).then(setRows);
   }, [app.tick]);
+  const [query, setQuery] = useState("");
+  const shown = rows.filter((r) => found(query, r.agent_name, r.ticket_key, r.project_name, r.model, r.outcome ?? "running", r.source));
   return (
     <div>
-      <PageHeader title={app.t("nav.runs")} sub={`${rows.filter((r) => !r.ended_at).length} ${app.t("runs.live")}`} />
+      <PageHeader title={app.t("nav.runs")} sub={`${rows.filter((r) => !r.ended_at).length} ${app.t("runs.live")}`}>
+        <SearchBox value={query} onChange={setQuery} placeholder={app.t("search.runs")} />
+      </PageHeader>
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -31,7 +37,7 @@ export function RunsView() {
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id} className="cursor-pointer hover:bg-elevated/60" onClick={() => app.go("run", r.id)}>
                 <td className="px-4 py-2">
                   <OutcomeBadge outcome={r.outcome} />
@@ -42,6 +48,11 @@ export function RunsView() {
                     <>
                       <Mono className="text-cyan-600 dark:text-cyan-400">{r.ticket_key}</Mono> <span className="text-subtle">{r.project_name}</span>
                     </>
+                  ) : r.outcome === "Memory" ? (
+                    // A memory run learned from a ticket or the chat; one recorded before its source was logged says so only.
+                    <span className="text-violet-600 dark:text-violet-300">
+                      {r.source ? app.t("runmem.list").replace("{x}", memorySource({ source: r.source }).ticket ?? app.t("runmem.chat")) : app.t("runmem.listOld")}
+                    </span>
                   ) : (
                     <span className="text-subtle">{app.t("runs.noTicket")}</span>
                   )}
@@ -55,7 +66,7 @@ export function RunsView() {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && (
+        {shown.length === 0 && (
           <div className="p-4">
             <Empty>{app.t("common.none")}</Empty>
           </div>
@@ -85,6 +96,7 @@ function session(log: LogEntry[]): string {
 }
 
 function Step({ e }: { e: LogEntry }) {
+  if (e.kind === "memory" || (e.kind === "run" && e.data?.kind === "memory")) return <MemoryStep e={e} />;
   if (e.kind !== "tool") {
     return (
       <div className="flex gap-3 rounded-lg border border-line p-2.5">
@@ -164,7 +176,7 @@ export function RunView({ id }: { id: string }) {
         <div>
           <div className="label">{app.t("runs.ticket")}</div>
           {d.ticket_key ? (
-            <button className="font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.go("ticket", d.ticket_key!)}>
+            <button className="font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.openTicket(d.ticket_key!, d.ticket_project)}>
               {d.ticket_key}
             </button>
           ) : (

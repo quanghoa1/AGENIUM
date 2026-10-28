@@ -33,6 +33,18 @@ pub struct PipelineModel {
     pub retry: RetryPolicy,
 }
 
+/// One change an episode made to the memory, in words: a fact, preference or lesson added, rewritten or retired.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Change {
+    /// `add`, `update` or `delete`.
+    pub op: &'static str,
+    pub kind: FactKind,
+    pub text: String,
+    /// The text an update replaced.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub was: Option<String>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct LearnReport {
     pub extracted: usize,
@@ -52,6 +64,8 @@ pub struct LearnReport {
     pub consolidated: u64,
     /// Facts, operations, mentions or relations refused by the guards.
     pub rejected: Vec<String>,
+    /// What the counts above changed, in words (the run log shows it).
+    pub changes: Vec<Change>,
     pub tokens_in: u64,
     pub tokens_out: u64,
     /// The model calls' usage, for pricing them (the caller records it as a run).

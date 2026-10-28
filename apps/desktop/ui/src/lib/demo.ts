@@ -147,9 +147,9 @@ const overview: Overview = {
     model: a.agent.model,
     current:
       a.agent.id === ids.backend
-        ? { project: "shop", ticket: "SHOP-2", title: "Cart API: add, remove, total" }
+        ? { project: "shop", project_id: P, ticket: "SHOP-2", title: "Cart API: add, remove, total" }
         : a.agent.id === ids.frontend
-          ? { project: "shop", ticket: "SHOP-3", title: "Product list page reading /products" }
+          ? { project: "shop", project_id: P, ticket: "SHOP-3", title: "Product list page reading /products" }
           : null,
   })),
   live_runs: runs.filter((r) => !r.ended_at),

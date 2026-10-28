@@ -94,7 +94,8 @@ pub struct CliRun<'a> {
     pub protocol: &'a dyn Protocol,
     /// Protocol tools offered through the MCP server.
     pub protocol_specs: Vec<ToolSpec>,
-    /// Other tools Agenium executes for the CLI (the agent's own MCP bindings; output marked untrusted).
+    /// The Agenium tools the CLI works through over MCP (ADR-129): files, search, shell, … and the agent's own MCP
+    /// bindings (their output marked untrusted).
     pub tools: Vec<Arc<dyn Tool>>,
     /// The run's tool context; its sandbox policy is the base of the CLI's (`Control::Sandbox`).
     pub ctx: &'a ToolCtx,
@@ -332,15 +333,45 @@ mod tests {
             system: vec![],
             messages: vec![],
         };
-        let text = render(&order, &["submit_report".to_owned()], false);
+        let work: Vec<String> = [
+            "read_file",
+            "edit_file",
+            "shell",
+            "shell_output",
+            "shell_stop",
+            "mcp__docs__search",
+        ]
+        .map(String::from)
+        .to_vec();
+        let text = render(&order, &["submit_report".to_owned()], &work, false);
         assert!(text.contains("not your own"), "{text}");
         assert!(text.contains("`shell` for every command"));
         assert!(text.contains("`background`") && text.contains("`shell_output`"));
         assert!(text.contains("Your own shell is turned off"));
         assert!(text.contains("submit_report"));
+        assert!(text.contains("`mcp__docs__search`"));
         assert!(!text.contains("subagent"));
+        // Only the tools this run offers are named: a chat run (read tools only) is told it changes nothing.
+        assert!(
+            !text.contains("write_file") && !text.contains("changes no files"),
+            "{text}"
+        );
+        let chat = render(
+            &order,
+            &["create_ticket".to_owned()],
+            &["read_file".to_owned(), "grep".to_owned()],
+            false,
+        );
+        assert!(
+            chat.contains("`read_file` and `grep` to read") && chat.contains("changes no files"),
+            "{chat}"
+        );
+        assert!(
+            !chat.contains("edit_file") && !chat.contains("`shell`"),
+            "{chat}"
+        );
         // A Solo agent is told its own subagent tool stays on (Codex took "not your own" for it, 2026-10-28).
-        let solo = render(&order, &["submit_report".to_owned()], true);
+        let solo = render(&order, &["submit_report".to_owned()], &work, true);
         assert!(solo.contains("you may start your own subagents"), "{solo}");
     }
 }

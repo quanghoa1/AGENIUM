@@ -43,3 +43,21 @@ for the covered rule. Using the tools is not required.
   contradiction gates (ADR-92) are verified by tests, not yet by a real model trying to get past them.
 
 Tokens per run: 110 k–250 k in, 1.4 k–4.4 k out; 40–140 s (Codex CLI runs are the slowest).
+
+## Rerun of 2026-10-28 on a fixed scenario
+
+From 2026-10-27 (ADR-118) a lesson counts a context only when it is a closed ticket on record. The scenario still
+validated its lessons in made-up contexts (`demo/ticket:AGN-0`, `demo/ticket:AGN-7`), so every skill proposal was
+refused ("held in 0 context(s) on record"): Codex proposed a new skill and was turned down, and the scenario passed
+only because doing nothing is accepted. It no longer tested skill writing. Fixed: two earlier tickets of the project are
+worked, reviewed and closed before the scenario (no model needed), the lessons hold in those two, and the scenario
+checks that the system's `commit-and-pr` is unchanged after the run (an update must be the agent's own copy).
+
+| Model | What it did | Violations | System skill |
+|---|---|---|---|
+| deepseek-v4.1-flash (API) | updated `commit-and-pr` as its own copy (from the `covered` lesson) **and** made `deliverables-index` (from `procedure`) | 0 | unchanged |
+| gpt-6-luna (CLI) | made `index-deliverables` (from `procedure`) | 0 | unchanged |
+| claude-sonnet-5-5 (CLI) | used no skill tool; applied the procedure to the work | 0 | unchanged |
+
+Every ticket closed with correct work; every run applied the recalled `procedure` lesson. The agent page shows an
+agent's own copy of a system skill as **Updated** and a skill it wrote as **Learned**.

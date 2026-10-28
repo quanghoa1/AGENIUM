@@ -1,0 +1,163 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "glob": 1,
+      "list_dir": 1,
+      "read_file": 1,
+      "review_ticket": 1,
+      "shell": 3,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 97483,
+    "tokens_out": 1032,
+    "tokens_cached": 83072,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29449
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 2,
+      "read_file": 2,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 82444,
+    "tokens_out": 914,
+    "tokens_cached": 62208,
+    "cost_usd": 0.0,
+    "elapsed_ms": 37224
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid": 1
+    },
+    "errors": [
+      "request_permission: invalid: AGN-1 is Resolved; permissions are requested while working on it"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "grep": 3,
+      "list_dir": 2,
+      "read_file": 6,
+      "request_permission": 1,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 3
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 118596,
+    "tokens_out": 1840,
+    "tokens_cached": 114176,
+    "cost_usd": 0.0,
+    "elapsed_ms": 35033
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 72263,
+    "tokens_out": 794,
+    "tokens_cached": 69504,
+    "cost_usd": 0.0,
+    "elapsed_ms": 20586
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `risk`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`"
+    ],
+    "tools": {
+      "cancel_ticket": 1,
+      "close_ticket": 1,
+      "create_ticket": 1,
+      "glob": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 3,
+      "submit_report": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 137737,
+    "tokens_out": 2311,
+    "tokens_cached": 114560,
+    "cost_usd": 0.0,
+    "elapsed_ms": 49218
+  }
+]

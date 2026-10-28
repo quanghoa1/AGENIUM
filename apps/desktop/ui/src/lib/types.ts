@@ -67,8 +67,13 @@ export interface ProjectSummary {
   spec_version?: number | null;
   needs_you: number;
   inbox: number;
-  /** Agreeing: Lead and user settle the requirements; Running: the team works on its own; Paused by the user; Done. */
-  run_state?: "Agreeing" | "Running" | "Paused" | "Done";
+  /** Agreeing: Lead and user settle the requirements; Running: the team works on its own; Paused by the user; Done;
+   *  Closed by the user once done (ADR-130). */
+  run_state?: "Agreeing" | "Running" | "Paused" | "Done" | "Closed";
+  /** A closed project: the team that worked on it (reopening offers it first). */
+  previous_team?: string | null;
+  /** A reopened project waiting for its busy team: the team's name. */
+  waits_for?: string | null;
 }
 
 export type NeedKind =
@@ -135,6 +140,8 @@ export interface RunRow {
   api?: boolean;
   /** Share of input tokens served from the provider's prompt cache (API runs only). */
   cache_hit?: number | null;
+  /** A memory run (the runs list): what it learned from, `ticket:<KEY>` or `chat:<project>`. */
+  source?: string | null;
 }
 
 export interface AgentRow {
@@ -145,7 +152,8 @@ export interface AgentRow {
   status: AgentStatus;
   backend: BackendKind;
   model: ModelBinding;
-  current?: { project: string; ticket: string; title: string } | null;
+  /** The ticket the agent works on: its project's name and id, its key and title. */
+  current?: { project: string; project_id: string; ticket: string; title: string } | null;
 }
 
 export interface Overview {
@@ -323,6 +331,8 @@ export interface LogEntry {
 export interface RunDetail {
   run: RunRow;
   ticket_key?: string | null;
+  /** The ticket's project. */
+  ticket_project?: string | null;
   log: LogEntry[];
 }
 
@@ -389,6 +399,8 @@ export interface Capabilities {
     effort_field?: string | null;
   }[];
   clis: CliInfo[];
+  /** The CLIs were left out of this answer (asked for without them). */
+  clis_pending?: boolean;
   templates: TeamTemplate[];
   cli_fallback: { provider: string; model: string };
   /** Models a CLI backend can run that Agenium knows of (opencode: OpenCode's free models), with their effort levels. */

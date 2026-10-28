@@ -254,6 +254,14 @@ impl App {
                 open.join(", ")
             )));
         }
+        if let Some(p) = project {
+            if crate::project_close::closed(&self.project(p)?.settings) {
+                return Err(OrchError::Conflict(
+                    "the project is closed: reopen it first (it can take its team again then)"
+                        .into(),
+                ));
+            }
+        }
         self.store().commit(None, "user", |w| -> Result<()> {
             if let Some(p) = project {
                 if agents::teams_of_project(w.tx, p)?
@@ -267,8 +275,20 @@ impl App {
             }
             agents::set_team_project(w.tx, team, project)?;
             w.emit(DomainEvent::TeamProjectChanged { team, project })?;
+            // A project given a team waits for no other (ADR-130).
+            if let Some(p) = project {
+                let mut s = agenium_store::core::projects::get(w.tx, p)?.settings;
+                if let Some(o) = s.as_object_mut() {
+                    if o.remove(crate::project_close::WAITS_FOR).is_some() {
+                        agenium_store::core::projects::set_settings(w.tx, p, &s)?;
+                    }
+                }
+            }
             Ok(())
         })?;
+        if project.is_none() {
+            self.hand_over(team)?;
+        }
         Ok(())
     }
 

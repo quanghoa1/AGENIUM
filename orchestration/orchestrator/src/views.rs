@@ -91,6 +91,8 @@ pub enum RunState {
     Paused,
     /// Every plan item is done and no ticket is open.
     Done,
+    /// Closed by the user once done (ADR-130): nothing runs on it and its team was set free.
+    Closed,
 }
 
 impl App {
@@ -167,6 +169,9 @@ impl App {
     pub fn run_state(&self, project: ProjectId) -> Result<RunState> {
         use agenium_store::core::projects::ProjectStatus;
         let p = self.project(project)?;
+        if crate::project_close::closed(&p.settings) {
+            return Ok(RunState::Closed);
+        }
         if matches!(p.status, ProjectStatus::Paused | ProjectStatus::Cancelled) {
             return Ok(RunState::Paused);
         }

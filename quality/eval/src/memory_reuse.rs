@@ -449,6 +449,7 @@ pub async fn run(
                 required_tags: vec![],
                 scope_paths: vec![],
                 report_template: None,
+                follows: None,
             }),
         )?;
         let key: TicketKey = serde_json::from_value(out.result["ticket_id"].clone())?;

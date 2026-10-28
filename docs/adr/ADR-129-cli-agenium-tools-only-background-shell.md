@@ -119,3 +119,26 @@ Found in the full verification after the code review (same day), and fixed:
 Final verification on the reviewed code: golden tasks 5/5 each on DeepSeek over the API, Claude Code Haiku 5.5, Codex
 gpt-6-luna, Grok 4.7, agy Gemini 3.8 Flash and OpenCode (OpenCode Go DeepSeek v4.1 Flash); team task 4/4 (workers on
 each hooked or contained CLI); workspace tests 498 passed, 0 failed.
+
+## Probed again (2026-10-28, late): what each CLI actually has in an Agenium run
+
+Each CLI was asked, in a chat turn of a Solo agent, which tools, skills, instruction files and MCP servers it has, and
+then to use one of its own tools Agenium does not allow:
+
+- **None of the user's own configuration reaches a run**: no `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, none of the user's
+  MCP servers (gitnexus) or skills (gitnexus-*, hermes); MCP servers are Agenium's only (the agent's own bindings are
+  reached through it), and they start with a cleared environment.
+- **Refused as designed**: Grok's `todo_write` and `run_terminal_command`, agy's `search_web` (each with the way through
+  Agenium's tools). A tool a CLI lists is not one it may use: Grok listed its image, video and feedback tools, which its
+  hook refuses like any tool outside the run's list.
+- **The instructions now name only the tools a run offers.** A Lead's chat turn was told of `edit_file`, `write_file`
+  and `submit_report`, which a chat run does not have; Claude Code reported it as a contradiction. A run without write
+  tools is now told it changes no files.
+- **Codex**: its skill search, the MCP servers its skills would install, and its own git worktrees are now off as well
+  (`skill_search`, `skill_mcp_dependency_install`, `worktrees`). Its bundled system skills (`imagegen`, `openai-docs`,
+  `skill-creator`, `skill-installer`) are still listed: they live in the run's home and go with it.
+- **OpenCode 2's code mode offers its own management tools inside `execute`** (`opencode.worktree_create`,
+  `worktree_list`, its sessions and models), outside both `permission` and `policies`: a probe created a worktree. Not
+  blocked yet; contained instead: OpenCode's worktree directory is the run's scratch home, so a worktree it makes goes
+  with the run (no branch, a detached HEAD), and the registration it leaves is pruned the next time Agenium removes a
+  ticket's worktree.
