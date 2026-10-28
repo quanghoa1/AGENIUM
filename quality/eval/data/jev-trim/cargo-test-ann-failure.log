@@ -1,0 +1,101 @@
+
+running 7 tests
+test retrieve::tests::recency_curve ... ok
+test pipeline::tests::json_in_prose ... ok
+test pipeline::tests::a_cut_off_extraction_keeps_its_complete_facts ... ok
+test pipeline::tests::episode_details_are_not_memories ... ok
+test resolve::tests::bands_and_hard_rules ... ok
+test tests::recall_and_usage_rows ... ok
+test tests::pooled_recall_merges_shared_lessons_below_own ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 6 tests
+test a_projects_rules_reach_its_tickets_whatever_their_words ... ok
+test gm7_injection_from_external_content ... ok
+test gm2_scope_trap ... ok
+test lessons_need_a_cue_and_a_signal_and_are_rules_only_in_their_scope ... ok
+test gm4_correction_supersedes_and_gm5_reopen_lowers_confidence ... ok
+test gm1_reuse_and_gm3_multi_hop ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+
+running 2 tests
+test model_files_verify_and_embeddings_are_sane ... ok
+test recall_and_throughput_on_the_fixture ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test an_unscoped_fact_stays_in_its_project_and_confidence_starts_from_the_evidence ... ok
+test a_delete_of_trusted_memory_needs_its_trusted_fact ... ok
+test add_update_delete_noop_with_guards ... ok
+test an_update_of_a_lesson_keeps_what_it_earned ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+
+running 14 tests
+test graph::tests::scope_matrix ... ok
+test graph::tests::normalisation ... ok
+test backup::tests::a_malformed_blob_is_an_error_not_a_panic ... ok
+test migrate::tests::applies_in_order_and_is_idempotent ... ok
+test migrate::tests::failed_migration_rolls_back_and_newer_db_is_refused ... ok
+test migrate::tests::a_table_rebuild_keeps_references_and_broken_keys_are_refused ... ok
+test db::tests::a_panicking_read_returns_its_connection ... ok
+test db::tests::writes_roll_back_on_error_and_readers_see_commits ... ok
+test db::tests::exclusive_checkpoint_waits_for_readers_and_truncates ... ok
+test db::tests::second_open_in_same_process_is_locked_until_drop ... ok
+test backup::tests::a_snapshot_under_steady_writes_never_restarts ... ok
+test db::tests::the_wal_gate_gives_up_when_a_read_is_held ... ok
+test db::tests::the_write_path_keeps_the_wal_bounded_with_busy_readers ... ok
+test ann::tests::search_expansion_doubles_from_200k_vectors ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.46s
+
+
+running 10 tests
+test rule_injected_lessons_are_recorded_as_used ... ok
+test validation_decay_and_consolidation ... ok
+test zero_vectors_are_not_indexed_and_do_not_break_search ... ok
+test knn_keyword_and_hybrid ... ok
+test supersede_and_retire_hide_old_facts_but_keep_history ... ok
+test reindex_replaces_vectors ... ok
+test consolidation_respects_trust_and_projects_and_keeps_validations ... ok
+test symbol_names_get_their_own_keys_and_old_keys_are_rewritten ... ok
+test dimension_is_fixed_and_conversation_round_trips ... ok
+test v3_usage_log_survives_the_rule_migration ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+
+running 9 tests
+test defaults_follow_adr_50 ... ok
+test reindex_and_vectorless_facts_stay_consistent ... ok
+test rerank_returns_exact_distances ... ok
+test a_journal_gap_or_a_restored_older_database_forces_a_rebuild ... ok
+test readers_never_see_a_fact_after_its_retire_returned ... ok
+test reopen_loads_the_saved_sidecar_and_replays_the_journal ... ok
+test missing_corrupt_or_foreign_sidecar_is_rebuilt ... ok
+test auto_mode_switches_to_ann_at_the_threshold ... ok
+test ann_answers_like_exact_and_follows_every_write ... FAILED
+
+failures:
+
+---- ann_answers_like_exact_and_follows_every_write stdout ----
+
+thread 'ann_answers_like_exact_and_follows_every_write' (46144) panicked at foundation\store\tests\ann.rs:160:5:
+assertion `left == right` failed
+  left: (Ann, 1400, Some("build failed: D:\\Work\\tmp\\.tmpgX4Ysq\\agents/a.db.ann.tmp: The system cannot find the file specified. (os error 2)"))
+ right: (Ann, 1400, None)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    ann_answers_like_exact_and_follows_every_write
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.24s
+

@@ -1,0 +1,92 @@
+17:fn io_err(rel: &str, e: std::io::Error) -> ToolError {
+26:fn read_text(p: &Path, rel: &str) -> Result<Vec<u8>, ToolError> {
+43:fn utf8(bytes: &[u8], rel: &str) -> Result<String, ToolError> {
+51:fn write_file(p: &Path, rel: &str, content: &[u8]) -> Result<(), ToolError> {
+63:pub struct ReadArgs {
+74:pub struct ReadFile;
+78:    fn name(&self) -> &'static str {
+81:    fn description(&self) -> &'static str {
+84:    fn parameters(&self) -> serde_json::Value {
+87:    fn read_only(&self) -> bool {
+90:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+124:pub struct ViewImageArgs {
+129:pub struct ViewImage;
+132:pub fn image_type(bytes: &[u8]) -> Option<&'static str> {
+144:    fn name(&self) -> &'static str {
+147:    fn description(&self) -> &'static str {
+150:    fn parameters(&self) -> serde_json::Value {
+153:    fn read_only(&self) -> bool {
+156:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+203:pub struct ListArgs {
+212:pub struct ListDir;
+214:fn walker(root: &Path, depth: Option<usize>) -> ignore::Walk {
+228:    fn name(&self) -> &'static str {
+231:    fn description(&self) -> &'static str {
+234:    fn parameters(&self) -> serde_json::Value {
+237:    fn read_only(&self) -> bool {
+240:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+282:pub struct GlobArgs {
+290:pub struct GlobTool;
+294:    fn name(&self) -> &'static str {
+297:    fn description(&self) -> &'static str {
+300:    fn parameters(&self) -> serde_json::Value {
+303:    fn read_only(&self) -> bool {
+306:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+351:pub struct GrepArgs {
+367:pub struct GrepTool;
+371:    fn name(&self) -> &'static str {
+374:    fn description(&self) -> &'static str {
+377:    fn parameters(&self) -> serde_json::Value {
+380:    fn read_only(&self) -> bool {
+383:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+473:pub struct WriteArgs {
+478:pub struct WriteFile;
+482:    fn name(&self) -> &'static str {
+485:    fn description(&self) -> &'static str {
+488:    fn parameters(&self) -> serde_json::Value {
+491:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+520:pub struct EditSpec {
+531:pub struct EditArgs {
+541:fn apply_edit(
+572:fn edit_files(
+602:pub struct EditFile;
+606:    fn name(&self) -> &'static str {
+609:    fn description(&self) -> &'static str {
+612:    fn parameters(&self) -> serde_json::Value {
+615:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+633:pub struct MultiEditArgs {
+639:pub struct MultiEdit;
+643:    fn name(&self) -> &'static str {
+646:    fn description(&self) -> &'static str {
+649:    fn parameters(&self) -> serde_json::Value {
+652:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+666:pub struct PatchArgs {
+671:pub struct ApplyPatch;
+675:    fn name(&self) -> &'static str {
+678:    fn description(&self) -> &'static str {
+683:    fn parameters(&self) -> serde_json::Value {
+686:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+784:pub struct ShellArgs {
+794:pub struct ShellTool;
+798:    fn name(&self) -> &'static str {
+801:    fn description(&self) -> &'static str {
+805:    fn parameters(&self) -> serde_json::Value {
+808:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+869:pub struct FetchArgs {
+873:pub struct FetchTool;
+875:pub fn domain_allowed(host: &str, allow: &[String]) -> bool {
+895:pub fn public_ip(ip: std::net::IpAddr) -> bool {
+936:async fn fetch_target(
+996:pub fn html_to_text(html: &str) -> String {
+1040:    fn name(&self) -> &'static str {
+1043:    fn description(&self) -> &'static str {
+1046:    fn parameters(&self) -> serde_json::Value {
+1049:    fn read_only(&self) -> bool {
+1052:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {
+1124:pub struct TodoArgItem {
+1132:pub struct TodoArgs {
+1136:pub struct TodoTool;
+1140:    fn name(&self) -> &'static str {
+1143:    fn description(&self) -> &'static str {
+1146:    fn parameters(&self) -> serde_json::Value {
+1149:    async fn call(&self, ctx: &ToolCtx, a: serde_json::Value) -> Result<ToolOutput, ToolError> {

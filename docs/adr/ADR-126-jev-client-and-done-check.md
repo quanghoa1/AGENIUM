@@ -34,9 +34,11 @@ costs a Lead review run and usually a reopen plus another work run.
      `apply_patch`) and the shell commands after the last change with their exit codes;
    - nothing is asked when the run changed nothing or a check (a command naming test, build, check, lint, clippy,
      pytest, tsc, make, …) passed after the last change;
-   - otherwise one request with the report and those facts as state and three Nouls: the report presents the work as
-     complete; a test/build/check would meaningfully verify these changes; the report claims checks passed;
-   - "done" ≥ 0.7 and "a check applies" ≥ 0.7 send the report back, as a tool error the worker sees in the same run
+   - the report claims done when every criterion is marked Met (otherwise it is accepted as it is); a check that failed
+     after the last change sends it back with that command, no question asked (amended after measurement, ADR-127);
+   - otherwise one request with the report and those facts as state and two Nouls: a test/build/check would
+     meaningfully verify these changes; the report claims checks passed;
+   - "a check applies" ≥ 0.7 sends the report back, as a tool error the worker sees in the same run
      ("run the check that verifies this work, fix what fails, submit again; if none applies, say why"), naming a claim
      of passing checks the run does not show. At most once per run (a `judge` run-log entry marks it). Anything else —
      judge off, unsure, failing — accepts the report as before.

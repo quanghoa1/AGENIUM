@@ -1,0 +1,191 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 25 tests
+test sched::tests::waiting_raises_the_priority_up_to_p0 ... ok
+test runtime::learn::tests::protocol_results_are_marked_as_agenium_s_own ... ok
+test runtime::bridge::tests::allowlist_matching ... ok
+test runtime::bridge::install_tests::installs_on_the_machine_are_told_from_project_dependencies ... ok
+test role_library::tests::skeleton_passes_only_once_filled ... ok
+test runtime::learn::tests::the_chat_transcript_leaves_out_the_project_state ... ok
+test skill_conflict::tests::a_paraphrased_subject_is_the_same_subject_by_words ... ok
+test skill_overlay::tests::an_update_can_send_the_whole_body_and_keeps_the_frontmatter ... ok
+test skill_shape::tests::skeleton_flags_every_section_until_filled ... ok
+test team_templates::tests::builtins_are_valid_and_round_trip ... ok
+test skill_shape::tests::near_duplicate_is_flagged ... ok
+test templates::tests::templates ... ok
+test team_templates::tests::validation_rejects_bad_templates ... ok
+test skill_conflict::tests::a_shared_reason_is_not_an_opposite_directive ... ok
+test skill_conflict::tests::unrelated_directives_are_not_conflicts ... ok
+test skill_conflict::tests::an_opposite_directive_is_caught ... ok
+test skill_overlay::tests::a_non_conflicting_base_change_rebases_cleanly ... ok
+test skill_shape::tests::a_built_in_skill_passes_its_own_checks ... ok
+test role_library::tests::library_and_template_roles_follow_the_sections_and_differ ... ok
+test runtime::tests::windows_powershell_5_is_named_with_its_byte_order_mark ... ok
+test skill_overlay::tests::an_overlapping_base_change_reports_a_conflict ... ok
+test skill_overlay::tests::a_mismatched_diff_reports_the_real_reason ... ok
+test skill_overlay::tests::a_zero_context_hunk_with_a_wrong_line_number_applies_by_content ... ok
+test skill_overlay::tests::unapply_reconstructs_the_base_the_overlay_was_built_on ... ok
+test skill_conflict::tests::the_built_in_library_does_not_contradict_itself ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+
+running 3 tests
+test delete_agent_rules ... ok
+test tampered_or_secret_exports_are_refused ... ok
+test export_import_round_trip ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+
+running 1 test
+test scheduled_backups_and_restore_into_a_new_root ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+
+running 20 tests
+test plan_revision_follows_the_newest_approved_spec ... ok
+test an_aggregate_commits_with_its_links_or_not_at_all ... ok
+test a_solo_agent_does_not_decide_its_own_requests ... ok
+test a_cancelled_tickets_worktree_goes_when_its_run_ends ... ok
+test a_rename_out_of_the_scope_is_outside_it ... ok
+test blocking_question_parks_and_answer_resumes ... ok
+test approving_a_partial_criterion_needs_the_reviewers_word ... ok
+test a_dropped_done_item_cannot_come_back_with_new_work ... ok
+test tickets_naming_the_same_file_run_one_after_the_other ... ok
+test tickets_waiting_for_a_cancelled_one_go_to_the_lead ... ok
+test research_ticket_without_code_closes_after_review ... ok
+test merge_conflict_and_failed_check_reopen_to_the_same_worker ... ok
+test dependencies_unlock_on_approve_and_merge_not_close ... ok
+test a_merge_nudges_work_in_progress_on_the_same_file_to_rebase ... ok
+test a_pending_merge_never_lands_reopened_or_cancelled_work ... ok
+test a_closed_ticket_pushes_when_the_project_has_a_remote ... ok
+test a_rebased_branch_is_measured_from_main ... ok
+test solo_ticket_full_lifecycle ... ok
+test merge_conflict_reopens_with_file_list ... ok
+test reopen_flow_and_escalation_after_three ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.94s
+
+
+running 1 test
+test pasted_json_keeps_keys_and_agents_get_their_own ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+
+running 4 tests
+test missing_and_orphan_worktrees_are_repaired ... ok
+test failed_merge_is_retried_without_a_restart ... ok
+test a_merge_that_keeps_failing_tells_the_user_once_and_backs_off ... ok
+test crash_points_heal_on_restart ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.25s
+
+
+running 10 tests
+test every_vendor_preset_builds_an_adapter ... ok
+test a_custom_endpoint_receives_what_the_user_set ... ok
+test providers_keep_their_keys_in_the_vault ... ok
+test custom_endpoint_headers_and_model_settings_are_stored ... ok
+test extra_request_fields_follow_the_rules ... ok
+test roles_are_template_presets_or_the_users_own ... ok
+test library_skills_and_mcp_servers_are_switched_per_agent ... ok
+test agents_start_in_the_pool_with_their_own_model ... ok
+test teams_are_composed_from_pool_agents_and_the_lead_is_only_suggested ... ok
+test projects_from_a_folder_name_or_a_repository ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.78s
+
+
+running 30 tests
+test a_project_runs_from_the_agreed_spec_and_the_user_stops_it ... ok
+test chat_with_exhausted_credit_marks_the_agent_and_explains ... ok
+test cli_agent_falls_back_to_the_api_when_configured ... ok
+test a_chat_turn_stores_only_its_own_messages ... ok
+test a_failed_chat_extraction_waits_before_the_next_try ... ok
+test messages_left_after_the_last_step_are_answered_or_kept ... ok
+test a_long_chat_is_summarised_once_and_kept ... ok
+test failing_planner_and_inbox_runs_go_to_the_user ... ok
+test a_run_that_cannot_go_on_leaves_nothing_open ... ok
+test model_without_tool_calling_is_refused ... ok
+test overlapping_lead_runs_keep_the_users_messages ... ok
+test sandboxed_commands_run_without_asking ... ok
+test a_continuation_sees_comments_posted_during_the_last_run ... ok
+test planner_drafts_then_the_lead_creates_the_plan ... ok
+test a_ticket_cancelled_under_its_run_stops_it ... ok
+test mcp_tools_reach_the_agent_with_its_credential ... ok
+test a_lead_out_of_quota_reviews_nothing_more ... ok
+test the_chat_with_the_lead_is_learned_once_it_goes_quiet ... ok
+test skills_are_indexed_loaded_and_readable ... ok
+test denied_command_question_and_continuation ... ok
+test closing_a_ticket_teaches_the_assignee ... ok
+test the_user_messages_a_running_lead_and_never_a_worker ... ok
+test quota_exhaustion_parks_the_agent_and_repeated_failures_escalate ... ok
+test the_reviewer_is_told_when_the_diff_cannot_be_read ... ok
+test reviews_stopping_at_a_checkpoint_go_to_the_user ... ok
+test a_pause_is_not_a_failure_and_ends_the_round ... ok
+test vendor_switch_keeps_memory_skills_and_conversation ... ok
+test solo_agent_takes_a_request_to_a_closed_merged_ticket ... ok
+test view_image_is_offered_to_a_model_that_takes_images_only ... ok
+test team_lead_inbox_takes_a_plan_to_closed_tickets ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.89s
+
+
+running 34 tests
+test memory_gate_skips_only_on_a_confident_no ... ok
+test a_solo_inbox_has_the_work_left_to_plan ... ok
+test approved_spec_without_planner_asks_the_lead_for_a_plan ... ok
+test lead_sets_a_member_mcp_key ... ok
+test agents_md_is_the_shared_project_guidance ... ok
+test a_created_skill_is_flagged_when_its_lesson_loses_confidence ... ok
+test an_agent_creates_a_skill_only_through_every_gate ... ok
+test planner_drafts_and_the_lead_creates_the_plan ... ok
+test needs_you_lists_what_waits_for_the_user ... ok
+test lead_inbox_order_sla_and_escalation ... ok
+test a_validated_lesson_updates_the_agents_overlay_of_a_skill ... ok
+test a_template_sets_the_projects_pre_merge_check ... ok
+test skill_quality_is_off_by_default_and_reads_each_principle ... ok
+test a_team_becomes_a_template_that_makes_new_teams ... ok
+test skill_hint_is_off_by_default_and_needs_two_skills ... ok
+test project_report_is_markdown_from_state ... ok
+test roles_and_ownership_are_enforced ... ok
+test team_spec_waits_for_the_user_and_the_plan_is_the_leads ... ok
+test permissions_lead_inside_allowlist_user_outside_and_always_allow ... ok
+test skill_hint_prepends_the_judges_pick ... ok
+test review_assist_reads_each_criterion_only_when_on ... ok
+test the_judge_is_optional_and_a_failure_turns_it_off ... ok
+test skills_cannot_contradict_each_other ... ok
+test the_judge_is_set_from_the_app_with_its_key_in_the_vault ... ok
+test agent_names_are_role_names_and_unique ... ok
+test the_judge_reads_contradictions_only_when_on ... ok
+test the_starter_skill_library_is_seeded_and_valid ... ok
+test vendor_usage_keeps_the_last_good_reading ... ok
+test outside_edits_to_a_worktree_are_undone_before_the_next_run ... ok
+test the_user_puts_another_member_in_the_lead_slot ... ok
+test the_lead_proposes_a_role_and_the_user_decides ... ok
+test the_price_catalogue_prices_earlier_runs ... ok
+test team_from_template_and_write_scope ... ok
+test support_bundle_has_diagnostics_without_secrets ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.48s
+
+
+running 3 tests
+test board_overrides_and_audit ... ok
+test user_reassigns_an_assigned_ticket_before_its_run ... ok
+test board_of_500_tickets ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.98s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

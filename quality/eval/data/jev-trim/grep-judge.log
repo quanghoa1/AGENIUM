@@ -1,0 +1,179 @@
+orchestration/orchestrator/src/app.rs:70:    /// The judge's client, kept while its endpoint, model and key stay the same (connections reused, ADR-75).
+orchestration/orchestrator/src/app.rs:71:    pub(crate) judge_client: Mutex<Option<crate::judge::KeptJudge>>,
+orchestration/orchestrator/src/app.rs:170:            judge_client: Mutex::new(None),
+orchestration/orchestrator/src/judge/cache.rs:4://! review run then finds them here. Kept in `<root>/judge-answers.jsonl`, newest last, bounded.
+orchestration/orchestrator/src/judge/cache.rs:58:            .judge_activity()
+orchestration/orchestrator/src/judge/cache.rs:59:            .with_file_name("judge-answers.jsonl")
+orchestration/orchestrator/src/judge/client.rs:1://! Asking the judge: one reused client, answers looked up in the cache first, the billed usage kept, and every ask in
+orchestration/orchestrator/src/judge/client.rs:14:/// The judge's client with the endpoint, model and key it was built for.
+orchestration/orchestrator/src/judge/client.rs:17:/// The judge's activity kept: the newest this many asks.
+orchestration/orchestrator/src/judge/client.rs:20:/// One time the judge was asked: what for, about which ticket, what it answered (or why it could not).
+orchestration/orchestrator/src/judge/client.rs:70:    /// The configured judge, or `None` when `[judge]` is off or a failure disabled it. `Err` only when it is on,
+orchestration/orchestrator/src/judge/client.rs:72:    pub fn judge(&self) -> Result<Option<Judge>> {
+orchestration/orchestrator/src/judge/client.rs:73:        let j = self.config().judge;
+orchestration/orchestrator/src/judge/client.rs:74:        if !j.enabled() || self.judge_health().disabled {
+orchestration/orchestrator/src/judge/client.rs:82:                    OrchError::NotFound(format!("judge key {:?} is not set", j.api_key_ref))
+orchestration/orchestrator/src/judge/client.rs:91:        let mut kept = self.judge_client.lock().unwrap_or_else(|p| p.into_inner());
+orchestration/orchestrator/src/judge/client.rs:92:        if let Some((have, judge)) = kept.as_ref() {
+orchestration/orchestrator/src/judge/client.rs:94:                return Ok(Some(judge.clone()));
+orchestration/orchestrator/src/judge/client.rs:97:        let judge =
+orchestration/orchestrator/src/judge/client.rs:99:        *kept = Some((id, judge.clone()));
+orchestration/orchestrator/src/judge/client.rs:100:        Ok(Some(judge))
+orchestration/orchestrator/src/judge/client.rs:103:    /// The uses act on what the judge says; `false` in shadow mode (they record what they would do instead).
+orchestration/orchestrator/src/judge/client.rs:104:    pub(crate) fn judge_acts(&self) -> bool {
+orchestration/orchestrator/src/judge/client.rs:105:        !self.config().judge.shadow
+orchestration/orchestrator/src/judge/client.rs:108:    /// Asks the judge for `use_`: answers already given to the same question about the same state come from the cache,
+orchestration/orchestrator/src/judge/client.rs:109:    /// the rest in one request. A key/quota failure disables the judge; any failure returns `None` (fail-open) and is
+orchestration/orchestrator/src/judge/client.rs:113:        judge: &Judge,
+orchestration/orchestrator/src/judge/client.rs:118:        let mut answers = self.cached_answers(&judge.answerer(), j);
+orchestration/orchestrator/src/judge/client.rs:130:        let r = judge.ask_full(&rest).await;
+orchestration/orchestrator/src/judge/client.rs:134:                self.keep_answers(&judge.answerer(), &rest, &asked.answers);
+orchestration/orchestrator/src/judge/client.rs:145:                    let _ = self.disable_judge(e.to_string());
+orchestration/orchestrator/src/judge/client.rs:147:                    tracing::warn!(error = %e, use_, "judge call failed");
+orchestration/orchestrator/src/judge/client.rs:160:        a.shadow = !self.judge_acts();
+orchestration/orchestrator/src/judge/client.rs:172:    /// Appends one ask to the judge's activity (best effort: the activity is for the user to see, never a gate).
+orchestration/orchestrator/src/judge/client.rs:175:        let path = self.layout().judge_activity();
+orchestration/orchestrator/src/judge/client.rs:197:    /// The judge's newest asks, newest first.
+orchestration/orchestrator/src/judge/client.rs:198:    pub fn judge_activity(&self, limit: usize) -> Vec<JudgeActivity> {
+orchestration/orchestrator/src/judge/client.rs:199:        let text = std::fs::read_to_string(self.layout().judge_activity()).unwrap_or_default();
+orchestration/orchestrator/src/judge/done_check.rs:4://! asking anyone. Only then, with the judge on and `done_check` enabled, Jev reads the report against those facts
+orchestration/orchestrator/src/judge/done_check.rs:6://! run, so the worker runs the check instead of the Lead reviewing (and reopening) unverified work. Fail-open: judge
+orchestration/orchestrator/src/judge/done_check.rs:9://! The idea and the evidence come from jev-belay (`docs/reference/JEV-OPPORTUNITIES.md` §2): a "done" judged from the
+orchestration/orchestrator/src/judge/done_check.rs:113:    /// nothing checked the work after its last change. `None` otherwise (and always when the judge is off).
+orchestration/orchestrator/src/judge/done_check.rs:120:        if !self.config().judge.done_check || facts.changes.is_empty() || facts.verified() {
+orchestration/orchestrator/src/judge/done_check.rs:123:        let judge = self.judge().ok().flatten()?;
+orchestration/orchestrator/src/judge/done_check.rs:144:        let j = if self.config().judge.review_assist && !t.acceptance.is_empty() {
+orchestration/orchestrator/src/judge/done_check.rs:151:        let reply = self.ask(&judge, &j, "done_check", Some(&key)).await?;
+orchestration/orchestrator/src/judge/done_check.rs:167:        if !send_back || !self.judge_acts() {
+orchestration/orchestrator/src/judge/health.rs:1://! When the judge is usable: a rejected key or an exhausted quota turns it off until the user acts; nothing else does.
+orchestration/orchestrator/src/judge/health.rs:10:/// Whether the judge is usable now and, if not, why (persisted in `<root>/judge-health.json`).
+orchestration/orchestrator/src/judge/health.rs:13:    /// `true` when a key/quota failure turned the judge off until the user re-enables it.
+orchestration/orchestrator/src/judge/health.rs:19:/// A rejected key or an exhausted quota disables the judge (the user must act). A rate limit, a busy service or a bad
+orchestration/orchestrator/src/judge/health.rs:20:/// request does not: the client retried the busy ones, and the call just goes ahead without the judge. (Before, any
+orchestration/orchestrator/src/judge/health.rs:21:/// 429 turned the judge off until the user re-enabled it, and so did a 422 whose detail named a state key.)
+orchestration/orchestrator/src/judge/health.rs:27:    pub fn judge_health(&self) -> JudgeHealth {
+orchestration/orchestrator/src/judge/health.rs:28:        std::fs::read_to_string(self.layout().judge_health())
+orchestration/orchestrator/src/judge/health.rs:34:    pub(super) fn set_judge_health(&self, h: &JudgeHealth) -> Result<()> {
+orchestration/orchestrator/src/judge/health.rs:35:        let path = self.layout().judge_health();
+orchestration/orchestrator/src/judge/health.rs:43:    /// Turns the judge off after a key/quota failure and tells the user to re-enter the key and re-enable it.
+orchestration/orchestrator/src/judge/health.rs:44:    pub(super) fn disable_judge(&self, reason: String) -> Result<()> {
+orchestration/orchestrator/src/judge/health.rs:45:        if self.judge_health().disabled {
+orchestration/orchestrator/src/judge/health.rs:48:        self.set_judge_health(&JudgeHealth {
+orchestration/orchestrator/src/judge/health.rs:56:                reason: format!("the TypeSafe judge was turned off ({reason}); re-enter its key and re-enable it, or leave it off"),
+orchestration/orchestrator/src/judge/health.rs:68:    /// Only a rejected key or an exhausted quota turns the judge off; a rate limit, a busy service or a bad request
+orchestration/orchestrator/src/judge/health.rs:71:    fn only_key_and_quota_failures_disable_the_judge() {
+orchestration/orchestrator/src/judge/memory_gate.rs:10:    /// `Some(false)` only when the judge is confident nothing in `episode` is worth keeping; `Some(true)` when it is;
+orchestration/orchestrator/src/judge/memory_gate.rs:11:    /// `None` when the judge is off/disabled, `memory_gate` is off, the verdict is unsure, the call failed, or in
+orchestration/orchestrator/src/judge/memory_gate.rs:12:    /// shadow mode — the caller then extracts as usual. A key/quota failure disables the judge.
+orchestration/orchestrator/src/judge/memory_gate.rs:14:        if !self.config().judge.memory_gate {
+orchestration/orchestrator/src/judge/memory_gate.rs:17:        let judge = self.judge().ok().flatten()?;
+orchestration/orchestrator/src/judge/memory_gate.rs:24:        let reply = self.ask(&judge, &j, "memory_gate", None).await?;
+orchestration/orchestrator/src/judge/memory_gate.rs:39:        verdict.filter(|_| self.judge_acts())
+orchestration/orchestrator/src/judge/mod.rs:1://! The optional TypeSafe "Jev" judge (ADR-75, ADR-81, ADR-126, ADR-127): a cheap, calibrated second opinion, off until
+orchestration/orchestrator/src/judge/mod.rs:2://! `[judge]` is set. Agenium never uses it as an agent's model, and it runs in two modes — with Jev and without.
+orchestration/orchestrator/src/judge/mod.rs:3://! Without Jev (no config, or after a failure) every judge call simply returns nothing and the work proceeds on the
+orchestration/orchestrator/src/judge/mod.rs:4://! agent's own judgment, so Agenium always works. A rejected key or an exhausted quota turns the judge off and asks
+orchestration/orchestrator/src/judge/mod.rs:8://! - [`settings`]: the judge as the user sets it (endpoint, key in the vault, which uses are on), the test call;
+orchestration/orchestrator/src/judge/review_assist.rs:12:/// The report as the judge reads it (the same text at submit and at review, so a prefetched answer is found).
+orchestration/orchestrator/src/judge/review_assist.rs:41:    /// The first read for the review task. `None` when the judge is off/disabled, `review_assist` is off, there are
+orchestration/orchestrator/src/judge/review_assist.rs:43:    /// failure disables the judge.
+orchestration/orchestrator/src/judge/review_assist.rs:45:        if !self.config().judge.review_assist || t.acceptance.is_empty() {
+orchestration/orchestrator/src/judge/review_assist.rs:48:        let judge = match self.judge() {
+orchestration/orchestrator/src/judge/review_assist.rs:52:                tracing::warn!(error = %e, "judge not available");
+orchestration/orchestrator/src/judge/review_assist.rs:58:        let reply = self.ask(&judge, &j, "review_assist", Some(&key)).await?;
+orchestration/orchestrator/src/judge/review_assist.rs:82:        if lines.is_empty() || !self.judge_acts() {
+orchestration/orchestrator/src/judge/settings.rs:1://! The judge as the user sets it: endpoint, model, its key (in the vault, never in the config), which uses are on,
+orchestration/orchestrator/src/judge/settings.rs:12:/// Vault name of the judge's API key.
+orchestration/orchestrator/src/judge/settings.rs:13:pub const JUDGE_SECRET: &str = "judge/typesafe";
+orchestration/orchestrator/src/judge/settings.rs:15:/// The judge as the user sets it in the app: endpoint, model, the key (kept as is when not given) and what it may do.
+orchestration/orchestrator/src/judge/settings.rs:40:/// Whether `url` is plain HTTP to this machine (localhost, 127.0.0.1 or [::1], any port): the only endpoint the judge
+orchestration/orchestrator/src/judge/settings.rs:68:    /// Sets the judge (ADR-75): an empty endpoint turns it off. A new key goes to the vault, never to the config; a
+orchestration/orchestrator/src/judge/settings.rs:69:    /// change clears an earlier failure so the judge is tried again.
+orchestration/orchestrator/src/judge/settings.rs:70:    pub fn set_judge(&self, j: &JudgeInput) -> Result<agenium_config::JudgeSection> {
+orchestration/orchestrator/src/judge/settings.rs:75:                "judge endpoint {base_url:?}: use https://"
+orchestration/orchestrator/src/judge/settings.rs:78:        let old = self.config().judge;
+orchestration/orchestrator/src/judge/settings.rs:103:            return Err(OrchError::Invalid("the judge needs its API key".into()));
+orchestration/orchestrator/src/judge/settings.rs:105:        self.update_config(|c| c.judge = next.clone())?;
+orchestration/orchestrator/src/judge/settings.rs:106:        self.set_judge_health(&JudgeHealth::default())?;
+orchestration/orchestrator/src/judge/settings.rs:110:    /// Re-enables the judge and checks it with a trivial request; clears the disabled state on success. For the user
+orchestration/orchestrator/src/judge/settings.rs:112:    pub async fn enable_judge(&self) -> Result<()> {
+orchestration/orchestrator/src/judge/settings.rs:113:        self.set_judge_health(&JudgeHealth::default())?;
+orchestration/orchestrator/src/judge/settings.rs:114:        let Some(judge) = self.judge()? else {
+orchestration/orchestrator/src/judge/settings.rs:116:                "the judge is not configured: set [judge] base_url, model and the key first".into(),
+orchestration/orchestrator/src/judge/settings.rs:123:        let r = judge.ask_full(&probe).await;
+orchestration/orchestrator/src/judge/settings.rs:137:                self.set_judge_health(&JudgeHealth {
+orchestration/orchestrator/src/judge/settings.rs:142:                Err(OrchError::Invalid(format!("the judge still fails: {e}")))
+orchestration/orchestrator/src/judge/skill_hint.rs:11:    /// The judge's pick among `skills` (name, description) for `t`, as a hint for the worker. `None` when the judge is
+orchestration/orchestrator/src/judge/skill_hint.rs:13:    /// in shadow mode. A key/quota failure disables the judge.
+orchestration/orchestrator/src/judge/skill_hint.rs:15:        if !self.config().judge.skill_hint || skills.len() < 2 {
+orchestration/orchestrator/src/judge/skill_hint.rs:18:        let judge = self.judge().ok().flatten()?;
+orchestration/orchestrator/src/judge/skill_hint.rs:40:        let reply = self.ask(&judge, &j, "skill_hint", Some(&key)).await?;
+orchestration/orchestrator/src/judge/skill_hint.rs:61:        if !self.judge_acts() {
+orchestration/orchestrator/src/judge/skill_quality.rs:2://! changed. The deterministic checks (shape lint, one subject, opposite directives) run whatever the judge says.
+orchestration/orchestrator/src/judge/skill_quality.rs:12:    /// evidence: weak (41%)"). `None` when the judge is off/disabled, `skill_quality` is off, the call failed, or in
+orchestration/orchestrator/src/judge/skill_quality.rs:13:    /// shadow mode. A key/quota failure disables the judge.
+orchestration/orchestrator/src/judge/skill_quality.rs:15:        if !self.config().judge.skill_quality {
+orchestration/orchestrator/src/judge/skill_quality.rs:18:        let judge = self.judge().ok().flatten()?;
+orchestration/orchestrator/src/judge/skill_quality.rs:29:        let reply = self.ask(&judge, &j, "skill_quality", None).await?;
+orchestration/orchestrator/src/judge/skill_quality.rs:45:        (!notes.is_empty() && self.judge_acts()).then_some(notes)
+orchestration/orchestrator/src/judge/skill_quality.rs:50:    /// contradicting (at or above `MET`). `None` when the judge is off/disabled, `skill_quality` is off, there is
+orchestration/orchestrator/src/judge/skill_quality.rs:51:    /// nothing related, the call failed, or in shadow mode. A key/quota failure disables the judge.
+orchestration/orchestrator/src/judge/skill_quality.rs:57:        if !self.config().judge.skill_quality || related.is_empty() {
+orchestration/orchestrator/src/judge/skill_quality.rs:60:        let judge = self.judge().ok().flatten()?;
+orchestration/orchestrator/src/judge/skill_quality.rs:73:        let reply = self.ask(&judge, &j, "skill_contradiction", None).await?;
+orchestration/orchestrator/src/judge/skill_quality.rs:92:        self.judge_acts().then_some(found)
+orchestration/orchestrator/src/judge/trim.rs:1://! Output trimmer (ADR-127): a long `shell` or `grep` result is read by the judge before it reaches a worker's
+orchestration/orchestrator/src/judge/trim.rs:7://! code, are kept whatever the judge says; a chunk goes only when the judge is at most 30 % sure it is needed and it is
+orchestration/orchestrator/src/judge/trim.rs:20:/// Results longer than this many lines are read by the judge; shorter ones pass as they are.
+orchestration/orchestrator/src/judge/trim.rs:26:/// A chunk may go only when the judge is at most this sure it is needed.
+orchestration/orchestrator/src/judge/trim.rs:166:    /// The judge's trim of a `tool` result `text` for a ticket whose work is `goal`, or `None` to keep it whole (judge
+orchestration/orchestrator/src/judge/trim.rs:176:        if !self.config().judge.trim_output {
+orchestration/orchestrator/src/judge/trim.rs:179:        let judge = self.judge().ok().flatten()?;
+orchestration/orchestrator/src/judge/trim.rs:205:        let reply = self.ask(&judge, &j, "trim_output", Some(ticket)).await?;
+orchestration/orchestrator/src/judge/trim.rs:226:        if drop.is_empty() || !self.judge_acts() {
+orchestration/orchestrator/src/lib.rs:12:pub mod judge;
+orchestration/orchestrator/src/prices.rs:69:    /// (`RunObserver`); this prices the sum, for runs priced later (a long-prompt tier is then judged on the sum).
+orchestration/orchestrator/src/runtime/bridge.rs:314:        if self.kind != RunKind::Work || !self.app.config().judge.done_check {
+orchestration/orchestrator/src/runtime/bridge.rs:324:            .any(|e| e.kind == "judge" && e.data["use"] == "done_check")
+orchestration/orchestrator/src/runtime/bridge.rs:329:        let facts = crate::judge::done_check::run_facts(&log);
+orchestration/orchestrator/src/runtime/bridge.rs:333:            "judge",
+orchestration/orchestrator/src/runtime/bridge.rs:383:            // ADR-92: with the judge on, read the would-be skill for contradictions before anything is written.
+orchestration/orchestrator/src/runtime/bridge.rs:384:            if app.config().judge.skill_quality {
+orchestration/orchestrator/src/runtime/bridge.rs:399:                        .judged_contradictions(agent, &skill, &subject, &body)
+orchestration/orchestrator/src/runtime/bridge.rs:405:                                "the judge reads this change as contradicting skill {}: reconcile the skills (or improve \
+orchestration/orchestrator/src/runtime/bridge.rs:420:            // ADR-90: with the judge on, a calibrated quality read of the upgraded skill is added to the result the
+orchestration/orchestrator/src/runtime/bridge.rs:421:            // agent sees. Fail-open: without the judge (or on any failure) the result is just the shape check.
+orchestration/orchestrator/src/runtime/bridge.rs:424:                    let _ = app.run_log(self.run, "judge", serde_json::json!({ "use": "skill_quality", "skill": skill, "text": quality.join("; ") }));
+orchestration/orchestrator/src/runtime/bridge.rs:436:            // ADR-92: with the judge on, a semantic contradiction read against the closest skills before anything is
+orchestration/orchestrator/src/runtime/bridge.rs:440:                .judged_contradictions(agent, &skill, &subject, &u.body)
+orchestration/orchestrator/src/runtime/bridge.rs:446:                        "the judge reads the new skill as contradicting skill {}: improve that skill instead, or \
+orchestration/orchestrator/src/runtime/bridge.rs:459:            // Same fail-open quality read as an update: only with the judge on.
+orchestration/orchestrator/src/runtime/bridge.rs:470:        // the worker once, in this run. Only with the judge on and `done_check` enabled; fail-open.
+orchestration/orchestrator/src/runtime/learn.rs:149:        // ADR-85: on routine work with nothing to reconcile, a cheap judge read can skip the costly extraction call.
+orchestration/orchestrator/src/runtime/learn.rs:151:        // bookkeeping below has nothing to do) and the judge is confident the episode holds nothing worth keeping.
+orchestration/orchestrator/src/runtime/learn.rs:157:            tracing::info!(ticket = %t.key, "memory extraction skipped: the judge found nothing worth remembering");
+orchestration/orchestrator/src/runtime/learn.rs:162:                serde_json::json!({ "skipped": "judge: nothing worth remembering" }),
+orchestration/orchestrator/src/runtime/learn.rs:166:                "judge",
+orchestration/orchestrator/src/runtime/learn.rs:310:    /// judge found nothing worth keeping. A failure is logged and leaves the part for the next try.
+orchestration/orchestrator/src/runtime/learn.rs:393:            tracing::info!(%project, "chat memory extraction skipped: the judge found nothing worth remembering");
+orchestration/orchestrator/src/runtime/mod.rs:839:        // that run read-only: the Lead runs the tests of the work it judges instead of only reading it.
+orchestration/orchestrator/src/runtime/mod.rs:854:        // ADR-127: long shell/grep results of a work run are trimmed by the judge before the model reads them.
+orchestration/orchestrator/src/runtime/mod.rs:855:        if kind == RunKind::Work && self.app.config().judge.trim_output {
+orchestration/orchestrator/src/runtime/mod.rs:857:                work = crate::judge::trim::wrap(self.app.clone(), t, work);
+orchestration/orchestrator/src/runtime/mod.rs:1251:            // Only a work run changes files: a Lead's chat in the main checkout, a review of the worktree it judges,
+orchestration/orchestrator/src/runtime/ticket_runs.rs:97:        // ADR-82: on a fresh run, the judge may pick the best-fitting skill so the worker loads the right one
+orchestration/orchestrator/src/runtime/ticket_runs.rs:98:        // without reading them all. Fail-open: `None` unless the judge is on and confident.
+orchestration/orchestrator/src/runtime/ticket_runs.rs:112:                    "judge",
+orchestration/orchestrator/src/runtime/ticket_runs.rs:328:        // Optional judge: an independent first read of the report's evidence (ADR-75), token-light.
+orchestration/orchestrator/src/runtime/ticket_runs.rs:330:            CommentBody::Report(r) => Some(crate::judge::report_text(r)),
+orchestration/orchestrator/src/runtime/ticket_runs.rs:340:                "judge",
+orchestration/orchestrator/src/runtime/ticket_runs.rs:347:        // The reviewer judges against what the user decided, also on other tickets (ADR-120): a reviewer that
+orchestration/orchestrator/src/skill_conflict.rs:6://! deterministic and run with or without the judge; with the judge on, a semantic contradiction read is added on top
+orchestration/orchestrator/src/skill_conflict.rs:202:/// included, produce none): it misses paraphrased contradictions, which the subject gate, the judge (when on) and the
+orchestration/orchestrator/src/skill_conflict.rs:255:    /// Body + references (for the directive check and the judge).
+orchestration/orchestrator/src/skill_conflict.rs:259:/// The `n` known skills whose subject is closest to `subject` by words, closest first (what the judge is shown).
+orchestration/orchestrator/src/skill_conflict.rs:310:    /// With the judge on (`[judge].skill_quality`): the 3 skills closest to `subject` that it confidently reads as
+orchestration/orchestrator/src/skill_conflict.rs:311:    /// contradicting `text` (ADR-92). Empty when the judge is off or fails, so callers proceed on the deterministic
+orchestration/orchestrator/src/skill_conflict.rs:313:    pub async fn judged_contradictions(
+orchestration/orchestrator/src/skill_conflict.rs:320:        if !self.config().judge.skill_quality {
+orchestration/orchestrator/src/skill_overlay.rs:361:    /// The SKILL.md an update would produce, without writing anything: (current, updated). Lets the judge read a change

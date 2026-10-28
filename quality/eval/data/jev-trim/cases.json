@@ -1,0 +1,44 @@
+[
+  {
+    "file": "cargo-test-judge-failures.log",
+    "tool": "shell",
+    "what": "cargo test -p agenium-llm -p agenium-orchestrator -p agenium-tools -p agenium-config",
+    "goal": "Fix the failing judge tests in agenium-orchestrator\n- every test in tests/team.rs passes",
+    "must_keep": ["panicked at", "FAILED", "failures:"]
+  },
+  {
+    "file": "cargo-test-ann-failure.log",
+    "tool": "shell",
+    "what": "cargo test -p agenium-store --test ann",
+    "goal": "Fix the failing ANN sidecar tests in agenium-store\n- tests/ann.rs passes",
+    "must_keep": ["panicked at", "FAILED", "self-hit"]
+  },
+  {
+    "file": "cargo-test-workspace-pass.log",
+    "tool": "shell",
+    "what": "cargo test --workspace",
+    "goal": "Split the CLI's main.rs into modules without changing behaviour\n- the whole workspace's tests pass",
+    "must_keep": ["test result"]
+  },
+  {
+    "file": "cargo-test-after-split.log",
+    "tool": "shell",
+    "what": "cargo test -p agenium-orchestrator -p agenium-cli",
+    "goal": "Split runtime/mod.rs into modules, behaviour unchanged\n- the orchestrator's and the CLI's tests pass",
+    "must_keep": ["test result"]
+  },
+  {
+    "file": "grep-judge.log",
+    "tool": "grep",
+    "what": "judge",
+    "goal": "Add a shadow mode to the done check\n- find where the done check is configured and called",
+    "must_keep": ["done_check"]
+  },
+  {
+    "file": "grep-work-tools.log",
+    "tool": "grep",
+    "what": "fn |struct ",
+    "goal": "Add a timeout argument to the shell tool\n- the shell tool accepts timeout_ms",
+    "must_keep": ["ShellArgs", "ShellTool"]
+  }
+]

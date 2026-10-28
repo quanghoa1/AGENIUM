@@ -1,0 +1,295 @@
+
+running 11 tests
+test presets::tests::presets_are_well_formed ... ok
+test sysreq::tests::tiers_and_parallelism ... ok
+test sysreq::tests::git_version_parse ... ok
+test config::tests::partial_file_gets_defaults ... ok
+test config::bom_tests::a_byte_order_mark_is_not_toml ... ok
+test root::tests::layout_creates_all_directories ... ok
+test root::tests::priority_env_then_bootstrap_then_default ... ok
+test config::tests::round_trip_and_checks ... ok
+test sysreq::tests::gather_runs_on_this_machine ... ok
+test setup::tests::first_run_creates_root_and_bootstrap ... ok
+test setup::tests::default_root_writes_no_bootstrap_and_rejects_unknown_ui_language ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 22 tests
+test error::overflow_tests::rate_limits_and_bare_errors_are_not_overflow ... ok
+test error::overflow_tests::context_overflow_in_each_vendor_s_words ... ok
+test effort::tests::each_model_has_its_own_levels ... ok
+test effort::tests::claude_levels_follow_the_models_api ... ok
+test custom::tests::agenium_s_own_fields_and_odd_names_are_refused ... ok
+test custom::tests::fields_land_where_named_and_the_effort_moves ... ok
+test history::tests::empty_blocks_and_foreign_thinking ... ok
+test history::tests::a_dangling_call_at_the_end_is_closed ... ok
+test local::tests::server_root ... ok
+test history::tests::unanswered_calls_get_a_result_and_stray_results_go ... ok
+test pricing::tests::catalogue_prices_api_models ... ok
+test error::tests::classification_table ... ok
+test pricing::tests::claude_cache_and_long_prompt_prices ... ok
+test retry::tests::delays_double_cap_and_respect_retry_after ... ok
+test history::tests::ids_every_provider_accepts ... ok
+test sse::tests::decodes_split_chunks_and_multiline ... ok
+test retry::tests::total_time_budget_and_non_retryable ... ok
+test retry::tests::retries_then_succeeds_and_gives_up_after_eight ... ok
+test vendor_usage::tests::vendor_reports_become_windows ... ok
+test systemone::tests::request_shape_and_answer_parsing ... ok
+test pricing::tests::builtin_and_overrides ... ok
+test retry::tests::the_budget_counts_waiting_not_streaming ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+
+running 26 tests
+test gemini_schema_pass_takes_any_anyof_branch ... ok
+test calls_without_an_id_get_ids_unique_across_responses ... ok
+test each_model_gets_its_own_effort_level_on_the_wire ... ok
+test limiter_bounds_concurrency ... ok
+test claude_models_carry_their_effort_levels ... ok
+test gemini_contract_schema_sanitising_and_signatures ... ok
+test openai_quota_error_is_quota ... ok
+test openrouter_marks_cache_breakpoints_for_anthropic_models ... ok
+test local_lm_studio_capabilities_are_detected ... ok
+test azure_openai_sends_the_api_key_header ... ok
+test openai_compat_contract_and_usage ... ok
+test claude_drops_thinking_after_an_edit_instead_of_failing ... ok
+test deepseek_reasoning_and_local_endpoint_without_done ... ok
+test anthropic_older_model_uses_budget_and_other_vendor_thinking_is_dropped ... ok
+test anthropic_request_contract_and_stream_parsing ... ok
+test a_custom_endpoint_sends_the_users_headers_and_effort ... ok
+test tools_listed_but_not_callable_in_every_wire ... ok
+test openrouter_cache_writes_are_not_input ... ok
+test local_ollama_capabilities_are_detected ... ok
+test responses_failure_is_a_stream_error ... ok
+test openrouter_models_carry_their_effort_levels ... ok
+test cache_routes_reach_openrouter_and_xai ... ok
+test opencode_relay_sends_session_affinity_and_deepseek_effort ... ok
+test opencode_router_picks_the_wire_per_model ... ok
+test anthropic_errors_classify_and_dropped_stream_retries ... ok
+test local_servers_are_discovered ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.51s
+
+
+running 4 tests
+test malformed_answers_count_as_none ... ok
+test judges_text_in_one_request ... ok
+test key_and_quota_failures_are_not_retried ... ok
+test busy_answers_are_retried ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.53s
+
+
+running 33 tests
+test judge::trim::tests::only_confident_low_ranked_chunks_go ... ok
+test judge::done_check::tests::checks_are_recognised_by_word ... ok
+test runtime::learn::tests::protocol_results_are_marked_as_agenium_s_own ... ok
+test judge::health::tests::only_key_and_quota_failures_disable_the_judge ... ok
+test judge::trim::tests::dropped_runs_become_one_line ... ok
+test judge::done_check::tests::facts_follow_the_last_change ... ok
+test runtime::bridge::tests::allowlist_matching ... ok
+test judge::cache::tests::the_key_covers_only_the_state_a_question_names ... ok
+test sched::tests::waiting_raises_the_priority_up_to_p0 ... ok
+test judge::done_check::tests::a_change_after_the_check_needs_a_new_one ... ok
+test runtime::learn::tests::the_chat_transcript_leaves_out_the_project_state ... ok
+test judge::trim::tests::errors_and_exit_codes_are_always_kept ... ok
+test runtime::bridge::install_tests::installs_on_the_machine_are_told_from_project_dependencies ... ok
+test role_library::tests::skeleton_passes_only_once_filled ... ok
+test skill_overlay::tests::an_update_can_send_the_whole_body_and_keeps_the_frontmatter ... ok
+test skill_shape::tests::near_duplicate_is_flagged ... ok
+test skill_shape::tests::skeleton_flags_every_section_until_filled ... ok
+test team_templates::tests::builtins_are_valid_and_round_trip ... ok
+test skill_conflict::tests::a_paraphrased_subject_is_the_same_subject_by_words ... ok
+test templates::tests::templates ... ok
+test team_templates::tests::validation_rejects_bad_templates ... ok
+test skill_conflict::tests::a_shared_reason_is_not_an_opposite_directive ... ok
+test skill_conflict::tests::unrelated_directives_are_not_conflicts ... ok
+test skill_conflict::tests::an_opposite_directive_is_caught ... ok
+test skill_shape::tests::a_built_in_skill_passes_its_own_checks ... ok
+test skill_overlay::tests::an_overlapping_base_change_reports_a_conflict ... ok
+test role_library::tests::library_and_template_roles_follow_the_sections_and_differ ... ok
+test skill_overlay::tests::a_non_conflicting_base_change_rebases_cleanly ... ok
+test runtime::tests::windows_powershell_5_is_named_with_its_byte_order_mark ... ok
+test skill_overlay::tests::a_mismatched_diff_reports_the_real_reason ... ok
+test skill_overlay::tests::a_zero_context_hunk_with_a_wrong_line_number_applies_by_content ... ok
+test skill_overlay::tests::unapply_reconstructs_the_base_the_overlay_was_built_on ... ok
+test skill_conflict::tests::the_built_in_library_does_not_contradict_itself ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+
+running 3 tests
+test delete_agent_rules ... ok
+test tampered_or_secret_exports_are_refused ... ok
+test export_import_round_trip ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.97s
+
+
+running 1 test
+test scheduled_backups_and_restore_into_a_new_root ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+
+
+running 20 tests
+test an_aggregate_commits_with_its_links_or_not_at_all ... ok
+test plan_revision_follows_the_newest_approved_spec ... ok
+test a_solo_agent_does_not_decide_its_own_requests ... ok
+test a_cancelled_tickets_worktree_goes_when_its_run_ends ... ok
+test blocking_question_parks_and_answer_resumes ... ok
+test a_rename_out_of_the_scope_is_outside_it ... ok
+test approving_a_partial_criterion_needs_the_reviewers_word ... ok
+test a_dropped_done_item_cannot_come_back_with_new_work ... ok
+test tickets_naming_the_same_file_run_one_after_the_other ... ok
+test tickets_waiting_for_a_cancelled_one_go_to_the_lead ... ok
+test research_ticket_without_code_closes_after_review ... ok
+test merge_conflict_and_failed_check_reopen_to_the_same_worker ... ok
+test a_merge_nudges_work_in_progress_on_the_same_file_to_rebase ... ok
+test dependencies_unlock_on_approve_and_merge_not_close ... ok
+test a_pending_merge_never_lands_reopened_or_cancelled_work ... ok
+test a_closed_ticket_pushes_when_the_project_has_a_remote ... ok
+test solo_ticket_full_lifecycle ... ok
+test a_rebased_branch_is_measured_from_main ... ok
+test merge_conflict_reopens_with_file_list ... ok
+test reopen_flow_and_escalation_after_three ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.73s
+
+
+running 1 test
+test pasted_json_keeps_keys_and_agents_get_their_own ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+
+running 4 tests
+test missing_and_orphan_worktrees_are_repaired ... ok
+test a_merge_that_keeps_failing_tells_the_user_once_and_backs_off ... ok
+test failed_merge_is_retried_without_a_restart ... ok
+test crash_points_heal_on_restart ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.93s
+
+
+running 10 tests
+test every_vendor_preset_builds_an_adapter ... ok
+test custom_endpoint_headers_and_model_settings_are_stored ... ok
+test a_custom_endpoint_receives_what_the_user_set ... ok
+test providers_keep_their_keys_in_the_vault ... ok
+test extra_request_fields_follow_the_rules ... ok
+test library_skills_and_mcp_servers_are_switched_per_agent ... ok
+test roles_are_template_presets_or_the_users_own ... ok
+test agents_start_in_the_pool_with_their_own_model ... ok
+test teams_are_composed_from_pool_agents_and_the_lead_is_only_suggested ... ok
+test projects_from_a_folder_name_or_a_repository ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.57s
+
+
+running 30 tests
+test a_project_runs_from_the_agreed_spec_and_the_user_stops_it ... ok
+test cli_agent_falls_back_to_the_api_when_configured ... ok
+test chat_with_exhausted_credit_marks_the_agent_and_explains ... ok
+test a_failed_chat_extraction_waits_before_the_next_try ... ok
+test a_chat_turn_stores_only_its_own_messages ... ok
+test a_long_chat_is_summarised_once_and_kept ... ok
+test messages_left_after_the_last_step_are_answered_or_kept ... ok
+test a_run_that_cannot_go_on_leaves_nothing_open ... ok
+test failing_planner_and_inbox_runs_go_to_the_user ... ok
+test model_without_tool_calling_is_refused ... ok
+test sandboxed_commands_run_without_asking ... ok
+test overlapping_lead_runs_keep_the_users_messages ... ok
+test planner_drafts_then_the_lead_creates_the_plan ... ok
+test a_ticket_cancelled_under_its_run_stops_it ... ok
+test a_continuation_sees_comments_posted_during_the_last_run ... ok
+test mcp_tools_reach_the_agent_with_its_credential ... ok
+test a_lead_out_of_quota_reviews_nothing_more ... ok
+test skills_are_indexed_loaded_and_readable ... ok
+test denied_command_question_and_continuation ... ok
+test the_chat_with_the_lead_is_learned_once_it_goes_quiet ... ok
+test closing_a_ticket_teaches_the_assignee ... ok
+test the_user_messages_a_running_lead_and_never_a_worker ... ok
+test quota_exhaustion_parks_the_agent_and_repeated_failures_escalate ... ok
+test reviews_stopping_at_a_checkpoint_go_to_the_user ... ok
+test the_reviewer_is_told_when_the_diff_cannot_be_read ... ok
+test a_pause_is_not_a_failure_and_ends_the_round ... ok
+test vendor_switch_keeps_memory_skills_and_conversation ... ok
+test solo_agent_takes_a_request_to_a_closed_merged_ticket ... ok
+test view_image_is_offered_to_a_model_that_takes_images_only ... ok
+test team_lead_inbox_takes_a_plan_to_closed_tickets ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.84s
+
+
+running 38 tests
+test agents_md_is_the_shared_project_guidance ... ok
+test a_created_skill_is_flagged_when_its_lesson_loses_confidence ... ok
+test lead_sets_a_member_mcp_key ... ok
+test a_long_log_loses_only_confidently_unneeded_chunks ... ok
+test memory_gate_skips_only_on_a_confident_no ... ok
+test an_agent_creates_a_skill_only_through_every_gate ... ok
+test approved_spec_without_planner_asks_the_lead_for_a_plan ... ok
+test a_solo_inbox_has_the_work_left_to_plan ... ok
+test needs_you_lists_what_waits_for_the_user ... ok
+test lead_inbox_order_sla_and_escalation ... ok
+test an_unverified_done_goes_back_only_when_the_judge_is_sure ... FAILED
+test a_validated_lesson_updates_the_agents_overlay_of_a_skill ... ok
+test a_template_sets_the_projects_pre_merge_check ... ok
+test a_team_becomes_a_template_that_makes_new_teams ... ok
+test skill_quality_is_off_by_default_and_reads_each_principle ... ok
+test project_report_is_markdown_from_state ... ok
+test planner_drafts_and_the_lead_creates_the_plan ... ok
+test shadow_mode_records_and_changes_nothing ... ok
+test roles_and_ownership_are_enforced ... ok
+test review_assist_reads_each_criterion_only_when_on ... FAILED
+test skill_hint_prepends_the_judges_pick ... FAILED
+test skill_hint_is_off_by_default_and_needs_two_skills ... ok
+test skills_cannot_contradict_each_other ... ok
+test agent_names_are_role_names_and_unique ... ok
+test team_spec_waits_for_the_user_and_the_plan_is_the_leads ... ok
+test the_judge_is_optional_and_a_failure_turns_it_off ... ok
+test the_judge_is_set_from_the_app_with_its_key_in_the_vault ... ok
+test the_judge_reads_contradictions_only_when_on ... ok
+test permissions_lead_inside_allowlist_user_outside_and_always_allow ... ok
+test vendor_usage_keeps_the_last_good_reading ... ok
+test the_starter_skill_library_is_seeded_and_valid ... ok
+test outside_edits_to_a_worktree_are_undone_before_the_next_run ... ok
+test the_review_reads_answers_prefetched_at_submit ... ok
+test the_user_puts_another_member_in_the_lead_slot ... ok
+test the_lead_proposes_a_role_and_the_user_decides ... ok
+test the_price_catalogue_prices_earlier_runs ... ok
+test team_from_template_and_write_scope ... ok
+test support_bundle_has_diagnostics_without_secrets ... ok
+
+failures:
+
+---- an_unverified_done_goes_back_only_when_the_judge_is_sure stdout ----
+
+thread 'an_unverified_done_goes_back_only_when_the_judge_is_sure' (4832) panicked at orchestration\orchestrator\tests\team.rs:2654:5:
+assertion failed: f.app.unverified_done(&t, &report, &unchecked).await.is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- review_assist_reads_each_criterion_only_when_on stdout ----
+
+thread 'review_assist_reads_each_criterion_only_when_on' (13256) panicked at orchestration\orchestrator\tests\team.rs:1928:5:
+
+## Independent evidence read (TypeSafe Jev, calibrated — a first opinion, verify it yourself)
+- AC-1: evidence found (92%)
+
+
+---- skill_hint_prepends_the_judges_pick stdout ----
+
+thread 'skill_hint_prepends_the_judges_pick' (53340) panicked at orchestration\orchestrator\tests\team.rs:1859:5:
+a 'none' pick is not a hint
+
+
+failures:
+    an_unverified_done_goes_back_only_when_the_judge_is_sure
+    review_assist_reads_each_criterion_only_when_on
+    skill_hint_prepends_the_judges_pick
+
+test result: FAILED. 35 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.46s
+

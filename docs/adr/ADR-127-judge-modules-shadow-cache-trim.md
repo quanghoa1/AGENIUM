@@ -34,6 +34,18 @@ ADR-126; research in [`docs/reference/JEV-OPPORTUNITIES.md`](../reference/JEV-OP
 - Tests: shadow changes nothing and keeps usage; the review reads prefetched answers with no request; a long log loses
   only a confidently unneeded, low-ranked chunk while head, tail and failures stay; cache keys cover only named state
   and change with the endpoint or model.
-- Not measured on a real team yet (no key here): the trimmer's saving and the done check's send-backs. Running both
-  in shadow mode on a real team is the next step before recommending either on.
+- **Measured with the real API** (`quality/eval/examples/jev_new_uses.rs`, raw `docs/reference/bench-raw/jev-new-uses-2026-10-28.md`):
+  - *Done check*, 10 labelled reports: decisions as expected 9/9 (one case either way). The facts settle what they can
+    — every criterion Met is the "done" claim, a check that failed after the last change sends back with no question,
+    a passing check or an honest NotMet is accepted — and Jev is asked only whether a check would apply (≈ 430 input
+    tokens, < $0.00002). A first version that also asked Jev "does the report claim done" got 8/9: it read
+    "Implemented the CSV export." as 48 % done while the build had just failed.
+  - *Output trimmer*, six real outputs of this repository's runs (cut to what the shell tool returns): 0 of 69 needed
+    lines lost, but only one output trimmed (82 of 257 lines, ≈ 1 000 tokens) for 17 k Jev input tokens. Jev rates most
+    chunks of a passing test log or a targeted grep 0.5–0.7 "needed" (they are the evidence the goal asks for), and the
+    shell tool's own head + tail cap (256 lines) has already removed the bulk. A first version kept every chunk with
+    the word "fail" — every `0 failed` result line — and trimmed nothing; key lines are now markers, kept line by line.
+    The threshold is not lowered (that would drop chunks Jev reads as 50 % needed): the trimmer stays off by default,
+    worth it only for long noisy outputs.
+- Still to run: both uses in shadow mode on a real team.
 - A CLI agent that brings its own shell (not hooked) is not trimmed: its tool results never pass through Agenium.

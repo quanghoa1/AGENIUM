@@ -3,10 +3,13 @@
 //! result stays in the context for every later turn, so a long test or build log is paid for again and again; projects
 //! that did this report cutting 40–88 % of such logs (`docs/reference/JEV-OPPORTUNITIES.md` §2).
 //!
-//! It errs on keeping: the first and the last chunk, and every chunk with an error, a failure, a warning or an exit
-//! code, are kept whatever the judge says; a chunk goes only when the judge is at most 30 % sure it is needed and it is
-//! in the lower half of the ranking (by rank, not a fixed threshold: an absolute Noul drifts). It runs when the result
-//! is made, so the prompt-cache prefix is never changed afterwards. Off by default (`trim_output`); fail-open.
+//! It errs on keeping: the first and the last chunk are kept, and so is every key line — a failure, a panic, an error
+//! or warning, a test-suite result, an exit code — wherever it is, also inside a chunk that goes; a chunk goes only
+//! when the judge is at most 30 % sure it is needed and it is in the lower half of the ranking (by rank, not a fixed
+//! threshold: an absolute Noul drifts). Key lines are matched as markers (`FAILED`, `error[`, `test result:`), not as
+//! words: a first version kept every chunk holding "fail", which every `0 failed` result line has, so it never trimmed
+//! anything (measured, `quality/eval/examples/jev_new_uses.rs`). It runs when the result is made, so the prompt-cache
+//! prefix is never changed afterwards. Off by default (`trim_output`); fail-open.
 
 use std::sync::Arc;
 
@@ -25,18 +28,31 @@ const CHUNK_LINES: usize = 30;
 const MAX_ASKED: usize = 8;
 /// A chunk may go only when the judge is at most this sure it is needed.
 const DROP_AT_MOST: f64 = 0.3;
-/// A chunk with any of these (case-insensitive) is always kept.
-const ALWAYS_KEEP: &[&str] = &[
-    "error",
-    "fail",
-    "panic",
-    "exception",
-    "traceback",
-    "warning",
-    "assert",
-    "fatal",
-    "denied",
+/// A line with any of these markers (case-sensitive) is always kept, also inside a chunk that goes.
+const KEY_MARKERS: &[&str] = &[
+    "FAILED",
+    "FAIL ",
+    "FAIL:",
+    "panicked",
+    "error[",
+    "error:",
+    "Error:",
+    "ERROR",
+    "warning:",
+    "Warning:",
+    "WARN",
+    "Traceback",
+    "Exception",
+    "assertion",
+    "AssertionError",
+    "fatal:",
+    "Fatal",
+    "test result:",
     "exit code",
+    "Tests:",
+    "failed,",
+    "✗",
+    "✘",
 ];
 /// Tools whose output is trimmed.
 const TRIMMED: &[&str] = &["shell", "grep"];
@@ -122,11 +138,8 @@ fn chunks(text: &str) -> Vec<Vec<&str>> {
     lines.chunks(CHUNK_LINES).map(<[&str]>::to_vec).collect()
 }
 
-fn always_kept(chunk: &[&str]) -> bool {
-    chunk.iter().any(|l| {
-        let l = l.to_lowercase();
-        ALWAYS_KEEP.iter().any(|w| l.contains(w))
-    })
+fn key_line(l: &str) -> bool {
+    KEY_MARKERS.iter().any(|m| l.contains(m))
 }
 
 /// Which chunks go: among `asked` (chunk index, probability needed), those at most `DROP_AT_MOST` sure and in the lower
@@ -142,23 +155,31 @@ fn to_drop(asked: &[(usize, f64)]) -> Vec<usize> {
         .collect()
 }
 
-/// The chunks again, with each run of dropped chunks replaced by one line saying how much was left out.
+/// The chunks again: a dropped chunk keeps its key lines, and each run of left-out lines becomes one line saying how
+/// many.
 fn assemble(chunks: &[Vec<&str>], drop: &[usize]) -> String {
-    let mut out: Vec<String> = Vec::new();
-    let mut omitted = 0;
-    for (i, c) in chunks.iter().enumerate() {
-        if drop.contains(&i) {
-            omitted += c.len();
-            continue;
-        }
-        if omitted > 0 {
+    fn flush(out: &mut Vec<String>, omitted: &mut usize) {
+        if *omitted > 0 {
             out.push(format!(
                 "[... {omitted} lines left out by the output trimmer as not needed for this ticket; the full output is linked below]"
             ));
-            omitted = 0;
+            *omitted = 0;
         }
-        out.extend(c.iter().map(|l| l.to_string()));
     }
+    let mut out: Vec<String> = Vec::new();
+    let mut omitted = 0;
+    for (i, c) in chunks.iter().enumerate() {
+        let dropped = drop.contains(&i);
+        for l in c {
+            if dropped && !key_line(l) {
+                omitted += 1;
+            } else {
+                flush(&mut out, &mut omitted);
+                out.push((*l).to_owned());
+            }
+        }
+    }
+    flush(&mut out, &mut omitted);
     out.join("\n")
 }
 
@@ -178,16 +199,10 @@ impl App {
         }
         let judge = self.judge().ok().flatten()?;
         let parts = chunks(text);
-        if parts.len() < 3 {
+        if parts.len() < 4 {
             return None;
         }
-        let candidates: Vec<usize> = (1..parts.len() - 1)
-            .filter(|i| !always_kept(&parts[*i]))
-            .take(MAX_ASKED)
-            .collect();
-        if candidates.len() < 2 {
-            return None;
-        }
+        let candidates: Vec<usize> = (1..parts.len() - 1).take(MAX_ASKED).collect();
         let mut j = Judging::default()
             .state_text("goal", goal)
             .state_text("command", &format!("{tool}: {what}"));
@@ -212,18 +227,21 @@ impl App {
             .collect();
         let drop = to_drop(&asked);
         let lines = text.lines().count();
-        let cut: usize = drop.iter().map(|i| parts[*i].len()).sum();
+        let cut: usize = drop
+            .iter()
+            .map(|i| parts[*i].iter().filter(|l| !key_line(l)).count())
+            .sum();
         self.record(
             "trim_output",
             Some(ticket),
-            if drop.is_empty() {
+            if cut == 0 {
                 format!("kept all {lines} lines of `{tool}`")
             } else {
                 format!("left out {cut} of {lines} lines of `{tool}`")
             },
             &reply,
         );
-        if drop.is_empty() || !self.judge_acts() {
+        if cut == 0 || !self.judge_acts() {
             return None;
         }
         Some(assemble(&parts, &drop))
@@ -250,14 +268,23 @@ mod tests {
     }
 
     #[test]
-    fn errors_and_exit_codes_are_always_kept() {
-        assert!(always_kept(&["exit code 101"]));
-        assert!(always_kept(&["test parser::tests::cut ... FAILED"]));
-        assert!(always_kept(&["thread 'main' panicked at src/lib.rs:3"]));
-        assert!(!always_kept(&[
+    fn key_lines_are_markers_not_words() {
+        for l in [
+            "exit code 101",
+            "test parser::tests::cut ... FAILED",
+            "thread 'main' panicked at src/lib.rs:3",
+            "error[E0425]: cannot find value `x`",
+            "test result: ok. 25 passed; 0 failed; 0 ignored",
+        ] {
+            assert!(key_line(l), "{l}");
+        }
+        for l in [
             "   Compiling serde v1.0.229",
-            "   Compiling tokio v1.54.1"
-        ]));
+            "test judge::fail_open_when_off ... ok",
+            "src/judge/mod.rs:3:/// fail-open: the work goes on",
+        ] {
+            assert!(!key_line(l), "{l}");
+        }
     }
 
     #[test]
@@ -269,5 +296,18 @@ mod tests {
         assert!(out.contains("line 29\n[... 60 lines left out"), "{out}");
         assert!(out.contains("linked below]\nline 90"));
         assert_eq!(out.lines().count(), 150 - 60 + 1);
+    }
+
+    #[test]
+    fn a_dropped_chunk_keeps_its_key_lines() {
+        let mut lines: Vec<String> = (0..90).map(|i| format!("test t{i} ... ok")).collect();
+        lines[45] = "test result: ok. 30 passed; 0 failed".into();
+        let text = lines.join("\n");
+        let parts = chunks(&text);
+        let out = assemble(&parts, &[1]);
+        assert!(out.contains("[... 15 lines left out"), "{out}");
+        assert!(out.contains("test result: ok. 30 passed"));
+        assert!(out.contains("[... 14 lines left out"));
+        assert_eq!(out.lines().count(), 30 + 1 + 1 + 1 + 30);
     }
 }
