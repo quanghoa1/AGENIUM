@@ -36,6 +36,15 @@ root:
 - Projects are coloured by run state like tickets; a team shows its current and past projects (one at a time); the
   Lead's delegations are a collapsible bar over the chat; a long chat paste shows as one label; popups open
   Apple-style, rendered on `<body>` so the backdrop blur covers the whole window.
+- **Memory past 100 000 facts: the ANN sidecar is wired** (ADR-50 implemented, amended by ADR-125). Exact search below
+  `[memory] ann_threshold` facts per agent; the write that reaches it starts a background usearch build while exact
+  serves, then searches switch. Deletes are tombstones (usearch's slot reuse after `remove` was measured to strand an
+  untouched fact), compacted at 10 % churn; every write reaches the sidecar before it returns; a missing, corrupt,
+  foreign or out-of-date sidecar (journal gap, restored older database) is detected and rebuilt. Verified:
+  `agenium-store` `tests/ann.rs` (9) and 20 hard kills during writes with 0 self-hit misses (`tests/crash.rs`);
+  numbers in `STORE-SCALE.md` §13.
+- **Large files split, behaviour unchanged:** `runtime/mod.rs` 2 858 → 1 546 lines (+ `ticket_runs`, `lead_runs`,
+  `scheduling`), the CLI's `main.rs` 2 768 → 915 (+ `args` and one module per command group).
 
 | Release item | Status | Evidence |
 |---|---|---|
@@ -264,7 +273,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   past the ADR-92 gates, so those are verified by tests only.
 - MCP: (OAuth done, ADR-97: tested against Agenium's own OAuth test server, not yet against a real provider.) (Legacy HTTP+SSE, resources and prompts: done, ADR-109.) Protocol revision 2026-07-28 (the client negotiates 2025-06-18; the
   reference server accepted it), MCP resources/prompts.
-- ANN sidecar (usearch builds on this machine; not wired), event-log retention archive.
+- Event-log retention archive. (ANN sidecar: wired 2026-10-28, ADR-125.)
 - M4: the Lead "interrupt" (ADR-57: rounds instead). (Pre-merge checks per template: done, ADR-79.) (Messaging a running
   Lead: API backend ADR-104, vendor CLIs ADR-110 — real runs on Claude Haiku, Grok and Codex followed the message.)
 - UI: (Monaco side-by-side diff and xterm.js run terminal: done, ADR-112; Monaco skill-file editing not yet), mini-map and room editor of the Live office. (UI tests in local CI: done —
