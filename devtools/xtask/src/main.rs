@@ -1,4 +1,7 @@
-//! Repository automation: `cargo xtask schemas [--check]`, `cargo xtask vendor-check`, `cargo xtask ci`.
+//! Repository automation: `cargo xtask schemas [--check]`, `cargo xtask vendor-check`, `cargo xtask ratchet [--update]`
+//! (the file-size ratchet, `ratchet.rs`), `cargo xtask ci`.
+
+mod ratchet;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -165,6 +168,7 @@ fn main() -> Result<()> {
     match args.first().map(String::as_str) {
         Some("schemas") => schemas(args.iter().any(|a| a == "--check")),
         Some("vendor-check") => vendor_check(),
+        Some("ratchet") => ratchet::ratchet(args.iter().any(|a| a == "--update")),
         Some("ci") => {
             cargo(&["fmt", "--all", "--check"])?;
             cargo(&[
@@ -177,8 +181,11 @@ fn main() -> Result<()> {
             ])?;
             cargo(&["test", "--workspace"])?;
             schemas(true)?;
+            ratchet::ratchet(false)?;
             vendor_check()
         }
-        _ => bail!("usage: cargo xtask <schemas [--check] | vendor-check | ci>"),
+        _ => {
+            bail!("usage: cargo xtask <schemas [--check] | vendor-check | ratchet [--update] | ci>")
+        }
     }
 }

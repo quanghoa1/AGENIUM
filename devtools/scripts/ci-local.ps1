@@ -15,6 +15,7 @@ $steps = @(
   @{ name = "test";    cmd = "cargo test --workspace" },
   @{ name = "schemas"; cmd = "cargo xtask schemas --check" },
   @{ name = "vendor";  cmd = "cargo xtask vendor-check" },
+  @{ name = "ratchet"; cmd = "cargo xtask ratchet" },
   @{ name = "deny";    cmd = "(cargo deny check && cargo deny --manifest-path apps\desktop\Cargo.toml check)" }
 )
 if (-not $Quick) { $steps += @{ name = "golden-scripted"; cmd = "cargo run -q -p agenium-eval -- --out target\ci-local\eval" } }
