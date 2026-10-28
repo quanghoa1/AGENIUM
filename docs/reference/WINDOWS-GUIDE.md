@@ -36,7 +36,7 @@ Or step by step: `cargo test --workspace`, `pnpm --dir app/ui install --frozen-l
 |---|---|---|
 | `agenium-sandbox` | no backend (Linux: bwrap/Landlock; macOS: Seatbelt). `select()` returns an error → **fail closed**, agents refuse to run. `libc` dep is `cfg(unix)`; the helper binary is Linux-only | lib should compile; attack suite **SKIP**; if the crate does not compile, report the first error |
 | `agenium-secrets` | OS keyring = Windows Credential Manager via `keyring`; file vault falls back without `0600` mode (`cfg(not(unix))`) | tests that need a keyring service may fail on a headless box |
-| `agenium-store` (SQLite, default) | `rusqlite` bundled + `sqlite-vec` + `usearch` (C++17) built with MSVC | **risk:** `usearch`/`numkong` may not build under MSVC; fallback: `cargo test -p agenium-store --no-default-features --features sqlite` (exact search only, no ANN). `flock` locking uses an OS-specific implementation — report failures |
+| `agenium-store` (SQLite, default) | `rusqlite` bundled + `sqlite-vec` + `usearch` 2.26.5 (C++17) | Builds and passes with the GNU toolchain and MSYS2 gcc (2026-10-28, ADR-125); MSVC not tried. `flock` locking uses an OS-specific implementation — report failures |
 | `agenium-store` `--features surrealkv` | optional reference backend | long build; skip with `-SkipSurreal` if it fails |
 | `agenium-vcs` | drives the `git` CLI | needs `git` on PATH; worktree/long-path tests may be sensitive to CRLF/path length |
 | Tauri shell (`agenium-app`) | bundle targets in `tauri.conf.json` list `deb, appimage, app, dmg` — no `msi/nsis`; `.app`/`.dmg` are not built on Windows | `cargo build -p agenium-app` needs WebView2 SDK; `tauri build` produces nothing useful until a Windows target is added |

@@ -47,6 +47,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 ### Memory, skills, tools
 - Per-agent memory with a local embedding model (bge-small), keyword and knowledge-graph search, scoped facts, lessons
   with decay, consolidation; strictly gated learning of new skills and lessons.
+- Memory stays fast past 100 000 facts per agent: an approximate (HNSW) vector index takes over from exact search,
+  built in the background, checked on every start and rebuilt when it cannot be trusted (ADR-50, ADR-125).
 - `SKILL.md` skills (13 built in), skill overlays and agent-created skills behind evidence gates.
 - MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth), bound per agent with their own credentials.
 - `view_image` for vision models; `fetch` through an allowlist.

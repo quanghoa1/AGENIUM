@@ -285,7 +285,7 @@ Reading it:
   is **not wired in the rewrite**, so search is linear (~35 ms at 100 k, 0.7–1.2 s at 1 M). The 1 M KNN figure moved
   from 727 to 1 244 ms p50 between runs although `knn()` did not change: without a warm-up, the first run read freshly
   written, cache-hot WAL pages, while with the gate those pages are in the main file — treat it as cache-dependent, not
-  a regression. Wiring the ANN sidecar is the remaining work.
+  a regression. Wiring the ANN sidecar is the remaining work (done 2026-10-28: §13).
 - 4 readers + 1 writer is far beyond real use (an agent reads at run start and writes a few facts when a ticket closes;
   the shared pool sees reads from many agents and rare writes). The store opens 2 reader connections per agent database,
   so 4 readers queue; at 1 M each query is dominated by the 1.2 s exact KNN.
@@ -344,3 +344,25 @@ release build. Raw: `bench-raw/windows-graph-bench-2026-10-26.txt`.
   the text channels to answer (`timed_out`).
 - The warm traversal table re-ran with §8.1's numbers (1 M edges, random seeds, cap on: depth 2 p95 0.46 ms, depth 3
   p95 4.0 ms).
+
+## 13. ANN sidecar in the rewritten store (2026-10-28, Windows 11, 10 cores; ADR-125)
+
+`cargo run --release -p agenium-memory --example ann_bench -- 100000 --models <dir>`: the `memory_bench` synthetic
+corpus (Zipf pseudo-word sentences), embedded with the **local bge-small model** (384-d), one fact per transaction;
+200 queries of 3–6 words; everything through `AgentStore`. Raw: `bench-raw/windows-ann-bge-100k-2026-10-28.txt`.
+
+| Facts | exact KNN p50/p95 ms | ANN build s | sidecar MB | ANN KNN p50/p95 ms | recall@10 | exact hybrid p50/p95 ms | ANN hybrid p50/p95 ms | reopen w/ sidecar ms | live adds/s w/ ANN | default options pick |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 100 000 | 32.5 / 34.1 | 6.8 | 92 | 0.70 / 0.85 | 0.967 | 38.1 / 46.8 | 4.1 / 12.5 | 99 | 704 | ANN |
+
+Reading it:
+- KNN gets ≈ 46× faster at the threshold and hybrid ≈ 9× (p50); hybrid is now BM25-bound, as §7 predicted.
+- Build time (6.8 s) and sidecar size (92 MB) match ADR-50's Linux figures (6 s, 92 MB). KNN p50 is 0.70 ms against
+  0.34 ms on Linux.
+- **recall@10 is 0.967, below ADR-50's 0.9885** at 100 k. The corpus differs (ADR-50 used real sentences; this one
+  is synthetic pseudo-word text, whose embeddings are less clustered), and the index is built with parallel inserts
+  (ADR-125 §6). Not measured yet: ef_search 256 at 100 k (the default doubles it only from 200 k), a serial build, a
+  real-text corpus. Exact search stays available (`knn_exact`, `IndexMode::Exact`).
+- Live adds through an active sidecar: 704/s on this corpus (each add catches the sidecar up before it returns).
+- Not run: 1 M facts with ANN, Linux/macOS, the concurrency phase of §9 with the sidecar.
+

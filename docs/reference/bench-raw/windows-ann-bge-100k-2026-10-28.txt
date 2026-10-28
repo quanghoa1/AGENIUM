@@ -1,0 +1,9 @@
+embedder: bge-small-en-v1.5 (384-d)
+| Facts | exact KNN p50/p95 ms | ANN build s | sidecar MB | ANN KNN p50/p95 ms | recall@10 | exact hybrid p50/p95 ms | ANN hybrid p50/p95 ms | reopen w/ sidecar ms | live adds/s w/ ANN | Auto active |
+|---|---|---|---|---|---|---|---|---|---|---|
+  ingested 20224/100000 (26/s)
+  ingested 40192/100000 (29/s)
+  ingested 60160/100000 (31/s)
+  ingested 80128/100000 (33/s)
+  ingested 100000/100000 (34/s)
+| 100000 | 32.45 / 34.14 | 6.8 | 92 | 0.703 / 0.853 | 0.9670 | 38.11 / 46.75 | 4.08 / 12.48 | 99 | 704 | Ann |

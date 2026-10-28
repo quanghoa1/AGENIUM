@@ -40,6 +40,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 sqlite-vec = "=0.1.9"
+# ANN sidecar (ADR-50); C++17, builds with MSYS2 gcc on windows-gnu.
+usearch = "=2.26.5"
+crc32fast = "1"
 tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process", "io-util"] }

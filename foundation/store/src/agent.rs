@@ -2,16 +2,18 @@
 //! (sqlite-vec `vec0`), BM25 keyword search (FTS5), hybrid retrieval by reciprocal-rank fusion, the fact-usage log
 //! and the resumable conversation store. Only the owning agent's runtime opens this file (decision 2).
 //!
-//! The ANN sidecar of ADR-50 (usearch, from 100 000 facts) is not built yet: exact search is always correct and
-//! below the threshold it is the configured mode anyway; `ann_journal` is already maintained so a sidecar can be
-//! added without a migration.
+//! KNN goes through [`crate::ann`]: exact below `ann_threshold` facts, the usearch sidecar from there (ADR-50). Every
+//! vector change is journaled in `ann_journal` in the same transaction.
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 
+use crate::ann::{AgentOptions, AnnStatus, Exact, IndexKind, VectorIndex, Vectors};
 use crate::db::{Db, DbOptions};
 use crate::migrate::{migrate, Migration};
 use crate::{backup, StoreError};
@@ -328,9 +330,17 @@ pub fn fts_search_query(text: &str) -> Option<String> {
 }
 
 pub struct AgentStore {
-    pub(crate) db: Db,
+    pub(crate) db: Arc<Db>,
+    vectors: Arc<Vectors>,
     dim: usize,
     model_id: String,
+}
+
+impl Drop for AgentStore {
+    /// Stops a sidecar build and saves the sidecar's unsaved changes.
+    fn drop(&mut self) {
+        self.vectors.close();
+    }
 }
 
 impl std::fmt::Debug for AgentStore {
@@ -351,6 +361,23 @@ impl AgentStore {
         dim: usize,
         model_id: &str,
         pre_migrate_dir: &Path,
+    ) -> Result<AgentStore, StoreError> {
+        Self::open_with(
+            path,
+            dim,
+            model_id,
+            pre_migrate_dir,
+            AgentOptions::default(),
+        )
+    }
+
+    /// [`AgentStore::open`] with the vector-index options (ADR-50: mode, ANN threshold, sidecar parameters).
+    pub fn open_with(
+        path: &Path,
+        dim: usize,
+        model_id: &str,
+        pre_migrate_dir: &Path,
+        options: AgentOptions,
     ) -> Result<AgentStore, StoreError> {
         let opts = DbOptions {
             synchronous_full: false,
@@ -399,8 +426,11 @@ impl AgentStore {
             rekey_names(c)?;
             Ok(())
         })?;
+        let db = Arc::new(db);
+        let vectors = Vectors::open(db.clone(), dim, options)?;
         Ok(AgentStore {
             db,
+            vectors,
             dim,
             model_id: model_id.to_owned(),
         })
@@ -473,7 +503,9 @@ impl AgentStore {
         if f.text.trim().is_empty() {
             return Err(StoreError::Invalid("fact text is empty".into()));
         }
-        self.db.write(|tx| self.insert_fact(tx, f, vector))
+        let id = self.db.write(|tx| self.insert_fact(tx, f, vector))?;
+        self.vectors.after_write();
+        Ok(id)
     }
 
     /// UPDATE: a new fact supersedes `old` (history kept, decision 35). Returns the new id.
@@ -502,6 +534,7 @@ impl AgentStore {
             Self::drop_vector(tx, old)?;
             Ok(id)
         })
+        .inspect(|_| self.vectors.after_write())
     }
 
     /// DELETE: retires a fact (self-superseded tombstone; the text stays for audit, it is never retrieved).
@@ -516,7 +549,9 @@ impl AgentStore {
                 return Err(StoreError::NotFound(format!("live fact {id}")));
             }
             Self::drop_vector(tx, id)
-        })
+        })?;
+        self.vectors.after_write();
+        Ok(())
     }
 
     pub fn get(&self, id: i64) -> Result<Fact, StoreError> {
@@ -593,8 +628,39 @@ impl AgentStore {
 
     /// Maintenance tick for this agent's database: passive checkpoint, and the WAL gate past the limit. Returns the WAL
     /// size afterwards. (Writes also run the WAL gate themselves; the tick catches databases that only read.)
+    /// Also saves unsaved sidecar changes.
     pub fn maintain(&self) -> Result<u64, StoreError> {
+        self.vectors.maintain()?;
         self.db.maintain()
+    }
+
+    /// Saves the ANN sidecar now (it is also saved every `save_every` changes, by `maintain` and on close).
+    pub fn flush(&self) -> Result<(), StoreError> {
+        self.vectors.save()
+    }
+
+    /// The vector-index options this store was opened with.
+    pub fn index_options(&self) -> &AgentOptions {
+        self.vectors.options()
+    }
+
+    /// Which index serves KNN now, and the sidecar's state.
+    pub fn index_status(&self) -> AnnStatus {
+        self.vectors.status()
+    }
+
+    /// Waits for a sidecar build to finish (benchmarks, tests). `false` on timeout.
+    pub fn wait_for_index(&self, timeout: Duration) -> bool {
+        self.vectors.wait_ready(timeout)
+    }
+
+    /// Exact KNN whatever the active index (recall measurement, tests).
+    pub fn knn_exact(&self, query: &[f32], k: usize) -> Result<Vec<(i64, f64)>, StoreError> {
+        self.check_vec(query)?;
+        if k == 0 || !usable(query) {
+            return Ok(vec![]);
+        }
+        Exact(&self.db).knn(query, k)
     }
 
     pub fn count_live(&self) -> Result<u64, StoreError> {
@@ -646,21 +712,32 @@ impl AgentStore {
         })
     }
 
-    /// Exact cosine KNN over live facts: `(fact id, distance)` ascending. A query without a direction finds nothing;
-    /// rows without a distance (a zero vector stored before `usable` existed) are skipped.
+    /// Cosine KNN over live facts: `(fact id, distance)` ascending, through the active index (the ANN sidecar from
+    /// `ann_threshold` facts, else exact). A query without a direction finds nothing.
     pub fn knn(&self, query: &[f32], k: usize) -> Result<Vec<(i64, f64)>, StoreError> {
         self.check_vec(query)?;
         if k == 0 || !usable(query) {
             return Ok(vec![]);
         }
-        self.db.read(|c| {
-            let mut st = c.prepare_cached("SELECT rowid, distance FROM fact_vec WHERE embedding MATCH ?1 AND k = ?2 ORDER BY distance")?;
-            let rows = st.query_map(params![vec_blob(query), k as i64], |r| {
-                Ok((r.get::<_, i64>(0)?, r.get::<_, Option<f64>>(1)?))
-            })?;
-            let rows = rows.collect::<Result<Vec<_>, _>>()?;
-            Ok(rows.into_iter().filter_map(|(id, d)| Some((id, d?))).collect())
-        })
+        let rerank = self.vectors.options().ann.rerank;
+        match self.vectors.knn(query, if rerank { k * 4 } else { k }) {
+            Some(hits) if rerank => {
+                let ids: Vec<i64> = hits.iter().map(|h| h.0).collect();
+                let sim = self.similarity_to(query, &ids)?;
+                let mut out: Vec<(i64, f64)> =
+                    sim.into_iter().map(|(id, s)| (id, 1.0 - s)).collect();
+                out.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+                out.truncate(k);
+                Ok(out)
+            }
+            Some(hits) => Ok(hits),
+            None => Exact(&self.db).knn(query, k),
+        }
+    }
+
+    /// The index serving KNN now.
+    pub fn index_kind(&self) -> IndexKind {
+        self.index_status().active
     }
 
     /// BM25 keyword search over live facts: `(fact id, bm25)` best first.
@@ -1015,33 +1092,35 @@ impl AgentStore {
         for v in &vecs {
             self.check_vec(v)?;
         }
-        self.db.write(|tx| {
-            for (f, v) in facts.iter().zip(&vecs) {
-                let had = tx.execute("DELETE FROM fact_vec WHERE rowid = ?1", [f.id])? > 0;
-                tx.execute(
-                    "UPDATE fact SET model_id = ?2 WHERE id = ?1",
-                    params![f.id, self.model_id],
-                )?;
-                if !usable(v) {
-                    if had {
-                        tx.execute(
-                            "INSERT INTO ann_journal(op, fact_id) VALUES (2, ?1)",
-                            [f.id],
-                        )?;
+        self.db
+            .write(|tx| {
+                for (f, v) in facts.iter().zip(&vecs) {
+                    let had = tx.execute("DELETE FROM fact_vec WHERE rowid = ?1", [f.id])? > 0;
+                    tx.execute(
+                        "UPDATE fact SET model_id = ?2 WHERE id = ?1",
+                        params![f.id, self.model_id],
+                    )?;
+                    if !usable(v) {
+                        if had {
+                            tx.execute(
+                                "INSERT INTO ann_journal(op, fact_id) VALUES (2, ?1)",
+                                [f.id],
+                            )?;
+                        }
+                        continue;
                     }
-                    continue;
+                    tx.execute(
+                        "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
+                        params![f.id, vec_blob(v)],
+                    )?;
+                    tx.execute(
+                        "INSERT INTO ann_journal(op, fact_id) VALUES (1, ?1)",
+                        [f.id],
+                    )?;
                 }
-                tx.execute(
-                    "INSERT INTO fact_vec(rowid, embedding) VALUES (?1, ?2)",
-                    params![f.id, vec_blob(v)],
-                )?;
-                tx.execute(
-                    "INSERT INTO ann_journal(op, fact_id) VALUES (1, ?1)",
-                    [f.id],
-                )?;
-            }
-            Ok(facts.len() as u64)
-        })
+                Ok(facts.len() as u64)
+            })
+            .inspect(|_| self.vectors.after_write())
     }
 
     // ------------------------------------------------------------ conversation (resumable run context)

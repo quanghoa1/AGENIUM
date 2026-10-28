@@ -731,11 +731,17 @@ impl App {
         if let Some(s) = m.get(&id) {
             return Ok(s.clone());
         }
-        let s = Arc::new(AgentStore::open(
+        // ADR-50: exact search below `[memory] ann_threshold` facts, the ANN sidecar from there.
+        let options = agenium_store::AgentOptions {
+            ann_threshold: self.config().memory.ann_threshold,
+            ..Default::default()
+        };
+        let s = Arc::new(AgentStore::open_with(
             &self.layout.agent_db(&id),
             dim,
             model_id,
             &self.layout.backups(),
+            options,
         )?);
         m.insert(id, s.clone());
         Ok(s)

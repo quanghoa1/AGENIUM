@@ -276,3 +276,126 @@ fn kill_during_graph_writes_keeps_the_graph_consistent() {
         assert_eq!(checks, ("ok".to_string(), 0, 0, 0, 0), "round {round}");
     }
 }
+
+const ANN_CHILD_ENV: &str = "AGENIUM_ANN_CRASH_CHILD_DIR";
+
+/// The vector of the `i`-th fact in the ANN crash test: deterministic, distinct, never zero.
+fn ann_vec(i: u64) -> Vec<f32> {
+    let mut x = i.wrapping_mul(0x9e3779b97f4a7c15) | 1;
+    (0..16)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            ((x >> 40) as f32 / (1u64 << 24) as f32) - 0.5
+        })
+        .collect()
+}
+
+fn ann_options() -> agenium_store::AgentOptions {
+    agenium_store::AgentOptions {
+        index_mode: agenium_store::IndexMode::Ann,
+        ann: agenium_store::AnnOptions {
+            save_every: 97,
+            build_threads: 2,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[test]
+#[ignore = "helper: run by kill_during_ann_writes_never_serves_a_wrong_result"]
+fn ann_crash_child() {
+    let Ok(dir) = std::env::var(ANN_CHILD_ENV) else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    let s = agenium_store::AgentStore::open_with(
+        &dir.join("agent.db"),
+        16,
+        "m",
+        &dir.join("backups"),
+        ann_options(),
+    )
+    .unwrap();
+    let mut i = s.count_live().unwrap() * 3;
+    loop {
+        // Adds, plus a retire every third fact: the sidecar is saved every 97 changes, so kills land before, during
+        // and after saves.
+        let text = format!("fact {i}");
+        let id = s
+            .add(&agenium_store::NewFact::fact(text, "t"), Some(&ann_vec(i)))
+            .unwrap();
+        if i % 3 == 2 {
+            s.retire(id).unwrap();
+        }
+        println!("ACK {i}");
+        i += 1;
+    }
+}
+
+#[test]
+fn kill_during_ann_writes_never_serves_a_wrong_result() {
+    let tmp = tempfile::tempdir().unwrap();
+    let exe = std::env::current_exe().unwrap();
+    let rounds: usize = std::env::var("AGENIUM_CRASH_ROUNDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20);
+    let mut misses = 0;
+    for round in 0..rounds {
+        let mut child = Command::new(&exe)
+            .args([
+                "ann_crash_child",
+                "--exact",
+                "--ignored",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(ANN_CHILD_ENV, tmp.path())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let out = BufReader::new(child.stdout.take().unwrap());
+        let want = 60 + round * 13;
+        let mut n = 0;
+        for line in out.lines() {
+            if line.unwrap().starts_with("ACK ") {
+                n += 1;
+                if n >= want {
+                    break;
+                }
+            }
+        }
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(n >= want, "child stopped early in round {round}");
+
+        let s = agenium_store::AgentStore::open_with(
+            &tmp.path().join("agent.db"),
+            16,
+            "m",
+            &tmp.path().join("backups"),
+            ann_options(),
+        )
+        .unwrap();
+        assert_eq!(s.index_kind(), agenium_store::IndexKind::Ann);
+        let live = s.live(1 << 20).unwrap();
+        assert_eq!(s.index_status().size, live.len(), "round {round}");
+        let live_ids: std::collections::HashSet<i64> = live.iter().map(|f| f.id).collect();
+        for f in &live {
+            let i: u64 = f.text.strip_prefix("fact ").unwrap().parse().unwrap();
+            let hits = s.knn(&ann_vec(i), 5).unwrap();
+            if hits.first().map(|h| h.0) != Some(f.id) {
+                misses += 1;
+            }
+            assert!(
+                hits.iter().all(|h| live_ids.contains(&h.0)),
+                "round {round}: a retired fact was served"
+            );
+        }
+    }
+    assert_eq!(misses, 0, "ANN self-hit misses after {rounds} kills");
+}

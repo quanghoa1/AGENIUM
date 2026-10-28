@@ -2,6 +2,7 @@
 
 - **Status:** Accepted (owner requirement 2026-10-23 12:26 Asia/Saigon; threshold 100k approved 2026-10-23 15:46 Asia/Saigon; numbers in `docs/STORE-SCALE.md`). Amends ADR-2 (Memory) and ADR-47 (Embedder trait: dimension is fixed per agent database). Rewritten after the benchmarks: earlier drafts said "expansion_search 96, rerank ×4, threshold 50k" — all superseded below.
 - **Date:** 2026-10-23 (Asia/Saigon)
+- **Implemented:** 2026-10-28 in the rewritten store, with amendments (tombstones instead of `remove`, compaction, build and catch-up rules): [ADR-125](ADR-125-ann-sidecar-wired.md).
 
 ## Context
 

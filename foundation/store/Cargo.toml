@@ -10,12 +10,14 @@ publish.workspace = true
 [dependencies]
 agenium-core.workspace = true
 chrono.workspace = true
+crc32fast.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 sqlite-vec.workspace = true
 thiserror.workspace = true
+usearch.workspace = true
 zstd.workspace = true
 
 [dev-dependencies]

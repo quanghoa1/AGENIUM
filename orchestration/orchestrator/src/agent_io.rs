@@ -459,8 +459,11 @@ impl App {
         self.forget_agent_store(id);
         let mut pending = Vec::new();
         let db = self.layout().agent_db(&id);
-        for suffix in ["", "-wal", "-shm"] {
-            let p = PathBuf::from(format!("{}{suffix}", db.display()));
+        let files = ["", "-wal", "-shm"]
+            .iter()
+            .map(|suffix| PathBuf::from(format!("{}{suffix}", db.display())))
+            .chain(agenium_store::ann::sidecar_files(&db));
+        for p in files {
             if p.exists() && std::fs::remove_file(&p).is_err() {
                 pending.push(p.display().to_string());
             }
