@@ -117,3 +117,80 @@ fn recall_and_throughput_on_the_fixture() {
         "S6 throughput threshold: {single_rate} facts/s"
     );
 }
+
+/// Agenium's encoder (`src/bert.rs`: fused softmax, no mask without padding) gives the reference implementation's
+/// embeddings: candle-transformers' `BertModel` on the same weights and tokenizer, CLS pooling, L2 norm. Batched
+/// (padded, masked) and one text at a time (no mask), short to past the 512-token limit.
+#[test]
+fn encoder_matches_the_reference_bert() {
+    use candle_core::{DType, Device, IndexOp, Tensor};
+    use candle_transformers::models::bert::{BertModel, Config};
+    let Some(root) = models() else { return };
+    let e = LocalEmbedder::load(BGE_SMALL_EN, &root).unwrap();
+    let dir = BGE_SMALL_EN.dir(&root);
+    let config: Config =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("config.json")).unwrap()).unwrap();
+    // SAFETY: read-only mapping of the verified model file, not modified while mapped.
+    let vb = unsafe {
+        candle_nn::VarBuilder::from_mmaped_safetensors(
+            &[dir.join("model.safetensors")],
+            DType::F32,
+            &Device::Cpu,
+        )
+        .unwrap()
+    };
+    let reference = BertModel::load(vb, &config).unwrap();
+    let mut tok = tokenizers::Tokenizer::from_file(dir.join("tokenizer.json")).unwrap();
+    tok.with_padding(Some(tokenizers::PaddingParams::default()));
+    tok.with_truncation(Some(tokenizers::TruncationParams {
+        max_length: 512,
+        ..Default::default()
+    }))
+    .unwrap();
+    let embed_ref = |texts: &[String]| -> Vec<Vec<f32>> {
+        let enc = tok.encode_batch(texts.to_vec(), true).unwrap();
+        let t = |f: &dyn Fn(&tokenizers::Encoding) -> Vec<u32>| {
+            Tensor::new(enc.iter().map(f).collect::<Vec<_>>(), &Device::Cpu).unwrap()
+        };
+        let ids = t(&|x| x.get_ids().to_vec());
+        let types = t(&|x| x.get_type_ids().to_vec());
+        let mask = t(&|x| x.get_attention_mask().to_vec());
+        let h = reference.forward(&ids, &types, Some(&mask)).unwrap();
+        let cls = h.i((.., 0)).unwrap();
+        let norm = cls.sqr().unwrap().sum_keepdim(1).unwrap().sqrt().unwrap();
+        cls.broadcast_div(&norm).unwrap().to_vec2().unwrap()
+    };
+    let long = "The memory store keeps facts with vectors and the sidecar index answers nearest neighbours. "
+        .repeat(60);
+    let texts: Vec<String> = [
+        "C#",
+        "The tests run with cargo test.",
+        "Represent this sentence for searching relevant passages: how do I run the tests",
+        "Windows builds use the GNU toolchain with MSYS2 gcc, and usearch compiles with it as well.",
+        long.as_str(),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let close = |a: &[f32], b: &[f32], what: &str| {
+        let diff = a
+            .iter()
+            .zip(b)
+            .map(|(x, y)| (x - y).abs())
+            .fold(0f32, f32::max);
+        assert!(
+            diff < 1e-4 && cos(a, b) > 0.99999,
+            "{what}: max diff {diff}, cos {}",
+            cos(a, b)
+        );
+    };
+    let want = embed_ref(&texts);
+    for (got, want) in e.embed(&texts).unwrap().iter().zip(&want) {
+        close(got, want, "batched");
+    }
+    for (t, want) in texts.iter().zip(&want) {
+        let one = e.embed(std::slice::from_ref(t)).unwrap().remove(0);
+        close(&one, &embed_ref(std::slice::from_ref(t))[0], "single");
+        close(&one, want, "single vs batched");
+    }
+}

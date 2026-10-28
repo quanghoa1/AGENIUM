@@ -3,6 +3,8 @@
 //! pipeline (`pipeline`: facts -> ADD/UPDATE/DELETE/NOOP decided by the agent's own model).
 
 #[cfg(feature = "local")]
+mod bert;
+#[cfg(feature = "local")]
 pub mod local;
 pub mod pipeline;
 pub mod resolve;
@@ -222,14 +224,32 @@ impl MemoryRetriever {
         ctx: &retrieve::RecallContext,
         k: usize,
     ) -> Result<Vec<Recalled>, MemoryError> {
-        let mut own = retrieve::recall(&self.store, self.embedder.as_ref(), query, ctx, k)?;
+        // The query is embedded once, and only when a memory has something to find.
+        let qv = std::cell::OnceCell::new();
+        let embedded = || -> Result<&Vec<f32>, MemoryError> {
+            if let Some(v) = qv.get() {
+                return Ok(v);
+            }
+            let v = self
+                .embedder
+                .embed_query(query)
+                .map_err(MemoryError::Embedder)?;
+            Ok(qv.get_or_init(|| v))
+        };
+        let recall_from = |store: &AgentStore| -> Result<Vec<Recalled>, MemoryError> {
+            if k == 0 || !store.has_live()? {
+                return Ok(vec![]);
+            }
+            retrieve::recall_with(store, embedded()?, query, ctx, k)
+        };
+        let mut own = recall_from(&self.store)?;
         let Some(pool) = &self.pool else {
             return Ok(own);
         };
         // Pool hits rank below the agent's own: scale their score and drop any whose text the agent already holds.
         let have: std::collections::HashSet<String> =
             own.iter().map(|r| r.text.trim().to_lowercase()).collect();
-        let mut shared = retrieve::recall(pool, self.embedder.as_ref(), query, ctx, k)?;
+        let mut shared = recall_from(pool)?;
         shared.retain(|r| !have.contains(&r.text.trim().to_lowercase()));
         for r in &mut shared {
             r.shared = true;

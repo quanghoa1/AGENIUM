@@ -56,7 +56,22 @@ pub fn recall(
         return Ok(vec![]);
     }
     let qv = embedder.embed_query(query).map_err(MemoryError::Embedder)?;
-    let mut vec_hits = store.knn(&qv, POOL)?;
+    recall_with(store, &qv, query, ctx, k)
+}
+
+/// [`recall`] with the query already embedded: one embedding serves several memories (the agent's and the shared
+/// pool). Embedding is most of a recall's time (a whole ticket as the query: 120–400 ms on the CPU).
+pub fn recall_with(
+    store: &AgentStore,
+    qv: &[f32],
+    query: &str,
+    ctx: &RecallContext,
+    k: usize,
+) -> Result<Vec<Recalled>, MemoryError> {
+    if k == 0 || !store.has_live()? {
+        return Ok(vec![]);
+    }
+    let mut vec_hits = store.knn(qv, POOL)?;
     vec_hits.retain(|(_, d)| *d <= MAX_VEC_DISTANCE);
     let kw_hits = store.keyword(query, POOL)?;
 
@@ -118,7 +133,7 @@ pub fn recall(
     // vector rank last.
     let mut graph_hits = store.facts_of_entities(&scored, &scope, POOL * 4)?;
     let ids: Vec<i64> = graph_hits.iter().map(|(f, _)| f.id).collect();
-    let sim = store.similarity_to(&qv, &ids)?;
+    let sim = store.similarity_to(qv, &ids)?;
     let relevance = |id: i64| sim.get(&id).copied().unwrap_or(-1.0);
     graph_hits.sort_by(|a, b| {
         relevance(b.0.id)

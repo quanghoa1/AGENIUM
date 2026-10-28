@@ -6,10 +6,11 @@ use std::path::{Path, PathBuf};
 
 use candle_core::{DType, Device, IndexOp, Tensor};
 use candle_nn::VarBuilder;
-use candle_transformers::models::bert::{BertModel, Config};
+use candle_transformers::models::bert::Config;
 use sha2::{Digest, Sha256};
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
+use crate::bert::Encoder;
 use crate::Embedder;
 
 /// A downloadable model file.
@@ -169,7 +170,7 @@ pub fn verify(spec: &ModelSpec, models_root: &Path) -> Vec<String> {
 
 pub struct LocalEmbedder {
     spec: ModelSpec,
-    model: BertModel,
+    model: Encoder,
     tokenizer: Tokenizer,
     device: Device,
 }
@@ -209,7 +210,7 @@ impl LocalEmbedder {
             )
             .map_err(err)?
         };
-        let model = BertModel::load(vb, &config).map_err(err)?;
+        let model = Encoder::load(vb, &config).map_err(err)?;
         Ok(LocalEmbedder {
             spec,
             model,
@@ -229,10 +230,12 @@ impl LocalEmbedder {
             .iter()
             .map(|e| e.get_attention_mask().to_vec())
             .collect();
+        let padded = mask.iter().flatten().any(|m| *m == 0);
         let t = |v: Vec<Vec<u32>>| Tensor::new(v, &self.device).map_err(err);
+        let mask = if padded { Some(t(mask)?) } else { None };
         let hidden = self
             .model
-            .forward(&t(ids)?, &t(types)?, Some(&t(mask)?))
+            .forward(&t(ids)?, &t(types)?, mask.as_ref())
             .map_err(err)?;
         // CLS pooling, then L2 normalisation.
         let cls = hidden.i((.., 0)).map_err(err)?;

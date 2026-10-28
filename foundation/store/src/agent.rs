@@ -386,6 +386,9 @@ impl AgentStore {
         let opts = DbOptions {
             synchronous_full: false,
             readers: 2,
+            // Address space, not memory: pages are read in only when used. A 1 M-fact database is 1.9 GB, and with
+            // the default 1 GiB map its BM25 search took 81 ms p50 instead of 45 (STORE-SCALE §15).
+            mmap_bytes: 4 << 30,
             ..DbOptions::default()
         };
         let name = path
