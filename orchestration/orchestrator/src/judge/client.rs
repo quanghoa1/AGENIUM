@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use agenium_llm::systemone::{Answer, Judge, Judging};
+use agenium_llm::systemone::{Answer, Judge, Judging, Question};
 use serde::{Deserialize, Serialize};
 
 use super::health::is_credential_or_quota;
@@ -106,8 +106,9 @@ impl App {
     }
 
     /// Asks the judge for `use_`: answers already given to the same question about the same state come from the cache,
-    /// the rest in one request. A key/quota failure disables the judge; any failure returns `None` (fail-open) and is
-    /// recorded.
+    /// the rest in one request. Every text leaves through the redactor first — tool output, commands and reports can
+    /// hold a token (jevgrep drops credential-looking files before anything is sent; here every use goes through this
+    /// one place). A key/quota failure disables the judge; any failure returns `None` (fail-open) and is recorded.
     pub(crate) async fn ask(
         &self,
         judge: &Judge,
@@ -115,6 +116,7 @@ impl App {
         use_: &str,
         ticket: Option<&str>,
     ) -> Option<Reply> {
+        let j = &self.redacted(j);
         let mut answers = self.cached_answers(&judge.answerer(), j);
         let mut rest = j.clone();
         rest.questions.retain(|id, _| !answers.contains_key(id));
@@ -152,6 +154,34 @@ impl App {
                 None
             }
         }
+    }
+
+    /// `j` with every text in its state and questions passed through the redactor.
+    fn redacted(&self, j: &Judging) -> Judging {
+        fn walk(r: &agenium_secrets::Redactor, v: &mut serde_json::Value) {
+            match v {
+                serde_json::Value::String(s) => *s = r.redact(s),
+                serde_json::Value::Array(a) => a.iter_mut().for_each(|x| walk(r, x)),
+                serde_json::Value::Object(o) => o.values_mut().for_each(|x| walk(r, x)),
+                _ => {}
+            }
+        }
+        let r = self.redactor();
+        let mut out = j.clone();
+        out.state.values_mut().for_each(|v| walk(r, v));
+        for q in out.questions.values_mut() {
+            match q {
+                Question::Noul { instructions } => *instructions = r.redact(instructions),
+                Question::Choice {
+                    instructions,
+                    criteria,
+                } => {
+                    *instructions = r.redact(instructions);
+                    criteria.values_mut().for_each(|c| *c = r.redact(c));
+                }
+            }
+        }
+        out
     }
 
     /// Records what an ask was for and what its answer meant (marked when in shadow mode or from the cache).

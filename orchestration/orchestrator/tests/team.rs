@@ -2826,3 +2826,62 @@ async fn a_long_log_loses_only_confidently_unneeded_chunks() {
         .outcome
         .contains("left out 30 of 150 lines"));
 }
+
+/// ADR-127: no secret reaches the judge — every text passes the redactor in the one place all uses ask through.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn secrets_never_reach_the_judge() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    let s2 = seen.clone();
+    tokio::spawn(async move {
+        let (mut sock, _) = l.accept().await.unwrap();
+        let mut buf = Vec::new();
+        let mut tmp = [0u8; 65536];
+        let head_end = loop {
+            let n = sock.read(&mut tmp).await.unwrap();
+            buf.extend_from_slice(&tmp[..n]);
+            if let Some(p) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                break p + 4;
+            }
+        };
+        let head = String::from_utf8_lossy(&buf[..head_end]).to_ascii_lowercase();
+        let len: usize = head
+            .lines()
+            .find_map(|l| l.strip_prefix("content-length:"))
+            .and_then(|v| v.trim().parse().ok())
+            .unwrap_or(0);
+        while buf.len() - head_end < len {
+            let n = sock.read(&mut tmp).await.unwrap();
+            buf.extend_from_slice(&tmp[..n]);
+        }
+        *s2.lock().unwrap() = String::from_utf8_lossy(&buf[head_end..]).to_string();
+        let answer = r#"{"answers":{"check_applies":{"type":"noul","noul":0.2},"claims_checked":{"type":"noul","noul":0.1}}}"#;
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{answer}",
+            answer.len()
+        );
+        sock.write_all(resp.as_bytes()).await.unwrap();
+    });
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Fix the parser", &[], &[]);
+    let t = ticket(&f, &k.to_string());
+    let secret = "s3cr3t-deploy-token-0123456789";
+    f.app.redactor().register("deploy/token", secret);
+    let (mut report, facts) = unchecked_report(&t);
+    report.summary = format!("Deployed with DEPLOY_TOKEN={secret}; all tests pass.");
+    judge_on(&f, base, |j| j.done_check = true);
+    f.app.unverified_done(&t, &report, &facts).await;
+    let body = seen.lock().unwrap().clone();
+    assert!(
+        body.contains("Deployed with"),
+        "the request was made: {body}"
+    );
+    assert!(
+        !body.contains(secret),
+        "the secret reached the judge: {body}"
+    );
+    assert!(body.contains("[REDACTED"), "{body}");
+}
