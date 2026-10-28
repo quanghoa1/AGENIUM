@@ -108,6 +108,8 @@ fn main() {
             api::project_report,
             api::judge_status,
             api::enable_judge,
+            api::judge_add_key,
+            api::judge_remove_key,
             api::judge_config,
             api::judge_activity,
             api::set_ui_language,

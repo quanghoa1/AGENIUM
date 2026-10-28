@@ -97,7 +97,7 @@ What Agenium takes from it:
 - **Shared criteria in the state:** long criteria are written once (`state.criteria.relevance`) and each question only
   says "apply state.criteria.relevance to state.items[i]" — many questions for the price of one criteria text.
   Applicable to review_assist and the trimmer when they grow.
-- **Candidate work tool `find_code`** for coding workers (own Rust implementation, no package): Jev-guided folder →
+- **Done (ADR-128): work tool `find_code`** for coding workers (own Rust implementation, no package): Jev-guided folder →
   file → declaration search returning a file list and verbatim excerpts, for behavioural questions ("where is the
   write scope checked before a merge?"); grep stays the tool for exact symbols. Its value is measured the jevgrep way:
   same tasks solved, lower total cost (the golden tasks and a real team run).

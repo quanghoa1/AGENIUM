@@ -10,11 +10,12 @@
 //! - [`client`]: asking (one reused client, the answer cache, billed usage, shadow mode) and the activity log;
 //! - [`cache`]: answers kept by question and the state it reads;
 //! - the uses: [`skill_hint`], [`memory_gate`], [`skill_quality`] (with contradictions), [`review_assist`],
-//!   [`done_check`], [`trim`].
+//!   [`done_check`], [`trim`], and the work tool [`find_code`].
 
 mod cache;
 mod client;
 pub mod done_check;
+pub mod find_code;
 mod health;
 mod memory_gate;
 mod review_assist;
@@ -24,7 +25,7 @@ mod skill_quality;
 pub mod trim;
 
 pub use client::{JudgeActivity, KeptJudge};
-pub use health::JudgeHealth;
+pub use health::{JudgeHealth, KeyOff};
 pub use review_assist::report_text;
 pub use settings::{JudgeInput, JUDGE_SECRET};
 

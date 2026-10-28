@@ -7,7 +7,8 @@ import { api } from "../lib/api";
 import { isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
 import type { Key } from "../lib/i18n";
-import type { AuditEntry, CommandPolicy, JudgeActivity, JudgeConfig, JudgeForm, JudgeUses, RunRow } from "../lib/types";
+import type { AuditEntry, CommandPolicy, RunRow } from "../lib/types";
+import { JudgeSection } from "./JudgeSettings";
 
 /** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
 export function actionLabel(action: string, t: (k: Key) => string): string {
@@ -225,142 +226,6 @@ export function SettingsView() {
         </Section>
       </div>
     </div>
-  );
-}
-
-/** The optional TypeSafe Jev judge (ADR-75, ADR-81): endpoint, model, the key (kept in the vault) and what it may do;
- *  its state (off, on, turned off after a failure) and a test. */
-function JudgeSection() {
-  const app = useApp();
-  const [c, setC] = useState<JudgeConfig | null>(null);
-  const [form, setForm] = useState<JudgeForm | null>(null);
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [activity, setActivity] = useState<JudgeActivity[]>([]);
-  useEffect(() => {
-    api.judgeActivity().then((a) => setActivity(a ?? [])).catch(() => undefined);
-  }, [app.tick, busy]);
-  const load = () =>
-    api
-      .judgeConfig()
-      .then((j) => {
-        setC(j);
-        setForm({
-          base_url: j.base_url || "https://api.typesafe.ai",
-          model: j.model || "jev-1.14.0",
-          // A first setup starts with the two uses measured to take work off the agents (docs/jev-comparison.md).
-          review_assist: j.review_assist,
-          skill_hint: j.configured ? j.skill_hint : true,
-          memory_gate: j.configured ? j.memory_gate : true,
-          skill_quality: j.skill_quality,
-          done_check: j.done_check,
-          trim_output: j.trim_output,
-          shadow: j.shadow,
-        });
-        setKey("");
-      })
-      .catch(() => undefined);
-  useEffect(() => {
-    load();
-  }, []);
-  if (!c || !form) return null;
-  const run = (p: Promise<unknown>, done: string) => {
-    setBusy(true);
-    p.then(() => (app.notify(done), load(), app.refresh()))
-      .catch((e) => (app.notify(String(e)), load()))
-      .finally(() => setBusy(false));
-  };
-  const save = (test: boolean) =>
-    run(
-      api.setJudge({ ...form, api_key: key.trim() || null }).then(() => (test ? api.enableJudge() : undefined)),
-      app.t(test ? "settings.judgeEnabled" : "settings.judgeSaved"),
-    );
-  const uses: [keyof JudgeUses, Key][] = [
-    ["review_assist", "settings.judgeReview"],
-    ["skill_hint", "settings.judgeSkill"],
-    ["memory_gate", "settings.judgeMemory"],
-    ["skill_quality", "settings.judgeQuality"],
-    ["done_check", "settings.judgeDone"],
-    ["trim_output", "settings.judgeTrim"],
-    ["shadow", "settings.judgeShadow"],
-  ];
-  return (
-    <Section title={app.t("settings.judge")}>
-      <div className="text-[11px] text-subtle">{app.t("settings.judgeNote")}</div>
-      <div className="mt-2 text-xs">
-        {!c.configured ? (
-          <span className="text-muted">{app.t("settings.judgeOff")}</span>
-        ) : c.disabled ? (
-          <span className="text-rose-600 dark:text-rose-400">
-            {app.t("settings.judgeDisabled")}
-            {c.reason ? `: ${c.reason}` : ""}
-          </span>
-        ) : (
-          <span className="text-emerald-600 dark:text-emerald-400">{app.t("settings.judgeOn")}</span>
-        )}
-      </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-3">
-        <label className="block text-xs">
-          <span className="label">{app.t("settings.judgeEndpoint")}</span>
-          <input className="input mt-1" value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-        </label>
-        <label className="block text-xs">
-          <span className="label">{app.t("settings.judgeModel")}</span>
-          <input className="input mt-1" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-        </label>
-        <label className="block text-xs">
-          <span className="label">{app.t("settings.judgeKey")}</span>
-          <input
-            className="input mt-1"
-            type="password"
-            autoComplete="off"
-            value={key}
-            placeholder={c.has_key ? app.t("settings.judgeKeySaved") : ""}
-            onChange={(e) => setKey(e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="mt-3 label">{app.t("settings.judgeUses")}</div>
-      <div className="mt-1 space-y-1">
-        {uses.map(([k, label]) => (
-          <label key={k} className="flex items-center gap-2 text-xs">
-            <input type="checkbox" checked={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.checked })} />
-            <span title={k}>{app.t(label)}</span>
-          </label>
-        ))}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button className="btn-primary" disabled={busy || !form.base_url.trim() || !form.model.trim() || (!c.has_key && !key.trim())} onClick={() => save(true)}>
-          {app.t("settings.judgeSaveTest")}
-        </button>
-        <button className="btn" disabled={busy} onClick={() => save(false)}>
-          {app.t("settings.judgeSave")}
-        </button>
-        {c.configured && (
-          <button className="btn" disabled={busy} onClick={() => run(api.setJudge({ ...form, base_url: "" }), app.t("settings.judgeSaved"))}>
-            {app.t("settings.judgeTurnOff")}
-          </button>
-        )}
-      </div>
-      <div className="mt-4 label">{app.t("settings.judgeActivity")}</div>
-      {activity.length === 0 ? (
-        <div className="mt-1 text-[11px] text-subtle">{app.t("settings.judgeNoActivity")}</div>
-      ) : (
-        <div className="mt-1 max-h-72 space-y-1 overflow-y-auto">
-          {activity.map((x, i) => (
-            <div key={i} className={cn("flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]", x.ok ? "border-line" : "border-rose-500/40 bg-rose-500/5")}>
-              <span className="chip shrink-0 border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300">Jev</span>
-              <Mono className="shrink-0 text-subtle">{x.use}</Mono>
-              {x.ticket && <Mono className="shrink-0 text-cyan-600 dark:text-cyan-400">{x.ticket}</Mono>}
-              <span className={cn("min-w-0 flex-1", !x.ok && "text-rose-600 dark:text-rose-300")}>{x.outcome}</span>
-              <Mono className="shrink-0 text-subtle">
-                {x.ms} ms · {ago(x.at)}
-              </Mono>
-            </div>
-          ))}
-        </div>
-      )}
-    </Section>
   );
 }
 

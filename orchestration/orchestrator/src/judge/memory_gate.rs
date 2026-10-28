@@ -14,14 +14,14 @@ impl App {
         if !self.config().judge.memory_gate {
             return None;
         }
-        let judge = self.judge().ok().flatten()?;
+        self.judge().ok().flatten()?;
         let j = Judging::default().state_text("episode", episode).noul(
             "worth",
             "Does `episode` contain anything worth remembering for future tickets — a durable fact, preference, \
              convention, path/command, or (if it names a signal like a reopen or correction) a lesson — as opposed to \
              only routine work with nothing new?",
         );
-        let reply = self.ask(&judge, &j, "memory_gate", None).await?;
+        let reply = self.ask(&j, "memory_gate", None).await?;
         let p = reply.answers.get("worth").and_then(|a| a.noul)?;
         let (verdict, outcome) = if p >= MET {
             (Some(true), "worth remembering: memory is extracted")

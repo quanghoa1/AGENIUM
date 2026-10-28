@@ -1634,44 +1634,47 @@ fn a_template_sets_the_projects_pre_merge_check() {
     );
 }
 
-/// The judge runs in two modes (ADR-81): off by default and after a disabling failure, so Agenium always works; a
-/// disabled health state gates `judge()` off even when `[judge]` is configured.
+/// The judge runs in two modes (ADR-81): every use is on by default, but without a key the judge is off and Agenium
+/// works as before; with a key it is on, and with every key out of quota it is off again.
 #[test]
-fn the_judge_is_optional_and_a_failure_turns_it_off() {
+fn the_judge_is_optional_and_off_without_a_usable_key() {
     let f = fixture();
-    assert!(f.app.judge().unwrap().is_none(), "off by default");
-    f.app
-        .update_config(|c| {
-            c.judge = agenium_config::JudgeSection {
-                base_url: "https://api.typesafe.ai".into(),
-                model: "jev-latest".into(),
-                api_key_ref: String::new(),
-                review_assist: true,
-                ..Default::default()
-            }
-        })
-        .unwrap();
-    assert!(f.app.judge().unwrap().is_some(), "on when configured");
-    // A disabling failure (key/quota) writes judge-health.json; the gate then returns None.
+    let d = agenium_config::JudgeSection::default();
+    assert!(
+        d.review_assist
+            && d.skill_hint
+            && d.memory_gate
+            && d.skill_quality
+            && d.done_check
+            && d.find_code
+    );
+    assert!(f.app.judge().unwrap().is_none(), "off without a key");
+    f.app.add_judge_key("main", "ts-test-key").unwrap();
+    assert!(f.app.judge().unwrap().is_some(), "on with a key");
+    let mut h = f.app.judge_health();
+    h.keys_off.insert(
+        "main".into(),
+        agenium_orchestrator::judge::KeyOff {
+            quota: true,
+            reason: "TypeSafe quota exhausted".into(),
+            at: String::new(),
+            until: None,
+            failures: 1,
+        },
+    );
     std::fs::write(
         f.app.layout().judge_health(),
-        serde_json::to_string(&agenium_orchestrator::judge::JudgeHealth {
-            disabled: true,
-            reason: Some("TypeSafe key rejected".into()),
-            at: None,
-        })
-        .unwrap(),
+        serde_json::to_string(&h).unwrap(),
     )
     .unwrap();
-    assert!(f.app.judge_health().disabled);
     assert!(
         f.app.judge().unwrap().is_none(),
-        "disabled until re-enabled"
+        "out of quota until re-enabled"
     );
 }
 
 /// The judge is set from the app: its key goes to the vault (never to config.toml), a saved key is kept when the form
-/// leaves the field empty, an https endpoint needs a key, and an empty endpoint turns it off.
+/// leaves the field empty, without a key it stays off, and an empty endpoint turns it off.
 #[test]
 fn the_judge_is_set_from_the_app_with_its_key_in_the_vault() {
     use agenium_orchestrator::judge::{JudgeInput, JUDGE_SECRET};
@@ -1684,9 +1687,10 @@ fn the_judge_is_set_from_the_app_with_its_key_in_the_vault() {
         skill_hint: true,
         ..Default::default()
     };
+    f.app.set_judge(&form(None)).unwrap();
     assert!(
-        f.app.set_judge(&form(None)).is_err(),
-        "an https endpoint needs a key"
+        f.app.judge().unwrap().is_none(),
+        "without a key it stays off"
     );
     let j = f.app.set_judge(&form(Some("ts-test-key"))).unwrap();
     assert_eq!(

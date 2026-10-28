@@ -15,7 +15,7 @@ impl App {
         if !self.config().judge.skill_quality {
             return None;
         }
-        let judge = self.judge().ok().flatten()?;
+        self.judge().ok().flatten()?;
         let qs: [(&str, &str); 4] = [
             ("one job", "Does `skill` describe exactly one job, not several bundled together?"),
             ("actionable steps", "Are the steps in `skill` concrete and actionable rather than vague?"),
@@ -26,7 +26,7 @@ impl App {
         for (id, q) in &qs {
             j = j.noul(id, q);
         }
-        let reply = self.ask(&judge, &j, "skill_quality", None).await?;
+        let reply = self.ask(&j, "skill_quality", None).await?;
         let notes: Vec<String> = qs
             .iter()
             .filter_map(|(id, _)| {
@@ -57,7 +57,7 @@ impl App {
         if !self.config().judge.skill_quality || related.is_empty() {
             return None;
         }
-        let judge = self.judge().ok().flatten()?;
+        self.judge().ok().flatten()?;
         let cap = |s: &str| s.chars().take(6000).collect::<String>();
         let mut j = Judging::default().state_text("new_skill", &cap(text));
         for (i, (_, guidance)) in related.iter().enumerate() {
@@ -70,7 +70,7 @@ impl App {
                 ),
             );
         }
-        let reply = self.ask(&judge, &j, "skill_contradiction", None).await?;
+        let reply = self.ask(&j, "skill_contradiction", None).await?;
         let found: Vec<String> = related
             .iter()
             .enumerate()

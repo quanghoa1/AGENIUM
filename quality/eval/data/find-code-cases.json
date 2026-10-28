@@ -1,0 +1,52 @@
+[
+  {
+    "question": "Where is it checked that a worker only changed files inside the ticket's write scope before its report is accepted?",
+    "file": "orchestrator/src/engine.rs",
+    "line": "fn out_of_scope_changes"
+  },
+  {
+    "question": "How does the vector index sidecar recover when its file is corrupt or the process crashed?",
+    "file": "store/src/ann.rs",
+    "line": "fn load"
+  },
+  {
+    "question": "Where are the judge's answers cached so the same question is not asked twice?",
+    "file": "judge/cache.rs",
+    "line": "fn cached_answers"
+  },
+  {
+    "question": "How is a long tool output cut down before it is shown to the model?",
+    "file": "tools/src/text.rs",
+    "line": "pub fn truncate"
+  },
+  {
+    "question": "Where is a query embedded with the local BERT model on the CPU?",
+    "file": "memory/src/",
+    "line": "fn embed"
+  },
+  {
+    "question": "How are secrets masked before text is written to logs?",
+    "file": "secrets/src/scan.rs",
+    "line": "pub fn redact"
+  },
+  {
+    "question": "How does Agenium find out whether a vendor CLI such as Claude Code or Codex is signed in?",
+    "file": "cli-backend/src/detect.rs",
+    "line": "login"
+  },
+  {
+    "question": "Where does the scheduler pick ready tickets and start work runs for them?",
+    "file": "runtime/scheduling.rs",
+    "line": "fn tick_runs"
+  },
+  {
+    "question": "What happens when the TypeSafe API answers that it is rate limited or busy?",
+    "file": "llm/src/systemone.rs",
+    "line": "fn retryable"
+  },
+  {
+    "question": "Where is it checked that a report answers every acceptance criterion of the ticket?",
+    "file": "engine_support.rs",
+    "line": "fn check_report_covers_acceptance"
+  }
+]

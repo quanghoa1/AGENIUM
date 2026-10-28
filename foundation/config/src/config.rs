@@ -156,7 +156,7 @@ impl Default for RetrySection {
 
 /// TypeSafe System One ("Jev") judge: a cheap, calibrated second opinion (ADR-75). Empty `base_url` = off. Agenium
 /// never uses it as an agent's chat model.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct JudgeSection {
     /// API base (e.g. `https://api.typesafe.ai`); empty disables the judge.
@@ -164,6 +164,11 @@ pub struct JudgeSection {
     pub model: String,
     /// Vault secret name holding the API key (e.g. `judge/typesafe`).
     pub api_key_ref: String,
+    /// The judge's keys, each with a name the user knows it by, used in this order: when one is out of quota or
+    /// rejected, the next one is used and the user is told which one ran out (the legacy `api_key_ref` is the key
+    /// "default").
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keys: Vec<JudgeKey>,
     /// Use it for an independent evidence read before a review run (token-light first opinion).
     pub review_assist: bool,
     /// Before a work run, let it pick the skill that fits the ticket, so the worker loads the right one fast.
@@ -182,14 +187,91 @@ pub struct JudgeSection {
     /// Read a long `shell`/`grep` result in a work run and leave out what is confidently not needed for the ticket,
     /// the full output saved beside it (ADR-127). Fail-open.
     pub trim_output: bool,
+    /// Offer coding workers (and the reviewing Lead) `find_code`: find code by what it does, the judge rating
+    /// folders, files and units (ADR-128). Read-only; without the judge the tool is not offered.
+    pub find_code: bool,
     /// Observe only: every use that is on asks and records what it would do, and changes nothing — to measure a
     /// use's offload on real runs before it is turned on (ADR-127).
     pub shadow: bool,
 }
 
+/// Every use of the judge is on by default (owner, 2026-10-28): the judge runs once a key is given, and whatever it
+/// does is fail-open — without a key, out of quota or failing, Agenium works as before, only without the judge's help.
+impl Default for JudgeSection {
+    fn default() -> Self {
+        Self {
+            base_url: "https://api.typesafe.ai".into(),
+            model: "jev-1.14.0".into(),
+            api_key_ref: String::new(),
+            keys: Vec::new(),
+            review_assist: true,
+            skill_hint: true,
+            memory_gate: true,
+            skill_quality: true,
+            done_check: true,
+            trim_output: true,
+            find_code: true,
+            shadow: false,
+        }
+    }
+}
+
+/// `url` is plain HTTP to this machine (`localhost`, `127.0.0.1` or `[::1]`, any port): a local judge needs no key.
+pub fn local_endpoint(url: &str) -> bool {
+    let Some(rest) = url
+        .get(..7)
+        .filter(|s| s.eq_ignore_ascii_case("http://"))
+        .map(|_| &url[7..])
+    else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.contains('@') {
+        return false;
+    }
+    let host = match authority.strip_prefix('[') {
+        Some(v6) => match v6.split_once(']') {
+            Some((h, port)) if port.is_empty() || port.starts_with(':') => h,
+            _ => return false,
+        },
+        None => authority.split(':').next().unwrap_or_default(),
+    };
+    ["localhost", "127.0.0.1", "::1"]
+        .iter()
+        .any(|l| host.eq_ignore_ascii_case(l))
+}
+
+/// One judge key: the name the user gave it and the vault entry that holds it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JudgeKey {
+    pub name: String,
+    pub secret_ref: String,
+}
+
 impl JudgeSection {
+    /// The name the single key of older configurations goes by.
+    pub const LEGACY_KEY: &'static str = "default";
+
+    /// The keys in the order they are used: the legacy `api_key_ref` (as "default") first, then `keys`.
+    pub fn key_list(&self) -> Vec<JudgeKey> {
+        let mut v = Vec::new();
+        if !self.api_key_ref.trim().is_empty()
+            && !self.keys.iter().any(|k| k.name == Self::LEGACY_KEY)
+        {
+            v.push(JudgeKey {
+                name: Self::LEGACY_KEY.into(),
+                secret_ref: self.api_key_ref.clone(),
+            });
+        }
+        v.extend(self.keys.iter().cloned());
+        v
+    }
+
+    /// The judge can be asked: an endpoint and a model, and a key (a local endpoint needs none).
     pub fn enabled(&self) -> bool {
-        !self.base_url.trim().is_empty() && !self.model.trim().is_empty()
+        !self.base_url.trim().is_empty()
+            && !self.model.trim().is_empty()
+            && (!self.key_list().is_empty() || local_endpoint(self.base_url.trim()))
     }
 }
 

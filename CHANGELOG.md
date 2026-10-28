@@ -61,6 +61,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - The judge can observe only (shadow mode) to measure a use before turning it on; it keeps each ask's billed usage,
   reuses answers it already gave, asks the review's questions together with the done check, and can leave out the
   parts of a long test/build log a ticket does not need (ADR-127).
+- `find_code` for coding agents: ask where something happens and get the files and the functions that do it (ADR-128).
+- Several named Jev keys that take turns; a key out of quota is set aside until you re-enable it (Agenium tells you
+  which), a failing key is retried after 30–60 minutes; every judge use is on by default and Agenium works on without
+  the judge whenever no key is usable (ADR-128).
 
 ### Operations
 - Backups (hourly incremental, daily full, retention), restore into a new root, migrations with a backup first,

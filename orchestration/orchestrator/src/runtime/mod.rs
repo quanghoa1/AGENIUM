@@ -857,6 +857,16 @@ impl Runtime {
                 work = crate::judge::trim::wrap(self.app.clone(), t, work);
             }
         }
+        // ADR-128: find code by what it does, for the worker and the reviewing Lead, while the judge is usable.
+        if matches!(kind, RunKind::Work | RunKind::Review)
+            && self.app.config().judge.find_code
+            && self.app.judge().ok().flatten().is_some()
+        {
+            work.push(crate::judge::find_code::tool(
+                self.app.clone(),
+                ticket.map(|t| t.key.to_string()),
+            ));
+        }
         let mut exclude = exclude.to_vec();
         if kind != RunKind::Plan {
             exclude.push(ProtocolTool::SubmitPlanDraft);

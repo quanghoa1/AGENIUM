@@ -52,6 +52,11 @@ root:
   limit no longer turns the judge off, 5 s deadline, one reused connection, malformed answers ignored; ADR-126), the
   done check and the output trimmer (both off by default), shadow mode, billed usage, an answer cache with the review
   prefetched at submit; the judge is now one file per use (ADR-127). Not yet measured on a real team.
+- **`find_code` and judge keys** (ADR-128): find code by what it does — on this repository the answering file in the
+  top 3 and its code excerpted for 10/10 behavioural questions (real API, ≈ 3.4 s, $0.003 per search); whether it lowers
+  a coding agent's own tokens is measured by `find_code_ab` (needs a model key; not run). Named Jev keys take turns; a
+  key out of quota is set aside until the user re-enables it (told by name); a failing key rests 30–60 minutes; every
+  judge use on by default, fail-open (`tests/judge_keys.rs`).
 - **Large files split, behaviour unchanged:** `runtime/mod.rs` 2 858 → 1 546 lines (+ `ticket_runs`, `lead_runs`,
   `scheduling`), the CLI's `main.rs` 2 768 → 915 (+ `args` and one module per command group).
 

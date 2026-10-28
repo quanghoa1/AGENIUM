@@ -15,7 +15,7 @@ impl App {
         if !self.config().judge.skill_hint || skills.len() < 2 {
             return None;
         }
-        let judge = self.judge().ok().flatten()?;
+        self.judge().ok().flatten()?;
         let mut criteria: std::collections::BTreeMap<String, String> = skills
             .iter()
             .map(|(name, desc)| (name.clone(), desc.chars().take(200).collect()))
@@ -37,7 +37,7 @@ impl App {
             },
         );
         let key = t.key.to_string();
-        let reply = self.ask(&judge, &j, "skill_hint", Some(&key)).await?;
+        let reply = self.ask(&j, "skill_hint", Some(&key)).await?;
         let a = reply.answers.get("skill");
         let pick = a.and_then(|a| a.choice.as_deref()).unwrap_or("none");
         let conf = a.and_then(|a| a.confidence);

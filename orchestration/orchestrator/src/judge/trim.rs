@@ -197,7 +197,7 @@ impl App {
         if !self.config().judge.trim_output {
             return None;
         }
-        let judge = self.judge().ok().flatten()?;
+        self.judge().ok().flatten()?;
         let parts = chunks(text);
         if parts.len() < 4 {
             return None;
@@ -217,7 +217,7 @@ impl App {
                 ),
             );
         }
-        let reply = self.ask(&judge, &j, "trim_output", Some(ticket)).await?;
+        let reply = self.ask(&j, "trim_output", Some(ticket)).await?;
         let asked: Vec<(usize, f64)> = candidates
             .iter()
             .filter_map(|i| {

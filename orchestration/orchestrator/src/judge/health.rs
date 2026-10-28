@@ -1,4 +1,11 @@
-//! When the judge is usable: a rejected key or an exhausted quota turns it off until the user acts; nothing else does.
+//! Which judge keys may be used (the keys take turns, `client`). A key out of quota is set aside and the user is told
+//! which one, by the name they gave it; it stays out until the user adds credit and re-enables it — never retried by
+//! itself. A key that fails otherwise (rejected, or the service still failing after the client's retries) rests and is
+//! tried again by itself: after 30 minutes, then after an hour if it fails again. The request it failed goes on with
+//! another key at once. With no key left the judge is off, and the work goes on without it (fail-open). A bad request is
+//! not the key's fault and sets nothing aside.
+
+use std::collections::BTreeMap;
 
 use agenium_core::DomainEvent;
 use agenium_llm::LlmError;
@@ -7,20 +14,67 @@ use serde::{Deserialize, Serialize};
 use crate::app::App;
 use crate::{OrchError, Result};
 
-/// Whether the judge is usable now and, if not, why (persisted in `<root>/judge-health.json`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct JudgeHealth {
-    /// `true` when a key/quota failure turned the judge off until the user re-enables it.
-    pub disabled: bool,
-    pub reason: Option<String>,
-    pub at: Option<String>,
+/// How long a failing key rests: the first time, and from the second failure in a row on.
+const FIRST_REST: chrono::Duration = chrono::Duration::minutes(30);
+const LATER_REST: chrono::Duration = chrono::Duration::minutes(60);
+
+/// A key set aside, and why.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyOff {
+    /// Out of quota (`true`: out until the user re-enables it) or failing (`false`: rests until `until`).
+    pub quota: bool,
+    pub reason: String,
+    pub at: String,
+    /// A failing key is tried again after this time (RFC 3339).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    /// Failures in a row (the rest grows from 30 minutes to an hour).
+    #[serde(default)]
+    pub failures: u32,
 }
 
-/// A rejected key or an exhausted quota disables the judge (the user must act). A rate limit, a busy service or a bad
-/// request does not: the client retried the busy ones, and the call just goes ahead without the judge. (Before, any
-/// 429 turned the judge off until the user re-enabled it, and so did a 422 whose detail named a state key.)
-pub(super) fn is_credential_or_quota(e: &LlmError) -> bool {
-    matches!(e, LlmError::Config(m) if m.starts_with("TypeSafe key rejected") || m.starts_with("TypeSafe quota exhausted"))
+impl KeyOff {
+    /// The key may be used again now (a failing key whose rest is over).
+    fn over(&self) -> bool {
+        !self.quota
+            && self
+                .until
+                .as_deref()
+                .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
+                .is_none_or(|u| chrono::Utc::now() >= u)
+    }
+}
+
+/// The judge's keys that are set aside (persisted in `<root>/judge-health.json`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct JudgeHealth {
+    /// Every key is out of quota: the judge is off until the user re-enables one.
+    pub disabled: bool,
+    /// Why the last key was set aside.
+    pub reason: Option<String>,
+    pub at: Option<String>,
+    /// Set-aside keys by name.
+    #[serde(default)]
+    pub keys_off: BTreeMap<String, KeyOff>,
+}
+
+/// What a failure means for the key that made it.
+#[derive(Debug, PartialEq)]
+pub(super) enum Stop {
+    /// Out of quota: set aside until the user adds credit and re-enables it.
+    Quota,
+    /// Rejected, or the service still failing after the client's retries: the key rests and is tried again by itself.
+    Failing,
+}
+
+/// What a failure means for its key. A bad request (400/422) is not the key's fault. (Before, any 429 turned the whole
+/// judge off until the user re-enabled it, and so did a 422 whose detail named a state key.)
+pub(super) fn stop_for(e: &LlmError) -> Option<Stop> {
+    match e {
+        LlmError::Config(m) if m.starts_with("TypeSafe quota exhausted") => Some(Stop::Quota),
+        LlmError::Config(m) if m.starts_with("TypeSafe request invalid") => None,
+        _ => Some(Stop::Failing),
+    }
 }
 
 impl App {
@@ -40,24 +94,92 @@ impl App {
         .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))
     }
 
-    /// Turns the judge off after a key/quota failure and tells the user to re-enter the key and re-enable it.
-    pub(super) fn disable_judge(&self, reason: String) -> Result<()> {
-        if self.judge_health().disabled {
+    /// The configured keys that may be used now, in order (a failing key whose rest is over is back).
+    pub(super) fn keys_in_use(&self) -> Vec<String> {
+        let off = self.judge_health().keys_off;
+        self.config()
+            .judge
+            .key_list()
+            .into_iter()
+            .map(|k| k.name)
+            .filter(|n| off.get(n).is_none_or(KeyOff::over))
+            .collect()
+    }
+
+    /// Sets key `name` aside after `e`: out of quota until the user re-enables it (the user is told which key, and when
+    /// no key is left that the judge is off), or failing for a rest of 30 minutes, then an hour.
+    pub(super) fn set_key_aside(&self, name: &str, stop: Stop, e: &LlmError) -> Result<()> {
+        let mut h = self.judge_health();
+        let quota = stop == Stop::Quota;
+        let failures = match h.keys_off.get(name) {
+            Some(o) if o.quota => return Ok(()),
+            Some(o) if !quota => o.failures + 1,
+            _ => 1,
+        };
+        let until = (!quota).then(|| {
+            let rest = if failures > 1 { LATER_REST } else { FIRST_REST };
+            (chrono::Utc::now() + rest).to_rfc3339()
+        });
+        h.keys_off.insert(
+            name.to_owned(),
+            KeyOff {
+                quota,
+                reason: e.to_string(),
+                at: agenium_core::now_iso(),
+                until: until.clone(),
+                failures,
+            },
+        );
+        let keys = self.config().judge.key_list();
+        h.disabled = !keys.is_empty()
+            && keys
+                .iter()
+                .all(|k| h.keys_off.get(&k.name).is_some_and(|o| o.quota));
+        h.reason = Some(format!("key {name:?}: {e}"));
+        h.at = Some(agenium_core::now_iso());
+        self.set_judge_health(&h)?;
+        tracing::warn!(key = name, quota, ?until, "judge key set aside");
+        if !quota {
+            // It comes back by itself; the Settings page shows when.
             return Ok(());
         }
-        self.set_judge_health(&JudgeHealth {
-            disabled: true,
-            reason: Some(reason.clone()),
-            at: Some(agenium_core::now_iso()),
-        })?;
+        let now = if h.disabled {
+            " Every Jev key is now out of quota: the judge is off, and Agenium works without it until you re-enable a \
+             key."
+                .to_owned()
+        } else {
+            let left = self.keys_in_use();
+            if left.is_empty() {
+                " No other key is usable right now: Agenium works without the judge until one is."
+                    .to_owned()
+            } else {
+                format!(" The other keys go on: {}.", left.join(", "))
+            }
+        };
         self.store().commit(None, "system", |w| -> Result<()> {
             w.emit(DomainEvent::NeedsUser {
                 ticket: None,
-                reason: format!("the TypeSafe judge was turned off ({reason}); re-enter its key and re-enable it, or leave it off"),
+                reason: format!(
+                    "Jev key \"{name}\" is out of quota: add credit to it, then re-enable it in Settings → Judge.{now}"
+                ),
             })?;
             Ok(())
         })?;
         Ok(())
+    }
+
+    /// Brings key `name` (or every key) back into use; the judge is on again when a key is.
+    pub(super) fn clear_key_aside(&self, name: Option<&str>) -> Result<()> {
+        let mut h = self.judge_health();
+        match name {
+            Some(n) => {
+                h.keys_off.remove(n);
+            }
+            None => h.keys_off.clear(),
+        }
+        h.disabled = false;
+        h.reason = None;
+        self.set_judge_health(&h)
     }
 }
 
@@ -65,26 +187,43 @@ impl App {
 mod tests {
     use super::*;
 
-    /// Only a rejected key or an exhausted quota turns the judge off; a rate limit, a busy service or a bad request
-    /// (even one whose detail names a state key) does not.
+    /// An exhausted quota sets the key aside for the user; a rejected key or a failing service makes it rest; a bad
+    /// request (even one whose detail names a state key) is not the key's fault.
     #[test]
-    fn only_key_and_quota_failures_disable_the_judge() {
+    fn what_a_failure_means_for_its_key() {
         let cfg = |m: &str| LlmError::Config(m.to_owned());
-        assert!(is_credential_or_quota(&cfg(
-            "TypeSafe key rejected: bad key"
-        )));
-        assert!(is_credential_or_quota(&cfg(
-            "TypeSafe quota exhausted: add credit"
-        )));
-        assert!(!is_credential_or_quota(&cfg(
-            "TypeSafe request invalid: unknown state key `report`"
-        )));
-        assert!(!is_credential_or_quota(&LlmError::Network(
-            "TypeSafe rate limited: slow down".into()
-        )));
-        assert!(!is_credential_or_quota(&LlmError::Network(
-            "TypeSafe busy (HTTP 503): x".into()
-        )));
-        assert!(!is_credential_or_quota(&LlmError::Timeout));
+        assert_eq!(
+            stop_for(&cfg("TypeSafe quota exhausted: add credit")),
+            Some(Stop::Quota)
+        );
+        assert_eq!(
+            stop_for(&cfg("TypeSafe key rejected: bad key")),
+            Some(Stop::Failing)
+        );
+        assert_eq!(
+            stop_for(&LlmError::Network("TypeSafe busy (HTTP 503): x".into())),
+            Some(Stop::Failing)
+        );
+        assert_eq!(stop_for(&LlmError::Timeout), Some(Stop::Failing));
+        assert_eq!(
+            stop_for(&cfg("TypeSafe request invalid: unknown state key `report`")),
+            None
+        );
+    }
+
+    #[test]
+    fn a_failing_key_is_back_after_its_rest_a_key_out_of_quota_is_not() {
+        let past = (chrono::Utc::now() - chrono::Duration::minutes(1)).to_rfc3339();
+        let future = (chrono::Utc::now() + chrono::Duration::minutes(29)).to_rfc3339();
+        let off = |quota: bool, until: Option<String>| KeyOff {
+            quota,
+            reason: String::new(),
+            at: String::new(),
+            until,
+            failures: 1,
+        };
+        assert!(off(false, Some(past)).over());
+        assert!(!off(false, Some(future)).over());
+        assert!(!off(true, None).over());
     }
 }

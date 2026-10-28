@@ -45,8 +45,8 @@ impl App {
         if !self.config().judge.review_assist || t.acceptance.is_empty() {
             return None;
         }
-        let judge = match self.judge() {
-            Ok(Some(j)) => j,
+        match self.judge() {
+            Ok(Some(_)) => {}
             Ok(None) => return None,
             Err(e) => {
                 tracing::warn!(error = %e, "judge not available");
@@ -55,7 +55,7 @@ impl App {
         };
         let j = review_questions(t, report);
         let key = t.key.to_string();
-        let reply = self.ask(&judge, &j, "review_assist", Some(&key)).await?;
+        let reply = self.ask(&j, "review_assist", Some(&key)).await?;
         let mut lines = Vec::new();
         for ac in &t.acceptance {
             if let Some(p) = reply.answers.get(&ac.id).and_then(|a| a.noul) {

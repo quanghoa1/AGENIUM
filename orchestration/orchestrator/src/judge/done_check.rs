@@ -144,7 +144,7 @@ impl App {
         {
             return None;
         }
-        let judge = self.judge().ok().flatten()?;
+        self.judge().ok().flatten()?;
         let key = t.key.to_string();
         let last = facts.changes.last().map(String::as_str).unwrap_or("?");
         // A check after the last change failed: the facts say it all.
@@ -157,6 +157,7 @@ impl App {
                 ms: 0,
                 usage: None,
                 cached: false,
+                key: None,
             };
             self.record(
                 "done_check",
@@ -196,7 +197,7 @@ impl App {
         } else {
             j
         };
-        let reply = self.ask(&judge, &j, "done_check", Some(&key)).await?;
+        let reply = self.ask(&j, "done_check", Some(&key)).await?;
         let p = |id: &str| reply.answers.get(id).and_then(|a| a.noul).unwrap_or(0.0);
         let (applies, claimed) = (p("check_applies"), p("claims_checked"));
         let send_back = applies >= SURE;

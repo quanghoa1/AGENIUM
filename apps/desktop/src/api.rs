@@ -808,7 +808,7 @@ pub fn judge_status(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let h = o.app.judge_health();
     Ok(
-        json!({ "configured": o.app.config().judge.enabled(), "disabled": h.disabled, "reason": h.reason }),
+        json!({ "configured": o.app.config().judge.enabled(), "disabled": h.disabled, "reason": h.reason, "keys_off": h.keys_off }),
     )
 }
 
@@ -817,13 +817,20 @@ pub fn judge_status(d: State<'_, Desktop>) -> R<Value> {
 pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let j = o.app.config().judge;
-    let has_key = !j.api_key_ref.is_empty() && o.app.secret(&j.api_key_ref).map_err(err)?.is_some();
     let h = o.app.judge_health();
+    // The keys in the order they are used, each with whether its value is stored and whether it is set aside (never
+    // the value itself).
+    let mut keys = Vec::new();
+    for k in j.key_list() {
+        let has_value = o.app.secret(&k.secret_ref).map_err(err)?.is_some();
+        keys.push(json!({ "name": k.name, "has_value": has_value, "off": h.keys_off.get(&k.name) }));
+    }
+    let has_key = keys.iter().any(|k| k["has_value"] == true);
     Ok(json!({
         "base_url": j.base_url, "model": j.model, "has_key": has_key,
         "review_assist": j.review_assist, "skill_hint": j.skill_hint, "memory_gate": j.memory_gate,
-        "skill_quality": j.skill_quality, "done_check": j.done_check, "trim_output": j.trim_output, "shadow": j.shadow,
-        "configured": j.enabled(), "disabled": h.disabled, "reason": h.reason,
+        "skill_quality": j.skill_quality, "done_check": j.done_check, "trim_output": j.trim_output, "find_code": j.find_code, "shadow": j.shadow,
+        "configured": j.enabled(), "disabled": h.disabled, "reason": h.reason, "keys": keys,
     }))
 }
 
@@ -852,10 +859,22 @@ pub fn set_judge(d: State<'_, Desktop>, form: agenium_orchestrator::judge::Judge
     d.opened()?.app.set_judge(&form).map(|_| ()).map_err(err)
 }
 
-/// Re-enables the judge and checks it (after the user re-entered the key).
+/// Brings a judge key (or every key) back into use after the user added credit or re-entered it, and checks it.
 #[tauri::command]
-pub async fn enable_judge(d: State<'_, Desktop>) -> R<()> {
-    d.opened()?.app.enable_judge().await.map_err(err)
+pub async fn enable_judge(d: State<'_, Desktop>, name: Option<String>) -> R<()> {
+    d.opened()?.app.enable_judge(name.as_deref()).await.map_err(err)
+}
+
+/// Adds a named judge key (its value goes to the vault), or replaces the value of one.
+#[tauri::command]
+pub fn judge_add_key(d: State<'_, Desktop>, name: String, key: String) -> R<()> {
+    d.opened()?.app.add_judge_key(&name, &key).map_err(err)
+}
+
+/// Removes a judge key and its value.
+#[tauri::command]
+pub fn judge_remove_key(d: State<'_, Desktop>, name: String) -> R<()> {
+    d.opened()?.app.remove_judge_key(&name).map_err(err)
 }
 
 /// Exports an agent (memory, skills and overlays, skill/MCP enablement; no secret values) to a file in `out`.

@@ -568,13 +568,23 @@ export interface JudgeUses {
   skill_quality: boolean;
   done_check: boolean;
   trim_output: boolean;
+  find_code: boolean;
   shadow: boolean;
+}
+
+/** A judge key as the app shows it: its name, whether a value is stored (never the value), and whether it is set aside:
+ *  out of quota (until the user re-enables it) or failing (resting until `until`, then tried again by itself). */
+export interface JudgeKeyState {
+  name: string;
+  has_value: boolean;
+  off?: { quota: boolean; reason: string; at: string; until?: string | null; failures?: number } | null;
 }
 
 export interface JudgeConfig extends JudgeUses {
   base_url: string;
   model: string;
   has_key: boolean;
+  keys: JudgeKeyState[];
   configured: boolean;
   disabled: boolean;
   reason?: string | null;
@@ -588,6 +598,7 @@ export interface JudgeActivity {
   outcome: string;
   ok: boolean;
   ms: number;
+  key?: string | null;
 }
 
 export interface JudgeForm extends JudgeUses {

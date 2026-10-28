@@ -33,6 +33,8 @@ async-trait = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
 dirs = "6"
 futures = "0.3"
+ignore = "0.4"
+regex = "1"
 proptest = "1"
 rusqlite = { version = "0.40", features = ["bundled", "backup", "functions", "hooks"] }
 schemars = { version = "1", features = ["chrono04"] }
