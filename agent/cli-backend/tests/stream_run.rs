@@ -50,10 +50,12 @@ impl CommandGate for Gate {
         if let Some(q) = &self.steer {
             q.lock().unwrap().push("Also add a test.".into());
         }
-        if command == "echo hi" {
-            GateDecision::Allow
-        } else {
-            GateDecision::Deny(format!("not approved: {command}"))
+        match command {
+            "echo hi" => GateDecision::Allow,
+            c if c == slow_command() => GateDecision::Allow,
+            // The user has not answered yet.
+            "echo wait" => std::future::pending().await,
+            _ => GateDecision::Deny(format!("not approved: {command}")),
         }
     }
 }
@@ -116,7 +118,16 @@ async fn run(
     chat: bool,
     program: PathBuf,
 ) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
-    run_steered(scenario, dir, limits, chat, program, None).await
+    run_steered(
+        scenario,
+        dir,
+        limits,
+        chat,
+        program,
+        None,
+        Cancel::default(),
+    )
+    .await
 }
 
 async fn run_steered(
@@ -126,6 +137,7 @@ async fn run_steered(
     chat: bool,
     program: PathBuf,
     steer: Option<agenium_backend::Steer>,
+    cancel: Cancel,
 ) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
     let proto = Arc::new(Proto::default());
     let obs = Arc::new(Obs {
@@ -142,7 +154,11 @@ async fn run_steered(
         program,
         model: "fake".into(),
         effort: None,
-        env: [("FAKE_AGY_SCENARIO".to_owned(), scenario.to_owned())].into(),
+        env: [
+            ("FAKE_AGY_SCENARIO".to_owned(), scenario.to_owned()),
+            ("FAKE_AGY_SLOW".to_owned(), slow_command().to_owned()),
+        ]
+        .into(),
         cwd: dir.to_path_buf(),
         label: "agy:fake".into(),
         protocol: proto.as_ref(),
@@ -154,7 +170,7 @@ async fn run_steered(
         ctx: &ctx,
         gate,
         observer: obs.as_ref(),
-        cancel: Cancel::default(),
+        cancel,
         limits,
         chat,
         nudge: None,
@@ -171,6 +187,15 @@ async fn run_steered(
 
 fn fake() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_agenium-fake-agy"))
+}
+
+/// A command that runs two minutes in the shell Agenium's `shell` uses, without the network (a sandbox has none).
+fn slow_command() -> &'static str {
+    match agenium_sandbox::Shell::detect() {
+        agenium_sandbox::Shell::Bash(_) => "sleep 120",
+        agenium_sandbox::Shell::PowerShell(_) => "Start-Sleep -Seconds 120",
+        agenium_sandbox::Shell::Cmd => "powershell -NoProfile -Command Start-Sleep -Seconds 120",
+    }
 }
 
 /// The worktree sits in its own parent so "outside the worktree" stays inside the test's temp dir.
@@ -311,6 +336,7 @@ async fn the_user_messages_a_running_cli_lead() {
         true,
         fake(),
         Some(q.clone()),
+        Cancel::default(),
     )
     .await;
     assert_eq!(report.outcome, Outcome::Completed, "{log}");
@@ -377,6 +403,53 @@ async fn step_limit_stops_with_a_checkpoint() {
         report.outcome
     );
     assert_eq!(report.steps, 3);
+}
+
+/// The user's stop reaches a CLI run at once: a long command Agenium's shell runs for it (it ran on to its timeout,
+/// up to 10 minutes) and a command waiting for the user's approval (waited for until it was answered).
+#[tokio::test(flavor = "multi_thread")]
+async fn the_users_stop_ends_a_long_command_and_a_wait_for_approval() {
+    for scenario in ["slow", "approval"] {
+        let (_parent, wt) = worktree();
+        let cancel = Cancel::default();
+        let c = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(1500)).await;
+            c.cancel();
+        });
+        let started = std::time::Instant::now();
+        let (report, _, _, log) = run_steered(
+            scenario,
+            &wt,
+            Limits::default(),
+            false,
+            fake(),
+            None,
+            cancel,
+        )
+        .await;
+        assert_eq!(report.outcome, Outcome::Cancelled, "{scenario}: {log}");
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "{scenario}: {:?}",
+            started.elapsed()
+        );
+        // The CLI is stopped as soon as the stop reaches it, often before it logs what it got: the run's record says.
+        if scenario == "slow" {
+            assert!(
+                format!("{:?}", report.messages).contains("stopped: the run was stopped"),
+                "the command was ended, not finished: {log}\n{:?}",
+                report.messages
+            );
+        } else {
+            assert!(
+                format!("{:?}", report.messages)
+                    .contains("the run was stopped before the command was approved"),
+                "the wait for approval was given up: {log}\n{:?}",
+                report.messages
+            );
+        }
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]

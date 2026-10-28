@@ -184,6 +184,33 @@ impl Cancel {
             parent: Some(Arc::new(self.clone())),
         }
     }
+    /// Resolves once this flag (or an ancestor's) is set.
+    pub async fn cancelled(&self) {
+        while !self.is_cancelled() {
+            tokio::time::sleep(CANCEL_POLL).await;
+        }
+    }
+    /// Sets `stop` once this flag is set, until the returned guard is dropped: a command or an approval the run waits
+    /// on ends at the user's stop, not at the run's next step (it took up to a command's timeout, 10 minutes).
+    pub fn forward(&self, stop: &Arc<AtomicBool>) -> Forward {
+        let (me, stop) = (self.clone(), stop.clone());
+        Forward(tokio::spawn(async move {
+            me.cancelled().await;
+            stop.store(true, Ordering::SeqCst);
+        }))
+    }
+}
+
+/// How often something a run waits on looks at the run's cancel flag.
+const CANCEL_POLL: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// Ends a [`Cancel::forward`] when dropped (with the run).
+pub struct Forward(tokio::task::JoinHandle<()>);
+
+impl Drop for Forward {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
 }
 
 /// Messages the user sends to a running Lead or Solo agent (ADR-104): read before each model request.

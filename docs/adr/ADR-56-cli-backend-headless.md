@@ -143,3 +143,33 @@ decision 3c ("Opencode via API or CLI") to API only. The findings below are kept
   `in_app_browser`, `apps`, `plugins`, `remote_plugin`, `plugin_sharing`, `image_generation` (keys verified with
   `codex features list` and a config parse error listing the `web_search` variants).
 - Real runs after the change: `fix-config-key` PASS with claude haiku, codex gpt-6-luna and agy gemini-3.8-flash-low.
+
+## Reviewed again (2026-10-29)
+
+An independent review of the crate, and a task whose command runs 80 seconds (`agenium-eval --task slow-check`, opt-in)
+on every CLI, found these; each is fixed:
+- **Claude Code's hook command did not quote its path.** A per-run home with a space (a profile folder such as `John
+  Smith`) made `sh` exit 127, which Claude Code takes for a hook error that does not block: every tool ran without
+  Agenium's decision. The path is quoted (`hook_command`).
+- **A CLI gave up waiting for a long Agenium tool call.** Claude Code waited less than 80 s: its report said "the run's
+  stdout was lost to the shell timeout", and an earlier run started the check a second time and then asked. Every CLI
+  that can be told is given one hour (`MCP_CALL_TIMEOUT`: a command lasts 10 minutes at most, an approval of one 30):
+  Claude Code's server `timeout`, Codex's and Grok's `tool_timeout_sec` (Codex waited the 80 s anyway; Grok's own
+  default is 6000 s). agy and OpenCode have no such setting and waited for the 80-second command. Claude Code then
+  waited for it and passed.
+- **A dead OpenCode server was waited for until the 45-minute deadline**: the end of its event stream ends the turn
+  with an error now. A CLI process gone while its output stays open (a process it started holds the pipe) is noticed
+  after 15 s.
+- **The run's MCP server stopped accepting after one failed accept** (every later hook refused), and the run loop spun
+  on a closed channel: both fixed.
+- **One stdout line that is not UTF-8 ended the reader**, and the run was told the CLI had exited: lines are read as
+  bytes; lines that are not JSON are kept with the stderr tail, where they explain a failure.
+- **A used-up Claude Code subscription** ("5-hour limit reached", "You've hit your limit") was retried as a failure; a
+  lost login said nothing. See ADR-131.
+- **Two runs handing back a refreshed login at once** wrote the same temporary file, and a login written halfway could
+  reach the user's: each hand-back writes its own file, and a JSON login that does not parse is kept out.
+- **Per-run homes left by a crash**, each with a copy of a login, are removed once a day old.
+
+Known and left: a refresh token used by two runs at once (the later run's refresh fails; its next run starts from the
+refreshed login); the Windows job object is attached right after the CLI starts, so a process it starts in that
+instant escapes it.

@@ -1,0 +1,45 @@
+[
+  {
+    "id": "quota-mid-work-same",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 15,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "solo:review/cli:ToolSearch": 1,
+      "solo:review/close_ticket": 1,
+      "solo:review/grep": 1,
+      "solo:review/read_file": 3,
+      "solo:review/review_ticket": 1,
+      "solo:work/cli:ToolSearch": 1,
+      "solo:work/grep": 3,
+      "solo:work/list_dir": 1,
+      "solo:work/multi_edit": 3,
+      "solo:work/read_file": 3,
+      "solo:work/submit_report": 1
+    },
+    "outcomes": [
+      "work:solo:AGN-1:QuotaExhausted",
+      "work:solo:AGN-1:Completed",
+      "review:solo:AGN-1:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 177765,
+    "tokens_out": 2393,
+    "tokens_cached": 145577,
+    "cost_usd": 0.0,
+    "elapsed_ms": 39080,
+    "discipline": {
+      "handed_over": false,
+      "quota_stopped": true,
+      "taker": "solo",
+      "taker_on": "claude haiku",
+      "user_told": true,
+      "work_left_in_worktree": true
+    }
+  }
+]

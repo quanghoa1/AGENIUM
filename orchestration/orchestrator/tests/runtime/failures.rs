@@ -381,3 +381,113 @@ async fn reviews_stopping_at_a_checkpoint_go_to_the_user() {
     assert_eq!(rt.tick(project).await.unwrap().len(), 1, "another try");
     assert_eq!(p.remaining(), 0);
 }
+
+/// The user's stop ends a command the run waits on at once (it ran on to its timeout, up to 10 minutes, before the stop
+/// was seen at the next step), and the run ends cancelled without another model call.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_users_stop_ends_a_running_command_at_once() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let rt = Arc::new(rt);
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, _) = solo_with_tickets(&app, &["PI-1"]);
+    let slow = match agenium_sandbox::Shell::detect() {
+        agenium_sandbox::Shell::Bash(_) => "sleep 120",
+        agenium_sandbox::Shell::PowerShell(_) => "Start-Sleep -Seconds 120",
+        agenium_sandbox::Shell::Cmd => "powershell -NoProfile -Command Start-Sleep -Seconds 120",
+    };
+    p.push_calls(
+        "",
+        vec![("shell", json!({"command": slow, "timeout_ms": 300000}))],
+    );
+    p.push_calls("", vec![("list_dir", json!({}))]);
+    let stopper = rt.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        stopper.pause_project(project).unwrap();
+    });
+    let started = std::time::Instant::now();
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Cancelled");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(20),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(p.remaining(), 1, "no model call after the stop");
+}
+
+/// Quota used up in the middle of the work: the work so far stays (the worktree, the conversation), giving the agent
+/// another model frees it at once (it stayed set aside until set back to Idle by hand), and the next run goes on from
+/// where it stopped, the new model seeing what the old one did.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn quota_used_up_mid_work_goes_on_with_another_model() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    p.push_calls(
+        "",
+        vec![(
+            "write_file",
+            json!({"path": "part1.txt", "content": "first half"}),
+        )],
+    );
+    p.push_error(agenium_llm::LlmError::Http {
+        status: 429,
+        kind: "insufficient_quota".into(),
+        message: "quota".into(),
+        quota: true,
+        retry_after: None,
+    });
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "QuotaExhausted");
+    assert_eq!(
+        app.agent(agent).unwrap().status,
+        AgentStatus::QuotaExhausted
+    );
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    let wt = std::path::PathBuf::from(
+        app.store()
+            .read(|c| agenium_store::core::workspaces::get(c, t.id))
+            .unwrap()
+            .unwrap()
+            .worktree,
+    );
+    assert!(wt.join("part1.txt").exists(), "the work so far stays");
+
+    let mut other = app.agent(agent).unwrap().model;
+    other.model = "another-model".into();
+    app.set_agent_model(agent, &other).unwrap();
+    assert_eq!(
+        app.agent(agent).unwrap().status,
+        AgentStatus::Idle,
+        "a new model frees the agent"
+    );
+    p.push(Box::new(|req| {
+        let all = serde_json::to_string(&req.messages).unwrap();
+        assert!(
+            all.contains("first half") && all.contains("Your run resumes"),
+            "the new model sees what the old one did"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "write_file",
+                json!({"path": "part2.txt", "content": "second half"}),
+            )],
+        ))
+    }));
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
+    assert!(wt.join("part1.txt").exists() && wt.join("part2.txt").exists());
+}

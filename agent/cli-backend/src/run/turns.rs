@@ -72,17 +72,14 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 }
                 None => {}
             }
+            // The CLI's own subscription used up or its login gone (said by the turn's end or by what the CLI printed
+            // before it exited): the agent is set aside and the user told, as for an API quota.
             let (denied, error) = match end {
                 Ok(d) => d,
-                Err(e) => break failed(e),
+                Err(e) => break turn_error(e),
             };
             if let Some(e) = error {
-                // The CLI's own subscription is used up: the agent is parked and the user told, as for an API quota.
-                break if out_of_quota(&e) {
-                    Outcome::QuotaExhausted { message: e }
-                } else {
-                    failed(e)
-                };
+                break turn_error(e);
             }
             let steered = self.take_steered(st);
             let next = if !denied.is_empty() {
@@ -178,6 +175,10 @@ call submit_report, or ask_question if you are blocked.",
         st: &mut State,
     ) -> Result<(Vec<String>, Option<String>), String> {
         let mut tick = tokio::time::interval(Duration::from_millis(250));
+        // A closed channel answers at once, every time: polled on, the loop would spin.
+        let mut calls_open = true;
+        // When the CLI's process was first seen gone while its output stayed open.
+        let mut gone_since: Option<Instant> = None;
         loop {
             if st.stop.is_some() || st.ended_at.is_some_and(|t| t.elapsed() > END_GRACE) {
                 p.stop().await;
@@ -199,14 +200,14 @@ call submit_report, or ask_question if you are blocked.",
                         }
                     }
                 },
-                c = calls.recv() => match c {
+                c = calls.recv(), if calls_open => match c {
                     Some(Call::Tool(name, args, reply)) => {
                         let _ = reply.send(self.offered_call(&name, args, st).await);
                     }
                     Some(Call::Hook(payload, reply)) => {
                         let _ = reply.send(self.permission(&payload, cx, st).await);
                     }
-                    None => {}
+                    None => calls_open = false,
                 },
                 _ = tick.tick() => {
                     if self.cancel.is_cancelled() && st.stop.is_none() {
@@ -214,6 +215,14 @@ call submit_report, or ask_question if you are blocked.",
                     }
                     if Instant::now() > deadline && st.stop.is_none() {
                         st.stop = Some(Stop::Timeout);
+                    }
+                    // Its last lines get the grace a per-turn process gets to exit; then the turn has no end to wait
+                    // for (it waited for the 45-minute deadline).
+                    if st.stop.is_none() && p.exited() {
+                        let since = *gone_since.get_or_insert_with(Instant::now);
+                        if since.elapsed() > EXIT_GRACE {
+                            return Err(format!("the CLI exited before the turn ended ({})", p.stderr_tail()));
+                        }
                     }
                 }
             }

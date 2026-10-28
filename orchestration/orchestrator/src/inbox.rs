@@ -166,18 +166,28 @@ impl App {
                     .is_none_or(|m| !m.status.assignable())
             };
             let unassigned = t.status == TicketStatus::New && t.assignee.is_none();
-            let stranded =
-                t.status == TicketStatus::Reopened && t.assignee.is_some_and(worker_cannot_work);
+            // A ticket waiting for, or begun by, a worker that cannot work (quota used up, provider or login gone):
+            // it waited until the user brought that worker back, the Lead never told.
+            let stranded = matches!(
+                t.status,
+                TicketStatus::Reopened | TicketStatus::Assigned | TicketStatus::InProgress
+            ) && t.assignee.is_some_and(worker_cannot_work);
             if unassigned || stranded {
+                let who = t
+                    .assignee
+                    .and_then(|a| members.iter().find(|m| m.id == a))
+                    .map(|m| format!("{} ({})", m.name, m.status))
+                    .unwrap_or_else(|| "its worker".into());
                 out.push(InboxItem {
                     kind: InboxKind::Assign,
                     ticket: Some(t.key.clone()),
                     comment: None,
                     created_at: t.updated_at.clone(),
-                    text: if unassigned {
-                        format!("{} ({}) has no worker: assign_ticket to a matching team member", t.key, t.title)
-                    } else {
-                        format!("{} ({}) was reopened but its worker cannot take work: assign it to another member", t.key, t.title)
+                    text: match t.status {
+                        _ if unassigned => format!("{} ({}) has no worker: assign_ticket to a matching team member", t.key, t.title),
+                        TicketStatus::Reopened => format!("{} ({}) was reopened but {who} cannot take work: assign it to another member", t.key, t.title),
+                        TicketStatus::InProgress => format!("{} ({}) was begun by {who}, which cannot work now: assign_ticket to another member to go on (the work so far stays in its worktree), or leave it for when the user brings {who} back", t.key, t.title),
+                        _ => format!("{} ({}) waits for {who}, which cannot work now: assign_ticket to another member, or leave it for when the user brings it back", t.key, t.title),
                     },
                 });
             }

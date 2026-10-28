@@ -23,7 +23,7 @@ use crate::driver::{
     copy_login, file_access, hand_back_login, hook_call_secs, original, own_tool_off, Check,
     CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
-use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV};
+use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
 
 pub struct Grok;
 
@@ -241,7 +241,7 @@ impl Driver for Grok {
             cfg.push('\n');
         }
         cfg.push_str(&format!(
-            "[mcp_servers.{name}]\nurl = {url}\nheaders = {{ Authorization = {auth} }}\n\n",
+            "[mcp_servers.{name}]\nurl = {url}\nheaders = {{ Authorization = {auth} }}\ntool_timeout_sec = {MCP_CALL_TIMEOUT}\n\n",
             name = s.mcp_name,
             url = toml_str(s.mcp_url),
             auth = toml_str(s.mcp_authorization),

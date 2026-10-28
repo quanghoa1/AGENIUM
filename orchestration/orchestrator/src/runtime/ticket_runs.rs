@@ -59,6 +59,17 @@ impl Runtime {
         } else {
             (vec![], None, None)
         };
+        // Who worked on the ticket before this agent (handed over when it ran out of quota or was reassigned): their
+        // conversation is theirs, their changes are in the worktree.
+        let mut before: Vec<String> = Vec::new();
+        for r in self.app.store().read(|c| runs::for_ticket(c, t.id))? {
+            if r.agent != agent.id {
+                let name = self.app.agent(r.agent).map(|a| a.name).unwrap_or_default();
+                if !name.is_empty() && !before.contains(&name) {
+                    before.push(name);
+                }
+            }
+        }
         let solo = team.solo;
         // ADR-87: also recall from the shared pool of generalized lessons (ranked below the agent's own memory).
         let pool = if self.app.config().memory.share {
@@ -202,6 +213,12 @@ impl Runtime {
                 first.push_str(&self.user_decisions(project, &t.key)?);
                 if let Some(n) = &note {
                     first.push_str(&format!("\n## Notes from your previous run\n{n}\n"));
+                }
+                if !before.is_empty() {
+                    first.push_str(&format!(
+                        "\n## Work so far\n{} worked on this ticket before you (the comments above say how far and why they stopped). Their changes are in your worktree: look at them first (`git status`, `git diff`) and go on from them; do not start over.\n",
+                        before.join(", ")
+                    ));
                 }
                 first.push_str(&format!("\nYour worktree is {} on branch agenium/{}. Do the work, then call submit_report.", ctx.root.display(), t.key));
                 if let Some(h) = &skill_hint {

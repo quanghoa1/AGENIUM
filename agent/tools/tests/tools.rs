@@ -351,6 +351,52 @@ async fn a_background_command_is_read_while_it_runs_and_stopped() {
     assert!(started.elapsed() < std::time::Duration::from_secs(5));
 }
 
+/// The run's stop ends a command at once, its process tree with it (it ran on to its timeout, up to 10 minutes), and
+/// gives up an approval the user has not given (the run waited for it).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_stopped_run_ends_its_command_and_its_wait_for_approval() {
+    let (_t, mut c) = setup();
+    let cmd = match c.executor.shell() {
+        agenium_sandbox::Shell::Cmd => "ping -n 120 127.0.0.1 > nul",
+        _ => "sleep 120",
+    };
+    let stop_after = |c: &ToolCtx, ms: u64| {
+        let stop = c.stop.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        });
+    };
+    stop_after(&c, 800);
+    let started = std::time::Instant::now();
+    let out = call(&c, "shell", json!({"command": cmd, "timeout_ms": 300000}))
+        .await
+        .unwrap();
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(10),
+        "{:?}",
+        started.elapsed()
+    );
+    assert!(out.text.starts_with("stopped:"), "{}", out.text);
+
+    struct Waits;
+    #[async_trait::async_trait]
+    impl CommandGate for Waits {
+        async fn check(&self, _: &str, _: &Path) -> GateDecision {
+            std::future::pending().await
+        }
+    }
+    c.gate = Arc::new(Waits);
+    c.stop.store(false, std::sync::atomic::Ordering::SeqCst);
+    stop_after(&c, 500);
+    let started = std::time::Instant::now();
+    let e = call(&c, "shell", json!({"command": "echo hi"}))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, "stopped", "{e}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(3));
+}
+
 #[tokio::test]
 async fn shell_gate_timeout_and_truncation_with_artifact() {
     let (_t, mut c) = setup();

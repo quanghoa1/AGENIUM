@@ -75,6 +75,9 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 |---|---|
 | Two agents, one MCP server, two keys (`--mcp-keys`, ADR-62): the server's system key is a member's, one worker's own key an admin's (pasted bare) | PASS with the workers on DeepSeek over the API (`20261028T180403Z`), on Claude Code Haiku (`20261028T180508Z`) and on Codex gpt-6-luna (`20261028T180553Z`), the Lead on DeepSeek: the server saw each key only from its own agent; `whoami` said admin and member; the admin's delete went through, the member's was refused and reported; no request without a known key; no key in a run log, a ticket, an event or a file |
 | UI (`ui-tests/full.mjs`) | 58/58: Settings describe every command mode at once with what it does on this computer now; choosing one says so at once |
+| A command of 80 s through Agenium's shell on every CLI (`--task slow-check`, opt-in) | codex, grok, agy, opencode PASS; Claude Code FAIL (it stopped waiting for the tool: its report said "the run's stdout was lost to the shell timeout", another run started the check twice and asked) → PASS once given its server `timeout` (failed `20261028T185807Z`, passed `20261028T191401Z`) |
+| Quota used up in the middle of a ticket (`--quota same\|team`, ADR-131) | **same**: a Solo DeepSeek agent stopped by "insufficient_quota" right after changing the three files; the user told; given another model it went on from its conversation and finished, merged and closed — DeepSeek again (`20261028T192148Z`) or Claude Code Haiku (`20261028T192228Z`). **team**: worker-a stopped the same way; the Lead (DeepSeek), told in its inbox, handed the ticket to worker-b, which checked the files worker-a had changed, ran the checks and reported without redoing them — worker-b on DeepSeek (`20261028T192357Z`) or Codex gpt-6-luna (`20261028T192506Z`) |
+| The user's stop during a 120-second command | the command ends within the stop's 100 ms poll, the run ends cancelled in about 3 s with no further model call (API run and CLI run tests) |
 
 Found and fixed:
 - **An own MCP key pasted bare lost the system key's `Bearer `** (the server's entry a plain `Bearer <token>`): it
@@ -82,6 +85,12 @@ Found and fixed:
   with its own scheme replaces the whole value (ADR-62).
 - **Settings showed only the chosen command mode's description**: the other two could be learnt only by switching to
   them. All three are described at once in plain words, with what the mode does on this computer right now.
+- **The stop waited for a running command or approval** (up to 10 or 30 minutes), and a worker out of quota left its
+  tickets stuck (a new model did not free it; the Lead was not told of a begun ticket and could not move it): ADR-131.
+- **The CLI backend reviewed again** (an independent read of the crate, then the slow-command task): Claude Code's
+  unquoted hook path (tools ran without Agenium's decision under a path with a space), CLIs giving up on long tool
+  calls, a dead OpenCode server waited for 45 minutes, a reader ended by one non-UTF-8 line, an MCP server that
+  stopped accepting after one error, login hand-backs that could collide or be written halfway: ADR-56.
 
 ## Runs of 2026-10-28 on the current code
 

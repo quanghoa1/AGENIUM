@@ -57,7 +57,17 @@ impl Server {
             name: name.to_owned(),
         });
         let task = tokio::spawn(async move {
-            while let Ok((stream, _)) = listener.accept().await {
+            loop {
+                // A failed accept (no free handle for a moment) is not the end of the run's server: every later
+                // hook and tool call of the run would be refused.
+                let stream = match listener.accept().await {
+                    Ok((stream, _)) => stream,
+                    Err(e) => {
+                        tracing::warn!(error = %e, "MCP server: accept failed, trying again");
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        continue;
+                    }
+                };
                 let s = shared.clone();
                 tokio::spawn(async move {
                     let _ = connection(stream, &s).await;

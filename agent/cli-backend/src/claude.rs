@@ -25,7 +25,7 @@ use crate::driver::{
     copy_login, file_access, hand_back_login, hook_call_secs, original, own_tool_off, probe_dir,
     Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
-use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV};
+use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
 
 /// Claude Code tools an Agenium run may use (ADR-129): `ToolSearch`, which loads the Agenium MCP tools that do the
 /// work, and its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
@@ -70,6 +70,13 @@ pub fn user_claude_dir() -> Option<PathBuf> {
 /// Forward slashes: the hook command runs in a POSIX shell, also on Windows.
 fn posix(p: &Path) -> String {
     p.display().to_string().replace('\\', "/")
+}
+
+/// The hook's command line, the script's path quoted for that shell. Unquoted, a path with a space (a profile folder
+/// such as `John Smith`) split into two words: `sh` exited 127, which Claude Code takes for a hook error that does not
+/// block, so every tool ran without Agenium's decision.
+fn hook_command(script: &Path) -> String {
+    format!("sh '{}'", posix(script).replace('\'', r"'\''"))
 }
 
 /// Agenium's files in the per-run home, out of reach of the model's file tools (`driver::file_access`).
@@ -228,7 +235,7 @@ impl Driver for Claude {
             s.home.join("settings.json"),
             serde_json::to_vec_pretty(&json!({"hooks": {"PreToolUse": [{
                 "matcher": "*",
-                "hooks": [{"type": "command", "command": format!("sh {}", posix(&script)), "timeout": HOOK_TIMEOUT}],
+                "hooks": [{"type": "command", "command": hook_command(&script), "timeout": HOOK_TIMEOUT}],
             }]}}))?,
         )?;
         std::fs::write(
@@ -237,6 +244,8 @@ impl Driver for Claude {
                 "type": "http",
                 "url": s.mcp_url,
                 "headers": {"Authorization": format!("Bearer ${{{HOOK_TOKEN_ENV}}}")},
+                // Milliseconds: the wait for one tool call (MCP_CALL_TIMEOUT).
+                "timeout": MCP_CALL_TIMEOUT * 1000,
             }}}))?,
         )?;
         let token = s
@@ -738,6 +747,18 @@ mod tests {
             900
         );
         assert!(crate::driver::hook_deadline(&Claude) < std::time::Duration::from_secs(800));
+    }
+
+    #[test]
+    fn the_hook_command_quotes_a_path_with_a_space_or_a_quote() {
+        assert_eq!(
+            hook_command(Path::new("/tmp/John Smith/agenium-hook.sh")),
+            "sh '/tmp/John Smith/agenium-hook.sh'"
+        );
+        assert_eq!(
+            hook_command(Path::new("/tmp/O'Brien/h.sh")),
+            r"sh '/tmp/O'\''Brien/h.sh'"
+        );
     }
 
     #[test]

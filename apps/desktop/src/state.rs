@@ -99,18 +99,26 @@ impl Approver for UiApprover {
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .insert(id, (req.clone(), tx));
+        let _withdraw = Withdraw(&self.approvals, id);
         let _ = self.handle.emit("agenium://approval", &req);
         match tokio::time::timeout(std::time::Duration::from_secs(1800), rx).await {
             Ok(Ok(a)) => a,
-            _ => {
-                self.approvals
-                    .waiting
-                    .lock()
-                    .unwrap_or_else(|p| p.into_inner())
-                    .remove(&id);
-                Approval::Deny("nobody answered in the app within 30 minutes".into())
-            }
+            _ => Approval::Deny("nobody answered in the app within 30 minutes".into()),
         }
+    }
+}
+
+/// Takes a request out of Needs you once its run no longer waits for it: answered, unanswered for 30 minutes, or given
+/// up because the run was stopped (it stayed there, answering it did nothing).
+struct Withdraw<'a>(&'a Approvals, u64);
+
+impl Drop for Withdraw<'_> {
+    fn drop(&mut self) {
+        self.0
+            .waiting
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(&self.1);
     }
 }
 

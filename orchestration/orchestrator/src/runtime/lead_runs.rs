@@ -206,9 +206,7 @@ impl Runtime {
             (Outcome::QuotaExhausted { message }, _) => {
                 format!("The provider reports exhausted quota or credit: {message}")
             }
-            (Outcome::Offline { message }, _) => {
-                format!("The provider could not be reached: {message}")
-            }
+            (Outcome::Offline { message }, _) => format!("The model cannot be used: {message}"),
             (Outcome::Failed { message }, true) => format!("The model call failed: {message}"),
             _ => text,
         };

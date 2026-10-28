@@ -395,7 +395,13 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 note(&self.app, format!("{} stopped: the provider reports exhausted quota or credit ({message}). Change the model or add credit to continue.", agent.name))?;
             }
             Outcome::Offline { message } => {
-                note(&self.app, format!("{} is offline: the provider could not be reached after retries ({message}).", agent.name))?;
+                note(
+                    &self.app,
+                    format!(
+                        "{} is offline: {message}. It takes no work until it is set back to Idle.",
+                        agent.name
+                    ),
+                )?;
             }
             Outcome::LoopDetected { .. }
             | Outcome::TooManyErrors { .. }

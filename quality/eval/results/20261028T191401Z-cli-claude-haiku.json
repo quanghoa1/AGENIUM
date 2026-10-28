@@ -1,0 +1,33 @@
+[
+  {
+    "id": "slow-check",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 16,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "list_dir": 3,
+      "read_file": 5,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 236343,
+    "tokens_out": 3139,
+    "tokens_cached": 213335,
+    "cost_usd": 0.0,
+    "elapsed_ms": 121229
+  }
+]

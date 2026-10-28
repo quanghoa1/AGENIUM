@@ -97,6 +97,11 @@ root:
   and a member's on one HTTP server, the workers on the API, Claude Code and Codex: each reached the server with its
   own key and only the admin could delete; no key in any log. An own key pasted bare now keeps `Bearer ` (ADR-62).
   Settings describe the three command modes at once, with what each does on this computer.
+- **The stop and a used-up quota, end to end** (2026-10-29, ADR-131): the stop ends a running command at once; a worker
+  out of quota mid-ticket keeps its work, a new model frees it in one step, and in a team the Lead hands its ticket
+  on: real runs with the work taken over by DeepSeek, Claude Code and Codex all finished it without redoing it. The
+  CLI backend reviewed again and fixed (ADR-56): an unquoted Claude hook path, CLIs giving up on long tool calls,
+  a dead OpenCode server waited for 45 minutes, and more.
 
 | Release item | Status | Evidence |
 |---|---|---|

@@ -13,7 +13,7 @@ mod work;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -169,6 +169,9 @@ pub struct ToolCtx {
     seq: AtomicU32,
     /// Background commands of the run (ADR-129); stopped when the context is dropped at the run's end.
     pub jobs: jobs::Jobs,
+    /// Set when the run is stopped (the user's stop, its ticket cancelled): a command it runs is ended, process tree
+    /// and all, and an approval it waits for is given up.
+    pub stop: Arc<AtomicBool>,
 }
 
 impl ToolCtx {
@@ -199,6 +202,19 @@ impl ToolCtx {
             todo: Mutex::new(vec![]),
             seq: AtomicU32::new(0),
             jobs: Default::default(),
+            stop: Arc::default(),
+        }
+    }
+
+    /// Whether the run has been stopped.
+    pub fn stopped(&self) -> bool {
+        self.stop.load(Ordering::SeqCst)
+    }
+
+    /// Resolves once the run is stopped.
+    pub async fn until_stopped(&self) {
+        while !self.stopped() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     }
 

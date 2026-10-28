@@ -657,6 +657,16 @@ impl App {
                 })?;
                 Ok(())
             })?;
+        self.free_after_model_change(id)
+    }
+
+    /// An agent set aside for its model (quota used up, provider or login gone) goes back to work with a new one, which
+    /// has its own quota and login. The ticket note said "change the model to continue", but the agent stayed set
+    /// aside until it was also set back to Idle by hand.
+    fn free_after_model_change(&self, id: AgentId) -> Result<()> {
+        if !self.agent(id)?.status.assignable() {
+            self.set_agent_status(id, AgentStatus::Idle)?;
+        }
         Ok(())
     }
 
@@ -688,7 +698,7 @@ impl App {
                 })?;
                 Ok(())
             })?;
-        Ok(())
+        self.free_after_model_change(id)
     }
 
     /// Sets the agent's skill binding: the library skills it enables (its role's and its own skills are always

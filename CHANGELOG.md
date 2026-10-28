@@ -20,6 +20,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - A project's ticket prefix is made from its name (`Demo shop` → `DS-1`) unless you give one, and no two projects
   share one; projects are shown by the name you gave them.
 - The planner drafts plan v1 before the Lead plans (ADR-116).
+- A worker whose quota runs out in the middle of a ticket loses no work: the worktree and the conversation stay, a new
+  model frees the agent at once (one step; it also had to be set back to Idle by hand), and in a team the Lead is told
+  of its tickets and hands them to another member, who goes on from the worktree (ADR-131).
+- The user's stop reaches a running command and a wait for approval at once (it waited for the command's timeout, up
+  to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
 ### Models
 - API providers: Anthropic, Gemini, OpenAI-compatible and OpenAI Responses wires; 30+ vendor presets (OpenAI,
@@ -32,6 +37,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Vendor CLIs run in their YOLO mode and work only through Agenium's own tools (files, apply_patch, shell, background
   commands): nothing asks the user and every change keeps the ticket's write scope (ADR-116, ADR-117, ADR-129).
 - A machine without a working sandbox can run agents without one by the user's choice (Settings; Codex included).
+- Vendor CLIs held to account again (ADR-56): Claude Code's hook path is quoted (a path with a space let its tools run
+  without Agenium's decision); each CLI waits up to an hour for one of Agenium's tools (Claude Code gave up on an
+  80-second command and the model ran it again); a dead OpenCode server or a CLI gone with its output open ends the
+  turn instead of waiting 45 minutes; a used-up subscription is recognised by the CLI's own words and a lost login
+  says to log in again; a refreshed login is handed back whole, one run at a time.
 - A tool call a model gets slightly wrong costs no step where its meaning is clear: a worker's report or question
   without its ticket is about its run's ticket, a report's criteria under other names (`ac_results`, `id`) are read
   as `acceptance` and `ac_id`, and a review's verdict sent as `action` as `decision`; a CLI is told only the tools

@@ -47,6 +47,11 @@ pub(crate) const HOOK_TOKEN_ENV: &str = "AGENIUM_HOOK_TOKEN";
 /// Seconds Claude Code and agy wait for Agenium's permission hook ([`Driver::hook_timeout`]).
 pub(crate) const HOOK_TIMEOUT: u64 = 900;
 
+/// Seconds a CLI waits for one of Agenium's tools over MCP: longer than any of them takes (a command 10 minutes at
+/// most, the user's approval of one 30 minutes). A CLI's own default is shorter (Claude Code gave up on an 80-second
+/// command, told the model it failed and the model ran it again, ADR-56).
+pub(crate) const MCP_CALL_TIMEOUT: u64 = 3600;
+
 /// The hook script's own deadline for its call to Agenium: 100 s before the CLI's. A CLI that kills a slow hook goes
 /// on with the tool (Claude Code and Grok fail open on a hook timeout), so the hook must end first, with a deny.
 pub(crate) fn hook_call_secs(timeout: u64) -> u64 {
@@ -306,9 +311,21 @@ pub fn hand_back_login(user_file: &Path, home_file: &Path) -> std::io::Result<()
         );
         return Ok(());
     }
-    let tmp = original(user_file).with_extension("agenium-tmp");
-    std::fs::write(&tmp, &now)?;
-    std::fs::rename(&tmp, user_file)
+    // A login the CLI was stopped while writing would log the user's own CLI out.
+    let json = |b: &[u8]| serde_json::from_slice::<Value>(b).is_ok();
+    if json(&before) && !json(&now) {
+        tracing::warn!(
+            file = %user_file.display(),
+            "the refreshed login is not whole; keeping the user's"
+        );
+        return Ok(());
+    }
+    // A temporary file of its own, renamed over the user's at once: two runs ending together wrote the same one.
+    use std::io::Write;
+    let mut tmp =
+        tempfile::NamedTempFile::new_in(user_file.parent().unwrap_or_else(|| Path::new(".")))?;
+    tmp.write_all(&now)?;
+    tmp.persist(user_file).map(|_| ()).map_err(|e| e.error)
 }
 
 /// Lexically normalised absolute path (no `.`/`..`), relative paths taken from `base`.
@@ -393,5 +410,20 @@ mod tests {
         std::fs::write(&h, "newer").unwrap();
         hand_back_login(&u, &h).unwrap();
         assert_eq!(std::fs::read_to_string(&u).unwrap(), "other");
+        // A JSON login written halfway (the CLI stopped while writing it) is not handed back.
+        std::fs::write(&u, r#"{"token": "a"}"#).unwrap();
+        copy_login(&u, &h).unwrap();
+        std::fs::write(&h, r#"{"token": "#).unwrap();
+        hand_back_login(&u, &h).unwrap();
+        assert_eq!(std::fs::read_to_string(&u).unwrap(), r#"{"token": "a"}"#);
+        std::fs::write(&h, r#"{"token": "b"}"#).unwrap();
+        hand_back_login(&u, &h).unwrap();
+        assert_eq!(std::fs::read_to_string(&u).unwrap(), r#"{"token": "b"}"#);
+        let left: Vec<_> = std::fs::read_dir(user.path())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        assert_eq!(left.len(), 1, "no temporary file left: {left:?}");
     }
 }

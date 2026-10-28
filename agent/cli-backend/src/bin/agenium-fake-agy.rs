@@ -1,8 +1,9 @@
 //! Scripted stand-in for `agy` in headless stream-json mode, used by agenium-cli-backend's tests (not shipped).
 //! It reads its MCP servers and hooks from `$USERPROFILE/.gemini` exactly where agy does, so the tests prove the
 //! per-run home is used; like agy in YOLO mode it runs every `PreToolUse` hook before a tool and skips the tool when
-//! the hook denies it or fails. `FAKE_AGY_SCENARIO`: `report` (default), `chatty`, `loop`, `steps`.
-//! What it saw goes to `fake-agy.log` in its cwd.
+//! the hook denies it or fails. `FAKE_AGY_SCENARIO`: `report` (default), `chatty`, `loop`, `steps`, `steer`, `slow`
+//! (a long command through Agenium's shell: `FAKE_AGY_SLOW`), `approval` (a command through Agenium's shell that the
+//! test's gate never answers). What it saw goes to `fake-agy.log` in its cwd.
 
 use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
@@ -282,6 +283,19 @@ fn main() {
                 let out = a.call_mcp("shell", json!({"command": "echo hi"}));
                 log(&format!("shell: {}", out.replace('\n', " ")));
                 a.say("Working on it.");
+                a.end();
+            }
+            // The run is stopped while Agenium's shell runs a long command for it.
+            "slow" => {
+                let cmd = std::env::var("FAKE_AGY_SLOW").unwrap_or_else(|_| "sleep 120".into());
+                let out = a.call_mcp("shell", json!({"command": cmd, "timeout_ms": 300000}));
+                log(&format!("slow shell: {}", out.replace('\n', " ")));
+                a.end();
+            }
+            // The run is stopped while a command through Agenium's shell waits for the user's approval.
+            "approval" => {
+                let out = a.call_mcp("shell", json!({"command": "echo wait"}));
+                log(&format!("approval shell: {}", out.replace('\n', " ")));
                 a.end();
             }
             _ => {

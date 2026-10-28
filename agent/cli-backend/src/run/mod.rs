@@ -8,7 +8,7 @@
 //!     without one gets a nudge, then the run stops.
 
 use std::collections::BTreeMap;
-use std::io::{BufRead, Read, Write};
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -45,6 +45,32 @@ const END_GRACE: Duration = Duration::from_secs(30);
 /// A per-turn process gets this long to exit after its turn ended.
 const EXIT_GRACE: Duration = Duration::from_secs(15);
 const STDERR_TAIL: usize = 16 * 1024;
+/// The per-run homes in the temp folder.
+const HOME_PREFIX: &str = "agenium-cli-home-";
+/// A per-run home this old belongs to no run (a run lasts 45 minutes at most): one Agenium did not remove because it
+/// stopped with the run (a crash, a killed process).
+const HOME_STALE: Duration = Duration::from_secs(24 * 3600);
+
+/// Removes the per-run homes left behind: each holds a copy of a CLI login (OAuth refresh tokens) in clear.
+fn sweep_old_homes(temp: &std::path::Path) {
+    let Ok(rd) = std::fs::read_dir(temp) else {
+        return;
+    };
+    for e in rd.flatten() {
+        let age = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok());
+        if age.is_some_and(|a| stale_home(&e.file_name().to_string_lossy(), a)) {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
+fn stale_home(name: &str, age: Duration) -> bool {
+    name.starts_with(HOME_PREFIX) && age > HOME_STALE
+}
 /// The deny a hook gets when no decision came in time.
 const LATE: &str =
     "no decision came in time (the approval was not given); ask again if the step is still needed";
@@ -192,7 +218,8 @@ fn labelled(args: &Value, label: Option<&str>) -> Value {
 const RECORDED_RESULT_CHARS: usize = 4000;
 
 /// Whether a CLI's turn ended because its own subscription or free allowance is used up (OpenCode: "Free usage limit
-/// reached"; Codex and Claude Code name the quota or the usage limit), rather than on an error a retry could pass.
+/// reached"; Codex and Claude Code name the quota, the usage limit or the window that ran out: "5-hour limit
+/// reached", "You've hit your limit"), rather than on an error a retry could pass (a rate limit is one).
 fn out_of_quota(error: &str) -> bool {
     let e = error.to_ascii_lowercase();
     [
@@ -202,9 +229,50 @@ fn out_of_quota(error: &str) -> bool {
         "insufficient credit",
         "credit balance",
         "billing",
+        "hour limit",
+        "weekly limit",
+        "hit your limit",
     ]
     .iter()
     .any(|k| e.contains(k))
+}
+
+/// Whether a CLI's turn ended because its login is gone (expired, revoked, never made): no retry passes either.
+fn logged_out(error: &str) -> bool {
+    let e = error.to_ascii_lowercase();
+    [
+        "not logged in",
+        "please log in",
+        "please run /login",
+        "login required",
+        "log in again",
+        "invalid_grant",
+        "authentication_error",
+        "invalid api key",
+        "oauth token has expired",
+        "token has expired",
+        "unauthorized",
+        "401",
+    ]
+    .iter()
+    .any(|k| e.contains(k))
+}
+
+/// The outcome of a turn that ended on an error: a used-up subscription waits for the user (the agent is set aside and
+/// they are told); a lost login is a failure that says to log in again (it said nothing). Not set aside: a run that
+/// started with a login another run has refreshed since (single-use refresh tokens) fails the same way, and the next
+/// run, starting from the refreshed login, goes on; a login that is really gone stops the runs after two and asks
+/// the user.
+fn turn_error(e: String) -> Outcome {
+    if out_of_quota(&e) {
+        Outcome::QuotaExhausted { message: e }
+    } else if logged_out(&e) {
+        failed(format!(
+            "the CLI's login has expired or was revoked: log in to it again ({e})"
+        ))
+    } else {
+        failed(e)
+    }
 }
 
 fn failed(e: impl std::fmt::Display) -> Outcome {
@@ -219,6 +287,9 @@ impl CliRun<'_> {
     }
 
     pub async fn run(&self, order: &WorkOrder) -> RunReport {
+        // A command Agenium's tools run for the CLI ends at the stop, not when it is done (the stop is otherwise seen
+        // between the CLI's events, which wait for the command).
+        let _stop = self.cancel.forward(&self.ctx.stop);
         let mut st = State {
             tag: ulid::Ulid::new().to_string()[20..].to_lowercase(),
             ..State::default()
@@ -272,8 +343,9 @@ impl CliRun<'_> {
         let server = Server::start(Arc::new(bridge), MCP_SERVER)
             .await
             .map_err(|e| failed(format!("cannot start the Agenium MCP server: {e}")))?;
+        sweep_old_homes(&std::env::temp_dir());
         let mut home = tempfile::Builder::new()
-            .prefix("agenium-cli-home-")
+            .prefix(HOME_PREFIX)
             .tempdir()
             .map_err(|e| failed(format!("cannot create the CLI home: {e}")))?;
         // Diagnostics: `AGENIUM_KEEP_CLI_HOME=1` keeps the per-run home (the CLI's own logs) after the run.
@@ -325,6 +397,52 @@ mod tests {
             assert!(out_of_quota(e), "{e}");
         }
         assert!(!out_of_quota("codex turn failed: stream disconnected"));
+        // The windows of a subscription, not a rate limit a retry passes.
+        assert!(out_of_quota("claude: 5-hour limit reached ∙ resets 3pm"));
+        assert!(out_of_quota(
+            "You've hit your limit · resets 11pm (Asia/Saigon)"
+        ));
+        assert!(!out_of_quota(
+            "Rate limit reached for requests, retry after 2s"
+        ));
+    }
+
+    #[test]
+    fn only_a_day_old_per_run_home_is_swept() {
+        let day = Duration::from_secs(24 * 3600);
+        assert!(stale_home(
+            "agenium-cli-home-Ab12",
+            day + Duration::from_secs(1)
+        ));
+        assert!(!stale_home(
+            "agenium-cli-home-Ab12",
+            Duration::from_secs(45 * 60)
+        ));
+        assert!(!stale_home("someone-elses-dir", day * 2));
+    }
+
+    #[test]
+    fn a_lost_login_says_to_log_in_again() {
+        for e in [
+            "the CLI exited before the turn ended (Invalid API key · Please run /login)",
+            "codex turn failed: 401 Unauthorized: token has expired",
+            "agy: not logged in",
+        ] {
+            match turn_error(e.into()) {
+                Outcome::Failed { message } => {
+                    assert!(message.contains("log in to it again"), "{message}")
+                }
+                o => panic!("{e}: {o:?}"),
+            }
+        }
+        assert!(matches!(
+            turn_error("You've hit your usage limit".into()),
+            Outcome::QuotaExhausted { .. }
+        ));
+        assert!(matches!(
+            turn_error("the CLI exited before the turn ended (segfault)".into()),
+            Outcome::Failed { .. }
+        ));
     }
 
     #[test]

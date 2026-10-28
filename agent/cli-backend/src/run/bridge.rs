@@ -76,17 +76,23 @@ impl CliRun<'_> {
         let (allow, reason, command) = match check {
             Check::Allow => (true, String::new(), None),
             Check::Deny(r) => (false, r, None),
-            // The approval is waited for until the hook's deadline, not longer (the hook gets a deny then anyway).
-            Check::Command(c) => match tokio::time::timeout(
-                crate::driver::hook_deadline(self.driver),
-                self.gate.check(&c, &self.cwd),
-            )
-            .await
-            {
-                Ok(GateDecision::Allow) => (true, String::new(), Some(c)),
-                Ok(GateDecision::Deny(r)) => (false, r, Some(c)),
-                Err(_) => (false, LATE.to_owned(), Some(c)),
-            },
+            // The approval is waited for until the hook's deadline, not longer (the hook gets a deny then anyway), and
+            // not past the run's stop (the user's stop waited for that deadline, minutes).
+            Check::Command(c) => {
+                match tokio::time::timeout(crate::driver::hook_deadline(self.driver), async {
+                    tokio::select! {
+                        d = self.gate.check(&c, &self.cwd) => Some(d),
+                        _ = self.cancel.cancelled() => None,
+                    }
+                })
+                .await
+                {
+                    Ok(Some(GateDecision::Allow)) => (true, String::new(), Some(c)),
+                    Ok(Some(GateDecision::Deny(r))) => (false, r, Some(c)),
+                    Ok(None) => (false, "the run was stopped".to_owned(), Some(c)),
+                    Err(_) => (false, LATE.to_owned(), Some(c)),
+                }
+            }
         };
         if !allow {
             // Logged under the tool's own name, as refused, with the subagent that made the call if one did; the

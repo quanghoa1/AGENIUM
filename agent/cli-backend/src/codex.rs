@@ -15,8 +15,8 @@ use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::toml_str;
 use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, Turns};
+use crate::driver::{toml_str, MCP_CALL_TIMEOUT};
 
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
 /// plugins, image generation, and (ADR-129) its own shell, image viewer, sleep and tool suggestions: commands and images
@@ -106,7 +106,7 @@ impl Driver for Codex {
         std::fs::write(
             s.home.join("config.toml"),
             format!(
-                "web_search = \"disabled\"\n\n[features]\nmulti_agent = {sub}\n{off}\n[mcp_servers.{name}]\nurl = {url}\nbearer_token_env_var = {env}\n",
+                "web_search = \"disabled\"\n\n[features]\nmulti_agent = {sub}\n{off}\n[mcp_servers.{name}]\nurl = {url}\nbearer_token_env_var = {env}\ntool_timeout_sec = {wait}\n",
                 sub = s.subagents,
                 off = WITHHELD_FEATURES
                     .iter()
@@ -115,6 +115,7 @@ impl Driver for Codex {
                 name = s.mcp_name,
                 url = toml_str(s.mcp_url),
                 env = toml_str(TOKEN_ENV),
+                wait = MCP_CALL_TIMEOUT,
             ),
         )?;
         let token = s

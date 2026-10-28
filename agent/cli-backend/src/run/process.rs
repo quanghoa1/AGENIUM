@@ -25,6 +25,21 @@ pub(crate) fn keep_tail(tail: &Mutex<Vec<u8>>, bytes: &[u8]) {
     t.drain(..excess);
 }
 
+/// One stdout line of the CLI: a JSON event goes to the run loop (`false` once nobody reads them); anything else is
+/// kept with the stderr tail, where a failure is explained from. Read as bytes: a line that is not UTF-8 ended the
+/// reader, and the run was told the CLI had exited while it still ran.
+fn forward(line: &[u8], out: &mpsc::UnboundedSender<Value>, tail: &Mutex<Vec<u8>>) -> bool {
+    match serde_json::from_str::<Value>(String::from_utf8_lossy(line).trim()) {
+        Ok(v) => out.send(v).is_ok(),
+        Err(_) => {
+            if !line.iter().all(u8::is_ascii_whitespace) {
+                keep_tail(tail, line);
+            }
+            true
+        }
+    }
+}
+
 impl Proc {
     pub(super) fn send(&self, text: &str) -> Result<(), String> {
         let mut l = text.to_owned();
@@ -51,6 +66,15 @@ impl Proc {
             .collect();
         last.reverse();
         last.join(" | ")
+    }
+
+    /// Whether the CLI's own process has exited (a host process; a contained one is not asked). Its output can stay
+    /// open after it: a process it started holds the pipe, and the run waited for an end that could not come.
+    pub(super) fn exited(&mut self) -> bool {
+        match &mut self.handle {
+            Handle::Host { child, .. } => matches!(child.try_wait(), Ok(Some(_))),
+            Handle::Contained(_) => false,
+        }
     }
 
     pub(super) async fn stop(&mut self) {
@@ -146,13 +170,16 @@ impl CliRun<'_> {
                         }
                     }
                 });
+                let t = tail.clone();
                 tokio::spawn(async move {
-                    let mut r = BufReader::new(stdout).lines();
-                    while let Ok(Some(line)) = r.next_line().await {
-                        if let Ok(v) = serde_json::from_str::<Value>(line.trim()) {
-                            if out_tx.send(v).is_err() {
-                                break;
-                            }
+                    let mut r = BufReader::new(stdout);
+                    let mut line = Vec::new();
+                    loop {
+                        line.clear();
+                        match r.read_until(b'\n', &mut line).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(_) if !forward(&line, &out_tx, &t) => break,
+                            Ok(_) => {}
                         }
                     }
                 });
@@ -200,13 +227,16 @@ impl CliRun<'_> {
                         }
                     }
                 });
+                let t = tail.clone();
                 std::thread::spawn(move || {
-                    for line in std::io::BufReader::new(stdout).lines() {
-                        let Ok(line) = line else { break };
-                        if let Ok(v) = serde_json::from_str::<Value>(line.trim()) {
-                            if out_tx.send(v).is_err() {
-                                break;
-                            }
+                    let mut r = std::io::BufReader::new(stdout);
+                    let mut line = Vec::new();
+                    loop {
+                        line.clear();
+                        match std::io::BufRead::read_until(&mut r, b'\n', &mut line) {
+                            Ok(0) | Err(_) => break,
+                            Ok(_) if !forward(&line, &out_tx, &t) => break,
+                            Ok(_) => {}
                         }
                     }
                 });

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "slow-check",
+    "passed": false,
+    "closed": false,
+    "detail": "deliverables/check.txt: The system cannot find the file specified. (os error 2)",
+    "runs": 1,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "ask_question": 1,
+      "cli:ToolSearch": 1,
+      "list_dir": 3,
+      "read_file": 3,
+      "shell": 2
+    },
+    "outcomes": [
+      "work:Parked"
+    ],
+    "reopened": 0,
+    "tokens_in": 124021,
+    "tokens_out": 3252,
+    "tokens_cached": 103872,
+    "cost_usd": 0.0,
+    "elapsed_ms": 109528
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "id": "slow-check",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 23,
+    "tool_errors": 2,
+    "error_codes": {
+      "denied": 2
+    },
+    "errors": [
+      "cli:grep: denied: D:\\Work\\tmp\\agenium-cli-home-z0sj8Z is Agenium's own file for this run (its permission hook, configuration or login)",
+      "cli:grep: denied: D:\\Work\\tmp is Agenium's own file for this run (its permission hook, configuration or login)"
+    ],
+    "tools": {
+      "cli:grep": 2,
+      "cli:search_tool": 3,
+      "close_ticket": 1,
+      "glob": 1,
+      "grep": 1,
+      "list_dir": 2,
+      "read_file": 9,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 354344,
+    "tokens_out": 7860,
+    "tokens_cached": 274304,
+    "cost_usd": 0.0,
+    "elapsed_ms": 231687
+  }
+]

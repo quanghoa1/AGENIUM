@@ -21,6 +21,7 @@ use serde_json::{json, Value};
 pub mod learning;
 pub mod mcp_keys;
 pub mod memory_reuse;
+pub mod quota;
 pub mod stats;
 pub mod team;
 
@@ -54,6 +55,9 @@ fn walk_contains(dir: &Path, needle: &str) -> Vec<String> {
     }
     hits
 }
+
+/// Tasks that run only when named with `--task` (slow on purpose).
+pub const OPT_IN: [&str; 1] = ["slow-check"];
 
 pub fn tasks() -> Vec<Task> {
     vec![
@@ -161,6 +165,33 @@ pub fn tasks() -> Vec<Task> {
                 vec![
                     ("read_file", json!({"path": "data/sales.csv"})),
                     ("write_file", json!({"path": "deliverables/total.txt", "content": "500.0\n"})),
+                ]
+            },
+        },
+        // A command longer than a vendor CLI's own wait for an MCP tool (codex: 60 s): the CLI must wait for it
+        // rather than call it failed and start it again (opt-in: it takes 80 s).
+        Task {
+            id: "slow-check",
+            title: "Run the slow check",
+            description: "Run the project's slow check once, in the foreground: `& ./tools/slow_check.ps1` in PowerShell, `sh tools/slow_check.sh` in a POSIX shell. It takes about 80 seconds: give the command a timeout of at least 150 seconds (timeout_ms 150000) and wait for it; do not start it a second time. Then write the number it prints after 'check passed:' to deliverables/check.txt.",
+            acceptance: &["deliverables/check.txt contains the number the check printed", "the check ran once (deliverables/runs.log has one line)"],
+            fixture: &[
+                ("tools/slow_check.ps1", "New-Item -ItemType Directory -Force deliverables | Out-Null\nAdd-Content -Path deliverables/runs.log -Value run\nStart-Sleep -Seconds 80\nWrite-Output 'check passed: 42'\n"),
+                ("tools/slow_check.sh", "mkdir -p deliverables\necho run >> deliverables/runs.log\nsleep 80\necho 'check passed: 42'\n"),
+            ],
+            check: |r| {
+                let n = read(r, "deliverables/check.txt")?;
+                if n.trim() != "42" {
+                    return Err(format!("check.txt is {:?}, expected 42", n.trim()));
+                }
+                let runs = read(r, "deliverables/runs.log")?.lines().count();
+                (runs == 1).then_some(()).ok_or_else(|| format!("the check ran {runs} times"))
+            },
+            solution: || {
+                let cmd = if cfg!(windows) { "& ./tools/slow_check.ps1" } else { "sh tools/slow_check.sh" };
+                vec![
+                    ("shell", json!({"command": cmd, "timeout_ms": 150000})),
+                    ("write_file", json!({"path": "deliverables/check.txt", "content": "42\n"})),
                 ]
             },
         },

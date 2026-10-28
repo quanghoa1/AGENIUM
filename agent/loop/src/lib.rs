@@ -149,6 +149,8 @@ impl Run<'_> {
 
     /// Runs the loop to an outcome.
     pub async fn run(&self, order: &WorkOrder) -> RunReport {
+        // A command or an approval a tool waits on ends at the stop, not at the next step.
+        let _stop = self.cancel.forward(&self.ctx.stop);
         let mut messages = order.messages.clone();
         let start_len = messages.len();
         let mut usage = Usage::default();
@@ -515,7 +517,7 @@ fn call_outcome(e: CallError) -> Outcome {
             message: e.to_string(),
         },
         CallError::Offline { last, .. } => Outcome::Offline {
-            message: last.to_string(),
+            message: format!("the provider could not be reached after retries ({last})"),
         },
         CallError::Fatal(e) => Outcome::Failed {
             message: e.to_string(),

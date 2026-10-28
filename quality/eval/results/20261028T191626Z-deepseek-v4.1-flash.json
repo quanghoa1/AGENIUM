@@ -1,0 +1,53 @@
+[
+  {
+    "id": "quota-mid-work-team",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 4,
+    "steps": 17,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "lead:inbox/assign_ticket": 1,
+      "lead:inbox/get_team": 1,
+      "lead:inbox/list_dir": 1,
+      "lead:inbox/read_file": 3,
+      "lead:review/close_ticket": 1,
+      "lead:review/grep": 1,
+      "lead:review/list_dir": 1,
+      "lead:review/read_file": 3,
+      "lead:review/review_ticket": 1,
+      "worker-a:work/grep": 1,
+      "worker-a:work/list_dir": 1,
+      "worker-a:work/read_file": 3,
+      "worker-b:work/apply_patch": 1,
+      "worker-b:work/grep": 2,
+      "worker-b:work/list_dir": 1,
+      "worker-b:work/read_file": 3,
+      "worker-b:work/shell": 2,
+      "worker-b:work/submit_report": 1
+    },
+    "outcomes": [
+      "work:worker-a:AGN-1:QuotaExhausted",
+      "inbox:lead::Completed",
+      "work:worker-b:AGN-1:Completed",
+      "review:lead:AGN-1:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 112858,
+    "tokens_out": 2483,
+    "tokens_cached": 88576,
+    "cost_usd": 0.0,
+    "elapsed_ms": 54282,
+    "discipline": {
+      "handed_over": true,
+      "quota_stopped": true,
+      "taker": "worker-b",
+      "taker_on": "api",
+      "user_told": true,
+      "work_left_in_worktree": false
+    }
+  }
+]

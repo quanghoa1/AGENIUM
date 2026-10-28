@@ -45,7 +45,12 @@ Long outputs are cut; the full output is saved as an artifact."
                 "workdir must be inside your worktree",
             ));
         }
-        if let GateDecision::Deny(reason) = ctx.gate.check(&a.command, &cwd).await {
+        // An approval the user has not given yet is given up when the run is stopped.
+        let decision = tokio::select! {
+            d = ctx.gate.check(&a.command, &cwd) => d,
+            _ = ctx.until_stopped() => return Err(ToolError::new("stopped", "the run was stopped before the command was approved")),
+        };
+        if let GateDecision::Deny(reason) = decision {
             return Err(ToolError::new("command_denied", format!("{reason}. If you need it, explain why with ask_question or request_permission (kind=command).")));
         }
         let timeout = a
@@ -53,7 +58,7 @@ Long outputs are cut; the full output is saved as an artifact."
             .map(Duration::from_millis)
             .unwrap_or(ctx.limits.shell_timeout)
             .min(ctx.limits.shell_timeout_max);
-        let spec = agenium_sandbox::CommandSpec {
+        let mut spec = agenium_sandbox::CommandSpec {
             command: a.command.clone(),
             cwd,
             timeout,
@@ -70,12 +75,17 @@ Long outputs are cut; the full output is saved as an artifact."
                  \"wait_ms\": 5000}}, end it with shell_stop {{\"job\": {id}}}"
             )));
         }
+        // The run's stop ends the command at once, its whole process tree with it.
+        spec.stop = Some(ctx.stop.clone());
         let out = ctx
             .executor
             .run(&spec, &ctx.policy)
             .await
             .map_err(|e| ToolError::new("exec_failed", e.to_string()))?;
         let mut text = match (out.timed_out, out.exit_code) {
+            (false, None) if ctx.stopped() => {
+                "stopped: the run was stopped while the command ran (process tree killed)\n".into()
+            }
             (true, _) => format!(
                 "timed out after {} ms (process tree killed)\n",
                 timeout.as_millis()

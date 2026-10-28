@@ -5,7 +5,8 @@
 //! With a vendor CLI (CliBackend): `--cli codex --model gpt-6-luna` or `--cli agy --model gemini-3.8-flash-low`
 //! (uses the CLI's own login and quota; codex runs inside the sandbox, agy's commands need approval).
 //! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--mcp-keys` (two agents, one MCP
-//! server, two keys with different roles; ADR-62), `--memory-reuse on|off` (memory
+//! server, two keys with different roles; ADR-62), `--quota same|team` (a quota used up mid-ticket, the work goes on),
+//! `--memory-reuse on|off` (memory
 //! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`;
 //! `--models <dir>` gives the agent the local embedding model from `<dir>`, else memory uses the hashing embedder).
 
@@ -125,6 +126,19 @@ async fn main() -> Result<()> {
             .await?,
         );
     }
+    // `--quota same|team`: a worker's quota runs out in the middle of a ticket, and the work goes on (quota.rs).
+    if let Some(how) = arg(&args, "--quota") {
+        eprintln!("running {}-{how} ...", agenium_eval::quota::ID);
+        results.push(
+            agenium_eval::quota::run(
+                &mode,
+                how == "team",
+                arg(&args, "--worker-cli")
+                    .map(|c| (c, arg(&args, "--worker-model").unwrap_or_default())),
+            )
+            .await?,
+        );
+    }
     // `--learning`: the learning-loop scenario (ADR-91/92) instead of the single-agent tasks.
     if args.iter().any(|a| a == "--learning") {
         eprintln!("running {} ...", agenium_eval::learning::ID);
@@ -172,10 +186,13 @@ async fn main() -> Result<()> {
         .filter(|_| {
             !args
                 .iter()
-                .any(|a| a == "--team" || a == "--learning" || a == "--mcp-keys")
+                .any(|a| a == "--team" || a == "--learning" || a == "--mcp-keys" || a == "--quota")
                 && reuse.is_none()
         })
-        .filter(|t| only.as_deref().is_none_or(|o| o == t.id))
+        .filter(|t| match only.as_deref() {
+            Some(o) => o == t.id,
+            None => !agenium_eval::OPT_IN.contains(&t.id),
+        })
     {
         eprintln!("running {} ...", t.id);
         results.push(run_task(t, &mode).await?);

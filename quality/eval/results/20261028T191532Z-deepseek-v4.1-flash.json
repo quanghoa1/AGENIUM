@@ -1,0 +1,51 @@
+[
+  {
+    "id": "quota-mid-work-same",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 24,
+    "tool_errors": 3,
+    "error_codes": {
+      "read_first": 3
+    },
+    "errors": [
+      "solo/multi_edit: read_first: read src/mathlib.py with read_file before modifying it",
+      "solo/multi_edit: read_first: read src/main.py with read_file before modifying it",
+      "solo/multi_edit: read_first: read src/report.py with read_file before modifying it"
+    ],
+    "tools": {
+      "solo:review/cli:ToolSearch": 1,
+      "solo:review/close_ticket": 1,
+      "solo:review/grep": 1,
+      "solo:review/read_file": 3,
+      "solo:review/review_ticket": 1,
+      "solo:work/cli:ToolSearch": 1,
+      "solo:work/grep": 4,
+      "solo:work/list_dir": 1,
+      "solo:work/multi_edit": 6,
+      "solo:work/read_file": 6,
+      "solo:work/submit_report": 1
+    },
+    "outcomes": [
+      "work:solo:AGN-1:QuotaExhausted",
+      "work:solo:AGN-1:Completed",
+      "review:solo:AGN-1:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 222547,
+    "tokens_out": 3308,
+    "tokens_cached": 188745,
+    "cost_usd": 0.0,
+    "elapsed_ms": 51038,
+    "discipline": {
+      "handed_over": false,
+      "quota_stopped": true,
+      "taker": "solo",
+      "taker_on": "claude haiku",
+      "user_told": true,
+      "work_left_in_worktree": false
+    }
+  }
+]

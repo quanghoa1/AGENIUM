@@ -504,6 +504,72 @@ fn lead_sets_a_member_mcp_key() {
     assert_eq!(f.app.agent_mcp_keys(t.web).unwrap()[0].own, None);
 }
 
+/// A worker that cannot work (its quota used up in the middle of a ticket) leaves its tickets to the Lead: the inbox
+/// names the one it began, and the Lead hands it to another member, who goes on from the worktree (the ticket waited
+/// for the user to bring that worker back; only New or Reopened tickets could be assigned).
+#[test]
+fn the_lead_hands_a_begun_ticket_of_a_set_aside_worker_to_another() {
+    let t = team();
+    planned(&t);
+    let f = &t.f;
+    let k = started(f, t.api, "PI-1", "Api", &[], &[]);
+    let run = f
+        .app
+        .start_run(f.project.id, &k, "mock", "scripted")
+        .unwrap();
+    f.app
+        .set_agent_status(t.api, AgentStatus::QuotaExhausted)
+        .unwrap();
+    let hand = |worker| {
+        f.app.apply(
+            &ctx(f, Actor::Lead(t.lead)),
+            Intent::AssignTicket(AssignTicket {
+                ticket_id: k.clone(),
+                worker,
+                note: None,
+            }),
+        )
+    };
+    let e = hand(t.web).unwrap_err().to_string();
+    assert!(e.contains("still going"), "not while its run goes on: {e}");
+    f.app
+        .finish_run(run.run, "QuotaExhausted", 1, &UsageSummary::default())
+        .unwrap();
+    let inbox = f.app.lead_inbox(f.project.id).unwrap();
+    let item = inbox
+        .iter()
+        .find(|i| i.ticket.as_ref() == Some(&k))
+        .expect("the Lead is told");
+    assert_eq!(item.kind, inbox::InboxKind::Assign);
+    assert!(
+        item.text.contains("api-1 (QuotaExhausted)"),
+        "{}",
+        item.text
+    );
+    hand(t.web).unwrap();
+    let tk = f.app.ticket(f.project.id, &k).unwrap();
+    assert_eq!(
+        (tk.assignee, tk.status),
+        (Some(t.web), TicketStatus::InProgress),
+        "it goes on, not over"
+    );
+    let notes = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::comments::for_ticket(c, tk.id))
+        .unwrap();
+    assert!(notes.iter().any(|c| matches!(&c.body,
+        CommentBody::System { text } if text.contains("Handed from api-1 (QuotaExhausted) to web-1"))));
+    assert!(
+        f.app
+            .lead_inbox(f.project.id)
+            .unwrap()
+            .iter()
+            .all(|i| i.ticket.as_ref() != Some(&k)),
+        "handed, it is no longer the Lead's to move"
+    );
+}
+
 /// ADR-63: a Solo agent's inbox carries what moves the work on (plan items without tickets), so the team loop
 /// takes a Solo project to the end too; its questions still go to the user.
 #[test]

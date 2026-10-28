@@ -444,6 +444,10 @@ pub(crate) fn bridge(
                         }
                     }
                 }
+                // The server stopped (its event stream ended): the run is told, not left waiting 45 minutes for an
+                // end of turn that cannot come.
+                let _ = out.send(json!({"type": "session.execution.failed",
+                    "data": {"error": "the opencode server stopped (its event stream ended)"}}));
             });
         }
         while let Some(line) = input.recv().await {
