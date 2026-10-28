@@ -1,5 +1,8 @@
-//! opencode CLI driver, checked with opencode 2.1.2 on 2026-10-25 (ADR-68). It exists for OpenCode's free models
-//! (`opencode/*-free`), which answer only to OpenCode itself; paid OpenCode models run through the API backend.
+//! opencode CLI driver, checked with opencode 2.1.2 on 2026-10-25 (ADR-68). It runs OpenCode's free models
+//! (`opencode/*-free`), which answer only to OpenCode itself and need no login, and the models of a provider the user
+//! signed in to in their own opencode (`opencode-go/deepseek-v4.1-flash` with an OpenCode Go subscription): that
+//! provider's key is read from the user's `opencode.db` (read-only) and handed to the run through the environment,
+//! never written to the per-run home.
 //!
 //! - Transport: `opencode serve` on the host, driven through its HTTP API by an in-process bridge
 //!   ([`bridge`]): a session in the ticket worktree, one `prompt` per user message, the server's event stream
@@ -36,6 +39,48 @@ const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
 const PASSWORD_ENV: &str = "OPENCODE_SERVER_PASSWORD";
 /// Read by the bridge only (not by opencode): the model of the session.
 const MODEL_ENV: &str = "AGENIUM_OPENCODE_MODEL";
+
+/// The key of the model's provider, from the user's own opencode (empty when the user has none).
+const KEY_ENV: &str = "AGENIUM_OPENCODE_KEY";
+
+/// The API key the user's own opencode holds for `provider` (`opencode auth login`: a row of `credential` in its
+/// database), read-only; `None` when there is none or it is not an API key.
+fn user_login(provider: &str) -> Option<String> {
+    let data = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("USERPROFILE")
+                .or_else(|| std::env::var_os("HOME"))
+                .map(|h| PathBuf::from(h).join(".local").join("share"))
+        })?;
+    login_in(&data, provider)
+}
+
+/// [`user_login`] from the data folder `data` (opencode keeps `opencode/opencode.db` there).
+fn login_in(data: &Path, provider: &str) -> Option<String> {
+    let db = data.join("opencode").join("opencode.db");
+    if !db.is_file() {
+        return None;
+    }
+    let c = rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    let value: String = c
+        .query_row(
+            "SELECT value FROM credential WHERE integration_id = ?1 AND active = 1 \
+             ORDER BY time_updated DESC LIMIT 1",
+            [provider],
+            |r| r.get(0),
+        )
+        .ok()?;
+    let v: Value = serde_json::from_str(&value).ok()?;
+    v["key"]
+        .as_str()
+        .filter(|k| !k.is_empty())
+        .map(str::to_owned)
+}
 
 /// opencode model ids are `provider/model`; a bare id means OpenCode's own provider.
 fn model_ref(model: &str) -> Value {
@@ -98,6 +143,14 @@ impl Driver for Opencode {
         }
         std::fs::create_dir_all(dirs[0].join("opencode"))?;
         // ADR-129: its own shell, file, search and to-do tools are off; the work goes through Agenium's MCP tools.
+        // The provider's key from the user's own opencode, when the model is not a free one: handed over in the
+        // environment, the configuration only names the variable.
+        let (provider, id) = s.model.split_once('/').unwrap_or(("opencode", s.model));
+        let login = if id.ends_with("-free") {
+            None
+        } else {
+            user_login(provider)
+        };
         let mut permission = json!({
             "*": "ask",
             "read": "deny",
@@ -116,19 +169,24 @@ impl Driver for Opencode {
         if !s.subagents {
             permission["task"] = json!("deny");
         }
+        let mut config = json!({
+            "autoupdate": false,
+            "share": "disabled",
+            "permission": permission,
+            "mcp": {s.mcp_name: {
+                "type": "remote",
+                "url": s.mcp_url,
+                "enabled": true,
+                "headers": {"Authorization": format!("Bearer {{env:{TOKEN_ENV}}}")},
+            }},
+        });
+        if login.is_some() {
+            config["provider"] =
+                json!({provider: {"options": {"apiKey": format!("{{env:{KEY_ENV}}}")}}});
+        }
         std::fs::write(
             dirs[0].join("opencode").join("opencode.json"),
-            serde_json::to_vec_pretty(&json!({
-                "autoupdate": false,
-                "share": "disabled",
-                "permission": permission,
-                "mcp": {s.mcp_name: {
-                    "type": "remote",
-                    "url": s.mcp_url,
-                    "enabled": true,
-                    "headers": {"Authorization": format!("Bearer {{env:{TOKEN_ENV}}}")},
-                }},
-            }))?,
+            serde_json::to_vec_pretty(&config)?,
         )?;
         let token = s
             .mcp_authorization
@@ -150,6 +208,7 @@ impl Driver for Opencode {
             (HOOK_URL_ENV, s.hook_url),
             (PASSWORD_ENV, password.as_str()),
             (MODEL_ENV, s.model),
+            (KEY_ENV, login.as_deref().unwrap_or("")),
             ("OPENCODE_DISABLE_AUTOUPDATE", "1"),
             ("OPENCODE_DISABLE_PROJECT_CONFIG", "1"),
             ("OPENCODE_CONFIG_PROJECT_DISABLE", "1"),
@@ -160,6 +219,12 @@ impl Driver for Opencode {
             env.insert(k.to_owned(), v.to_owned());
         }
         Ok(env)
+    }
+
+    /// opencode 2's code mode: `execute` runs a script whose tool calls go through the permission check one by one
+    /// (`tools.agenium.read_file(...)` reaches Agenium over MCP).
+    fn runs_other_tools(&self, tool: &str) -> bool {
+        tool == "execute"
     }
 
     fn user_input(&self, text: &str) -> String {
@@ -561,6 +626,30 @@ mod tests {
             route(&json!({"type": "server.connected", "data": {}}), "ses_1"),
             (false, true)
         );
+    }
+
+    /// A paid model's provider key comes from the user's own opencode login (the active one), read-only; none when
+    /// the user has no login for that provider.
+    #[test]
+    fn the_users_login_for_a_provider_is_found() {
+        let data = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(data.path().join("opencode")).unwrap();
+        let c =
+            rusqlite::Connection::open(data.path().join("opencode").join("opencode.db")).unwrap();
+        c.execute_batch(
+            "CREATE TABLE credential (id TEXT, integration_id TEXT, label TEXT, value TEXT, connector_id TEXT, \
+             method_id TEXT, active INTEGER, time_created INTEGER, time_updated INTEGER);
+             INSERT INTO credential VALUES ('c1', 'opencode-go', 'Go', '{\"type\":\"api\",\"key\":\"sk-old\"}', NULL, NULL, 0, 1, 1);
+             INSERT INTO credential VALUES ('c2', 'opencode-go', 'Go', '{\"type\":\"api\",\"key\":\"sk-go\"}', NULL, NULL, 1, 2, 2);",
+        )
+        .unwrap();
+        drop(c);
+        assert_eq!(
+            login_in(data.path(), "opencode-go").as_deref(),
+            Some("sk-go")
+        );
+        assert_eq!(login_in(data.path(), "anthropic"), None);
+        assert_eq!(login_in(&data.path().join("none"), "opencode-go"), None);
     }
 
     #[test]

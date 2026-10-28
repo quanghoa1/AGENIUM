@@ -30,6 +30,7 @@ mod questions;
 mod reports;
 mod team;
 mod ticket_intents;
+mod write_scope;
 
 /// Who calls, for which project, under which idempotency key and run.
 #[derive(Debug, Clone)]

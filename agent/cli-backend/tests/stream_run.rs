@@ -255,9 +255,14 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
             "cli:write_to_file",
             "cli:write_to_file",
             "cli:run_command",
-            "cli:read_url_content"
+            "cli:read_url_content",
+            "cli:run_command"
         ],
-        "worktree, escape, its shell, web: {tools:?}"
+        "worktree, escape, its shell, web, a step whose hook failed: {tools:?}"
+    );
+    assert!(
+        log.contains("blocked run_command: its hook failed"),
+        "{log}"
     );
     assert!(
         !tools.iter().any(|t| t.0 == "cli:call_mcp_tool"),

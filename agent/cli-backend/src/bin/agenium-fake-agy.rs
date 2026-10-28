@@ -102,6 +102,18 @@ impl Agy {
         Ok(())
     }
 
+    /// A tool step whose hook failed before it reached Agenium (like agy, the tool is blocked and the step still ends).
+    fn hook_failed(&mut self, name: &str, params: Value) {
+        log(&format!("blocked {name}: its hook failed"));
+        for state in ["ACTIVE", "DONE"] {
+            out(
+                json!({"event": "step_update", "step_update": {"step_index": self.step, "state": state,
+                "step_type": "tool", "tool_name": name, "tool_info": {"name": name, "parameters": params}}}),
+            );
+        }
+        self.step += 1;
+    }
+
     /// One tool step; `false` when the hook refused it.
     fn tool(&mut self, name: &str, params: Value) -> bool {
         if let Err(why) = self.pre_tool(name, &params) {
@@ -240,6 +252,8 @@ fn main() {
                     log("ran: echo hi");
                 }
                 a.tool("read_url_content", json!({"Url": "https://example.com"}));
+                // A step whose hook failed: it did not run and must not be logged as if it had.
+                a.hook_failed("run_command", json!({"CommandLine": "echo blocked"}));
                 let w = a.call_mcp("write_file", json!({"path": "a.txt", "content": "hello"}));
                 log(&format!("agenium write_file: {}", w.replace('\n', " ")));
                 let r = a.call_mcp("submit_report", json!({"summary": "done"}));

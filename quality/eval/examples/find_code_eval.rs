@@ -3,7 +3,8 @@
 //! among the first files returned, is its code among the excerpts, how long a search takes, what it costs, and how much
 //! the agent reads.
 //!
-//! Usage: `JEV_KEY=… cargo run -p agenium-eval --example find_code_eval [-- --root <repo>]` (default: this repository).
+//! Usage: `JEV_KEY=… cargo run -p agenium-eval --example find_code_eval [-- --root <repo>] [--only <n>]` (default: this
+//! repository, every question; `FIND_CODE_SHOW=1` prints what each search returned).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -49,9 +50,21 @@ async fn main() -> Result<()> {
     println!("| Question | answering file | rank | its code excerpted | files read by the judge | s | Jev input tokens | output tokens (≈ chars/4) |");
     println!("|---|---|---|---|---|---|---|---|");
     let (mut top3, mut excerpted, mut secs, mut jev, mut out_tokens) = (0, 0, 0.0, 0u64, 0usize);
-    let cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(
+    let mut cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/find-code-cases.json"),
     )?)?;
+    // `--only <n>`: the n-th question alone (1-based), e.g. with FIND_CODE_SHOW=1 to see what it returned.
+    if let Some(n) = args
+        .iter()
+        .position(|a| a == "--only")
+        .and_then(|i| args.get(i + 1)?.parse::<usize>().ok())
+    {
+        cases = cases
+            .into_iter()
+            .skip(n.saturating_sub(1))
+            .take(1)
+            .collect();
+    }
     for Case {
         question: q,
         file,

@@ -125,6 +125,18 @@ fn is_path_key(k: &str) -> bool {
 
 fn path_values(v: &Value) -> Vec<String> {
     match v {
+        // A URI of another scheme names no file (`agenium://schemas/...`, an MCP resource of Agenium's own server).
+        Value::String(s)
+            if !s.starts_with("file://")
+                && s.split_once("://").is_some_and(|(scheme, _)| {
+                    scheme.len() > 1
+                        && scheme
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || "+.-".contains(c))
+                }) =>
+        {
+            vec![]
+        }
         Value::String(s) => vec![s.strip_prefix("file:///").unwrap_or(s).to_owned()],
         Value::Array(a) => a.iter().flat_map(path_values).collect(),
         _ => vec![],
@@ -314,6 +326,15 @@ impl Driver for Agy {
                     "MCP server {} is not available in Agenium runs",
                     args["ServerName"]
                 ))
+            };
+        }
+        // MCP resources (agy reads a server's resources by URI): Agenium's own server only.
+        if lower.contains("resource") {
+            return match args["ServerName"].as_str() {
+                Some(s) if s != cx.mcp_name => {
+                    Check::Deny(format!("MCP server {s} is not available in Agenium runs"))
+                }
+                _ => Check::Allow,
             };
         }
         if COMMAND_TOOLS.iter().any(|p| lower.starts_with(p)) {
@@ -560,6 +581,21 @@ mod tests {
                 Check::Deny(own_tool_off(name))
             );
         }
+        // Agenium's MCP resources are read by URI: not a file, not refused (2026-10-28: refused as a worktree path).
+        assert_eq!(
+            call(
+                "read_resource",
+                json!({"ServerName": "agenium", "Uri": "agenium://schemas/submit_report"})
+            ),
+            Check::Allow
+        );
+        assert!(matches!(
+            call(
+                "read_resource",
+                json!({"ServerName": "figma", "Uri": "figma://x"})
+            ),
+            Check::Deny(_)
+        ));
         // agy's other tools (no file, no command) stay.
         assert_eq!(
             call("task_boundary", json!({"TaskName": "x"})),

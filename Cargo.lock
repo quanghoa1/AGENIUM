@@ -88,6 +88,7 @@ dependencies = [
  "async-trait",
  "futures",
  "reqwest",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",

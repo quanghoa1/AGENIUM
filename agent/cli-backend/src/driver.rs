@@ -236,6 +236,11 @@ pub trait Driver: Send + Sync {
     fn starts_subagent(&self, _tool: &str) -> bool {
         false
     }
+    /// Whether a tool step only runs other tools (opencode's code-mode `execute`): it is not checked itself, the
+    /// tools it calls are (Agenium's over MCP, the CLI's own through its hook), so it is logged as run.
+    fn runs_other_tools(&self, _tool: &str) -> bool {
+        false
+    }
     /// `Control::Hook`: seconds the CLI waits for its permission hook (see [`hook_deadline`]).
     fn hook_timeout(&self) -> u64 {
         HOOK_TIMEOUT

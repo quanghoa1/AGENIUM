@@ -112,7 +112,12 @@ impl CliRun<'_> {
                 &labelled(&shown, label.as_deref()),
                 &Err(ToolError::new("denied", reason.clone())),
             );
-            st.denied.push((name, input));
+            st.denied.push((tool_key(&name), input));
+        } else {
+            let (name, input) = crate::driver::hook_call(payload);
+            if !self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
+                st.allowed.push(tool_key(&name));
+            }
         }
         let answer = self.driver.hook_answer(allow, &reason);
         // Mid-turn steering through the hook, for a CLI whose hook can add context to the model's next step.

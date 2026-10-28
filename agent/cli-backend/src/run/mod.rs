@@ -157,8 +157,21 @@ struct State {
     logged: std::collections::HashSet<String>,
     /// Agenium tool calls a subagent announced in the stream, waiting for their MCP request: (tool, input, label).
     subagent_calls: Vec<(String, Value, String)>,
-    /// The CLI's own tool calls the hook refused, logged then (their end in the stream is not logged again).
+    /// The CLI's own tool calls the hook refused, logged then (their end in the stream is not logged again): the
+    /// [`tool_key`] and the input, as a refused call may never end in the stream and must not be taken for a later
+    /// call of the same tool.
     denied: Vec<(String, Value)>,
+    /// The CLI's own tool calls its hook let through, by [`tool_key`]: a hooked CLI's step that ends without one did
+    /// not run (its hook never reached Agenium, so the CLI blocked it).
+    allowed: Vec<String>,
+}
+
+/// A tool's name as the hook and the stream both spell it (they differ in case and separators).
+fn tool_key(name: &str) -> String {
+    name.chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
 }
 
 /// A tool call's arguments as the run's log shows them: with the subagent that made it, if one did (ADR-129).
@@ -176,6 +189,22 @@ fn labelled(args: &Value, label: Option<&str>) -> Value {
 
 /// How much of a tool result the run's conversation keeps (the memory transcript shows 600 characters of it).
 const RECORDED_RESULT_CHARS: usize = 4000;
+
+/// Whether a CLI's turn ended because its own subscription or free allowance is used up (OpenCode: "Free usage limit
+/// reached"; Codex and Claude Code name the quota or the usage limit), rather than on an error a retry could pass.
+fn out_of_quota(error: &str) -> bool {
+    let e = error.to_ascii_lowercase();
+    [
+        "usage limit",
+        "quota",
+        "out of credits",
+        "insufficient credit",
+        "credit balance",
+        "billing",
+    ]
+    .iter()
+    .any(|k| e.contains(k))
+}
 
 fn failed(e: impl std::fmt::Display) -> Outcome {
     Outcome::Failed {
@@ -284,6 +313,18 @@ impl CliRun<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_used_up_subscription_is_a_quota_not_a_failure() {
+        for e in [
+            "opencode turn failed: Free usage limit reached. Connect a provider or subscribe to OpenCode Go",
+            "codex turn failed: You've hit your usage limit",
+            "insufficient_quota: out of credits",
+        ] {
+            assert!(out_of_quota(e), "{e}");
+        }
+        assert!(!out_of_quota("codex turn failed: stream disconnected"));
+    }
 
     #[test]
     fn every_cli_is_told_to_work_through_agenium_tools() {

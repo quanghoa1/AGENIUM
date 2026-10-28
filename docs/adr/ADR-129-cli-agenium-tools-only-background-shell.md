@@ -96,3 +96,26 @@ each subagent's steps labelled and indented under them, its own tools refused on
 alone; Grok and agy did the work themselves. Codex's own `apply_patch` cannot be withheld by configuration in codex
 0.163 (it belongs to the model family); it runs inside Agenium's sandbox, the write scope is checked at the report, and
 it was not used in these runs.
+
+Found in the full verification after the code review (same day), and fixed:
+
+- **A step whose hook never reached Agenium was logged as if it ran.** Six CLIs in parallel loaded the machine; agy's
+  hook calls then failed before reaching Agenium (agy blocks the tool when its hook fails), and the end of each blocked
+  `run_command` was logged as a successful step (18 in one task, ~1 100 s). A hooked CLI's own step is now logged as
+  run only when Agenium let it through; otherwise it is logged as not run, with the reason.
+- **agy's reads of Agenium's MCP resources** (`agenium://schemas/...`) were refused as worktree paths: a URI of another
+  scheme than `file://` names no file, and MCP resources of Agenium's own server are allowed.
+- **A CLI's used-up subscription** ("Free usage limit reached" from OpenCode's free model, a usage limit from Codex or
+  Claude Code) ended the run as a failure, retried once; it is now a quota, as for an API key: the agent is parked
+  and the user told.
+- The refusal note told a CLI to "use your file tools"; it now names Agenium's tools.
+- **OpenCode with a paid model**: the driver ran only OpenCode's free models (no login in its isolated home), and the
+  free allowance ran out during the verification. A model of a provider the user signed in to in their own opencode
+  (`opencode-go/deepseek-v4.1-flash`, an OpenCode Go subscription) now gets that provider's key from the user's
+  `opencode.db` (read-only), through the environment; free models still get none. opencode 2's code-mode `execute`
+  only runs other tools (each checked: Agenium's over MCP, its own through the permission ask), so it is logged as
+  run. Golden tasks on OpenCode with OpenCode Go: 5/5.
+
+Final verification on the reviewed code: golden tasks 5/5 each on DeepSeek over the API, Claude Code Haiku 5.5, Codex
+gpt-6-luna, Grok 4.7, agy Gemini 3.8 Flash and OpenCode (OpenCode Go DeepSeek v4.1 Flash); team task 4/4 (workers on
+each hooked or contained CLI); workspace tests 498 passed, 0 failed.

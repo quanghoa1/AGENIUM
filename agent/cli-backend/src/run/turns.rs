@@ -76,7 +76,12 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 Err(e) => break failed(e),
             };
             if let Some(e) = error {
-                break failed(e);
+                // The CLI's own subscription is used up: the agent is parked and the user told, as for an API quota.
+                break if out_of_quota(&e) {
+                    Outcome::QuotaExhausted { message: e }
+                } else {
+                    failed(e)
+                };
             }
             let steered = self.take_steered(st);
             let next = if !denied.is_empty() {
@@ -87,8 +92,8 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                     };
                 }
                 let refused = format!(
-                    "Agenium refused: {}. Continue without it (use your file tools), then call submit_report, or \
-ask_question if you are blocked.",
+                    "Agenium refused: {}. Continue without it (with the tools of the MCP server \"{MCP_SERVER}\"), then \
+call submit_report, or ask_question if you are blocked.",
                     denied.join(", ")
                 );
                 self.observer.control("refused", &denied.join(", "));
@@ -330,23 +335,41 @@ ask_question if you are blocked.",
                 if st.logged.remove(&id) {
                     return None;
                 }
+                if self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
+                    return None;
+                }
+                let key = tool_key(&name);
                 // Refused by the hook: logged then, under its name, as refused.
-                if let Some(k) = st
-                    .denied
-                    .iter()
-                    .position(|(n, i)| *n == name && *i == input)
-                {
+                if let Some(k) = st.denied.iter().position(|(n, i)| *n == key && *i == input) {
                     st.denied.remove(k);
                     return None;
                 }
-                if !self.driver.is_agenium_call(&name, &input, MCP_SERVER) {
-                    self.observer.tool(
-                        &format!("cli:{name}"),
-                        &labelled(&input, label.as_deref()),
-                        &Ok(String::new()),
-                    );
+                // A hooked CLI runs a tool of its own only once its hook let it through: a step that ends without
+                // that did not run (the hook failed before it reached Agenium, and the CLI blocked the tool).
+                let ran = self.driver.control() != Control::Hook
+                    || self.driver.runs_other_tools(&name)
+                    || match st.allowed.iter().position(|n| *n == key) {
+                        Some(k) => {
+                            st.allowed.remove(k);
+                            true
+                        }
+                        None => false,
+                    };
+                let shown = labelled(&input, label.as_deref());
+                if ran {
+                    self.observer
+                        .tool(&format!("cli:{name}"), &shown, &Ok(String::new()));
                     // The CLI ran it; its result is not in the stream.
                     self.record_tool(st, &id, &name, &input, None);
+                } else {
+                    self.observer.tool(
+                        &format!("cli:{name}"),
+                        &shown,
+                        &Err(ToolError::new(
+                            "not_run",
+                            "not run: its permission check never reached Agenium, so the CLI blocked it",
+                        )),
+                    );
                 }
                 None
             }
@@ -358,6 +381,7 @@ ask_question if you are blocked.",
             } => {
                 // A refusal whose step never showed in the stream is not kept past its turn.
                 st.denied.clear();
+                st.allowed.clear();
                 st.subagent_calls.clear();
                 st.usage.add(&usage);
                 self.observer.event(&ChatEvent::Usage(st.usage));
