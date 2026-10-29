@@ -45,9 +45,9 @@ khi qua ticket mới thì mới chạy 1 session mới"; "1 tài khoản cli có
   tool results and reasoning, and is not sent the conversation again.
 - Kept sessions hold the CLI's transcripts (what the model read and wrote in the worktree), not the login; they are
   in the agent's folder of the root, like its run logs.
-- Not done: a refresh at the same instant in two runs (within 5 s) can still use one refresh token twice, and the
-  later run fails once (its next run starts from the refreshed login); a closed ticket's kept session stays until the
-  14-day sweep.
+- ~~Not done: a refresh at the same instant in two runs (within 5 s); a closed ticket's kept session until the 14-day
+  sweep.~~ Both done by [ADR-135](ADR-135-quota-back-login-retry-hard-link-reads.md): the refused turn runs again with
+  the refreshed login; the sessions end with the ticket's worktree.
 
 ## Verified (2026-10-29)
 

@@ -10,6 +10,7 @@ impl CliRun<'_> {
         env: &BTreeMap<String, String>,
         home: &std::path::Path,
         calls: &mut mpsc::Receiver<Call>,
+        resync: &(dyn Fn() + Sync),
     ) -> Outcome {
         let cx = CheckCtx {
             worktree: &self.cwd,
@@ -31,6 +32,8 @@ impl CliRun<'_> {
             Ok(p) => p,
             Err(o) => return o,
         };
+        // The input of the turn going on, and whether a login error was already taken again (`relogin.rs`).
+        let (mut last, mut relogged) = (first.clone(), false);
         let deadline = Instant::now() + self.limits.timeout;
         let (mut nudges, mut refusals) = (0, 0);
         let outcome = loop {
@@ -88,9 +91,25 @@ impl CliRun<'_> {
             // before it exited): the agent is set aside and the user told, as for an API quota.
             let (denied, error) = match end {
                 Ok(d) => d,
-                Err(e) => break turn_error(e),
+                Err(e) => (vec![], Some(e)),
             };
             if let Some(e) = error {
+                // A login another run refreshed a moment before: taken in, the turn runs again (once).
+                if logged_out(&e) && !relogged {
+                    relogged = true;
+                    self.observer.control(
+                        "login",
+                        &format!(
+                            "the CLI's login was refused ({e}): the turn runs again with the login another run \
+                             refreshed"
+                        ),
+                    );
+                    p = match self.relogin(&mut p, env, home, st, &last, resync).await {
+                        Ok(p) => p,
+                        Err(o) => break o,
+                    };
+                    continue;
+                }
                 break turn_error(e);
             }
             // Commands that outlasted their call (ADR-133): the turn's end waits for them; their ends are the next
@@ -143,6 +162,7 @@ call submit_report, or ask_question if you are blocked.",
             self.observer.message(&m);
             st.messages.push(m);
             let input = self.driver.user_input(&next);
+            last = input.clone();
             match turns {
                 Turns::Stdin => {
                     if let Err(e) = p.send(&input) {

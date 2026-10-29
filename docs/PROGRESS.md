@@ -106,7 +106,10 @@ root:
   with DeepSeek, Claude Code and Codex as the new model); long commands as jobs the run waits for (an 80-second check
   on all five CLIs); every CLI resumes its own session of a ticket (all five, checked by a code word the second run
   knew without reading it again); logins kept in step across runs on one account; a review of crafted paths with
-  seven fixes; the dead `Check::Command` removed; two files split under the size ratchet.
+  seven fixes; the dead `Check::Command` removed; two files split under the size ratchet. Then (ADR-135): an agent
+  out of quota goes back to work with the same model once the quota should be back; a turn refused for a login another
+  run refreshed runs again; no read through a hard link; a closed ticket's kept CLI sessions end; checked on Windows
+  and the Ubuntu VM.
 
 | Release item | Status | Evidence |
 |---|---|---|

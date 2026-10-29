@@ -200,7 +200,7 @@ running without one)"
         // (ADR-134); a fresh start (one message) resumes nothing.
         let session = match (kind, &protocol.ticket) {
             (RunKind::Work, Some(t)) => {
-                let kept = self.app.layout().agent_dir(&agent.id).join("cli-sessions");
+                let kept = self.app.cli_sessions(agent.id);
                 agenium_cli_backend::run::SessionStore::sweep(&kept);
                 Some(agenium_cli_backend::run::SessionStore {
                     dir: kept.join(t.to_string()),

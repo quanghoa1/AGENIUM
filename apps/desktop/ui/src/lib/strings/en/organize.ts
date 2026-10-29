@@ -84,7 +84,7 @@ export const organize = {
   "projects.needName": "Give the project a name, or a folder / repository to name it after",
   "projects.addTeam": "Add a team",
   "agents.resume": "Resume",
-  "agents.resumeHint": "Back to work once its model can be used again (credit added, CLI fixed or another model given; a new model resumes it by itself): it goes on from where it stopped, its ticket and conversation kept.",
+  "agents.resumeHint": "Back to work once its model can be used again (credit added, CLI fixed or another model given; a new model, or its quota coming back, resumes it by itself): it goes on from where it stopped, its ticket and conversation kept.",
   "agents.keep": "Memory, skills and MCP stay with the agent when the model changes.",
   "agents.makeLead": "Make Lead",
   "agents.export": "Export",

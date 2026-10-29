@@ -42,8 +42,9 @@ worker's tickets on) and decision 3j.
 - The user decides every change of vendor and its cost. A CLI agent whose CLI is gone stops; it is one click to go on
   once fixed, or one model change.
 - A ticket's work is never split between two agents by Agenium; its conversation stays whole.
-- Not done: a vendor's subscription window that resets does not resume the agent by itself (Resume is the user's
-  step).
+- ~~Not done: a vendor's subscription window that resets does not resume the agent by itself.~~ Done by
+  [ADR-135](ADR-135-quota-back-login-retry-hard-link-reads.md): an agent out of quota goes back to work with the same
+  model once the quota should be back.
 
 ## Verified (2026-10-29)
 

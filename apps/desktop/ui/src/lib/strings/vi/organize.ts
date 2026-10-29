@@ -86,7 +86,7 @@ export const organize: Record<keyof typeof en, string> = {
   "projects.needName": "Đặt tên dự án, hoặc nhập thư mục / repo để lấy tên theo",
   "projects.addTeam": "Thêm team",
   "agents.resume": "Tiếp tục",
-  "agents.resumeHint": "Cho agent làm tiếp khi model dùng được trở lại (đã nạp credit, sửa CLI, hoặc đổi model; đổi model thì tự tiếp tục): agent làm tiếp từ chỗ đã dừng, giữ nguyên ticket và hội thoại.",
+  "agents.resumeHint": "Cho agent làm tiếp khi model dùng được trở lại (đã nạp credit, sửa CLI, hoặc đổi model; đổi model hoặc khi quota hồi lại thì agent tự tiếp tục): agent làm tiếp từ chỗ đã dừng, giữ nguyên ticket và hội thoại.",
   "agents.keep": "Memory, skill và MCP vẫn theo agent khi đổi model.",
   "agents.makeLead": "Đặt làm Lead",
   "agents.export": "Xuất",

@@ -198,5 +198,5 @@ Then, the same day (ADR-132 to ADR-134 and the path review below):
     are compared with ASCII case folding only.
 
 Known and left: the Windows job object is attached right after the CLI starts, so a process it starts in that instant
-escapes it; reads follow hard links (a hard link inside the worktree to a file outside can be read, not written);
-macOS has no check of the open handle's path (the write still goes through the path checks).
+escapes it; macOS has no check of the open handle's path (writes and reads still go through the path checks). Reads
+through a hard link are refused since ADR-135.

@@ -2,8 +2,9 @@
 //! worker has changed a file, then "insufficient_quota". The work so far must stay (worktree, conversation) and the user
 //! must be told; then the user gives that same agent another model (the API model again, or a vendor CLI with
 //! `--worker-cli`) and it goes on from its conversation: the agent stays, only its model changes. `same`: a Solo agent;
-//! `team`: a Lead and two workers, where the ticket stays with its worker though the other is free. Graded on the golden
-//! task's own check after the merge.
+//! `team`: a Lead and two workers, where the ticket stays with its worker though the other is free. `back` (ADR-135): a
+//! Solo agent whose quota comes back; nobody changes anything, the scheduler's round half an hour later sets it back to
+//! work and it finishes with the same model. Graded on the golden task's own check after the merge.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -41,6 +42,8 @@ struct RunsOut {
     inner: Arc<dyn Provider>,
     /// Calls left; 0 once the quota is gone.
     left: Mutex<u32>,
+    /// The quota is back (`back`): every call goes through.
+    back: std::sync::atomic::AtomicBool,
 }
 
 /// Whether the conversation holds a change of a file that went through.
@@ -67,7 +70,7 @@ impl Provider for RunsOut {
         req: &ChatRequest,
         emit: &(dyn Fn(ChatEvent) + Send + Sync),
     ) -> Result<ChatResponse, LlmError> {
-        let gone = {
+        let gone = !self.back.load(std::sync::atomic::Ordering::SeqCst) && {
             let mut left = self.left.lock().unwrap_or_else(|p| p.into_inner());
             if *left == 0 || changed_a_file(req) {
                 *left = 0;
@@ -92,9 +95,10 @@ impl Provider for RunsOut {
 
 pub async fn run(
     mode: &Mode,
-    team: bool,
+    how: &str,
     taker_cli: Option<(String, String)>,
 ) -> anyhow::Result<TaskResult> {
+    let (team, back) = (how == "team", how == "back");
     let start = Instant::now();
     let Mode::Model {
         provider,
@@ -246,10 +250,12 @@ pub async fn run(
         Arc::new(DenyApprover)
     };
     crate::price_as_eval(&app, provider.as_ref())?;
-    let limited: Arc<dyn Provider> = Arc::new(RunsOut {
+    let runs_out = Arc::new(RunsOut {
         inner: provider.clone(),
         left: Mutex::new(CALLS_BEFORE_QUOTA),
+        back: Default::default(),
     });
+    let limited: Arc<dyn Provider> = runs_out.clone();
     let rt = Runtime::new(
         app.clone(),
         Arc::new(StaticProviders(vec![
@@ -296,8 +302,22 @@ pub async fn run(
     if app.ticket(project.id, &key)?.assignee != Some(first.id) {
         problems.push(format!("{key} left {} while it was set aside", first.name));
     }
-    // The work goes on: the user gives the agent another model, which frees it at once.
+    // The work goes on: the quota comes back and the scheduler's round half an hour later sets the agent back to work
+    // (`back`), or the user gives the agent another model, which frees it at once.
+    let model_before = app.agent(first.id)?.model;
     match &taker_cli {
+        _ if back => {
+            runs_out
+                .back
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            let later = std::time::SystemTime::now() + std::time::Duration::from_secs(31 * 60);
+            if rt.quota_back_round(later)? != vec![first.id] {
+                problems.push("the agent was not set back to work when its quota was back".into());
+            }
+            if app.agent(first.id)?.model != model_before {
+                problems.push("the agent's model changed".into());
+            }
+        }
         Some((cli, cli_model)) => app.set_agent_backend(
             first.id,
             BackendKind::Cli,
@@ -369,7 +389,7 @@ pub async fn run(
         u
     });
     Ok(TaskResult {
-        id: format!("{ID}-{}", if team { "team" } else { "same" }),
+        id: format!("{ID}-{how}"),
         passed: problems.is_empty(),
         closed: t.status == TicketStatus::Closed,
         detail: if problems.is_empty() {
@@ -407,7 +427,7 @@ pub async fn run(
             "user_told": told,
             "work_left_in_worktree": changed,
             "taker": taker.name,
-            "taker_on": taker_cli.as_ref().map_or_else(|| "api".to_owned(), |(c, m)| format!("{c} {m}")),
+            "taker_on": if back { "the same model".to_owned() } else { taker_cli.as_ref().map_or_else(|| "api".to_owned(), |(c, m)| format!("{c} {m}")) },
         })),
     })
 }

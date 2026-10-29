@@ -25,6 +25,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   so far), which frees it at once, and it goes on (ADR-131, ADR-132).
 - Agenium never moves an agent's work to another model by itself: a CLI that cannot run sets the agent aside and says
   why; a **Resume** button on the agent's card, its page and the Needs you item puts it back to work (ADR-132).
+- An agent out of quota goes back to work with the same model once the quota should be back: at the vendor's window
+  reset when Agenium can read it, otherwise tried again from 30 minutes on (ADR-135).
 - The user's stop reaches a running command and a wait for approval at once (it waited for the command's timeout, up
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
@@ -40,11 +42,13 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   reopened, a quota used up): it goes on with its own context and is sent only what is new; a new ticket starts a new
   session (ADR-134).
 - One CLI account can run several sessions at once: logins are kept in step while runs go on, so a refreshed token
-  reaches the other runs and the user's own CLI at once (ADR-134).
+  reaches the other runs and the user's own CLI at once, and a turn refused for a token another run had just used
+  runs again with the new one (ADR-134, ADR-135).
 - A command longer than a CLI's own tool wait goes on as a job the run waits for; its end comes to the agent as a
   message (ADR-133).
 - Paths crafted to slip past the checks are caught: every path a CLI's tool names, links out of the write scope or the
-  worktree, hard links, dotfiles of the CLI's scratch home (path review, ADR-56).
+  worktree, hard links (no read or write through one), dotfiles of the CLI's scratch home (path review, ADR-56,
+  ADR-135).
 - Vendor CLIs run in their YOLO mode and work only through Agenium's own tools (files, apply_patch, shell, background
   commands): nothing asks the user and every change keeps the ticket's write scope (ADR-116, ADR-117, ADR-129).
 - A machine without a working sandbox can run agents without one by the user's choice (Settings; Codex included).

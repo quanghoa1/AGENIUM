@@ -3,7 +3,8 @@
 //! per-run home is used; like agy in YOLO mode it runs every `PreToolUse` hook before a tool and skips the tool when
 //! the hook denies it or fails. `FAKE_AGY_SCENARIO`: `report` (default), `chatty`, `loop`, `steps`, `steer`, `slow`
 //! (a long command through Agenium's shell: `FAKE_AGY_SLOW`), `approval` (a command through Agenium's shell that the
-//! test's gate never answers), `slowjob` (a command longer than the run's foreground limit: `FAKE_AGY_JOB`). What it
+//! test's gate never answers), `slowjob` (a command longer than the run's foreground limit: `FAKE_AGY_JOB`), `relogin` (its first turn refused for
+//! its login). What it
 //! saw goes to `fake-agy.log` in its cwd.
 
 use std::io::{BufRead, Read, Write};
@@ -314,6 +315,24 @@ fn main() {
                 let r = a.call_mcp("submit_report", json!({"summary": "done"}));
                 log(&format!("report: {r}"));
                 a.end();
+            }
+            // Its login refused once (another run used the refresh token): the first process's turn fails; started
+            // again, it reports.
+            "relogin" => {
+                let mark = std::env::current_dir().unwrap().join("fake-agy.relogin");
+                if mark.exists() {
+                    log(&format!(
+                        "second try: {}",
+                        text.chars().take(40).collect::<String>()
+                    ));
+                    let r = a.call_mcp("submit_report", json!({"summary": "done"}));
+                    log(&format!("report: {r}"));
+                    a.end();
+                } else {
+                    std::fs::write(&mark, "").unwrap();
+                    out(json!({"event": "result", "result": {"status": "ERROR",
+                        "error": "401 Unauthorized: OAuth token has expired", "usage": {}, "denied_actions": []}}));
+                }
             }
             _ => {
                 a.say("I think it is done.");

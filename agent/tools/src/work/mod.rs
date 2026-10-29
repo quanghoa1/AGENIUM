@@ -11,6 +11,7 @@ use serde::Deserialize;
 use crate::patch::{apply_hunks, parse, FileOp};
 use crate::paths::display;
 use crate::{args, GateDecision, TodoItem, TodoStatus, Tool, ToolCtx, ToolError, ToolOutput};
+use real_read::read_checked;
 use real_write::write_file;
 
 mod apply_patch;
@@ -18,8 +19,10 @@ mod edit;
 mod fetch;
 mod glob;
 mod grep;
+mod handle;
 mod list_dir;
 mod read_file;
+mod real_read;
 mod real_write;
 mod shell;
 mod shell_awaited;
@@ -53,21 +56,8 @@ fn io_err(rel: &str, e: std::io::Error) -> ToolError {
     }
 }
 
-fn read_text(p: &Path, rel: &str) -> Result<Vec<u8>, ToolError> {
-    let meta = std::fs::metadata(p).map_err(|e| io_err(rel, e))?;
-    if meta.is_dir() {
-        return Err(ToolError::new(
-            "is_directory",
-            format!("{rel} is a directory; use list_dir"),
-        ));
-    }
-    if meta.len() > MAX_READ_BYTES {
-        return Err(ToolError::new(
-            "too_large",
-            format!("{rel} is {} bytes; use grep or read a range", meta.len()),
-        ));
-    }
-    std::fs::read(p).map_err(|e| io_err(rel, e))
+fn read_text(ctx: &ToolCtx, p: &Path, rel: &str) -> Result<Vec<u8>, ToolError> {
+    read_checked(ctx, p, rel, MAX_READ_BYTES)
 }
 
 fn utf8(bytes: &[u8], rel: &str) -> Result<String, ToolError> {

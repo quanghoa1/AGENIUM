@@ -30,6 +30,11 @@ impl App {
         Ok(agenium_config::write_atomic(&path, text.as_bytes())?)
     }
 
+    /// A vendor's last reading (`claude`, `codex`, `opencode-go:<provider id>`), if any.
+    pub fn vendor_reading(&self, vendor: &str) -> Option<VendorUsage> {
+        self.read_vendor_usage().remove(vendor)
+    }
+
     /// Keeps a vendor's reading. A failed reading keeps the earlier windows (shown as stale) with the error.
     pub fn record_vendor_usage(&self, u: VendorUsage) -> Result<()> {
         let _guard = self

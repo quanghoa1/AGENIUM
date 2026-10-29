@@ -84,11 +84,8 @@ impl Tool for GrepTool {
                     continue;
                 }
             }
-            // Too large to search: skipped before it is read.
-            if std::fs::metadata(&f).map_or(true, |m| m.len() > MAX_READ_BYTES) {
-                continue;
-            }
-            let Ok(bytes) = std::fs::read(&f) else {
+            // Too large to search, out of the roots or with other names (`real_read.rs`): skipped.
+            let Ok(bytes) = read_checked(ctx, &f, &rel, MAX_READ_BYTES) else {
                 continue;
             };
             if bytes.iter().take(8192).any(|b| *b == 0) {

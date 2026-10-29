@@ -5,7 +5,7 @@
 //! With a vendor CLI (CliBackend): `--cli codex --model gpt-6-luna` or `--cli agy --model gemini-3.8-flash-low`
 //! (uses the CLI's own login and quota; codex runs inside the sandbox, agy's commands need approval).
 //! Scenarios instead of the single-agent tasks: `--team`, `--learning` (ADR-91/92), `--mcp-keys` (two agents, one MCP
-//! server, two keys with different roles; ADR-62), `--quota same|team` (a quota used up mid-ticket, the work goes on),
+//! server, two keys with different roles; ADR-62), `--quota same|team|back` (a quota used up mid-ticket, the work goes on),
 //! `--memory-reuse on|off` (memory
 //! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`;
 //! `--models <dir>` gives the agent the local embedding model from `<dir>`, else memory uses the hashing embedder).
@@ -126,13 +126,13 @@ async fn main() -> Result<()> {
             .await?,
         );
     }
-    // `--quota same|team`: a worker's quota runs out in the middle of a ticket, and the work goes on (quota.rs).
+    // `--quota same|team|back`: a worker's quota runs out in the middle of a ticket, and the work goes on (quota.rs).
     if let Some(how) = arg(&args, "--quota") {
         eprintln!("running {}-{how} ...", agenium_eval::quota::ID);
         results.push(
             agenium_eval::quota::run(
                 &mode,
-                how == "team",
+                &how,
                 arg(&args, "--worker-cli")
                     .map(|c| (c, arg(&args, "--worker-model").unwrap_or_default())),
             )

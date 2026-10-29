@@ -511,6 +511,18 @@ async fn a_long_command_goes_on_as_a_job_and_its_end_comes_as_a_message() {
     assert_eq!(reports, 1, "one report, after the command ended");
 }
 
+/// One CLI account in several runs (ADR-134): a turn refused for its login (another run used the single-use refresh
+/// token a moment before) runs again with the user's current login, and the work goes on; it failed the run.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_turn_refused_for_its_login_runs_again() {
+    let (_parent, wt) = worktree();
+    let (report, proto, ..) = run("relogin", &wt, Limits::default(), false, fake()).await;
+    let log = std::fs::read_to_string(wt.join("fake-agy.log")).unwrap_or_default();
+    assert_eq!(report.outcome, Outcome::Completed, "{log}");
+    assert!(log.contains("second try: "), "{log}");
+    assert_eq!(proto.calls.lock().unwrap().len(), 1, "one report");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn missing_cli_fails_cleanly() {
     let (_parent, wt) = worktree();

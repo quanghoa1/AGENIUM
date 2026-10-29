@@ -29,6 +29,7 @@ use crate::driver::{Check, CheckCtx, Control, Driver, Event, Setup, Turns};
 
 mod process;
 mod prompt;
+mod relogin;
 mod session;
 mod turns;
 
@@ -265,10 +266,9 @@ fn logged_out(error: &str) -> bool {
 }
 
 /// The outcome of a turn that ended on an error: a used-up subscription waits for the user (the agent is set aside and
-/// they are told); a lost login is a failure that says to log in again (it said nothing). Not set aside: a run that
-/// started with a login another run has refreshed since (single-use refresh tokens) fails the same way, and the next
-/// run, starting from the refreshed login, goes on; a login that is really gone stops the runs after two and asks
-/// the user.
+/// they are told); a lost login is a failure that says to log in again (it said nothing). A login another run refreshed
+/// a moment before was already taken in and the turn run again (`relogin.rs`): this one is really gone, and the runs
+/// stop after two and ask the user.
 fn turn_error(e: String) -> Outcome {
     if out_of_quota(&e) {
         Outcome::QuotaExhausted { message: e }
@@ -402,8 +402,13 @@ impl CliRun<'_> {
                 }
             }
         };
+        let resync = || {
+            if let Err(e) = self.driver.finish(&setup) {
+                tracing::warn!(error = %e, "CLI login sync failed");
+            }
+        };
         let outcome = tokio::select! {
-            o = self.converse(order, st, &env, home.path(), &mut calls) => o,
+            o = self.converse(order, st, &env, home.path(), &mut calls, &resync) => o,
             never = sync => never,
         };
         if let Err(e) = self.driver.finish(&setup) {

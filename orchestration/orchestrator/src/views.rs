@@ -440,7 +440,7 @@ impl App {
             for a in members.iter().filter(|a| !a.status.assignable()) {
                 let model = format!("{}/{}", a.model.provider, a.model.model);
                 let text = if a.status == AgentStatus::QuotaExhausted {
-                    format!("{} ran out of quota or credit on {model}: add credit or give it another model, then resume it; it goes on from where it stopped", a.name)
+                    format!("{} ran out of quota or credit on {model}: it goes on by itself once the quota is back (tried again when the vendor's window resets, or from 30 minutes on); add credit, resume it now or give it another model; it goes on from where it stopped", a.name)
                 } else {
                     format!("{} cannot use {model} (its provider unreachable, or its CLI missing or logged out): fix it or give it another model, then resume it; it goes on from where it stopped", a.name)
                 };

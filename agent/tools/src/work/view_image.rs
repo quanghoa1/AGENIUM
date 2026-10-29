@@ -62,7 +62,7 @@ impl Tool for ViewImage {
                 ),
             ));
         }
-        let bytes = std::fs::read(&p).map_err(|e| io_err(&rel, e))?;
+        let bytes = read_checked(ctx, &p, &rel, MAX_IMAGE_BYTES)?;
         let media_type = image_type(&bytes).ok_or_else(|| {
             ToolError::new(
                 "not_an_image",

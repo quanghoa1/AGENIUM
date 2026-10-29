@@ -494,3 +494,63 @@ async fn quota_used_up_mid_work_goes_on_with_another_model() {
     assert_eq!(s.outcome, "Completed");
     assert!(wt.join("part1.txt").exists() && wt.join("part2.txt").exists());
 }
+
+/// ADR-135: an agent set aside for its quota goes back to work with the same model once the quota should be back: when
+/// its vendor's used-up window resets, or tried again from 30 minutes on (then 60, 120...); its open ticket is told.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_agent_out_of_quota_goes_back_to_work_when_the_quota_is_back() {
+    use std::time::{Duration, SystemTime};
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let model = app.agent(agent).unwrap().model;
+    let set_aside = || {
+        app.set_agent_status(agent, AgentStatus::QuotaExhausted)
+            .unwrap()
+    };
+    let min = |m: u64| Duration::from_secs(m * 60);
+    let t0 = SystemTime::now();
+    set_aside();
+    assert!(rt.quota_back_round(t0).unwrap().is_empty(), "not yet");
+    assert!(rt.quota_back_round(t0 + min(29)).unwrap().is_empty());
+    assert_eq!(rt.quota_back_round(t0 + min(31)).unwrap(), vec![agent]);
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    assert_eq!(app.agent(agent).unwrap().model, model, "the same model");
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    let said = app
+        .store()
+        .read(|c| agenium_store::core::comments::for_ticket(c, t.id))
+        .unwrap()
+        .iter()
+        .any(|c| matches!(&c.body, CommentBody::System { text } if text.contains("quota on") && text.contains("should be back")));
+    assert!(said, "its ticket is told");
+    // Still used up: set aside again, tried an hour later.
+    set_aside();
+    assert!(rt.quota_back_round(t0 + min(80)).unwrap().is_empty());
+    assert_eq!(rt.quota_back_round(t0 + min(92)).unwrap(), vec![agent]);
+    // Its vendor said when the window resets: it goes back then.
+    let mut cli = model.clone();
+    cli.provider = "codex".into();
+    app.set_agent_backend(agent, BackendKind::Cli, &cli)
+        .unwrap();
+    // A round while it works ends its wait; the next time it starts afresh.
+    assert!(rt.quota_back_round(t0 + min(199)).unwrap().is_empty());
+    let reset = chrono::DateTime::<chrono::Utc>::from(t0 + min(215));
+    app.record_vendor_usage(agenium_llm::vendor_usage::VendorUsage {
+        windows: vec![agenium_llm::vendor_usage::UsageWindow {
+            window: "5h".into(),
+            used_percent: 100.0,
+            resets_at: Some(reset.to_rfc3339()),
+        }],
+        ..agenium_llm::vendor_usage::VendorUsage::new("codex", "")
+    })
+    .unwrap();
+    set_aside();
+    assert!(rt.quota_back_round(t0 + min(200)).unwrap().is_empty());
+    assert!(
+        rt.quota_back_round(t0 + min(212)).unwrap().is_empty(),
+        "the window has not reset (no 30-minute try meanwhile)"
+    );
+    assert_eq!(rt.quota_back_round(t0 + min(217)).unwrap(), vec![agent]);
+}

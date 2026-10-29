@@ -36,7 +36,7 @@ impl Tool for ReadFile {
         let a: ReadArgs = args(a)?;
         let p = ctx.resolve(&a.path, false)?;
         let rel = display(&ctx.root, &p);
-        let bytes = read_text(&p, &rel)?;
+        let bytes = read_text(ctx, &p, &rel)?;
         let s = utf8(&bytes, &rel)?;
         ctx.record_read(&p, &bytes);
         let start = a.offset.unwrap_or(1).max(1);

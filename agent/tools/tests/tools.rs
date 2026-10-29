@@ -784,10 +784,11 @@ async fn a_link_does_not_take_a_write_out_of_the_scope() {
     .unwrap();
 }
 
-/// Path review of 2026-10-29: a file with another name (a hard link to a file outside the worktree) is not written: the
-/// write would change the file out there. The write goes through the open file, whose names the OS counts.
+/// Path review of 2026-10-29: a file with another name (a hard link to a file outside the worktree) is neither read
+/// nor written: it may be a file out there (a secret to read, a file the write would change). Both go through the open
+/// file, whose names the OS counts; grep leaves it out.
 #[tokio::test]
-async fn a_hard_link_out_of_the_worktree_is_not_written() {
+async fn a_hard_link_out_of_the_worktree_is_not_read_or_written() {
     let (t, c) = setup();
     let outside = t.root.parent().unwrap().join("outside.txt");
     std::fs::write(&outside, "keep me").unwrap();
@@ -795,19 +796,46 @@ async fn a_hard_link_out_of_the_worktree_is_not_written() {
         eprintln!("no hard link here: skipped");
         return;
     }
-    call(&c, "read_file", json!({"path": "linked.txt"}))
+    let e = call(&c, "read_file", json!({"path": "linked.txt"}))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, "out_of_scope", "{e}");
+    assert!(e.message.contains("other names"), "{e}");
+    let g = call(&c, "grep", json!({"pattern": "keep me"}))
         .await
         .unwrap();
-    let e = call(
+    assert!(!g.text.contains("linked.txt"), "{}", g.text);
+    call(
         &c,
         "write_file",
         json!({"path": "linked.txt", "content": "changed"}),
     )
     .await
     .unwrap_err();
+    assert_eq!(std::fs::read_to_string(&outside).unwrap(), "keep me");
+    // A file read while it had one name, given another out there before the write.
+    std::fs::write(c.root.join("mine.txt"), "mine").unwrap();
+    call(&c, "read_file", json!({"path": "mine.txt"}))
+        .await
+        .unwrap();
+    std::fs::hard_link(
+        c.root.join("mine.txt"),
+        t.root.parent().unwrap().join("other.txt"),
+    )
+    .unwrap();
+    let e = call(
+        &c,
+        "write_file",
+        json!({"path": "mine.txt", "content": "changed"}),
+    )
+    .await
+    .unwrap_err();
     assert_eq!(e.code, "out_of_scope", "{e}");
     assert!(e.message.contains("other names"), "{e}");
-    assert_eq!(std::fs::read_to_string(&outside).unwrap(), "keep me");
+    assert_eq!(
+        std::fs::read_to_string(c.root.join("mine.txt")).unwrap(),
+        "mine"
+    );
     call(
         &c,
         "write_file",

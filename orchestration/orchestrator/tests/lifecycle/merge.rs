@@ -250,3 +250,45 @@ fn a_closed_ticket_pushes_when_the_project_has_a_remote() {
         "main pushed to origin: {heads}"
     );
 }
+
+/// ADR-134: a ticket's kept CLI sessions end with its worktree when it closes (they held its work in progress); another
+/// ticket's stay.
+#[test]
+fn a_closed_tickets_kept_cli_sessions_go_with_its_worktree() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let (lead, worker) = (Actor::Lead(a.id), Actor::Worker(a.id));
+    let k = started(&f, a.id, "PI-1", "Writes x", &[], &[]);
+    let kept = f.app.cli_sessions(a.id);
+    for key in ["AGN-1", "AGN-2"] {
+        std::fs::create_dir_all(kept.join(key).join("home")).unwrap();
+        std::fs::write(kept.join(key).join("agenium-session.json"), "{}").unwrap();
+    }
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    write(&worktree(&f, "AGN-1"), "deliverables/x.txt", "x");
+    f.app
+        .apply(&ctx(&f, worker), Intent::SubmitReport(report("AGN-1")))
+        .unwrap();
+    f.app
+        .finish_run(run.run, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+    f.app
+        .apply(&ctx(&f, lead), Intent::ReviewTicket(approve(&k)))
+        .unwrap();
+    assert!(ticket(&f, "AGN-1").merged);
+    assert!(kept.join("AGN-1").exists(), "kept while the ticket is open");
+    f.app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CloseTicket(CloseTicket {
+                ticket_id: k.clone(),
+                reason: "Merged".into(),
+            }),
+        )
+        .unwrap();
+    assert!(
+        !kept.join("AGN-1").exists(),
+        "the closed ticket's session is gone"
+    );
+    assert!(kept.join("AGN-2").exists(), "another ticket's stays");
+}

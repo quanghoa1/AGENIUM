@@ -61,7 +61,7 @@ begin with ' ' (context), '-' (remove) or '+' (add); end with '*** End Patch'."
                 } => {
                     let p = ctx.resolve(path, true)?;
                     let rel = display(&ctx.root, &p);
-                    let cur = utf8(&read_text(&p, &rel)?, &rel)?;
+                    let cur = utf8(&read_text(ctx, &p, &rel)?, &rel)?;
                     let new = if hunks.is_empty() {
                         cur
                     } else {

@@ -622,6 +622,19 @@ impl App {
             .ok_or_else(|| OrchError::NotFound(format!("agent {name}")))
     }
 
+    /// Where the agent's vendor CLI keeps its session of each ticket between the ticket's runs (ADR-134), one folder per
+    /// ticket key.
+    pub fn cli_sessions(&self, id: AgentId) -> PathBuf {
+        self.layout.agent_dir(&id).join("cli-sessions")
+    }
+
+    /// Ends the kept CLI sessions of a ticket (its worktree is gone: they belong to work that is over).
+    pub(crate) fn forget_cli_sessions(&self, key: &str) {
+        for a in self.agents().unwrap_or_default() {
+            let _ = std::fs::remove_dir_all(self.cli_sessions(a.id).join(key));
+        }
+    }
+
     /// The agent's private memory database (opened once per process).
     pub fn agent_store(&self, id: AgentId, dim: usize, model_id: &str) -> Result<Arc<AgentStore>> {
         let mut m = self.agent_stores.lock().unwrap_or_else(|p| p.into_inner());

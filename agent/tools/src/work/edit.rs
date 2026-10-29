@@ -64,7 +64,7 @@ pub(super) fn edit_files(
 ) -> Result<ToolOutput, ToolError> {
     let p = ctx.resolve(path, true)?;
     let rel = display(&ctx.root, &p);
-    let bytes = read_text(&p, &rel)?;
+    let bytes = read_text(ctx, &p, &rel)?;
     ctx.check_fresh(&p, &bytes, &rel)?;
     let mut doc = crate::edit_match::Doc::open(&utf8(&bytes, &rel)?);
     let mut loose = false;

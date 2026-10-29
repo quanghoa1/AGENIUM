@@ -90,7 +90,7 @@ const needText = await main();
 await shot("01-needs");
 check(
   "Needs you says the agent ran out of quota on its model and offers Resume and the agent",
-  needText.includes(`${agent} ran out of quota or credit on`) && needText.includes("then resume it") && (await countNear("ran out of quota", "Resume")) === 1 && (await countNear("ran out of quota", agent)) === 1,
+  needText.includes(`${agent} ran out of quota or credit on`) && needText.includes("goes on by itself once the quota is back") && (await countNear("ran out of quota", "Resume")) === 1 && (await countNear("ran out of quota", agent)) === 1,
   needText.slice(0, 300).replace(/\n/g, " | "),
 );
 

@@ -392,7 +392,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 text = summary.clone();
             }
             Outcome::QuotaExhausted { message } => {
-                note(&self.app, format!("{} stopped: the provider reports exhausted quota or credit ({message}). Change the model or add credit to continue.", agent.name))?;
+                note(&self.app, format!("{} stopped: the provider reports exhausted quota or credit ({message}). It goes on by itself once the quota is back, with the same model; or add credit, resume it or give it another model.", agent.name))?;
             }
             Outcome::Offline { message } => {
                 note(

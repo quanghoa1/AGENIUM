@@ -8,6 +8,10 @@ impl Runtime {
     /// tickets awaiting the Lead, then learn from the chat with the Lead if it has gone quiet. Returns the runs
     /// executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
+        // Agents whose quota should be back go on (ADR-135).
+        if let Err(e) = self.quota_back_round(std::time::SystemTime::now()) {
+            tracing::warn!(error = %e, "resuming agents after their quota failed");
+        }
         let mut out = self.tick_runs(project).await?;
         out.extend(self.answer_left(project).await);
         if let Err(e) = self.learn_from_chat(project, false).await {

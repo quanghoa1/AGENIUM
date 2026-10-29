@@ -15,6 +15,7 @@ mod execute;
 mod lead_runs;
 pub mod learn;
 mod models;
+mod quota_back;
 mod scheduling;
 mod stalls;
 mod steering;
@@ -131,6 +132,8 @@ pub struct Runtime {
     /// Turns in a row that failed to answer a project's `steer_left`: from MAX_FAILED_RUNS on, the messages wait for
     /// the user's next message instead of a failing turn every round.
     left_failures: Mutex<std::collections::HashMap<ProjectId, usize>>,
+    /// Agents set aside for their quota: when each is tried again (ADR-135).
+    quota_waits: Mutex<std::collections::HashMap<AgentId, quota_back::QuotaWait>>,
 }
 
 /// Two stopped/failed runs in a row on one ticket: stop auto-restarting it and ask the user (avoids burning tokens on
@@ -168,6 +171,7 @@ impl Runtime {
             steering: Mutex::default(),
             steer_left: Mutex::default(),
             left_failures: Mutex::default(),
+            quota_waits: Mutex::default(),
             mcp,
             app,
             providers,
