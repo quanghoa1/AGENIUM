@@ -226,6 +226,8 @@ impl Driver for Claude {
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
         let user = user_claude_dir()
             .ok_or_else(|| std::io::Error::other("cannot find the user's Claude Code folder"))?;
+        // A copy kept in step (`sync_login`), not a link like Codex's (ADR-136): Claude Code writes its login to a
+        // temporary file renamed over it, which would part a hard link at the first refresh, and refuses a symbolic one.
         copy_login(&user.join(LOGIN), &s.home.join(LOGIN))?;
         let script = s.home.join(HOOK_FILE);
         // Claude Code goes on with the tool when it kills a hook that ran out of time: the call to Agenium gives up

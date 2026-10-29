@@ -183,3 +183,62 @@ fn codex_inside_the_sandbox() {
         "hello"
     );
 }
+
+/// A CLI's login shared with the user's (ADR-136): the per-run home, writable inside the sandbox, holds a hard link to a
+/// file outside every writable root; the contained process reads and rewrites the file through the link (a Codex token
+/// refresh), while the file's own path stays out of its reach.
+#[test]
+fn a_hard_link_in_a_writable_home_reaches_its_file() {
+    if detect().backend.is_none() {
+        eprintln!("skipped: no sandbox backend here");
+        return;
+    }
+    let wt = tempfile::tempdir().unwrap();
+    let _temp = RunTemp(wt.path().to_path_buf());
+    let (home, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let login = outside.path().join("auth.json");
+    std::fs::write(&login, "old").unwrap();
+    if std::fs::hard_link(&login, home.path().join("auth.json")).is_err() {
+        eprintln!("skipped: no hard link between the temp folders");
+        return;
+    }
+    let mut policy = SandboxPolicy::workspace(wt.path());
+    policy.writable_roots.push(home.path().to_path_buf());
+    let (link, direct) = (
+        home.path().join("auth.json"),
+        outside.path().join("direct.txt"),
+    );
+    let argv: Vec<String> = if cfg!(windows) {
+        vec![
+            "powershell.exe".into(),
+            "-NoProfile".into(),
+            "-Command".into(),
+            format!(
+                "$o = [IO.File]::ReadAllText('{l}'); [IO.File]::WriteAllText('{l}', $o + ' new'); \
+                 try {{ [IO.File]::WriteAllText('{d}', 'x') }} catch {{ }}; exit 0",
+                l = link.display(),
+                d = direct.display()
+            ),
+        ]
+    } else {
+        vec![
+            "sh".into(),
+            "-c".into(),
+            format!(
+                "o=$(cat '{l}'); printf '%s new' \"$o\" > '{l}'; echo x > '{d}' 2>/dev/null; exit 0",
+                l = link.display(),
+                d = direct.display()
+            ),
+        ]
+    };
+    let (mut p, mut io) = spawn_contained(&argv, wt.path(), &BTreeMap::new(), &policy).unwrap();
+    drop(io.stdin.take());
+    let mut out = String::new();
+    std::io::Read::read_to_string(&mut BufReader::new(io.stdout.take().unwrap()), &mut out)
+        .unwrap();
+    while p.try_wait().unwrap().is_none() {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert_eq!(std::fs::read_to_string(&login).unwrap(), "old new", "{out}");
+    assert!(!direct.exists(), "the file's folder stays out of reach");
+}

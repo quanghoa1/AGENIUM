@@ -218,6 +218,8 @@ impl Driver for Grok {
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
         let user = user_grok_dir()
             .ok_or_else(|| std::io::Error::other("cannot find the user's Grok folder"))?;
+        // A copy kept in step (`sync_login`), not a link like Codex's (ADR-136): Grok writes `auth.json.tmp` and renames
+        // it over its login, which would part a hard link at the first refresh.
         copy_login(&user.join(LOGIN), &s.home.join(LOGIN))?;
         let (script, body, command) = hook(s.home);
         std::fs::write(&script, body)?;

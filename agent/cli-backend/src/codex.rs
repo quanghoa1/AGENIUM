@@ -15,7 +15,7 @@ use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::{copy_login, sync_login, Control, Driver, Event, Setup, Turns};
+use crate::driver::{link_login, sync_login, Control, Driver, Event, Setup, Turns};
 use crate::driver::{toml_str, MCP_CALL_TIMEOUT};
 
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
@@ -102,7 +102,9 @@ impl Driver for Codex {
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
         let user = user_codex_home()
             .ok_or_else(|| std::io::Error::other("cannot find the user's codex home"))?;
-        copy_login(&user.join("auth.json"), &s.home.join("auth.json"))?;
+        // The user's own login file, shared with their Codex and every other run (`link_login`).
+        let linked = link_login(&user.join("auth.json"), &s.home.join("auth.json"))?;
+        tracing::debug!(linked, "codex login");
         std::fs::write(
             s.home.join("config.toml"),
             format!(
@@ -137,6 +139,16 @@ impl Driver for Codex {
     /// it found the thread there, at a path gone with that run, and refused to resume ("no rollout found").
     fn not_kept(&self, name: &str) -> bool {
         name.contains(".sqlite")
+    }
+
+    /// Linux and macOS: `~/.cache/agenium-cli-homes`, on the file system of `~/.codex` (the temp folder often is not).
+    /// Windows: the temp folder, under the user's profile like `.codex`.
+    fn home_base(&self) -> Option<PathBuf> {
+        if cfg!(windows) {
+            return None;
+        }
+        let user = user_codex_home()?;
+        Some(user.parent()?.join(".cache").join("agenium-cli-homes"))
     }
 
     fn login_file(&self) -> Option<&'static str> {
@@ -251,8 +263,8 @@ impl Driver for Codex {
     }
 }
 
-/// One request to codex's own app-server (no model turn), in a scratch `CODEX_HOME` holding a copy of the user's
-/// login like a run (a refreshed login is handed back the same way). The client names itself `agenium`.
+/// One request to codex's own app-server (no model turn), in a scratch `CODEX_HOME` holding the user's own login like a
+/// run (`link_login`; a copy, handed back the same way, where no link can be made). The client names itself `agenium`.
 async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Value, String> {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     let user = user_codex_home().ok_or("no codex home")?;
@@ -263,7 +275,7 @@ async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Valu
     for d in [&home, &cwd] {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
     }
-    copy_login(&user.join("auth.json"), &home.join("auth.json")).map_err(|e| e.to_string())?;
+    link_login(&user.join("auth.json"), &home.join("auth.json")).map_err(|e| e.to_string())?;
     let mut cmd = tokio::process::Command::new(program);
     cmd.args([
         "-c",

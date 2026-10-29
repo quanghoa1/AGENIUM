@@ -349,10 +349,15 @@ impl CliRun<'_> {
         let server = Server::start(Arc::new(bridge), MCP_SERVER)
             .await
             .map_err(|e| failed(format!("cannot start the Agenium MCP server: {e}")))?;
-        sweep_old_homes(&std::env::temp_dir());
+        let base = self
+            .driver
+            .home_base()
+            .filter(|b| std::fs::create_dir_all(b).is_ok())
+            .unwrap_or_else(std::env::temp_dir);
+        sweep_old_homes(&base);
         let mut home = tempfile::Builder::new()
             .prefix(HOME_PREFIX)
-            .tempdir()
+            .tempdir_in(&base)
             .map_err(|e| failed(format!("cannot create the CLI home: {e}")))?;
         // Diagnostics: `AGENIUM_KEEP_CLI_HOME=1` keeps the per-run home (the CLI's own logs) after the run.
         if std::env::var_os("AGENIUM_KEEP_CLI_HOME").is_some() {

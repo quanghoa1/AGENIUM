@@ -1,0 +1,34 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 1,
+    "error_codes": {
+      "not_found": 1
+    },
+    "errors": [
+      "read_file: not_found: deliverables/hello.txt does not exist"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 143845,
+    "tokens_out": 631,
+    "tokens_cached": 120320,
+    "cost_usd": 0.0,
+    "elapsed_ms": 32115
+  }
+]

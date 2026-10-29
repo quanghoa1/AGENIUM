@@ -1,0 +1,38 @@
+[
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 4,
+    "error_codes": {
+      "invalid_arguments": 4
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `criterion`, expected one of `ac_id`, `status`, `evidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"deliverables/total.txt\", expected struct ArtifactRef",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"high\", expected f64"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "glob": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "submit_report": 5,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 219014,
+    "tokens_out": 1308,
+    "tokens_cached": 175872,
+    "cost_usd": 0.0,
+    "elapsed_ms": 42005
+  }
+]

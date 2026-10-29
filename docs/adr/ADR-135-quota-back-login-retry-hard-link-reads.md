@@ -1,6 +1,6 @@
 # ADR-135: An agent goes back to work when its quota is back; a login refreshed elsewhere is taken; no read through a hard link
 
-Status: Accepted (2026-10-29). Owner: "xử lí các việc còn lại đi ngoại trừ macOS … verify trên ubuntu vmware luôn" (the
+Status: Accepted (2026-10-29); for Codex, decision 2 is the fallback since [ADR-136](ADR-136-codex-shares-the-users-login-file.md) (its runs share the user's login file). Owner: "xử lí các việc còn lại đi ngoại trừ macOS … verify trên ubuntu vmware luôn" (the
 limits left by ADR-132 to ADR-134 and the path review). Amends ADR-132 (Resume is the user's step), ADR-134 (kept
 sessions, shared logins) and ADR-56 (path review).
 

@@ -10,6 +10,7 @@ pub mod codex;
 pub mod detect;
 pub mod driver;
 pub mod grok;
+pub mod login;
 pub mod opencode;
 pub mod run;
 
