@@ -199,18 +199,19 @@ impl Tool for McpTool {
         // The server changed its tools during the run and this one is gone (ADR-139): say where the others are.
         if let Some(l) = &self.listed {
             let _ = crate::catalog::relist(&self.session, l, false, false).await;
-            let gone = !l
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .tools
-                .iter()
-                .any(|t| t.name == self.info.name);
+            let (gone, now) = {
+                let g = l.lock().unwrap_or_else(|e| e.into_inner());
+                (
+                    !g.tools.iter().any(|t| t.name == self.info.name),
+                    g.tools.len(),
+                )
+            };
             if gone {
                 return Err(ToolError::new(
                     "tool_gone",
                     format!(
-                        "MCP server {} no longer offers {} (its tool list changed during the run): find what you \
-                         need with tool_search and call it with call_tool",
+                        "MCP server {} no longer offers {} (its tool list changed during the run; it offers {now} \
+                         other tools now): find what you need with tool_search and call it with call_tool",
                         self.session.server, self.info.name
                     ),
                 ));

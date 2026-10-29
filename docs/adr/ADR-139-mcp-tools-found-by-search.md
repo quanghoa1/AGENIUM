@@ -31,9 +31,12 @@ Amends ADR-62 (agents' MCP servers) and ADR-109 (MCP client).
    `[tool_search]` in `config.toml`): with more than `over_tools` (20) tools or more than `over_tokens` (10,000) of
    definitions (`mode = "auto"`; `always`, `never`), a run lists only the `keep_used` (5) MCP tools its agent called
    most with success (`runs::mcp_tools_used`, a call through `call_tool` counted for the tool it called), names the
-   others by server in its capabilities (up to 200 names), and gets two tools:
+   others by server in its capabilities (up to 30 names; past that each server's tools summed up by the first word of
+   their names, `github 20, slack 11, …`), and gets two tools:
    - `tool_search(query, limit?, server?)`: the tools that do what the agent describes, each with its server, its
-     description and its schema; `select:<name>,<name>` names tools exactly. Output marked untrusted.
+     description and its arguments one line each (name, type, required, what it is; a schema that cannot be said so —
+     references, alternatives, nested objects — as JSON); `select:<name>,<name>` names tools exactly. Output marked
+     untrusted.
    - `call_tool(name, arguments)`: runs a tool of the catalogue by its exposed name (or the server's own name when one
      server has it); the arguments, an object or a JSON string, are fitted to the tool's schema (ADR-105), and the
      tool runs as a listed one (cut output, untrusted, read-only tools only in a review or chat).
@@ -65,8 +68,26 @@ The judge's reading costs about 3,200 input tokens a search (about $0.00014). A 
 stems found a database tool for "notify the team on slack" (matching "the" and "on") and nothing for "throwing errors".
 The miss left: "why did the CI build fail on main" shares no word or close meaning with "GitHub Actions workflow runs".
 
-The prompt: 123 listed tools take about 9,200 tokens a request; found by search, about 700 for their names and 350 for
-the two tools.
+The prompt: 123 listed tools take about 9,200 tokens a request; found by search, about 100 for the servers' summary and
+350 for the two tools.
+
+### Against Claude Code's own tool search
+
+`quality/eval/examples/tool_search_vs_cli.py` ([results](../../quality/eval/results/tool-search/README.md)): Claude Code
+with Haiku 5.5 given each of the 58 requests, the 123 tools behind its own `ToolSearch`, all listed, or behind
+Agenium's `tool_search` (the same code a run uses, served over MCP by `examples/tool_search_mcp.rs`).
+
+| | Right tool | Input tokens / run |
+|---|---|---|
+| Claude Code's `ToolSearch` (two rounds) | 56/58, 57/58 | 20,200 |
+| every tool listed | 57/58 | 38,000 |
+| Agenium's `tool_search` as shipped | 57/58 | 15,800 |
+
+The choices are even (the misses are requests two tools fit); Agenium's search takes about 22 % fewer tokens a run.
+Tuned on these runs: the full list of names (first up to 200) cost about 2,700 tokens a run and changed no choice — the
+search found the tools as well without it — so past 30 tools a server is summed up by groups; arguments shown one line
+each instead of their JSON schema. Without the judge the choices were the same and the model searched again more
+often (2.4 calls a run against 2.2).
 
 ## Verified (2026-10-29)
 

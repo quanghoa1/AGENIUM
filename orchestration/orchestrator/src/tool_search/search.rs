@@ -106,22 +106,94 @@ impl ToolSearch {
     }
 }
 
+/// `s` cut to `max` characters.
+fn cut(mut s: String, max: usize) -> String {
+    if s.len() > max {
+        let at = (0..=max)
+            .rev()
+            .find(|i| s.is_char_boundary(*i))
+            .unwrap_or(0);
+        s.truncate(at);
+        s.push('…');
+    }
+    s
+}
+
+/// A property's type in a few words: `string`, `integer`, `array of string`, `one of a | b`.
+fn kind(p: &serde_json::Value) -> String {
+    if let Some(e) = p["enum"].as_array() {
+        let v: Vec<String> = e
+            .iter()
+            .map(|x| x.as_str().map_or(x.to_string(), str::to_owned))
+            .collect();
+        return format!("one of {}", v.join(" | "));
+    }
+    let t = match &p["type"] {
+        serde_json::Value::String(t) => t.clone(),
+        serde_json::Value::Array(a) => a
+            .iter()
+            .filter_map(|x| x.as_str())
+            .collect::<Vec<_>>()
+            .join(" or "),
+        _ => "any".into(),
+    };
+    match (t.as_str(), p["items"]["type"].as_str()) {
+        ("array", Some(i)) => format!("array of {i}"),
+        _ => t,
+    }
+}
+
+/// A tool's arguments as the model reads them best: one line per argument (name, type, required, what it is). A
+/// schema this cannot say plainly (references, alternatives, nested objects) is given as JSON. Measured against the raw
+/// schema in ADR-139: fewer tokens per search for the same calls.
+fn arguments(schema: &serde_json::Value) -> String {
+    let props = match schema["properties"].as_object() {
+        Some(p) if !p.is_empty() => p,
+        _ => return "none".into(),
+    };
+    let plain = |p: &serde_json::Value| {
+        p.get("$ref").is_none()
+            && p.get("anyOf").is_none()
+            && p.get("oneOf").is_none()
+            && p["properties"].is_null()
+            && p["items"]["properties"].is_null()
+            && p["items"].get("$ref").is_none()
+    };
+    if !props.values().all(plain) {
+        return format!("(JSON schema) {}", cut(schema.to_string(), SCHEMA_CHARS));
+    }
+    let required: Vec<&str> = schema["required"]
+        .as_array()
+        .map(|r| r.iter().filter_map(|x| x.as_str()).collect())
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    for (k, p) in props {
+        let mut line = format!(
+            "- {k} ({}{})",
+            kind(p),
+            if required.contains(&k.as_str()) {
+                ", required"
+            } else {
+                ""
+            }
+        );
+        if let Some(d) = p["description"].as_str().filter(|d| !d.trim().is_empty()) {
+            line.push_str(": ");
+            line.push_str(d.trim());
+        }
+        out.push(line);
+    }
+    cut(out.join("\n"), SCHEMA_CHARS)
+}
+
 /// How a found tool is shown: its name to call, its server, what it does and its arguments.
 fn render(t: &McpTool) -> String {
-    let mut schema = t.parameters().to_string();
-    if schema.len() > SCHEMA_CHARS {
-        let cut = (0..=SCHEMA_CHARS)
-            .rev()
-            .find(|i| schema.is_char_boundary(*i))
-            .unwrap_or(0);
-        schema.truncate(cut);
-        schema.push('…');
-    }
     format!(
-        "## {}\nserver: {}\n{}\narguments (JSON schema): {schema}\n",
+        "## {}\nserver: {}\n{}\narguments:\n{}\n",
         t.name(),
         t.server(),
-        t.plain_description().trim()
+        t.plain_description().trim(),
+        arguments(&t.parameters())
     )
 }
 
@@ -204,5 +276,29 @@ impl Tool for ToolSearch {
             untrusted: true,
             images: Vec::new(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn arguments_are_one_line_each_or_json_when_not_plain() {
+        let s = json!({"type": "object", "required": ["repo", "title"], "properties": {
+            "repo": {"type": "string", "description": "owner/name"},
+            "title": {"type": "string"},
+            "labels": {"type": "array", "items": {"type": "string"}, "description": "Label names"},
+            "state": {"type": "string", "enum": ["open", "closed"]}
+        }});
+        assert_eq!(
+            arguments(&s),
+            "- labels (array of string): Label names\n- repo (string, required): owner/name\n\
+             - state (one of open | closed)\n- title (string, required)"
+        );
+        assert_eq!(arguments(&json!({"type": "object"})), "none");
+        let nested = json!({"type": "object", "properties": {"filter": {"type": "object", "properties": {"a": {}}}}});
+        assert!(arguments(&nested).starts_with("(JSON schema) {"));
     }
 }

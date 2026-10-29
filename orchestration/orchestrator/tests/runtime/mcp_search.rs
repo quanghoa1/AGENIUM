@@ -166,7 +166,11 @@ async fn many_mcp_tools_are_found_by_search_and_called() {
         );
         let sys = &req.system[2].text;
         assert!(
-            sys.contains("123 more MCP tools are not listed") && sys.contains("releases_codename"),
+            // Past 30 tools, a server's tools summed up by their names' first word, not named one by one.
+            sys.contains("123 more MCP tools are not listed")
+                && sys.contains("many: 123 tools (")
+                && sys.contains("github 20")
+                && !sys.contains("releases_codename"),
             "{sys}"
         );
         *f1.lock().unwrap() = n;

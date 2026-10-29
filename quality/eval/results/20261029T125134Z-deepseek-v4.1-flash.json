@@ -1,0 +1,46 @@
+[
+  {
+    "id": "mcp-fallback",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 3,
+    "error_codes": {
+      "mcp_tool_error": 1,
+      "tool_gone": 2
+    },
+    "errors": [
+      "mcp__tools__find_tools: mcp_tool_error: the tool search is out of quota: every tool is listed now",
+      "mcp__tools__run_tool: tool_gone: MCP server tools no longer offers run_tool (its tool list changed during the run): find what you need with tool_search and call it with call_tool",
+      "mcp__tools__find_tools: tool_gone: MCP server tools no longer offers find_tools (its tool list changed during the run): find what you need with tool_search and call it with call_tool"
+    ],
+    "tools": {
+      "call_tool": 1,
+      "close_ticket": 1,
+      "get_team": 1,
+      "grep": 1,
+      "list_dir": 5,
+      "mcp__tools__find_tools": 2,
+      "mcp__tools__releases_codename": 1,
+      "mcp__tools__run_tool": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "tool_search": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 170806,
+    "tokens_out": 1956,
+    "tokens_cached": 147200,
+    "cost_usd": 0.0,
+    "elapsed_ms": 44974
+  }
+]

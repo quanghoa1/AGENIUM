@@ -15,7 +15,7 @@ mod search;
 use std::sync::{Arc, Mutex};
 
 use agenium_core::AgentId;
-use agenium_mcp::Catalog;
+use agenium_mcp::{Catalog, McpTool};
 use agenium_tools::Tool;
 
 use crate::app::App;
@@ -27,8 +27,12 @@ pub(crate) struct McpOffer {
     pub lines: Vec<String>,
 }
 
-/// Names of found-by-search tools listed in the prompt at most (beyond this only their number and servers).
-const NAME_LIST: usize = 200;
+/// Names of found-by-search tools listed in the prompt at most; beyond this each server's tools are summed up by the
+/// first word of their names. Measured (ADR-139): with 123 tools the full list cost about 2,700 input tokens a run and
+/// changed no choice — the search found them as well without it.
+const NAME_LIST: usize = 30;
+/// Groups named in a server's summary at most.
+const GROUPS: usize = 25;
 
 /// An estimate of the tokens a tool's definition takes in a request.
 fn tokens(t: &dyn Tool) -> usize {
@@ -61,6 +65,81 @@ impl App {
     }
 }
 
+/// `tool_search` and `call_tool` over `catalog`.
+fn pair(app: &Arc<App>, catalog: &Arc<Catalog>, ticket: Option<String>) -> Vec<Arc<dyn Tool>> {
+    vec![
+        Arc::new(search::ToolSearch {
+            app: app.clone(),
+            catalog: catalog.clone(),
+            ticket,
+            index: Mutex::new(None),
+            meaning: true,
+        }),
+        Arc::new(call::CallTool {
+            catalog: catalog.clone(),
+        }),
+    ]
+}
+
+/// The capabilities line that names the tools found by search.
+fn found_line(found: &[Arc<McpTool>]) -> String {
+    let mut line = format!(
+        "{} more MCP tools are not listed: find them with tool_search (say what you want to do) and call them with \
+         call_tool.",
+        found.len()
+    );
+    let mut by_server: std::collections::BTreeMap<&str, Vec<&str>> = Default::default();
+    for t in found {
+        by_server.entry(t.server()).or_default().push(t.mcp_name());
+    }
+    for (server, names) in by_server {
+        if found.len() <= NAME_LIST {
+            line.push_str(&format!(" {server}: {}.", names.join(", ")));
+        } else {
+            line.push_str(&format!(
+                " {server}: {} tools ({}).",
+                names.len(),
+                groups(&names)
+            ));
+        }
+    }
+    line
+}
+
+/// What a server's tools are about, from their names' first word: `github 20, slack 11, …` (the rest as `other`).
+fn groups(names: &[&str]) -> String {
+    let mut count: std::collections::BTreeMap<String, usize> = Default::default();
+    for n in names {
+        let first = n.split(['_', '-', '.']).next().unwrap_or(n).to_lowercase();
+        *count.entry(first).or_default() += 1;
+    }
+    let mut other = 0;
+    let mut parts: Vec<String> = Vec::new();
+    for (g, c) in &count {
+        if *c > 1 && parts.len() < GROUPS {
+            parts.push(format!("{g} {c}"));
+        } else {
+            other += c;
+        }
+    }
+    if other > 0 {
+        parts.push(format!("other {other}"));
+    }
+    parts.join(", ")
+}
+
+impl App {
+    /// `tool_search` and `call_tool` over `catalog` with the capabilities line a run gets when every tool is found by
+    /// search: to serve them to a CLI outside a run and compare with the CLI's own search (ADR-139's measurement).
+    pub async fn mcp_search_offer(
+        self: &Arc<Self>,
+        catalog: Arc<Catalog>,
+    ) -> (Vec<Arc<dyn Tool>>, String) {
+        let found = catalog.listed().await;
+        (pair(self, &catalog, None), found_line(&found))
+    }
+}
+
 /// The run's MCP tools: all listed, or (past the thresholds) the most used listed and the rest behind `tool_search`.
 pub(crate) async fn offer(
     app: &Arc<App>,
@@ -72,20 +151,7 @@ pub(crate) async fn offer(
     let cfg = app.config().tool_search;
     let size: usize = all.iter().map(|t| tokens(t.as_ref())).sum();
     let defer = cfg.defers(all.len(), size);
-    let pair = |catalog: &Arc<Catalog>| -> Vec<Arc<dyn Tool>> {
-        vec![
-            Arc::new(search::ToolSearch {
-                app: app.clone(),
-                catalog: catalog.clone(),
-                ticket: ticket.clone(),
-                index: Mutex::new(None),
-                meaning: true,
-            }),
-            Arc::new(call::CallTool {
-                catalog: catalog.clone(),
-            }),
-        ]
-    };
+    let pair = |catalog: &Arc<Catalog>| pair(app, catalog, ticket.clone());
     if !defer {
         let mut tools: Vec<Arc<dyn Tool>> = all.into_iter().map(|t| t as Arc<dyn Tool>).collect();
         let mut lines = Vec::new();
@@ -106,20 +172,7 @@ pub(crate) async fn offer(
     let (listed, found): (Vec<_>, Vec<_>) = all
         .into_iter()
         .partition(|t| used.iter().any(|u| u == t.name()));
-    let mut line = format!(
-        "{} more MCP tools are not listed: find them with tool_search (say what you want to do) and call them with \
-         call_tool.",
-        found.len()
-    );
-    if found.len() <= NAME_LIST {
-        let mut by_server: std::collections::BTreeMap<&str, Vec<&str>> = Default::default();
-        for t in &found {
-            by_server.entry(t.server()).or_default().push(t.mcp_name());
-        }
-        for (server, names) in by_server {
-            line.push_str(&format!(" {server}: {}.", names.join(", ")));
-        }
-    }
+    let line = found_line(&found);
     let mut tools: Vec<Arc<dyn Tool>> = listed.into_iter().map(|t| t as Arc<dyn Tool>).collect();
     tools.extend(pair(&catalog));
     McpOffer {

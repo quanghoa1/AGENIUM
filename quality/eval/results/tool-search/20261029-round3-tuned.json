@@ -1,0 +1,2122 @@
+[
+ {
+  "arm": "agenium",
+  "i": 0,
+  "query": "open a bug report on our GitHub repo",
+  "expect": "github_create_issue",
+  "pick": "github_create_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00132638,
+  "s": 17.9,
+  "input": 15297,
+  "output": 703,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 1,
+  "query": "close github issue 42",
+  "expect": "github_update_issue",
+  "pick": "github_update_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00100598,
+  "s": 12.1,
+  "input": 14609,
+  "output": 307,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 2,
+  "query": "which pull requests are waiting to be merged",
+  "expect": "github_list_pull_requests",
+  "pick": "github_list_pull_requests",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00109336,
+  "s": 13.6,
+  "input": 14956,
+  "output": 403,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 3,
+  "query": "see what changed in PR 17",
+  "expect": "github_get_pull_request_diff",
+  "pick": "github_get_pull_request_diff",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00108406,
+  "s": 13.3,
+  "input": 14641,
+  "output": 442,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 4,
+  "query": "squash and merge the pull request",
+  "expect": "github_merge_pull_request",
+  "pick": "github_merge_pull_request",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010352,
+  "s": 10.9,
+  "input": 14695,
+  "output": 347,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 5,
+  "query": "ask alice to review my PR",
+  "expect": "github_request_reviewers",
+  "pick": "github_request_reviewers",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00113961,
+  "s": 18.4,
+  "input": 15210,
+  "output": 430,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 6,
+  "query": "read README.md from the main branch of the repo",
+  "expect": "github_get_file_contents",
+  "pick": "github_get_file_contents",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00112941,
+  "s": 12.4,
+  "input": 14766,
+  "output": 496,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 7,
+  "query": "why did the CI build fail on main",
+  "expect": "github_list_workflow_runs",
+  "pick": "github_list_workflow_runs",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00118836,
+  "s": 10.8,
+  "input": 15459,
+  "output": 483,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 8,
+  "query": "retry the failed CI job",
+  "expect": "github_rerun_workflow",
+  "pick": "github_rerun_workflow",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00100027,
+  "s": 9.4,
+  "input": 14490,
+  "output": 320,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 9,
+  "query": "publish release notes for tag v2.0",
+  "expect": "github_create_release",
+  "pick": "github_create_release",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00105722,
+  "s": 13.2,
+  "input": 14784,
+  "output": 360,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 10,
+  "query": "tell the team in #deploys that the release is out",
+  "expect": "slack_post_message",
+  "pick": "slack_post_message",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00100016,
+  "s": 12.0,
+  "input": 14632,
+  "output": 293,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 11,
+  "query": "what did people say in the incident channel today",
+  "expect": "slack_get_channel_history",
+  "pick": "slack_get_channel_history",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010610300000000001,
+  "s": 11.6,
+  "input": 14805,
+  "output": 371,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 12,
+  "query": "DM bob that the meeting moved",
+  "expect": "slack_send_direct_message",
+  "pick": "slack_send_direct_message",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00115725,
+  "s": 11.9,
+  "input": 19762,
+  "output": 440,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 13,
+  "query": "find the slack conversation about the outage",
+  "expect": "slack_search_messages",
+  "pick": "slack_search_messages",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0011228800000000001,
+  "s": 11.2,
+  "input": 19740,
+  "output": 385,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 14,
+  "query": "put a thumbs up on that message",
+  "expect": "slack_add_reaction",
+  "pick": "slack_add_reaction",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010424700000000002,
+  "s": 12.9,
+  "input": 14623,
+  "output": 374,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 15,
+  "query": "move PROJ-12 to done",
+  "expect": "jira_transition_issue",
+  "pick": "jira_transition_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00100644,
+  "s": 11.8,
+  "input": 14524,
+  "output": 329,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 16,
+  "query": "record 3 hours spent on PROJ-7",
+  "expect": "jira_log_work",
+  "pick": "jira_log_work",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010196500000000002,
+  "s": 11.6,
+  "input": 14568,
+  "output": 342,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 17,
+  "query": "find all open bugs in project WEB with JQL",
+  "expect": "jira_search_jql",
+  "pick": "jira_search_jql",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0011894899999999999,
+  "s": 12.1,
+  "input": 19879,
+  "output": 482,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 18,
+  "query": "PROJ-9 blocks PROJ-10",
+  "expect": "jira_link_issues",
+  "pick": "jira_link_issues",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00109793,
+  "s": 11.6,
+  "input": 14751,
+  "output": 436,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 19,
+  "query": "what exceptions is production throwing",
+  "expect": "sentry_list_issues",
+  "pick": "sentry_list_issues",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011643500000000002,
+  "s": 12.6,
+  "input": 15141,
+  "output": 501,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 20,
+  "query": "show me the stack trace of that crash",
+  "expect": "sentry_get_event",
+  "pick": "sentry_get_issue_details",
+  "ok": false,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011154300000000002,
+  "s": 10.5,
+  "input": 15083,
+  "output": 418,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 21,
+  "query": "the error is fixed, mark it done in sentry",
+  "expect": "sentry_resolve_issue",
+  "pick": "sentry_resolve_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0012161,
+  "s": 11.5,
+  "input": 20022,
+  "output": 505,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 22,
+  "query": "how slow is the checkout endpoint p95",
+  "expect": "sentry_get_performance_summary",
+  "pick": "sentry_get_performance_summary",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011295300000000001,
+  "s": 12.0,
+  "input": 15247,
+  "output": 411,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 23,
+  "query": "what Linear tickets are on my plate",
+  "expect": "linear_list_my_issues",
+  "pick": "linear_list_my_issues",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00114792,
+  "s": 12.4,
+  "input": 19855,
+  "output": 421,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 24,
+  "query": "write meeting notes as a new Notion page",
+  "expect": "notion_create_page",
+  "pick": "notion_create_page",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00122291,
+  "s": 11.9,
+  "input": 19880,
+  "output": 477,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 25,
+  "query": "filter the roadmap database for items due this month",
+  "expect": "notion_query_database",
+  "pick": "notion_query_database",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011219900000000002,
+  "s": 14.9,
+  "input": 14656,
+  "output": 475,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 26,
+  "query": "how many users signed up yesterday (SQL)",
+  "expect": "postgres_query",
+  "pick": "postgres_query",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00122557,
+  "s": 12.0,
+  "input": 19999,
+  "output": 494,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 27,
+  "query": "what columns does the orders table have",
+  "expect": "postgres_describe_table",
+  "pick": "postgres_describe_table",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00128862,
+  "s": 13.2,
+  "input": 20280,
+  "output": 635,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 28,
+  "query": "why is this query slow, show the plan",
+  "expect": "postgres_explain_query",
+  "pick": "postgres_explain_query",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__many__postgres_explain_query",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0015473800000000001,
+  "s": 15.2,
+  "input": 20902,
+  "output": 1001,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 29,
+  "query": "add an index on orders.created_at",
+  "expect": "postgres_execute",
+  "pick": "postgres_execute",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00103308,
+  "s": 13.2,
+  "input": 14729,
+  "output": 336,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 30,
+  "query": "is the api pod crash looping",
+  "expect": "k8s_get_pods",
+  "pick": "k8s_get_pods",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011423400000000002,
+  "s": 16.4,
+  "input": 14965,
+  "output": 508,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 31,
+  "query": "logs of the container that crashed before the restart",
+  "expect": "k8s_get_pod_logs",
+  "pick": "k8s_get_pod_logs",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00117415,
+  "s": 12.5,
+  "input": 15279,
+  "output": 473,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 32,
+  "query": "bump the web deployment to 5 replicas",
+  "expect": "k8s_scale_deployment",
+  "pick": "k8s_scale_deployment",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00098412,
+  "s": 13.2,
+  "input": 14550,
+  "output": 277,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 33,
+  "query": "the new version is broken, go back to the previous one",
+  "expect": "k8s_rollout_undo",
+  "pick": "k8s_rollout_undo",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010457900000000002,
+  "s": 10.2,
+  "input": 14826,
+  "output": 342,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 34,
+  "query": "which pods use the most memory",
+  "expect": "k8s_top_pods",
+  "pick": "k8s_top_pods",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00108753,
+  "s": 11.8,
+  "input": 14601,
+  "output": 479,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 35,
+  "query": "graph the request rate from prometheus for the last hour",
+  "expect": "grafana_query_prometheus",
+  "pick": "grafana_query_prometheus",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00108386,
+  "s": 10.7,
+  "input": 14825,
+  "output": 406,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 36,
+  "query": "search the application logs for timeout errors",
+  "expect": "grafana_query_loki",
+  "pick": "grafana_query_loki",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00110986,
+  "s": 10.7,
+  "input": 15013,
+  "output": 417,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 37,
+  "query": "which alerts are firing right now",
+  "expect": "grafana_list_alert_rules",
+  "pick": "grafana_list_alert_rules",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011059000000000002,
+  "s": 11.7,
+  "input": 14835,
+  "output": 459,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 38,
+  "query": "mute the disk alert for two hours",
+  "expect": "grafana_silence_alert",
+  "pick": "grafana_silence_alert",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00101643,
+  "s": 11.5,
+  "input": 14539,
+  "output": 335,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 39,
+  "query": "mark the deploy on the dashboards",
+  "expect": "grafana_create_annotation",
+  "pick": "grafana_create_annotation",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010149900000000001,
+  "s": 11.5,
+  "input": 14610,
+  "output": 325,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 40,
+  "query": "who is on call tonight",
+  "expect": "pagerduty_get_oncall",
+  "pick": "pagerduty_get_oncall",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00098864,
+  "s": 11.1,
+  "input": 14545,
+  "output": 285,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 41,
+  "query": "stop paging, I am looking at it",
+  "expect": "pagerduty_acknowledge_incident",
+  "pick": "pagerduty_acknowledge_incident",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00103896,
+  "s": 12.5,
+  "input": 14654,
+  "output": 358,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 42,
+  "query": "wake up the database team, the db is down",
+  "expect": "pagerduty_create_incident",
+  "pick": "pagerduty_create_incident",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00102015,
+  "s": 11.3,
+  "input": 14718,
+  "output": 302,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 43,
+  "query": "give the customer a download link for the report in s3",
+  "expect": "aws_s3_presign_url",
+  "pick": "aws_s3_presign_url",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00115321,
+  "s": 12.1,
+  "input": 14789,
+  "output": 561,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 44,
+  "query": "CPU usage of the EC2 fleet",
+  "expect": "aws_cloudwatch_get_metric",
+  "pick": "aws_cloudwatch_get_metric",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010815500000000001,
+  "s": 10.8,
+  "input": 14940,
+  "output": 374,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 45,
+  "query": "give the customer their money back",
+  "expect": "stripe_create_refund",
+  "pick": "stripe_create_refund",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00101076,
+  "s": 10.0,
+  "input": 14746,
+  "output": 280,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 46,
+  "query": "stop the customer's plan at the end of the month",
+  "expect": "stripe_cancel_subscription",
+  "pick": "stripe_cancel_subscription",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00102498,
+  "s": 16.4,
+  "input": 14709,
+  "output": 324,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 47,
+  "query": "how much money is in the stripe account",
+  "expect": "stripe_get_balance",
+  "pick": "stripe_get_balance",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011820700000000001,
+  "s": 13.3,
+  "input": 14817,
+  "output": 625,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 48,
+  "query": "when are bob and carol both available for 30 minutes",
+  "expect": "google_calendar_find_free_time",
+  "pick": "google_calendar_find_free_time",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00098471,
+  "s": 11.0,
+  "input": 14547,
+  "output": 279,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 49,
+  "query": "set up a meeting with the design team on friday",
+  "expect": "google_calendar_create_event",
+  "pick": "google_calendar_create_event",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0013524300000000002,
+  "s": 14.9,
+  "input": 15512,
+  "output": 766,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 50,
+  "query": "email the client the invoice",
+  "expect": "google_gmail_send",
+  "pick": "google_gmail_send",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011607300000000002,
+  "s": 11.6,
+  "input": 15151,
+  "output": 470,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 51,
+  "query": "prepare an email but don't send it yet",
+  "expect": "google_gmail_draft",
+  "pick": "google_gmail_draft",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00100673,
+  "s": 10.3,
+  "input": 14495,
+  "output": 318,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 52,
+  "query": "is the image affected by known security holes",
+  "expect": "docker_image_vulnerabilities",
+  "pick": "docker_image_vulnerabilities",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010367500000000001,
+  "s": 15.1,
+  "input": 14427,
+  "output": 406,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 53,
+  "query": "restart the redis container",
+  "expect": "docker_restart_container",
+  "pick": "docker_restart_container",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00099574,
+  "s": 17.8,
+  "input": 14542,
+  "output": 308,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 54,
+  "query": "update the runbook page in confluence",
+  "expect": "confluence_update_page",
+  "pick": "confluence_update_page",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00117496,
+  "s": 12.4,
+  "input": 19892,
+  "output": 439,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 55,
+  "query": "turn off the new checkout feature in production",
+  "expect": "flags_toggle_flag",
+  "pick": "flags_toggle_flag",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00128799,
+  "s": 13.5,
+  "input": 20308,
+  "output": 610,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 56,
+  "query": "enable the beta for 10% of users",
+  "expect": "flags_set_rollout",
+  "pick": "flags_set_rollout",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00102307,
+  "s": 12.5,
+  "input": 14633,
+  "output": 335,
+  "error": null
+ },
+ {
+  "arm": "agenium",
+  "i": 57,
+  "query": "what is the codename of version 4.2",
+  "expect": "releases_codename",
+  "pick": "releases_codename",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.001072,
+  "s": 11.2,
+  "input": 14744,
+  "output": 420,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 0,
+  "query": "open a bug report on our GitHub repo",
+  "expect": "github_create_issue",
+  "pick": "github_create_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0015638700000000002,
+  "s": 12.5,
+  "input": 21878,
+  "output": 742,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 1,
+  "query": "close github issue 42",
+  "expect": "github_update_issue",
+  "pick": "github_update_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00123847,
+  "s": 10.9,
+  "input": 20333,
+  "output": 466,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 2,
+  "query": "which pull requests are waiting to be merged",
+  "expect": "github_list_pull_requests",
+  "pick": "github_list_pull_requests",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00107608,
+  "s": 8.5,
+  "input": 15130,
+  "output": 330,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 3,
+  "query": "see what changed in PR 17",
+  "expect": "github_get_pull_request_diff",
+  "pick": "github_get_pull_request_diff",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00126301,
+  "s": 10.8,
+  "input": 20293,
+  "output": 525,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 4,
+  "query": "squash and merge the pull request",
+  "expect": "github_merge_pull_request",
+  "pick": "github_merge_pull_request",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011030200000000001,
+  "s": 9.9,
+  "input": 15154,
+  "output": 372,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 5,
+  "query": "ask alice to review my PR",
+  "expect": "github_request_reviewers",
+  "pick": "github_request_reviewers",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011339,
+  "s": 10.6,
+  "input": 15247,
+  "output": 411,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 6,
+  "query": "read README.md from the main branch of the repo",
+  "expect": "github_get_file_contents",
+  "pick": "github_get_file_contents",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00125722,
+  "s": 12.2,
+  "input": 20342,
+  "output": 498,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 7,
+  "query": "why did the CI build fail on main",
+  "expect": "github_list_workflow_runs",
+  "pick": "github_list_workflow_runs",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011359200000000001,
+  "s": 10.8,
+  "input": 15290,
+  "output": 410,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 8,
+  "query": "retry the failed CI job",
+  "expect": "github_rerun_workflow",
+  "pick": "github_rerun_workflow",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011244199999999999,
+  "s": 9.8,
+  "input": 15176,
+  "output": 425,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 9,
+  "query": "publish release notes for tag v2.0",
+  "expect": "github_create_release",
+  "pick": "github_create_release",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00115656,
+  "s": 10.7,
+  "input": 15253,
+  "output": 460,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 10,
+  "query": "tell the team in #deploys that the release is out",
+  "expect": "slack_post_message",
+  "pick": "slack_post_message",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00122305,
+  "s": 10.7,
+  "input": 20361,
+  "output": 446,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 11,
+  "query": "what did people say in the incident channel today",
+  "expect": "slack_get_channel_history",
+  "pick": "slack_get_channel_history",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00111736,
+  "s": 10.5,
+  "input": 15253,
+  "output": 393,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 12,
+  "query": "DM bob that the meeting moved",
+  "expect": "slack_send_direct_message",
+  "pick": "slack_send_direct_message",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010795300000000002,
+  "s": 10.8,
+  "input": 15098,
+  "output": 344,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 13,
+  "query": "find the slack conversation about the outage",
+  "expect": "slack_search_messages",
+  "pick": "slack_search_messages",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0012403199999999998,
+  "s": 10.4,
+  "input": 20391,
+  "output": 494,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 14,
+  "query": "put a thumbs up on that message",
+  "expect": "slack_add_reaction",
+  "pick": "slack_add_reaction",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00112143,
+  "s": 10.0,
+  "input": 15203,
+  "output": 401,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 15,
+  "query": "move PROJ-12 to done",
+  "expect": "jira_transition_issue",
+  "pick": "jira_transition_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00103268,
+  "s": 9.0,
+  "input": 15058,
+  "output": 272,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 16,
+  "query": "record 3 hours spent on PROJ-7",
+  "expect": "jira_log_work",
+  "pick": "jira_log_work",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010554499999999999,
+  "s": 10.3,
+  "input": 15084,
+  "output": 306,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 17,
+  "query": "find all open bugs in project WEB with JQL",
+  "expect": "jira_search_jql",
+  "pick": "jira_search_jql",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00124209,
+  "s": 12.2,
+  "input": 20423,
+  "output": 476,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 18,
+  "query": "PROJ-9 blocks PROJ-10",
+  "expect": "jira_link_issues",
+  "pick": "jira_link_issues",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0012806,
+  "s": 11.3,
+  "input": 20424,
+  "output": 534,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 19,
+  "query": "what exceptions is production throwing",
+  "expect": "sentry_list_issues",
+  "pick": "sentry_list_issues",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00121149,
+  "s": 10.9,
+  "input": 15249,
+  "output": 584,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 20,
+  "query": "show me the stack trace of that crash",
+  "expect": "sentry_get_event",
+  "pick": "sentry_get_issue_details",
+  "ok": false,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00125221,
+  "s": 11.1,
+  "input": 15589,
+  "output": 591,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 21,
+  "query": "the error is fixed, mark it done in sentry",
+  "expect": "sentry_resolve_issue",
+  "pick": "sentry_resolve_issue",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0011933100000000002,
+  "s": 10.6,
+  "input": 20189,
+  "output": 412,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 22,
+  "query": "how slow is the checkout endpoint p95",
+  "expect": "sentry_get_performance_summary",
+  "pick": "sentry_get_performance_summary",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00111784,
+  "s": 9.2,
+  "input": 15264,
+  "output": 385,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 23,
+  "query": "what Linear tickets are on my plate",
+  "expect": "linear_list_my_issues",
+  "pick": "linear_list_my_issues",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0012457199999999999,
+  "s": 10.8,
+  "input": 20063,
+  "output": 560,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 24,
+  "query": "write meeting notes as a new Notion page",
+  "expect": "notion_create_page",
+  "pick": "notion_create_page",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0013113600000000001,
+  "s": 11.6,
+  "input": 20460,
+  "output": 553,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 25,
+  "query": "filter the roadmap database for items due this month",
+  "expect": "notion_query_database",
+  "pick": "notion_query_database",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__many__call_tool",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00149113,
+  "s": 11.6,
+  "input": 21201,
+  "output": 824,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 26,
+  "query": "how many users signed up yesterday (SQL)",
+  "expect": "postgres_query",
+  "pick": "postgres_query",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00140743,
+  "s": 11.3,
+  "input": 20845,
+  "output": 685,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 27,
+  "query": "what columns does the orders table have",
+  "expect": "postgres_describe_table",
+  "pick": "postgres_describe_table",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00113052,
+  "s": 9.4,
+  "input": 15046,
+  "output": 474,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 28,
+  "query": "why is this query slow, show the plan",
+  "expect": "postgres_explain_query",
+  "pick": "postgres_explain_query",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00133958,
+  "s": 10.8,
+  "input": 15507,
+  "output": 748,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 29,
+  "query": "add an index on orders.created_at",
+  "expect": "postgres_execute",
+  "pick": "postgres_execute",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 5,
+  "cost": 0.0016704200000000002,
+  "s": 12.6,
+  "input": 27831,
+  "output": 803,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 30,
+  "query": "is the api pod crash looping",
+  "expect": "k8s_get_pods",
+  "pick": "k8s_get_pods",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0012938000000000001,
+  "s": 12.0,
+  "input": 20265,
+  "output": 605,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 31,
+  "query": "logs of the container that crashed before the restart",
+  "expect": "k8s_get_pod_logs",
+  "pick": "k8s_get_pod_logs",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__many__k8s_get_pod_logs",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0014422900000000002,
+  "s": 12.2,
+  "input": 21201,
+  "output": 759,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 32,
+  "query": "bump the web deployment to 5 replicas",
+  "expect": "k8s_scale_deployment",
+  "pick": "k8s_scale_deployment",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010822,
+  "s": 9.1,
+  "input": 15180,
+  "output": 342,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 33,
+  "query": "the new version is broken, go back to the previous one",
+  "expect": "k8s_rollout_undo",
+  "pick": "k8s_rollout_undo",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010901300000000001,
+  "s": 10.3,
+  "input": 15130,
+  "output": 360,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 34,
+  "query": "which pods use the most memory",
+  "expect": "k8s_top_pods",
+  "pick": "k8s_top_pods",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00104852,
+  "s": 9.4,
+  "input": 15073,
+  "output": 303,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 35,
+  "query": "graph the request rate from prometheus for the last hour",
+  "expect": "grafana_query_prometheus",
+  "pick": "grafana_query_prometheus",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010851699999999999,
+  "s": 10.0,
+  "input": 15175,
+  "output": 345,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 36,
+  "query": "search the application logs for timeout errors",
+  "expect": "grafana_query_loki",
+  "pick": "grafana_query_loki",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00110692,
+  "s": 9.6,
+  "input": 15231,
+  "output": 368,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 37,
+  "query": "which alerts are firing right now",
+  "expect": "grafana_list_alert_rules",
+  "pick": "grafana_list_alert_rules",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00109879,
+  "s": 10.3,
+  "input": 15061,
+  "output": 392,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 38,
+  "query": "mute the disk alert for two hours",
+  "expect": "grafana_silence_alert",
+  "pick": "grafana_silence_alert",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010854600000000001,
+  "s": 9.9,
+  "input": 15081,
+  "output": 360,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 39,
+  "query": "mark the deploy on the dashboards",
+  "expect": "grafana_create_annotation",
+  "pick": "grafana_create_annotation",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00108443,
+  "s": 10.8,
+  "input": 15157,
+  "output": 353,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 40,
+  "query": "who is on call tonight",
+  "expect": "pagerduty_get_oncall",
+  "pick": "pagerduty_get_oncall",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00103151,
+  "s": 9.6,
+  "input": 15031,
+  "output": 274,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 41,
+  "query": "stop paging, I am looking at it",
+  "expect": "pagerduty_acknowledge_incident",
+  "pick": "pagerduty_acknowledge_incident",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.00131295,
+  "s": 11.1,
+  "input": 20718,
+  "output": 578,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 42,
+  "query": "wake up the database team, the db is down",
+  "expect": "pagerduty_create_incident",
+  "pick": "pagerduty_create_incident",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0013608399999999999,
+  "s": 11.3,
+  "input": 21260,
+  "output": 582,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 43,
+  "query": "give the customer a download link for the report in s3",
+  "expect": "aws_s3_presign_url",
+  "pick": "aws_s3_presign_url",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010878600000000002,
+  "s": 10.4,
+  "input": 15151,
+  "output": 352,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 44,
+  "query": "CPU usage of the EC2 fleet",
+  "expect": "aws_cloudwatch_get_metric",
+  "pick": "aws_cloudwatch_get_metric",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00118555,
+  "s": 10.7,
+  "input": 15354,
+  "output": 481,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 45,
+  "query": "give the customer their money back",
+  "expect": "stripe_create_refund",
+  "pick": "stripe_create_refund",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010636100000000002,
+  "s": 10.2,
+  "input": 14864,
+  "output": 367,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 46,
+  "query": "stop the customer's plan at the end of the month",
+  "expect": "stripe_cancel_subscription",
+  "pick": "stripe_cancel_subscription",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010228,
+  "s": 10.2,
+  "input": 14915,
+  "output": 276,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 47,
+  "query": "how much money is in the stripe account",
+  "expect": "stripe_get_balance",
+  "pick": "stripe_get_balance",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00106415,
+  "s": 10.1,
+  "input": 14803,
+  "output": 394,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 48,
+  "query": "when are bob and carol both available for 30 minutes",
+  "expect": "google_calendar_find_free_time",
+  "pick": "google_calendar_find_free_time",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00107839,
+  "s": 10.5,
+  "input": 15075,
+  "output": 357,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 49,
+  "query": "set up a meeting with the design team on friday",
+  "expect": "google_calendar_create_event",
+  "pick": "google_calendar_create_event",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0013191600000000002,
+  "s": 10.9,
+  "input": 15676,
+  "output": 673,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 50,
+  "query": "email the client the invoice",
+  "expect": "google_gmail_send",
+  "pick": "google_gmail_send",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011641900000000003,
+  "s": 10.2,
+  "input": 15193,
+  "output": 470,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 51,
+  "query": "prepare an email but don't send it yet",
+  "expect": "google_gmail_draft",
+  "pick": "google_gmail_draft",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011449899999999998,
+  "s": 11.4,
+  "input": 15195,
+  "output": 446,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 52,
+  "query": "is the image affected by known security holes",
+  "expect": "docker_image_vulnerabilities",
+  "pick": "docker_image_vulnerabilities",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0011186000000000002,
+  "s": 11.2,
+  "input": 14777,
+  "output": 500,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 53,
+  "query": "restart the redis container",
+  "expect": "docker_restart_container",
+  "pick": "docker_restart_container",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.0010276,
+  "s": 9.2,
+  "input": 14864,
+  "output": 306,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 54,
+  "query": "update the runbook page in confluence",
+  "expect": "confluence_update_page",
+  "pick": "confluence_update_page",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0013516900000000002,
+  "s": 11.2,
+  "input": 20454,
+  "output": 584,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 55,
+  "query": "turn off the new checkout feature in production",
+  "expect": "flags_toggle_flag",
+  "pick": "flags_toggle_flag",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 4,
+  "cost": 0.0012643800000000003,
+  "s": 10.9,
+  "input": 20355,
+  "output": 536,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 56,
+  "query": "enable the beta for 10% of users",
+  "expect": "flags_set_rollout",
+  "pick": "flags_set_rollout",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00108596,
+  "s": 10.7,
+  "input": 15117,
+  "output": 358,
+  "error": null
+ },
+ {
+  "arm": "agenium-nojev",
+  "i": 57,
+  "query": "what is the codename of version 4.2",
+  "expect": "releases_codename",
+  "pick": "releases_codename",
+  "ok": true,
+  "calls": [
+   "mcp__agenium__tool_search",
+   "mcp__agenium__call_tool"
+  ],
+  "turns": 3,
+  "cost": 0.00104759,
+  "s": 9.5,
+  "input": 14980,
+  "output": 322,
+  "error": null
+ }
+]
