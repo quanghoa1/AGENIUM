@@ -243,7 +243,7 @@ overrides and audit, and closes the gaps found with the CLI backends.
 | `App::needs_you` (derived "Needs you" list), `runs::recent` | DONE | `team.rs::needs_you_lists_what_waits_for_the_user` |
 | UI-2: safe Markdown renderer (chat, tickets, comments, runs), ticket changes (diff of the live branch or of the merged commit), board drag-and-drop for the user's transitions (assign / close / cancel; reopen goes to the ticket for per-AC feedback; empty columns collapse), shell steps as terminal blocks, agent page (model, Make Lead, runs, memory facts, skills & MCP), selective desktop notifications (NeedsUser), full vi/en strings | DONE | `ui/src/components/{Markdown,DiffView}.tsx`, `views/*`; real app screenshots; drag tested once through CDP (assign), the rest by hand |
 | M4: the user puts another member in the Lead slot (`App::set_team_lead`; CLI `team lead`; UI "Make Lead") | DONE | `team.rs::the_user_puts_another_member_in_the_lead_slot` |
-| Monaco editor / xterm terminal (lightweight viewers instead), skills/MCP forms, installer, CI UI tests | NOT DONE | |
+| Monaco editor / xterm terminal (lightweight viewers instead), skills/MCP forms, installer, CI UI tests | DONE since: Monaco diff and xterm terminal (ADR-112), skill and MCP forms, the Windows installer (Release 0.1 above), UI smoke and full checks (`ui-tests/`); Monaco skill-file editing not yet | |
 
 ### P5 — Agent pool, custom teams, Live tab (owner's review of the app): DONE ([ADR-61](adr/ADR-61-agent-pool-and-custom-teams.md))
 | Item | Status | Evidence |

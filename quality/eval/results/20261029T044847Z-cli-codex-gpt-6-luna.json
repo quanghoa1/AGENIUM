@@ -1,0 +1,33 @@
+[
+  {
+    "id": "use-skill",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "list_dir": 1,
+      "load_skill": 2,
+      "read_file": 4,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 230604,
+    "tokens_out": 1057,
+    "tokens_cached": 179072,
+    "cost_usd": 0.0,
+    "elapsed_ms": 37044
+  }
+]

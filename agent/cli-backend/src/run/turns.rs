@@ -40,7 +40,14 @@ impl CliRun<'_> {
             let end = self.turn(&mut p, calls, &cx, deadline, st).await;
             // The CLI could not resume its earlier session (gone, refused): it starts over, shown the conversation so
             // far, once.
-            if let (true, 0, Err(why) | Ok((_, Some(why)))) = (st.resumed, st.steps, &end) {
+            // A used-up quota or a refused login is that, not a refused resume: the session is kept for the next run.
+            let refused = match (st.resumed, st.steps, &end) {
+                (true, 0, Err(why) | Ok((_, Some(why)))) => {
+                    (!out_of_quota(why) && !logged_out(why)).then(|| why.clone())
+                }
+                _ => None,
+            };
+            if let Some(why) = refused {
                 st.resumed = false;
                 st.session = None;
                 st.text.clear();

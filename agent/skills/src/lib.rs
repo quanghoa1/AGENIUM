@@ -11,6 +11,9 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
+mod files;
+pub use files::file_path;
+
 pub const SKILL_FILE: &str = "SKILL.md";
 pub const MAX_NAME: usize = 64;
 pub const MAX_TAGS: usize = 12;
@@ -636,9 +639,8 @@ impl Registry {
         result
     }
 
-    /// Writes a skill's SKILL.md from text (create or edit in place). The frontmatter `name` must equal `name` and the
-    /// content must validate; the folder's other files (references/, scripts/) are kept. `create` requires the folder
-    /// not to exist yet. The write is atomic: it validates against a temp copy, then replaces SKILL.md.
+    /// Writes a skill's SKILL.md from text (create or edit in place); its other files are kept. See
+    /// [`Registry::write_with_files`].
     pub fn write(
         &self,
         owner: &Owner,
@@ -646,54 +648,7 @@ impl Registry {
         content: &str,
         create: bool,
     ) -> Result<SkillMeta> {
-        if !valid_name(name) {
-            return Err(invalid(format!("invalid skill name {name:?}")));
-        }
-        // The content must name this very skill, so the folder name and the frontmatter agree.
-        let (fm, _) = parse(content)?;
-        if fm.get("name") != Some(name) {
-            return Err(invalid(format!(
-                "the frontmatter name must be {name:?} (it is {:?})",
-                fm.get("name").unwrap_or("")
-            )));
-        }
-        let origin = match owner {
-            Owner::Agent(_) => Origin::Agent,
-            Owner::Role(_) => Origin::Role,
-            Owner::Library => Origin::Library,
-        };
-        let dir = self.dir_of(owner).join(name);
-        let exists = dir.join(SKILL_FILE).exists();
-        if create && exists {
-            return Err(SkillError::Exists(name.to_owned()));
-        }
-        if !create && !exists {
-            return Err(SkillError::NotFound(name.into()));
-        }
-        // Validate the whole folder as it would be after the write, in a staging copy, before touching the real one.
-        std::fs::create_dir_all(&dir)?;
-        let staging = self
-            .dir_of(owner)
-            .join(format!(".edit-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&staging);
-        // copy_dir only copies files; a new skill's folder is empty, so make the staging dir first.
-        std::fs::create_dir_all(&staging)?;
-        copy_dir(&dir, &staging)?;
-        let result = (|| {
-            std::fs::write(staging.join(SKILL_FILE), content)?;
-            validate_named(&staging, origin, false)?;
-            // The staged SKILL.md is good: commit it to the real folder (temp + rename so a crash cannot truncate it).
-            let tmp = dir.join(format!(".{SKILL_FILE}.{}", std::process::id()));
-            std::fs::write(&tmp, content)?;
-            std::fs::rename(&tmp, dir.join(SKILL_FILE))?;
-            Ok(validate(&dir, origin)?.meta)
-        })();
-        let _ = std::fs::remove_dir_all(&staging);
-        if result.is_err() && create && !exists {
-            // A failed create leaves no empty folder behind.
-            let _ = std::fs::remove_dir_all(&dir);
-        }
-        result
+        self.write_with_files(owner, name, content, create, &[], &[])
     }
 
     /// Deletes a skill folder of an owner.

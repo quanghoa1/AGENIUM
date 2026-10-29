@@ -14,12 +14,17 @@ use super::*;
 const FIRST_WAIT: Duration = Duration::from_secs(30 * 60);
 /// The longest wait between two tries.
 const MAX_WAIT: Duration = Duration::from_secs(4 * 3600);
+/// How long an agent must work without running out again before its next set-aside starts the waits afresh: a round
+/// of another project, run while a try of it is going, sees it at work and must not undo the backoff.
+const SETTLED: Duration = Duration::from_secs(3600);
 
 /// When an agent set aside for its quota is tried again, and how many tries it had.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct QuotaWait {
     at: SystemTime,
     tries: u32,
+    /// Since when it has been seen at work (not set aside).
+    working_since: Option<SystemTime>,
 }
 
 impl Runtime {
@@ -28,11 +33,16 @@ impl Runtime {
         let agents = self.app.agents()?;
         let mut back = Vec::new();
         let mut waits = self.quota_waits.lock().unwrap_or_else(|p| p.into_inner());
-        // One that went back to work (or was resumed by the user) starts afresh the next time.
-        waits.retain(|id, _| {
-            agents
+        // One that has worked an hour without running out again starts afresh the next time.
+        waits.retain(|id, w| {
+            let aside = agents
                 .iter()
-                .any(|a| a.id == *id && a.status == AgentStatus::QuotaExhausted)
+                .any(|a| a.id == *id && a.status == AgentStatus::QuotaExhausted);
+            if aside {
+                return true;
+            }
+            let since = *w.working_since.get_or_insert(now);
+            now.duration_since(since).unwrap_or_default() < SETTLED
         });
         for a in agents
             .iter()
@@ -42,7 +52,13 @@ impl Runtime {
             let w = waits.entry(a.id).or_insert_with(|| QuotaWait {
                 at: reset.unwrap_or(now + FIRST_WAIT),
                 tries: 0,
+                working_since: None,
             });
+            w.working_since = None;
+            // The vendor's reset, when it is later than the next try: a try before it is bound to fail.
+            if let Some(r) = reset.filter(|r| *r > w.at) {
+                w.at = r;
+            }
             if now < w.at {
                 continue;
             }
@@ -59,7 +75,10 @@ impl Runtime {
         drop(waits);
         for (a, why) in &back {
             self.app.set_agent_status(a.id, AgentStatus::Idle)?;
-            self.note_quota_back(a, why)?;
+            // The note is a courtesy: one that cannot be written does not keep the others set aside.
+            if let Err(e) = self.note_quota_back(a, why) {
+                tracing::warn!(error = %e, agent = %a.name, "the quota-back note could not be written");
+            }
         }
         Ok(back.into_iter().map(|(a, _)| a.id).collect())
     }

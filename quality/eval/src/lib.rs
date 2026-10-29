@@ -24,6 +24,7 @@ pub mod mcp_keys;
 pub mod memory_reuse;
 pub mod quota;
 pub mod stats;
+pub mod task_skills;
 pub mod team;
 
 pub struct Task {
@@ -57,8 +58,8 @@ fn walk_contains(dir: &Path, needle: &str) -> Vec<String> {
     hits
 }
 
-/// Tasks that run only when named with `--task` (slow on purpose, or a question to the user on purpose).
-pub const OPT_IN: [&str; 2] = ["slow-check", "ask-first"];
+/// Tasks that run only when named with `--task` (slow on purpose, a question to the user on purpose, or a skill).
+pub const OPT_IN: [&str; 3] = ["slow-check", "ask-first", "use-skill"];
 
 pub fn tasks() -> Vec<Task> {
     vec![
@@ -193,6 +194,33 @@ pub fn tasks() -> Vec<Task> {
                 vec![
                     ("shell", json!({"command": cmd, "timeout_ms": 150000})),
                     ("write_file", json!({"path": "deliverables/check.txt", "content": "42\n"})),
+                ]
+            },
+        },
+        // Done only through a library skill (`task_skills.rs`): the format is in its reference, the code is what its
+        // script prints.
+        Task {
+            id: "use-skill",
+            title: "Write the release note",
+            description: "Write deliverables/release.txt: the release note for version 2 (what changed: faster start-up). Follow the team's skill for release notes.",
+            acceptance: &["deliverables/release.txt follows the team's release-note format and holds the current release code"],
+            fixture: &[("README.md", "# App\n")],
+            check: |r| {
+                let note = read(r, "deliverables/release.txt")?;
+                let mut lines = note.lines().filter(|l| !l.trim().is_empty());
+                let first = lines.next().unwrap_or_default().trim().to_owned();
+                if first != format!("RELEASE {}", task_skills::CODE) {
+                    return Err(format!("line 1 is {first:?}, expected \"RELEASE {}\"", task_skills::CODE));
+                }
+                let second = lines.next().unwrap_or_default();
+                second.trim().starts_with("Notes:").then_some(()).ok_or_else(|| format!("line 2 is {second:?}"))
+            },
+            solution: || {
+                let cmd = if cfg!(windows) { "Write-Output 'RC-7731'" } else { "echo RC-7731" };
+                vec![
+                    ("load_skill", json!({"name": "release-stamp"})),
+                    ("shell", json!({"command": cmd})),
+                    ("write_file", json!({"path": "deliverables/release.txt", "content": "RELEASE RC-7731\nNotes: faster start-up.\n"})),
                 ]
             },
         },
@@ -398,6 +426,8 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             },
         },
     )?;
+    // The library skills the task is done through (`task_skills.rs`).
+    task_skills::install(&app, agent.id, task.id)?;
     if let Mode::Cli { cli, model, .. } = mode {
         app.set_agent_backend(
             agent.id,

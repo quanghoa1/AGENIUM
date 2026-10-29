@@ -23,6 +23,7 @@ mod handle;
 mod list_dir;
 mod read_file;
 mod real_read;
+mod real_remove;
 mod real_write;
 mod shell;
 mod shell_awaited;

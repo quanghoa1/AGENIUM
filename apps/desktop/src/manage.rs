@@ -339,24 +339,6 @@ pub async fn evaluate_skill_text(d: State<'_, Desktop>, content: String) -> R<Va
     Ok(json!({ "shape_notes": notes, "quality": quality }))
 }
 
-/// A relative path inside a skill folder, restricted to `references/` and `scripts/` with safe segments.
-fn skill_rel(rel: &str) -> R<PathBuf> {
-    let rel = rel.trim().replace('\\', "/");
-    let ok = (rel.starts_with("references/") || rel.starts_with("scripts/"))
-        && !rel.contains("..")
-        && rel.split('/').all(|s| {
-            !s.is_empty()
-                && s.chars()
-                    .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
-        });
-    if !ok {
-        return Err(format!(
-            "path must be under references/ or scripts/ (a-z, 0-9, . _ - only); got {rel:?}"
-        ));
-    }
-    Ok(PathBuf::from(rel))
-}
-
 /// A skill's library folder on disk.
 fn skill_dir(o: &crate::state::Opened, name: &str) -> R<PathBuf> {
     let set = o.app.skill_registry().library();
@@ -368,50 +350,74 @@ fn skill_dir(o: &crate::state::Opened, name: &str) -> R<PathBuf> {
         .clone())
 }
 
-/// One of a skill's files (reference or script) for editing in the app.
+/// One of a skill's files (a reference, a script, an asset) for the editor: its text, or `binary` with its size for a
+/// file that is not text, which the editor does not edit (an image up to 2 MB comes as base64 to be shown).
 #[tauri::command]
 pub fn skill_file(d: State<'_, Desktop>, name: String, path: String) -> R<Value> {
     let o = d.opened()?;
-    let p = skill_dir(&o, &name)?.join(skill_rel(&path)?);
-    let text = std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
-    Ok(json!({ "path": path, "content": text }))
+    let rel = agenium_skills::file_path(&path).map_err(|e| e.to_string())?;
+    let p = skill_dir(&o, &name)?.join(rel);
+    let bytes = std::fs::read(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+    Ok(match String::from_utf8(bytes) {
+        Ok(text) => json!({ "path": path, "content": text }),
+        Err(e) => {
+            use base64::Engine as _;
+            let bytes = e.into_bytes();
+            let shown = (bytes.len() <= 2 * 1024 * 1024)
+                .then(|| base64::engine::general_purpose::STANDARD.encode(&bytes));
+            json!({ "path": path, "binary": true, "size": bytes.len(), "base64": shown })
+        }
+    })
 }
 
-/// Writes one of a skill's reference/script files (create or edit), then re-validates the skill folder.
-#[tauri::command]
-pub fn save_skill_file(
-    d: State<'_, Desktop>,
-    name: String,
+/// A file of a skill as the editor sends it: text, or base64 (a file uploaded from disk that is not text).
+#[derive(serde::Deserialize)]
+pub struct SkillFileIn {
     path: String,
-    content: String,
-) -> R<Value> {
-    let o = d.opened()?;
-    let dir = skill_dir(&o, &name)?;
-    let rel = skill_rel(&path)?;
-    let full = dir.join(&rel);
-    if let Some(parent) = full.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&full, &content).map_err(|e| e.to_string())?;
-    // A bad file (e.g. a reference the SKILL.md does not point at is fine; this just confirms the skill still loads).
-    let body = o.app.library_skill_body(&name).unwrap_or_default();
-    let notes = o.app.lint_skill(&name, &body);
-    Ok(json!({ "path": path, "shape_notes": notes }))
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    base64: Option<String>,
 }
 
-/// Writes a library skill's SKILL.md from the editor (create or edit), validates it, then returns the three checks so
-/// the author sees the advice right away: shape lint (ADR-88), library conflicts (ADR-92), Jev quality (ADR-90).
+/// Writes a library skill from the editor in one step: its SKILL.md, the files added or changed (`files`) and those
+/// removed (`removed`), validated together (a SKILL.md may name a reference added in the same save). Returns the three
+/// checks so the author sees the advice right away: shape lint (ADR-88), library conflicts (ADR-92), Jev quality
+/// (ADR-90).
 #[tauri::command]
 pub async fn save_skill(
     d: State<'_, Desktop>,
     name: String,
     content: String,
     create: bool,
+    files: Option<Vec<SkillFileIn>>,
+    removed: Option<Vec<String>>,
 ) -> R<Value> {
+    use base64::Engine as _;
     let o = d.opened()?;
+    let files: Vec<(String, Vec<u8>)> = files
+        .unwrap_or_default()
+        .into_iter()
+        .map(|f| {
+            let bytes = match (f.text, f.base64) {
+                (Some(t), _) => t.into_bytes(),
+                (None, Some(b)) => base64::engine::general_purpose::STANDARD
+                    .decode(b.as_bytes())
+                    .map_err(|e| format!("{}: {e}", f.path))?,
+                (None, None) => Vec::new(),
+            };
+            Ok((f.path, bytes))
+        })
+        .collect::<R<_>>()?;
     let meta = o
         .app
-        .save_library_skill(name.trim(), &content, create)
+        .save_library_skill(
+            name.trim(),
+            &content,
+            create,
+            &files,
+            &removed.unwrap_or_default(),
+        )
         .map_err(err)?;
     let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
     let mut notes = o.app.lint_skill(&meta.name, &body);

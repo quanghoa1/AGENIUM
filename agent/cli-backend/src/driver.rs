@@ -617,6 +617,19 @@ mod tests {
         );
         assert!(!original(&run).exists());
         sync_login(&user, &run).unwrap();
+        // Codex stopped while writing a refresh: the user's file is put back whole.
+        crate::login::guard_linked(&user, &run).unwrap();
+        std::fs::write(&user, "").unwrap();
+        crate::login::guard_linked(&user, &run).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&user).unwrap(),
+            r#"{"refresh":"r2"}"#
+        );
+        assert_eq!(
+            std::fs::read_to_string(&run).unwrap(),
+            r#"{"refresh":"r2"}"#,
+            "still one file"
+        );
         // The run's home goes: the user's login stays.
         std::fs::remove_dir_all(&home).unwrap();
         assert_eq!(

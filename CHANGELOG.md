@@ -48,6 +48,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   without its refresh token while the access token lasts, so they cannot use it up (ADR-137).
 - A command longer than a CLI's own tool wait goes on as a job the run waits for; its end comes to the agent as a
   message (ADR-133).
+- Skills are written in the app with their references, scripts and assets: fields for the name, description and tags,
+  files added in place or uploaded, one save that checks the whole skill (ADR-138).
 - Paths crafted to slip past the checks are caught: every path a CLI's tool names, links out of the write scope or the
   worktree, hard links (no read or write through one), dotfiles of the CLI's scratch home (path review, ADR-56,
   ADR-135).
@@ -126,6 +128,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 ### Operations
 - Backups (hourly incremental, daily full, retention), restore into a new root, migrations with a backup first,
   support bundle without secrets, Markdown project reports, cost per run/ticket/agent.
+- zstd raised to 0.14.3 for three advisories of 2026 (RUSTSEC-2026-0391, -0398, -0403), found by cargo-deny in the
+  local CI; the backup and agent export formats are unchanged.
 
 ### Known limits
 - Windows: the agent sandbox needs MXC process containers, which stable Windows 11 releases (23H2 tested) do not

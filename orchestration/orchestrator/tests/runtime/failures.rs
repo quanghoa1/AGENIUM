@@ -525,8 +525,11 @@ async fn an_agent_out_of_quota_goes_back_to_work_when_the_quota_is_back() {
         .iter()
         .any(|c| matches!(&c.body, CommentBody::System { text } if text.contains("quota on") && text.contains("should be back")));
     assert!(said, "its ticket is told");
-    // Still used up: set aside again, tried an hour later.
+    // Another project's round sees it at work meanwhile: the backoff is kept.
+    assert!(rt.quota_back_round(t0 + min(40)).unwrap().is_empty());
+    // Still used up: set aside again, tried an hour later (not 30 minutes).
     set_aside();
+    assert!(rt.quota_back_round(t0 + min(75)).unwrap().is_empty());
     assert!(rt.quota_back_round(t0 + min(80)).unwrap().is_empty());
     assert_eq!(rt.quota_back_round(t0 + min(92)).unwrap(), vec![agent]);
     // Its vendor said when the window resets: it goes back then.

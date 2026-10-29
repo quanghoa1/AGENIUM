@@ -92,7 +92,7 @@ begin with ' ' (context), '-' (remove) or '+' (add); end with '*** End Patch'."
         for (p, rel, content) in &writes {
             let r = match content {
                 Some(c) => write_file(&ctx.root, p, rel, c.as_bytes()),
-                None => std::fs::remove_file(p).map_err(|e| io_err(rel, e)),
+                None => super::real_remove::remove_file(&ctx.root, p, rel),
             };
             if let Err(e) = r {
                 for (op, orig) in &originals {
@@ -101,7 +101,7 @@ begin with ' ' (context), '-' (remove) or '+' (add); end with '*** End Patch'."
                             let _ = write_file(&ctx.root, op, "", b);
                         }
                         None => {
-                            let _ = std::fs::remove_file(op);
+                            let _ = super::real_remove::remove_file(&ctx.root, op, "");
                         }
                     }
                 }

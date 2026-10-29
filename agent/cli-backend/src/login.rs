@@ -22,9 +22,51 @@ pub fn copy_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
 pub fn link_login(user_file: &Path, home_file: &Path) -> std::io::Result<bool> {
     let _ = std::fs::remove_file(home_file);
     if std::fs::hard_link(user_file, home_file).is_ok() {
+        guard_linked(user_file, home_file)?;
         return Ok(true);
     }
     copy_login(user_file, home_file).map(|()| false)
+}
+
+/// The last whole state of a linked login, beside the link.
+fn good(home_file: &Path) -> PathBuf {
+    let mut name = home_file.file_name().unwrap_or_default().to_os_string();
+    name.push(".agenium-good");
+    home_file.with_file_name(name)
+}
+
+/// A login shared through a link (`link_login`; Codex writes it in place) keeps its last whole state beside the link,
+/// and has it put back when it is found cut short: the CLI stopped (a run's end, its timeout) while it was writing a
+/// refreshed login, which left the user's own file empty and their CLI logged out. Run every few seconds and at the
+/// run's end (`Driver::finish`); a copy is kept in step by `sync_login` instead.
+pub fn guard_linked(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
+    if original(home_file).exists() || !home_file.exists() {
+        return Ok(());
+    }
+    let whole = |b: &[u8]| !b.is_empty() && serde_json::from_slice::<Value>(b).is_ok();
+    let now = std::fs::read(user_file)?;
+    if whole(&now) {
+        if std::fs::read(good(home_file)).ok().as_deref() != Some(now.as_slice()) {
+            std::fs::write(good(home_file), &now)?;
+        }
+        return Ok(());
+    }
+    // Cut short, or being written right now: looked at again a moment later.
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    if whole(&std::fs::read(user_file)?) {
+        return Ok(());
+    }
+    let Ok(kept) = std::fs::read(good(home_file)) else {
+        return Ok(());
+    };
+    tracing::warn!(file = %user_file.display(), "a login cut short by a stopped CLI is put back");
+    // In place, as the CLI writes it: the link and the user's file stay one file.
+    use std::io::Write;
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(user_file)?;
+    f.write_all(&kept)
 }
 
 /// The pristine copy of a login file copied into a per-run home.

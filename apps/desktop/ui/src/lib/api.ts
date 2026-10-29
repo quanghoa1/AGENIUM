@@ -209,12 +209,12 @@ export const api = {
   evaluateSkill: (name: string) => call<{ shape_notes: string[]; quality: string[] | null }>("evaluate_skill", { name }),
   skillSkeleton: () => call<{ body: string }>("skill_skeleton"),
   // Write a library skill's SKILL.md (create or edit); returns the shape and (when the judge is on) quality checks.
-  saveSkill: (name: string, content: string, create: boolean) => call<{ name: string; shape_notes: string[]; quality: string[] | null }>("save_skill", { name, content, create }),
+  saveSkill: (name: string, content: string, create: boolean, files: { path: string; text?: string; base64?: string }[] = [], removed: string[] = []) =>
+    call<{ name: string; shape_notes: string[]; quality: string[] | null }>("save_skill", { name, content, create, files, removed }),
   // Evaluate unsaved SKILL.md text (the editor's "Evaluate" button): shape + (judge on) quality, no save, no conflicts.
   evaluateSkillText: (content: string) => call<{ shape_notes: string[]; quality: string[] | null }>("evaluate_skill_text", { content }),
   // Read / write a skill's tier-3 file (references/*, scripts/*).
-  skillFile: (name: string, path: string) => call<{ path: string; content: string }>("skill_file", { name, path }),
-  saveSkillFile: (name: string, path: string, content: string) => call<{ path: string; shape_notes: string[] }>("save_skill_file", { name, path, content }),
+  skillFile: (name: string, path: string) => call<{ path: string; content?: string; binary?: boolean; size?: number; base64?: string }>("skill_file", { name, path }),
   mcpServers: () => call<McpServerRow[]>("mcp_servers"),
   putMcp: (server: McpServerConfig) => call<void>("put_mcp", { server }),
   importMcpJson: (text: string) => call<{ servers: string[] }>("import_mcp_json", { text }),

@@ -63,7 +63,7 @@ impl Tool for GrepTool {
         let base = ctx.resolve(a.path.as_deref().unwrap_or("."), false)?;
         let files_only = a.output.as_deref() == Some("files");
         let mut out: Vec<String> = Vec::new();
-        let mut matches = 0usize;
+        let (mut matches, mut unread) = (0usize, 0usize);
         let files: Vec<PathBuf> = if base.is_file() {
             vec![base.clone()]
         } else {
@@ -84,9 +84,14 @@ impl Tool for GrepTool {
                     continue;
                 }
             }
-            // Too large to search, out of the roots or with other names (`real_read.rs`): skipped.
-            let Ok(bytes) = read_checked(ctx, &f, &rel, MAX_READ_BYTES) else {
-                continue;
+            // Too large to search, out of the roots or with other names (`real_read.rs`): skipped, and said.
+            let bytes = match read_checked(ctx, &f, &rel, MAX_READ_BYTES) {
+                Ok(b) => b,
+                Err(e) if e.code == "out_of_scope" => {
+                    unread += 1;
+                    continue;
+                }
+                Err(_) => continue,
             };
             if bytes.iter().take(8192).any(|b| *b == 0) {
                 continue;
@@ -107,14 +112,26 @@ impl Tool for GrepTool {
                 out.push(rel);
             }
         }
+        // Files grep may not read (a hard link, as a package manager's store makes): a "no matches" would mislead.
+        let unread_note = (unread > 0).then(|| {
+            format!(
+                "[{unread} file(s) with other names (hard links) or leading outside the worktree were not searched: \
+                 search them with shell if they matter]"
+            )
+        });
         if out.is_empty() {
-            return Ok(ToolOutput::text("no matches"));
+            let mut text = "no matches".to_owned();
+            if let Some(n) = unread_note {
+                text = format!("{text}\n{n}");
+            }
+            return Ok(ToolOutput::text(text));
         }
         out.push(if files_only {
             format!("[{matches} matching files]")
         } else {
             format!("[{matches} matching lines]")
         });
+        out.extend(unread_note);
         Ok(ctx.finish_output(out.join("\n"), false))
     }
 }

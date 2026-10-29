@@ -17,6 +17,7 @@ use serde_json::{json, Value};
 
 use crate::driver::{link_login, sync_login, Control, Driver, Event, Setup, Turns};
 use crate::driver::{toml_str, MCP_CALL_TIMEOUT};
+use crate::login::guard_linked;
 
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
 /// plugins, image generation, and (ADR-129) its own shell, image viewer, sleep and tool suggestions: commands and images
@@ -157,7 +158,11 @@ impl Driver for Codex {
 
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_codex_home() {
-            Some(user) => sync_login(&user.join("auth.json"), &s.home.join("auth.json")),
+            Some(user) => {
+                let (u, h) = (user.join("auth.json"), s.home.join("auth.json"));
+                sync_login(&u, &h)?;
+                guard_linked(&u, &h)
+            }
             None => Ok(()),
         }
     }
@@ -338,6 +343,8 @@ async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Valu
         .await
         .unwrap_or_else(|_| Err("codex app-server did not answer in 40 s".into()));
     let _ = child.kill().await;
+    // A refresh the stopped server was writing to the shared login is not left cut short.
+    let _ = guard_linked(&user.join("auth.json"), &home.join("auth.json"));
     if let Err(e) = sync_login(&user.join("auth.json"), &home.join("auth.json")) {
         tracing::warn!(error = %e, "codex login not handed back");
     }

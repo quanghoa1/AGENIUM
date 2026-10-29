@@ -200,3 +200,12 @@ Then, the same day (ADR-132 to ADR-134 and the path review below):
 Known and left: the Windows job object is attached right after the CLI starts, so a process it starts in that instant
 escapes it; macOS has no check of the open handle's path (writes and reads still go through the path checks). Reads
 through a hard link are refused since ADR-135.
+
+Reviewed once more (2026-10-29, an independent read of the new modules), each fixed with a test: a write of a new file
+checked the path, then opened with "create": a folder swapped for a link in between opened an existing file out there,
+and the clean-up deleted it (now `create_new`, and nothing out there is ever deleted); `apply_patch` deleted and rolled
+back by the path (now through the checked handle: Windows deletes the opened file, Linux `unlinkat` in the checked
+folder); a Codex refresh cut short by a stop could empty the shared login (its last whole state is kept and put back);
+a resumed session was dropped on a quota or login error; a holder of a refresh token that did not refresh left the lent
+runs failing, and a failed copy could keep the role forever; the quota backoff was reset by another project's round; grep
+said "no matches" over files it may not read.

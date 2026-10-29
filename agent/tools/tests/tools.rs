@@ -805,6 +805,11 @@ async fn a_hard_link_out_of_the_worktree_is_not_read_or_written() {
         .await
         .unwrap();
     assert!(!g.text.contains("linked.txt"), "{}", g.text);
+    assert!(
+        g.text.contains("1 file(s) with other names"),
+        "said, not a bare no-match: {}",
+        g.text
+    );
     call(
         &c,
         "write_file",

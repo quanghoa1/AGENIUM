@@ -11,7 +11,7 @@ function dark(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-export default function MonacoEditor({ value, language = "markdown", onChange }: { value: string; language?: string; onChange: (v: string) => void }) {
+export default function MonacoEditor({ value, language = "markdown", onChange, className }: { value: string; language?: string; onChange: (v: string) => void; className?: string }) {
   const host = useRef<HTMLDivElement>(null);
   // Keep the latest onChange without re-creating the editor on every keystroke.
   const cb = useRef(onChange);
@@ -41,5 +41,6 @@ export default function MonacoEditor({ value, language = "markdown", onChange }:
     // The editor is created once; `value` seeds it and is then owned by the model (controlled through onChange).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
-  return <div ref={host} className="h-[56vh] min-h-[320px] w-full overflow-hidden rounded-lg border border-line" />;
+  // A given height (a flex child that fills its column) or the default one.
+  return <div ref={host} className={`${className ?? "h-[56vh] min-h-[320px]"} w-full overflow-hidden rounded-lg border border-line`} />;
 }

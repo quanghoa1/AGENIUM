@@ -51,7 +51,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 toml = "0.9"
 tracing = "0.1"
 ulid = { version = "1", features = ["serde"] }
-zstd = "0.13"
+zstd = "0.14.3"
 
 [profile.dev]
 debug = "line-tables-only"

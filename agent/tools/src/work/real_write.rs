@@ -21,24 +21,27 @@ pub(super) fn write_file(
     if let Some(d) = p.parent() {
         std::fs::create_dir_all(d).map_err(|e| io_err(rel, e))?;
     }
+    // A file that was there is opened, never made; a new one is made only where nothing is (`create_new`): a folder
+    // swapped for a link in between cannot turn the write into one on a file that exists out there.
     let existed = std::fs::symlink_metadata(p).is_ok();
     let mut f = std::fs::OpenOptions::new()
         .write(true)
-        .create(true)
-        .truncate(false)
+        .create_new(!existed)
         .open(p)
         .map_err(|e| io_err(rel, e))?;
     let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
     let real = real_path(&f);
     if let Some(real) = real.as_ref().filter(|r| !paths::within(r, &canon_root)) {
-        drop(f);
-        // The empty file the open made out there goes again (by where it is, not by the name that led there).
-        if !existed {
-            let _ = std::fs::remove_file(real);
-        }
+        // Nothing out there is deleted: an empty file this call made there stays (deleting by its path could reach
+        // another file by then); the user is told where.
+        let made = if existed {
+            String::new()
+        } else {
+            format!(" (an empty file was left at {})", real.display())
+        };
         return Err(ToolError::new(
             "out_of_scope",
-            format!("{rel} leads outside your worktree (a link changed under it)"),
+            format!("{rel} leads outside your worktree (a link changed under it){made}"),
         ));
     }
     if links(&f) > 1 {

@@ -47,7 +47,11 @@ pub fn lend_login(
         write_lent(home_file, &lent, &raw)?;
         return Ok(false);
     }
-    copy_login(user_file, home_file)?;
+    // A login that cannot be copied gives the role back at once: no run could take it otherwise.
+    if let Err(e) = copy_login(user_file, home_file) {
+        holders().retain(|(_, h)| h != home_file);
+        return Err(e);
+    }
     Ok(true)
 }
 
@@ -71,19 +75,32 @@ pub fn sync_lent(user_file: &Path, home_file: &Path, lend: Lend) -> std::io::Res
     }
 }
 
-/// After a lent run's login error: when the user's access token has run out (nobody refreshed it) and no other run
-/// holds the refresh token, this run takes it and gets the whole login. Whether it did.
+/// After a lent run's login error: when the user's access token has run out and nobody refreshed it, this run takes
+/// the refresh token and gets the whole login. Another run holding it but not refreshing it (idle, waiting for a long
+/// command) left the token run out: the role passes to this run, and the other's copy follows the user's file. Whether
+/// it did.
 pub fn promote(user_file: &Path, home_file: &Path, lend: Lend) -> bool {
     if original(home_file).exists() {
         return false;
     }
-    let fresh = std::fs::read(user_file)
+    let left = std::fs::read(user_file)
         .ok()
         .and_then(|raw| serde_json::from_slice(&raw).ok())
         .and_then(|v: Value| lend(&v))
-        .is_some_and(|(_, expires)| expires > SystemTime::now() + Duration::from_secs(5 * 60));
-    if fresh || !take(user_file, home_file) {
-        return false;
+        .map(|(_, expires)| {
+            expires
+                .duration_since(SystemTime::now())
+                .unwrap_or_default()
+        });
+    match left {
+        // Still valid: the error was something else; the turn runs again with what it has.
+        Some(left) if left > Duration::from_secs(60) => return false,
+        _ => {}
+    }
+    {
+        let mut h = holders();
+        h.retain(|(u, _)| u != user_file);
+        h.push((user_file.to_path_buf(), home_file.to_path_buf()));
     }
     let _ = std::fs::remove_file(mark(home_file));
     copy_login(user_file, home_file).is_ok()
@@ -213,11 +230,11 @@ mod tests {
         assert!(read(&c).get("refresh").is_none());
         // A fresh token: a login error of c is not a reason to take the refresh token.
         assert!(!promote(&user, &c, lend));
-        // The token ran out with b gone: c takes it.
-        release(b.parent().unwrap());
+        // The token ran out while b held the role without refreshing (idle): c takes it over.
         std::fs::write(&user, login("x5", "r5", -60)).unwrap();
         assert!(promote(&user, &c, lend));
         assert_eq!(read(&c)["refresh"], "r5");
+        assert!(holders().iter().any(|(u, h)| u == &user && h == &c));
         release(tmp.path());
     }
 }

@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::driver::{original, Driver};
+use crate::driver::Driver;
 
 /// Where a ticket's CLI session is kept between runs, and how much of the work order it already holds.
 pub struct SessionStore {
@@ -64,17 +64,16 @@ impl SessionStore {
         let (Some(id), true) = (id, driver.resumes_across_runs()) else {
             return;
         };
-        let mut skip: Vec<PathBuf> = driver
-            .login_file()
-            .map(|f| {
-                let login = home.join(f);
-                vec![original(&login), login]
-            })
-            .unwrap_or_default();
+        // The login and every file Agenium keeps beside it (its pristine copy, last whole state, lent marker) stay out.
+        let login = driver.login_file();
+        let mut skip: Vec<PathBuf> = Vec::new();
         if let Ok(rd) = std::fs::read_dir(home) {
             skip.extend(
                 rd.flatten()
-                    .filter(|e| driver.not_kept(&e.file_name().to_string_lossy()))
+                    .filter(|e| {
+                        let name = e.file_name().to_string_lossy().into_owned();
+                        driver.not_kept(&name) || login.is_some_and(|l| name.starts_with(l))
+                    })
                     .map(|e| e.path()),
             );
         }
@@ -135,6 +134,7 @@ fn copy_tree(src: &Path, dst: &Path, skip: &[PathBuf]) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::driver::original;
 
     /// The home is kept without its login copy, and resumed only by the same CLI when the next run's earlier messages
     /// are the ones the session holds (another run in between, another CLI or a fresh start resume nothing).

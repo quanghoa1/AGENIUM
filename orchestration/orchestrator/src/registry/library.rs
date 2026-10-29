@@ -14,16 +14,26 @@ impl App {
             .map_err(io)
     }
 
-    /// Writes a library skill's SKILL.md from text (create a new one or edit in place), validating it; its other
-    /// files are kept. The frontmatter `name` must equal `name`.
+    /// Writes a library skill's SKILL.md from text (create a new one or edit in place) together with its files: `files`
+    /// added or changed, `removed` deleted, the rest kept; the whole folder is validated first. The frontmatter `name`
+    /// must equal `name`.
     pub fn save_library_skill(
         &self,
         name: &str,
         content: &str,
         create: bool,
+        files: &[(String, Vec<u8>)],
+        removed: &[String],
     ) -> Result<agenium_skills::SkillMeta> {
         self.skill_registry()
-            .write(&agenium_skills::Owner::Library, name, content, create)
+            .write_with_files(
+                &agenium_skills::Owner::Library,
+                name,
+                content,
+                create,
+                files,
+                removed,
+            )
             .map_err(io)
     }
 
