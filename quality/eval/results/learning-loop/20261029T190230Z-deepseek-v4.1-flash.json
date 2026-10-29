@@ -1,0 +1,78 @@
+[
+  {
+    "id": "learning-loop",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 133452,
+    "tokens_out": 3141,
+    "tokens_cached": 107520,
+    "cost_usd": 0.0,
+    "elapsed_ms": 62717,
+    "learning": {
+      "applied_procedure": true,
+      "calls": [
+        {
+          "before_work": false,
+          "lesson": "covered",
+          "ok": true,
+          "result": "{\"note\":\"your own copy of the skill is updated; other agents keep the base, and the user can review or revert it\",\"skill\":\"commit-and-pr\",\"status\":\"applied\"}",
+          "sent": null,
+          "skill": "commit-and-pr",
+          "tool": "propose_skill_update"
+        },
+        {
+          "before_work": false,
+          "lesson": "procedure",
+          "ok": true,
+          "result": "{\"note\":\"your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding\",\"skill\":\"keep-deliverables-index\",\"status\":\"created\"}",
+          "sent": null,
+          "skill": "keep-deliverables-index",
+          "tool": "propose_new_skill"
+        }
+      ],
+      "created": [
+        {
+          "lesson": "procedure",
+          "skill": "keep-deliverables-index"
+        }
+      ],
+      "lessons": [
+        {
+          "id": 1,
+          "label": "procedure"
+        },
+        {
+          "id": 2,
+          "label": "covered"
+        },
+        {
+          "id": 3,
+          "label": "fact"
+        }
+      ],
+      "overlays": [
+        {
+          "lessons": [
+            "covered"
+          ],
+          "skill": "commit-and-pr"
+        }
+      ],
+      "system_skill_unchanged": true,
+      "used_tools": true,
+      "violations": []
+    }
+  }
+]

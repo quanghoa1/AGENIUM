@@ -87,6 +87,8 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 
 | Check | Result |
 |---|---|
+| Memory chain (`--memory-reuse on --chain`, bge-small): ticket 1 fails its pre-merge check once by design, the lesson is learned and recalled | DeepSeek v4.1 flash: PASS — tickets 2, 3, 4 merged first time, the lesson held in AGN-2, AGN-3 and AGN-4. Codex gpt-6-luna (DeepSeek extracting): PASS — ticket 2 merged first time; its first lesson was too narrow ("under deliverables/ or reports/") and ticket 3 (a document elsewhere) was reopened once, then it learned "a project rule is not limited to the folders named" and its lessons held in three tickets. No skill was proposed in either chain; neither memory reached the 20 new facts that start a settling pass |
+| Learning loop (`--learning`: three lessons each held in two closed tickets) | PASS on DeepSeek (4 runs), Codex and Claude Code Haiku; 0 violations, the system's `commit-and-pr` unchanged in every run. Skill tools used in 1 of 6 runs: DeepSeek updated its own `commit-and-pr` from the covered rule and made `keep-deliverables-index` from the procedure, nothing from the fact; the other runs did the ticket and wrote no skill (accepted) |
 | The default golden set after MCP approval, strict tool arguments and the null/empty argument repair (ADR-143, ADR-144), effort low | 5/5 on DeepSeek v4.1 flash (API), Codex gpt-6-luna, Grok 4.7, Claude Code Haiku 5.5 and agy Gemini 3.8 Flash; no tool error came from the argument repair (the models' own guesses: a missing `confidence`, agy wrapping arguments in `Arguments`) |
 
 ## Runs of 2026-10-29

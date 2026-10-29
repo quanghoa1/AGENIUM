@@ -1,0 +1,759 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 7 fact(s)",
+    "runs": 10,
+    "steps": 39,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 433199,
+    "tokens_out": 5616,
+    "tokens_cached": 352000,
+    "cost_usd": 0.0,
+    "elapsed_ms": 260216,
+    "learning": {
+      "chain": {
+        "agent_skills": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before callin",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 4,
+                "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 5,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 5,
+                "entities_new": 6,
+                "extracted": 5,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1482,
+                "tokens_out": 884,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 5,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 2,
+                "entities_new": 4,
+                "extracted": 4,
+                "helped": 5,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 3889,
+                "tokens_out": 1749,
+                "updated": 0,
+                "validated": 0
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64G9CE66ZMPP7HCSEDVESJ1",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64G9MPRZ3RNGWZSYVD51P4H",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GA1BPSK4NJ5MQA0Z31AR4",
+                "shown": 5,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GAE7AD137G4YRRST6798A",
+                "shown": 0,
+                "steps": 5
+              }
+            ],
+            "shown": [
+              "run 01M64GA1BPSK4NJ5MQA0Z31AR4 #1 hybrid Some(Lesson): Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+              "run 01M64GA1BPSK4NJ5MQA0Z31AR4 #2 hybrid Some(Lesson): Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+              "run 01M64GA1BPSK4NJ5MQA0Z31AR4 #3 hybrid Some(Fact): In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+              "run 01M64GA1BPSK4NJ5MQA0Z31AR4 #4 hybrid Some(Fact): Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'.",
+              "run 01M64GA1BPSK4NJ5MQA0Z31AR4 #5 hybrid Some(Fact): The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-2"
+                ],
+                "id": 5,
+                "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before callin",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-2"
+                ],
+                "id": 4,
+                "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) On Windows worktrees of this docs project, files are written with LF line endings and verified in one PowerShell step via Test-Path, Get-Content -Raw (LF shown as <LF>), and Select-String for the required word.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; note the current agenium.toml pre_merge check is empty.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = docs, key_prefix = AGN, main_branch = main, template = coding@1, empty worktree include_files, and an empty pre_merge check (no owner-line validation).",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/, reports/, handbook/, and minutes/ as stated in README.md (spec REQ-1 originally defined deliverables/ and reports/).",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge."
+                  },
+                  {
+                    "exact": false,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'."
+                  }
+                ]
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In this docs project, team documents live under deliverables/, reports/, handbook/, and minutes/ as stated in README.md (spec REQ-1 originally defined deliverables/ and reports/)."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's agenium.toml sets name = docs, key_prefix = AGN, main_branch = main, template = coding@1, empty worktree include_files, and an empty pre_merge check (no owner-line validation)."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; note the current agenium.toml pre_merge check is empty."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings and verified in one PowerShell step via Test-Path, Get-Content -Raw (LF shown as <LF>), and Select-String for the required word.",
+                    "was": "On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 6,
+                "deleted": 0,
+                "edges": 6,
+                "entities_linked": 7,
+                "entities_new": 4,
+                "extracted": 3,
+                "helped": 7,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [
+                  "external content may not rewrite trusted memory 2; stored beside it as untrusted",
+                  "external content may not rewrite trusted memory 3; stored beside it as untrusted",
+                  "external content may not rewrite trusted memory 4; stored beside it as untrusted"
+                ],
+                "tokens_in": 3522,
+                "tokens_out": 6970,
+                "updated": 1,
+                "validated": 2
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GBJMHD1NH18ECWE4QH27V",
+                "shown": 7,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GC278BD1S9PYW0KN4746T",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64GBJMHD1NH18ECWE4QH27V #1 hybrid Some(Lesson): Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+              "run 01M64GBJMHD1NH18ECWE4QH27V #2 hybrid Some(Lesson): Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+              "run 01M64GBJMHD1NH18ECWE4QH27V #3 hybrid Some(Fact): In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "run 01M64GBJMHD1NH18ECWE4QH27V #4 hybrid Some(Fact): Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'.",
+              "run 01M64GBJMHD1NH18ECWE4QH27V #5 hybrid Some(Fact): In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+              "run 01M64GBJMHD1NH18ECWE4QH27V #6 hybrid Some(Fact): The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge.",
+              "run 01M64GBJMHD1NH18ECWE4QH27V #7 hybrid Some(Fact): On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-2",
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-3"
+                ],
+                "id": 5,
+                "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before callin",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"os\":\"windows\",\"project\":\"docs\"}) On Windows worktrees of this docs project, files are written with LF line endings; verify LF-only endings in one PowerShell step with $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes (or check via Get-Content -Raw showing <LF> and Select-String for the required word).",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/ as well as pages under handbook/, such as handbook/onboarding.txt.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; note the current agenium.toml pre_merge check is empty.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = docs, key_prefix = AGN, main_branch = main, template = coding@1, empty worktree include_files, and an empty pre_merge check (no owner-line validation).",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/, reports/, handbook/, and minutes/ as stated in README.md (spec REQ-1 originally defined deliverables/ and reports/).",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge."
+                  },
+                  {
+                    "exact": false,
+                    "id": 11,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings and verified in one PowerShell step via Test-Path, Get-Content -Raw (LF shown as <LF>), and Select-String for the required word."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "delete",
+                    "text": "In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/ as well as pages under handbook/, such as handbook/onboarding.txt.",
+                    "was": "Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "delete",
+                    "text": "The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "delete",
+                    "text": "Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings; verify LF-only endings in one PowerShell step with $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes (or check via Get-Content -Raw showing <LF> and Select-String for the required word).",
+                    "was": "On Windows worktrees of this docs project, files are written with LF line endings and verified in one PowerShell step via Test-Path, Get-Content -Raw (LF shown as <LF>), and Select-String for the required word."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 5,
+                "deleted": 3,
+                "edges": 1,
+                "entities_linked": 3,
+                "entities_new": 2,
+                "extracted": 4,
+                "helped": 7,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 4323,
+                "tokens_out": 2298,
+                "updated": 2,
+                "validated": 2
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GEFGPZJ3AE883S326TZTD",
+                "shown": 7,
+                "steps": 7
+              },
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GF5N202PZWWRCPPH6A5ND",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64GEFGPZJ3AE883S326TZTD #1 hybrid Some(Lesson): Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+              "run 01M64GEFGPZJ3AE883S326TZTD #2 hybrid Some(Lesson): Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+              "run 01M64GEFGPZJ3AE883S326TZTD #3 hybrid Some(Fact): In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "run 01M64GEFGPZJ3AE883S326TZTD #4 hybrid Some(Fact): Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'.",
+              "run 01M64GEFGPZJ3AE883S326TZTD #5 hybrid Some(Fact): In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+              "run 01M64GEFGPZJ3AE883S326TZTD #6 hybrid Some(Fact): The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge.",
+              "run 01M64GEFGPZJ3AE883S326TZTD #7 hybrid Some(Fact): On Windows worktrees of this docs project, files are written with LF line endings and verified in one PowerShell step via Test-Path, Get-Content -Raw (LF shown as <LF>), and Select-String for the required word."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-2",
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-3",
+                  "01M64G9BC8B3YRNV815R6BTW6W/ticket:AGN-4"
+                ],
+                "id": 5,
+                "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before callin",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"os\":\"windows\",\"project\":\"docs\"}) On Windows worktrees of this docs project, files are written with LF line endings; verify new team documents in one PowerShell step that shows the raw content, confirms the required word with -match, and confirms LF-only endings via $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/, pages under handbook/ such as handbook/onboarding.txt, and files under minutes/.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; note the current agenium.toml pre_merge check is empty.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = docs, key_prefix = AGN, main_branch = main, template = coding@1, empty worktree include_files, and an empty pre_merge check (no owner-line validation).",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/, reports/, handbook/, and minutes/ as stated in README.md (spec REQ-1 originally defined deliverables/ and reports/).",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/ as well as pages under handbook/, such as handbook/onboarding.txt."
+                  },
+                  {
+                    "exact": false,
+                    "id": 13,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings; verify LF-only endings in one PowerShell step with $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes (or check via Get-Content -Raw showing <LF> and Select-String for the required word)."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/, pages under handbook/ such as handbook/onboarding.txt, and files under minutes/.",
+                    "was": "Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/ as well as pages under handbook/, such as handbook/onboarding.txt."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "On Windows worktrees of this docs project, files are written with LF line endings; verify new team documents in one PowerShell step that shows the raw content, confirms the required word with -match, and confirms LF-only endings via $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes.",
+                    "was": "On Windows worktrees of this docs project, files are written with LF line endings; verify LF-only endings in one PowerShell step with $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes (or check via Get-Content -Raw showing <LF> and Select-String for the required word)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 5,
+                "deleted": 0,
+                "edges": 3,
+                "entities_linked": 5,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 4,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3183,
+                "tokens_out": 1257,
+                "updated": 2,
+                "validated": 1
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GG3EZJ7H1VMJNDNES6YTV",
+                "shown": 4,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M64G9C5XHCBN10JC0RQZPZT7",
+                "outcome": "Completed",
+                "run": "01M64GGJYHM4VA5G87W8P8CXK5",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64GG3EZJ7H1VMJNDNES6YTV #1 hybrid Some(Lesson): Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+              "run 01M64GG3EZJ7H1VMJNDNES6YTV #2 hybrid Some(Fact): In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+              "run 01M64GG3EZJ7H1VMJNDNES6YTV #3 hybrid Some(Fact): Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/ as well as pages under handbook/, such as handbook/onboarding.txt.",
+              "run 01M64GG3EZJ7H1VMJNDNES6YTV #4 hybrid Some(Fact): On Windows worktrees of this docs project, files are written with LF line endings; verify LF-only endings in one PowerShell step with $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes (or check via Get-Content -Raw showing <LF> and Select-String for the required word)."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 10,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 109824,
+            "tokens_in": 117372,
+            "tokens_out": 1547
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 8,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 55808,
+            "tokens_in": 90601,
+            "tokens_out": 1086
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"os\":\"windows\",\"project\":\"docs\"}) On Windows worktrees of this docs project, files are written with LF line endings; verify new team documents in one PowerShell step that shows the raw content, confirms the required word with -match, and confirms LF-only endings via $b=[IO.File]::ReadAllBytes(\"path\"); ($b -contains 13), which returns False when the file has no CR bytes.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) Project rule for this docs project: every team document must name its owning team on its first line, exactly 'Owner: docs-team' — this applies to documents in deliverables/ and reports/, pages under handbook/ such as handbook/onboarding.txt, and files under minutes/.",
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; note the current agenium.toml pre_merge check is empty.",
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml sets name = docs, key_prefix = AGN, main_branch = main, template = coding@1, empty worktree include_files, and an empty pre_merge check (no owner-line validation).",
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/, reports/, handbook/, and minutes/ as stated in README.md (spec REQ-1 originally defined deliverables/ and reports/).",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 13,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 102656,
+        "tokens_in": 137941,
+        "tokens_out": 1832
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 83712,
+        "tokens_in": 87285,
+        "tokens_out": 1151
+      },
+      "ticket2_facts_shown": 7,
+      "ticket2_shown": [
+        "run 01M64GBJMHD1NH18ECWE4QH27V #1 hybrid: Lesson from AGN-1: review approval does not cover project-wide merge rules, so check project conventions (such as mandatory document header lines) before calling submit_report.",
+        "run 01M64GBJMHD1NH18ECWE4QH27V #2 hybrid: Lesson from AGN-1: when creating any team document in deliverables/ or reports/, put 'Owner: docs-team' as the exact first line before submitting; otherwise the pre-merge check fails even after review approval.",
+        "run 01M64GBJMHD1NH18ECWE4QH27V #3 hybrid: In this docs project, a team document's own content goes after the mandatory 'Owner: docs-team' first line, as with deliverables/hello.txt holding 'Owner: docs-team' then 'hello'.",
+        "run 01M64GBJMHD1NH18ECWE4QH27V #4 hybrid: Project rule for this docs project: every team document in deliverables/ or reports/ must name its owning team on its first line, exactly 'Owner: docs-team'.",
+        "run 01M64GBJMHD1NH18ECWE4QH27V #5 hybrid: In this docs project, team documents live under deliverables/ and reports/ as defined by spec REQ-1.",
+        "run 01M64GBJMHD1NH18ECWE4QH27V #6 hybrid: The pre-merge check of this project validates that team documents start with the exact first line 'Owner: docs-team'; a file missing it fails the merge.",
+        "run 01M64GBJMHD1NH18ECWE4QH27V #7 hybrid: On Windows worktrees of this docs project, files are written with LF line endings and verified exactly via 'Get-Content -Raw' plus 'Test-Path'."
+      ]
+    }
+  }
+]
