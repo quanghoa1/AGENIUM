@@ -7,6 +7,9 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- An agent is told when a tenth of its run's steps is left, so it wraps up instead of being cut off; a work report is
+  read the way models write it (`results` for `acceptance`, a path for an artifact, "high" for confidence) instead of
+  being refused field after field (ADR-142).
 - Solo agent, or a Lead with workers and an optional planner; tickets are the only channel for work, every state
   change is a typed, validated tool call recorded in an event log (crash-safe, resyncs every view).
 - Spec → plan → tickets with acceptance criteria → work in a git worktree per ticket → review per criterion → merge
@@ -31,6 +34,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
 ### Models
+- When a model declines to go on (a safety classifier), the ticket says why — the vendor's category and explanation —
+  and the declined answer is not kept, so resuming starts from the last good step; an answer stopped by a full context
+  window is treated like one cut by the output limit; a run's output limit is the model's own (up to 64k) unless the
+  agent sets one (ADR-140).
 - API providers: Anthropic, Gemini, OpenAI-compatible and OpenAI Responses wires; 30+ vendor presets (OpenAI,
   DeepSeek, OpenRouter, OpenCode, xAI, Mistral, Groq, Azure OpenAI, Bedrock, Cloudflare …); local LM Studio / Ollama
   with detected capabilities.
@@ -84,6 +91,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 
 ### Safety
+- Web pages and MCP answers reach the model in a fence that names their source and closes with a random id, so a page
+  cannot end it and speak as Agenium; an opt-in golden task checks that agents do not follow instructions planted in a
+  file (DeepSeek, Codex and Claude Code passed) (ADR-142).
 - Agent commands run in an OS sandbox (Windows MXC containers, Linux bubblewrap, macOS Seatbelt): writes only in the
   ticket's worktree. Without a working sandbox, commands wait for your approval.
 - Settings describe the three command modes at once in plain words (run in the sandbox, ask me every time, sandbox
@@ -102,9 +112,16 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Memory stays fast past 100 000 facts per agent: an approximate (HNSW) vector index takes over from exact search,
   built in the background, checked on every start and rebuilt when it cannot be trusted (ADR-50, ADR-125).
 - `SKILL.md` skills (13 built in), skill overlays and agent-created skills behind evidence gates.
+- A skill's description says what it does and when to use it — the only text an agent reads before picking one: the
+  built-ins say so, and import, save and Evaluate advise when a description does not (ADR-141).
 - MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth), bound per agent with their own credentials: two agents
   reach one server with different keys and so different rights (an admin's, a member's), API and CLI agents alike;
   an own key pasted bare keeps the system key's `Bearer ` (it reached the server without it and was refused).
+- An agent with many MCP tools (past 20, or 10k tokens of definitions) gets the few it uses most and finds the others
+  with `tool_search` — by words, meaning and, with a judge key, Jev's reading (55 of 58 requests found the right tool
+  first among 123) — and calls them with `call_tool`; requests stay small and cached on every vendor. A server whose
+  tools change during a run (it says so, or its own tool search runs out of quota and it lists everything) is followed
+  (ADR-139).
 - `view_image` for vision models; `fetch` through an allowlist.
 - Background commands for every agent: `shell` with `background` starts a server or watcher, `shell_output` reads it
   while it runs, `shell_stop` ends it; all stop with the run (ADR-129).

@@ -1,0 +1,2845 @@
+[
+ {
+  "name": "github_create_issue",
+  "description": "Create a new issue in a GitHub repository.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "title": {
+     "type": "string",
+     "description": "Issue title"
+    },
+    "body": {
+     "type": "string",
+     "description": "Markdown body"
+    },
+    "labels": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "Label names"
+    }
+   },
+   "required": [
+    "repo",
+    "title"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_update_issue",
+  "description": "Edit an existing issue: title, body, state (open/closed), assignees or labels.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "number": {
+     "type": "integer"
+    },
+    "state": {
+     "type": "string",
+     "enum": [
+      "open",
+      "closed"
+     ]
+    }
+   },
+   "required": [
+    "repo",
+    "number"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_list_issues",
+  "description": "List issues in a repository, filtered by state, labels, assignee or creation date.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "state": {
+     "type": "string",
+     "description": "open, closed or all"
+    },
+    "labels": {
+     "type": "string",
+     "description": "Comma-separated labels"
+    },
+    "per_page": {
+     "type": "integer",
+     "description": "Page size (max 100)"
+    }
+   },
+   "required": [
+    "repo"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_get_issue",
+  "description": "Get one issue with its body, labels, assignees and state.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "number": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "repo",
+    "number"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_add_issue_comment",
+  "description": "Add a comment to an issue or pull request.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "number": {
+     "type": "integer"
+    },
+    "body": {
+     "type": "string",
+     "description": "Comment text"
+    }
+   },
+   "required": [
+    "repo",
+    "number",
+    "body"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_search_issues",
+  "description": "Search issues and pull requests across GitHub with the search syntax (is:open label:bug).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "q": {
+     "type": "string",
+     "description": "Search query"
+    }
+   },
+   "required": [
+    "q"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_create_pull_request",
+  "description": "Open a pull request from a head branch into a base branch.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "head": {
+     "type": "string",
+     "description": "Branch with the changes"
+    },
+    "base": {
+     "type": "string",
+     "description": "Branch to merge into"
+    },
+    "title": {
+     "type": "string",
+     "description": "PR title"
+    }
+   },
+   "required": [
+    "repo",
+    "head",
+    "base",
+    "title"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_list_pull_requests",
+  "description": "List pull requests of a repository by state and base branch.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "state": {
+     "type": "string",
+     "description": "open, closed or all"
+    }
+   },
+   "required": [
+    "repo"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_get_pull_request_diff",
+  "description": "Get the unified diff of a pull request.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "number": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "repo",
+    "number"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_merge_pull_request",
+  "description": "Merge a pull request with merge, squash or rebase.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "number": {
+     "type": "integer"
+    },
+    "method": {
+     "type": "string",
+     "enum": [
+      "merge",
+      "squash",
+      "rebase"
+     ]
+    }
+   },
+   "required": [
+    "repo",
+    "number"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_request_reviewers",
+  "description": "Request reviews on a pull request from users or teams.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "number": {
+     "type": "integer"
+    },
+    "reviewers": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "repo",
+    "number",
+    "reviewers"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_get_file_contents",
+  "description": "Read a file or list a directory of a repository at a branch, tag or commit.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "path": {
+     "type": "string",
+     "description": "File or directory path"
+    },
+    "ref": {
+     "type": "string",
+     "description": "Branch, tag or SHA"
+    }
+   },
+   "required": [
+    "repo",
+    "path"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_create_or_update_file",
+  "description": "Create or replace a file in a repository with a commit.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "path": {
+     "type": "string",
+     "description": "File path"
+    },
+    "content": {
+     "type": "string",
+     "description": "New content"
+    },
+    "message": {
+     "type": "string",
+     "description": "Commit message"
+    },
+    "branch": {
+     "type": "string",
+     "description": "Branch"
+    }
+   },
+   "required": [
+    "repo",
+    "path",
+    "content",
+    "message"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_create_branch",
+  "description": "Create a branch from another branch or commit.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "branch": {
+     "type": "string",
+     "description": "New branch name"
+    },
+    "from": {
+     "type": "string",
+     "description": "Source branch or SHA"
+    }
+   },
+   "required": [
+    "repo",
+    "branch"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_list_commits",
+  "description": "List the commits of a branch, newest first.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "sha": {
+     "type": "string",
+     "description": "Branch or SHA"
+    },
+    "per_page": {
+     "type": "integer",
+     "description": "Page size (max 100)"
+    }
+   },
+   "required": [
+    "repo"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_search_code",
+  "description": "Search source code across repositories (language:rust repo:owner/name).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "q": {
+     "type": "string",
+     "description": "Code search query"
+    }
+   },
+   "required": [
+    "q"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_list_workflow_runs",
+  "description": "List GitHub Actions workflow runs with their status and conclusion.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "branch": {
+     "type": "string",
+     "description": "Branch"
+    },
+    "status": {
+     "type": "string",
+     "description": "queued, in_progress, completed"
+    }
+   },
+   "required": [
+    "repo"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "github_rerun_workflow",
+  "description": "Re-run a failed GitHub Actions workflow run.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "run_id": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "repo",
+    "run_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_create_release",
+  "description": "Publish a release for a tag with release notes.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    },
+    "tag": {
+     "type": "string",
+     "description": "Tag name"
+    },
+    "name": {
+     "type": "string",
+     "description": "Release title"
+    },
+    "body": {
+     "type": "string",
+     "description": "Release notes"
+    }
+   },
+   "required": [
+    "repo",
+    "tag"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "github_list_releases",
+  "description": "List the releases of a repository.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "repo": {
+     "type": "string",
+     "description": "owner/name"
+    }
+   },
+   "required": [
+    "repo"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "slack_post_message",
+  "description": "Post a message to a channel or a thread.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id or #name"
+    },
+    "text": {
+     "type": "string",
+     "description": "Message (mrkdwn)"
+    },
+    "thread_ts": {
+     "type": "string",
+     "description": "Reply in this thread"
+    }
+   },
+   "required": [
+    "channel",
+    "text"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "slack_list_channels",
+  "description": "List public and private channels the bot is in.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "Page size (max 100)"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "slack_get_channel_history",
+  "description": "Read the latest messages of a channel.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "Page size (max 100)"
+    }
+   },
+   "required": [
+    "channel"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "slack_get_thread_replies",
+  "description": "Read the replies of a message thread.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id"
+    },
+    "ts": {
+     "type": "string",
+     "description": "Parent message timestamp"
+    }
+   },
+   "required": [
+    "channel",
+    "ts"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "slack_search_messages",
+  "description": "Search messages in the workspace (from:@user in:#channel).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string",
+     "description": "Search query"
+    }
+   },
+   "required": [
+    "query"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "slack_add_reaction",
+  "description": "Add an emoji reaction to a message.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id"
+    },
+    "ts": {
+     "type": "string",
+     "description": "Message timestamp"
+    },
+    "emoji": {
+     "type": "string",
+     "description": "Emoji name"
+    }
+   },
+   "required": [
+    "channel",
+    "ts",
+    "emoji"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "slack_send_direct_message",
+  "description": "Send a direct message to a user.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "user": {
+     "type": "string",
+     "description": "User id or email"
+    },
+    "text": {
+     "type": "string",
+     "description": "Message"
+    }
+   },
+   "required": [
+    "user",
+    "text"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "slack_get_user_profile",
+  "description": "Get a user's profile: name, title, timezone, status.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "user": {
+     "type": "string",
+     "description": "User id"
+    }
+   },
+   "required": [
+    "user"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "slack_set_channel_topic",
+  "description": "Set the topic of a channel.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id"
+    },
+    "topic": {
+     "type": "string",
+     "description": "New topic"
+    }
+   },
+   "required": [
+    "channel",
+    "topic"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "slack_upload_file",
+  "description": "Upload a file or snippet to a channel.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id"
+    },
+    "filename": {
+     "type": "string",
+     "description": "Name"
+    },
+    "content": {
+     "type": "string",
+     "description": "File content"
+    }
+   },
+   "required": [
+    "channel",
+    "content"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "slack_schedule_message",
+  "description": "Schedule a message to be posted later.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel": {
+     "type": "string",
+     "description": "Channel id"
+    },
+    "text": {
+     "type": "string",
+     "description": "Message"
+    },
+    "post_at": {
+     "type": "string",
+     "description": "Unix time"
+    }
+   },
+   "required": [
+    "channel",
+    "text",
+    "post_at"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_create_issue",
+  "description": "Create a Jira issue (story, task, bug) in a project.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "project": {
+     "type": "string",
+     "description": "Project key"
+    },
+    "summary": {
+     "type": "string",
+     "description": "Summary"
+    },
+    "type": {
+     "type": "string",
+     "enum": [
+      "Story",
+      "Task",
+      "Bug",
+      "Epic"
+     ]
+    },
+    "description": {
+     "type": "string",
+     "description": "Description"
+    }
+   },
+   "required": [
+    "project",
+    "summary"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_transition_issue",
+  "description": "Move a Jira issue through its workflow (To Do, In Progress, Done).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "key": {
+     "type": "string",
+     "description": "Issue key"
+    },
+    "transition": {
+     "type": "string",
+     "description": "Transition name"
+    }
+   },
+   "required": [
+    "key",
+    "transition"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_search_jql",
+  "description": "Search Jira issues with JQL.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "jql": {
+     "type": "string",
+     "description": "JQL query"
+    },
+    "max_results": {
+     "type": "integer",
+     "description": "Page size (max 100)"
+    }
+   },
+   "required": [
+    "jql"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "jira_get_issue",
+  "description": "Get a Jira issue with its fields, comments and links.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "key": {
+     "type": "string",
+     "description": "Issue key"
+    }
+   },
+   "required": [
+    "key"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "jira_add_comment",
+  "description": "Comment on a Jira issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "key": {
+     "type": "string",
+     "description": "Issue key"
+    },
+    "body": {
+     "type": "string",
+     "description": "Comment"
+    }
+   },
+   "required": [
+    "key",
+    "body"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_assign_issue",
+  "description": "Assign a Jira issue to a user.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "key": {
+     "type": "string",
+     "description": "Issue key"
+    },
+    "account_id": {
+     "type": "string",
+     "description": "Assignee"
+    }
+   },
+   "required": [
+    "key",
+    "account_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_log_work",
+  "description": "Log time spent on a Jira issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "key": {
+     "type": "string",
+     "description": "Issue key"
+    },
+    "time_spent": {
+     "type": "string",
+     "description": "e.g. 2h 30m"
+    },
+    "comment": {
+     "type": "string",
+     "description": "What was done"
+    }
+   },
+   "required": [
+    "key",
+    "time_spent"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_list_sprints",
+  "description": "List the sprints of a board (active, future, closed).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "board_id": {
+     "type": "integer"
+    },
+    "state": {
+     "type": "string",
+     "description": "active, future, closed"
+    }
+   },
+   "required": [
+    "board_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "jira_move_to_sprint",
+  "description": "Move issues into a sprint.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "sprint_id": {
+     "type": "integer"
+    },
+    "issues": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "sprint_id",
+    "issues"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "jira_link_issues",
+  "description": "Link two Jira issues (blocks, relates to, duplicates).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "inward": {
+     "type": "string",
+     "description": "Issue key"
+    },
+    "outward": {
+     "type": "string",
+     "description": "Issue key"
+    },
+    "type": {
+     "type": "string",
+     "description": "Link type"
+    }
+   },
+   "required": [
+    "inward",
+    "outward",
+    "type"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "sentry_list_issues",
+  "description": "List the unresolved error issues of a project, most frequent first.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "project": {
+     "type": "string",
+     "description": "Project slug"
+    },
+    "query": {
+     "type": "string",
+     "description": "Search (is:unresolved level:error)"
+    },
+    "stats_period": {
+     "type": "string",
+     "description": "24h, 14d"
+    }
+   },
+   "required": [
+    "project"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "sentry_get_issue_details",
+  "description": "Get an error issue with its latest event, stack trace and tags.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_id": {
+     "type": "string",
+     "description": "Issue id"
+    }
+   },
+   "required": [
+    "issue_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "sentry_get_event",
+  "description": "Get one event with its full stack trace, breadcrumbs and request.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "event_id": {
+     "type": "string",
+     "description": "Event id"
+    },
+    "project": {
+     "type": "string",
+     "description": "Project slug"
+    }
+   },
+   "required": [
+    "event_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "sentry_resolve_issue",
+  "description": "Mark an error issue resolved, optionally in the next release.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_id": {
+     "type": "string",
+     "description": "Issue id"
+    },
+    "in_next_release": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "issue_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "sentry_list_releases",
+  "description": "List releases of a project with their new issue counts.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "project": {
+     "type": "string",
+     "description": "Project slug"
+    }
+   },
+   "required": [
+    "project"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "sentry_get_performance_summary",
+  "description": "Get p50/p95 latency and throughput of transactions.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "project": {
+     "type": "string",
+     "description": "Project slug"
+    },
+    "transaction": {
+     "type": "string",
+     "description": "Transaction name"
+    }
+   },
+   "required": [
+    "project"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "linear_create_issue",
+  "description": "Create a Linear issue in a team with priority and labels.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "team": {
+     "type": "string",
+     "description": "Team key"
+    },
+    "title": {
+     "type": "string",
+     "description": "Title"
+    },
+    "priority": {
+     "type": "integer",
+     "description": "0 none .. 4 low; 1 urgent"
+    }
+   },
+   "required": [
+    "team",
+    "title"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "linear_update_issue",
+  "description": "Update a Linear issue: state, assignee, priority, estimate.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "id": {
+     "type": "string",
+     "description": "Issue id"
+    },
+    "state": {
+     "type": "string",
+     "description": "Workflow state"
+    }
+   },
+   "required": [
+    "id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "linear_list_my_issues",
+  "description": "List the issues assigned to me, by state.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "state": {
+     "type": "string",
+     "description": "Workflow state"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "linear_list_cycles",
+  "description": "List a team's cycles with their progress.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "team": {
+     "type": "string",
+     "description": "Team key"
+    }
+   },
+   "required": [
+    "team"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "linear_list_projects",
+  "description": "List Linear projects with lead, status and target date.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "notion_search",
+  "description": "Search pages and databases by title in the Notion workspace.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string",
+     "description": "Text"
+    }
+   },
+   "required": [
+    "query"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "notion_get_page",
+  "description": "Read a Notion page's properties and content blocks.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "page_id": {
+     "type": "string",
+     "description": "Page id"
+    }
+   },
+   "required": [
+    "page_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "notion_create_page",
+  "description": "Create a page under a page or in a database.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "parent": {
+     "type": "string",
+     "description": "Parent page or database id"
+    },
+    "title": {
+     "type": "string",
+     "description": "Title"
+    },
+    "content": {
+     "type": "string",
+     "description": "Markdown content"
+    }
+   },
+   "required": [
+    "parent",
+    "title"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "notion_append_blocks",
+  "description": "Append paragraphs, lists or headings to a page.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "page_id": {
+     "type": "string",
+     "description": "Page id"
+    },
+    "content": {
+     "type": "string",
+     "description": "Markdown"
+    }
+   },
+   "required": [
+    "page_id",
+    "content"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "notion_query_database",
+  "description": "Query a Notion database with filters and sorts.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "database_id": {
+     "type": "string",
+     "description": "Database id"
+    },
+    "filter": {
+     "type": "object"
+    }
+   },
+   "required": [
+    "database_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "notion_update_page_properties",
+  "description": "Update the properties of a database row.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "page_id": {
+     "type": "string",
+     "description": "Page id"
+    },
+    "properties": {
+     "type": "object"
+    }
+   },
+   "required": [
+    "page_id",
+    "properties"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "postgres_query",
+  "description": "Run a read-only SQL query and return the rows.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "sql": {
+     "type": "string",
+     "description": "SELECT statement"
+    }
+   },
+   "required": [
+    "sql"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "postgres_execute",
+  "description": "Run a SQL statement that changes data or schema (INSERT, UPDATE, CREATE).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "sql": {
+     "type": "string",
+     "description": "Statement"
+    }
+   },
+   "required": [
+    "sql"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "postgres_list_tables",
+  "description": "List the tables of a schema with their row estimates.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "schema": {
+     "type": "string",
+     "description": "Schema name"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "postgres_describe_table",
+  "description": "Show a table's columns, types, indexes and constraints.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "table": {
+     "type": "string",
+     "description": "Table name"
+    }
+   },
+   "required": [
+    "table"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "postgres_explain_query",
+  "description": "Show the query plan of a SQL statement (EXPLAIN ANALYZE).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "sql": {
+     "type": "string",
+     "description": "Statement"
+    }
+   },
+   "required": [
+    "sql"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "postgres_list_slow_queries",
+  "description": "List the slowest queries from pg_stat_statements.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "type": "integer",
+     "description": "Page size (max 100)"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "k8s_get_pods",
+  "description": "List pods of a namespace with status, restarts and age.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    },
+    "selector": {
+     "type": "string",
+     "description": "Label selector"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "k8s_get_pod_logs",
+  "description": "Read the logs of a pod's container.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "pod": {
+     "type": "string",
+     "description": "Pod name"
+    },
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    },
+    "tail": {
+     "type": "integer"
+    },
+    "previous": {
+     "type": "boolean",
+     "description": "Logs of the previous (crashed) container"
+    }
+   },
+   "required": [
+    "pod"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "k8s_describe_resource",
+  "description": "Describe a resource (pod, deployment, service, node) with its events.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "kind": {
+     "type": "string",
+     "description": "Resource kind"
+    },
+    "name": {
+     "type": "string",
+     "description": "Name"
+    },
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    }
+   },
+   "required": [
+    "kind",
+    "name"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "k8s_scale_deployment",
+  "description": "Scale a deployment to a number of replicas.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "deployment": {
+     "type": "string",
+     "description": "Name"
+    },
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    },
+    "replicas": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "deployment",
+    "replicas"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "k8s_rollout_restart",
+  "description": "Restart a deployment's pods with a rolling restart.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "deployment": {
+     "type": "string",
+     "description": "Name"
+    },
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    }
+   },
+   "required": [
+    "deployment"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "k8s_rollout_undo",
+  "description": "Roll a deployment back to its previous revision.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "deployment": {
+     "type": "string",
+     "description": "Name"
+    },
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    }
+   },
+   "required": [
+    "deployment"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "k8s_apply_manifest",
+  "description": "Apply a YAML manifest to the cluster.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "manifest": {
+     "type": "string",
+     "description": "YAML"
+    }
+   },
+   "required": [
+    "manifest"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "k8s_get_events",
+  "description": "List recent cluster events (warnings first).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "k8s_top_pods",
+  "description": "Show CPU and memory use of pods.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "namespace": {
+     "type": "string",
+     "description": "Namespace"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "grafana_query_prometheus",
+  "description": "Run a PromQL query over a time range.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "expr": {
+     "type": "string",
+     "description": "PromQL"
+    },
+    "start": {
+     "type": "string",
+     "description": "Start time"
+    },
+    "end": {
+     "type": "string",
+     "description": "End time"
+    }
+   },
+   "required": [
+    "expr"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "grafana_query_loki",
+  "description": "Search logs with LogQL over a time range.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "expr": {
+     "type": "string",
+     "description": "LogQL"
+    },
+    "since": {
+     "type": "string",
+     "description": "e.g. 1h"
+    }
+   },
+   "required": [
+    "expr"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "grafana_list_dashboards",
+  "description": "Search dashboards by title or tag.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string",
+     "description": "Text"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "grafana_get_dashboard_panel_data",
+  "description": "Get the data behind a dashboard panel.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "dashboard_uid": {
+     "type": "string",
+     "description": "Dashboard"
+    },
+    "panel_id": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "dashboard_uid",
+    "panel_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "grafana_list_alert_rules",
+  "description": "List alert rules with their state (firing, pending, normal).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "state": {
+     "type": "string",
+     "description": "firing, pending, normal"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "grafana_silence_alert",
+  "description": "Silence an alert for a duration.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "matchers": {
+     "type": "string",
+     "description": "Label matchers"
+    },
+    "duration": {
+     "type": "string",
+     "description": "e.g. 2h"
+    },
+    "comment": {
+     "type": "string",
+     "description": "Why"
+    }
+   },
+   "required": [
+    "matchers",
+    "duration"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "grafana_create_annotation",
+  "description": "Add an annotation (deploy, incident) to dashboards at a time.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "text": {
+     "type": "string",
+     "description": "Annotation text"
+    },
+    "tags": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "text"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "pagerduty_list_incidents",
+  "description": "List triggered and acknowledged incidents.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "status": {
+     "type": "string",
+     "description": "triggered, acknowledged, resolved"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "pagerduty_acknowledge_incident",
+  "description": "Acknowledge an incident so escalation stops.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "incident_id": {
+     "type": "string",
+     "description": "Incident id"
+    }
+   },
+   "required": [
+    "incident_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "pagerduty_resolve_incident",
+  "description": "Resolve an incident.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "incident_id": {
+     "type": "string",
+     "description": "Incident id"
+    },
+    "note": {
+     "type": "string",
+     "description": "Resolution note"
+    }
+   },
+   "required": [
+    "incident_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "pagerduty_get_oncall",
+  "description": "Who is on call now for a schedule or escalation policy.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "schedule": {
+     "type": "string",
+     "description": "Schedule id or name"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "pagerduty_create_incident",
+  "description": "Page a service by creating an incident.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "service": {
+     "type": "string",
+     "description": "Service id"
+    },
+    "title": {
+     "type": "string",
+     "description": "What is wrong"
+    },
+    "urgency": {
+     "type": "string",
+     "enum": [
+      "high",
+      "low"
+     ]
+    }
+   },
+   "required": [
+    "service",
+    "title"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "aws_s3_list_buckets",
+  "description": "List the S3 buckets of the account.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "aws_s3_list_objects",
+  "description": "List objects of a bucket under a prefix.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "bucket": {
+     "type": "string",
+     "description": "Bucket"
+    },
+    "prefix": {
+     "type": "string",
+     "description": "Key prefix"
+    }
+   },
+   "required": [
+    "bucket"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "aws_s3_get_object",
+  "description": "Read an object's content from a bucket.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "bucket": {
+     "type": "string",
+     "description": "Bucket"
+    },
+    "key": {
+     "type": "string",
+     "description": "Object key"
+    }
+   },
+   "required": [
+    "bucket",
+    "key"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "aws_s3_put_object",
+  "description": "Upload content as an object to a bucket.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "bucket": {
+     "type": "string",
+     "description": "Bucket"
+    },
+    "key": {
+     "type": "string",
+     "description": "Object key"
+    },
+    "content": {
+     "type": "string",
+     "description": "Body"
+    }
+   },
+   "required": [
+    "bucket",
+    "key",
+    "content"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "aws_s3_presign_url",
+  "description": "Create a time-limited download link for an object.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "bucket": {
+     "type": "string",
+     "description": "Bucket"
+    },
+    "key": {
+     "type": "string",
+     "description": "Object key"
+    },
+    "expires": {
+     "type": "integer",
+     "description": "Seconds"
+    }
+   },
+   "required": [
+    "bucket",
+    "key"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "aws_cloudwatch_get_metric",
+  "description": "Get a CloudWatch metric's datapoints (CPUUtilization, Latency).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "namespace": {
+     "type": "string",
+     "description": "AWS/EC2"
+    },
+    "metric": {
+     "type": "string",
+     "description": "Metric name"
+    },
+    "dimensions": {
+     "type": "object"
+    }
+   },
+   "required": [
+    "namespace",
+    "metric"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "aws_cloudwatch_logs_insights",
+  "description": "Run a CloudWatch Logs Insights query over log groups.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "log_groups": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "query": {
+     "type": "string",
+     "description": "Insights query"
+    }
+   },
+   "required": [
+    "log_groups",
+    "query"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "aws_lambda_invoke",
+  "description": "Invoke a Lambda function with a JSON payload.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "function": {
+     "type": "string",
+     "description": "Function name"
+    },
+    "payload": {
+     "type": "object"
+    }
+   },
+   "required": [
+    "function"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "aws_ec2_describe_instances",
+  "description": "List EC2 instances with state, type and IPs.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "filters": {
+     "type": "object"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "stripe_list_customers",
+  "description": "List or search customers by email.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "type": "string",
+     "description": "Email"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "stripe_get_customer",
+  "description": "Get a customer with their subscriptions and payment methods.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "customer": {
+     "type": "string",
+     "description": "Customer id"
+    }
+   },
+   "required": [
+    "customer"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "stripe_create_refund",
+  "description": "Refund a charge or payment intent, fully or partly.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "payment_intent": {
+     "type": "string",
+     "description": "Payment intent id"
+    },
+    "amount": {
+     "type": "integer",
+     "description": "Cents; empty for all"
+    }
+   },
+   "required": [
+    "payment_intent"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "stripe_list_invoices",
+  "description": "List invoices of a customer with their status.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "customer": {
+     "type": "string",
+     "description": "Customer id"
+    },
+    "status": {
+     "type": "string",
+     "description": "draft, open, paid, void"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "stripe_cancel_subscription",
+  "description": "Cancel a subscription now or at period end.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "subscription": {
+     "type": "string",
+     "description": "Subscription id"
+    },
+    "at_period_end": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "subscription"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "stripe_create_payment_link",
+  "description": "Create a payment link for a price.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "price": {
+     "type": "string",
+     "description": "Price id"
+    },
+    "quantity": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "price"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "stripe_get_balance",
+  "description": "Get the account's available and pending balance.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "google_calendar_list_events",
+  "description": "List calendar events in a time range.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "time_min": {
+     "type": "string",
+     "description": "Start"
+    },
+    "time_max": {
+     "type": "string",
+     "description": "End"
+    },
+    "calendar": {
+     "type": "string",
+     "description": "Calendar id"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "google_calendar_create_event",
+  "description": "Create a calendar event and invite attendees.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": "string",
+     "description": "Title"
+    },
+    "start": {
+     "type": "string",
+     "description": "Start"
+    },
+    "end": {
+     "type": "string",
+     "description": "End"
+    },
+    "attendees": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "title",
+    "start",
+    "end"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "google_calendar_find_free_time",
+  "description": "Find times when all given people are free.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "people": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "duration_minutes": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "people"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "google_gmail_search",
+  "description": "Search emails with Gmail query syntax (from: subject: newer_than:).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "q": {
+     "type": "string",
+     "description": "Query"
+    }
+   },
+   "required": [
+    "q"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "google_gmail_read",
+  "description": "Read an email thread.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "thread_id": {
+     "type": "string",
+     "description": "Thread id"
+    }
+   },
+   "required": [
+    "thread_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "google_gmail_send",
+  "description": "Send an email.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "to": {
+     "type": "string",
+     "description": "Recipients"
+    },
+    "subject": {
+     "type": "string",
+     "description": "Subject"
+    },
+    "body": {
+     "type": "string",
+     "description": "Body"
+    }
+   },
+   "required": [
+    "to",
+    "subject",
+    "body"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "google_gmail_draft",
+  "description": "Create an email draft without sending it.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "to": {
+     "type": "string",
+     "description": "Recipients"
+    },
+    "subject": {
+     "type": "string",
+     "description": "Subject"
+    },
+    "body": {
+     "type": "string",
+     "description": "Body"
+    }
+   },
+   "required": [
+    "to",
+    "subject",
+    "body"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "google_drive_search",
+  "description": "Search Google Drive files by name or content.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "q": {
+     "type": "string",
+     "description": "Text"
+    }
+   },
+   "required": [
+    "q"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "google_drive_read",
+  "description": "Read a Google Doc, Sheet or file's content.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "file_id": {
+     "type": "string",
+     "description": "File id"
+    }
+   },
+   "required": [
+    "file_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "docker_list_containers",
+  "description": "List running containers with image, status and ports.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "all": {
+     "type": "boolean"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "docker_container_logs",
+  "description": "Read a container's logs.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "container": {
+     "type": "string",
+     "description": "Name or id"
+    },
+    "tail": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "container"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "docker_restart_container",
+  "description": "Restart a container.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "container": {
+     "type": "string",
+     "description": "Name or id"
+    }
+   },
+   "required": [
+    "container"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "docker_list_images",
+  "description": "List local images with tags and size.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "docker_image_vulnerabilities",
+  "description": "Scan an image for known CVEs.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "image": {
+     "type": "string",
+     "description": "Image reference"
+    }
+   },
+   "required": [
+    "image"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "confluence_search",
+  "description": "Search Confluence pages with CQL or text.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string",
+     "description": "Text or CQL"
+    }
+   },
+   "required": [
+    "query"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "confluence_get_page",
+  "description": "Read a Confluence page's body.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "page_id": {
+     "type": "string",
+     "description": "Page id"
+    }
+   },
+   "required": [
+    "page_id"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "confluence_create_page",
+  "description": "Create a Confluence page in a space.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "space": {
+     "type": "string",
+     "description": "Space key"
+    },
+    "title": {
+     "type": "string",
+     "description": "Title"
+    },
+    "body": {
+     "type": "string",
+     "description": "Storage-format or markdown body"
+    }
+   },
+   "required": [
+    "space",
+    "title",
+    "body"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "confluence_update_page",
+  "description": "Replace a Confluence page's body (new version).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "page_id": {
+     "type": "string",
+     "description": "Page id"
+    },
+    "body": {
+     "type": "string",
+     "description": "New body"
+    }
+   },
+   "required": [
+    "page_id",
+    "body"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "flags_list_flags",
+  "description": "List feature flags with their state per environment.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "environment": {
+     "type": "string",
+     "description": "production, staging"
+    }
+   },
+   "required": []
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ },
+ {
+  "name": "flags_toggle_flag",
+  "description": "Turn a feature flag on or off in an environment.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "flag": {
+     "type": "string",
+     "description": "Flag key"
+    },
+    "environment": {
+     "type": "string",
+     "description": "Environment"
+    },
+    "on": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "flag",
+    "environment",
+    "on"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "flags_set_rollout",
+  "description": "Roll a flag out to a percentage of users.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "flag": {
+     "type": "string",
+     "description": "Flag key"
+    },
+    "percent": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "flag",
+    "percent"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": false
+  }
+ },
+ {
+  "name": "releases_codename",
+  "description": "Look up the codename the release team gave a product version (e.g. 4.2 -> its codename).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "version": {
+     "type": "string",
+     "description": "Product version, e.g. 4.2"
+    }
+   },
+   "required": [
+    "version"
+   ]
+  },
+  "annotations": {
+   "readOnlyHint": true
+  }
+ }
+]

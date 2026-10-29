@@ -18,7 +18,9 @@ impl Tool for WriteFile {
         "write_file"
     }
     fn description(&self) -> &'static str {
-        "Create a file, or overwrite one you have read in this run. Parent directories are created."
+        "Create a file with the given content, or overwrite one you have read in this run (parent directories are \
+         created). Use it for new files and full rewrites; to change part of an existing file use edit or \
+         apply_patch, which keep the rest as it is."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<WriteArgs>()

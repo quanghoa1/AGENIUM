@@ -23,7 +23,7 @@ const ACTIVITY_KEEP: usize = 300;
 pub struct JudgeActivity {
     pub at: String,
     /// `skill_hint`, `memory_gate`, `review_assist`, `skill_quality`, `skill_contradiction`, `done_check`,
-    /// `trim_output`, `find_code` or `test`.
+    /// `trim_output`, `find_code`, `tool_search` or `test`.
     #[serde(rename = "use")]
     pub use_: String,
     #[serde(default)]

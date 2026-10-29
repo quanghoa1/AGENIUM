@@ -42,6 +42,11 @@ steps follow unchanged. Changes you made to files are still there. Continue from
 /// Characters of a tool result shown to the model that writes compaction notes.
 pub(super) const NOTES_RESULT_CHARS: usize = 2000;
 
+/// Tools whose results stay when old results are cleared (Anthropic's context editing `exclude_tools`): what a skill
+/// says and which MCP tools a search found are used for the whole run, and clearing them only makes the agent ask
+/// again (ADR-142).
+const KEEP_RESULTS_OF: [&str; 2] = ["load_skill", "tool_search"];
+
 /// Clears the content of long tool results, all but the last `keep` tool-result messages. Unless `force`, only when
 /// together they free at least a tenth of the window (fewer edits keep the prompt cache). Returns how many.
 pub(super) fn clear_old_results(
@@ -58,8 +63,10 @@ pub(super) fn clear_old_results(
         .collect();
     let old = &with_results[..with_results.len().saturating_sub(keep)];
     let clearable = |p: &Part| match p {
-        Part::ToolResult { content, .. } => {
-            content.len() >= CLEAR_MIN_CHARS && !content.starts_with(CLEARED)
+        Part::ToolResult { content, name, .. } => {
+            content.len() >= CLEAR_MIN_CHARS
+                && !content.starts_with(CLEARED)
+                && !KEEP_RESULTS_OF.contains(&name.as_str())
         }
         Part::Image { .. } => true,
         _ => false,
@@ -359,5 +366,40 @@ impl Run<'_> {
             }
             Err(o) => o,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use agenium_llm::Role;
+
+    fn result(name: &str, chars: usize) -> Message {
+        Message {
+            role: Role::User,
+            parts: vec![Part::ToolResult {
+                call_id: name.into(),
+                name: name.into(),
+                content: "y".repeat(chars),
+                is_error: false,
+            }],
+        }
+    }
+
+    #[test]
+    fn a_skill_and_a_tool_search_stay_when_old_results_are_cleared() {
+        let mut m = vec![
+            result("load_skill", 9_000),
+            result("tool_search", 9_000),
+            result("read_file", 9_000),
+            result("list_dir", 500),
+        ];
+        assert_eq!(clear_old_results(&mut m, 10_000, 1, true), 1);
+        let text = |i: usize| match &m[i].parts[0] {
+            Part::ToolResult { content, .. } => content.clone(),
+            _ => unreachable!(),
+        };
+        assert!(!text(0).starts_with(CLEARED) && !text(1).starts_with(CLEARED));
+        assert!(text(2).starts_with(CLEARED));
     }
 }

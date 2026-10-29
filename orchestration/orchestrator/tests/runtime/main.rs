@@ -16,6 +16,7 @@ use serde_json::json;
 
 mod failures;
 mod mcp;
+mod mcp_search;
 mod memory;
 mod messages;
 mod solo;

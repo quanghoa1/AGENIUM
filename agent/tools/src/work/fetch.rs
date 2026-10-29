@@ -252,6 +252,9 @@ impl Tool for FetchTool {
         } else {
             body.into_owned()
         };
-        Ok(ctx.finish_output(format!("HTTP {status} ({ctype})\n<untrusted_content source=\"{host}\">\n{text}\n</untrusted_content>"), true))
+        // Cut first, then fenced: the fence is never cut off (ADR-142).
+        let mut out = ctx.finish_output(format!("HTTP {status} ({ctype})\n{text}"), true);
+        out.text = crate::untrusted::fence(&host, &out.text);
+        Ok(out)
     }
 }

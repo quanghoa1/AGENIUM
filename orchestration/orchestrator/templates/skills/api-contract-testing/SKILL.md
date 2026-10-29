@@ -1,6 +1,6 @@
 ---
 name: api-contract-testing
-description: Verify an API endpoint against its stated contract: status codes, shapes, errors and edge cases.
+description: Verifies an API endpoint against its stated contract: status codes, shapes, errors and edge cases. Use when a ticket adds or changes an endpoint, or a client depends on how one behaves.
 tags: coding testing
 ---
 

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "mcp-fallback",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 2,
+    "error_codes": {
+      "mcp_tool_error": 1,
+      "not_found": 1
+    },
+    "errors": [
+      "mcp__tools__find_tools: mcp_tool_error: the tool search is out of quota: every tool is listed now",
+      "read_file: not_found: deliverables/codename.txt does not exist"
+    ],
+    "tools": {
+      "call_tool": 1,
+      "close_ticket": 1,
+      "mcp__tools__find_tools": 1,
+      "mcp__tools__releases_codename": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "tool_search": 3,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 233295,
+    "tokens_out": 887,
+    "tokens_cached": 188160,
+    "cost_usd": 0.0,
+    "elapsed_ms": 38956
+  }
+]

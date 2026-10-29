@@ -1,6 +1,6 @@
 ---
 name: migration-safety
-description: Change a schema or data safely: reversible, idempotent, and safe to deploy without downtime.
+description: Changes a schema or stored data safely: reversible, idempotent, and deployable without downtime. Use when a ticket alters a database schema, migrates data or changes a stored format.
 tags: coding data
 ---
 

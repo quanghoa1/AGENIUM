@@ -1,6 +1,6 @@
 ---
 name: perf-audit
-description: Find and fix a performance problem by measuring first, changing one thing, and measuring again.
+description: Finds and fixes a performance problem by measuring first, changing one thing, and measuring again. Use when something is slow or uses too much memory, or a ticket sets a performance target.
 tags: coding performance
 ---
 

@@ -54,6 +54,7 @@ fn responder(current: Arc<Mutex<String>>) -> agenium_llm::mock::Responder {
             usage: Usage::default(),
             model: "stub".into(),
             dropped_thinking: 0,
+            refusal: None,
         })
     })
 }

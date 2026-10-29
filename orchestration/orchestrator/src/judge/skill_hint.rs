@@ -7,6 +7,10 @@ use agenium_llm::systemone::{Judging, Question};
 use super::MET;
 use crate::app::App;
 
+/// Description characters of each skill the judge reads: all of it (a skill's limit), since the "Use when" clause
+/// that decides the pick comes last (ADR-141).
+const DESCRIPTION: usize = 1024;
+
 impl App {
     /// The judge's pick among `skills` (name, description) for `t`, as a hint for the worker. `None` when the judge is
     /// off/disabled, `skill_hint` is off, there are fewer than two skills, the pick is "none"/low-confidence/failed, or
@@ -18,7 +22,7 @@ impl App {
         self.judge().ok().flatten()?;
         let mut criteria: std::collections::BTreeMap<String, String> = skills
             .iter()
-            .map(|(name, desc)| (name.clone(), desc.chars().take(200).collect()))
+            .map(|(name, desc)| (name.clone(), desc.chars().take(DESCRIPTION).collect()))
             .collect();
         criteria.insert("none".into(), "no skill fits this ticket".into());
         let mut j = Judging::default().state_text(

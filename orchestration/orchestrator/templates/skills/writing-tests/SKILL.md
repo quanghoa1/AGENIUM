@@ -1,6 +1,6 @@
 ---
 name: writing-tests
-description: Design tests that catch real regressions: pick cases that matter, assert behaviour, cover the edges.
+description: Designs tests that catch real regressions: picks the cases that matter, asserts behaviour and covers the edges. Use when a ticket adds behaviour that needs tests or asks for more coverage.
 tags: coding testing
 ---
 

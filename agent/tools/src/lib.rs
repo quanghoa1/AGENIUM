@@ -9,6 +9,7 @@ pub mod jobs;
 pub mod patch;
 pub mod paths;
 pub mod text;
+pub mod untrusted;
 mod work;
 
 use std::collections::HashMap;

@@ -155,6 +155,13 @@ fn rpc_result(v: Value) -> Result<Value> {
         .ok_or_else(|| McpError::Protocol("response without result".into()))
 }
 
+/// Notes a server's notice that its tool list changed (`notifications/tools/list_changed`): the hub lists it again.
+pub(super) fn note_notice(msg: &Value, changed: &AtomicBool) {
+    if msg["method"] == "notifications/tools/list_changed" {
+        changed.store(true, Ordering::SeqCst);
+    }
+}
+
 /// Answer to a request the server sends us (we offer no client capabilities except ping).
 fn answer_server_request(msg: &Value) -> Value {
     if msg["method"] == "ping" {
@@ -173,6 +180,8 @@ pub struct Client {
     pub instructions: Option<String>,
     /// The server's declared capabilities (`tools`, `resources`, `prompts`, ...).
     pub capabilities: Value,
+    /// Set by the server's `notifications/tools/list_changed`, cleared by [`Client::tools_changed`].
+    changed: Arc<AtomicBool>,
 }
 
 /// Text of an MCP content list: text parts verbatim, other parts as short placeholders.
@@ -220,6 +229,7 @@ impl Client {
             "capabilities": {},
             "clientInfo": { "name": "agenium", "version": env!("CARGO_PKG_VERSION") },
         });
+        let changed = Arc::new(AtomicBool::new(false));
         let (wire, init): (Box<dyn Wire>, Value) = match spec {
             ConnectSpec::Stdio {
                 command,
@@ -227,7 +237,8 @@ impl Client {
                 env,
                 cwd,
             } => {
-                let w: Box<dyn Wire> = Box::new(Stdio::spawn(command, args, env, cwd)?);
+                let w: Box<dyn Wire> =
+                    Box::new(Stdio::spawn(command, args, env, cwd, changed.clone())?);
                 let init = w.request("initialize", hello, timeout).await?;
                 (w, init)
             }
@@ -236,7 +247,9 @@ impl Client {
                 headers,
                 bearer,
             } => {
-                let w: Box<dyn Wire> = Box::new(Http::new(url, headers, bearer.clone())?);
+                let mut h = Http::new(url, headers, bearer.clone())?;
+                h.changed = changed.clone();
+                let w: Box<dyn Wire> = Box::new(h);
                 match w.request("initialize", hello.clone(), timeout).await {
                     Ok(init) => (w, init),
                     // A server of revision 2024-11-05 refuses the POST: its URL is the legacy event stream.
@@ -248,8 +261,9 @@ impl Client {
                             Some(b) => b.token().await,
                             None => None,
                         };
-                        let s: Box<dyn Wire> =
-                            Box::new(Sse::connect(url, headers, token, timeout).await?);
+                        let s: Box<dyn Wire> = Box::new(
+                            Sse::connect(url, headers, token, timeout, changed.clone()).await?,
+                        );
                         let init = s.request("initialize", hello, timeout).await?;
                         tracing::info!(%url, "MCP server uses the legacy HTTP+SSE transport");
                         (s, init)
@@ -277,6 +291,7 @@ impl Client {
             server_info: init["serverInfo"].clone(),
             instructions: init["instructions"].as_str().map(str::to_owned),
             capabilities: init["capabilities"].clone(),
+            changed,
         };
         client
             .wire
@@ -287,6 +302,16 @@ impl Client {
 
     pub fn alive(&self) -> bool {
         self.wire.alive()
+    }
+
+    /// Whether the server said its tool list changed since the last time this was asked.
+    pub fn tools_changed(&self) -> bool {
+        self.changed.swap(false, Ordering::SeqCst)
+    }
+
+    /// Whether the server declares that its tool list may change (`capabilities.tools.listChanged`).
+    pub fn tools_may_change(&self) -> bool {
+        self.capabilities["tools"]["listChanged"] == true
     }
 
     pub async fn ping(&self, timeout: Duration) -> Result<()> {

@@ -1,6 +1,6 @@
 ---
 name: a11y-audit
-description: Check a UI change against accessibility basics (keyboard, labels, contrast, roles) and fix what fails.
+description: Checks a UI change against accessibility basics (keyboard, labels, contrast, roles) and fixes what fails. Use when a ticket adds or changes screens, forms or controls, or asks for an accessibility pass.
 tags: coding frontend
 ---
 

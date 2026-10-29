@@ -31,6 +31,7 @@ pub mod skill_shape;
 pub mod support;
 pub mod team_templates;
 pub mod templates;
+mod tool_search;
 pub mod vendor_usage;
 pub mod views;
 pub mod worktree_guard;

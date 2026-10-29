@@ -265,6 +265,8 @@ async fn solo_agent_takes_a_request_to_a_closed_merged_ticket() {
     let reqs = p.requests();
     let work = &reqs[5];
     assert!(work.system[0].text.contains("You are an agent of Agenium") && !work.system[0].cache);
+    // Without the agent's own limit, the model's output limit as its vendor lists it (the scripted model: 8192).
+    assert_eq!(work.max_tokens, 8192);
     assert!(
         work.system[1].cache,
         "SOUL/ROLE block ends the cached prefix"

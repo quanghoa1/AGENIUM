@@ -29,6 +29,8 @@ pub struct Config {
     pub providers: Vec<ProviderConfig>,
     /// MCP servers (`[[mcp]]`); agents use them through their bindings.
     pub mcp: Vec<McpServerConfig>,
+    /// Finding MCP tools by search once there are many (ADR-139).
+    pub tool_search: crate::tool_search::ToolSearchSection,
 }
 
 impl Default for Config {
@@ -48,6 +50,7 @@ impl Default for Config {
             judge: JudgeSection::default(),
             providers: Vec::new(),
             mcp: Vec::new(),
+            tool_search: Default::default(),
         }
     }
 }

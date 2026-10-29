@@ -29,7 +29,9 @@ impl Tool for GrepTool {
         "grep"
     }
     fn description(&self) -> &'static str {
-        "Search file contents with a regular expression; returns path:line:text (or only paths). Respects .gitignore."
+        "Search file contents with a regular expression (an exact name, a string, a pattern); returns \
+         path:line:text, or only the paths with output = files. Respects .gitignore; narrow it with path or glob. \
+         For where a behaviour lives when you do not know its names, find_code (when offered) answers better."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<GrepArgs>()

@@ -1,0 +1,48 @@
+[
+  {
+    "id": "mcp-fallback",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 17,
+    "tool_errors": 6,
+    "error_codes": {
+      "mcp_error": 3,
+      "mcp_tool_error": 1,
+      "unknown_tool": 2
+    },
+    "errors": [
+      "mcp__tools__find_tools: mcp_tool_error: the tool search is out of quota: every tool is listed now",
+      "mcp__tools__find_tools: mcp_error: unknown tool find_tools (code -32602)",
+      "mcp__tools__run_tool: mcp_error: unknown tool run_tool (code -32602)",
+      "mcp__tools__run_tool: mcp_error: unknown tool run_tool (code -32602)",
+      "call_tool: unknown_tool: no MCP tool is named \"mcp__tools__find_tools\" now; find it with tool_search",
+      "call_tool: unknown_tool: no MCP tool is named \"run_tool\" now; find it with tool_search"
+    ],
+    "tools": {
+      "call_tool": 4,
+      "close_ticket": 1,
+      "list_dir": 2,
+      "mcp__tools__find_tools": 2,
+      "mcp__tools__releases_codename": 1,
+      "mcp__tools__run_tool": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "tool_search": 4,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 209039,
+    "tokens_out": 2398,
+    "tokens_cached": 182144,
+    "cost_usd": 0.0,
+    "elapsed_ms": 52750
+  }
+]

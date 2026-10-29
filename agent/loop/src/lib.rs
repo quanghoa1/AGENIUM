@@ -32,6 +32,14 @@ const NUDGE_CHAT: &str = "Text alone is not an action. If something must change,
 const CHECKPOINT: &str = "Checkpoint: this run is stopping (step or context limit). Write a short progress note for the next run: \
 what is done, what remains, and the next concrete step. Do not call tools.";
 
+/// What the agent is told when its run nears `max_steps`.
+fn budget_note(left: u32, max: u32) -> String {
+    format!(
+        "{left} model steps are left in this run (of {max}). Wrap up: finish the part in hand and report it, or ask \
+         if you are blocked. What is not done when the steps run out is handed to the next run as a progress note."
+    )
+}
+
 /// A tool call's result, its effect on the run, and whether its output is untrusted.
 type Executed = (Result<String, ToolError>, Effect, bool, Vec<ImageData>);
 
@@ -189,6 +197,14 @@ impl Run<'_> {
                     .checkpoint(order, &mut messages, &mut usage, "max_steps")
                     .await;
             }
+            // Told once, a tenth of the steps (at least 3) before the limit, so the agent wraps up rather than being
+            // cut off into a checkpoint (Anthropic's task budgets show the model what is left for the same reason).
+            let left = self.cfg.max_steps - step;
+            if !self.chat && self.cfg.max_steps >= 10 && left == (self.cfg.max_steps / 10).max(3) {
+                let text = budget_note(left, self.cfg.max_steps);
+                self.observer.control("budget", &text);
+                push(&mut messages, Message::user_text(text));
+            }
             step += 1;
             let resp = match self.call(&self.request(order, &messages, true)).await {
                 Ok(r) => {
@@ -269,11 +285,21 @@ impl Run<'_> {
                     }
                 }
             }
+            // A declined answer is incomplete (a refusal can come mid-answer): it is not kept, so a resumed run does not
+            // start from it and draw the same refusal again.
+            if resp.stop == StopReason::Refusal {
+                let r = resp.refusal.clone().unwrap_or_default();
+                let why = match (r.category, r.explanation) {
+                    (Some(c), Some(e)) => format!("{c}: {e}"),
+                    (Some(c), None) => c,
+                    (None, Some(e)) => e,
+                    (None, None) => "no reason given".into(),
+                };
+                self.observer.control("refusal", &why);
+                break Outcome::Refused { why };
+            }
             let calls = message.tool_calls();
             push(&mut messages, message);
-            if resp.stop == StopReason::Refusal {
-                break Outcome::Refused;
-            }
             if calls.is_empty() {
                 if resp.stop == StopReason::PauseTurn {
                     continue;

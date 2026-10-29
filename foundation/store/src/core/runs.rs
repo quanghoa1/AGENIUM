@@ -283,6 +283,24 @@ pub fn compact_logs(c: &Connection, cutoff: &str) -> Result<(u64, u64), StoreErr
     Ok((done, rows_removed))
 }
 
+/// The MCP tools (`mcp__<server>__<tool>`) `agent` called most with success in its runs, most used first; a call
+/// through `call_tool` counts for the tool it called (ADR-139: these stay listed when the others are found by search).
+pub fn mcp_tools_used(
+    c: &Connection,
+    agent: AgentId,
+    limit: usize,
+) -> Result<Vec<String>, StoreError> {
+    let mut st = c.prepare_cached(
+        "SELECT t FROM (SELECT CASE json_extract(rl.data, '$.tool') WHEN 'call_tool' \
+         THEN json_extract(rl.data, '$.args.name') ELSE json_extract(rl.data, '$.tool') END AS t \
+         FROM run_log rl JOIN run r ON r.id = rl.run \
+         WHERE r.agent = ?1 AND rl.kind = 'tool' AND json_extract(rl.data, '$.ok') = 1) \
+         WHERE substr(t, 1, 5) = 'mcp__' GROUP BY t ORDER BY COUNT(*) DESC, t LIMIT ?2",
+    )?;
+    let rows = st.query_map(params![agent.to_string(), limit as i64], |r| r.get(0))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
 pub fn log_entries(c: &Connection, run: RunId) -> Result<Vec<LogEntry>, StoreError> {
     let mut st =
         c.prepare_cached("SELECT n, kind, data, at FROM run_log WHERE run = ?1 ORDER BY n")?;

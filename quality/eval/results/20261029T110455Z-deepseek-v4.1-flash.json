@@ -1,0 +1,163 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "glob": 1,
+      "grep": 1,
+      "list_dir": 1,
+      "read_file": 1,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 93317,
+    "tokens_out": 1120,
+    "tokens_cached": 75392,
+    "cost_usd": 0.0,
+    "elapsed_ms": 36045
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid_arguments": 1,
+      "is_directory": 1
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `ac_id`, expected one of `ticket_id`, `summary`, `acceptance`, `acceptance_results`, `criteria`, `results`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "read_file: is_directory: config is a directory; use list_dir"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 106648,
+    "tokens_out": 1554,
+    "tokens_cached": 102400,
+    "cost_usd": 0.0,
+    "elapsed_ms": 49626
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "close_ticket": 1,
+      "glob": 1,
+      "grep": 4,
+      "list_dir": 2,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 120470,
+    "tokens_out": 1563,
+    "tokens_cached": 98304,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41716
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 85562,
+    "tokens_out": 970,
+    "tokens_cached": 63744,
+    "cost_usd": 0.0,
+    "elapsed_ms": 32443
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "glob": 2,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 107508,
+    "tokens_out": 1498,
+    "tokens_cached": 86016,
+    "cost_usd": 0.0,
+    "elapsed_ms": 39524
+  }
+]

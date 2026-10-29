@@ -96,7 +96,8 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
     p.push(Box::new(|req| {
         let last = req.messages.last().unwrap();
         let ok = matches!(&last.parts[0], agenium_llm::Part::ToolResult { content, is_error: false, .. }
-            if content.starts_with("found: retry policy") && content.contains("Untrusted content"));
+            if content.starts_with("<untrusted_content source=\"MCP server docs, tool search\"")
+                && content.contains("\nfound: retry policy") && content.contains("Untrusted content"));
         assert!(ok, "{:?}", last.parts[0]);
         Ok(calls_response(
             "",

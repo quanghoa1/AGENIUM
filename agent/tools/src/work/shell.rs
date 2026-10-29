@@ -27,8 +27,10 @@ impl Tool for ShellTool {
         "shell"
     }
     fn description(&self) -> &'static str {
-        "Run a shell command in your worktree (no network unless granted). Returns exit code, stdout and stderr. \
-Long outputs are cut; the full output is saved as an artifact."
+        "Run a shell command in your worktree: builds, tests, linters, git status, package installs inside the \
+project. Returns the exit code, stdout and stderr; long outputs are cut and the full output is saved as an artifact. \
+Read, search and change files with the file tools rather than cat, sed or echo; start a server or a watcher with \
+background and read it with shell_output."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<ShellArgs>()

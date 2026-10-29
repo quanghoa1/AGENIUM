@@ -1,6 +1,6 @@
 ---
 name: commit-and-pr
-description: Write a clear commit and PR: explain what changed and why, scoped to one logical change.
+description: Writes a clear commit and pull request that explain what changed and why, scoped to one logical change. Use when committing work or opening a pull request.
 tags: coding
 ---
 

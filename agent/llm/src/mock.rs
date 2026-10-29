@@ -48,6 +48,7 @@ impl ScriptedProvider {
             usage: usage(),
             model: "scripted".into(),
             dropped_thinking: 0,
+            refusal: None,
         };
         self.push(Box::new(move |_| Ok(resp.clone())))
     }
@@ -108,6 +109,7 @@ pub fn calls_response(text: &str, calls: Vec<(&str, serde_json::Value)>) -> Chat
         usage: usage(),
         model: "scripted".into(),
         dropped_thinking: 0,
+        refusal: None,
     }
 }
 

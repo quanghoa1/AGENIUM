@@ -174,11 +174,19 @@ const ALIASES: &[(&str, &[&str])] = &[
     ("command", &["cmd", "CommandLine"]),
     ("workdir", &["cwd", "Cwd", "working_directory"]),
     // A worker's report as Gemini (agy) wrote it in the golden tasks of 2026-10-28: each guess cost a step.
+    // And as Claude Code Haiku wrote it on 2026-10-29 (ADR-142).
     (
         "acceptance",
-        &["ac_results", "acceptance_results", "acceptance_criteria"],
+        &[
+            "ac_results",
+            "acceptance_results",
+            "acceptance_criteria",
+            "results",
+            "criteria",
+        ],
     ),
-    ("ac_id", &["id", "criterion_id", "acId"]),
+    ("ac_id", &["id", "criterion_id", "acId", "criterion", "ac"]),
+    ("ticket_id", &["ticket", "ticketId", "ticket_key", "key"]),
     // A review (or a permission answer) with its verdict as `action`, as agy wrote it in the rerun of 2026-10-29.
     ("decision", &["action", "verdict"]),
 ];
@@ -311,6 +319,19 @@ mod tests {
         assert_eq!(
             coerce(&review, json!({"ticket_id": "AGN-1", "action": "Approve"})),
             json!({"ticket_id": "AGN-1", "decision": "Approve"})
+        );
+        // As Claude Code Haiku wrote them (ADR-142): `ticket`, and the criteria as `results` in a JSON string.
+        assert_eq!(
+            coerce(&review, json!({"ticket": "AGN-1", "decision": "Approve"})),
+            json!({"ticket_id": "AGN-1", "decision": "Approve"})
+        );
+        let out = coerce(
+            &schema,
+            json!({"summary": "s", "results": "[{\"criterion\": \"AC-1\", \"status\": \"Met\", \"evidence\": \"e\"}]"}),
+        );
+        assert_eq!(
+            out,
+            json!({"summary": "s", "acceptance": [{"ac_id": "AC-1", "status": "Met", "evidence": "e"}]})
         );
     }
 }

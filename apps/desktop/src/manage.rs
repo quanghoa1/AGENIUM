@@ -311,7 +311,7 @@ pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) ->
     let meta = o.app.import_library_skill(&src, replace).map_err(err)?;
     // ADR-88: advisory skill-shape checks shown after import (one job, when-to-use, steps, tools, proof).
     let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
-    let mut notes = o.app.lint_skill(&meta.name, &body);
+    let mut notes = o.app.library_skill_notes(&meta.name);
     // ADR-92: explicit opposite directives against the rest of the library (advice; the user decides).
     notes.extend(o.app.library_skill_conflicts(&meta.name));
     // ADR-90: when the judge is on, a calibrated read of the skill against the methodology principles.
@@ -334,7 +334,9 @@ pub async fn evaluate_skill_text(d: State<'_, Desktop>, content: String) -> R<Va
     let o = d.opened()?;
     let (fm, body) = agenium_skills::parse(&content).map_err(|e| e.to_string())?;
     let name = fm.get("name").unwrap_or("").to_owned();
-    let notes = o.app.lint_skill(&name, &body);
+    let notes = o
+        .app
+        .lint_skill_md(&name, fm.get("description").unwrap_or(""), &body);
     let quality = o.app.skill_quality(&body).await;
     Ok(json!({ "shape_notes": notes, "quality": quality }))
 }
@@ -420,7 +422,7 @@ pub async fn save_skill(
         )
         .map_err(err)?;
     let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
-    let mut notes = o.app.lint_skill(&meta.name, &body);
+    let mut notes = o.app.library_skill_notes(&meta.name);
     notes.extend(o.app.library_skill_conflicts(&meta.name));
     let quality = o.app.skill_quality(&body).await;
     Ok(json!({ "name": meta.name, "shape_notes": notes, "quality": quality }))
@@ -436,7 +438,7 @@ pub async fn evaluate_skill(d: State<'_, Desktop>, name: String) -> R<Value> {
         .app
         .library_skill_body(&name)
         .ok_or_else(|| format!("no library skill {name:?}"))?;
-    let mut notes = o.app.lint_skill(&name, &body);
+    let mut notes = o.app.library_skill_notes(&name);
     notes.extend(o.app.library_skill_conflicts(&name));
     let quality = o.app.skill_quality(&body).await;
     Ok(json!({ "shape_notes": notes, "quality": quality }))

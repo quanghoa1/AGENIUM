@@ -1,6 +1,6 @@
 ---
 name: doc-writing
-description: Write or update user-facing docs for a change so a reader can use it without the code.
+description: Writes or updates user-facing docs for a change so a reader can use it without the code. Use when a ticket changes what users see or do, or asks for a README, guide or reference.
 tags: coding docs
 ---
 

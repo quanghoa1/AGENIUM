@@ -11,6 +11,8 @@ pub(super) struct Http {
     pub(super) next: AtomicI64,
     pub(super) alive: AtomicBool,
     pub(super) bearer: Option<Arc<crate::oauth::Bearer>>,
+    /// Set when a response stream carries `notifications/tools/list_changed`.
+    pub(super) changed: Arc<AtomicBool>,
 }
 
 /// Appends `chunk` to `buf` as text. A character split between two network chunks is kept in `partial` until its
@@ -90,6 +92,7 @@ impl Http {
             next: AtomicI64::new(1),
             alive: AtomicBool::new(true),
             bearer,
+            changed: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -230,6 +233,7 @@ impl Http {
                         if msg.get("id").is_some() {
                             let _ = self.send(&answer_server_request(&msg)).await;
                         }
+                        note_notice(&msg, &self.changed);
                         continue;
                     }
                     if msg["id"].as_i64() == Some(id) {

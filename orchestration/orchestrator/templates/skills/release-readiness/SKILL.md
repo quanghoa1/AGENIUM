@@ -1,6 +1,6 @@
 ---
 name: release-readiness
-description: Decide if a change is ready to ship: tests, docs, migration, rollback, and a clean tree.
+description: Decides whether a change is ready to ship: tests, docs, migration, rollback and a clean tree. Use before a release, a merge to the main branch or closing a project.
 tags: coding
 ---
 

@@ -1,0 +1,148 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 154014,
+    "tokens_out": 535,
+    "tokens_cached": 96384,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25647
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 135144,
+    "tokens_out": 704,
+    "tokens_cached": 83456,
+    "cost_usd": 0.0,
+    "elapsed_ms": 24075
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 17,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "close_ticket": 1,
+      "glob": 1,
+      "grep": 6,
+      "read_file": 6,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 178680,
+    "tokens_out": 1091,
+    "tokens_cached": 134400,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29857
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 6,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 121004,
+    "tokens_out": 636,
+    "tokens_cached": 83456,
+    "cost_usd": 0.0,
+    "elapsed_ms": 27276
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 1,
+    "error_codes": {
+      "not_found": 1
+    },
+    "errors": [
+      "read_file: not_found: deliverables/total.txt does not exist"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "read_file": 5,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 151463,
+    "tokens_out": 687,
+    "tokens_cached": 91776,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29433
+  }
+]

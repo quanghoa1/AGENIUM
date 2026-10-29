@@ -1,6 +1,6 @@
 ---
 name: app-ui-testing
-description: Use a desktop app the way a user would (a test instance you launch), check every function and judge the UI from screenshots.
+description: Uses a desktop app the way a user would (a test instance you launch), checks every function and judges the UI from screenshots. Use when a ticket asks to test, verify or review an app's UI end to end.
 tags: coding testing
 ---
 

@@ -24,7 +24,10 @@ impl Tool for ReadFile {
         "read_file"
     }
     fn description(&self) -> &'static str {
-        "Read a text file in your worktree (or a skill folder). Output lines are numbered. Read a file before editing it."
+        "Read a text file in your worktree (or a skill folder): its lines, numbered, up to 2000 at a time (offset and \
+         limit read further in a long file). Read a file before editing or overwriting it; the edit tools refuse a \
+         file not read in this run. To find which file holds something, search first (grep, glob) instead of reading \
+         files one by one."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<ReadArgs>()

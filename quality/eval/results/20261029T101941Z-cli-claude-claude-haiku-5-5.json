@@ -1,0 +1,34 @@
+[
+  {
+    "id": "mcp-search",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "call_tool": 1,
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "mcp__tools__releases_codename": 1,
+      "read_file": 1,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "tool_search": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 186201,
+    "tokens_out": 1633,
+    "tokens_cached": 163453,
+    "cost_usd": 0.0,
+    "elapsed_ms": 27387
+  }
+]

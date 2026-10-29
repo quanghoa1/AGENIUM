@@ -114,7 +114,11 @@ pub enum Outcome {
     },
     /// The model kept answering without calling a tool.
     NoProgress,
-    Refused,
+    /// The model declined to go on (a vendor's safety classifier); `why` is the vendor's category and explanation
+    /// when given. The declined answer is not kept in the conversation.
+    Refused {
+        why: String,
+    },
     QuotaExhausted {
         message: String,
     },
@@ -136,7 +140,7 @@ impl Outcome {
             Outcome::LoopDetected { tool } => format!("Stopped:loop:{tool}"),
             Outcome::TooManyErrors { .. } => "Stopped:tool_errors".into(),
             Outcome::NoProgress => "Stopped:no_tool_call".into(),
-            Outcome::Refused => "Stopped:refusal".into(),
+            Outcome::Refused { .. } => "Stopped:refusal".into(),
             Outcome::QuotaExhausted { .. } => "QuotaExhausted".into(),
             Outcome::Offline { .. } => "Offline".into(),
             Outcome::Failed { message } => {

@@ -1,7 +1,8 @@
 # ADR-82: The judge can pick the skill that fits a ticket (quick skill pick)
 
 Status: Accepted (2026-10-25; owner: "implement quick skill pick, and what else can Jev do" — a fast tool pick that
-helps the agent decide without reading everything, in two modes: with Jev and without).
+helps the agent decide without reading everything, in two modes: with Jev and without). Amended by ADR-128 (on by
+default once a judge key is given) and ADR-141 (the judge reads each description whole).
 
 ## Decision
 

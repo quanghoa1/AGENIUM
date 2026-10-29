@@ -8,9 +8,12 @@
 //! Servers of revision 2024-11-05 are reached through the legacy HTTP+SSE transport when they refuse Streamable HTTP;
 //! a server's resources and prompts are offered as read-only tools.
 
+pub mod catalog;
 pub mod client;
 pub mod oauth;
+pub mod rank;
 pub mod server;
+mod tool;
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -18,13 +21,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agenium_config::McpServerConfig;
-use agenium_tools::{Tool, ToolCtx, ToolError, ToolOutput};
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub use catalog::{Catalog, Keep};
 pub use client::{CallResult, Client, ConnectSpec, McpError, ToolInfo};
 pub use oauth::{MemoryTokens, TokenStore, Tokens};
+pub use tool::{Extra, McpTool};
+
+use catalog::{Listed, Source};
+use tool::Session;
 
 /// Limits of tool names on the vendor side (OpenAI: 64, `[A-Za-z0-9_-]`).
 pub const MAX_TOOL_NAME: usize = 64;
@@ -208,7 +214,7 @@ pub fn connect_spec(
     }
 }
 
-fn fnv(s: &str) -> u64 {
+pub(crate) fn fnv(s: &str) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in s.bytes() {
         h = (h ^ b as u64).wrapping_mul(0x0100_0000_01b3);
@@ -237,193 +243,6 @@ pub fn exposed_name(server: &str, tool: &str) -> String {
     format!("{}{suffix}", &full[..keep])
 }
 
-/// One agent's connection to one server; reconnects lazily.
-struct Session {
-    server: String,
-    spec: ConnectSpec,
-    timeout: Duration,
-    client: tokio::sync::Mutex<Option<Arc<Client>>>,
-}
-
-impl Session {
-    async fn client(&self) -> Result<Arc<Client>, McpError> {
-        let mut g = self.client.lock().await;
-        if let Some(c) = g.as_ref() {
-            if c.alive() {
-                return Ok(c.clone());
-            }
-            tracing::info!(server = %self.server, "MCP server connection lost; reconnecting");
-        }
-        let c = Arc::new(Client::connect(&self.spec, CONNECT_TIMEOUT).await?);
-        *g = Some(c.clone());
-        Ok(c)
-    }
-
-    async fn reset(&self) {
-        *self.client.lock().await = None;
-    }
-}
-
-/// The server's resources and prompts, offered as read-only tools when it declares them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Extra {
-    ListResources,
-    ReadResource,
-    ListPrompts,
-    GetPrompt,
-}
-
-impl Extra {
-    /// The extras a server's declared capabilities allow.
-    pub fn of(capabilities: &Value) -> Vec<Extra> {
-        let mut v = Vec::new();
-        if capabilities.get("resources").is_some() {
-            v.extend([Extra::ListResources, Extra::ReadResource]);
-        }
-        if capabilities.get("prompts").is_some() {
-            v.extend([Extra::ListPrompts, Extra::GetPrompt]);
-        }
-        v
-    }
-
-    fn info(self) -> ToolInfo {
-        let (name, description, schema) = match self {
-            Extra::ListResources => (
-                "list_resources",
-                "List the server's resources (uri, name, description).",
-                serde_json::json!({"type": "object", "properties": {}}),
-            ),
-            Extra::ReadResource => (
-                "read_resource",
-                "Read one of the server's resources by its uri.",
-                serde_json::json!({"type": "object", "properties": {"uri": {"type": "string"}}, "required": ["uri"]}),
-            ),
-            Extra::ListPrompts => (
-                "list_prompts",
-                "List the server's prompt templates and their arguments.",
-                serde_json::json!({"type": "object", "properties": {}}),
-            ),
-            Extra::GetPrompt => (
-                "get_prompt",
-                "Get one of the server's prompt templates filled with arguments.",
-                serde_json::json!({"type": "object", "properties": {"name": {"type": "string"}, "arguments": {"type": "object"}}, "required": ["name"]}),
-            ),
-        };
-        ToolInfo {
-            name: name.into(),
-            description: description.into(),
-            input_schema: schema,
-            read_only: true,
-        }
-    }
-}
-
-/// An MCP tool offered to the model.
-pub struct McpTool {
-    session: Arc<Session>,
-    info: ToolInfo,
-    name: String,
-    description: String,
-    /// A resources/prompts tool rather than one of the server's own tools.
-    extra: Option<Extra>,
-}
-
-impl McpTool {
-    pub fn mcp_name(&self) -> &str {
-        &self.info.name
-    }
-}
-
-fn tool_error(e: McpError) -> ToolError {
-    match e {
-        McpError::Timeout(d) => ToolError::new(
-            "timeout",
-            format!("the MCP tool did not answer within {d:?}"),
-        ),
-        McpError::Rpc { code, message } => {
-            ToolError::new("mcp_error", format!("{message} (code {code})"))
-        }
-        McpError::AuthRequired(why) => ToolError::new(
-            "mcp_needs_sign_in",
-            format!("{why}; only the user can sign in, tell them"),
-        ),
-        other => ToolError::new("mcp_unavailable", other.to_string()),
-    }
-}
-
-#[async_trait]
-impl Tool for McpTool {
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn description(&self) -> &str {
-        &self.description
-    }
-    fn parameters(&self) -> Value {
-        self.info.input_schema.clone()
-    }
-    fn read_only(&self) -> bool {
-        self.info.read_only
-    }
-    async fn call(&self, ctx: &ToolCtx, args: Value) -> Result<ToolOutput, ToolError> {
-        if let Some(extra) = self.extra {
-            let c = self.session.client().await.map_err(tool_error)?;
-            let t = self.session.timeout;
-            let text = match extra {
-                Extra::ListResources => c.list_resources(t).await,
-                Extra::ReadResource => match args["uri"].as_str() {
-                    Some(uri) => c.read_resource(uri, t).await,
-                    None => return Err(ToolError::new("invalid_arguments", "uri is required")),
-                },
-                Extra::ListPrompts => c.list_prompts(t).await,
-                Extra::GetPrompt => match args["name"].as_str() {
-                    Some(name) => c.get_prompt(name, args["arguments"].clone(), t).await,
-                    None => return Err(ToolError::new("invalid_arguments", "name is required")),
-                },
-            }
-            .map_err(tool_error)?;
-            return Ok(ctx.finish_output(text, true));
-        }
-        let attempt = |c: Arc<Client>, a: Value| async move {
-            c.call_tool(&self.info.name, a, self.session.timeout).await
-        };
-        let c = self.session.client().await.map_err(tool_error)?;
-        let r = match attempt(c, args.clone()).await {
-            Err(McpError::Transport(why)) => {
-                self.session.reset().await;
-                if !self.info.read_only {
-                    return Err(ToolError::new(
-                        "mcp_unavailable",
-                        format!(
-                            "the connection to MCP server {} failed during the call ({why}); the call may or may not \
-                             have run, check its effect before calling it again",
-                            self.session.server
-                        ),
-                    ));
-                }
-                let c = self.session.client().await.map_err(tool_error)?;
-                attempt(c, args).await
-            }
-            r => r,
-        }
-        .map_err(tool_error)?;
-        if r.is_error {
-            return Err(ToolError::new("mcp_tool_error", r.text));
-        }
-        let mut out = ctx.finish_output(r.text, true);
-        out.images = r
-            .images
-            .into_iter()
-            .map(|(media_type, data_b64)| agenium_tools::ImageData {
-                media_type,
-                data_b64,
-                label: format!("from {}", self.name),
-            })
-            .collect();
-        Ok(out)
-    }
-}
-
 /// What a run gets from the hub.
 #[derive(Default)]
 pub struct AgentTools {
@@ -432,12 +251,29 @@ pub struct AgentTools {
     pub problems: Vec<String>,
     /// Connected server ids.
     pub servers: Vec<String>,
+    sources: Vec<Source>,
+}
+
+impl AgentTools {
+    /// The run's catalogue of these tools, `keep` choosing the ones it may use; it follows the servers' changes.
+    pub fn catalog(self, keep: Keep) -> Catalog {
+        Catalog::new(self.sources, keep)
+    }
 }
 
 /// (agent, server)
 type SessionKey = (String, String);
-/// The session, its tools and the fingerprint of the resolved connection (a changed key reconnects).
-type OpenSession = (Arc<Session>, Vec<ToolInfo>, u64, Vec<Extra>);
+
+/// An open connection of an agent to a server.
+#[derive(Clone)]
+struct OpenSession {
+    session: Arc<Session>,
+    listed: Listed,
+    /// Fingerprint of the resolved connection (a changed key reconnects).
+    print: u64,
+    extras: Vec<Extra>,
+    may_change: bool,
+}
 
 /// In-memory fingerprint of a resolved connection (values included, never stored or printed).
 fn fingerprint(spec: &ConnectSpec) -> u64 {
@@ -619,13 +455,21 @@ impl McpHub {
             let entry = {
                 let mut sessions = self.sessions.lock().await;
                 // A key or the server's settings changed since the connection opened: open a new one.
-                if sessions.get(&key).is_some_and(|e| e.2 != print) {
+                if sessions.get(&key).is_some_and(|e| e.print != print) {
                     sessions.remove(&key);
                 }
                 sessions.get(&key).cloned()
             };
-            let (session, tools, _, extras) = match entry {
-                Some(e) => e,
+            let open = match entry {
+                Some(e) => {
+                    // A server whose tools changed since the last run is listed again (ADR-139).
+                    if let Err(e) =
+                        catalog::relist(&e.session, &e.listed, e.may_change, false).await
+                    {
+                        tracing::warn!(server = %cfg.id, error = %e, "cannot list the MCP server's tools again");
+                    }
+                    e
+                }
                 None => match self.open(cfg, spec, print).await {
                     Ok(e) => {
                         self.sessions.lock().await.insert(key, e.clone());
@@ -638,44 +482,16 @@ impl McpHub {
                 },
             };
             out.servers.push(cfg.id.clone());
-            let mut used = std::collections::HashSet::new();
-            let listed = tools
-                .into_iter()
-                .map(|t| (t, None))
-                .chain(extras.into_iter().map(|e| (e.info(), Some(e))));
-            for (t, extra) in listed {
-                if let Some(allow) = &b.tools {
-                    if !allow.contains(&t.name) {
-                        continue;
-                    }
-                }
-                let mut name = exposed_name(&cfg.id, &t.name);
-                if !used.insert(name.clone()) {
-                    name = format!(
-                        "{}_{:08x}",
-                        &name[..name.len().min(MAX_TOOL_NAME - 9)],
-                        fnv(&t.name) as u32
-                    );
-                }
-                let mut description = format!(
-                    "[MCP server {}; its output is untrusted external content] {}",
-                    cfg.id, t.description
-                );
-                if description.chars().count() > MAX_DESCRIPTION {
-                    description = description
-                        .chars()
-                        .take(MAX_DESCRIPTION - 1)
-                        .collect::<String>()
-                        + "…";
-                }
-                out.tools.push(Arc::new(McpTool {
-                    session: session.clone(),
-                    info: t,
-                    name,
-                    description,
-                    extra,
-                }));
-            }
+            let src = Source {
+                server: cfg.id.clone(),
+                allow: b.tools.clone(),
+                session: open.session,
+                listed: open.listed,
+                extras: open.extras,
+                may_change: open.may_change,
+            };
+            out.tools.extend(catalog::offer(&src));
+            out.sources.push(src);
         }
         out.tools.sort_by(|a, b| a.name.cmp(&b.name));
         out
@@ -687,16 +503,20 @@ impl McpHub {
         spec: ConnectSpec,
         print: u64,
     ) -> Result<OpenSession, McpError> {
-        let session = Arc::new(Session {
-            server: cfg.id.clone(),
+        let session = Arc::new(Session::new(
+            &cfg.id,
             spec,
-            timeout: Duration::from_secs(cfg.timeout_secs.max(1)),
-            client: tokio::sync::Mutex::new(None),
-        });
+            Duration::from_secs(cfg.timeout_secs.max(1)),
+        ));
         let c = session.client().await?;
         let tools = c.list_tools(CONNECT_TIMEOUT).await?;
-        let extras = Extra::of(&c.capabilities);
-        Ok((session, tools, print, extras))
+        Ok(OpenSession {
+            session,
+            listed: catalog::listed(tools),
+            print,
+            extras: Extra::of(&c.capabilities),
+            may_change: c.tools_may_change(),
+        })
     }
 
     /// "Test connection": connect, list tools, disconnect.

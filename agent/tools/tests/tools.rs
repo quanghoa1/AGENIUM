@@ -534,6 +534,14 @@ async fn fetch_needs_allowlist_and_marks_untrusted() {
     c.fetch_allow = vec!["127.0.0.1".into()];
     let out = call(&c, "fetch", json!({"url": url})).await.unwrap();
     assert!(out.untrusted);
+    // ADR-142: the page in a fence that names its host and closes with its own id.
+    assert!(
+        out.text
+            .starts_with("<untrusted_content source=\"127.0.0.1\" id=\"")
+            && out.text.trim_end().ends_with("\">"),
+        "{}",
+        out.text
+    );
     assert!(
         out.text.contains("Docs")
             && out.text.contains("Use & enjoy")

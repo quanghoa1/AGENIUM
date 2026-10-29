@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review a change for correctness, safety and clarity before it is approved; report issues with evidence.
+description: Reviews a change for correctness, safety and clarity before it is approved, and reports issues with evidence. Use when reviewing a ticket's work, a diff or a pull request.
 tags: coding
 ---
 

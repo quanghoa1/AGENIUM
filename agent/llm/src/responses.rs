@@ -334,6 +334,7 @@ impl StreamState {
             usage: self.usage,
             model: self.model,
             dropped_thinking: 0,
+            refusal: None,
         })
     }
 }

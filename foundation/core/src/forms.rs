@@ -15,8 +15,30 @@ use crate::validate::{Checker, FormErrors, Validate};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum AcStatus {
+    #[serde(
+        alias = "met",
+        alias = "MET",
+        alias = "Pass",
+        alias = "pass",
+        alias = "passed",
+        alias = "Done"
+    )]
     Met,
+    #[serde(
+        alias = "partial",
+        alias = "PARTIAL",
+        alias = "PartiallyMet",
+        alias = "partially_met"
+    )]
     Partial,
+    #[serde(
+        alias = "not_met",
+        alias = "NOT_MET",
+        alias = "Not Met",
+        alias = "notmet",
+        alias = "fail",
+        alias = "failed"
+    )]
     NotMet,
 }
 
@@ -51,7 +73,7 @@ pub struct WorkReport {
     /// One result per acceptance criterion of the ticket (all of them).
     #[schemars(length(min = 1))]
     pub acceptance: Vec<AcResult>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::lenient::artifacts")]
     pub artifacts: Vec<ArtifactRef>,
     /// Template specific section, validated against the ticket's report template.
     #[serde(default = "empty_object")]
@@ -63,6 +85,7 @@ pub struct WorkReport {
     pub follow_ups: Vec<String>,
     /// Your confidence that every criterion is met, 0..1.
     #[schemars(range(min = 0.0, max = 1.0))]
+    #[serde(deserialize_with = "crate::lenient::confidence")]
     pub confidence: f64,
 }
 

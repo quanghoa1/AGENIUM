@@ -1,6 +1,6 @@
 ---
 name: secure-coding
-description: Defensive secure-coding review: input validation, authz, secrets, and injection-safe patterns.
+description: Reviews code defensively for input validation, authorization, secrets and injection-safe patterns. Use when a change handles user input, sign-in, secrets, files or database queries.
 tags: coding security
 ---
 

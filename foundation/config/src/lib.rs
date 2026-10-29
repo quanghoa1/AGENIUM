@@ -5,6 +5,7 @@ pub mod presets;
 pub mod root;
 pub mod setup;
 pub mod sysreq;
+pub mod tool_search;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,7 @@ pub use config::{
     McpOAuthConfig, McpServerConfig, ModelCaps, ProviderConfig, ProviderKind, SecretsBackend,
 };
 pub use root::{resolve_root, resolve_root_with, Bootstrap, RootInputs, RootLayout, RootSource};
+pub use tool_search::ToolSearchSection;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {

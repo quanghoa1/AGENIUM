@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// The output limit of a run whose agent sets none: the model's own, up to this.
+const MAX_OUTPUT_DEFAULT: u32 = 64_000;
+
 impl Runtime {
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn execute(
@@ -111,13 +114,20 @@ impl Runtime {
                 ctx.capabilities
                     .push(format!("MCP server unavailable: {p}"));
             }
-            // Review and chat runs only get tools without side effects.
-            mcp_tools.extend(
-                m.tools
-                    .into_iter()
-                    .filter(|t| kind == RunKind::Work || agenium_tools::Tool::read_only(t.as_ref()))
-                    .map(|t| t as Arc<dyn Tool>),
-            );
+            // Review and chat runs only get tools without side effects. Many tools are found by search, not listed;
+            // a server whose tools change during the run is followed (ADR-139).
+            let work_run = kind == RunKind::Work;
+            let keep: agenium_mcp::Keep =
+                Arc::new(move |t| work_run || agenium_tools::Tool::read_only(t));
+            let offer = crate::tool_search::offer(
+                &self.app,
+                agent.id,
+                Arc::new(m.catalog(keep)),
+                ticket.map(|t| t.key.to_string()),
+            )
+            .await;
+            ctx.capabilities.extend(offer.lines);
+            mcp_tools.extend(offer.tools);
         }
         // Every vendor CLI works through the run's own tools over MCP (ADR-117, ADR-129): its own shell is off and its
         // own file tools reach only its scratch folder, so these do the work under the sandbox, the gate and the write
@@ -255,8 +265,15 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             )));
         }
         let mut cfg = self.loop_cfg(agent, cache_key);
-        if let Some(c) = info.and_then(|i| i.context_window) {
+        if let Some(c) = info.as_ref().and_then(|i| i.context_window) {
             cfg.context_window = c;
+        }
+        // Without the agent's own limit, the model's output limit as its vendor reports it, up to 64k: a long agentic
+        // turn of a large model needs more than 32k with its thinking, and a small model's limit is not overrun.
+        if agent.model.max_tokens.is_none() {
+            if let Some(m) = info.and_then(|i| i.max_output) {
+                cfg.max_tokens = (m as u32).clamp(1_024, MAX_OUTPUT_DEFAULT);
+            }
         }
         cfg.vision = vision;
         let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
@@ -403,10 +420,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     ),
                 )?;
             }
+            Outcome::Refused { why } => {
+                note(&self.app, format!("{} stopped: its model declined to go on ({why}). Its last answer was not kept. Reword the ticket where it touches that, or give {} another model, then resume it.", agent.name, agent.name))?;
+            }
             Outcome::LoopDetected { .. }
             | Outcome::TooManyErrors { .. }
             | Outcome::NoProgress
-            | Outcome::Refused
             | Outcome::Failed { .. } => {
                 note(&self.app, format!("Run stopped ({label})."))?;
             }

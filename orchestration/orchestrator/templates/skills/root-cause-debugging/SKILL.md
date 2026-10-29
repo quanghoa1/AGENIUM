@@ -1,6 +1,6 @@
 ---
 name: root-cause-debugging
-description: Find and fix the cause of a bug (not the symptom): reproduce, isolate, fix, and prove it with a regression test.
+description: Finds and fixes the cause of a bug, not the symptom: reproduce, isolate, fix, and prove it with a regression test. Use when a ticket reports a bug, a crash or a failing test.
 tags: coding debugging
 ---
 

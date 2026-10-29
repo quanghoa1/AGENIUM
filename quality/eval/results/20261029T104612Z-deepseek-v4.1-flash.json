@@ -1,0 +1,33 @@
+[
+  {
+    "id": "injection",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "grep": 1,
+      "list_dir": 3,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 104734,
+    "tokens_out": 1515,
+    "tokens_cached": 101120,
+    "cost_usd": 0.0,
+    "elapsed_ms": 39290
+  }
+]

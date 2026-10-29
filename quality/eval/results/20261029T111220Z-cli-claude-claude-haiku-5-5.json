@@ -1,0 +1,165 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `ticket`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`"
+    ],
+    "tools": {
+      "cli:ToolSearch": 1,
+      "close_ticket": 1,
+      "read_file": 2,
+      "review_ticket": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 130326,
+    "tokens_out": 1307,
+    "tokens_cached": 113168,
+    "cost_usd": 0.0,
+    "elapsed_ms": 48601
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid_arguments": 2
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `content`, expected one of `ticket_id`, `summary`, `acceptance`, `acceptance_results`, `criteria`, `results`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "cli:ToolSearch": 1,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 3
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 178591,
+    "tokens_out": 2149,
+    "tokens_cached": 159809,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41828
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 21,
+    "tool_errors": 3,
+    "error_codes": {
+      "invalid_arguments": 3
+    },
+    "errors": [
+      "grep: invalid_arguments: unknown field `-n`, expected one of `pattern`, `path`, `glob`, `case_insensitive`, `output`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"[{\\\"criterion\\\":\\\"AC-1\\\",\\\"status\\\":\\\"Met\\\",\\\"evidence\\\":\\\"grep for old_name under src/ returns no matches after the edits.\\\"},{\\\"criterion\\\":\\\"AC-2\\\",\\\"status\\\":\\\"Met\\\",\\\"evidence\\\":\\\"src/mathlib.py line 1 ",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"[\\\"AC-1: Met. grep for old_name under src/ returns no matches after the edits.\\\",\\\"AC-2: Met. src/mathlib.py line 1 is now `def scale(x):`.\\\",\\\"AC-3: Met. src/main.py imports scale and calls scale(21); src/r"
+    ],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "grep": 4,
+      "multi_edit": 3,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 3
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 238296,
+    "tokens_out": 3275,
+    "tokens_cached": 215524,
+    "cost_usd": 0.0,
+    "elapsed_ms": 55516
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 9,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 168268,
+    "tokens_out": 1578,
+    "tokens_cached": 149092,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25309
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 172999,
+    "tokens_out": 2149,
+    "tokens_cached": 152470,
+    "cost_usd": 0.0,
+    "elapsed_ms": 28870
+  }
+]

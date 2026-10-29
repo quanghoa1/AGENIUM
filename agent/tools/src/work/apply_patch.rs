@@ -20,7 +20,9 @@ impl Tool for ApplyPatch {
     fn description(&self) -> &'static str {
         "Edit several files atomically. Format: '*** Begin Patch', then per file '*** Add File: p' (lines '+...'), \
 '*** Delete File: p', or '*** Update File: p' (optional '*** Move to: q') with hunks starting '@@' whose lines \
-begin with ' ' (context), '-' (remove) or '+' (add); end with '*** End Patch'."
+begin with ' ' (context), '-' (remove) or '+' (add); end with '*** End Patch'. All files change or none. Example: \
+'*** Begin Patch\\n*** Update File: src/app.py\\n@@ def main():\\n-    run(debug=True)\\n+    run(debug=False)\\n*** Add \
+File: docs/notes.md\\n+# Notes\\n*** End Patch'."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<PatchArgs>()

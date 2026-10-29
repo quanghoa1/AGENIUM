@@ -33,6 +33,7 @@ impl Stdio {
         args: &[String],
         env: &BTreeMap<String, String>,
         cwd: &std::path::Path,
+        changed: Arc<AtomicBool>,
     ) -> Result<Stdio> {
         std::fs::create_dir_all(cwd)
             .map_err(|e| McpError::Config(format!("{}: {e}", cwd.display())))?;
@@ -81,7 +82,8 @@ impl Stdio {
                     if msg.get("id").is_some() {
                         let _ = write_line(&w, &answer_server_request(&msg)).await;
                     }
-                    continue; // notifications are ignored
+                    note_notice(&msg, &changed);
+                    continue;
                 }
                 if let Some(id) = msg["id"].as_i64() {
                     if let Some(tx) = p.lock().unwrap_or_else(|e| e.into_inner()).remove(&id) {

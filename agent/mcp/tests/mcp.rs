@@ -9,6 +9,13 @@ use agenium_tools::{AllowAll, Tool, ToolCtx};
 use serde_json::{json, Value};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+/// The content inside an output's untrusted-content fence (ADR-142).
+fn inner(text: &str) -> &str {
+    let start = text.find('\n').map_or(0, |i| i + 1);
+    let end = text.rfind("\n</untrusted_content").unwrap_or(text.len());
+    &text[start..end]
+}
+
 fn secrets() -> SecretFn {
     Arc::new(|n: &str| match n {
         "tok-admin" => Some("admin-secret-1".to_string()),
@@ -97,10 +104,17 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
         .await
         .unwrap();
     assert_eq!(
-        (wa.text.as_str(), wb.text.as_str()),
+        (inner(&wa.text), inner(&wb.text)),
         ("admin-secret-1", "dev-secret-2")
     );
     assert!(wa.untrusted, "MCP output is untrusted");
+    // ADR-142: fenced as the server's, named.
+    assert!(
+        wa.text
+            .starts_with("<untrusted_content source=\"MCP server fake, tool whoami\" id=\""),
+        "{}",
+        wa.text
+    );
 
     let echo = tool(&a, "mcp__fake__echo");
     assert!(echo.read_only());
@@ -108,7 +122,7 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
         .description()
         .starts_with("[MCP server fake; its output is untrusted"));
     assert_eq!(
-        echo.call(&ctx, json!({"text": "hi"})).await.unwrap().text,
+        inner(&echo.call(&ctx, json!({"text": "hi"})).await.unwrap().text),
         "echo: hi"
     );
     let e = tool(&a, "mcp__fake__fail")
@@ -127,7 +141,7 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
         .unwrap_err();
     assert_eq!(e.code, "mcp_unavailable", "{e}");
     assert_eq!(
-        echo.call(&ctx, json!({"text": "back"})).await.unwrap().text,
+        inner(&echo.call(&ctx, json!({"text": "back"})).await.unwrap().text),
         "echo: back",
         "restarted"
     );
@@ -141,10 +155,13 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
     let notes = std::fs::read_to_string(tmp.path().join("mcp/agent-a/fake/notes.txt")).unwrap();
     assert_eq!(notes.lines().count(), 1, "ran exactly once");
     assert_eq!(
-        echo.call(&ctx, json!({"text": "again"}))
-            .await
-            .unwrap()
-            .text,
+        inner(
+            &echo
+                .call(&ctx, json!({"text": "again"}))
+                .await
+                .unwrap()
+                .text
+        ),
         "echo: again"
     );
 
@@ -328,7 +345,7 @@ async fn streamable_http_server() {
         .call(&ctx, json!({"q": "retry"}))
         .await
         .unwrap();
-    assert_eq!(out.text, "found: retry");
+    assert_eq!(inner(&out.text), "found: retry");
     let methods: Vec<String> = seen
         .lock()
         .unwrap()
@@ -413,4 +430,72 @@ async fn resources_and_prompts_are_read_only_tools() {
         .unwrap()
         .text;
     assert!(text.contains("[user] Review src/a.rs carefully."), "{text}");
+}
+
+/// ADR-139: a server with its own tool search lists two tools; its search out of quota, it lists all 123 and says so
+/// (`notifications/tools/list_changed`). The run's catalogue follows it: the next look sees every tool, a new run
+/// starts with them, and a tool the server dropped is gone.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_catalogue_follows_a_server_that_changes_its_tools() {
+    let tmp = tempfile::tempdir().unwrap();
+    let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
+    let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
+    let cfg = McpServerConfig {
+        id: "many".into(),
+        command: Some(env!("CARGO_BIN_EXE_agenium-mcp-many-tools").into()),
+        args: vec!["--start-small".into()],
+        env: BTreeMap::new(),
+        url: None,
+        headers: BTreeMap::new(),
+        timeout_secs: 10,
+        oauth: None,
+    };
+    let b = Binding {
+        server: "many".into(),
+        credentials: Default::default(),
+        keys: Default::default(),
+        tools: None,
+    };
+    let m = hub
+        .tools_for("a1", std::slice::from_ref(&b), std::slice::from_ref(&cfg))
+        .await;
+    assert!(m.problems.is_empty(), "{:?}", m.problems);
+    let catalog = m.catalog(Arc::new(|_| true));
+    assert!(catalog.may_change());
+    let first = catalog.current().await;
+    let names: Vec<&str> = first.iter().map(|t| t.name()).collect();
+    assert_eq!(names, ["mcp__many__find_tools", "mcp__many__run_tool"]);
+    let search = first[0].clone();
+    let err = search
+        .call(&ctx, json!({"query": "release codename"}))
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("out of quota"), "{err}");
+    let now = catalog.current().await;
+    assert_eq!(now.len(), 123, "every tool is listed now");
+    assert!(now
+        .iter()
+        .any(|t| t.name() == "mcp__many__releases_codename"));
+    assert!(!now.iter().any(|t| t.name() == "mcp__many__find_tools"));
+    let codename = now
+        .iter()
+        .find(|t| t.name() == "mcp__many__releases_codename")
+        .unwrap();
+    let out = codename
+        .call(&ctx, json!({"version": "4.2"}))
+        .await
+        .unwrap();
+    assert!(out.text.contains("BLUE-HERON"), "{}", out.text);
+    // The server's own search is gone: called from the run's first list, it says where the tools are now.
+    let gone = first[1].call(&ctx, json!({"name": "x"})).await.unwrap_err();
+    assert!(
+        gone.to_string().contains("no longer offers run_tool")
+            && gone.to_string().contains("tool_search"),
+        "{gone}"
+    );
+    // A run started now gets the server's tools as they are (the hub's list was updated with the run's).
+    let again = hub
+        .tools_for("a1", std::slice::from_ref(&b), std::slice::from_ref(&cfg))
+        .await;
+    assert_eq!(again.tools.len(), 123);
 }

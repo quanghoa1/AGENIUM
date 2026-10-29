@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mcp-search",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 1,
+    "error_codes": {
+      "unknown_tool": 1
+    },
+    "errors": [
+      "call_tool: unknown_tool: no MCP tool is named \"run_command\" now; find it with tool_search"
+    ],
+    "tools": {
+      "call_tool": 2,
+      "close_ticket": 1,
+      "mcp__tools__releases_codename": 1,
+      "read_file": 1,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "tool_search": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 117425,
+    "tokens_out": 1265,
+    "tokens_cached": 93824,
+    "cost_usd": 0.0,
+    "elapsed_ms": 33001
+  }
+]

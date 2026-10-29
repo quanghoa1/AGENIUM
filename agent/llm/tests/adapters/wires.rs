@@ -298,3 +298,28 @@ async fn openai_quota_error_is_quota() {
         .unwrap_err();
     assert!(matches!(e, CallError::Quota(_)), "{e:?}");
 }
+
+/// A refusal's `stop_details` reach the response (category and explanation, shown to the user), and a full context
+/// window stops an answer like the output limit.
+#[tokio::test]
+async fn anthropic_refusal_details_and_a_full_context_window() {
+    let refused = ANTHROPIC_STREAM.replace(
+        r#"{"stop_reason":"tool_use","stop_sequence":null}"#,
+        r#"{"stop_reason":"refusal","stop_sequence":null,"stop_details":{"type":"refusal","category":"cyber","explanation":"This request was declined because it could enable cyber harm."}}"#,
+    );
+    let full = ANTHROPIC_STREAM.replace(
+        r#""stop_reason":"tool_use""#,
+        r#""stop_reason":"model_context_window_exceeded""#,
+    );
+    let (base, _) = server(vec![sse(200, &refused), sse(200, &full)]).await;
+    let p = anthropic::Anthropic::new("anthropic", Some(&base), "sk-test", http());
+    let (_, emit) = collect();
+    let r = p.chat(&request("claude-opus-5-5"), &emit).await.unwrap();
+    assert_eq!(r.stop, StopReason::Refusal);
+    let why = r.refusal.unwrap();
+    assert_eq!(why.category.as_deref(), Some("cyber"));
+    assert!(why.explanation.unwrap().contains("cyber harm"));
+    let r = p.chat(&request("claude-opus-5-5"), &emit).await.unwrap();
+    assert_eq!(r.stop, StopReason::MaxTokens);
+    assert!(r.refusal.is_none());
+}

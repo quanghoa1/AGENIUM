@@ -197,6 +197,19 @@ pub struct ChatResponse {
     /// preserved thinking; ADR-113). 0 where the provider has no such check.
     #[serde(default)]
     pub dropped_thinking: u32,
+    /// Why the model declined ([`StopReason::Refusal`]): the vendor's category and explanation when it gives them
+    /// (Anthropic's `stop_details`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<Refusal>,
+}
+
+/// A vendor's reason for a refusal; both parts may be missing (Anthropic: a refusal outside its named categories).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Refusal {
+    /// `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`, `general_harms` on Anthropic.
+    pub category: Option<String>,
+    /// Shown as it is (not stable text, never parsed).
+    pub explanation: Option<String>,
 }
 
 /// Streaming notifications for live views. The final [`ChatResponse`] is authoritative.

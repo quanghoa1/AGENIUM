@@ -287,6 +287,7 @@ pub struct StreamState {
     done: bool,
     /// Replayed thinking blocks the API dropped or flagged for a changed history (`input_transformations`).
     dropped: u32,
+    refusal: Option<Refusal>,
 }
 
 impl StreamState {
@@ -388,10 +389,20 @@ impl StreamState {
                     self.stop = Some(match s {
                         "end_turn" | "stop_sequence" => StopReason::EndTurn,
                         "tool_use" => StopReason::ToolUse,
-                        "max_tokens" => StopReason::MaxTokens,
+                        // The context window is full: an answer cut like one at the output limit (its calls are not
+                        // run); the next request's overflow is recovered as usual (ADR-103).
+                        "max_tokens" | "model_context_window_exceeded" => StopReason::MaxTokens,
                         "refusal" => StopReason::Refusal,
                         "pause_turn" => StopReason::PauseTurn,
                         o => StopReason::Other(o.to_owned()),
+                    });
+                }
+                let d = &v["delta"]["stop_details"];
+                if d["type"] == "refusal" {
+                    let text = |k: &str| d[k].as_str().map(str::to_owned);
+                    self.refusal = Some(Refusal {
+                        category: text("category"),
+                        explanation: text("explanation"),
                     });
                 }
                 self.read_usage(&v["usage"]);
@@ -480,6 +491,7 @@ impl StreamState {
             usage: self.usage,
             model: self.model,
             dropped_thinking: self.dropped,
+            refusal: self.refusal,
         })
     }
 }

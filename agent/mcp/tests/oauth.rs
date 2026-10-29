@@ -138,9 +138,17 @@ async fn whoami(hub: &McpHub, dir: &std::path::Path, url: &str) -> Result<String
         .iter()
         .find(|t| t.name() == "mcp__oauthy__whoami")
         .unwrap();
+    // The answer inside its untrusted-content fence (ADR-142).
     t.call(&ctx(dir), json!({}))
         .await
-        .map(|o| o.text)
+        .map(|o| {
+            let start = o.text.find('\n').map_or(0, |i| i + 1);
+            let end = o
+                .text
+                .rfind("\n</untrusted_content")
+                .unwrap_or(o.text.len());
+            o.text[start..end].to_owned()
+        })
         .map_err(|e| format!("{}: {}", e.code, e.message))
 }
 

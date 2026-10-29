@@ -21,7 +21,8 @@ impl Tool for GlobTool {
         "glob"
     }
     fn description(&self) -> &'static str {
-        "Find files whose path matches a glob pattern (e.g. src/**/*.rs), newest first. Respects .gitignore."
+        "Find files whose path matches a glob pattern (e.g. src/**/*.rs, **/test_*.py), newest first. Respects \
+         .gitignore. Use it to find files by name; grep searches what they contain."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<GlobArgs>()

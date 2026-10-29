@@ -87,6 +87,7 @@ impl Sse {
         headers: &BTreeMap<String, String>,
         token: Option<String>,
         timeout: Duration,
+        changed: Arc<AtomicBool>,
     ) -> Result<Sse> {
         let http = Http::new(url, headers, None)?;
         let mut map = http.headers.clone();
@@ -143,6 +144,7 @@ impl Sse {
                         if msg.get("id").is_some() {
                             let _ = sh.post(&answer_server_request(&msg)).await;
                         }
+                        note_notice(&msg, &changed);
                         continue;
                     }
                     if let Some(id) = msg["id"].as_i64() {

@@ -1,0 +1,234 @@
+[
+ {
+  "query": "open a bug report on our GitHub repo",
+  "expect": "github_create_issue"
+ },
+ {
+  "query": "close github issue 42",
+  "expect": "github_update_issue"
+ },
+ {
+  "query": "which pull requests are waiting to be merged",
+  "expect": "github_list_pull_requests"
+ },
+ {
+  "query": "see what changed in PR 17",
+  "expect": "github_get_pull_request_diff"
+ },
+ {
+  "query": "squash and merge the pull request",
+  "expect": "github_merge_pull_request"
+ },
+ {
+  "query": "ask alice to review my PR",
+  "expect": "github_request_reviewers"
+ },
+ {
+  "query": "read README.md from the main branch of the repo",
+  "expect": "github_get_file_contents"
+ },
+ {
+  "query": "why did the CI build fail on main",
+  "expect": "github_list_workflow_runs"
+ },
+ {
+  "query": "retry the failed CI job",
+  "expect": "github_rerun_workflow"
+ },
+ {
+  "query": "publish release notes for tag v2.0",
+  "expect": "github_create_release"
+ },
+ {
+  "query": "tell the team in #deploys that the release is out",
+  "expect": "slack_post_message"
+ },
+ {
+  "query": "what did people say in the incident channel today",
+  "expect": "slack_get_channel_history"
+ },
+ {
+  "query": "DM bob that the meeting moved",
+  "expect": "slack_send_direct_message"
+ },
+ {
+  "query": "find the slack conversation about the outage",
+  "expect": "slack_search_messages"
+ },
+ {
+  "query": "put a thumbs up on that message",
+  "expect": "slack_add_reaction"
+ },
+ {
+  "query": "move PROJ-12 to done",
+  "expect": "jira_transition_issue"
+ },
+ {
+  "query": "record 3 hours spent on PROJ-7",
+  "expect": "jira_log_work"
+ },
+ {
+  "query": "find all open bugs in project WEB with JQL",
+  "expect": "jira_search_jql"
+ },
+ {
+  "query": "PROJ-9 blocks PROJ-10",
+  "expect": "jira_link_issues"
+ },
+ {
+  "query": "what exceptions is production throwing",
+  "expect": "sentry_list_issues"
+ },
+ {
+  "query": "show me the stack trace of that crash",
+  "expect": "sentry_get_event"
+ },
+ {
+  "query": "the error is fixed, mark it done in sentry",
+  "expect": "sentry_resolve_issue"
+ },
+ {
+  "query": "how slow is the checkout endpoint p95",
+  "expect": "sentry_get_performance_summary"
+ },
+ {
+  "query": "what Linear tickets are on my plate",
+  "expect": "linear_list_my_issues"
+ },
+ {
+  "query": "write meeting notes as a new Notion page",
+  "expect": "notion_create_page"
+ },
+ {
+  "query": "filter the roadmap database for items due this month",
+  "expect": "notion_query_database"
+ },
+ {
+  "query": "how many users signed up yesterday (SQL)",
+  "expect": "postgres_query"
+ },
+ {
+  "query": "what columns does the orders table have",
+  "expect": "postgres_describe_table"
+ },
+ {
+  "query": "why is this query slow, show the plan",
+  "expect": "postgres_explain_query"
+ },
+ {
+  "query": "add an index on orders.created_at",
+  "expect": "postgres_execute"
+ },
+ {
+  "query": "is the api pod crash looping",
+  "expect": "k8s_get_pods"
+ },
+ {
+  "query": "logs of the container that crashed before the restart",
+  "expect": "k8s_get_pod_logs"
+ },
+ {
+  "query": "bump the web deployment to 5 replicas",
+  "expect": "k8s_scale_deployment"
+ },
+ {
+  "query": "the new version is broken, go back to the previous one",
+  "expect": "k8s_rollout_undo"
+ },
+ {
+  "query": "which pods use the most memory",
+  "expect": "k8s_top_pods"
+ },
+ {
+  "query": "graph the request rate from prometheus for the last hour",
+  "expect": "grafana_query_prometheus"
+ },
+ {
+  "query": "search the application logs for timeout errors",
+  "expect": "grafana_query_loki"
+ },
+ {
+  "query": "which alerts are firing right now",
+  "expect": "grafana_list_alert_rules"
+ },
+ {
+  "query": "mute the disk alert for two hours",
+  "expect": "grafana_silence_alert"
+ },
+ {
+  "query": "mark the deploy on the dashboards",
+  "expect": "grafana_create_annotation"
+ },
+ {
+  "query": "who is on call tonight",
+  "expect": "pagerduty_get_oncall"
+ },
+ {
+  "query": "stop paging, I am looking at it",
+  "expect": "pagerduty_acknowledge_incident"
+ },
+ {
+  "query": "wake up the database team, the db is down",
+  "expect": "pagerduty_create_incident"
+ },
+ {
+  "query": "give the customer a download link for the report in s3",
+  "expect": "aws_s3_presign_url"
+ },
+ {
+  "query": "CPU usage of the EC2 fleet",
+  "expect": "aws_cloudwatch_get_metric"
+ },
+ {
+  "query": "give the customer their money back",
+  "expect": "stripe_create_refund"
+ },
+ {
+  "query": "stop the customer's plan at the end of the month",
+  "expect": "stripe_cancel_subscription"
+ },
+ {
+  "query": "how much money is in the stripe account",
+  "expect": "stripe_get_balance"
+ },
+ {
+  "query": "when are bob and carol both available for 30 minutes",
+  "expect": "google_calendar_find_free_time"
+ },
+ {
+  "query": "set up a meeting with the design team on friday",
+  "expect": "google_calendar_create_event"
+ },
+ {
+  "query": "email the client the invoice",
+  "expect": "google_gmail_send"
+ },
+ {
+  "query": "prepare an email but don't send it yet",
+  "expect": "google_gmail_draft"
+ },
+ {
+  "query": "is the image affected by known security holes",
+  "expect": "docker_image_vulnerabilities"
+ },
+ {
+  "query": "restart the redis container",
+  "expect": "docker_restart_container"
+ },
+ {
+  "query": "update the runbook page in confluence",
+  "expect": "confluence_update_page"
+ },
+ {
+  "query": "turn off the new checkout feature in production",
+  "expect": "flags_toggle_flag"
+ },
+ {
+  "query": "enable the beta for 10% of users",
+  "expect": "flags_set_rollout"
+ },
+ {
+  "query": "what is the codename of version 4.2",
+  "expect": "releases_codename"
+ }
+]

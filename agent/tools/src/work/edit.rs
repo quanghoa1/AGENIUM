@@ -94,7 +94,10 @@ impl Tool for EditFile {
         "edit_file"
     }
     fn description(&self) -> &'static str {
-        "Replace text in a file you have read: old_string must match exactly once (or set replace_all)."
+        "Replace text in a file you have read: old_string must match the file exactly (indentation included) and \
+         once, unless replace_all. Use it for a small change in one place; several changes in one file or across \
+         files go in one apply_patch, and a new file or a full rewrite in write_file. On no match, read the file \
+         again: it may have changed."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<EditArgs>()

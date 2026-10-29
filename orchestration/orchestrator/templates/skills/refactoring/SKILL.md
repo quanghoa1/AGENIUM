@@ -1,6 +1,6 @@
 ---
 name: refactoring
-description: Restructure code without changing its behaviour: small steps, green tests after each.
+description: Restructures code without changing its behaviour, in small steps with green tests after each. Use when a ticket asks to clean up, split, rename or simplify code.
 tags: coding
 ---
 

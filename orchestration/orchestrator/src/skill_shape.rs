@@ -81,6 +81,60 @@ pub fn lint_skill(name: &str, body: &str, others: &[(String, String)]) -> Vec<St
     out
 }
 
+/// Advice about a skill's name and description, the only text an agent (or the judge's skill hint) reads before it
+/// picks a skill among many (Anthropic's skill authoring guide): say what the skill does and when to use it, in the
+/// third person, without tags. Never blocks a save.
+pub fn lint_description(name: &str, description: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let d = description.trim();
+    let lower = format!(" {} ", d.to_lowercase());
+    let when = [
+        " use when",
+        " use for",
+        " use as",
+        " use after",
+        " use before",
+        " use if",
+        " use to ",
+        " use it when",
+        " use on",
+        " when ",
+    ];
+    if !when.iter().any(|w| lower.contains(w)) {
+        out.push(
+            "the description does not say when to use the skill (\"… Use when …\"): an agent picks a skill by its \
+             description alone, before it reads the body"
+                .to_owned(),
+        );
+    }
+    let first = lower.split_whitespace().next().unwrap_or("");
+    if ["i", "i'm", "we", "you"].contains(&first)
+        || [" i can ", " you can ", " we can ", " i will ", " lets you "]
+            .iter()
+            .any(|w| lower.contains(w))
+    {
+        out.push(
+            "write the description in the third person, about what the skill does (\"Reviews a change …\"), not \
+             \"I/you can …\""
+                .to_owned(),
+        );
+    }
+    if d.contains('<') && d.contains('>') {
+        out.push("no tags (<…>) in the description: it is read as plain text".to_owned());
+    }
+    if d.chars().count() < 40 {
+        out.push(
+            "the description is too short to choose the skill by: say what it does and when"
+                .to_owned(),
+        );
+    }
+    let n = name.to_lowercase();
+    if n.contains("anthropic") || n.contains("claude") {
+        out.push("a vendor's name (anthropic, claude) in a skill name is refused by vendors' skill stores".to_owned());
+    }
+    out
+}
+
 /// A built-in starter skill shipped with Agenium and seeded into `<root>/skills` (ADR-88). The content lives as real
 /// files under `templates/skills/<name>/` (SKILL.md plus any `references/` and `scripts/`), embedded at build time.
 pub struct Builtin {
@@ -171,6 +225,13 @@ impl App {
         lint_skill(name, body, &self.library_skill_bodies(name))
     }
 
+    /// [`lint_skill`] with the checks of the skill's name and description ([`lint_description`]) first.
+    pub fn lint_skill_md(&self, name: &str, description: &str, body: &str) -> Vec<String> {
+        let mut notes = lint_description(name, description);
+        notes.extend(self.lint_skill(name, body));
+        notes
+    }
+
     /// The body (frontmatter stripped) of an agent's overlay of `skill`, for a quality read after a self-upgrade
     /// (ADR-90). `None` if the agent has no overlay of it.
     pub fn agent_overlay_body(&self, agent: agenium_core::AgentId, skill: &str) -> Option<String> {
@@ -183,6 +244,20 @@ impl App {
     }
 
     /// The body (frontmatter stripped) of a library skill, for a shape check after import. `None` if absent.
+    /// The shape checks of a library skill as saved: its description ([`lint_description`]) and its body.
+    pub fn library_skill_notes(&self, name: &str) -> Vec<String> {
+        let dir = self
+            .skill_registry()
+            .dir_of(&agenium_skills::Owner::Library);
+        let text = std::fs::read_to_string(dir.join(name).join(agenium_skills::SKILL_FILE))
+            .unwrap_or_default();
+        let description = agenium_skills::parse(&text)
+            .ok()
+            .and_then(|(fm, _)| fm.get("description").map(str::to_owned))
+            .unwrap_or_default();
+        self.lint_skill_md(name, &description, &strip_frontmatter(&text))
+    }
+
     pub fn library_skill_body(&self, name: &str) -> Option<String> {
         let dir = self
             .skill_registry()
@@ -254,6 +329,27 @@ mod tests {
     }
 
     #[test]
+    fn a_description_says_what_and_when_in_the_third_person() {
+        let good = "Reviews a change for correctness before it is approved. Use when reviewing a pull request.";
+        assert!(lint_description("code-review", good).is_empty());
+        let notes = lint_description(
+            "code-review",
+            "Review a change for correctness and safety, with evidence.",
+        );
+        assert!(notes[0].contains("when to use"), "{notes:?}");
+        let notes = lint_description(
+            "x",
+            "I can help you review code. Use when asked to review a change.",
+        );
+        assert!(
+            notes.iter().any(|n| n.contains("third person")),
+            "{notes:?}"
+        );
+        let notes = lint_description("claude-helper", "<b>Reviews</b> code. Use when asked.");
+        assert_eq!(notes.len(), 3, "{notes:?}");
+    }
+
+    #[test]
     fn a_built_in_skill_passes_its_own_checks() {
         // Each skill against every other: no missing section, not too long, and not a near-duplicate of another.
         let bodies: Vec<(String, String)> = LIBRARY
@@ -264,6 +360,9 @@ mod tests {
         for b in LIBRARY {
             assert!(names.insert(b.name), "duplicate skill name {}", b.name);
             let notes = lint_skill(b.name, strip_frontmatter(&b.skill_md()).as_str(), &bodies);
+            assert!(notes.is_empty(), "{}: {notes:?}", b.name);
+            let (fm, _) = agenium_skills::parse(&b.skill_md()).unwrap();
+            let notes = lint_description(b.name, fm.get("description").unwrap_or(""));
             assert!(notes.is_empty(), "{}: {notes:?}", b.name);
             assert!(b.skill_md().starts_with("---\nname: "));
             // Every built-in carries at least one domain tag (ADR-123) so an agent's fields are visible.

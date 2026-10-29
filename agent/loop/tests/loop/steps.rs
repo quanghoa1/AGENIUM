@@ -232,3 +232,77 @@ async fn cancel_and_chat_mode() {
     assert_eq!(rep.outcome, Outcome::Completed);
     assert_eq!(rep.messages[0].text(), "Here is my answer.");
 }
+
+/// A declined answer (a safety classifier, mid-answer) ends the run with the vendor's reason and is not kept in the
+/// conversation: a resumed run starts before it.
+#[tokio::test]
+async fn a_refused_answer_is_dropped_and_its_reason_kept() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    p.push_calls("", vec![("read_file", json!({"path": "missing.txt"}))]);
+    p.push(Box::new(|_| {
+        let mut r = agenium_llm::mock::calls_response("Here is the explo", vec![]);
+        r.stop = StopReason::Refusal;
+        r.refusal = Some(Refusal {
+            category: Some("cyber".into()),
+            explanation: Some("declined: could enable cyber harm".into()),
+        });
+        Ok(r)
+    }));
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(
+        r.outcome,
+        Outcome::Refused {
+            why: "cyber: declined: could enable cyber harm".into()
+        }
+    );
+    assert_eq!(r.outcome.label(), "Stopped:refusal");
+    assert!(
+        !r.messages
+            .iter()
+            .any(|m| m.text().contains("Here is the explo")),
+        "the declined answer is not kept"
+    );
+    assert_eq!(
+        r.messages.last().unwrap().role,
+        Role::User,
+        "the conversation ends with the tool results"
+    );
+}
+
+/// A tenth of the steps (at least 3) before `max_steps` the agent is told what is left, once, so it wraps up.
+#[tokio::test]
+async fn the_agent_is_told_when_its_steps_run_low() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    for d in 1..=7 {
+        p.push_calls("", vec![("list_dir", json!({"depth": d}))]);
+    }
+    p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1"}))]);
+    let r = run(
+        &p,
+        &ctx,
+        &tools,
+        &proto,
+        LoopConfig {
+            max_steps: 10,
+            ..cfg()
+        },
+    )
+    .run(&order())
+    .await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    let reqs = p.requests();
+    let told = |i: usize| {
+        reqs[i]
+            .messages
+            .iter()
+            .filter(|m| {
+                m.text()
+                    .starts_with("3 model steps are left in this run (of 10)")
+            })
+            .count()
+    };
+    assert_eq!(told(6), 0, "not before");
+    assert_eq!(told(7), 1, "before the 8th request, with 3 steps left");
+}
