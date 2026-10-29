@@ -375,7 +375,10 @@ impl CliRun<'_> {
             hook_url: &hook_url,
             subagents: self.subagents,
             model: &self.model,
+            run_for: self.limits.timeout,
         };
+        // A refresh token this run comes to hold is free for another run once it ends (ADR-137).
+        let _released = crate::login_access::Released(home.path().to_path_buf());
         // The ticket's CLI session of an earlier run comes back first; the run's own files are written over it.
         let cli = self.label.split(':').next().unwrap_or_default().to_owned();
         if let Some(id) = self
@@ -408,6 +411,12 @@ impl CliRun<'_> {
             }
         };
         let resync = || {
+            if self.driver.promote_login(&setup) {
+                self.observer.control(
+                    "login",
+                    "the access token ran out and no other run refreshes it: this run takes the refresh token",
+                );
+            }
             if let Err(e) = self.driver.finish(&setup) {
                 tracing::warn!(error = %e, "CLI login sync failed");
             }

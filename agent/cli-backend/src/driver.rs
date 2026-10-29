@@ -26,6 +26,8 @@ pub struct Setup<'a> {
     /// The CLI's model (empty = its default), for CLIs that take it in their configuration rather than as an
     /// argument.
     pub model: &'a str,
+    /// How long the run may last: a login lent without its refresh token must outlive it (ADR-137).
+    pub run_for: std::time::Duration,
 }
 
 /// Context of a permission check.
@@ -384,6 +386,11 @@ pub trait Driver: Send + Sync {
     /// The CLI resumes a session of an earlier run from its id (`args(.., resume, ..)`) once that run's home is back
     /// (ADR-134): the same ticket goes on in the CLI's own session, not in a new one shown the conversation so far.
     fn resumes_across_runs(&self) -> bool {
+        false
+    }
+    /// After a login error: a run lent the login without its refresh token takes the whole login when the access token
+    /// has run out and no other run holds the refresh token (ADR-137). Whether it did.
+    fn promote_login(&self, _setup: &Setup) -> bool {
         false
     }
     /// The login file the per-run home holds (a copy of the user's), never kept with a session.

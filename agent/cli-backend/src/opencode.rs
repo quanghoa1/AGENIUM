@@ -691,6 +691,7 @@ mod tests {
                 hook_url: "http://127.0.0.1:1/hook",
                 subagents: false,
                 model: "deepseek-v4.1-flash-free",
+                run_for: std::time::Duration::from_secs(2700),
             })
             .unwrap();
         for k in [

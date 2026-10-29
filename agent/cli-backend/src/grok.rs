@@ -20,10 +20,11 @@ use agenium_core::Effort;
 use serde_json::Value;
 
 use crate::driver::{
-    copy_login, file_access, hook_call_secs, named_paths, original, own_tool_off, sync_login,
-    Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
+    file_access, hook_call_secs, named_paths, original, own_tool_off, Check, CheckCtx, Control,
+    Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
+use crate::login_access::{lend_login, promote, sync_lent};
 
 pub struct Grok;
 
@@ -60,6 +61,21 @@ fn allowed_tools(subagents: bool) -> Vec<&'static str> {
 }
 
 const LOGIN: &str = "auth.json";
+
+/// Grok's login lent to a run (ADR-137): each of its sign-ins (keyed by issuer and account) without its
+/// `refresh_token`, and when the first of their access tokens expires (`expires_at`, RFC 3339).
+fn lend(login: &Value) -> Option<(Value, std::time::SystemTime)> {
+    let mut out = login.as_object()?.clone();
+    let mut first: Option<std::time::SystemTime> = None;
+    for entry in out.values_mut() {
+        let e = entry.as_object_mut()?;
+        let at = chrono::DateTime::parse_from_rfc3339(e.get("expires_at")?.as_str()?).ok()?;
+        let at = std::time::SystemTime::from(at);
+        first = Some(first.map_or(at, |f| f.min(at)));
+        e.remove("refresh_token");
+    }
+    Some((Value::Object(out), first?))
+}
 const TURN_FILE: &str = "agenium-turn.txt";
 /// Seconds Grok waits for the hook; the hook's own call to Agenium gives up 100 s earlier, so a slow approval ends
 /// in Agenium's answer or the hook's deny, never in Grok's fail-open timeout.
@@ -218,9 +234,9 @@ impl Driver for Grok {
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
         let user = user_grok_dir()
             .ok_or_else(|| std::io::Error::other("cannot find the user's Grok folder"))?;
-        // A copy kept in step (`sync_login`), not a link like Codex's (ADR-136): Grok writes `auth.json.tmp` and renames
-        // it over its login, which would part a hard link at the first refresh.
-        copy_login(&user.join(LOGIN), &s.home.join(LOGIN))?;
+        // Lent without its refresh token (ADR-137), not linked like Codex's (ADR-136): Grok writes `auth.json.tmp` and
+        // renames it over its login, which would part a hard link at the first refresh.
+        lend_login(&user.join(LOGIN), &s.home.join(LOGIN), lend, s.run_for)?;
         let (script, body, command) = hook(s.home);
         std::fs::write(&script, body)?;
         let mut cfg = String::new();
@@ -276,9 +292,13 @@ impl Driver for Grok {
 
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_grok_dir() {
-            Some(user) => sync_login(&user.join(LOGIN), &s.home.join(LOGIN)),
+            Some(user) => sync_lent(&user.join(LOGIN), &s.home.join(LOGIN), lend),
             None => Ok(()),
         }
+    }
+
+    fn promote_login(&self, s: &Setup) -> bool {
+        user_grok_dir().is_some_and(|u| promote(&u.join(LOGIN), &s.home.join(LOGIN), lend))
     }
 
     fn user_input(&self, text: &str) -> String {
@@ -527,6 +547,7 @@ mod tests {
                 hook_url: "http://127.0.0.1:9/hook",
                 subagents: false,
                 model: "",
+                run_for: std::time::Duration::from_secs(2700),
             })
             .unwrap();
         std::env::remove_var("GROK_HOME");

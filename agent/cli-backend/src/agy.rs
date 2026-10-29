@@ -667,6 +667,7 @@ gemini-3.8-flash-low	Gemini 3.8 Flash (Low)
                 hook_url: "http://127.0.0.1:1/hook",
                 subagents: false,
                 model: "",
+                run_for: std::time::Duration::from_secs(2700),
             })
             .unwrap();
         assert_eq!(env["USERPROFILE"], home.path().display().to_string());

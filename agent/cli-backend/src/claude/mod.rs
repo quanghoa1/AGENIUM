@@ -22,13 +22,26 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
-    copy_login, file_access, hook_call_secs, named_paths, original, own_tool_off, sync_login,
-    Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
+    file_access, hook_call_secs, named_paths, original, own_tool_off, Check, CheckCtx, Control,
+    Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
+use crate::login_access::{lend_login, promote, sync_lent};
 
 mod usage;
 pub use usage::rate_limits;
+
+/// Claude Code's login lent to a run (ADR-137): its `claudeAiOauth` without the refresh token (the tokens of the user's
+/// own MCP connectors, `mcpOAuth`, stay out too), and when its access token expires (`expiresAt`, milliseconds).
+pub(super) fn lend(login: &Value) -> Option<(Value, std::time::SystemTime)> {
+    let mut oauth = login.get("claudeAiOauth")?.clone();
+    let ms = oauth.get("expiresAt")?.as_u64()?;
+    oauth.as_object_mut()?.remove("refreshToken");
+    Some((
+        json!({ "claudeAiOauth": oauth }),
+        std::time::UNIX_EPOCH + std::time::Duration::from_millis(ms),
+    ))
+}
 
 /// Claude Code tools an Agenium run may use (ADR-129): `ToolSearch`, which loads the Agenium MCP tools that do the
 /// work, and its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
@@ -226,9 +239,9 @@ impl Driver for Claude {
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
         let user = user_claude_dir()
             .ok_or_else(|| std::io::Error::other("cannot find the user's Claude Code folder"))?;
-        // A copy kept in step (`sync_login`), not a link like Codex's (ADR-136): Claude Code writes its login to a
-        // temporary file renamed over it, which would part a hard link at the first refresh, and refuses a symbolic one.
-        copy_login(&user.join(LOGIN), &s.home.join(LOGIN))?;
+        // Lent without its refresh token (ADR-137), not linked like Codex's (ADR-136): Claude Code writes its login to
+        // a temporary file renamed over it, which would part a hard link at the first refresh, and refuses a symbolic one.
+        lend_login(&user.join(LOGIN), &s.home.join(LOGIN), lend, s.run_for)?;
         let script = s.home.join(HOOK_FILE);
         // Claude Code goes on with the tool when it kills a hook that ran out of time: the call to Agenium gives up
         // first (`--max-time`) and the hook exits 2, which blocks.
@@ -281,9 +294,13 @@ impl Driver for Claude {
 
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_claude_dir() {
-            Some(user) => sync_login(&user.join(LOGIN), &s.home.join(LOGIN)),
+            Some(user) => sync_lent(&user.join(LOGIN), &s.home.join(LOGIN), lend),
             None => Ok(()),
         }
+    }
+
+    fn promote_login(&self, s: &Setup) -> bool {
+        user_claude_dir().is_some_and(|u| promote(&u.join(LOGIN), &s.home.join(LOGIN), lend))
     }
 
     fn user_input(&self, text: &str) -> String {
@@ -669,6 +686,7 @@ mod tests {
             hook_url: "http://127.0.0.1:9/hook",
             subagents: false,
             model: "",
+            run_for: std::time::Duration::from_secs(2700),
         });
         std::env::remove_var("CLAUDE_CONFIG_DIR");
         assert!(probe.is_err());

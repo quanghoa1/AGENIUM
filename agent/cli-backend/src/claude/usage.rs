@@ -5,7 +5,8 @@ use std::path::Path;
 use serde_json::Value;
 
 use super::{user_claude_dir, LOGIN};
-use crate::driver::{copy_login, probe_dir, sync_login};
+use crate::driver::probe_dir;
+use crate::login_access::{lend_login, sync_lent};
 
 /// Claude's subscription usage, read on the user's request: one tiny Haiku turn without tools (it costs a little
 /// quota) whose stream reports `rate_limit_event`. It runs with a scratch `CLAUDE_CONFIG_DIR` holding a copy of the
@@ -23,7 +24,15 @@ pub async fn rate_limits(
     for d in [&home, &cwd] {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
     }
-    copy_login(&user.join(LOGIN), &home.join(LOGIN)).map_err(|e| e.to_string())?;
+    // Lent without its refresh token, like a run's (ADR-137): the probe lasts two minutes at most.
+    lend_login(
+        &user.join(LOGIN),
+        &home.join(LOGIN),
+        super::lend,
+        std::time::Duration::from_secs(120),
+    )
+    .map_err(|e| e.to_string())?;
+    let _released = crate::login_access::Released(home.clone());
     let mut cmd = tokio::process::Command::new(program);
     cmd.args([
         "-p",
@@ -77,7 +86,7 @@ pub async fn rate_limits(
         .await
         .unwrap_or_else(|_| Err("claude did not answer in 120 s".into()));
     let _ = child.kill().await;
-    if let Err(e) = sync_login(&user.join(LOGIN), &home.join(LOGIN)) {
+    if let Err(e) = sync_lent(&user.join(LOGIN), &home.join(LOGIN), super::lend) {
         tracing::warn!(error = %e, "claude login not handed back");
     }
     out

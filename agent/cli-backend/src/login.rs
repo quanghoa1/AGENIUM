@@ -88,7 +88,7 @@ pub fn sync_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
 
 /// Replaces `p` with `content` at once: a temporary file of its own renamed over it (two runs writing the same
 /// temporary name collided).
-fn replace(p: &Path, content: &[u8]) -> std::io::Result<()> {
+pub(crate) fn replace(p: &Path, content: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
     let mut tmp = tempfile::NamedTempFile::new_in(p.parent().unwrap_or_else(|| Path::new(".")))?;
     tmp.write_all(content)?;

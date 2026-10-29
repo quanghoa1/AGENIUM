@@ -106,6 +106,7 @@ fn main() {
             hook_url: "http://127.0.0.1:9/hook",
             subagents: false,
             model: "",
+            run_for: std::time::Duration::from_secs(2700),
         };
         let env = match d.prepare(&setup) {
             Ok(e) => agenium_sandbox::clean_env(&agenium_cli_backend::run::isolated_home(&home, e)),

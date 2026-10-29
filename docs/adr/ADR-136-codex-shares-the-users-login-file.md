@@ -29,7 +29,8 @@ home, login copy), ADR-134 (logins kept in step) and ADR-135 (login retry).
 3. Where no link can be made (another volume), the copy, its sync and the login retry of ADR-134/135 stay. The run's
    home going removes the link, never the user's file; a kept session never holds it. The usage probe links the same
    way.
-4. **Claude Code and Grok keep the copy** (with its 5-second sync and the login retry of ADR-135); the owner asked for
+4. **Claude Code and Grok cannot be linked** (they are lent the login without its refresh token since
+   [ADR-137](ADR-137-logins-lent-without-refresh-tokens.md)); the owner asked for
    the link everywhere ("khi dùng nhiều session của các cli khác mà không bị gì thì việc chúng có cơ chế như codex là
    điều hiển nhiên"), so both were read first. They do share one login safely across their own sessions, but through
    the folder, not the file: each writes its login to a temporary file renamed over it (Claude Code 2.1.312: an atomic
@@ -45,8 +46,8 @@ home, login copy), ADR-134 (logins kept in step) and ADR-135 (login retry).
 ## Consequences
 
 - Several Codex agents on one account refresh as one: no "refresh_token_reused", no sync window. For Claude Code and
-  Grok the window stays (5 s, then one retry); a long-lived token that never refreshes (`claude setup-token` with
-  `CLAUDE_CODE_OAUTH_TOKEN`, Grok's `XAI_API_KEY`) would close it, at the cost of a step by the user.
+  Grok, ADR-137 lends runs the login without its refresh token instead (a long-lived token or an API key would have
+  cost the user a step, and an xAI subscription has no API key).
 - A Codex run writes the user's login file directly (a refreshed token), as the user's own Codex does; a run stopped in
   the middle of that write could leave it cut short, the same risk as the user's own Codex.
 

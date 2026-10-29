@@ -11,6 +11,7 @@ pub mod detect;
 pub mod driver;
 pub mod grok;
 pub mod login;
+pub mod login_access;
 pub mod opencode;
 pub mod run;
 

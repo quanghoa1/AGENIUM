@@ -44,7 +44,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - One CLI account can run several sessions at once: logins are kept in step while runs go on, so a refreshed token
   reaches the other runs and the user's own CLI at once, and a turn refused for a token another run had just used
   runs again with the new one (ADR-134, ADR-135). Codex runs use the user's own login file (a link, not a copy), so
-  its sessions share one refresh token as on the user's machine (ADR-136).
+  its sessions share one refresh token as on the user's machine (ADR-136); Claude Code and Grok runs get the login
+  without its refresh token while the access token lasts, so they cannot use it up (ADR-137).
 - A command longer than a CLI's own tool wait goes on as a job the run waits for; its end comes to the agent as a
   message (ADR-133).
 - Paths crafted to slip past the checks are caught: every path a CLI's tool names, links out of the write scope or the
