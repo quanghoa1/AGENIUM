@@ -32,3 +32,4 @@ agenium-backend.workspace = true
 agenium-cli-backend.workspace = true
 agenium-sandbox.workspace = true
 agenium-tools.workspace = true
+futures.workspace = true

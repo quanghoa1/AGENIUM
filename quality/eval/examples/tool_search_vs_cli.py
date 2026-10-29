@@ -66,14 +66,14 @@ def run(arm, i, q, expect, a, line):
     os.makedirs(cwd, exist_ok=True)
     env = dict(os.environ)
     if arm.startswith("agenium"):
-        srv = {"command": TSMCP, "args": [], "env": {"MODELS": a.models, "MANY_TOOLS": MANY,
+        srv = {"command": TSMCP, "args": [], "env": {"MODELS": a.models, "MANY_TOOLS": MANY, **({"OPAQUE": "1"} if a.opaque else {}),
                                                       "TS_LOG": os.path.join(cwd, "calls.jsonl")}}
         if arm in ("agenium", "agenium-nonames") and os.environ.get("JEV_KEY"):
             srv["env"]["JEV_KEY"] = os.environ["JEV_KEY"]
         cfg = {"mcpServers": {"agenium": srv}}
         env["ENABLE_TOOL_SEARCH"] = "false"
     else:
-        cfg = {"mcpServers": {"many": {"command": MANY, "args": []}}}
+        cfg = {"mcpServers": {"many": {"command": MANY, "args": ["--opaque"] if a.opaque else []}}}
         if arm == "upfront":
             env["ENABLE_TOOL_SEARCH"] = "false"
         else:
@@ -116,6 +116,7 @@ def main():
     ap.add_argument("--arms", default="native,upfront,agenium,agenium-nojev")
     ap.add_argument("--only", type=int)
     ap.add_argument("--model", default="haiku")
+    ap.add_argument("--opaque", action="store_true", help="tools named tool_000..., descriptions kept")
     ap.add_argument("--parallel", type=int, default=4)
     ap.add_argument("--out", default=os.path.join(ROOT, "..", "tmp", "tscmp"))
     a = ap.parse_args()
@@ -123,9 +124,12 @@ def main():
     a.models = os.path.abspath(a.models)
     cases = json.load(open(os.path.join(ROOT, "agent", "mcp", "data", "many-tools-queries.json"), encoding="utf-8"))
     idx = range(len(cases)) if a.only is None else [a.only - 1]
-    line = subprocess.run([TSMCP, "--line"], env={**os.environ, "MODELS": a.models, "MANY_TOOLS": MANY},
+    names = [t["name"] for t in json.load(open(os.path.join(ROOT, "agent", "mcp", "data", "many-tools.json"), encoding="utf-8"))]
+    want = (lambda n: "tool_%03d" % names.index(n)) if a.opaque else (lambda n: n)
+    line = subprocess.run([TSMCP, "--line"], env={**os.environ, "MODELS": a.models, "MANY_TOOLS": MANY,
+                                                  **({"OPAQUE": "1"} if a.opaque else {})},
                           capture_output=True, text=True).stdout.strip()
-    jobs = [(arm, i, cases[i]["query"], cases[i]["expect"]) for arm in a.arms.split(",") for i in idx]
+    jobs = [(arm, i, cases[i]["query"], want(cases[i]["expect"])) for arm in a.arms.split(",") for i in idx]
     out = []
     with cf.ThreadPoolExecutor(a.parallel) as ex:
         for r in ex.map(lambda j: run(*j, a, line), jobs):

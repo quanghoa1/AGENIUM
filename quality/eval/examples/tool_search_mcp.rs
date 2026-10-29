@@ -66,7 +66,11 @@ async fn main() -> Result<()> {
     let cfg = agenium_config::McpServerConfig {
         id: "many".into(),
         command: Some(server.display().to_string()),
-        args: vec![],
+        args: if std::env::var("OPAQUE").is_ok() {
+            vec!["--opaque".into()]
+        } else {
+            vec![]
+        },
         env: Default::default(),
         url: None,
         headers: Default::default(),

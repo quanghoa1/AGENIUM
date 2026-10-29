@@ -38,7 +38,36 @@ fn answer(name: &str, args: &Value) -> String {
 }
 
 fn main() {
-    let all: Value = serde_json::from_str(TOOLS).expect("the catalogue");
+    let mut all: Value = serde_json::from_str(TOOLS).expect("the catalogue");
+    // `--opaque`: the tools named `tool_000`, `tool_001`, … in the catalogue's order, their descriptions kept: a server
+    // whose names say nothing, so only a search of the descriptions finds a tool.
+    if std::env::args().any(|a| a == "--opaque") {
+        for (i, t) in all.as_array_mut().expect("a list").iter_mut().enumerate() {
+            t["name"] = json!(format!("tool_{i:03}"));
+        }
+    }
+    let codename_tool = if std::env::args().any(|a| a == "--opaque") {
+        let i = serde_json::from_str::<Value>(TOOLS)
+            .expect("the catalogue")
+            .as_array()
+            .expect("a list")
+            .iter()
+            .position(|t| t["name"] == "releases_codename")
+            .expect("the codename tool");
+        format!("tool_{i:03}")
+    } else {
+        "releases_codename".to_owned()
+    };
+    let answer = |name: &str, args: &Value| {
+        answer(
+            if name == codename_tool {
+                "releases_codename"
+            } else {
+                name
+            },
+            args,
+        )
+    };
     let mut small = std::env::args().any(|a| a == "--start-small");
     // `--back-after N`: once listing every tool, its search's quota comes back after N calls and it lists only its own
     // search again, without a word.

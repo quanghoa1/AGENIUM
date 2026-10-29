@@ -1,0 +1,2322 @@
+[
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_list_pull_requests",
+  "got": "github_list_pull_requests",
+  "input": 12286,
+  "ok": true,
+  "output": 92,
+  "query": "which pull requests are waiting to be merged"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_request_reviewers",
+  "got": "slack_send_direct_message",
+  "input": 12285,
+  "ok": false,
+  "output": 98,
+  "query": "ask alice to review my PR"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_merge_pull_request",
+  "got": "github_merge_pull_request",
+  "input": 12284,
+  "ok": true,
+  "output": 113,
+  "query": "squash and merge the pull request"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_get_pull_request_diff",
+  "got": "github_get_pull_request_diff",
+  "input": 12285,
+  "ok": true,
+  "output": 67,
+  "query": "see what changed in PR 17"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_rerun_workflow",
+  "got": "github_rerun_workflow",
+  "input": 12284,
+  "ok": true,
+  "output": 107,
+  "query": "retry the failed CI job"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_get_file_contents",
+  "got": "github_get_file_contents",
+  "input": 12289,
+  "ok": true,
+  "output": 123,
+  "query": "read README.md from the main branch of the repo"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_update_issue",
+  "got": "github_update_issue",
+  "input": 12283,
+  "ok": true,
+  "output": 110,
+  "query": "close github issue 42"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_list_workflow_runs",
+  "got": "github_list_workflow_runs",
+  "input": 12286,
+  "ok": true,
+  "output": 111,
+  "query": "why did the CI build fail on main"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_create_issue",
+  "got": "github_create_issue",
+  "input": 12286,
+  "ok": true,
+  "output": 295,
+  "query": "open a bug report on our GitHub repo"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "github_create_release",
+  "got": "github_create_release",
+  "input": 12287,
+  "ok": true,
+  "output": 186,
+  "query": "publish release notes for tag v2.0"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "slack_add_reaction",
+  "got": "slack_add_reaction",
+  "input": 12285,
+  "ok": true,
+  "output": 140,
+  "query": "put a thumbs up on that message"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "slack_get_channel_history",
+  "got": "slack_list_channels",
+  "input": 12287,
+  "ok": false,
+  "output": 55,
+  "query": "what did people say in the incident channel today"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "slack_search_messages",
+  "got": "slack_search_messages",
+  "input": 12285,
+  "ok": true,
+  "output": 56,
+  "query": "find the slack conversation about the outage"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "slack_post_message",
+  "got": "slack_post_message",
+  "input": 12291,
+  "ok": true,
+  "output": 135,
+  "query": "tell the team in #deploys that the release is out"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "slack_send_direct_message",
+  "got": "slack_send_direct_message",
+  "input": 12284,
+  "ok": true,
+  "output": 112,
+  "query": "DM bob that the meeting moved"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "jira_search_jql",
+  "got": "jira_search_jql",
+  "input": 12288,
+  "ok": true,
+  "output": 104,
+  "query": "find all open bugs in project WEB with JQL"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "jira_log_work",
+  "got": "jira_log_work",
+  "input": 12288,
+  "ok": true,
+  "output": 112,
+  "query": "record 3 hours spent on PROJ-7"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "sentry_list_issues",
+  "got": "sentry_list_issues",
+  "input": 12283,
+  "ok": true,
+  "output": 113,
+  "query": "what exceptions is production throwing"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "sentry_get_performance_summary",
+  "got": "sentry_get_performance_summary",
+  "input": 12286,
+  "ok": true,
+  "output": 99,
+  "query": "how slow is the checkout endpoint p95"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "sentry_resolve_issue",
+  "got": "sentry_resolve_issue",
+  "input": 12289,
+  "ok": true,
+  "output": 86,
+  "query": "the error is fixed, mark it done in sentry"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "sentry_get_event",
+  "got": "sentry_get_event",
+  "input": 12286,
+  "ok": true,
+  "output": 120,
+  "query": "show me the stack trace of that crash"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "linear_list_my_issues",
+  "got": "linear_list_my_issues",
+  "input": 12285,
+  "ok": true,
+  "output": 31,
+  "query": "what Linear tickets are on my plate"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "jira_transition_issue",
+  "got": "jira_transition_issue",
+  "input": 12285,
+  "ok": true,
+  "output": 67,
+  "query": "move PROJ-12 to done"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "postgres_describe_table",
+  "got": "postgres_describe_table",
+  "input": 12285,
+  "ok": true,
+  "output": 47,
+  "query": "what columns does the orders table have"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "postgres_explain_query",
+  "got": "postgres_explain_query",
+  "input": 12287,
+  "ok": true,
+  "output": 138,
+  "query": "why is this query slow, show the plan"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "notion_query_database",
+  "got": "notion_query_database",
+  "input": 12287,
+  "ok": true,
+  "output": 131,
+  "query": "filter the roadmap database for items due this month"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "k8s_get_pods",
+  "got": "k8s_get_pods",
+  "input": 12284,
+  "ok": true,
+  "output": 72,
+  "query": "is the api pod crash looping"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "k8s_top_pods",
+  "got": "k8s_top_pods",
+  "input": 12284,
+  "ok": true,
+  "output": 48,
+  "query": "which pods use the most memory"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "k8s_scale_deployment",
+  "got": "k8s_scale_deployment",
+  "input": 12287,
+  "ok": true,
+  "output": 115,
+  "query": "bump the web deployment to 5 replicas"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "jira_link_issues",
+  "got": "jira_link_issues",
+  "input": 12287,
+  "ok": true,
+  "output": 387,
+  "query": "PROJ-9 blocks PROJ-10"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "notion_create_page",
+  "got": "notion_create_page",
+  "input": 12287,
+  "ok": true,
+  "output": 357,
+  "query": "write meeting notes as a new Notion page"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "postgres_execute",
+  "got": "postgres_execute",
+  "input": 12285,
+  "ok": true,
+  "output": 83,
+  "query": "add an index on orders.created_at"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "k8s_get_pod_logs",
+  "got": "docker_container_logs",
+  "input": 12287,
+  "ok": false,
+  "output": 151,
+  "query": "logs of the container that crashed before the restart"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "postgres_query",
+  "got": "postgres_query",
+  "input": 12286,
+  "ok": true,
+  "output": 95,
+  "query": "how many users signed up yesterday (SQL)"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "grafana_silence_alert",
+  "got": "grafana_silence_alert",
+  "input": 12285,
+  "ok": true,
+  "output": 129,
+  "query": "mute the disk alert for two hours"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "k8s_rollout_undo",
+  "got": "k8s_rollout_undo",
+  "input": 12290,
+  "ok": true,
+  "output": 172,
+  "query": "the new version is broken, go back to the previous one"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "grafana_query_loki",
+  "got": "grafana_query_loki",
+  "input": 12285,
+  "ok": true,
+  "output": 82,
+  "query": "search the application logs for timeout errors"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "pagerduty_get_oncall",
+  "got": "pagerduty_get_oncall",
+  "input": 12283,
+  "ok": true,
+  "output": 33,
+  "query": "who is on call tonight"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "pagerduty_acknowledge_incident",
+  "got": "pagerduty_acknowledge_incident",
+  "input": 12287,
+  "ok": true,
+  "output": 105,
+  "query": "stop paging, I am looking at it"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "grafana_query_prometheus",
+  "got": "grafana_query_prometheus",
+  "input": 12289,
+  "ok": true,
+  "output": 122,
+  "query": "graph the request rate from prometheus for the last hour"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "pagerduty_create_incident",
+  "got": "pagerduty_create_incident",
+  "input": 12288,
+  "ok": true,
+  "output": 148,
+  "query": "wake up the database team, the db is down"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "stripe_create_refund",
+  "got": "stripe_create_refund",
+  "input": 12284,
+  "ok": true,
+  "output": 93,
+  "query": "give the customer their money back"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "grafana_create_annotation",
+  "got": "grafana_create_annotation",
+  "input": 12285,
+  "ok": true,
+  "output": 121,
+  "query": "mark the deploy on the dashboards"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "stripe_cancel_subscription",
+  "got": "stripe_cancel_subscription",
+  "input": 12289,
+  "ok": true,
+  "output": 114,
+  "query": "stop the customer's plan at the end of the month"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "stripe_get_balance",
+  "got": "stripe_get_balance",
+  "input": 12286,
+  "ok": true,
+  "output": 49,
+  "query": "how much money is in the stripe account"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "aws_s3_presign_url",
+  "got": "aws_s3_presign_url",
+  "input": 12290,
+  "ok": true,
+  "output": 118,
+  "query": "give the customer a download link for the report in s3"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "aws_cloudwatch_get_metric",
+  "got": "aws_cloudwatch_get_metric",
+  "input": 12285,
+  "ok": true,
+  "output": 146,
+  "query": "CPU usage of the EC2 fleet"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "google_calendar_find_free_time",
+  "got": "google_calendar_find_free_time",
+  "input": 12290,
+  "ok": true,
+  "output": 112,
+  "query": "when are bob and carol both available for 30 minutes"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "google_calendar_create_event",
+  "got": "google_calendar_create_event",
+  "input": 12289,
+  "ok": true,
+  "output": 187,
+  "query": "set up a meeting with the design team on friday"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "docker_image_vulnerabilities",
+  "got": "docker_image_vulnerabilities",
+  "input": 12286,
+  "ok": true,
+  "output": 79,
+  "query": "is the image affected by known security holes"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "docker_restart_container",
+  "got": "docker_restart_container",
+  "input": 12282,
+  "ok": true,
+  "output": 46,
+  "query": "restart the redis container"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "flags_set_rollout",
+  "got": "flags_set_rollout",
+  "input": 12287,
+  "ok": true,
+  "output": 92,
+  "query": "enable the beta for 10% of users"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "google_gmail_draft",
+  "got": "google_gmail_draft",
+  "input": 12287,
+  "ok": true,
+  "output": 190,
+  "query": "prepare an email but don't send it yet"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "flags_toggle_flag",
+  "got": "flags_toggle_flag",
+  "input": 12286,
+  "ok": true,
+  "output": 110,
+  "query": "turn off the new checkout feature in production"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "releases_codename",
+  "got": "releases_codename",
+  "input": 12289,
+  "ok": true,
+  "output": 61,
+  "query": "what is the codename of version 4.2"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "google_gmail_send",
+  "got": "google_gmail_send",
+  "input": 12283,
+  "ok": true,
+  "output": 283,
+  "query": "email the client the invoice"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "confluence_update_page",
+  "got": "confluence_update_page",
+  "input": 12285,
+  "ok": true,
+  "output": 439,
+  "query": "update the runbook page in confluence"
+ },
+ {
+  "arm": "upfront",
+  "calls": 1,
+  "expect": "grafana_list_alert_rules",
+  "got": "grafana_list_alert_rules",
+  "input": 12284,
+  "ok": true,
+  "output": 71,
+  "query": "which alerts are firing right now"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_list_workflow_runs",
+  "got": "github_list_workflow_runs",
+  "input": 2036,
+  "ok": true,
+  "output": 151,
+  "query": "why did the CI build fail on main"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_merge_pull_request",
+  "got": "github_merge_pull_request",
+  "input": 1984,
+  "ok": true,
+  "output": 146,
+  "query": "squash and merge the pull request"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_list_pull_requests",
+  "got": "github_list_pull_requests",
+  "input": 1924,
+  "ok": true,
+  "output": 135,
+  "query": "which pull requests are waiting to be merged"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_update_issue",
+  "got": "github_update_issue",
+  "input": 1969,
+  "ok": true,
+  "output": 134,
+  "query": "close github issue 42"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_get_file_contents",
+  "got": "github_get_file_contents",
+  "input": 1998,
+  "ok": true,
+  "output": 143,
+  "query": "read README.md from the main branch of the repo"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "github_get_pull_request_diff",
+  "got": "github_get_pull_request_diff",
+  "input": 3277,
+  "ok": true,
+  "output": 212,
+  "query": "see what changed in PR 17"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_request_reviewers",
+  "got": "github_request_reviewers",
+  "input": 2006,
+  "ok": true,
+  "output": 162,
+  "query": "ask alice to review my PR"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_rerun_workflow",
+  "got": "github_rerun_workflow",
+  "input": 1905,
+  "ok": true,
+  "output": 140,
+  "query": "retry the failed CI job"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "slack_get_channel_history",
+  "got": "slack_get_channel_history",
+  "input": 1944,
+  "ok": true,
+  "output": 137,
+  "query": "what did people say in the incident channel today"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "github_create_issue",
+  "got": "github_create_issue",
+  "input": 3301,
+  "ok": true,
+  "output": 455,
+  "query": "open a bug report on our GitHub repo"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "slack_search_messages",
+  "got": "slack_search_messages",
+  "input": 1901,
+  "ok": true,
+  "output": 118,
+  "query": "find the slack conversation about the outage"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "slack_send_direct_message",
+  "got": "slack_send_direct_message",
+  "input": 3026,
+  "ok": true,
+  "output": 244,
+  "query": "DM bob that the meeting moved"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "slack_post_message",
+  "got": "slack_post_message",
+  "input": 1968,
+  "ok": true,
+  "output": 141,
+  "query": "tell the team in #deploys that the release is out"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "github_create_release",
+  "got": "github_create_release",
+  "input": 1971,
+  "ok": true,
+  "output": 270,
+  "query": "publish release notes for tag v2.0"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "jira_log_work",
+  "got": "jira_log_work",
+  "input": 1941,
+  "ok": true,
+  "output": 140,
+  "query": "record 3 hours spent on PROJ-7"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "jira_search_jql",
+  "got": "jira_search_jql",
+  "input": 1922,
+  "ok": true,
+  "output": 138,
+  "query": "find all open bugs in project WEB with JQL"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "jira_transition_issue",
+  "got": "jira_transition_issue",
+  "input": 1949,
+  "ok": true,
+  "output": 140,
+  "query": "move PROJ-12 to done"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "slack_add_reaction",
+  "got": "slack_add_reaction",
+  "input": 1979,
+  "ok": true,
+  "output": 166,
+  "query": "put a thumbs up on that message"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "jira_link_issues",
+  "got": "jira_link_issues",
+  "input": 1963,
+  "ok": true,
+  "output": 186,
+  "query": "PROJ-9 blocks PROJ-10"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "sentry_list_issues",
+  "got": "sentry_list_issues",
+  "input": 1918,
+  "ok": true,
+  "output": 141,
+  "query": "what exceptions is production throwing"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "sentry_resolve_issue",
+  "got": "sentry_resolve_issue",
+  "input": 1951,
+  "ok": true,
+  "output": 135,
+  "query": "the error is fixed, mark it done in sentry"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "sentry_get_performance_summary",
+  "got": "sentry_get_performance_summary",
+  "input": 1976,
+  "ok": true,
+  "output": 153,
+  "query": "how slow is the checkout endpoint p95"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "linear_list_my_issues",
+  "got": "linear_list_my_issues",
+  "input": 3281,
+  "ok": true,
+  "output": 210,
+  "query": "what Linear tickets are on my plate"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "sentry_get_event",
+  "got": "sentry_get_issue_details",
+  "input": 3066,
+  "ok": false,
+  "output": 217,
+  "query": "show me the stack trace of that crash"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "postgres_query",
+  "got": "postgres_query",
+  "input": 1907,
+  "ok": true,
+  "output": 157,
+  "query": "how many users signed up yesterday (SQL)"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "postgres_describe_table",
+  "got": "postgres_describe_table",
+  "input": 1918,
+  "ok": true,
+  "output": 126,
+  "query": "what columns does the orders table have"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "k8s_get_pod_logs",
+  "got": "k8s_get_pod_logs",
+  "input": 1931,
+  "ok": true,
+  "output": 150,
+  "query": "logs of the container that crashed before the restart"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "notion_query_database",
+  "got": "notion_query_database",
+  "input": 3172,
+  "ok": true,
+  "output": 266,
+  "query": "filter the roadmap database for items due this month"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "postgres_explain_query",
+  "got": "postgres_explain_query",
+  "input": 1976,
+  "ok": true,
+  "output": 249,
+  "query": "why is this query slow, show the plan"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "notion_create_page",
+  "got": "notion_create_page",
+  "input": 3263,
+  "ok": true,
+  "output": 502,
+  "query": "write meeting notes as a new Notion page"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "k8s_scale_deployment",
+  "got": "k8s_scale_deployment",
+  "input": 1958,
+  "ok": true,
+  "output": 156,
+  "query": "bump the web deployment to 5 replicas"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "k8s_rollout_undo",
+  "got": "k8s_rollout_undo",
+  "input": 2017,
+  "ok": true,
+  "output": 162,
+  "query": "the new version is broken, go back to the previous one"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "postgres_execute",
+  "got": "postgres_execute",
+  "input": 2944,
+  "ok": true,
+  "output": 207,
+  "query": "add an index on orders.created_at"
+ },
+ {
+  "arm": "bm25",
+  "calls": 4,
+  "expect": "k8s_get_pods",
+  "got": "k8s_get_pods",
+  "input": 4512,
+  "ok": true,
+  "output": 256,
+  "query": "is the api pod crash looping"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "grafana_query_loki",
+  "got": "grafana_query_loki",
+  "input": 1891,
+  "ok": true,
+  "output": 131,
+  "query": "search the application logs for timeout errors"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "grafana_query_prometheus",
+  "got": "grafana_query_prometheus",
+  "input": 1945,
+  "ok": true,
+  "output": 179,
+  "query": "graph the request rate from prometheus for the last hour"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "k8s_top_pods",
+  "got": "k8s_top_pods",
+  "input": 3271,
+  "ok": true,
+  "output": 211,
+  "query": "which pods use the most memory"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "grafana_silence_alert",
+  "got": "grafana_silence_alert",
+  "input": 1966,
+  "ok": true,
+  "output": 185,
+  "query": "mute the disk alert for two hours"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "pagerduty_create_incident",
+  "got": "pagerduty_create_incident",
+  "input": 1926,
+  "ok": true,
+  "output": 159,
+  "query": "wake up the database team, the db is down"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "grafana_list_alert_rules",
+  "got": "grafana_list_alert_rules",
+  "input": 3065,
+  "ok": true,
+  "output": 192,
+  "query": "which alerts are firing right now"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "stripe_create_refund",
+  "got": "stripe_create_refund",
+  "input": 1945,
+  "ok": true,
+  "output": 159,
+  "query": "give the customer their money back"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "grafana_create_annotation",
+  "got": "grafana_create_annotation",
+  "input": 3034,
+  "ok": true,
+  "output": 234,
+  "query": "mark the deploy on the dashboards"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "aws_s3_presign_url",
+  "got": "aws_s3_presign_url",
+  "input": 1969,
+  "ok": true,
+  "output": 157,
+  "query": "give the customer a download link for the report in s3"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "pagerduty_acknowledge_incident",
+  "got": "pagerduty_acknowledge_incident",
+  "input": 3532,
+  "ok": true,
+  "output": 238,
+  "query": "stop paging, I am looking at it"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "aws_cloudwatch_get_metric",
+  "got": "aws_cloudwatch_get_metric",
+  "input": 1932,
+  "ok": true,
+  "output": 163,
+  "query": "CPU usage of the EC2 fleet"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "stripe_get_balance",
+  "got": "stripe_get_balance",
+  "input": 1868,
+  "ok": true,
+  "output": 106,
+  "query": "how much money is in the stripe account"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "google_calendar_find_free_time",
+  "got": "google_calendar_find_free_time",
+  "input": 1961,
+  "ok": true,
+  "output": 148,
+  "query": "when are bob and carol both available for 30 minutes"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "google_calendar_create_event",
+  "got": "google_calendar_create_event",
+  "input": 1969,
+  "ok": true,
+  "output": 186,
+  "query": "set up a meeting with the design team on friday"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "docker_image_vulnerabilities",
+  "got": "docker_image_vulnerabilities",
+  "input": 1885,
+  "ok": true,
+  "output": 159,
+  "query": "is the image affected by known security holes"
+ },
+ {
+  "arm": "bm25",
+  "calls": 5,
+  "expect": "pagerduty_get_oncall",
+  "got": "pagerduty_get_oncall",
+  "input": 6473,
+  "ok": true,
+  "output": 336,
+  "query": "who is on call tonight"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "google_gmail_send",
+  "got": "google_gmail_send",
+  "input": 1928,
+  "ok": true,
+  "output": 210,
+  "query": "email the client the invoice"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "stripe_cancel_subscription",
+  "got": "stripe_cancel_subscription",
+  "input": 2006,
+  "ok": true,
+  "output": 169,
+  "query": "stop the customer's plan at the end of the month"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "google_gmail_draft",
+  "got": "google_gmail_draft",
+  "input": 1954,
+  "ok": true,
+  "output": 247,
+  "query": "prepare an email but don't send it yet"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "flags_set_rollout",
+  "got": "flags_set_rollout",
+  "input": 1955,
+  "ok": true,
+  "output": 141,
+  "query": "enable the beta for 10% of users"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "docker_restart_container",
+  "got": "docker_restart_container",
+  "input": 3181,
+  "ok": true,
+  "output": 189,
+  "query": "restart the redis container"
+ },
+ {
+  "arm": "bm25",
+  "calls": 3,
+  "expect": "flags_toggle_flag",
+  "got": "flags_toggle_flag",
+  "input": 2945,
+  "ok": true,
+  "output": 194,
+  "query": "turn off the new checkout feature in production"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "releases_codename",
+  "got": "releases_codename",
+  "input": 2043,
+  "ok": true,
+  "output": 229,
+  "query": "what is the codename of version 4.2"
+ },
+ {
+  "arm": "bm25",
+  "calls": 2,
+  "expect": "confluence_update_page",
+  "got": "confluence_update_page",
+  "input": 1927,
+  "ok": true,
+  "output": 634,
+  "query": "update the runbook page in confluence"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_request_reviewers",
+  "got": "github_request_reviewers",
+  "input": 1975,
+  "ok": true,
+  "output": 135,
+  "query": "ask alice to review my PR"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_get_file_contents",
+  "got": "github_get_file_contents",
+  "input": 1973,
+  "ok": true,
+  "output": 131,
+  "query": "read README.md from the main branch of the repo"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_get_pull_request_diff",
+  "got": "github_get_pull_request_diff",
+  "input": 1979,
+  "ok": true,
+  "output": 133,
+  "query": "see what changed in PR 17"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_merge_pull_request",
+  "got": "github_merge_pull_request",
+  "input": 1966,
+  "ok": true,
+  "output": 132,
+  "query": "squash and merge the pull request"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_update_issue",
+  "got": "github_update_issue",
+  "input": 1990,
+  "ok": true,
+  "output": 134,
+  "query": "close github issue 42"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_create_issue",
+  "got": "github_create_issue",
+  "input": 1987,
+  "ok": true,
+  "output": 268,
+  "query": "open a bug report on our GitHub repo"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "slack_post_message",
+  "got": "slack_post_message",
+  "input": 1960,
+  "ok": true,
+  "output": 147,
+  "query": "tell the team in #deploys that the release is out"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_rerun_workflow",
+  "got": "github_rerun_workflow",
+  "input": 1973,
+  "ok": true,
+  "output": 137,
+  "query": "retry the failed CI job"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "slack_send_direct_message",
+  "got": "slack_send_direct_message",
+  "input": 1940,
+  "ok": true,
+  "output": 168,
+  "query": "DM bob that the meeting moved"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "github_create_release",
+  "got": "github_create_release",
+  "input": 1955,
+  "ok": true,
+  "output": 291,
+  "query": "publish release notes for tag v2.0"
+ },
+ {
+  "arm": "bge",
+  "calls": 4,
+  "expect": "github_list_pull_requests",
+  "got": "github_list_pull_requests",
+  "input": 4732,
+  "ok": true,
+  "output": 260,
+  "query": "which pull requests are waiting to be merged"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "slack_get_channel_history",
+  "got": "slack_search_messages",
+  "input": 3029,
+  "ok": false,
+  "output": 252,
+  "query": "what did people say in the incident channel today"
+ },
+ {
+  "arm": "bge",
+  "calls": 4,
+  "expect": "github_list_workflow_runs",
+  "got": "github_list_workflow_runs",
+  "input": 5580,
+  "ok": true,
+  "output": 400,
+  "query": "why did the CI build fail on main"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "jira_log_work",
+  "got": "jira_log_work",
+  "input": 1980,
+  "ok": true,
+  "output": 147,
+  "query": "record 3 hours spent on PROJ-7"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "slack_search_messages",
+  "got": "slack_search_messages",
+  "input": 3240,
+  "ok": true,
+  "output": 207,
+  "query": "find the slack conversation about the outage"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "slack_add_reaction",
+  "got": "slack_add_reaction",
+  "input": 1951,
+  "ok": true,
+  "output": 140,
+  "query": "put a thumbs up on that message"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "jira_link_issues",
+  "got": "jira_link_issues",
+  "input": 1963,
+  "ok": true,
+  "output": 133,
+  "query": "PROJ-9 blocks PROJ-10"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "jira_search_jql",
+  "got": "jira_search_jql",
+  "input": 1957,
+  "ok": true,
+  "output": 152,
+  "query": "find all open bugs in project WEB with JQL"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "sentry_list_issues",
+  "got": "sentry_list_issues",
+  "input": 1955,
+  "ok": true,
+  "output": 163,
+  "query": "what exceptions is production throwing"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "sentry_get_event",
+  "got": "sentry_get_issue_details",
+  "input": 2014,
+  "ok": false,
+  "output": 201,
+  "query": "show me the stack trace of that crash"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "linear_list_my_issues",
+  "got": "linear_list_my_issues",
+  "input": 2967,
+  "ok": true,
+  "output": 190,
+  "query": "what Linear tickets are on my plate"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "sentry_resolve_issue",
+  "got": "sentry_resolve_issue",
+  "input": 3013,
+  "ok": true,
+  "output": 200,
+  "query": "the error is fixed, mark it done in sentry"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "jira_transition_issue",
+  "got": "jira_transition_issue",
+  "input": 3245,
+  "ok": true,
+  "output": 200,
+  "query": "move PROJ-12 to done"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "notion_query_database",
+  "got": "notion_query_database",
+  "input": 1950,
+  "ok": true,
+  "output": 199,
+  "query": "filter the roadmap database for items due this month"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "sentry_get_performance_summary",
+  "got": "sentry_get_performance_summary",
+  "input": 3285,
+  "ok": true,
+  "output": 292,
+  "query": "how slow is the checkout endpoint p95"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "postgres_query",
+  "got": "postgres_query",
+  "input": 2980,
+  "ok": true,
+  "output": 219,
+  "query": "how many users signed up yesterday (SQL)"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "notion_create_page",
+  "got": "notion_create_page",
+  "input": 1913,
+  "ok": true,
+  "output": 368,
+  "query": "write meeting notes as a new Notion page"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "postgres_describe_table",
+  "got": "postgres_describe_table",
+  "input": 2966,
+  "ok": true,
+  "output": 188,
+  "query": "what columns does the orders table have"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "postgres_explain_query",
+  "got": "postgres_explain_query",
+  "input": 1915,
+  "ok": true,
+  "output": 200,
+  "query": "why is this query slow, show the plan"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "k8s_get_pod_logs",
+  "got": "k8s_get_pod_logs",
+  "input": 1910,
+  "ok": true,
+  "output": 177,
+  "query": "logs of the container that crashed before the restart"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "k8s_rollout_undo",
+  "got": "k8s_rollout_undo",
+  "input": 1978,
+  "ok": true,
+  "output": 152,
+  "query": "the new version is broken, go back to the previous one"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "k8s_get_pods",
+  "got": "k8s_get_pods",
+  "input": 3014,
+  "ok": true,
+  "output": 201,
+  "query": "is the api pod crash looping"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "k8s_top_pods",
+  "got": "k8s_top_pods",
+  "input": 3207,
+  "ok": true,
+  "output": 201,
+  "query": "which pods use the most memory"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "grafana_query_loki",
+  "got": "grafana_query_loki",
+  "input": 1958,
+  "ok": true,
+  "output": 177,
+  "query": "search the application logs for timeout errors"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "grafana_list_alert_rules",
+  "got": "grafana_list_alert_rules",
+  "input": 1894,
+  "ok": true,
+  "output": 113,
+  "query": "which alerts are firing right now"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "k8s_scale_deployment",
+  "got": "k8s_scale_deployment",
+  "input": 3020,
+  "ok": true,
+  "output": 217,
+  "query": "bump the web deployment to 5 replicas"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "grafana_query_prometheus",
+  "got": "grafana_query_prometheus",
+  "input": 3235,
+  "ok": true,
+  "output": 256,
+  "query": "graph the request rate from prometheus for the last hour"
+ },
+ {
+  "arm": "bge",
+  "calls": 5,
+  "expect": "postgres_execute",
+  "got": "postgres_execute",
+  "input": 5424,
+  "ok": true,
+  "output": 364,
+  "query": "add an index on orders.created_at"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "grafana_silence_alert",
+  "got": "grafana_silence_alert",
+  "input": 1927,
+  "ok": true,
+  "output": 150,
+  "query": "mute the disk alert for two hours"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "grafana_create_annotation",
+  "got": "grafana_create_annotation",
+  "input": 1952,
+  "ok": true,
+  "output": 183,
+  "query": "mark the deploy on the dashboards"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "pagerduty_acknowledge_incident",
+  "got": "pagerduty_acknowledge_incident",
+  "input": 1951,
+  "ok": true,
+  "output": 158,
+  "query": "stop paging, I am looking at it"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "aws_s3_presign_url",
+  "got": "aws_s3_presign_url",
+  "input": 1955,
+  "ok": true,
+  "output": 177,
+  "query": "give the customer a download link for the report in s3"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "pagerduty_create_incident",
+  "got": "pagerduty_create_incident",
+  "input": 1929,
+  "ok": true,
+  "output": 158,
+  "query": "wake up the database team, the db is down"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "aws_cloudwatch_get_metric",
+  "got": "aws_cloudwatch_get_metric",
+  "input": 1920,
+  "ok": true,
+  "output": 151,
+  "query": "CPU usage of the EC2 fleet"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "stripe_create_refund",
+  "got": "stripe_create_refund",
+  "input": 1917,
+  "ok": true,
+  "output": 162,
+  "query": "give the customer their money back"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "stripe_get_balance",
+  "got": "stripe_get_balance",
+  "input": 1879,
+  "ok": true,
+  "output": 105,
+  "query": "how much money is in the stripe account"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "stripe_cancel_subscription",
+  "got": "stripe_cancel_subscription",
+  "input": 1987,
+  "ok": true,
+  "output": 169,
+  "query": "stop the customer's plan at the end of the month"
+ },
+ {
+  "arm": "bge",
+  "calls": 4,
+  "expect": "pagerduty_get_oncall",
+  "got": "pagerduty_get_oncall",
+  "input": 4579,
+  "ok": true,
+  "output": 264,
+  "query": "who is on call tonight"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "google_calendar_find_free_time",
+  "got": "google_calendar_find_free_time",
+  "input": 2024,
+  "ok": true,
+  "output": 211,
+  "query": "when are bob and carol both available for 30 minutes"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "google_calendar_create_event",
+  "got": "google_calendar_create_event",
+  "input": 1959,
+  "ok": true,
+  "output": 169,
+  "query": "set up a meeting with the design team on friday"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "google_gmail_send",
+  "got": "google_gmail_send",
+  "input": 1890,
+  "ok": true,
+  "output": 194,
+  "query": "email the client the invoice"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "google_gmail_draft",
+  "got": "google_gmail_draft",
+  "input": 1930,
+  "ok": true,
+  "output": 233,
+  "query": "prepare an email but don't send it yet"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "docker_restart_container",
+  "got": "docker_restart_container",
+  "input": 2923,
+  "ok": true,
+  "output": 184,
+  "query": "restart the redis container"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "docker_image_vulnerabilities",
+  "got": "docker_image_vulnerabilities",
+  "input": 3273,
+  "ok": true,
+  "output": 239,
+  "query": "is the image affected by known security holes"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "flags_set_rollout",
+  "got": "flags_set_rollout",
+  "input": 1923,
+  "ok": true,
+  "output": 131,
+  "query": "enable the beta for 10% of users"
+ },
+ {
+  "arm": "bge",
+  "calls": 2,
+  "expect": "releases_codename",
+  "got": "releases_codename",
+  "input": 2000,
+  "ok": true,
+  "output": 206,
+  "query": "what is the codename of version 4.2"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "flags_toggle_flag",
+  "got": "flags_toggle_flag",
+  "input": 2995,
+  "ok": true,
+  "output": 202,
+  "query": "turn off the new checkout feature in production"
+ },
+ {
+  "arm": "bge",
+  "calls": 3,
+  "expect": "confluence_update_page",
+  "got": "confluence_update_page",
+  "input": 2961,
+  "ok": true,
+  "output": 630,
+  "query": "update the runbook page in confluence"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_merge_pull_request",
+  "got": "github_merge_pull_request",
+  "input": 1750,
+  "ok": true,
+  "output": 145,
+  "query": "squash and merge the pull request"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_list_workflow_runs",
+  "got": "github_list_workflow_runs",
+  "input": 1801,
+  "ok": true,
+  "output": 143,
+  "query": "why did the CI build fail on main"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_list_pull_requests",
+  "got": "github_list_pull_requests",
+  "input": 1781,
+  "ok": true,
+  "output": 126,
+  "query": "which pull requests are waiting to be merged"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_get_pull_request_diff",
+  "got": "github_get_pull_request_diff",
+  "input": 1918,
+  "ok": true,
+  "output": 135,
+  "query": "see what changed in PR 17"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_request_reviewers",
+  "got": "github_request_reviewers",
+  "input": 1931,
+  "ok": true,
+  "output": 206,
+  "query": "ask alice to review my PR"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_update_issue",
+  "got": "github_update_issue",
+  "input": 1790,
+  "ok": true,
+  "output": 131,
+  "query": "close github issue 42"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "github_get_file_contents",
+  "got": "github_get_file_contents",
+  "input": 2826,
+  "ok": true,
+  "output": 209,
+  "query": "read README.md from the main branch of the repo"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_rerun_workflow",
+  "got": "github_rerun_workflow",
+  "input": 1734,
+  "ok": true,
+  "output": 138,
+  "query": "retry the failed CI job"
+ },
+ {
+  "arm": "jev",
+  "calls": 4,
+  "expect": "github_create_issue",
+  "got": "github_create_issue",
+  "input": 4170,
+  "ok": true,
+  "output": 404,
+  "query": "open a bug report on our GitHub repo"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "slack_search_messages",
+  "got": "slack_search_messages",
+  "input": 1819,
+  "ok": true,
+  "output": 122,
+  "query": "find the slack conversation about the outage"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "slack_post_message",
+  "got": "slack_post_message",
+  "input": 1812,
+  "ok": true,
+  "output": 143,
+  "query": "tell the team in #deploys that the release is out"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "slack_send_direct_message",
+  "got": "slack_send_direct_message",
+  "input": 1735,
+  "ok": true,
+  "output": 171,
+  "query": "DM bob that the meeting moved"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "slack_get_channel_history",
+  "got": "slack_get_channel_history",
+  "input": 1867,
+  "ok": true,
+  "output": 132,
+  "query": "what did people say in the incident channel today"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "github_create_release",
+  "got": "github_create_release",
+  "input": 1862,
+  "ok": true,
+  "output": 284,
+  "query": "publish release notes for tag v2.0"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "slack_add_reaction",
+  "got": "slack_add_reaction",
+  "input": 1763,
+  "ok": true,
+  "output": 165,
+  "query": "put a thumbs up on that message"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "jira_transition_issue",
+  "got": "jira_transition_issue",
+  "input": 1735,
+  "ok": true,
+  "output": 125,
+  "query": "move PROJ-12 to done"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "jira_log_work",
+  "got": "jira_log_work",
+  "input": 1751,
+  "ok": true,
+  "output": 139,
+  "query": "record 3 hours spent on PROJ-7"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "jira_search_jql",
+  "got": "jira_search_jql",
+  "input": 1736,
+  "ok": true,
+  "output": 143,
+  "query": "find all open bugs in project WEB with JQL"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "sentry_resolve_issue",
+  "got": "sentry_resolve_issue",
+  "input": 1865,
+  "ok": true,
+  "output": 139,
+  "query": "the error is fixed, mark it done in sentry"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "sentry_get_event",
+  "got": "sentry_get_issue_details",
+  "input": 2931,
+  "ok": false,
+  "output": 205,
+  "query": "show me the stack trace of that crash"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "sentry_get_performance_summary",
+  "got": "sentry_get_performance_summary",
+  "input": 1970,
+  "ok": true,
+  "output": 150,
+  "query": "how slow is the checkout endpoint p95"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "jira_link_issues",
+  "got": "jira_link_issues",
+  "input": 2886,
+  "ok": true,
+  "output": 313,
+  "query": "PROJ-9 blocks PROJ-10"
+ },
+ {
+  "arm": "jev",
+  "calls": 4,
+  "expect": "sentry_list_issues",
+  "got": "sentry_list_issues",
+  "input": 4083,
+  "ok": true,
+  "output": 273,
+  "query": "what exceptions is production throwing"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "postgres_describe_table",
+  "got": "postgres_describe_table",
+  "input": 1807,
+  "ok": true,
+  "output": 129,
+  "query": "what columns does the orders table have"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "linear_list_my_issues",
+  "got": "linear_list_my_issues",
+  "input": 2840,
+  "ok": true,
+  "output": 205,
+  "query": "what Linear tickets are on my plate"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "notion_query_database",
+  "got": "notion_query_database",
+  "input": 1925,
+  "ok": true,
+  "output": 202,
+  "query": "filter the roadmap database for items due this month"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "postgres_query",
+  "got": "postgres_query",
+  "input": 1841,
+  "ok": true,
+  "output": 141,
+  "query": "how many users signed up yesterday (SQL)"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "postgres_execute",
+  "got": "postgres_execute",
+  "input": 2816,
+  "ok": true,
+  "output": 203,
+  "query": "add an index on orders.created_at"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "postgres_explain_query",
+  "got": "postgres_explain_query",
+  "input": 2830,
+  "ok": true,
+  "output": 276,
+  "query": "why is this query slow, show the plan"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "notion_create_page",
+  "got": "notion_create_page",
+  "input": 2807,
+  "ok": true,
+  "output": 549,
+  "query": "write meeting notes as a new Notion page"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "k8s_rollout_undo",
+  "got": "k8s_rollout_undo",
+  "input": 1881,
+  "ok": true,
+  "output": 169,
+  "query": "the new version is broken, go back to the previous one"
+ },
+ {
+  "arm": "jev",
+  "calls": 4,
+  "expect": "k8s_get_pods",
+  "got": "k8s_get_pods",
+  "input": 4091,
+  "ok": true,
+  "output": 263,
+  "query": "is the api pod crash looping"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "grafana_query_prometheus",
+  "got": "grafana_query_prometheus",
+  "input": 1798,
+  "ok": true,
+  "output": 170,
+  "query": "graph the request rate from prometheus for the last hour"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "k8s_top_pods",
+  "got": "k8s_top_pods",
+  "input": 2825,
+  "ok": true,
+  "output": 199,
+  "query": "which pods use the most memory"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "k8s_get_pod_logs",
+  "got": "k8s_get_pod_logs",
+  "input": 3087,
+  "ok": true,
+  "output": 241,
+  "query": "logs of the container that crashed before the restart"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "grafana_list_alert_rules",
+  "got": "grafana_list_alert_rules",
+  "input": 1849,
+  "ok": true,
+  "output": 116,
+  "query": "which alerts are firing right now"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "k8s_scale_deployment",
+  "got": "k8s_scale_deployment",
+  "input": 2831,
+  "ok": true,
+  "output": 209,
+  "query": "bump the web deployment to 5 replicas"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "grafana_query_loki",
+  "got": "grafana_query_loki",
+  "input": 1937,
+  "ok": true,
+  "output": 130,
+  "query": "search the application logs for timeout errors"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "grafana_silence_alert",
+  "got": "grafana_silence_alert",
+  "input": 1739,
+  "ok": true,
+  "output": 156,
+  "query": "mute the disk alert for two hours"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "grafana_create_annotation",
+  "got": "grafana_create_annotation",
+  "input": 1787,
+  "ok": true,
+  "output": 184,
+  "query": "mark the deploy on the dashboards"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "pagerduty_get_oncall",
+  "got": "pagerduty_get_oncall",
+  "input": 1767,
+  "ok": true,
+  "output": 118,
+  "query": "who is on call tonight"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "pagerduty_acknowledge_incident",
+  "got": "pagerduty_acknowledge_incident",
+  "input": 1758,
+  "ok": true,
+  "output": 157,
+  "query": "stop paging, I am looking at it"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "pagerduty_create_incident",
+  "got": "pagerduty_create_incident",
+  "input": 1827,
+  "ok": true,
+  "output": 145,
+  "query": "wake up the database team, the db is down"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "aws_s3_presign_url",
+  "got": "aws_s3_presign_url",
+  "input": 1782,
+  "ok": true,
+  "output": 183,
+  "query": "give the customer a download link for the report in s3"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "stripe_create_refund",
+  "got": "stripe_create_refund",
+  "input": 1872,
+  "ok": true,
+  "output": 167,
+  "query": "give the customer their money back"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "aws_cloudwatch_get_metric",
+  "got": "aws_cloudwatch_get_metric",
+  "input": 2833,
+  "ok": true,
+  "output": 226,
+  "query": "CPU usage of the EC2 fleet"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "google_calendar_find_free_time",
+  "got": "google_calendar_find_free_time",
+  "input": 1892,
+  "ok": true,
+  "output": 137,
+  "query": "when are bob and carol both available for 30 minutes"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "google_gmail_send",
+  "got": "google_gmail_send",
+  "input": 1918,
+  "ok": true,
+  "output": 254,
+  "query": "email the client the invoice"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "stripe_cancel_subscription",
+  "got": "stripe_cancel_subscription",
+  "input": 1803,
+  "ok": true,
+  "output": 135,
+  "query": "stop the customer's plan at the end of the month"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "google_gmail_draft",
+  "got": "google_gmail_draft",
+  "input": 1737,
+  "ok": true,
+  "output": 215,
+  "query": "prepare an email but don't send it yet"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "google_calendar_create_event",
+  "got": "google_calendar_create_event",
+  "input": 1823,
+  "ok": true,
+  "output": 194,
+  "query": "set up a meeting with the design team on friday"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "docker_image_vulnerabilities",
+  "got": "docker_image_vulnerabilities",
+  "input": 1731,
+  "ok": true,
+  "output": 136,
+  "query": "is the image affected by known security holes"
+ },
+ {
+  "arm": "jev",
+  "calls": 4,
+  "expect": "stripe_get_balance",
+  "got": "stripe_get_balance",
+  "input": 4008,
+  "ok": true,
+  "output": 250,
+  "query": "how much money is in the stripe account"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "releases_codename",
+  "got": "releases_codename",
+  "input": 1794,
+  "ok": true,
+  "output": 128,
+  "query": "what is the codename of version 4.2"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "docker_restart_container",
+  "got": "docker_restart_container",
+  "input": 2860,
+  "ok": true,
+  "output": 197,
+  "query": "restart the redis container"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "flags_toggle_flag",
+  "got": "flags_toggle_flag",
+  "input": 2890,
+  "ok": true,
+  "output": 203,
+  "query": "turn off the new checkout feature in production"
+ },
+ {
+  "arm": "jev",
+  "calls": 2,
+  "expect": "confluence_update_page",
+  "got": "confluence_update_page",
+  "input": 1799,
+  "ok": true,
+  "output": 503,
+  "query": "update the runbook page in confluence"
+ },
+ {
+  "arm": "jev",
+  "calls": 3,
+  "expect": "flags_set_rollout",
+  "got": "flags_set_rollout",
+  "input": 2907,
+  "ok": true,
+  "output": 253,
+  "query": "enable the beta for 10% of users"
+ }
+]

@@ -7,7 +7,7 @@
 //! Usage: `cargo build -p agenium-mcp --bin agenium-mcp-many-tools` first, then
 //! `[JEV_KEY=…] cargo run -p agenium-eval --example tool_search_eval -- --models <root>/models`
 //! (`--models`: a folder holding `bge-small-en-v1.5`, linked into the scratch root; without it, meaning is the hashing
-//! stand-in). `TOOL_SEARCH_SHOW=1` prints the misses.
+//! stand-in). `--opaque`: the tools named tool_000…, their descriptions kept. `TOOL_SEARCH_SHOW=1` prints the misses.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -72,10 +72,16 @@ async fn main() -> Result<()> {
     let app = Arc::new(app);
     println!("embedder: {}", app.embedder().model_id());
     let hub = agenium_mcp::McpHub::new(Arc::new(|_: &str| None), tmp.path().join("mcp"));
+    // `--opaque`: the tools named tool_000… (descriptions kept), so only the descriptions say what a tool does.
+    let opaque = args.iter().any(|a| a == "--opaque");
     let cfg = agenium_config::McpServerConfig {
         id: "many".into(),
         command: Some(server.display().to_string()),
-        args: vec![],
+        args: if opaque {
+            vec!["--opaque".into()]
+        } else {
+            vec![]
+        },
         env: Default::default(),
         url: None,
         headers: Default::default(),
@@ -93,9 +99,21 @@ async fn main() -> Result<()> {
         return Err(anyhow!("{:?}", m.problems));
     }
     let catalog = Arc::new(m.catalog(Arc::new(|_| true)));
-    let cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(
+    let mut cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(
         repo.join("agent/mcp/data/many-tools-queries.json"),
     )?)?;
+    if opaque {
+        let names: Vec<serde_json::Value> = serde_json::from_str(&std::fs::read_to_string(
+            repo.join("agent/mcp/data/many-tools.json"),
+        )?)?;
+        for c in &mut cases {
+            let i = names.iter().position(|t| t["name"] == c.expect.as_str());
+            c.expect = format!(
+                "tool_{:03}",
+                i.ok_or_else(|| anyhow!("no tool {}", c.expect))?
+            );
+        }
+    }
     let show = std::env::var("TOOL_SEARCH_SHOW").is_ok();
     let mut arms = vec![
         ("words (BM25)", false, false),

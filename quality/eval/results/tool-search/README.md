@@ -31,5 +31,52 @@ Reading it:
 - Times are not comparable: each Agenium run started its search server (an app root, the embedding model) in a debug
   build.
 
-Files: `20261029-round1-all-arms.json`, `20261029-round2-names-compact-args.json`, `20261029-round3-tuned.json` (one
+## Names that say nothing (round 4)
+
+The same with the tools named `tool_000` … `tool_122` (`--opaque`; descriptions kept), so a tool is found only by what
+its description says:
+
+| Arm | Right tool | Tool calls / run | Input tokens / run |
+|---|---|---|---|
+| native (Claude Code's `ToolSearch`) | 55/58 | 2.2 | 21,345 |
+| agenium (the judge on) | 57/58 | 2.0 | 14,476 |
+| agenium-nojev | 57/58 | 2.1 | 15,396 |
+
+Claude Code's search gave up once ("the error is fixed, mark it done in sentry": two searches, no call) and paged the
+wrong team once; Agenium's arms missed only the stack-trace request every arm misses.
+
+## DeepSeek over the API
+
+`quality/eval/examples/tool_search_api.rs`: DeepSeek v4.1 flash (OpenCode Go), the same 58 requests and wording, a loop
+of up to six turns over Agenium's own tools (`tool_search` + `call_tool` as a run gets them, or all 123 listed):
+
+| Arm | Plain names | Opaque names | Tool calls / run | Input tokens / run |
+|---|---|---|---|---|
+| upfront: all 123 listed | 55/58 | 55/58 | 1.0 | ≈ 12,000 |
+| bm25: `tool_search`, words only (no embedding model) | **57/58** | 56/58 | 2.1–2.3 | ≈ 1,900–2,400 |
+| bge: words + meaning | 56/58 | **57/58** | 2.0–2.4 | ≈ 1,800–2,500 |
+| jev: words + meaning + the judge | 57/58 | 56/58 | 2.0–2.4 | ≈ 1,700–2,200 |
+
+Listing every tool was the least right (the model took a Slack message for "ask alice to review my PR", Docker's logs for
+Kubernetes') and took five to six times the tokens.
+
+## Why words alone do about as well
+
+The ranking alone (`examples/tool_search_eval.rs`, right tool first / in the 5 a search returns):
+
+| Ranking | Plain names | Opaque names |
+|---|---|---|
+| words (BM25) | 30 / 47 | 27 / 44 |
+| + meaning (bge) | 36 / 52 | 33 / 49 |
+| + the judge | 55 / 57 | 55 / 55 |
+
+The judge ranks far better, yet the runs end even: the model reads the 5 tools a search returns with their
+descriptions and picks one, so the right tool has only to be among them; when it is not, the model words the search
+again (2 to 2.4 tool calls a run). The model is the last reranker, which is how Claude Code's words-only `ToolSearch`
+keeps up. Names matter little: the descriptions carry the words (three places lost at ranking, none in the runs). The
+judge saves a search now and then and some tokens; it is worth more with a weaker model, thin descriptions or requests
+sharing no word with any description.
+
+Files: `20261029-round4-opaque.json`, `20261029-deepseek-plain.json`, `20261029-deepseek-opaque.json`,
+`20261029-round1-all-arms.json`, `20261029-round2-names-compact-args.json`, `20261029-round3-tuned.json` (one
 entry per run: the request, the tool called, the calls made, turns, tokens, cost).

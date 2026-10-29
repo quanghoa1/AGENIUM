@@ -1,0 +1,2322 @@
+[
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_007",
+    "got": "tool_007",
+    "input": 11979,
+    "ok": true,
+    "output": 94,
+    "query": "which pull requests are waiting to be merged"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_008",
+    "got": "tool_008",
+    "input": 11978,
+    "ok": true,
+    "output": 63,
+    "query": "see what changed in PR 17"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_011",
+    "got": "tool_011",
+    "input": 11982,
+    "ok": true,
+    "output": 106,
+    "query": "read README.md from the main branch of the repo"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_016",
+    "got": "tool_016",
+    "input": 11979,
+    "ok": true,
+    "output": 122,
+    "query": "why did the CI build fail on main"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_010",
+    "got": "tool_026",
+    "input": 11978,
+    "ok": false,
+    "output": 119,
+    "query": "ask alice to review my PR"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_001",
+    "got": "tool_001",
+    "input": 11976,
+    "ok": true,
+    "output": 124,
+    "query": "close github issue 42"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_017",
+    "got": "tool_017",
+    "input": 11977,
+    "ok": true,
+    "output": 96,
+    "query": "retry the failed CI job"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_020",
+    "got": "tool_020",
+    "input": 11984,
+    "ok": true,
+    "output": 95,
+    "query": "tell the team in #deploys that the release is out"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_018",
+    "got": "tool_018",
+    "input": 11980,
+    "ok": true,
+    "output": 221,
+    "query": "publish release notes for tag v2.0"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_000",
+    "got": "tool_000",
+    "input": 11979,
+    "ok": true,
+    "output": 289,
+    "query": "open a bug report on our GitHub repo"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_022",
+    "got": "tool_022",
+    "input": 11980,
+    "ok": true,
+    "output": 146,
+    "query": "what did people say in the incident channel today"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_024",
+    "got": "tool_024",
+    "input": 11978,
+    "ok": true,
+    "output": 66,
+    "query": "find the slack conversation about the outage"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_026",
+    "got": "tool_026",
+    "input": 11977,
+    "ok": true,
+    "output": 97,
+    "query": "DM bob that the meeting moved"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_025",
+    "got": "tool_025",
+    "input": 11978,
+    "ok": true,
+    "output": 119,
+    "query": "put a thumbs up on that message"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_032",
+    "got": "tool_032",
+    "input": 11978,
+    "ok": true,
+    "output": 89,
+    "query": "move PROJ-12 to done"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_009",
+    "got": "tool_009",
+    "input": 11977,
+    "ok": true,
+    "output": 108,
+    "query": "squash and merge the pull request"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_037",
+    "got": "tool_037",
+    "input": 11981,
+    "ok": true,
+    "output": 108,
+    "query": "record 3 hours spent on PROJ-7"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_041",
+    "got": "tool_041",
+    "input": 11976,
+    "ok": true,
+    "output": 120,
+    "query": "what exceptions is production throwing"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_033",
+    "got": "tool_033",
+    "input": 11981,
+    "ok": true,
+    "output": 109,
+    "query": "find all open bugs in project WEB with JQL"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_040",
+    "got": "tool_040",
+    "input": 11980,
+    "ok": true,
+    "output": 233,
+    "query": "PROJ-9 blocks PROJ-10"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_043",
+    "got": "tool_042",
+    "input": 11979,
+    "ok": false,
+    "output": 96,
+    "query": "show me the stack trace of that crash"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_058",
+    "got": "tool_058",
+    "input": 11979,
+    "ok": true,
+    "output": 87,
+    "query": "how many users signed up yesterday (SQL)"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_056",
+    "got": "tool_056",
+    "input": 11980,
+    "ok": true,
+    "output": 156,
+    "query": "filter the roadmap database for items due this month"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_061",
+    "got": "tool_061",
+    "input": 11978,
+    "ok": true,
+    "output": 44,
+    "query": "what columns does the orders table have"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_044",
+    "got": "tool_044",
+    "input": 11982,
+    "ok": true,
+    "output": 100,
+    "query": "the error is fixed, mark it done in sentry"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_062",
+    "got": "tool_062",
+    "input": 11980,
+    "ok": true,
+    "output": 155,
+    "query": "why is this query slow, show the plan"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_046",
+    "got": "tool_046",
+    "input": 11979,
+    "ok": true,
+    "output": 101,
+    "query": "how slow is the checkout endpoint p95"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_059",
+    "got": "tool_059",
+    "input": 11978,
+    "ok": true,
+    "output": 96,
+    "query": "add an index on orders.created_at"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_067",
+    "got": "tool_067",
+    "input": 11980,
+    "ok": true,
+    "output": 80,
+    "query": "bump the web deployment to 5 replicas"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_064",
+    "got": "tool_064",
+    "input": 11977,
+    "ok": true,
+    "output": 108,
+    "query": "is the api pod crash looping"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_049",
+    "got": "tool_049",
+    "input": 11978,
+    "ok": true,
+    "output": 46,
+    "query": "what Linear tickets are on my plate"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_065",
+    "got": "tool_111",
+    "input": 11980,
+    "ok": false,
+    "output": 145,
+    "query": "logs of the container that crashed before the restart"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_069",
+    "got": "tool_069",
+    "input": 11983,
+    "ok": true,
+    "output": 105,
+    "query": "the new version is broken, go back to the previous one"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_072",
+    "got": "tool_072",
+    "input": 11977,
+    "ok": true,
+    "output": 44,
+    "query": "which pods use the most memory"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_054",
+    "got": "tool_054",
+    "input": 11980,
+    "ok": true,
+    "output": 472,
+    "query": "write meeting notes as a new Notion page"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_077",
+    "got": "tool_077",
+    "input": 11977,
+    "ok": true,
+    "output": 46,
+    "query": "which alerts are firing right now"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_073",
+    "got": "tool_073",
+    "input": 11982,
+    "ok": true,
+    "output": 109,
+    "query": "graph the request rate from prometheus for the last hour"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_074",
+    "got": "tool_074",
+    "input": 11978,
+    "ok": true,
+    "output": 107,
+    "query": "search the application logs for timeout errors"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_083",
+    "got": "tool_083",
+    "input": 11976,
+    "ok": true,
+    "output": 70,
+    "query": "who is on call tonight"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_081",
+    "got": "tool_081",
+    "input": 11980,
+    "ok": true,
+    "output": 85,
+    "query": "stop paging, I am looking at it"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_098",
+    "got": "tool_098",
+    "input": 11982,
+    "ok": true,
+    "output": 116,
+    "query": "stop the customer's plan at the end of the month"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_096",
+    "got": "tool_096",
+    "input": 11977,
+    "ok": true,
+    "output": 115,
+    "query": "give the customer their money back"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_079",
+    "got": "tool_079",
+    "input": 11978,
+    "ok": true,
+    "output": 132,
+    "query": "mark the deploy on the dashboards"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_084",
+    "got": "tool_084",
+    "input": 11981,
+    "ok": true,
+    "output": 151,
+    "query": "wake up the database team, the db is down"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_089",
+    "got": "tool_089",
+    "input": 11983,
+    "ok": true,
+    "output": 136,
+    "query": "give the customer a download link for the report in s3"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_078",
+    "got": "tool_078",
+    "input": 11978,
+    "ok": true,
+    "output": 119,
+    "query": "mute the disk alert for two hours"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_103",
+    "got": "tool_103",
+    "input": 11983,
+    "ok": true,
+    "output": 101,
+    "query": "when are bob and carol both available for 30 minutes"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_100",
+    "got": "tool_100",
+    "input": 11979,
+    "ok": true,
+    "output": 37,
+    "query": "how much money is in the stripe account"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_102",
+    "got": "tool_102",
+    "input": 11982,
+    "ok": true,
+    "output": 225,
+    "query": "set up a meeting with the design team on friday"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_090",
+    "got": "tool_090",
+    "input": 11978,
+    "ok": true,
+    "output": 135,
+    "query": "CPU usage of the EC2 fleet"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_112",
+    "got": "tool_112",
+    "input": 11975,
+    "ok": true,
+    "output": 61,
+    "query": "restart the redis container"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_106",
+    "got": "tool_106",
+    "input": 11976,
+    "ok": true,
+    "output": 272,
+    "query": "email the client the invoice"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_114",
+    "got": "tool_114",
+    "input": 11979,
+    "ok": true,
+    "output": 78,
+    "query": "is the image affected by known security holes"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_120",
+    "got": "tool_120",
+    "input": 11979,
+    "ok": true,
+    "output": 111,
+    "query": "turn off the new checkout feature in production"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_122",
+    "got": "tool_122",
+    "input": 11982,
+    "ok": true,
+    "output": 47,
+    "query": "what is the codename of version 4.2"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_107",
+    "got": "tool_107",
+    "input": 11980,
+    "ok": true,
+    "output": 207,
+    "query": "prepare an email but don't send it yet"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_121",
+    "got": "tool_121",
+    "input": 11980,
+    "ok": true,
+    "output": 94,
+    "query": "enable the beta for 10% of users"
+  },
+  {
+    "arm": "upfront",
+    "calls": 1,
+    "expect": "tool_118",
+    "got": "tool_118",
+    "input": 11978,
+    "ok": true,
+    "output": 458,
+    "query": "update the runbook page in confluence"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_009",
+    "got": "tool_009",
+    "input": 1814,
+    "ok": true,
+    "output": 130,
+    "query": "squash and merge the pull request"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_010",
+    "got": "tool_010",
+    "input": 1825,
+    "ok": true,
+    "output": 136,
+    "query": "ask alice to review my PR"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_016",
+    "got": "tool_016",
+    "input": 1862,
+    "ok": true,
+    "output": 141,
+    "query": "why did the CI build fail on main"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_011",
+    "got": "tool_011",
+    "input": 1867,
+    "ok": true,
+    "output": 142,
+    "query": "read README.md from the main branch of the repo"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_007",
+    "got": "tool_007",
+    "input": 1808,
+    "ok": true,
+    "output": 131,
+    "query": "which pull requests are waiting to be merged"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_000",
+    "got": "tool_000",
+    "input": 1810,
+    "ok": true,
+    "output": 263,
+    "query": "open a bug report on our GitHub repo"
+  },
+  {
+    "arm": "bm25",
+    "calls": 3,
+    "expect": "tool_001",
+    "got": "tool_001",
+    "input": 3680,
+    "ok": true,
+    "output": 193,
+    "query": "close github issue 42"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_020",
+    "got": "tool_020",
+    "input": 1811,
+    "ok": true,
+    "output": 138,
+    "query": "tell the team in #deploys that the release is out"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_017",
+    "got": "tool_017",
+    "input": 1752,
+    "ok": true,
+    "output": 135,
+    "query": "retry the failed CI job"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_022",
+    "got": "tool_022",
+    "input": 1777,
+    "ok": true,
+    "output": 138,
+    "query": "what did people say in the incident channel today"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_025",
+    "got": "tool_025",
+    "input": 1798,
+    "ok": true,
+    "output": 138,
+    "query": "put a thumbs up on that message"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_024",
+    "got": "tool_024",
+    "input": 1739,
+    "ok": true,
+    "output": 125,
+    "query": "find the slack conversation about the outage"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_026",
+    "got": "tool_026",
+    "input": 1869,
+    "ok": true,
+    "output": 251,
+    "query": "DM bob that the meeting moved"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_018",
+    "got": "tool_018",
+    "input": 1782,
+    "ok": true,
+    "output": 227,
+    "query": "publish release notes for tag v2.0"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_037",
+    "got": "tool_037",
+    "input": 1799,
+    "ok": true,
+    "output": 145,
+    "query": "record 3 hours spent on PROJ-7"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_032",
+    "got": "tool_032",
+    "input": 1796,
+    "ok": true,
+    "output": 135,
+    "query": "move PROJ-12 to done"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_008",
+    "got": "tool_008",
+    "input": 1827,
+    "ok": true,
+    "output": 132,
+    "query": "see what changed in PR 17"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_041",
+    "got": "tool_041",
+    "input": 1748,
+    "ok": true,
+    "output": 142,
+    "query": "what exceptions is production throwing"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_033",
+    "got": "tool_033",
+    "input": 1771,
+    "ok": true,
+    "output": 134,
+    "query": "find all open bugs in project WEB with JQL"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_043",
+    "got": "tool_042",
+    "input": 1775,
+    "ok": false,
+    "output": 126,
+    "query": "show me the stack trace of that crash"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_044",
+    "got": "tool_044",
+    "input": 1804,
+    "ok": true,
+    "output": 141,
+    "query": "the error is fixed, mark it done in sentry"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_046",
+    "got": "tool_046",
+    "input": 1788,
+    "ok": true,
+    "output": 139,
+    "query": "how slow is the checkout endpoint p95"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_040",
+    "got": "tool_040",
+    "input": 1810,
+    "ok": true,
+    "output": 207,
+    "query": "PROJ-9 blocks PROJ-10"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_061",
+    "got": "tool_061",
+    "input": 1757,
+    "ok": true,
+    "output": 123,
+    "query": "what columns does the orders table have"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_049",
+    "got": "tool_049",
+    "input": 1695,
+    "ok": true,
+    "output": 119,
+    "query": "what Linear tickets are on my plate"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_058",
+    "got": "tool_058",
+    "input": 1762,
+    "ok": true,
+    "output": 155,
+    "query": "how many users signed up yesterday (SQL)"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_056",
+    "got": "tool_056",
+    "input": 1862,
+    "ok": true,
+    "output": 189,
+    "query": "filter the roadmap database for items due this month"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_062",
+    "got": "tool_062",
+    "input": 1787,
+    "ok": true,
+    "output": 177,
+    "query": "why is this query slow, show the plan"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_054",
+    "got": "tool_054",
+    "input": 1775,
+    "ok": true,
+    "output": 473,
+    "query": "write meeting notes as a new Notion page"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_069",
+    "got": "tool_069",
+    "input": 1808,
+    "ok": true,
+    "output": 141,
+    "query": "the new version is broken, go back to the previous one"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_065",
+    "got": "tool_065",
+    "input": 1776,
+    "ok": true,
+    "output": 157,
+    "query": "logs of the container that crashed before the restart"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_067",
+    "got": "tool_067",
+    "input": 1779,
+    "ok": true,
+    "output": 123,
+    "query": "bump the web deployment to 5 replicas"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_072",
+    "got": "tool_072",
+    "input": 1769,
+    "ok": true,
+    "output": 113,
+    "query": "which pods use the most memory"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_064",
+    "got": "tool_066",
+    "input": 1799,
+    "ok": false,
+    "output": 181,
+    "query": "is the api pod crash looping"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_073",
+    "got": "tool_073",
+    "input": 1788,
+    "ok": true,
+    "output": 170,
+    "query": "graph the request rate from prometheus for the last hour"
+  },
+  {
+    "arm": "bm25",
+    "calls": 4,
+    "expect": "tool_059",
+    "got": "tool_059",
+    "input": 5461,
+    "ok": true,
+    "output": 259,
+    "query": "add an index on orders.created_at"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_077",
+    "got": "tool_077",
+    "input": 1701,
+    "ok": true,
+    "output": 119,
+    "query": "which alerts are firing right now"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_078",
+    "got": "tool_078",
+    "input": 1788,
+    "ok": true,
+    "output": 163,
+    "query": "mute the disk alert for two hours"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_079",
+    "got": "tool_079",
+    "input": 1754,
+    "ok": true,
+    "output": 171,
+    "query": "mark the deploy on the dashboards"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_074",
+    "got": "tool_074",
+    "input": 1787,
+    "ok": true,
+    "output": 151,
+    "query": "search the application logs for timeout errors"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_083",
+    "got": "tool_083",
+    "input": 1760,
+    "ok": true,
+    "output": 136,
+    "query": "who is on call tonight"
+  },
+  {
+    "arm": "bm25",
+    "calls": 3,
+    "expect": "tool_081",
+    "got": "tool_081",
+    "input": 3266,
+    "ok": true,
+    "output": 214,
+    "query": "stop paging, I am looking at it"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_089",
+    "got": "tool_089",
+    "input": 1810,
+    "ok": true,
+    "output": 156,
+    "query": "give the customer a download link for the report in s3"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_090",
+    "got": "tool_090",
+    "input": 1782,
+    "ok": true,
+    "output": 162,
+    "query": "CPU usage of the EC2 fleet"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_096",
+    "got": "tool_096",
+    "input": 1758,
+    "ok": true,
+    "output": 156,
+    "query": "give the customer their money back"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_098",
+    "got": "tool_098",
+    "input": 1776,
+    "ok": true,
+    "output": 142,
+    "query": "stop the customer's plan at the end of the month"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_100",
+    "got": "tool_100",
+    "input": 1727,
+    "ok": true,
+    "output": 116,
+    "query": "how much money is in the stripe account"
+  },
+  {
+    "arm": "bm25",
+    "calls": 3,
+    "expect": "tool_084",
+    "got": "tool_084",
+    "input": 3491,
+    "ok": true,
+    "output": 354,
+    "query": "wake up the database team, the db is down"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_103",
+    "got": "tool_103",
+    "input": 1784,
+    "ok": true,
+    "output": 132,
+    "query": "when are bob and carol both available for 30 minutes"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_114",
+    "got": "tool_114",
+    "input": 1748,
+    "ok": true,
+    "output": 139,
+    "query": "is the image affected by known security holes"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_112",
+    "got": "tool_112",
+    "input": 1729,
+    "ok": true,
+    "output": 110,
+    "query": "restart the redis container"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_102",
+    "got": "tool_102",
+    "input": 1804,
+    "ok": true,
+    "output": 259,
+    "query": "set up a meeting with the design team on friday"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_106",
+    "got": "tool_106",
+    "input": 1822,
+    "ok": true,
+    "output": 266,
+    "query": "email the client the invoice"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_107",
+    "got": "tool_107",
+    "input": 1771,
+    "ok": true,
+    "output": 168,
+    "query": "prepare an email but don't send it yet"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_120",
+    "got": "tool_120",
+    "input": 1781,
+    "ok": true,
+    "output": 143,
+    "query": "turn off the new checkout feature in production"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_121",
+    "got": "tool_121",
+    "input": 1776,
+    "ok": true,
+    "output": 130,
+    "query": "enable the beta for 10% of users"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_122",
+    "got": "tool_122",
+    "input": 1801,
+    "ok": true,
+    "output": 116,
+    "query": "what is the codename of version 4.2"
+  },
+  {
+    "arm": "bm25",
+    "calls": 2,
+    "expect": "tool_118",
+    "got": "tool_118",
+    "input": 1756,
+    "ok": true,
+    "output": 697,
+    "query": "update the runbook page in confluence"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_011",
+    "got": "tool_011",
+    "input": 1870,
+    "ok": true,
+    "output": 130,
+    "query": "read README.md from the main branch of the repo"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_016",
+    "got": "tool_016",
+    "input": 1827,
+    "ok": true,
+    "output": 150,
+    "query": "why did the CI build fail on main"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_010",
+    "got": "tool_010",
+    "input": 1825,
+    "ok": true,
+    "output": 146,
+    "query": "ask alice to review my PR"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_008",
+    "got": "tool_008",
+    "input": 1813,
+    "ok": true,
+    "output": 122,
+    "query": "see what changed in PR 17"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_007",
+    "got": "tool_007",
+    "input": 1841,
+    "ok": true,
+    "output": 147,
+    "query": "which pull requests are waiting to be merged"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_001",
+    "got": "tool_001",
+    "input": 1789,
+    "ok": true,
+    "output": 123,
+    "query": "close github issue 42"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_000",
+    "got": "tool_000",
+    "input": 1833,
+    "ok": true,
+    "output": 285,
+    "query": "open a bug report on our GitHub repo"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_009",
+    "got": "tool_009",
+    "input": 1822,
+    "ok": true,
+    "output": 145,
+    "query": "squash and merge the pull request"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_017",
+    "got": "tool_017",
+    "input": 1813,
+    "ok": true,
+    "output": 135,
+    "query": "retry the failed CI job"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_024",
+    "got": "tool_024",
+    "input": 1776,
+    "ok": true,
+    "output": 133,
+    "query": "find the slack conversation about the outage"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_022",
+    "got": "tool_022",
+    "input": 1813,
+    "ok": true,
+    "output": 131,
+    "query": "what did people say in the incident channel today"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_026",
+    "got": "tool_026",
+    "input": 1791,
+    "ok": true,
+    "output": 173,
+    "query": "DM bob that the meeting moved"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_018",
+    "got": "tool_018",
+    "input": 1791,
+    "ok": true,
+    "output": 237,
+    "query": "publish release notes for tag v2.0"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_025",
+    "got": "tool_025",
+    "input": 1814,
+    "ok": true,
+    "output": 151,
+    "query": "put a thumbs up on that message"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_020",
+    "got": "tool_020",
+    "input": 1809,
+    "ok": true,
+    "output": 135,
+    "query": "tell the team in #deploys that the release is out"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_032",
+    "got": "tool_032",
+    "input": 1773,
+    "ok": true,
+    "output": 119,
+    "query": "move PROJ-12 to done"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_037",
+    "got": "tool_037",
+    "input": 1773,
+    "ok": true,
+    "output": 146,
+    "query": "record 3 hours spent on PROJ-7"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_046",
+    "got": "tool_046",
+    "input": 1800,
+    "ok": true,
+    "output": 134,
+    "query": "how slow is the checkout endpoint p95"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_040",
+    "got": "tool_040",
+    "input": 1805,
+    "ok": true,
+    "output": 214,
+    "query": "PROJ-9 blocks PROJ-10"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_043",
+    "got": "tool_043",
+    "input": 1790,
+    "ok": true,
+    "output": 203,
+    "query": "show me the stack trace of that crash"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_044",
+    "got": "tool_044",
+    "input": 1760,
+    "ok": true,
+    "output": 143,
+    "query": "the error is fixed, mark it done in sentry"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_041",
+    "got": "tool_041",
+    "input": 1768,
+    "ok": true,
+    "output": 141,
+    "query": "what exceptions is production throwing"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_033",
+    "got": "tool_033",
+    "input": 1755,
+    "ok": true,
+    "output": 144,
+    "query": "find all open bugs in project WEB with JQL"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_049",
+    "got": "tool_049",
+    "input": 1768,
+    "ok": true,
+    "output": 119,
+    "query": "what Linear tickets are on my plate"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_061",
+    "got": "tool_061",
+    "input": 1745,
+    "ok": true,
+    "output": 109,
+    "query": "what columns does the orders table have"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_058",
+    "got": "tool_058",
+    "input": 1751,
+    "ok": true,
+    "output": 147,
+    "query": "how many users signed up yesterday (SQL)"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_056",
+    "got": "tool_056",
+    "input": 1804,
+    "ok": true,
+    "output": 240,
+    "query": "filter the roadmap database for items due this month"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_062",
+    "got": "tool_062",
+    "input": 1767,
+    "ok": true,
+    "output": 199,
+    "query": "why is this query slow, show the plan"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_065",
+    "got": "tool_065",
+    "input": 1764,
+    "ok": true,
+    "output": 144,
+    "query": "logs of the container that crashed before the restart"
+  },
+  {
+    "arm": "bge",
+    "calls": 3,
+    "expect": "tool_059",
+    "got": "tool_059",
+    "input": 3153,
+    "ok": true,
+    "output": 204,
+    "query": "add an index on orders.created_at"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_064",
+    "got": "tool_066",
+    "input": 1796,
+    "ok": false,
+    "output": 226,
+    "query": "is the api pod crash looping"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_054",
+    "got": "tool_054",
+    "input": 1759,
+    "ok": true,
+    "output": 538,
+    "query": "write meeting notes as a new Notion page"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_069",
+    "got": "tool_069",
+    "input": 1798,
+    "ok": true,
+    "output": 131,
+    "query": "the new version is broken, go back to the previous one"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_072",
+    "got": "tool_072",
+    "input": 1783,
+    "ok": true,
+    "output": 119,
+    "query": "which pods use the most memory"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_074",
+    "got": "tool_074",
+    "input": 1809,
+    "ok": true,
+    "output": 137,
+    "query": "search the application logs for timeout errors"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_067",
+    "got": "tool_067",
+    "input": 1794,
+    "ok": true,
+    "output": 123,
+    "query": "bump the web deployment to 5 replicas"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_078",
+    "got": "tool_078",
+    "input": 1784,
+    "ok": true,
+    "output": 148,
+    "query": "mute the disk alert for two hours"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_077",
+    "got": "tool_077",
+    "input": 1750,
+    "ok": true,
+    "output": 121,
+    "query": "which alerts are firing right now"
+  },
+  {
+    "arm": "bge",
+    "calls": 3,
+    "expect": "tool_073",
+    "got": "tool_073",
+    "input": 3185,
+    "ok": true,
+    "output": 211,
+    "query": "graph the request rate from prometheus for the last hour"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_079",
+    "got": "tool_079",
+    "input": 1781,
+    "ok": true,
+    "output": 175,
+    "query": "mark the deploy on the dashboards"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_084",
+    "got": "tool_084",
+    "input": 1785,
+    "ok": true,
+    "output": 145,
+    "query": "wake up the database team, the db is down"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_083",
+    "got": "tool_083",
+    "input": 1785,
+    "ok": true,
+    "output": 137,
+    "query": "who is on call tonight"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_089",
+    "got": "tool_089",
+    "input": 1778,
+    "ok": true,
+    "output": 170,
+    "query": "give the customer a download link for the report in s3"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_081",
+    "got": "tool_081",
+    "input": 1771,
+    "ok": true,
+    "output": 179,
+    "query": "stop paging, I am looking at it"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_100",
+    "got": "tool_100",
+    "input": 1739,
+    "ok": true,
+    "output": 114,
+    "query": "how much money is in the stripe account"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_098",
+    "got": "tool_098",
+    "input": 1788,
+    "ok": true,
+    "output": 147,
+    "query": "stop the customer's plan at the end of the month"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_096",
+    "got": "tool_096",
+    "input": 1756,
+    "ok": true,
+    "output": 149,
+    "query": "give the customer their money back"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_103",
+    "got": "tool_103",
+    "input": 1767,
+    "ok": true,
+    "output": 134,
+    "query": "when are bob and carol both available for 30 minutes"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_090",
+    "got": "tool_090",
+    "input": 1746,
+    "ok": true,
+    "output": 179,
+    "query": "CPU usage of the EC2 fleet"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_102",
+    "got": "tool_102",
+    "input": 1795,
+    "ok": true,
+    "output": 239,
+    "query": "set up a meeting with the design team on friday"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_106",
+    "got": "tool_106",
+    "input": 1734,
+    "ok": true,
+    "output": 203,
+    "query": "email the client the invoice"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_112",
+    "got": "tool_112",
+    "input": 1734,
+    "ok": true,
+    "output": 110,
+    "query": "restart the redis container"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_114",
+    "got": "tool_114",
+    "input": 1750,
+    "ok": true,
+    "output": 140,
+    "query": "is the image affected by known security holes"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_120",
+    "got": "tool_120",
+    "input": 1811,
+    "ok": true,
+    "output": 170,
+    "query": "turn off the new checkout feature in production"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_107",
+    "got": "tool_107",
+    "input": 1750,
+    "ok": true,
+    "output": 218,
+    "query": "prepare an email but don't send it yet"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_122",
+    "got": "tool_122",
+    "input": 1804,
+    "ok": true,
+    "output": 144,
+    "query": "what is the codename of version 4.2"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_121",
+    "got": "tool_121",
+    "input": 1786,
+    "ok": true,
+    "output": 141,
+    "query": "enable the beta for 10% of users"
+  },
+  {
+    "arm": "bge",
+    "calls": 2,
+    "expect": "tool_118",
+    "got": "tool_118",
+    "input": 1763,
+    "ok": true,
+    "output": 694,
+    "query": "update the runbook page in confluence"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_008",
+    "got": "tool_008",
+    "input": 1704,
+    "ok": true,
+    "output": 121,
+    "query": "see what changed in PR 17"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_011",
+    "got": "tool_011",
+    "input": 1609,
+    "ok": true,
+    "output": 129,
+    "query": "read README.md from the main branch of the repo"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_007",
+    "got": "tool_005",
+    "input": 1729,
+    "ok": false,
+    "output": 225,
+    "query": "which pull requests are waiting to be merged"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_010",
+    "got": "tool_010",
+    "input": 1651,
+    "ok": true,
+    "output": 140,
+    "query": "ask alice to review my PR"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_000",
+    "got": "tool_000",
+    "input": 1607,
+    "ok": true,
+    "output": 269,
+    "query": "open a bug report on our GitHub repo"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_009",
+    "got": "tool_009",
+    "input": 1601,
+    "ok": true,
+    "output": 141,
+    "query": "squash and merge the pull request"
+  },
+  {
+    "arm": "jev",
+    "calls": 3,
+    "expect": "tool_016",
+    "got": "tool_016",
+    "input": 3391,
+    "ok": true,
+    "output": 254,
+    "query": "why did the CI build fail on main"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_001",
+    "got": "tool_001",
+    "input": 1695,
+    "ok": true,
+    "output": 182,
+    "query": "close github issue 42"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_017",
+    "got": "tool_017",
+    "input": 1585,
+    "ok": true,
+    "output": 136,
+    "query": "retry the failed CI job"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_020",
+    "got": "tool_020",
+    "input": 1676,
+    "ok": true,
+    "output": 160,
+    "query": "tell the team in #deploys that the release is out"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_018",
+    "got": "tool_018",
+    "input": 1601,
+    "ok": true,
+    "output": 207,
+    "query": "publish release notes for tag v2.0"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_022",
+    "got": "tool_022",
+    "input": 1714,
+    "ok": true,
+    "output": 132,
+    "query": "what did people say in the incident channel today"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_026",
+    "got": "tool_026",
+    "input": 1577,
+    "ok": true,
+    "output": 144,
+    "query": "DM bob that the meeting moved"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_024",
+    "got": "tool_024",
+    "input": 1625,
+    "ok": true,
+    "output": 121,
+    "query": "find the slack conversation about the outage"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_032",
+    "got": "tool_032",
+    "input": 1624,
+    "ok": true,
+    "output": 160,
+    "query": "move PROJ-12 to done"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_033",
+    "got": "tool_033",
+    "input": 1594,
+    "ok": true,
+    "output": 141,
+    "query": "find all open bugs in project WEB with JQL"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_025",
+    "got": "tool_025",
+    "input": 1607,
+    "ok": true,
+    "output": 155,
+    "query": "put a thumbs up on that message"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_041",
+    "got": "tool_041",
+    "input": 1798,
+    "ok": true,
+    "output": 130,
+    "query": "what exceptions is production throwing"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_040",
+    "got": "tool_040",
+    "input": 1761,
+    "ok": true,
+    "output": 141,
+    "query": "PROJ-9 blocks PROJ-10"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_037",
+    "got": "tool_037",
+    "input": 1610,
+    "ok": true,
+    "output": 143,
+    "query": "record 3 hours spent on PROJ-7"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_046",
+    "got": "tool_046",
+    "input": 1757,
+    "ok": true,
+    "output": 138,
+    "query": "how slow is the checkout endpoint p95"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_044",
+    "got": "tool_044",
+    "input": 1805,
+    "ok": true,
+    "output": 136,
+    "query": "the error is fixed, mark it done in sentry"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_043",
+    "got": "tool_042",
+    "input": 1817,
+    "ok": false,
+    "output": 164,
+    "query": "show me the stack trace of that crash"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_049",
+    "got": "tool_049",
+    "input": 1580,
+    "ok": true,
+    "output": 126,
+    "query": "what Linear tickets are on my plate"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_061",
+    "got": "tool_061",
+    "input": 1641,
+    "ok": true,
+    "output": 111,
+    "query": "what columns does the orders table have"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_058",
+    "got": "tool_058",
+    "input": 1746,
+    "ok": true,
+    "output": 157,
+    "query": "how many users signed up yesterday (SQL)"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_056",
+    "got": "tool_056",
+    "input": 1706,
+    "ok": true,
+    "output": 222,
+    "query": "filter the roadmap database for items due this month"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_054",
+    "got": "tool_054",
+    "input": 1594,
+    "ok": true,
+    "output": 444,
+    "query": "write meeting notes as a new Notion page"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_062",
+    "got": "tool_062",
+    "input": 1683,
+    "ok": true,
+    "output": 219,
+    "query": "why is this query slow, show the plan"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_064",
+    "got": "tool_064",
+    "input": 1773,
+    "ok": true,
+    "output": 141,
+    "query": "is the api pod crash looping"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_059",
+    "got": "tool_059",
+    "input": 1611,
+    "ok": true,
+    "output": 125,
+    "query": "add an index on orders.created_at"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_067",
+    "got": "tool_067",
+    "input": 1636,
+    "ok": true,
+    "output": 138,
+    "query": "bump the web deployment to 5 replicas"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_069",
+    "got": "tool_069",
+    "input": 1647,
+    "ok": true,
+    "output": 147,
+    "query": "the new version is broken, go back to the previous one"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_065",
+    "got": "tool_065",
+    "input": 1807,
+    "ok": true,
+    "output": 159,
+    "query": "logs of the container that crashed before the restart"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_072",
+    "got": "tool_072",
+    "input": 1616,
+    "ok": true,
+    "output": 120,
+    "query": "which pods use the most memory"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_073",
+    "got": "tool_073",
+    "input": 1707,
+    "ok": true,
+    "output": 165,
+    "query": "graph the request rate from prometheus for the last hour"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_074",
+    "got": "tool_074",
+    "input": 1739,
+    "ok": true,
+    "output": 137,
+    "query": "search the application logs for timeout errors"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_077",
+    "got": "tool_077",
+    "input": 1613,
+    "ok": true,
+    "output": 121,
+    "query": "which alerts are firing right now"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_078",
+    "got": "tool_078",
+    "input": 1604,
+    "ok": true,
+    "output": 167,
+    "query": "mute the disk alert for two hours"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_083",
+    "got": "tool_083",
+    "input": 1637,
+    "ok": true,
+    "output": 113,
+    "query": "who is on call tonight"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_079",
+    "got": "tool_079",
+    "input": 1626,
+    "ok": true,
+    "output": 165,
+    "query": "mark the deploy on the dashboards"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_084",
+    "got": "tool_084",
+    "input": 1780,
+    "ok": true,
+    "output": 168,
+    "query": "wake up the database team, the db is down"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_081",
+    "got": "tool_081",
+    "input": 1606,
+    "ok": true,
+    "output": 149,
+    "query": "stop paging, I am looking at it"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_090",
+    "got": "tool_090",
+    "input": 1788,
+    "ok": true,
+    "output": 172,
+    "query": "CPU usage of the EC2 fleet"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_089",
+    "got": "tool_089",
+    "input": 1627,
+    "ok": true,
+    "output": 174,
+    "query": "give the customer a download link for the report in s3"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_096",
+    "got": "tool_096",
+    "input": 1718,
+    "ok": true,
+    "output": 159,
+    "query": "give the customer their money back"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_100",
+    "got": "tool_100",
+    "input": 1573,
+    "ok": true,
+    "output": 116,
+    "query": "how much money is in the stripe account"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_098",
+    "got": "tool_098",
+    "input": 1666,
+    "ok": true,
+    "output": 151,
+    "query": "stop the customer's plan at the end of the month"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_102",
+    "got": "tool_102",
+    "input": 1699,
+    "ok": true,
+    "output": 173,
+    "query": "set up a meeting with the design team on friday"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_103",
+    "got": "tool_103",
+    "input": 1743,
+    "ok": true,
+    "output": 137,
+    "query": "when are bob and carol both available for 30 minutes"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_114",
+    "got": "tool_114",
+    "input": 1584,
+    "ok": true,
+    "output": 137,
+    "query": "is the image affected by known security holes"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_107",
+    "got": "tool_107",
+    "input": 1597,
+    "ok": true,
+    "output": 209,
+    "query": "prepare an email but don't send it yet"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_106",
+    "got": "tool_106",
+    "input": 1751,
+    "ok": true,
+    "output": 237,
+    "query": "email the client the invoice"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_112",
+    "got": "tool_112",
+    "input": 1642,
+    "ok": true,
+    "output": 121,
+    "query": "restart the redis container"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_120",
+    "got": "tool_120",
+    "input": 1633,
+    "ok": true,
+    "output": 136,
+    "query": "turn off the new checkout feature in production"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_121",
+    "got": "tool_121",
+    "input": 1649,
+    "ok": true,
+    "output": 134,
+    "query": "enable the beta for 10% of users"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_122",
+    "got": "tool_122",
+    "input": 1772,
+    "ok": true,
+    "output": 147,
+    "query": "what is the codename of version 4.2"
+  },
+  {
+    "arm": "jev",
+    "calls": 2,
+    "expect": "tool_118",
+    "got": "tool_118",
+    "input": 1711,
+    "ok": true,
+    "output": 726,
+    "query": "update the runbook page in confluence"
+  }
+]

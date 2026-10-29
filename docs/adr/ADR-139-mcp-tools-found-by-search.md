@@ -92,6 +92,14 @@ search found the tools as well without it — so past 30 tools a server is summe
 each instead of their JSON schema. Without the judge the choices were the same and the model searched again more
 often (2.4 calls a run against 2.2).
 
+With the tools named `tool_000` … (names that say nothing), Claude Code's `ToolSearch` got 55/58 and Agenium's 57/58
+with or without the judge. DeepSeek v4.1 flash over the API (`examples/tool_search_api.rs`) got 55/58 with every tool
+listed (about 12,000 input tokens a request) and 56–57/58 through `tool_search` with words only, words and meaning, or
+the judge, plain names or not (about 2,000). Words alone keep up because the model reads the 5 tools a search returns
+and searches again when none fits: the right tool has only to be among the 5 (47 of 58 by words, 57 with the judge), so
+the judge mostly saves searches and tokens. It stays on by default, fail-open; it is worth more with a weaker model or
+thin descriptions.
+
 ## Verified (2026-10-29)
 
 - Tests: `rank::tests` (common words and endings, fusion); `a_catalogue_follows_a_server_that_changes_its_tools` (the
