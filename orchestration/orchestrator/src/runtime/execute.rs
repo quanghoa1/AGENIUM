@@ -33,38 +33,19 @@ impl Runtime {
             }
             _ => (cancel, None),
         };
-        // A CLI agent whose CLI cannot be used runs through the configured API fallback, or not at all (ADR-30).
-        let mut fallback_note = None;
+        // A CLI agent whose CLI cannot be used (not installed, logged out, too old, no sandbox where it needs one) waits
+        // for the user, who fixes the CLI or gives it another model and resumes it: its work never moves to another
+        // model by itself (ADR-132; it went to the `[cli]` API fallback when one was set).
         let mut cli_ready = None;
-        let fallback_agent;
-        let agent = if agent.backend == BackendKind::Cli {
+        if agent.backend == BackendKind::Cli {
             match self.cli_ready(agent).await {
-                Ok(r) => {
-                    cli_ready = Some(r);
-                    agent
-                }
+                Ok(r) => cli_ready = Some(r),
                 Err(why) => {
-                    let cfg = self.app.config().cli;
-                    if cfg.fallback_provider.is_empty() || cfg.fallback_model.is_empty() {
-                        return Err(OrchError::Invalid(why));
-                    }
-                    let note = format!(
-                        "{why}; this run uses the API fallback {}/{}",
-                        cfg.fallback_provider, cfg.fallback_model
-                    );
-                    tracing::warn!(agent = %agent.name, "{note}");
-                    let mut a = agent.clone();
-                    a.backend = BackendKind::Api;
-                    a.model.provider = cfg.fallback_provider;
-                    a.model.model = cfg.fallback_model;
-                    fallback_note = Some(note);
-                    fallback_agent = a;
-                    &fallback_agent
+                    self.set_aside(agent, ticket, &why)?;
+                    return Err(OrchError::Invalid(why));
                 }
             }
-        } else {
-            agent
-        };
+        }
         let p = self.app.project(project)?;
         let allow = crate::engine::allowlist(&self.app, &p);
         let ctx = self.tool_ctx(
@@ -77,9 +58,6 @@ impl Runtime {
         );
         let skills = Arc::new(self.skills(agent));
         let mut ctx = ctx;
-        if let Some(n) = fallback_note {
-            ctx.capabilities.push(format!("Backend: {n}"));
-        }
         ctx.read_roots = skills.dirs();
         // Pictures the user picked in the app's browser (ADR-121): every run of the project may look at them.
         let picks = std::path::Path::new(&p.path).join(".agenium").join("picks");
@@ -145,6 +123,10 @@ impl Runtime {
         // own file tools reach only its scratch folder, so these do the work under the sandbox, the gate and the write
         // scope, like an API agent's.
         let cli = cli_ready.is_some();
+        // A CLI waits only so long for a tool: its long commands go on as jobs the run waits for (ADR-133).
+        if cli {
+            ctx.foreground_limit = Some(agenium_cli_backend::FOREGROUND_LIMIT);
+        }
         let mut work = work;
         // A CLI's read-only run (a review, a chat) keeps our shell where a sandbox makes that run read-only: the Lead
         // runs the tests of the work it judges instead of only reading it.
@@ -239,22 +221,12 @@ impl Runtime {
         // guidance), so a new ticket starts on the server that already holds it instead of a cold one.
         let cache_key = agent.id.to_string();
         if let Some((driver, program)) = cli_ready {
-            // A CLI checked through its hook runs its commands on the host, outside Agenium's sandbox: YOLO does not
-            // approve them, only the allowlist or the user does.
-            let gate = Arc::new(RunGate {
-                app: self.app.clone(),
-                project,
-                ticket: ticket.map(|t| t.key.clone()),
-                agent: agent.name.clone(),
-                approver: self.approver.clone(),
-                contained: false,
-            });
             // The project's Lead can be messaged while its CLI runs, as on the API backend (ADR-104, ADR-110).
             let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
             let report = self
                 .cli_run(
-                    agent, driver, program, kind, &ctx, gate, &protocol, pspecs, work, &observer,
-                    &order, cancel, steer,
+                    agent, driver, program, kind, &ctx, &protocol, pspecs, work, &observer, &order,
+                    cancel, steer,
                 )
                 .await;
             drop(steering);
@@ -325,6 +297,34 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             }
         }
         r
+    }
+
+    /// An agent whose CLI cannot be used waits for the user (ADR-132): Offline, told in Needs you and on its ticket,
+    /// what is wrong and what to do.
+    pub(super) fn set_aside(
+        &self,
+        agent: &agenium_store::core::agents::Agent,
+        ticket: Option<&Ticket>,
+        why: &str,
+    ) -> Result<()> {
+        self.app.set_agent_status(agent.id, AgentStatus::Offline)?;
+        let reason = format!(
+            "{} cannot use {}: {why}. Fix it, or give {} another model, then resume it: it goes on from where it \
+             stopped.",
+            agent.name, agent.model.provider, agent.name
+        );
+        self.app.store().commit(None, "system", |w| -> Result<()> {
+            if let Some(t) = ticket {
+                let tk = tickets::get(w.tx, t.id)?;
+                crate::engine::system_comment(w, &tk, reason.clone())?;
+            }
+            w.emit(DomainEvent::NeedsUser {
+                ticket: ticket.map(|t| t.id),
+                reason: reason.clone(),
+            })?;
+            Ok(())
+        })?;
+        Ok(())
     }
 
     /// Agent states that outlive a run (decision 3j / 15): QuotaExhausted (and "Needs you"), Offline.

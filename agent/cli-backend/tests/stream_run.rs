@@ -52,7 +52,7 @@ impl CommandGate for Gate {
         }
         match command {
             "echo hi" => GateDecision::Allow,
-            c if c == slow_command() => GateDecision::Allow,
+            c if c == slow_command() || c == job_command() => GateDecision::Allow,
             // The user has not answered yet.
             "echo wait" => std::future::pending().await,
             _ => GateDecision::Deny(format!("not approved: {command}")),
@@ -118,16 +118,15 @@ async fn run(
     chat: bool,
     program: PathBuf,
 ) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
-    run_steered(
-        scenario,
-        dir,
-        limits,
-        chat,
-        program,
-        None,
-        Cancel::default(),
-    )
-    .await
+    run_steered(scenario, dir, limits, chat, program, Opts::default()).await
+}
+
+/// What a test run may change beyond its scenario.
+#[derive(Default)]
+struct Opts {
+    steer: Option<agenium_backend::Steer>,
+    cancel: Cancel,
+    foreground: Option<Duration>,
 }
 
 async fn run_steered(
@@ -136,9 +135,13 @@ async fn run_steered(
     limits: Limits,
     chat: bool,
     program: PathBuf,
-    steer: Option<agenium_backend::Steer>,
-    cancel: Cancel,
+    opts: Opts,
 ) -> (RunReport, Arc<Proto>, Arc<Obs>, String) {
+    let Opts {
+        steer,
+        cancel,
+        foreground,
+    } = opts;
     let proto = Arc::new(Proto::default());
     let obs = Arc::new(Obs {
         steer: steer.clone(),
@@ -148,7 +151,8 @@ async fn run_steered(
         steer: steer.clone(),
     });
     // Agenium's tools the CLI works through (ADR-129); its `shell` asks the same gate.
-    let ctx = agenium_tools::ToolCtx::new(dir, "run-1", gate.clone());
+    let mut ctx = agenium_tools::ToolCtx::new(dir, "run-1", gate.clone());
+    ctx.foreground_limit = foreground;
     let r = CliRun {
         driver: &Agy,
         program,
@@ -157,6 +161,7 @@ async fn run_steered(
         env: [
             ("FAKE_AGY_SCENARIO".to_owned(), scenario.to_owned()),
             ("FAKE_AGY_SLOW".to_owned(), slow_command().to_owned()),
+            ("FAKE_AGY_JOB".to_owned(), job_command().to_owned()),
         ]
         .into(),
         cwd: dir.to_path_buf(),
@@ -168,7 +173,7 @@ async fn run_steered(
             .filter(|t| matches!(t.name(), "write_file" | "shell"))
             .collect(),
         ctx: &ctx,
-        gate,
+        session: None,
         observer: obs.as_ref(),
         cancel,
         limits,
@@ -187,6 +192,15 @@ async fn run_steered(
 
 fn fake() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_agenium-fake-agy"))
+}
+
+/// A command that runs three seconds in the shell Agenium's `shell` uses.
+fn job_command() -> &'static str {
+    match agenium_sandbox::Shell::detect() {
+        agenium_sandbox::Shell::Bash(_) => "sleep 3",
+        agenium_sandbox::Shell::PowerShell(_) => "Start-Sleep -Seconds 3",
+        agenium_sandbox::Shell::Cmd => "powershell -NoProfile -Command Start-Sleep -Seconds 3",
+    }
 }
 
 /// A command that runs two minutes in the shell Agenium's `shell` uses, without the network (a sandbox has none).
@@ -335,8 +349,10 @@ async fn the_user_messages_a_running_cli_lead() {
         Limits::default(),
         true,
         fake(),
-        Some(q.clone()),
-        Cancel::default(),
+        Opts {
+            steer: Some(q.clone()),
+            ..Opts::default()
+        },
     )
     .await;
     assert_eq!(report.outcome, Outcome::Completed, "{log}");
@@ -424,8 +440,10 @@ async fn the_users_stop_ends_a_long_command_and_a_wait_for_approval() {
             Limits::default(),
             false,
             fake(),
-            None,
-            cancel,
+            Opts {
+                cancel,
+                ..Opts::default()
+            },
         )
         .await;
         assert_eq!(report.outcome, Outcome::Cancelled, "{scenario}: {log}");
@@ -450,6 +468,47 @@ async fn the_users_stop_ends_a_long_command_and_a_wait_for_approval() {
             );
         }
     }
+}
+
+/// A command longer than the run's foreground limit (ADR-133): the call answers that it goes on as a job, a report
+/// meanwhile is refused, and the command's end reaches the CLI as its next message, after which it reports. A CLI
+/// gave up waiting for a long tool call and its model ran the command again.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_long_command_goes_on_as_a_job_and_its_end_comes_as_a_message() {
+    let (_parent, wt) = worktree();
+    let (report, proto, _, log) = run_steered(
+        "slowjob",
+        &wt,
+        Limits::default(),
+        false,
+        fake(),
+        Opts {
+            foreground: Some(Duration::from_secs(1)),
+            ..Opts::default()
+        },
+    )
+    .await;
+    assert_eq!(report.outcome, Outcome::Completed, "{log}");
+    assert!(
+        log.contains("slowjob shell: The command is still running"),
+        "{log}"
+    );
+    assert!(
+        log.contains("commands_running"),
+        "a report while it runs is refused: {log}"
+    );
+    assert!(
+        log.contains("has ended: exit code 0"),
+        "its end is the next message: {log}"
+    );
+    let reports = proto
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(n, ..)| n == "submit_report")
+        .count();
+    assert_eq!(reports, 1, "one report, after the command ended");
 }
 
 #[tokio::test(flavor = "multi_thread")]

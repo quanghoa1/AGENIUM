@@ -72,7 +72,7 @@ pub(super) fn edit_files(
         loose |= apply_edit(&mut doc, e, &rel, multi.then_some(i))?;
     }
     let s = doc.save();
-    write_file(&p, &rel, s.as_bytes())?;
+    write_file(&ctx.root, &p, &rel, s.as_bytes())?;
     ctx.record_read(&p, s.as_bytes());
     Ok(ToolOutput::text(format!(
         "edited {rel} ({} change{}{})",

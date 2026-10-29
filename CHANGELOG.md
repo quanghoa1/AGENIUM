@@ -20,9 +20,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - A project's ticket prefix is made from its name (`Demo shop` → `DS-1`) unless you give one, and no two projects
   share one; projects are shown by the name you gave them.
 - The planner drafts plan v1 before the Lead plans (ADR-116).
-- A worker whose quota runs out in the middle of a ticket loses no work: the worktree and the conversation stay, a new
-  model frees the agent at once (one step; it also had to be set back to Idle by hand), and in a team the Lead is told
-  of its tickets and hands them to another member, who goes on from the worktree (ADR-131).
+- A worker whose quota runs out in the middle of a ticket loses no work and keeps its ticket: the worktree and the
+  conversation stay, the user gives it another model (another vendor's API model or CLI, which gets the conversation
+  so far), which frees it at once, and it goes on (ADR-131, ADR-132).
+- Agenium never moves an agent's work to another model by itself: a CLI that cannot run sets the agent aside and says
+  why; a **Resume** button on the agent's card, its page and the Needs you item puts it back to work (ADR-132).
 - The user's stop reaches a running command and a wait for approval at once (it waited for the command's timeout, up
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
@@ -33,7 +35,16 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Custom OpenAI-compatible endpoints: extra headers (secret ones in the vault), per-model settings and effort levels,
   extra request fields and the effort field, under rules checked on save and on every request (ADR-115).
 - Vendor CLIs driven headless with every tool call decided by Agenium: Claude Code, Codex, Gemini (Antigravity),
-  Grok, OpenCode; login and usability detected; a fallback API model when a CLI cannot run.
+  Grok, OpenCode; login and usability detected; an API model of your choice draws CLI agents' lessons.
+- Each vendor CLI resumes its own session of a ticket across the ticket's runs (a question answered, a review
+  reopened, a quota used up): it goes on with its own context and is sent only what is new; a new ticket starts a new
+  session (ADR-134).
+- One CLI account can run several sessions at once: logins are kept in step while runs go on, so a refreshed token
+  reaches the other runs and the user's own CLI at once (ADR-134).
+- A command longer than a CLI's own tool wait goes on as a job the run waits for; its end comes to the agent as a
+  message (ADR-133).
+- Paths crafted to slip past the checks are caught: every path a CLI's tool names, links out of the write scope or the
+  worktree, hard links, dotfiles of the CLI's scratch home (path review, ADR-56).
 - Vendor CLIs run in their YOLO mode and work only through Agenium's own tools (files, apply_patch, shell, background
   commands): nothing asks the user and every change keeps the ticket's write scope (ADR-116, ADR-117, ADR-129).
 - A machine without a working sandbox can run agents without one by the user's choice (Settings; Codex included).

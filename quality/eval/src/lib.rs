@@ -18,6 +18,7 @@ use agenium_store::core::runs;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+pub mod answers;
 pub mod learning;
 pub mod mcp_keys;
 pub mod memory_reuse;
@@ -56,8 +57,8 @@ fn walk_contains(dir: &Path, needle: &str) -> Vec<String> {
     hits
 }
 
-/// Tasks that run only when named with `--task` (slow on purpose).
-pub const OPT_IN: [&str; 1] = ["slow-check"];
+/// Tasks that run only when named with `--task` (slow on purpose, or a question to the user on purpose).
+pub const OPT_IN: [&str; 2] = ["slow-check", "ask-first"];
 
 pub fn tasks() -> Vec<Task> {
     vec![
@@ -192,6 +193,26 @@ pub fn tasks() -> Vec<Task> {
                 vec![
                     ("shell", json!({"command": cmd, "timeout_ms": 150000})),
                     ("write_file", json!({"path": "deliverables/check.txt", "content": "42\n"})),
+                ]
+            },
+        },
+        // The agent must ask the user before it writes (`answers.rs` answers): the ticket takes two runs, and a vendor
+        // CLI that keeps its session resumes it in the second (ADR-134).
+        Task {
+            id: "ask-first",
+            title: "Write the code word where the user says",
+            description: "Read notes/code.txt: it holds a code word. Then ask the user, with ask_question (blocking, category Requirement), which file the code word goes in, without saying the code word (keep it to yourself); do not guess and do not write any file before the answer. Once answered, write only the code word to that file and report.",
+            acceptance: &["the code word from notes/code.txt is written to the file the user named, alone"],
+            fixture: &[("notes/code.txt", "The code word is PELICAN-7.\n")],
+            check: |r| {
+                let w = read(r, "deliverables/word.txt")?;
+                (w.trim() == "PELICAN-7").then_some(()).ok_or_else(|| format!("word.txt is {:?}, expected PELICAN-7", w.trim()))
+            },
+            solution: || {
+                vec![
+                    ("read_file", json!({"path": "notes/code.txt"})),
+                    ("ask_question", json!({"ticket_id": "AGN-1", "category": "Requirement", "question": "Which file should the code word go in?", "blocking": true})),
+                    ("write_file", json!({"path": "deliverables/word.txt", "content": "PELICAN-7\n"})),
                 ]
             },
         },
@@ -473,8 +494,13 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         Arc::new(StaticProviders(vec![("eval".into(), provider)])),
         approver,
     );
-    let summaries = rt.drive(project.id, 8).await?;
+    let mut summaries = rt.drive(project.id, 8).await?;
+    // The agent asked the user (on purpose): the user answers and the ticket goes on.
+    if answers::answer(&app, project.id, &key, task.id)? {
+        summaries.extend(rt.drive(project.id, 8).await?);
+    }
     let t = app.ticket(project.id, &key)?;
+    let resumed = answers::resumed(&app, t.id)?;
     let check = (task.check)(&root);
     let all_runs = app.store().read(|c| runs::for_ticket(c, t.id))?;
     let mut tool_errors = 0;
@@ -530,8 +556,10 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         }
     }
     let closed = t.status == TicketStatus::Closed && (t.merged || !t.has_code);
-    let passed = closed && check.is_ok();
+    let passed = closed && check.is_ok() && resumed != Some(false);
     let detail = match (&check, closed) {
+        (Ok(()), true) if resumed == Some(false) => "the CLI could not resume its session".into(),
+        (Ok(()), true) if resumed == Some(true) => "ok (the CLI resumed its session)".into(),
         (Ok(()), true) => "ok".into(),
         (Ok(()), false) => format!("work is correct but the ticket is {}", t.status),
         (Err(e), _) => e.clone(),

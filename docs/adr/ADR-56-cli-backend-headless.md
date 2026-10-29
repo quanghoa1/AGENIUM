@@ -46,10 +46,11 @@
 5. **Limits and mandatory report** from the event stream: tool steps, repeated steps, wall-clock timeout (the process
    is stopped -> `Checkpoint` / `LoopDetected`); a work turn that ends without a protocol tool gets a nudge (2 at
    most) -> `NoProgress`; after `submit_report` / `ask_question` / ... the CLI gets 30 s to finish its turn.
-6. **API fallback (ADR-30):** when the agent's CLI cannot run (unknown, not driven, not installed, older than the
-   checked version, logged out, or no sandbox backend for a sandbox-only CLI), the run uses `[cli] fallback_provider`
-   / `fallback_model` through the API backend and its work order says why; without a fallback the run fails with the
-   reason. The agent stays a CLI agent.
+6. ~~**API fallback (ADR-30)**~~ (withdrawn by [ADR-132](ADR-132-no-automatic-fallback-resume-the-agent.md)): when
+   the agent's CLI cannot run (unknown, not driven, not installed, older than the checked version, logged out, or no
+   sandbox backend for Codex), the agent is set aside and the user is told why; the user fixes the CLI or gives the
+   agent another model, then resumes it. `[cli] fallback_provider/fallback_model` is only the API model that draws a
+   CLI agent's lessons.
 7. **Contract per version:** each driver's stream parsing is unit-tested against lines captured from the minimum
    version in `CliKind::min_version` (codex 0.163.0, agy 1.4.4); an older CLI is not used.
 8. **Agent setting:** `backend = Cli`, `model.provider` = CLI program, `model.model` = the CLI's model
@@ -122,8 +123,9 @@ decision 3c ("Opencode via API or CLI") to API only. The findings below are kept
 - Journaled git operations that fail during a run (on Windows `remove_worktree` while the CLI process still has
   its working directory in the worktree, os error 32) are replayed at the start of every scheduler round, not only
   at startup.
-- Memory extraction is an API call: a CLI agent uses the `[cli] fallback_provider/fallback_model` for it; without
-  one the pipeline is skipped with an info log (it used to fail with "provider claude not found").
+- Memory extraction is an API call: a CLI agent uses the `[cli] fallback_provider/fallback_model` for it (its only use
+  since ADR-132); without one the pipeline is skipped with an info log (it used to fail with "provider claude not
+  found").
 
 ## Subagents and withheld tools (M4, 2026-10-24)
 
@@ -170,6 +172,31 @@ on every CLI, found these; each is fixed:
   reach the user's: each hand-back writes its own file, and a JSON login that does not parse is kept out.
 - **Per-run homes left by a crash**, each with a copy of a login, are removed once a day old.
 
-Known and left: a refresh token used by two runs at once (the later run's refresh fails; its next run starts from the
-refreshed login); the Windows job object is attached right after the CLI starts, so a process it starts in that
-instant escapes it.
+Then, the same day (ADR-132 to ADR-134 and the path review below):
+- **One CLI account in several runs at once**: logins are kept in step while runs go on (ADR-134), not only handed back
+  at a run's end, so a run started meanwhile no longer holds a used refresh token.
+- **A command longer than a CLI's tool wait** goes on as a job the run waits for (ADR-133); agy and OpenCode, which
+  have no tool-wait setting, no longer depend on waiting.
+- **Every CLI resumes its session of a ticket** across the ticket's runs (ADR-134).
+- **Dead code removed**: `Check::Command` (a hook's shell command put to the run's command gate) could no longer be
+  reached once ADR-129 turned the CLIs' own shells off; it went with the `RunGate.contained` flag it needed.
+- **Path review** (crafted paths meant to slip past the checks), each fixed and tested:
+  - a path under an argument name no driver listed, in a list, as `FILE:///`, or percent-encoded (`%2F..`) in a
+    `file:` URI was not checked: every string of a CLI tool's arguments that names a path is (`named_paths`), and a
+    search pattern that starts outside the folder it searches is refused;
+  - agy's resource tool read any MCP server's resource and any `file:` URI: Agenium's own server only, URIs checked;
+  - a CLI's own tools could write the files of its scratch folder that other programs read as the user's (the folder
+    is their `HOME`): a planted `.gitconfig` ran a command through git. Hidden entries there are refused (agy's
+    `.gemini` excepted), and the git a CLI runs reads no global or system configuration;
+  - a link inside the worktree (`src/auth/l -> ../billing`) took a write out of the ticket's write scope: the scope is
+    checked on where the path really leads too;
+  - a folder of the worktree turned into a link between the check and the write (Agenium's tools run outside the
+    sandbox) took the write outside the worktree, and a hard link carried it to the file's other names: the file is
+    opened first and written only when the open handle is inside the worktree and has no other name (Windows and
+    Linux);
+  - on Windows a Unicode case pair (K and the Kelvin sign) made a twin folder beside the root pass as inside it: names
+    are compared with ASCII case folding only.
+
+Known and left: the Windows job object is attached right after the CLI starts, so a process it starts in that instant
+escapes it; reads follow hard links (a hard link inside the worktree to a file outside can be read, not written);
+macOS has no check of the open handle's path (the write still goes through the path checks).

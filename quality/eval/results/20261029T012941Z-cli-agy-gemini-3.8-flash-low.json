@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ask-first",
+    "passed": true,
+    "closed": true,
+    "detail": "ok (the CLI resumed its session)",
+    "runs": 3,
+    "steps": 20,
+    "tool_errors": 4,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 3
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `ServerName`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `AC-1`, expected `ac_id` or `feedback`",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)"
+    ],
+    "tools": {
+      "ask_question": 1,
+      "cli:read_file": 3,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "read_file": 4,
+      "review_ticket": 3,
+      "submit_report": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Parked",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 243307,
+    "tokens_out": 1708,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 72940
+  }
+]

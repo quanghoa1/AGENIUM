@@ -183,7 +183,8 @@ async fn a_run_that_cannot_go_on_leaves_nothing_open() {
     ] {
         assert!(err.to_string().contains("does not drive devin"), "{err}");
         assert!(open(&app).is_empty(), "the failed run was ended");
-        assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+        // ADR-132: set aside until the user fixes the CLI or gives it another model.
+        assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Offline);
     }
     let rs = app.store().read(|c| runs::for_ticket(c, t.id)).unwrap();
     assert_eq!(rs.len(), 1);
@@ -198,10 +199,10 @@ async fn a_run_that_cannot_go_on_leaves_nothing_open() {
     assert_eq!(p.requests().len(), 0);
 }
 
-/// A planner or Lead inbox run that fails before its loop (here: its CLI cannot run) counts as a failed run: after
-/// MAX_FAILED_RUNS the user is asked once, instead of a failing run every round.
+/// ADR-132: a Lead inbox or planner run whose CLI cannot run sets the agent aside and tells the user at once, instead
+/// of a failing run every round (it failed two rounds, then asked).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn failing_planner_and_inbox_runs_go_to_the_user() {
+async fn a_lead_or_planner_whose_cli_cannot_run_waits_for_the_user() {
     let f = fixture();
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
@@ -224,9 +225,10 @@ async fn failing_planner_and_inbox_runs_go_to_the_user() {
         assert!(rt.tick(project).await.unwrap().is_empty());
     }
     let lead_runs = app.store().read(|c| runs::for_agent(c, lead, 50)).unwrap();
-    assert_eq!(lead_runs.len(), 2, "two failed inbox runs, then none");
+    assert_eq!(lead_runs.len(), 1, "one failed inbox run, then none");
     assert!(lead_runs.iter().all(|r| r.ended_at.is_some()));
-    assert_eq!(needs_user(&app, "could not handle its inbox"), 1);
+    assert_eq!(app.agent(lead).unwrap().status, AgentStatus::Offline);
+    assert_eq!(needs_user(&app, "cannot use devin"), 1);
 
     // The planner (coding template) the same way.
     let project = app
@@ -261,8 +263,9 @@ async fn failing_planner_and_inbox_runs_go_to_the_user() {
         .store()
         .read(|c| runs::for_agent(c, planner, 50))
         .unwrap();
-    assert_eq!(planner_runs.len(), 2, "two failed planner runs, then none");
-    assert_eq!(needs_user(&app, "could not draft plan v1"), 1);
+    assert_eq!(planner_runs.len(), 1, "one failed planner run, then none");
+    assert_eq!(app.agent(planner).unwrap().status, AgentStatus::Offline);
+    assert_eq!(needs_user(&app, "pl-planner cannot use devin"), 1);
     assert_eq!(p.requests().len(), 0);
 }
 

@@ -73,26 +73,9 @@ impl CliRun<'_> {
         } else {
             self.driver.check(payload, cx)
         };
-        let (allow, reason, command) = match check {
-            Check::Allow => (true, String::new(), None),
-            Check::Deny(r) => (false, r, None),
-            // The approval is waited for until the hook's deadline, not longer (the hook gets a deny then anyway), and
-            // not past the run's stop (the user's stop waited for that deadline, minutes).
-            Check::Command(c) => {
-                match tokio::time::timeout(crate::driver::hook_deadline(self.driver), async {
-                    tokio::select! {
-                        d = self.gate.check(&c, &self.cwd) => Some(d),
-                        _ = self.cancel.cancelled() => None,
-                    }
-                })
-                .await
-                {
-                    Ok(Some(GateDecision::Allow)) => (true, String::new(), Some(c)),
-                    Ok(Some(GateDecision::Deny(r))) => (false, r, Some(c)),
-                    Ok(None) => (false, "the run was stopped".to_owned(), Some(c)),
-                    Err(_) => (false, LATE.to_owned(), Some(c)),
-                }
-            }
+        let (allow, reason) = match check {
+            Check::Allow => (true, String::new()),
+            Check::Deny(r) => (false, r),
         };
         if !allow {
             // Logged under the tool's own name, as refused, with the subagent that made the call if one did; the
@@ -104,10 +87,6 @@ impl CliRun<'_> {
                 .find(|(_, (n, i))| *n == name && *i == input)
                 .and_then(|(id, _)| st.labels.get(id))
                 .cloned();
-            let shown = match command {
-                Some(c) => json!({"command": c}),
-                None => input.clone(),
-            };
             let tool = if name.is_empty() {
                 "cli:permission".to_owned()
             } else {
@@ -115,7 +94,7 @@ impl CliRun<'_> {
             };
             self.observer.tool(
                 &tool,
-                &labelled(&shown, label.as_deref()),
+                &labelled(&input, label.as_deref()),
                 &Err(ToolError::new("denied", reason.clone())),
             );
             st.denied.push((tool_key(&name), input));
@@ -272,6 +251,29 @@ impl CliRun<'_> {
             Some(spec) => agenium_tools::coerce::coerce(&spec.parameters, args),
             None => args,
         };
+        // A report while a command of the run still goes on would report work whose result is not known (ADR-133).
+        let going = self.ctx.jobs.awaited_going();
+        if name == "submit_report" && !going.is_empty() {
+            let e = ToolError::new(
+                "commands_running",
+                format!(
+                    "{} still going: end your turn and wait for {} (it comes as a message), then report",
+                    going
+                        .iter()
+                        .map(|(id, c)| format!("job {id} `{c}`"))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    if going.len() == 1 { "its result" } else { "their results" }
+                ),
+            );
+            self.observer
+                .tool(name, &labelled(&args, label), &Err(e.clone()));
+            return CallResult {
+                text: json!({"error": {"code": e.code, "message": e.message}}).to_string(),
+                is_error: true,
+                images: vec![],
+            };
+        }
         let call_id = format!("cli-{}", ulid::Ulid::new());
         let r = self.protocol.call(name, args.clone(), &call_id).await;
         let shown: Result<String, ToolError> = match &r {

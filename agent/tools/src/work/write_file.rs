@@ -38,7 +38,7 @@ impl Tool for WriteFile {
             let cur = std::fs::read(&p).map_err(|e| io_err(&rel, e))?;
             ctx.check_fresh(&p, &cur, &rel)?;
         }
-        write_file(&p, &rel, a.content.as_bytes())?;
+        write_file(&ctx.root, &p, &rel, a.content.as_bytes())?;
         ctx.record_read(&p, a.content.as_bytes());
         Ok(ToolOutput::text(format!(
             "{} {rel} ({} bytes)",

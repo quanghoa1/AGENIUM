@@ -139,6 +139,7 @@ impl CliRun<'_> {
                         env,
                         self.cwd.clone(),
                         tail.clone(),
+                        resume.map(str::to_owned),
                     );
                     let t = tail.clone();
                     tokio::spawn(async move {

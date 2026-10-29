@@ -419,8 +419,9 @@ impl Default for SandboxSection {
 pub struct CliSection {
     /// Wall-clock limit of one CLI run, in minutes.
     pub run_timeout_mins: u32,
-    /// API provider id (`[[providers]] id`) and model a CLI agent uses when its CLI cannot run (missing, too old,
-    /// logged out, no sandbox). Empty: such a run fails with the reason.
+    /// API provider id (`[[providers]] id`) and model that draw a CLI agent's lessons from its runs (memory
+    /// extraction is an API call). Its work never moves to it: a CLI that cannot run sets the agent aside until the
+    /// user fixes it or gives it another model (ADR-132). Empty: a CLI agent's runs leave no lessons.
     pub fallback_provider: String,
     pub fallback_model: String,
 }

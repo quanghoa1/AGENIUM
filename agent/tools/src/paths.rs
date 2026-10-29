@@ -26,8 +26,10 @@ fn key(p: &Path) -> String {
         .trim_start_matches("//?/")
         .trim_end_matches('/')
         .to_owned();
+    // ASCII only: NTFS treats a Unicode case pair such as K and the Kelvin sign as two names, which a full lowercase
+    // made one, letting a path in a twin folder beside the root pass as inside it.
     if cfg!(windows) {
-        s.to_lowercase()
+        s.to_ascii_lowercase()
     } else {
         s
     }
@@ -257,6 +259,22 @@ pub fn display(root: &Path, p: &Path) -> String {
         .unwrap_or(p)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+/// Where `p` really leads, relative to the worktree (forward slashes, its case kept): the canonical form of its deepest
+/// existing ancestor against the canonical worktree; `None` outside it. A write scope is checked on it too: a link
+/// `src/auth/l -> ../billing` took a write to `src/auth/l/x.rs` into `src/billing` (path review of 2026-10-29).
+pub fn real_display(root: &Path, p: &Path) -> Option<String> {
+    let canon_root = resolve_existing(root)?;
+    let real = resolve_existing(p)?;
+    if !within(&real, &canon_root) {
+        return None;
+    }
+    let rel: PathBuf = real
+        .components()
+        .skip(canon_root.components().count())
+        .collect();
+    Some(rel.to_string_lossy().replace('\\', "/"))
 }
 
 #[cfg(test)]

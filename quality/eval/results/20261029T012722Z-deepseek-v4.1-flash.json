@@ -1,0 +1,44 @@
+[
+  {
+    "id": "quota-mid-work-team",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 12,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "lead:review/close_ticket": 1,
+      "lead:review/grep": 2,
+      "lead:review/list_dir": 1,
+      "lead:review/read_file": 1,
+      "lead:review/review_ticket": 1,
+      "worker-a:work/apply_patch": 1,
+      "worker-a:work/cli:ToolSearch": 1,
+      "worker-a:work/grep": 3,
+      "worker-a:work/list_dir": 1,
+      "worker-a:work/read_file": 3,
+      "worker-a:work/submit_report": 1
+    },
+    "outcomes": [
+      "work:worker-a:AGN-1:QuotaExhausted",
+      "work:worker-a:AGN-1:Completed",
+      "review:lead:AGN-1:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 99980,
+    "tokens_out": 2041,
+    "tokens_cached": 83197,
+    "cost_usd": 0.0,
+    "elapsed_ms": 33516,
+    "discipline": {
+      "quota_stopped": true,
+      "taker": "worker-a",
+      "taker_on": "claude haiku",
+      "user_told": true,
+      "work_left_in_worktree": true
+    }
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "quota-mid-work-same",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 15,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "solo:review/close_ticket": 1,
+      "solo:review/grep": 1,
+      "solo:review/read_file": 3,
+      "solo:review/review_ticket": 1,
+      "solo:work/apply_patch": 1,
+      "solo:work/grep": 2,
+      "solo:work/list_dir": 1,
+      "solo:work/read_file": 6,
+      "solo:work/submit_report": 1
+    },
+    "outcomes": [
+      "work:solo:AGN-1:QuotaExhausted",
+      "work:solo:AGN-1:Completed",
+      "review:solo:AGN-1:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 144171,
+    "tokens_out": 1083,
+    "tokens_cached": 111232,
+    "cost_usd": 0.0,
+    "elapsed_ms": 34214,
+    "discipline": {
+      "quota_stopped": true,
+      "taker": "solo",
+      "taker_on": "codex gpt-6-luna",
+      "user_told": true,
+      "work_left_in_worktree": true
+    }
+  }
+]

@@ -98,10 +98,15 @@ root:
   own key and only the admin could delete; no key in any log. An own key pasted bare now keeps `Bearer ` (ADR-62).
   Settings describe the three command modes at once, with what each does on this computer.
 - **The stop and a used-up quota, end to end** (2026-10-29, ADR-131): the stop ends a running command at once; a worker
-  out of quota mid-ticket keeps its work, a new model frees it in one step, and in a team the Lead hands its ticket
-  on: real runs with the work taken over by DeepSeek, Claude Code and Codex all finished it without redoing it. The
-  CLI backend reviewed again and fixed (ADR-56): an unquoted Claude hook path, CLIs giving up on long tool calls,
-  a dead OpenCode server waited for 45 minutes, and more.
+  out of quota mid-ticket keeps its work, and a new model frees it in one step. The CLI backend reviewed again and
+  fixed (ADR-56): an unquoted Claude hook path, CLIs giving up on long tool calls, a dead OpenCode server waited for
+  45 minutes, and more.
+- **The agent stays, only its model changes** (2026-10-29, ADR-132 to ADR-134): no automatic move to an API model,
+  a Resume button wherever an agent is set aside, the ticket kept with its agent (quota runs in Solo and team went on
+  with DeepSeek, Claude Code and Codex as the new model); long commands as jobs the run waits for (an 80-second check
+  on all five CLIs); every CLI resumes its own session of a ticket (all five, checked by a code word the second run
+  knew without reading it again); logins kept in step across runs on one account; a review of crafted paths with
+  seven fixes; the dead `Check::Command` removed; two files split under the size ratchet.
 
 | Release item | Status | Evidence |
 |---|---|---|
@@ -189,7 +194,7 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs`, `tests/server.rs` |
 | Limits / mandatory report from the event stream | DONE | `tests/stream_run.rs` |
 | Golden tasks through a CLI | **codex gpt-6-luna 5/5**, **agy gemini-3.8-flash-low 5/5**, **claude haiku 5/5** | `quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`, `20261024T060626Z-cli-agy-gemini-3.8-flash-low.json` |
-| API fallback when the CLI cannot run | DONE (`[cli] fallback_provider/fallback_model`) | `orchestrator/tests/runtime.rs::cli_agent_falls_back_to_the_api_when_configured` |
+| ~~API fallback when the CLI cannot run~~ | WITHDRAWN (ADR-132): the agent is set aside for the user, who resumes it; `[cli] fallback_provider/fallback_model` only draws CLI agents' lessons | `orchestrator/tests/runtime/team.rs::a_cli_agent_whose_cli_cannot_run_waits_for_the_user` |
 | Contract per minimum version | DONE (stream parsing tested on lines captured from codex 0.163.0 / agy 1.4.4; older = not used) | `codex.rs`, `agy.rs` tests |
 | claude driver | DONE (hook control, per-run `CLAUDE_CONFIG_DIR`) | `agent/cli-backend/src/claude.rs`, `quality/eval/results/20261024T065834Z-cli-claude-haiku.json` |
 | opencode driver (OpenCode's free models) | DONE: `opencode serve` driven through its HTTP API, every permission decided by Agenium; **5/5** golden tasks with `deepseek-v4.1-flash-free` | [ADR-68](adr/ADR-68-opencode-cli-free-models.md), `quality/eval/results/20261025T050257Z-cli-opencode-deepseek-v4.1-flash-free.json` |

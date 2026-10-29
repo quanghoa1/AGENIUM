@@ -1,14 +1,21 @@
-//! A team project: CLI fallback, tool calling required, the Lead's inbox, the planner, the chat learned.
+//! A team project: a CLI that cannot run, tool calling required, the Lead's inbox, the planner, the chat learned.
 
 use super::*;
 
-/// ADR-30 / ADR-56: a CLI agent whose CLI cannot run fails with the reason, or uses the configured API fallback.
+/// ADR-132: a CLI agent whose CLI cannot run waits for the user with the reason (set aside, told in Needs you); its work
+/// never moves to another model by itself, not even to the API model `[cli]` names for CLI agents' memory. The user
+/// gives it another model and it works again.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn cli_agent_falls_back_to_the_api_when_configured() {
+async fn a_cli_agent_whose_cli_cannot_run_waits_for_the_user() {
     let f = fixture();
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
     let (project, agent) = solo(&app);
+    app.update_config(|c| {
+        c.cli.fallback_provider = "mock".into();
+        c.cli.fallback_model = "memory-model".into();
+    })
+    .unwrap();
     // devin is known but not driven by Agenium (ADR-56).
     let cli_model = ModelBinding {
         provider: "devin".into(),
@@ -20,25 +27,29 @@ async fn cli_agent_falls_back_to_the_api_when_configured() {
         .unwrap();
     let err = rt.chat(project, "hello").await.unwrap_err().to_string();
     assert!(err.contains("does not drive devin"), "{err}");
-    assert_eq!(p.requests().len(), 0);
+    assert_eq!(p.requests().len(), 0, "no other model takes the work");
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Offline);
+    let told = app
+        .store()
+        .read(|c| events::recent_of_kind(c, "NeedsUser", 5))
+        .unwrap();
+    assert!(
+        told.iter().any(|e| e.payload["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("cannot use devin")),
+        "{told:?}"
+    );
 
-    app.update_config(|c| {
-        c.cli.fallback_provider = "mock".into();
-        c.cli.fallback_model = "fallback-model".into();
-    })
-    .unwrap();
+    // The user gives it another model: it works again at once.
+    let mut api = cli_model.clone();
+    api.provider = "mock".into();
+    app.set_agent_backend(agent, BackendKind::Api, &api)
+        .unwrap();
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
     p.push_text("hi from the API");
     let r = rt.chat(project, "hello").await.unwrap();
     assert!(r.text.contains("hi from the API"), "{}", r.text);
-    let req = &p.requests()[0];
-    assert_eq!(req.model, "fallback-model");
-    let system: String = req.system.iter().map(|b| b.text.clone()).collect();
-    assert!(
-        system.contains("this run uses the API fallback mock/fallback-model"),
-        "the run states why it is not on the CLI"
-    );
-    // The agent stays a CLI agent.
-    assert_eq!(app.agent(agent).unwrap().backend, BackendKind::Cli);
 }
 
 /// ADR-31: a model known not to call tools is refused before any request; hand-set flags win over the endpoint.

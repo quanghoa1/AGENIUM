@@ -23,7 +23,10 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Per-run home, YOLO inside Agenium, permission hook decides every tool call; MCP server for protocol tools | `stream_run.rs::agenium_decides_every_tool_call...` | golden tasks: codex, agy, claude, opencode, grok (results/) |
 | Mandatory report: text-only turns nudged, then NoProgress; loop and step limits | `text_only_turns_are_nudged_then_stopped`, `repeated_step_is_a_loop`, `step_limit_stops_with_a_checkpoint` | — |
 | Messaging a running CLI Lead (ADR-110) | `the_user_messages_a_running_cli_lead` | Claude Haiku, Grok, Codex (`cli_steer`), runtime on Claude and Grok (`cli_lead_steer`) |
-| API fallback when the CLI cannot run | `runtime.rs::cli_agent_falls_back_to_the_api_when_configured` | — |
+| A CLI that cannot run sets its agent aside for the user, never moves the work to another model (ADR-132) | `team.rs::a_cli_agent_whose_cli_cannot_run_waits_for_the_user`, `failures.rs::a_lead_or_planner_whose_cli_cannot_run_waits_for_the_user` | — |
+| A long command goes on as a job the run waits for; its end comes as a message (ADR-133) | `tools.rs::a_cli_runs_long_commands_as_jobs_it_is_told_the_end_of`, `stream_run.rs::a_long_command_goes_on_as_a_job_and_its_end_comes_as_a_message` | `--task slow-check` on all five CLIs (2026-10-29) |
+| A ticket's CLI session is kept and resumed across its runs; logins kept in step across runs (ADR-134) | `session.rs::a_session_is_kept_without_the_login_and_resumed_only_whole`, `driver.rs::logins_stay_the_same_across_runs_and_the_users_cli` | `--task ask-first` on all five CLIs (2026-10-29) |
+| Crafted paths: every path a CLI tool names, links out of the scope or the worktree, hard links, dotfiles of the scratch home (path review, ADR-56) | `driver.rs::every_argument_that_names_a_file_is_read`, `the_scratch_folder_keeps_no_dotfiles_but_the_cli_state`, `tools.rs::a_link_does_not_take_a_write_out_of_the_scope`, `a_hard_link_out_of_the_worktree_is_not_written` | — |
 | A CLI that runs commands on the host (Claude, Grok, agy, OpenCode) also gets Agenium's sandboxed `shell` (ADR-116) | `run.rs::a_hooked_cli_is_told_to_run_commands_through_agenium_s_shell` | mixed team run 2026-10-27: agy ran 9 commands through it, the Claude Lead ran the code before approving (before the change both were refused) |
 | The planner drafts plan v1 before the Lead creates the plan (ADR-116) | `team.rs::planner_drafts_and_the_lead_creates_the_plan` | — |
 | Tool caches and installed packages never reach a commit (ADR-116) | `vcs.rs::generated_files_stay_out_of_commits` | — |
@@ -76,7 +79,10 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Two agents, one MCP server, two keys (`--mcp-keys`, ADR-62): the server's system key is a member's, one worker's own key an admin's (pasted bare) | PASS with the workers on DeepSeek over the API (`20261028T180403Z`), on Claude Code Haiku (`20261028T180508Z`) and on Codex gpt-6-luna (`20261028T180553Z`), the Lead on DeepSeek: the server saw each key only from its own agent; `whoami` said admin and member; the admin's delete went through, the member's was refused and reported; no request without a known key; no key in a run log, a ticket, an event or a file |
 | UI (`ui-tests/full.mjs`) | 58/58: Settings describe every command mode at once with what it does on this computer now; choosing one says so at once |
 | A command of 80 s through Agenium's shell on every CLI (`--task slow-check`, opt-in) | codex, grok, agy, opencode PASS; Claude Code FAIL (it stopped waiting for the tool: its report said "the run's stdout was lost to the shell timeout", another run started the check twice and asked) → PASS once given its server `timeout` (failed `20261028T185807Z`, passed `20261028T191401Z`) |
-| Quota used up in the middle of a ticket (`--quota same\|team`, ADR-131) | **same**: a Solo DeepSeek agent stopped by "insufficient_quota" right after changing the three files; the user told; given another model it went on from its conversation and finished, merged and closed — DeepSeek again (`20261028T192148Z`) or Claude Code Haiku (`20261028T192228Z`). **team**: worker-a stopped the same way; the Lead (DeepSeek), told in its inbox, handed the ticket to worker-b, which checked the files worker-a had changed, ran the checks and reported without redoing them — worker-b on DeepSeek (`20261028T192357Z`) or Codex gpt-6-luna (`20261028T192506Z`) |
+| Quota used up in the middle of a ticket (`--quota same\|team`, ADR-131; first version, with the Lead handing the ticket on, withdrawn by ADR-132) | **same**: a Solo DeepSeek agent stopped by "insufficient_quota" right after changing the three files; the user told; given another model it went on from its conversation and finished, merged and closed — DeepSeek again (`20261028T192148Z`) or Claude Code Haiku (`20261028T192228Z`). **team**: worker-a stopped the same way; the Lead (DeepSeek), told in its inbox, handed the ticket to worker-b, which checked the files worker-a had changed, ran the checks and reported without redoing them — worker-b on DeepSeek (`20261028T192357Z`) or Codex gpt-6-luna (`20261028T192506Z`) |
+| Long commands as awaited jobs (ADR-133): `--task slow-check` again | PASS on Claude Code Haiku (`20261029T011509Z`), Codex gpt-6-luna (`20261029T011508Z`), Grok 4.7 (`20261029T011519Z`), agy Gemini 3.8 Flash (`20261029T011554Z`) and OpenCode DeepSeek v4.1 Flash (`20261029T011520Z`): the `shell` call answered after 45 s that the check goes on as job 1; the check ran once. With the run log (`20261029T011955Z`, `20261029T011951Z`): Claude and Codex then read its end with `shell_output` |
+| A ticket's CLI session resumed across its runs (ADR-134): `--task ask-first`, opt-in (read a code word, ask where to write it without saying it, be answered) | PASS with the session resumed on Claude Code (`20261029T013101Z`), Codex (`20261029T013058Z`), Grok (`20261029T013133Z`), agy (`20261029T013145Z`) and OpenCode (`20261029T013352Z`): each second run wrote the code word without reading the file again. Codex first could not resume ("no rollout found for thread id": its database held the old home's path; `20261029T012132Z`, `20261029T012346Z`) → PASS once its databases were left out (`20261029T012513Z`). No file of OpenCode's kept session held the provider key (scanned during `20261029T013513Z`) |
+| Quota used up mid-ticket, the agent kept (ADR-132) | PASS: **same** — the Solo agent, given DeepSeek again (`20261029T012733Z`) or Codex gpt-6-luna (`20261029T012723Z`), went on from its conversation; **team** — worker-a kept the ticket while worker-b was free, and went on with DeepSeek again (`20261029T012728Z`) or Claude Code Haiku (`20261029T012722Z`), the Lead (DeepSeek) reviewing; the user told each time, the work so far left in the worktree |
 | The user's stop during a 120-second command | the command ends within the stop's 100 ms poll, the run ends cancelled in about 3 s with no further model call (API run and CLI run tests) |
 
 Found and fixed:
@@ -87,10 +93,21 @@ Found and fixed:
   them. All three are described at once in plain words, with what the mode does on this computer right now.
 - **The stop waited for a running command or approval** (up to 10 or 30 minutes), and a worker out of quota left its
   tickets stuck (a new model did not free it; the Lead was not told of a begun ticket and could not move it): ADR-131.
+- **The work moved to an API model by itself** when a CLI could not run, and a worker out of quota had its ticket
+  handed to another agent without its conversation: the agent is now set aside for the user, who gives it another
+  model and resumes it (ADR-132).
+- **A CLI waited for a long command only as long as its own tool wait** (agy and OpenCode have no setting): ADR-133.
+- **Each run of a ticket started a new CLI session**, and two runs on one CLI account could use one refresh token
+  twice: ADR-134. Codex could not resume a kept session until its databases were left out of it.
 - **The CLI backend reviewed again** (an independent read of the crate, then the slow-command task): Claude Code's
   unquoted hook path (tools ran without Agenium's decision under a path with a space), CLIs giving up on long tool
   calls, a dead OpenCode server waited for 45 minutes, a reader ended by one non-UTF-8 line, an MCP server that
   stopped accepting after one error, login hand-backs that could collide or be written halfway: ADR-56.
+- **Crafted paths** (a separate review): paths under unlisted argument names, in lists, as `FILE:///` or
+  percent-encoded URIs, search patterns that start outside, agy reading another server's resources, dotfiles of the
+  CLI's scratch home read by git as the user's, links taking writes out of the write scope or the worktree, hard
+  links, and a Unicode case pair on Windows: each fixed with a test (ADR-56, "Then, the same day"). The dead
+  `Check::Command` went with it.
 
 ## Runs of 2026-10-28 on the current code
 

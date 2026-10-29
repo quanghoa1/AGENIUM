@@ -184,7 +184,6 @@ running without one)"
         program: PathBuf,
         kind: RunKind,
         ctx: &ToolCtx,
-        gate: Arc<RunGate>,
         protocol: &RunProtocol,
         protocol_specs: Vec<ToolSpec>,
         tools: Vec<Arc<dyn Tool>>,
@@ -197,6 +196,19 @@ running without one)"
         let name = agent.model.provider.as_str();
         let cfg = self.app.config();
         let rt = cfg.runtime;
+        // A work run keeps the CLI's session of its ticket for the ticket's next run, which resumes it with what is new
+        // (ADR-134); a fresh start (one message) resumes nothing.
+        let session = match (kind, &protocol.ticket) {
+            (RunKind::Work, Some(t)) => {
+                let kept = self.app.layout().agent_dir(&agent.id).join("cli-sessions");
+                agenium_cli_backend::run::SessionStore::sweep(&kept);
+                Some(agenium_cli_backend::run::SessionStore {
+                    dir: kept.join(t.to_string()),
+                    held: order.messages.len().saturating_sub(1),
+                })
+            }
+            _ => None,
+        };
         let r = CliRun {
             driver,
             program,
@@ -209,7 +221,7 @@ running without one)"
             protocol_specs,
             tools,
             ctx,
-            gate,
+            session,
             observer,
             cancel,
             limits: Limits {

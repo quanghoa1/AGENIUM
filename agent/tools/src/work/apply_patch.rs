@@ -91,14 +91,14 @@ begin with ' ' (context), '-' (remove) or '+' (add); end with '*** End Patch'."
             .collect();
         for (p, rel, content) in &writes {
             let r = match content {
-                Some(c) => write_file(p, rel, c.as_bytes()),
+                Some(c) => write_file(&ctx.root, p, rel, c.as_bytes()),
                 None => std::fs::remove_file(p).map_err(|e| io_err(rel, e)),
             };
             if let Err(e) = r {
                 for (op, orig) in &originals {
                     match orig {
                         Some(b) => {
-                            let _ = std::fs::write(op, b);
+                            let _ = write_file(&ctx.root, op, "", b);
                         }
                         None => {
                             let _ = std::fs::remove_file(op);

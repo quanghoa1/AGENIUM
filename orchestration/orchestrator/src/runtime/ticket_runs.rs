@@ -59,7 +59,7 @@ impl Runtime {
         } else {
             (vec![], None, None)
         };
-        // Who worked on the ticket before this agent (handed over when it ran out of quota or was reassigned): their
+        // Who worked on the ticket before this agent (reassigned by the Lead or the user): their
         // conversation is theirs, their changes are in the worktree.
         let mut before: Vec<String> = Vec::new();
         for r in self.app.store().read(|c| runs::for_ticket(c, t.id))? {

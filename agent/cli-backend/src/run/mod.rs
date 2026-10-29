@@ -19,7 +19,7 @@ use agenium_mcp::server::{Server, ToolHost};
 use agenium_mcp::{CallResult, ToolInfo};
 use agenium_sandbox::service::{spawn_contained, Contained};
 use agenium_sandbox::TreeGuard;
-use agenium_tools::{CommandGate, GateDecision, Tool, ToolCtx, ToolError};
+use agenium_tools::{Tool, ToolCtx, ToolError};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -29,6 +29,7 @@ use crate::driver::{Check, CheckCtx, Control, Driver, Event, Setup, Turns};
 
 mod process;
 mod prompt;
+mod session;
 mod turns;
 
 use bridge::{Bridge, Call};
@@ -36,6 +37,7 @@ pub(crate) use process::keep_tail;
 use process::Proc;
 use prompt::steered_mark;
 pub use prompt::{isolated_home, render};
+pub use session::SessionStore;
 mod bridge;
 
 /// Name of Agenium's MCP server as the CLI sees it.
@@ -47,6 +49,8 @@ const EXIT_GRACE: Duration = Duration::from_secs(15);
 const STDERR_TAIL: usize = 16 * 1024;
 /// The per-run homes in the temp folder.
 const HOME_PREFIX: &str = "agenium-cli-home-";
+/// How often a run's copy of its CLI's login and the user's file are made the same.
+const LOGIN_SYNC: Duration = Duration::from_secs(5);
 /// A per-run home this old belongs to no run (a run lasts 45 minutes at most): one Agenium did not remove because it
 /// stopped with the run (a crash, a killed process).
 const HOME_STALE: Duration = Duration::from_secs(24 * 3600);
@@ -125,8 +129,8 @@ pub struct CliRun<'a> {
     pub tools: Vec<Arc<dyn Tool>>,
     /// The run's tool context; its sandbox policy is the base of the CLI's (`Control::Sandbox`).
     pub ctx: &'a ToolCtx,
-    /// Decides the shell commands of a `Control::Hook` CLI (allowlist, the user's approval, sandbox policy).
-    pub gate: Arc<dyn CommandGate>,
+    /// Where the ticket's CLI session is kept between runs (a work run's; ADR-134).
+    pub session: Option<SessionStore>,
     pub observer: &'a dyn Observer,
     pub cancel: Cancel,
     pub limits: Limits,
@@ -167,6 +171,8 @@ struct State {
     /// Tool steps by id (results of some CLIs only carry the id).
     started: std::collections::HashMap<String, (String, Value)>,
     session: Option<String>,
+    /// The run goes on in the CLI's session of an earlier run (ADR-134).
+    resumed: bool,
     effect: Option<Effect>,
     ended_at: Option<Instant>,
     stop: Option<Stop>,
@@ -365,6 +371,20 @@ impl CliRun<'_> {
             subagents: self.subagents,
             model: &self.model,
         };
+        // The ticket's CLI session of an earlier run comes back first; the run's own files are written over it.
+        let cli = self.label.split(':').next().unwrap_or_default().to_owned();
+        if let Some(id) = self
+            .session
+            .as_ref()
+            .and_then(|s| s.restore(home.path(), self.driver, &cli))
+        {
+            self.observer.control(
+                "resume",
+                &format!("the CLI's session of the ticket's earlier run goes on ({id})"),
+            );
+            st.session = Some(id);
+            st.resumed = true;
+        }
         let home_env = self
             .driver
             .prepare(&setup)
@@ -372,11 +392,27 @@ impl CliRun<'_> {
         let mut env = self.env.clone();
         env.extend(isolated_home(home.path(), home_env));
 
-        let outcome = self
-            .converse(order, st, &env, home.path(), &mut calls)
-            .await;
+        // The run's login and the user's stay the same while it goes on (`Driver::finish`, every few seconds): a
+        // login refreshed in one run reaches the others before they need it (ADR-56).
+        let sync = async {
+            loop {
+                tokio::time::sleep(LOGIN_SYNC).await;
+                if let Err(e) = self.driver.finish(&setup) {
+                    tracing::warn!(error = %e, "CLI login sync failed");
+                }
+            }
+        };
+        let outcome = tokio::select! {
+            o = self.converse(order, st, &env, home.path(), &mut calls) => o,
+            never = sync => never,
+        };
         if let Err(e) = self.driver.finish(&setup) {
             tracing::warn!(error = %e, "CLI run cleanup failed");
+        }
+        // Kept for the ticket's next run, which resumes the session (ADR-134).
+        if let Some(s) = &self.session {
+            let total = order.messages.len() + st.messages.len();
+            s.keep(home.path(), self.driver, &cli, st.session.as_deref(), total);
         }
         drop(server);
         Ok(outcome)

@@ -81,6 +81,15 @@ pub(crate) fn file_access(p: &Path, cx: &CheckCtx, protected: &[PathBuf]) -> Res
         ));
     }
     if inside(p, cx.worktree, cx.home) {
+        let first = first_under(&normalize(p, cx.worktree), &normalize(cx.home, cx.worktree));
+        if let Some(f) = first.filter(|f| {
+            f.starts_with('.') && !HOME_DOT_DIRS.iter().any(|d| d.eq_ignore_ascii_case(f))
+        }) {
+            return Err(format!(
+                "{f} in your scratch folder is a file other programs read as the user's own (the folder is their \
+                 home): keep your notes in a folder of it such as notes/"
+            ));
+        }
         return Ok(());
     }
     if inside(p, cx.worktree, cx.worktree) {
@@ -91,6 +100,158 @@ pub(crate) fn file_access(p: &Path, cx: &CheckCtx, protected: &[PathBuf]) -> Res
         ));
     }
     Err(format!("{} is outside the ticket worktree", p.display()))
+}
+
+/// What the arguments of a CLI's own tool call name on the disk (ADR-129; path review of 2026-10-29): every string of
+/// any argument, nested values and lists included, that a path key holds or that looks like a path (absolute, a drive
+/// or a share, a separator, a `file:` URI of any case, percent-decoded). A search pattern that would start outside the
+/// folder it searches is an `Err`. The text a call carries (`content` and the like) is not read. Only a few known keys
+/// were: a path under another name, in a list, or as `FILE:///` or `file:///…%2F..` went unchecked.
+pub(crate) fn named_paths(args: &Value) -> Result<Vec<String>, String> {
+    fn walk(key: &str, v: &Value, out: &mut Vec<String>) -> Result<(), String> {
+        match v {
+            Value::Object(m) => m
+                .iter()
+                .try_for_each(|(k, x)| walk(&k.to_ascii_lowercase(), x, out)),
+            Value::Array(a) => a.iter().try_for_each(|x| walk(key, x, out)),
+            Value::String(_) if CONTENT_KEYS.iter().any(|c| key.ends_with(c)) => Ok(()),
+            Value::String(s) if PATTERN_KEYS.iter().any(|p| key.ends_with(p)) => {
+                if pattern_escapes(s) {
+                    Err(format!(
+                        "the pattern {s} reaches outside the folder searched: give one relative to it"
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            Value::String(s) => {
+                if let Some(p) = file_uri(s) {
+                    out.push(p);
+                } else if !s.contains("://") && (is_path_key(key) || looks_like_path(s)) {
+                    out.push(s.clone());
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+    let mut out = Vec::new();
+    walk("", args, &mut out)?;
+    Ok(out)
+}
+
+/// Argument names (lowercase endings) that hold the text a call carries, not a path.
+const CONTENT_KEYS: [&str; 14] = [
+    "content",
+    "contents",
+    "text",
+    "string",
+    "str",
+    "instruction",
+    "description",
+    "query",
+    "message",
+    "summary",
+    "explanation",
+    "prompt",
+    "title",
+    "source",
+];
+/// Argument names (lowercase endings) that hold a search pattern (a glob, or a regex for some tools).
+const PATTERN_KEYS: [&str; 5] = ["pattern", "includes", "excludes", "glob", "regex"];
+
+/// Argument names (lowercase endings) that hold a path whatever it looks like (a bare file name too).
+fn is_path_key(k: &str) -> bool {
+    [
+        "path",
+        "paths",
+        "file",
+        "files",
+        "directory",
+        "directories",
+        "dir",
+        "dirs",
+        "cwd",
+        "uri",
+        "folder",
+        "folders",
+        "root",
+    ]
+    .iter()
+    .any(|s| k.ends_with(s))
+}
+
+fn looks_like_path(s: &str) -> bool {
+    let b = s.as_bytes();
+    s.starts_with(['/', '\\', '~'])
+        || (b.len() >= 2 && b[1] == b':' && b[0].is_ascii_alphabetic())
+        || s.contains(['/', '\\'])
+}
+
+/// A search pattern that starts outside the folder searched: absolute, from a drive, a share or `~`, or with a `..`
+/// step.
+pub(crate) fn pattern_escapes(s: &str) -> bool {
+    let b = s.as_bytes();
+    s.starts_with(['/', '\\', '~'])
+        || (b.len() >= 2 && b[1] == b':' && b[0].is_ascii_alphabetic())
+        || s.split(['/', '\\']).any(|seg| seg == "..")
+}
+
+/// The path of a `file:` URI, any case, percent-decoded (`file:///C:/x`, `FILE://localhost/x`).
+fn file_uri(s: &str) -> Option<String> {
+    s.get(..5).filter(|h| h.eq_ignore_ascii_case("file:"))?;
+    let mut p = &s[5..];
+    if let Some(r) = p.strip_prefix("//") {
+        p = r.find('/').map_or(r, |i| &r[i..]);
+    }
+    // `/C:/x` names `C:/x`.
+    let b = p.as_bytes();
+    if b.len() >= 3 && b[0] == b'/' && b[2] == b':' && b[1].is_ascii_alphabetic() {
+        p = &p[1..];
+    }
+    let mut bytes = Vec::with_capacity(p.len());
+    let raw = p.as_bytes();
+    let mut i = 0;
+    while i < raw.len() {
+        let hex = |c: u8| (c as char).to_digit(16);
+        match (
+            raw[i],
+            raw.get(i + 1).and_then(|c| hex(*c)),
+            raw.get(i + 2).and_then(|c| hex(*c)),
+        ) {
+            (b'%', Some(h), Some(l)) => {
+                bytes.push((h * 16 + l) as u8);
+                i += 3;
+            }
+            (c, ..) => {
+                bytes.push(c);
+                i += 1;
+            }
+        }
+    }
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Hidden entries of the per-run home a CLI's own tools may use: agy keeps its task notes in `.gemini`. Any other
+/// (`.gitconfig`, `.npmrc`, `.ssh`, `.config`) is read by other programs as the user's own, the home being their
+/// `HOME`: one a model planted could run commands outside every gate (git's `core.fsmonitor`).
+const HOME_DOT_DIRS: [&str; 1] = [".gemini"];
+
+/// The first component of `p` below `root` (both normalised), compared without case as on Windows.
+fn first_under(p: &Path, root: &Path) -> Option<String> {
+    let mut pc = p.components();
+    for rc in root.components() {
+        let a = pc.next()?;
+        if !a
+            .as_os_str()
+            .to_string_lossy()
+            .eq_ignore_ascii_case(&rc.as_os_str().to_string_lossy())
+        {
+            return None;
+        }
+    }
+    pc.next()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
 }
 
 /// A TOML basic string (JSON string escaping is valid TOML).
@@ -131,13 +292,12 @@ pub(crate) fn hook_call(payload: &Value) -> (String, Value) {
     (name.as_str().unwrap_or("").to_owned(), input)
 }
 
-/// What Agenium decides about one tool call of a `Control::Hook` CLI.
+/// What Agenium decides about one tool call of a `Control::Hook` CLI. A CLI's own shell commands are refused, not put
+/// to a command gate (ADR-129: commands run through Agenium's `shell`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Check {
     Allow,
     Deny(String),
-    /// A shell command: the run's command gate decides.
-    Command(String),
 }
 
 /// How Agenium keeps control of what the CLI does while the CLI runs in its own YOLO mode.
@@ -216,9 +376,24 @@ pub trait Driver: Send + Sync {
     fn served(&self) -> bool {
         false
     }
-    /// Called after the run (the process has ended): e.g. hand a refreshed login back to the user's CLI.
+    /// Called every few seconds while the run goes on and once after it: keeps the run's copy of the login and the
+    /// user's the same (`sync_login`).
     fn finish(&self, _setup: &Setup) -> std::io::Result<()> {
         Ok(())
+    }
+    /// The CLI resumes a session of an earlier run from its id (`args(.., resume, ..)`) once that run's home is back
+    /// (ADR-134): the same ticket goes on in the CLI's own session, not in a new one shown the conversation so far.
+    fn resumes_across_runs(&self) -> bool {
+        false
+    }
+    /// The login file the per-run home holds (a copy of the user's), never kept with a session.
+    fn login_file(&self) -> Option<&'static str> {
+        None
+    }
+    /// Whether an entry at the top of the per-run home is left out of a kept session: one that holds the home's own
+    /// path, which the next run's home does not have.
+    fn not_kept(&self, _name: &str) -> bool {
+        false
     }
     /// Folders the CLI must read inside the sandbox besides the toolchains (its installation).
     fn read_roots(&self, _program: &Path) -> Vec<PathBuf> {
@@ -293,39 +468,53 @@ pub(crate) fn probe_dir(scratch: &Path, legacy: &str) -> Result<tempfile::TempDi
         .map_err(|e| e.to_string())
 }
 
-/// After the run: when the CLI refreshed its login inside the per-run home, the new login goes back to the user's
-/// file so their own CLI stays logged in (refresh tokens are single-use) — only when the user's file did not change
-/// meanwhile (then theirs wins).
-pub fn hand_back_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
+/// Keeps a run's copy of a login and the user's file the same, while the run goes on and after it (one CLI account in
+/// several runs at once, ADR-56). A login the CLI refreshed in the run's home goes to the user's file at once: it went
+/// at the run's end, while a run started meanwhile held the old refresh token, which is single-use, and failed. A login
+/// refreshed elsewhere (another run, the user's own CLI) comes into the copy while the run has not refreshed its own.
+/// Changed on both sides, the user's wins; one that does not parse (written halfway) moves nowhere.
+pub fn sync_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
     let (Ok(now), Ok(before)) = (std::fs::read(home_file), std::fs::read(original(home_file)))
     else {
         return Ok(());
     };
-    if now == before || now.is_empty() {
-        return Ok(());
-    }
-    if std::fs::read(user_file)? != before {
-        tracing::warn!(
-            file = %user_file.display(),
-            "login changed both inside and outside the run; keeping the user's"
-        );
-        return Ok(());
-    }
-    // A login the CLI was stopped while writing would log the user's own CLI out.
+    let user = std::fs::read(user_file)?;
+    // A login the CLI was stopped while writing would log the other side out.
     let json = |b: &[u8]| serde_json::from_slice::<Value>(b).is_ok();
-    if json(&before) && !json(&now) {
-        tracing::warn!(
-            file = %user_file.display(),
-            "the refreshed login is not whole; keeping the user's"
-        );
-        return Ok(());
+    let whole = |b: &[u8]| !b.is_empty() && (!json(&before) || json(b));
+    if now != before {
+        if user != before {
+            tracing::warn!(
+                file = %user_file.display(),
+                "login changed both inside and outside the run; keeping the user's"
+            );
+            // Settled: the next sync brings the user's into the copy.
+            return replace(&original(home_file), &now);
+        }
+        if !whole(&now) {
+            tracing::warn!(
+                file = %user_file.display(),
+                "the refreshed login is not whole; keeping the user's"
+            );
+            return Ok(());
+        }
+        replace(user_file, &now)?;
+        return replace(&original(home_file), &now);
     }
-    // A temporary file of its own, renamed over the user's at once: two runs ending together wrote the same one.
+    if user != before && whole(&user) {
+        replace(home_file, &user)?;
+        replace(&original(home_file), &user)?;
+    }
+    Ok(())
+}
+
+/// Replaces `p` with `content` at once: a temporary file of its own renamed over it (two runs writing the same
+/// temporary name collided).
+fn replace(p: &Path, content: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
-    let mut tmp =
-        tempfile::NamedTempFile::new_in(user_file.parent().unwrap_or_else(|| Path::new(".")))?;
-    tmp.write_all(&now)?;
-    tmp.persist(user_file).map(|_| ()).map_err(|e| e.error)
+    let mut tmp = tempfile::NamedTempFile::new_in(p.parent().unwrap_or_else(|| Path::new(".")))?;
+    tmp.write_all(content)?;
+    tmp.persist(p).map(|_| ()).map_err(|e| e.error)
 }
 
 /// Lexically normalised absolute path (no `.`/`..`), relative paths taken from `base`.
@@ -358,6 +547,7 @@ pub fn inside(p: &Path, base: &Path, root: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn paths_inside_a_root() {
@@ -388,37 +578,122 @@ mod tests {
         assert!(!inside(&canon.join("..").join("escape.txt"), &root, &root));
     }
 
+    /// Path review of 2026-10-29: a path under a name no driver listed, in a list, as `FILE:///` or with `%2F..` in a
+    /// URI, or as the base of a search pattern, is read and checked; the text a call carries is not.
     #[test]
-    fn refreshed_login_goes_back_only_when_the_user_file_is_unchanged() {
-        let home = tempfile::tempdir().unwrap();
-        let user = tempfile::tempdir().unwrap();
-        let (u, h) = (user.path().join("auth.json"), home.path().join("auth.json"));
-        std::fs::write(&u, "old").unwrap();
-        copy_login(&u, &h).unwrap();
-        hand_back_login(&u, &h).unwrap();
+    fn every_argument_that_names_a_file_is_read() {
+        let got = |v: Value| named_paths(&v);
         assert_eq!(
-            std::fs::read_to_string(&u).unwrap(),
-            "old",
-            "nothing refreshed"
+            got(json!({"TargetDirectories": ["D:/elsewhere"], "Query": "a/b"})).unwrap(),
+            ["D:/elsewhere"]
         );
-        std::fs::write(&h, "new").unwrap();
-        hand_back_login(&u, &h).unwrap();
-        assert_eq!(std::fs::read_to_string(&u).unwrap(), "new");
-        // The user logged in again meanwhile: theirs wins.
-        copy_login(&u, &h).unwrap();
-        std::fs::write(&u, "other").unwrap();
-        std::fs::write(&h, "newer").unwrap();
-        hand_back_login(&u, &h).unwrap();
-        assert_eq!(std::fs::read_to_string(&u).unwrap(), "other");
-        // A JSON login written halfway (the CLI stopped while writing it) is not handed back.
-        std::fs::write(&u, r#"{"token": "a"}"#).unwrap();
-        copy_login(&u, &h).unwrap();
-        std::fs::write(&h, r#"{"token": "#).unwrap();
-        hand_back_login(&u, &h).unwrap();
-        assert_eq!(std::fs::read_to_string(&u).unwrap(), r#"{"token": "a"}"#);
-        std::fs::write(&h, r#"{"token": "b"}"#).unwrap();
-        hand_back_login(&u, &h).unwrap();
-        assert_eq!(std::fs::read_to_string(&u).unwrap(), r#"{"token": "b"}"#);
+        assert_eq!(got(json!({"Uri": "FILE:///C:/x/y"})).unwrap(), ["C:/x/y"]);
+        assert_eq!(
+            got(json!({"uri": "file:///home/u/..%2F..%2Fsecret"})).unwrap(),
+            ["/home/u/../../secret"]
+        );
+        assert_eq!(
+            got(json!({"target": "C:\\outside", "nested": {"more": ["/etc/x"]}})).unwrap(),
+            ["/etc/x", "C:\\outside"]
+        );
+        assert_eq!(
+            got(json!({"file_path": "notes.md", "content": "see a/b and C:\\d", "old_string": "x/y"})).unwrap(),
+            ["notes.md"]
+        );
+        assert!(got(json!({"Uri": "agenium://schemas/submit_report"}))
+            .unwrap()
+            .is_empty());
+        for escaping in [
+            "C:/Users/me/.ssh/*",
+            "/etc/*",
+            "../x/*",
+            "~/.ssh/*",
+            "\\\\server\\share\\*",
+        ] {
+            assert!(
+                got(json!({"pattern": escaping, "path": "notes"})).is_err(),
+                "{escaping}"
+            );
+        }
+        assert!(got(json!({"pattern": "fn main", "glob": "**/*.rs", "path": "notes"})).is_ok());
+    }
+
+    /// A CLI's own tools keep to its scratch folder, but not to the files there that other programs read as the
+    /// user's (the folder is their home): a planted `.gitconfig` ran a command through git (path review of 2026-10-29).
+    #[test]
+    fn the_scratch_folder_keeps_no_dotfiles_but_the_cli_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (wt, home) = (tmp.path().join("wt"), tmp.path().join("home"));
+        let cx = CheckCtx {
+            worktree: &wt,
+            home: &home,
+            mcp_name: "agenium",
+            subagents: false,
+            read_only: false,
+        };
+        assert!(file_access(&home.join("notes/plan.md"), &cx, &[]).is_ok());
+        assert!(file_access(&home.join(".gemini/antigravity/brain/c1/task.md"), &cx, &[]).is_ok());
+        for planted in [
+            ".gitconfig",
+            ".npmrc",
+            ".ssh/config",
+            ".config/git/config",
+            ".GITCONFIG",
+        ] {
+            let e = file_access(&home.join(planted), &cx, &[]).unwrap_err();
+            assert!(e.contains("other programs read"), "{planted}: {e}");
+        }
+        let git = crate::run::isolated_home(&home, Default::default());
+        assert_eq!(git["GIT_CONFIG_NOSYSTEM"], "1");
+        assert!(matches!(
+            git["GIT_CONFIG_GLOBAL"].as_str(),
+            "NUL" | "/dev/null"
+        ));
+    }
+
+    /// One CLI account in several runs at once: a run's refreshed login reaches the user's file at once, a login
+    /// refreshed elsewhere reaches the other runs' copies, the user's wins a clash, and half a login moves nowhere.
+    #[test]
+    fn logins_stay_the_same_across_runs_and_the_users_cli() {
+        let user = tempfile::tempdir().unwrap();
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let u = user.path().join("auth.json");
+        let (ha, hb) = (a.path().join("auth.json"), b.path().join("auth.json"));
+        let read = |p: &Path| std::fs::read_to_string(p).unwrap();
+        std::fs::write(&u, r#"{"refresh": "r1"}"#).unwrap();
+        copy_login(&u, &ha).unwrap();
+        copy_login(&u, &hb).unwrap();
+        sync_login(&u, &ha).unwrap();
+        assert_eq!(read(&u), r#"{"refresh": "r1"}"#, "nothing refreshed");
+        // Run A refreshes (r1 is used up): the user's file has r2 at once, and run B's copy gets it at its next sync.
+        std::fs::write(&ha, r#"{"refresh": "r2"}"#).unwrap();
+        sync_login(&u, &ha).unwrap();
+        assert_eq!(read(&u), r#"{"refresh": "r2"}"#);
+        sync_login(&u, &hb).unwrap();
+        assert_eq!(
+            read(&hb),
+            r#"{"refresh": "r2"}"#,
+            "run B no longer holds r1"
+        );
+        sync_login(&u, &ha).unwrap();
+        assert_eq!(read(&ha), r#"{"refresh": "r2"}"#, "run A is settled");
+        // The user logged in again while run B refreshed: theirs wins, and B's copy takes it.
+        std::fs::write(&u, r#"{"refresh": "user"}"#).unwrap();
+        std::fs::write(&hb, r#"{"refresh": "r3"}"#).unwrap();
+        sync_login(&u, &hb).unwrap();
+        assert_eq!(read(&u), r#"{"refresh": "user"}"#);
+        sync_login(&u, &hb).unwrap();
+        assert_eq!(read(&hb), r#"{"refresh": "user"}"#);
+        // Run A takes the user's login, then half a login (the CLI stopped while writing it) is handed nowhere; whole,
+        // it goes.
+        sync_login(&u, &ha).unwrap();
+        assert_eq!(read(&ha), r#"{"refresh": "user"}"#);
+        std::fs::write(&ha, r#"{"refresh": "#).unwrap();
+        sync_login(&u, &ha).unwrap();
+        assert_eq!(read(&u), r#"{"refresh": "user"}"#);
+        std::fs::write(&ha, r#"{"refresh": "r4"}"#).unwrap();
+        sync_login(&u, &ha).unwrap();
+        assert_eq!(read(&u), r#"{"refresh": "r4"}"#);
         let left: Vec<_> = std::fs::read_dir(user.path())
             .unwrap()
             .flatten()

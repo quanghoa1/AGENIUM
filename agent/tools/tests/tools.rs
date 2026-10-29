@@ -397,6 +397,73 @@ async fn a_stopped_run_ends_its_command_and_its_wait_for_approval() {
     assert!(started.elapsed() < std::time::Duration::from_secs(3));
 }
 
+/// ADR-133: in a vendor CLI's run (a foreground limit) a command that ends within the limit answers as usual; a longer
+/// one goes on as a job whose end the run hands over afterwards; one waiting for the user's approval past the limit
+/// goes on waiting, and the run's stop gives it up.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_cli_runs_long_commands_as_jobs_it_is_told_the_end_of() {
+    let (_t, mut c) = setup();
+    c.foreground_limit = Some(std::time::Duration::from_millis(800));
+    let quick = call(&c, "shell", json!({"command": "echo hi"}))
+        .await
+        .unwrap();
+    assert!(quick.text.starts_with("exit code 0"), "{}", quick.text);
+    assert!(c.jobs.awaited_going().is_empty() && c.jobs.take_ended_untold().is_empty());
+
+    let slow = match c.executor.shell() {
+        agenium_sandbox::Shell::Cmd => "ping -n 4 127.0.0.1 > nul & echo done",
+        agenium_sandbox::Shell::PowerShell(_) => "Start-Sleep -Seconds 3; echo done",
+        agenium_sandbox::Shell::Bash(_) => "sleep 3; echo done",
+    };
+    let out = call(&c, "shell", json!({"command": slow})).await.unwrap();
+    assert!(
+        out.text.contains("still running") && out.text.contains("goes on as job"),
+        "{}",
+        out.text
+    );
+    assert_eq!(c.jobs.awaited_going().len(), 1);
+    let started = std::time::Instant::now();
+    while !c.jobs.awaited_going().is_empty()
+        && started.elapsed() < std::time::Duration::from_secs(20)
+    {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    let ended = c.jobs.take_ended_untold();
+    assert_eq!(ended.len(), 1);
+    let m = ended_message(&c, &ended[0]);
+    assert!(
+        m.contains(") has ended: exit code 0") && m.contains("done"),
+        "{m}"
+    );
+    assert!(c.jobs.take_ended_untold().is_empty(), "handed over once");
+
+    struct Waits;
+    #[async_trait::async_trait]
+    impl CommandGate for Waits {
+        async fn check(&self, _: &str, _: &Path) -> GateDecision {
+            std::future::pending().await
+        }
+    }
+    c.gate = Arc::new(Waits);
+    let out = call(&c, "shell", json!({"command": "echo later"}))
+        .await
+        .unwrap();
+    assert!(
+        out.text.contains("waiting for the user's approval"),
+        "{}",
+        out.text
+    );
+    c.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    let started = std::time::Instant::now();
+    while !c.jobs.awaited_going().is_empty()
+        && started.elapsed() < std::time::Duration::from_secs(5)
+    {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    let ended = c.jobs.take_ended_untold();
+    assert!(ended_message(&c, &ended[0]).contains("stopped before it ended"));
+}
+
 #[tokio::test]
 async fn shell_gate_timeout_and_truncation_with_artifact() {
     let (_t, mut c) = setup();
@@ -665,4 +732,91 @@ async fn view_image_returns_the_image_and_refuses_the_rest() {
     assert!(call(&c, "view_image", json!({"path": "../outside.png"}))
         .await
         .is_err());
+}
+
+/// Path review of 2026-10-29: a write scope holds where a write really leads, not only as named. A link
+/// `src/auth/l -> ../billing` took `src/auth/l/x.rs` into `src/billing`. (Skipped where links cannot be made.)
+#[tokio::test]
+async fn a_link_does_not_take_a_write_out_of_the_scope() {
+    let (_t, mut c) = setup();
+    std::fs::create_dir_all(c.root.join("src/auth")).unwrap();
+    std::fs::create_dir_all(c.root.join("src/billing")).unwrap();
+    // A junction where a symbolic link needs a right the user may not have (no Developer Mode).
+    #[cfg(windows)]
+    let made =
+        std::os::windows::fs::symlink_dir(c.root.join("src/billing"), c.root.join("src/auth/l"))
+            .or_else(|_| {
+                // mklink takes a `/` in a path for a switch.
+                let win = |p: std::path::PathBuf| p.to_string_lossy().replace('/', "\\");
+                std::process::Command::new("cmd")
+                    .args(["/C", "mklink", "/J"])
+                    .arg(win(c.root.join("src/auth/l")))
+                    .arg(win(c.root.join("src/billing")))
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .map(|_| ())
+                    .ok_or(())
+            });
+    #[cfg(unix)]
+    let made = std::os::unix::fs::symlink("../billing", c.root.join("src/auth/l"));
+    if made.is_err() {
+        eprintln!("no link here (no right to make one): skipped");
+        return;
+    }
+    c.write_scope =
+        agenium_tools::paths::WriteScope::new(vec![vec!["src/auth/**".into()]], vec![]).unwrap();
+    let e = call(
+        &c,
+        "write_file",
+        json!({"path": "src/auth/l/x.rs", "content": "x"}),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(e.code, "out_of_scope", "{e}");
+    assert!(!c.root.join("src/billing/x.rs").exists());
+    call(
+        &c,
+        "write_file",
+        json!({"path": "src/auth/ok.rs", "content": "x"}),
+    )
+    .await
+    .unwrap();
+}
+
+/// Path review of 2026-10-29: a file with another name (a hard link to a file outside the worktree) is not written: the
+/// write would change the file out there. The write goes through the open file, whose names the OS counts.
+#[tokio::test]
+async fn a_hard_link_out_of_the_worktree_is_not_written() {
+    let (t, c) = setup();
+    let outside = t.root.parent().unwrap().join("outside.txt");
+    std::fs::write(&outside, "keep me").unwrap();
+    if std::fs::hard_link(&outside, c.root.join("linked.txt")).is_err() {
+        eprintln!("no hard link here: skipped");
+        return;
+    }
+    call(&c, "read_file", json!({"path": "linked.txt"}))
+        .await
+        .unwrap();
+    let e = call(
+        &c,
+        "write_file",
+        json!({"path": "linked.txt", "content": "changed"}),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(e.code, "out_of_scope", "{e}");
+    assert!(e.message.contains("other names"), "{e}");
+    assert_eq!(std::fs::read_to_string(&outside).unwrap(), "keep me");
+    call(
+        &c,
+        "write_file",
+        json!({"path": "plain.txt", "content": "fine"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(c.root.join("plain.txt")).unwrap(),
+        "fine"
+    );
 }

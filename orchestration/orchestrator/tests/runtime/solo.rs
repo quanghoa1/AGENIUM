@@ -357,9 +357,9 @@ async fn a_project_runs_from_the_agreed_spec_and_the_user_stops_it() {
     assert_eq!(p.remaining(), 0);
 }
 
-/// ADR-64/117: with the default policy a contained command runs without asking when a sandbox backend works, and goes
-/// to the user without one unless the user accepted running unsandboxed; a vendor CLI's own host command is refused
-/// with the way through Agenium's `shell`, never put to the user; YOLO without a sandbox is refused.
+/// ADR-64/117: with the default policy a command runs without asking when a sandbox backend works, and goes to the
+/// user without one unless the user accepted running unsandboxed; YOLO without a sandbox is refused. (A vendor CLI's
+/// own shell never reaches this gate: its hook refuses it, ADR-129.)
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn sandboxed_commands_run_without_asking() {
     use agenium_config::ApprovalPolicy;
@@ -373,48 +373,35 @@ async fn sandboxed_commands_run_without_asking() {
     );
     let (project, _) = solo(&app);
     assert_eq!(app.config().sandbox.approval, ApprovalPolicy::Sandboxed);
-    let gate = |contained| RunGate {
+    let gate = || RunGate {
         app: app.clone(),
         project,
         ticket: None,
         agent: "ada".into(),
         approver: Arc::new(Denier),
-        contained,
     };
     let cwd = f.root.clone();
     let asked = |d: &GateDecision| matches!(d, GateDecision::Deny(r) if r.contains("not now"));
     let sandbox = agenium_sandbox::detect().backend.is_some();
-    let d = gate(true).check("cargo test", &cwd).await;
+    let d = gate().check("cargo test", &cwd).await;
     if sandbox {
         assert_eq!(d, GateDecision::Allow);
     } else {
         assert!(asked(&d), "{d:?}");
     }
-    let d = gate(false).check("cargo test", &cwd).await;
-    assert!(
-        matches!(&d, GateDecision::Deny(r) if r.contains("`shell` tool of the MCP server") && !r.contains("not now")),
-        "a CLI's own shell is refused without asking: {d:?}"
-    );
     app.update_config(|c| c.sandbox.unsandboxed = true).unwrap();
     assert_eq!(
-        gate(true).check("cargo test", &cwd).await,
+        gate().check("cargo test", &cwd).await,
         GateDecision::Allow,
         "with a sandbox, or accepted without one"
     );
-    assert!(
-        matches!(
-            gate(false).check("cargo test", &cwd).await,
-            GateDecision::Deny(_)
-        ),
-        "the CLI's own shell stays off"
-    );
     // ADR-120: installing on the user's machine asks the user even when commands run without asking.
-    let d = gate(true)
+    let d = gate()
         .check("winget install Python.Python.3.12", &cwd)
         .await;
     assert!(asked(&d), "an install goes to the user: {d:?}");
     assert_eq!(
-        gate(true).check("npm install express", &cwd).await,
+        gate().check("npm install express", &cwd).await,
         GateDecision::Allow,
         "a project dependency does not"
     );
@@ -422,11 +409,11 @@ async fn sandboxed_commands_run_without_asking() {
         .unwrap();
     app.update_config(|c| c.sandbox.approval = ApprovalPolicy::OnRequest)
         .unwrap();
-    let d = gate(true).check("cargo test", &cwd).await;
+    let d = gate().check("cargo test", &cwd).await;
     assert!(asked(&d), "on-request asks even with a sandbox: {d:?}");
     app.update_config(|c| c.sandbox.approval = ApprovalPolicy::Never)
         .unwrap();
-    let d = gate(true).check("cargo test", &cwd).await;
+    let d = gate().check("cargo test", &cwd).await;
     if sandbox {
         assert_eq!(d, GateDecision::Allow);
     } else {

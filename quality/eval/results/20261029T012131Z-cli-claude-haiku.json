@@ -1,0 +1,37 @@
+[
+  {
+    "id": "ask-first",
+    "passed": true,
+    "closed": true,
+    "detail": "ok (the CLI resumed its session)",
+    "runs": 3,
+    "steps": 13,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "ask_question: invalid_arguments: invalid arguments for ask_question: unknown variant `Clarification`, expected one of `Requirement`, `Technical`, `Permission`, `Blocker`"
+    ],
+    "tools": {
+      "ask_question": 2,
+      "cli:ToolSearch": 3,
+      "close_ticket": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Parked",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 225706,
+    "tokens_out": 3013,
+    "tokens_cached": 201218,
+    "cost_usd": 0.0,
+    "elapsed_ms": 40522
+  }
+]

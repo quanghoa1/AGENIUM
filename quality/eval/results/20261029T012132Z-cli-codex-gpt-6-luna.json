@@ -1,0 +1,34 @@
+[
+  {
+    "id": "ask-first",
+    "passed": false,
+    "closed": true,
+    "detail": "the CLI could not resume its session",
+    "runs": 3,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "ask_question": 1,
+      "close_ticket": 1,
+      "glob": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Parked",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 197731,
+    "tokens_out": 829,
+    "tokens_cached": 132736,
+    "cost_usd": 0.0,
+    "elapsed_ms": 41435
+  }
+]

@@ -225,6 +225,15 @@ impl Driver for Opencode {
         Ok(env)
     }
 
+    fn resumes_across_runs(&self) -> bool {
+        true
+    }
+
+    /// Its caches (the model catalog, packages) are fetched again; its sessions are in `data` and `state`.
+    fn not_kept(&self, name: &str) -> bool {
+        name == "cache"
+    }
+
     /// opencode 2's code mode: `execute` runs a script whose tool calls go through the permission check one by one
     /// (`tools.agenium.read_file(...)` reaches Agenium over MCP).
     fn runs_other_tools(&self, tool: &str) -> bool {
@@ -318,7 +327,7 @@ impl Driver for Opencode {
 }
 
 /// Runs a turn-by-turn conversation with an `opencode serve` process: reads the server address from its stdout,
-/// creates the session in `worktree`, posts each input line (`{"text": ...}`) as a prompt and sends the server's
+/// creates the session in `worktree` (or goes on with `resume`, the ticket's kept one), posts each input line (`{"text": ...}`) as a prompt and sends the server's
 /// events to `out` (tool events carry the tool's name and input). Permission requests go to Agenium's hook
 /// endpoint and its decision back to opencode. Ends when `input` closes.
 pub(crate) fn bridge(
@@ -328,6 +337,7 @@ pub(crate) fn bridge(
     env: &BTreeMap<String, String>,
     worktree: PathBuf,
     tail: Arc<Mutex<Vec<u8>>>,
+    resume: Option<String>,
 ) {
     let password = env.get(PASSWORD_ENV).cloned().unwrap_or_default();
     let hook = env.get(HOOK_URL_ENV).cloned().unwrap_or_default();
@@ -372,25 +382,32 @@ pub(crate) fn bridge(
             Ok(r) => return fail(&out, format!("opencode events: HTTP {}", r.status())),
             Err(e) => return fail(&out, format!("opencode events: {e}")),
         };
-        let mut body = json!({"location": {"directory": worktree.display().to_string()}});
-        if !model.is_empty() {
-            body["model"] = model_ref(&model);
-        }
-        let session = match auth(http.post(api("/session"))).json(&body).send().await {
-            Ok(r) if r.status().is_success() => r.json::<Value>().await.ok(),
-            Ok(r) => {
-                let s = r.status();
-                let text = r.text().await.unwrap_or_default();
-                return fail(&out, format!("opencode session: HTTP {s}: {text}"));
+        // The ticket's session of an earlier run, its data brought back (ADR-134); a prompt to a session the server
+        // does not know fails, and the run starts again with a new one.
+        let sid = if let Some(sid) = resume {
+            sid
+        } else {
+            let mut body = json!({"location": {"directory": worktree.display().to_string()}});
+            if !model.is_empty() {
+                body["model"] = model_ref(&model);
             }
-            Err(e) => return fail(&out, format!("opencode session: {e}")),
-        };
-        let Some(sid) = session
-            .as_ref()
-            .and_then(|s| s["data"]["id"].as_str().or_else(|| s["id"].as_str()))
-            .map(str::to_owned)
-        else {
-            return fail(&out, "opencode created no session".into());
+            let session = match auth(http.post(api("/session"))).json(&body).send().await {
+                Ok(r) if r.status().is_success() => r.json::<Value>().await.ok(),
+                Ok(r) => {
+                    let s = r.status();
+                    let text = r.text().await.unwrap_or_default();
+                    return fail(&out, format!("opencode session: HTTP {s}: {text}"));
+                }
+                Err(e) => return fail(&out, format!("opencode session: {e}")),
+            };
+            let Some(sid) = session
+                .as_ref()
+                .and_then(|s| s["data"]["id"].as_str().or_else(|| s["id"].as_str()))
+                .map(str::to_owned)
+            else {
+                return fail(&out, "opencode created no session".into());
+            };
+            sid
         };
         // Events of this session, tool events completed with the tool's name and input.
         {

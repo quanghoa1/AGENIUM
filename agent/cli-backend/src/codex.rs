@@ -15,7 +15,7 @@ use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::{json, Value};
 
-use crate::driver::{copy_login, hand_back_login, Control, Driver, Event, Setup, Turns};
+use crate::driver::{copy_login, sync_login, Control, Driver, Event, Setup, Turns};
 use crate::driver::{toml_str, MCP_CALL_TIMEOUT};
 
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
@@ -129,9 +129,23 @@ impl Driver for Codex {
         .into())
     }
 
+    fn resumes_across_runs(&self) -> bool {
+        true
+    }
+
+    /// Codex's SQLite databases (`state_5.sqlite`: a thread's rollout by its full path in the old home) are left out:
+    /// it found the thread there, at a path gone with that run, and refused to resume ("no rollout found").
+    fn not_kept(&self, name: &str) -> bool {
+        name.contains(".sqlite")
+    }
+
+    fn login_file(&self) -> Option<&'static str> {
+        Some("auth.json")
+    }
+
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_codex_home() {
-            Some(user) => hand_back_login(&user.join("auth.json"), &s.home.join("auth.json")),
+            Some(user) => sync_login(&user.join("auth.json"), &s.home.join("auth.json")),
             None => Ok(()),
         }
     }
@@ -312,7 +326,7 @@ async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Valu
         .await
         .unwrap_or_else(|_| Err("codex app-server did not answer in 40 s".into()));
     let _ = child.kill().await;
-    if let Err(e) = hand_back_login(&user.join("auth.json"), &home.join("auth.json")) {
+    if let Err(e) = sync_login(&user.join("auth.json"), &home.join("auth.json")) {
         tracing::warn!(error = %e, "codex login not handed back");
     }
     out

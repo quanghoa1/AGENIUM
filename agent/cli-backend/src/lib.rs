@@ -17,6 +17,11 @@ pub use detect::{detect_all, CliInfo, CliKind, Login};
 pub use driver::{Control, Driver, Event, Setup, Turns};
 pub use run::{CliRun, Limits};
 
+/// How long one of Agenium's tools may keep a CLI waiting (ADR-133): a `shell` command still going after it goes on as
+/// a job, its end handed to the agent as a message at its turn's end. Under every CLI's own wait for a tool (agy and
+/// OpenCode have no setting for theirs; they waited 80 s).
+pub const FOREGROUND_LIMIT: std::time::Duration = std::time::Duration::from_secs(45);
+
 /// The driver of `kind`; `None` when Agenium does not drive that CLI (yet). Only CLIs whose headless contract and
 /// per-run isolation were verified are listed (ADR-56).
 pub fn driver(kind: CliKind) -> Option<&'static dyn Driver> {

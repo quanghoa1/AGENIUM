@@ -187,7 +187,6 @@ impl Runtime {
             ticket,
             agent: agent.to_owned(),
             approver: self.approver.clone(),
-            contained: true,
         });
         let mut ctx = ToolCtx::new(root, &run.to_string(), gate);
         let rt = self.app.config().runtime;

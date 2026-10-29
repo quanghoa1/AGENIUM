@@ -19,8 +19,8 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
-    file_access, hook_call_secs, own_tool_off, Check, CheckCtx, Control, Driver, Event, Setup,
-    Turns, NO_SUBAGENTS,
+    file_access, hook_call_secs, named_paths, own_tool_off, Check, CheckCtx, Control, Driver,
+    Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV};
 
@@ -106,43 +106,6 @@ const FILE_TOOLS: [&str; 14] = [
     "move_",
 ];
 
-/// Argument names that hold file system paths.
-fn is_path_key(k: &str) -> bool {
-    let k = k.to_ascii_lowercase();
-    [
-        "path",
-        "paths",
-        "file",
-        "files",
-        "directory",
-        "dir",
-        "cwd",
-        "uri",
-    ]
-    .iter()
-    .any(|s| k.ends_with(s))
-}
-
-fn path_values(v: &Value) -> Vec<String> {
-    match v {
-        // A URI of another scheme names no file (`agenium://schemas/...`, an MCP resource of Agenium's own server).
-        Value::String(s)
-            if !s.starts_with("file://")
-                && s.split_once("://").is_some_and(|(scheme, _)| {
-                    scheme.len() > 1
-                        && scheme
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || "+.-".contains(c))
-                }) =>
-        {
-            vec![]
-        }
-        Value::String(s) => vec![s.strip_prefix("file:///").unwrap_or(s).to_owned()],
-        Value::Array(a) => a.iter().flat_map(path_values).collect(),
-        _ => vec![],
-    }
-}
-
 impl Driver for Agy {
     fn control(&self) -> Control {
         Control::Hook
@@ -157,7 +120,7 @@ impl Driver for Agy {
         model: &str,
         effort: Option<&Effort>,
         _home: &Path,
-        _resume: Option<&str>,
+        resume: Option<&str>,
         _subagents: bool,
     ) -> Vec<String> {
         let mut a: Vec<String> = [
@@ -180,9 +143,17 @@ impl Driver for Agy {
             };
             a.extend(["--model".to_owned(), model]);
         }
+        // A ticket's conversation of an earlier run, its home brought back (ADR-134).
+        if let Some(id) = resume {
+            a.extend(["--conversation".to_owned(), id.to_owned()]);
+        }
         // `-p` takes a value; the prompts come from stdin.
         a.push("-p=".to_owned());
         a
+    }
+
+    fn resumes_across_runs(&self) -> bool {
+        true
     }
 
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
@@ -328,25 +299,25 @@ impl Driver for Agy {
                 ))
             };
         }
-        // MCP resources (agy reads a server's resources by URI): Agenium's own server only.
-        if lower.contains("resource") {
-            return match args["ServerName"].as_str() {
-                Some(s) if s != cx.mcp_name => {
-                    Check::Deny(format!("MCP server {s} is not available in Agenium runs"))
-                }
-                _ => Check::Allow,
-            };
+        // MCP resources (agy reads a server's resources by URI): Agenium's own server only; a `file:` URI is a path
+        // like any other (it was let through before the path checks).
+        if let Some(s) = args["ServerName"]
+            .as_str()
+            .filter(|s| lower.contains("resource") && *s != cx.mcp_name)
+        {
+            return Check::Deny(format!("MCP server {s} is not available in Agenium runs"));
         }
         if COMMAND_TOOLS.iter().any(|p| lower.starts_with(p)) {
             return Check::Deny(own_tool_off(name));
         }
-        let paths: Vec<String> = args
-            .as_object()
-            .into_iter()
-            .flatten()
-            .filter(|(k, _)| is_path_key(k))
-            .flat_map(|(_, v)| path_values(v))
-            .collect();
+        let paths = match named_paths(args) {
+            Ok(p) => p,
+            Err(r) => return Check::Deny(r),
+        };
+        // A resource of Agenium's own MCP server is read by its URI, which names no file.
+        if paths.is_empty() && lower.contains("resource") {
+            return Check::Allow;
+        }
         // Its own file and search tools act on the worktree when no path is named.
         if paths.is_empty() && FILE_TOOLS.iter().any(|p| lower.starts_with(p)) {
             return Check::Deny(own_tool_off(name));
@@ -356,13 +327,7 @@ impl Driver for Agy {
                 return Check::Deny(r);
             }
         }
-        match name {
-            "run_command" => match args["CommandLine"].as_str() {
-                Some(c) => Check::Command(c.to_owned()),
-                None => Check::Deny("the command text is missing".into()),
-            },
-            _ => Check::Allow,
-        }
+        Check::Allow
     }
 }
 
@@ -450,6 +415,9 @@ mod tests {
             "gemini-3.8-flash-high"
         );
         assert_eq!(model("gemini-4-argon", None), "gemini-4-argon");
+        // A ticket's earlier conversation goes on (ADR-134); `-p=` stays last.
+        let a = Agy.args("m", None, Path::new("/h"), Some("c1"), false);
+        assert_eq!(&a[a.len() - 3..], ["--conversation", "c1", "-p="]);
         let g = group(parse_models(
             "x\ngemini-4-argon-medium\tA\ngemini-4-argon-high\tA\ngemini-4-argon-low\tA\ngpt-oss-120b-medium\tG\n",
         ));

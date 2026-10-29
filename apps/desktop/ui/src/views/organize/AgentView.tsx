@@ -262,9 +262,12 @@ export function AgentView({ id }: { id: string }) {
                 ))}
               </div>
               {(a.status === "QuotaExhausted" || a.status === "Offline") && (
-                <button className="btn mt-3" onClick={() => api.setAgentIdle(a.id).then(app.refresh)}>
-                  <RotateCcw className="h-3.5 w-3.5" /> {app.t("agents.toIdle")}
-                </button>
+                <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5">
+                  <button className="btn-primary" onClick={() => api.setAgentIdle(a.id).then(app.refresh)}>
+                    <RotateCcw className="h-3.5 w-3.5" /> {app.t("agents.resume")}
+                  </button>
+                  <div className="mt-1.5 text-[11px] text-subtle">{app.t("agents.resumeHint")}</div>
+                </div>
               )}
             </Section>
             <Section title={app.t("agents.danger")} className="md:col-span-2">

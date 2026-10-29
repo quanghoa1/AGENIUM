@@ -172,6 +172,9 @@ pub struct ToolCtx {
     /// Set when the run is stopped (the user's stop, its ticket cancelled): a command it runs is ended, process tree
     /// and all, and an approval it waits for is given up.
     pub stop: Arc<AtomicBool>,
+    /// How long a `shell` call may last before its command goes on as a job the run waits for (ADR-133): set for a
+    /// vendor CLI's run, which waits only so long for a tool; `None` (an API run) waits for the command.
+    pub foreground_limit: Option<Duration>,
 }
 
 impl ToolCtx {
@@ -203,6 +206,7 @@ impl ToolCtx {
             seq: AtomicU32::new(0),
             jobs: Default::default(),
             stop: Arc::default(),
+            foreground_limit: None,
         }
     }
 
@@ -221,7 +225,14 @@ impl ToolCtx {
     pub fn resolve(&self, raw: &str, write: bool) -> Result<PathBuf, ToolError> {
         let p = paths::resolve(&self.root, &self.read_roots, raw, write)?;
         if write && !self.write_scope.is_open() {
-            let rel = paths::display(&self.root, &p);
+            // As named, and where it really leads: a link inside the worktree took writes out of the scope.
+            let named = paths::display(&self.root, &p);
+            let real = paths::real_display(&self.root, &p);
+            let rel = [Some(named.clone()), real]
+                .into_iter()
+                .flatten()
+                .find(|r| !self.write_scope.allows(r))
+                .unwrap_or(named);
             if !self.write_scope.allows(&rel) {
                 return Err(ToolError::new(
                     "out_of_scope",

@@ -4,14 +4,14 @@
 //!
 //! cargo run -p agenium-cli-backend --example cli_steer -- <claude|grok|codex|agy> [model] [scratch-dir]
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use agenium_backend::{Cancel, Effect, Observer, Protocol, Steer, WorkOrder};
 use agenium_cli_backend::{CliKind, CliRun, Limits};
 use agenium_llm::{Message, SystemBlock, ToolSpec};
-use agenium_tools::{CommandGate, GateDecision, ToolError};
+use agenium_tools::ToolError;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
@@ -29,16 +29,6 @@ impl Protocol for Report {
             "note" => Ok((json!("noted"), Effect::Continue)),
             _ => Err(ToolError::new("unknown_tool", name.to_owned())),
         }
-    }
-}
-
-/// No shell commands: the task needs only the CLI's file reading.
-struct NoShell;
-
-#[async_trait]
-impl CommandGate for NoShell {
-    async fn check(&self, command: &str, _: &Path) -> GateDecision {
-        GateDecision::Deny(format!("no shell in this check: {command}"))
     }
 }
 
@@ -133,7 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ],
         tools: vec![],
         ctx: &ctx,
-        gate: Arc::new(NoShell),
+        session: None,
         observer: &watch,
         cancel: Cancel::default(),
         limits: Limits {

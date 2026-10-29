@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ask-first",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 3,
+    "steps": 17,
+    "tool_errors": 3,
+    "error_codes": {
+      "invalid_arguments": 2,
+      "not_found": 1
+    },
+    "errors": [
+      "ask_question: invalid_arguments: invalid arguments for ask_question: unknown variant `Clarification`, expected one of `Requirement`, `Technical`, `Permission`, `Blocker`",
+      "read_file: not_found: deliverables/word.txt does not exist",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: missing field `decision`"
+    ],
+    "tools": {
+      "ask_question": 2,
+      "cli:execute": 17,
+      "close_ticket": 1,
+      "list_dir": 2,
+      "read_file": 6,
+      "review_ticket": 2,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 2
+    },
+    "outcomes": [
+      "work:Parked",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 176072,
+    "tokens_out": 2339,
+    "tokens_cached": 147712,
+    "cost_usd": 0.0,
+    "elapsed_ms": 73146
+  }
+]

@@ -22,10 +22,13 @@ use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
-    copy_login, file_access, hand_back_login, hook_call_secs, original, own_tool_off, probe_dir,
+    copy_login, file_access, hook_call_secs, named_paths, original, own_tool_off, sync_login,
     Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
+
+mod usage;
+pub use usage::rate_limits;
 
 /// Claude Code tools an Agenium run may use (ADR-129): `ToolSearch`, which loads the Agenium MCP tools that do the
 /// work, and its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
@@ -179,9 +182,10 @@ impl Driver for Claude {
         model: &str,
         effort: Option<&Effort>,
         home: &Path,
-        _resume: Option<&str>,
+        resume: Option<&str>,
         subagents: bool,
     ) -> Vec<String> {
+        // The session is written to the per-run home, which Agenium keeps for the ticket's next run (ADR-134).
         let mut a: Vec<String> = [
             "-p",
             "--input-format",
@@ -196,10 +200,12 @@ impl Driver for Claude {
             // Skills and slash commands: the ones of the user's claude.ai account would come with the login.
             // Agenium's skills reach the agent through `load_skill`.
             "--disable-slash-commands",
-            "--no-session-persistence",
         ]
         .map(str::to_owned)
         .to_vec();
+        if let Some(id) = resume {
+            a.extend(["--resume".to_owned(), id.to_owned()]);
+        }
         a.extend([
             "--mcp-config".to_owned(),
             home.join(MCP_FILE).display().to_string(),
@@ -263,9 +269,17 @@ impl Driver for Claude {
         .into())
     }
 
+    fn resumes_across_runs(&self) -> bool {
+        true
+    }
+
+    fn login_file(&self) -> Option<&'static str> {
+        Some(LOGIN)
+    }
+
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_claude_dir() {
-            Some(user) => hand_back_login(&user.join(LOGIN), &s.home.join(LOGIN)),
+            Some(user) => sync_login(&user.join(LOGIN), &s.home.join(LOGIN)),
             None => Ok(()),
         }
     }
@@ -324,16 +338,17 @@ impl Driver for Claude {
         if name == "ToolSearch" || SUBAGENT_TOOLS.contains(&name) {
             return Check::Allow;
         }
-        // Its own file and search tools: its scratch folder only.
-        let paths: Vec<&str> = ["file_path", "path", "notebook_path"]
-            .iter()
-            .filter_map(|k| input[*k].as_str())
-            .collect();
+        // Its own file and search tools: its scratch folder only. A search pattern may not start elsewhere (Glob's
+        // `pattern` was not read: `C:/Users/me/.ssh/*` searched from its own base).
+        let paths = match named_paths(input) {
+            Ok(p) => p,
+            Err(r) => return Check::Deny(r),
+        };
         if paths.is_empty() {
             return Check::Deny(own_tool_off(name));
         }
         for p in paths {
-            if let Err(r) = file_access(Path::new(p), cx, &protected(cx.home)) {
+            if let Err(r) = file_access(Path::new(&p), cx, &protected(cx.home)) {
                 return Check::Deny(r);
             }
         }
@@ -352,82 +367,6 @@ impl Driver for Claude {
         answer["hookSpecificOutput"]["additionalContext"] = Value::String(text.to_owned());
         Some(answer)
     }
-}
-
-/// Claude's subscription usage, read on the user's request: one tiny Haiku turn without tools (it costs a little
-/// quota) whose stream reports `rate_limit_event`. It runs with a scratch `CLAUDE_CONFIG_DIR` holding a copy of the
-/// login, like a run, and hands a refreshed login back the same way.
-pub async fn rate_limits(
-    program: &Path,
-    scratch: &Path,
-) -> Result<agenium_llm::vendor_usage::VendorUsage, String> {
-    use tokio::io::{AsyncBufReadExt, BufReader};
-    let user = user_claude_dir().ok_or("cannot find the user's Claude Code folder")?;
-    // Deleted with the login copy when this function returns, whichever way.
-    let dir = probe_dir(scratch, "claude-home")?;
-    let home = dir.path().join("claude-home");
-    let cwd = dir.path().join("cwd");
-    for d in [&home, &cwd] {
-        std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
-    }
-    copy_login(&user.join(LOGIN), &home.join(LOGIN)).map_err(|e| e.to_string())?;
-    let mut cmd = tokio::process::Command::new(program);
-    cmd.args([
-        "-p",
-        "Reply with the single word ok.",
-        "--model",
-        "haiku",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--tools",
-        "",
-        "--strict-mcp-config",
-        "--no-session-persistence",
-        "--setting-sources",
-        "user",
-    ])
-    .env("CLAUDE_CONFIG_DIR", &home)
-    .current_dir(&cwd)
-    .stdin(std::process::Stdio::null())
-    .stdout(std::process::Stdio::piped())
-    .stderr(std::process::Stdio::null())
-    .kill_on_drop(true);
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("cannot start claude: {e}"))?;
-    let stdout = child.stdout.take().ok_or("claude stdout missing")?;
-    let read = async {
-        let mut lines = BufReader::new(stdout).lines();
-        let mut found = None;
-        let mut error = None;
-        while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
-            let Ok(v) = serde_json::from_str::<Value>(line.trim()) else {
-                continue;
-            };
-            match v["type"].as_str() {
-                Some("rate_limit_event") => {
-                    found =
-                        agenium_llm::vendor_usage::from_claude_event(&v, &agenium_core::now_iso())
-                }
-                Some("result") if v["is_error"] == true => {
-                    error = Some(v["result"].as_str().unwrap_or("claude failed").to_owned())
-                }
-                _ => {}
-            }
-        }
-        found.ok_or_else(|| error.unwrap_or_else(|| "claude reported no rate limits".into()))
-    };
-    let out = tokio::time::timeout(std::time::Duration::from_secs(120), read)
-        .await
-        .unwrap_or_else(|_| Err("claude did not answer in 120 s".into()));
-    let _ = child.kill().await;
-    if let Err(e) = hand_back_login(&user.join(LOGIN), &home.join(LOGIN)) {
-        tracing::warn!(error = %e, "claude login not handed back");
-    }
-    out
 }
 
 /// Models Claude Code accepts with `--model`: its aliases (the newest of each family) and full model ids. The CLI

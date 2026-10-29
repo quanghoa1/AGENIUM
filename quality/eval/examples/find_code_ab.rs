@@ -22,7 +22,7 @@ use agenium_cli_backend::CliKind;
 use agenium_core::Effort;
 use agenium_llm::*;
 use agenium_orchestrator::judge::JudgeInput;
-use agenium_tools::{AllowAll, CommandGate, GateDecision, Tool, ToolCtx, ToolError};
+use agenium_tools::{AllowAll, Tool, ToolCtx, ToolError};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -75,16 +75,6 @@ struct Calls(std::sync::Mutex<Vec<String>>);
 impl Observer for Calls {
     fn tool(&self, name: &str, _args: &Value, _r: &std::result::Result<String, ToolError>) {
         self.0.lock().unwrap().push(name.to_owned());
-    }
-}
-
-/// No shell commands: the task needs only reading.
-struct NoShell;
-
-#[async_trait]
-impl CommandGate for NoShell {
-    async fn check(&self, command: &str, _: &Path) -> GateDecision {
-        GateDecision::Deny(format!("no shell in this measure: {command}"))
     }
 }
 
@@ -226,7 +216,7 @@ async fn run_cli(
         protocol_specs: vec![report_spec()],
         tools: read_tools(extra),
         ctx: &ctx,
-        gate: Arc::new(NoShell),
+        session: None,
         observer: &calls,
         cancel: Cancel::default(),
         limits: agenium_cli_backend::Limits {

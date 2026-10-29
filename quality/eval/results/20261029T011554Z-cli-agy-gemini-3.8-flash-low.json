@@ -1,0 +1,40 @@
+[
+  {
+    "id": "slow-check",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 19,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 2
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `ServerName`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: invalid type: string \"deliverables/check.txt\", expected struct ArtifactRef",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)"
+    ],
+    "tools": {
+      "cli:read_file": 3,
+      "cli:run_command": 1,
+      "close_ticket": 1,
+      "read_file": 5,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 3,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 223463,
+    "tokens_out": 1845,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 171709
+  }
+]

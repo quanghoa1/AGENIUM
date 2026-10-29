@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, RotateCcw, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ListItem } from "../components/motion";
@@ -102,10 +102,15 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
             {n.ticket}
           </button>
         )}
-        {n.kind === "AgentBlocked" && (
-          <button className="btn" onClick={() => app.go("agents")}>
-            {app.t("nav.agents")}
-          </button>
+        {n.kind === "AgentBlocked" && n.agent_id && (
+          <>
+            <button disabled={busy} className="btn-primary" title={app.t("agents.resumeHint")} onClick={() => act(api.setAgentIdle(n.agent_id!), app.t("common.done"))}>
+              <RotateCcw className="h-3.5 w-3.5" /> {app.t("agents.resume")}
+            </button>
+            <button className="btn" onClick={() => app.go("agent", n.agent_id!)}>
+              {n.agent}
+            </button>
+          </>
         )}
       </div>
     </div>

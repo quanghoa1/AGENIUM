@@ -76,32 +76,8 @@ impl App {
                 return Err(invalid(format!("{} lacks required tags {missing:?}", agent.name)));
             }
             let has_plan_item = plans::current_plan(w.tx, pid)?.is_some_and(|p| p.body.items.iter().any(|i| i.id == t.plan_item));
-            // The worker the ticket has now, when it cannot work (quota used up, provider or login gone).
-            let set_aside = match t.assignee {
-                Some(a) if a != agent.id => agents::find_agent(w.tx, a)?.filter(|x| !x.status.assignable()),
-                _ => None,
-            };
             let mut ops = vec![];
             match t.status {
-                // Begun or waiting for a worker that cannot work: another goes on, from the work so far in the
-                // ticket's worktree (it waited for the user to bring that worker back; the Lead could not move it).
-                TicketStatus::Assigned | TicketStatus::InProgress if set_aside.is_some() => {
-                    if runs::unfinished(w.tx)?.iter().any(|r| r.ticket == Some(t.id)) {
-                        return Err(invalid(format!("a run of {} is still going", t.key)));
-                    }
-                    let from = set_aside.expect("checked above");
-                    t.assignee = Some(agent.id);
-                    tickets::update(w.tx, &t)?;
-                    w.emit(DomainEvent::TicketAssigned { ticket: t.id, key: t.key.clone(), agent: agent.id })?;
-                    system_comment(
-                        w,
-                        &t,
-                        format!(
-                            "Handed from {} ({}) to {}: the work so far stays in the worktree.",
-                            from.name, from.status, agent.name
-                        ),
-                    )?;
-                }
                 TicketStatus::New => {
                     t.assignee = Some(agent.id);
                     let g = Guards { assignee_in_team: true, has_plan_item, ..Default::default() };
@@ -121,7 +97,7 @@ impl App {
                     tickets::update(w.tx, &t)?;
                     w.emit(DomainEvent::TicketAssigned { ticket: t.id, key: t.key.clone(), agent: agent.id })?;
                 }
-                s => return Err(invalid(format!("{} is {s}; only New or Reopened tickets can be assigned, or one whose worker cannot work", t.key))),
+                s => return Err(invalid(format!("{} is {s}; only New or Reopened tickets can be assigned", t.key))),
             }
             if let Some(note) = a.note.filter(|n| !n.trim().is_empty()) {
                 add_comment(w, &t, author_of(&ctx.actor), None, CommentBody::Text { text: note })?;

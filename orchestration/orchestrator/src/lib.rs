@@ -2,6 +2,7 @@
 //! through typed intents; the engine validates them against the database and commits deterministically.
 
 pub mod agent_io;
+mod agent_settings;
 pub mod app;
 pub mod check;
 pub mod effects;

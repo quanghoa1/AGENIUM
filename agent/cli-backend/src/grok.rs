@@ -20,8 +20,8 @@ use agenium_core::Effort;
 use serde_json::Value;
 
 use crate::driver::{
-    copy_login, file_access, hand_back_login, hook_call_secs, original, own_tool_off, Check,
-    CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
+    copy_login, file_access, hook_call_secs, named_paths, original, own_tool_off, sync_login,
+    Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 use crate::driver::{toml_str, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
 
@@ -264,9 +264,17 @@ impl Driver for Grok {
         .into())
     }
 
+    fn resumes_across_runs(&self) -> bool {
+        true
+    }
+
+    fn login_file(&self) -> Option<&'static str> {
+        Some(LOGIN)
+    }
+
     fn finish(&self, s: &Setup) -> std::io::Result<()> {
         match user_grok_dir() {
-            Some(user) => hand_back_login(&user.join(LOGIN), &s.home.join(LOGIN)),
+            Some(user) => sync_login(&user.join(LOGIN), &s.home.join(LOGIN)),
             None => Ok(()),
         }
     }
@@ -356,25 +364,17 @@ impl Driver for Grok {
         if name == "search_tool" || SUBAGENT_TOOLS.contains(&name) {
             return Check::Allow;
         }
-        // Its own file and search tools: its scratch folder only.
-        let paths: Vec<&str> = [
-            "path",
-            "file_path",
-            "filePath",
-            "target_file",
-            "targetFile",
-            "target_directory",
-            "directory",
-            "dir",
-        ]
-        .iter()
-        .filter_map(|k| input[*k].as_str())
-        .collect();
+        // Its own file and search tools: its scratch folder only, whatever argument names a path (only eight known
+        // names were read).
+        let paths = match named_paths(input) {
+            Ok(p) => p,
+            Err(r) => return Check::Deny(r),
+        };
         if paths.is_empty() {
             return Check::Deny(own_tool_off(name));
         }
         for p in paths {
-            if let Err(r) = file_access(Path::new(p), cx, &protected(cx.home)) {
+            if let Err(r) = file_access(Path::new(&p), cx, &protected(cx.home)) {
                 return Check::Deny(r);
             }
         }

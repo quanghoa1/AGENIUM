@@ -11,6 +11,7 @@ use serde::Deserialize;
 use crate::patch::{apply_hunks, parse, FileOp};
 use crate::paths::display;
 use crate::{args, GateDecision, TodoItem, TodoStatus, Tool, ToolCtx, ToolError, ToolOutput};
+use real_write::write_file;
 
 mod apply_patch;
 mod edit;
@@ -19,7 +20,9 @@ mod glob;
 mod grep;
 mod list_dir;
 mod read_file;
+mod real_write;
 mod shell;
+mod shell_awaited;
 mod shell_jobs;
 mod todo;
 mod view_image;
@@ -33,6 +36,7 @@ pub use grep::*;
 pub use list_dir::*;
 pub use read_file::*;
 pub use shell::*;
+pub use shell_awaited::ended_message;
 pub use shell_jobs::*;
 pub use todo::*;
 pub use view_image::*;
@@ -72,11 +76,4 @@ fn utf8(bytes: &[u8], rel: &str) -> Result<String, ToolError> {
     }
     String::from_utf8(bytes.to_vec())
         .map_err(|_| ToolError::new("not_utf8", format!("{rel} is not valid UTF-8")))
-}
-
-fn write_file(p: &Path, rel: &str, content: &[u8]) -> Result<(), ToolError> {
-    if let Some(d) = p.parent() {
-        std::fs::create_dir_all(d).map_err(|e| io_err(rel, e))?;
-    }
-    std::fs::write(p, content).map_err(|e| io_err(rel, e))
 }

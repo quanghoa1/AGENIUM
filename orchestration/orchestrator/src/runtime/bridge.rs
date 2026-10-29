@@ -83,9 +83,6 @@ pub struct RunGate {
     pub ticket: Option<TicketKey>,
     pub agent: String,
     pub approver: Arc<dyn Approver>,
-    /// Commands run inside Agenium's sandbox. False for the commands of a vendor CLI that runs on the host (checked
-    /// through its hook): YOLO does not approve those, only the allowlist or the user.
-    pub contained: bool,
 }
 
 /// What a command would install on the user's machine (outside the worktree), if anything: a system package
@@ -204,7 +201,7 @@ impl CommandGate for RunGate {
         // ADR-120: installing software on the user's machine is the user's call under every policy, sandbox or not;
         // dependencies installed inside the worktree are not (a venv, node_modules, the build's own fetch).
         let installs = system_install(command).is_some();
-        if self.contained && !installs {
+        if !installs {
             match (policy, sandbox.backend) {
                 (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, Some(_)) => {
                     return GateDecision::Allow
@@ -228,15 +225,6 @@ impl CommandGate for RunGate {
         };
         if allowlisted(command, &list) {
             return GateDecision::Allow;
-        }
-        // A hooked CLI's own shell runs on the host, outside every rule of Agenium's tools: it is never put to the
-        // user (a team cannot wait on each `ls`) but refused with the way through Agenium's `shell` (ADR-117).
-        if !self.contained {
-            return GateDecision::Deny(
-                "run commands with the `shell` tool of the MCP server \"agenium\" (it runs them in the ticket's \
-worktree under Agenium's rules); your own shell tool is turned off in Agenium runs"
-                    .into(),
-            );
         }
         match self
             .approver

@@ -3,7 +3,8 @@
 //! per-run home is used; like agy in YOLO mode it runs every `PreToolUse` hook before a tool and skips the tool when
 //! the hook denies it or fails. `FAKE_AGY_SCENARIO`: `report` (default), `chatty`, `loop`, `steps`, `steer`, `slow`
 //! (a long command through Agenium's shell: `FAKE_AGY_SLOW`), `approval` (a command through Agenium's shell that the
-//! test's gate never answers). What it saw goes to `fake-agy.log` in its cwd.
+//! test's gate never answers), `slowjob` (a command longer than the run's foreground limit: `FAKE_AGY_JOB`). What it
+//! saw goes to `fake-agy.log` in its cwd.
 
 use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
@@ -296,6 +297,22 @@ fn main() {
             "approval" => {
                 let out = a.call_mcp("shell", json!({"command": "echo wait"}));
                 log(&format!("approval shell: {}", out.replace('\n', " ")));
+                a.end();
+            }
+            // A command longer than the run's foreground limit (`FAKE_AGY_JOB`): it goes on as a job, a report meanwhile
+            // is refused, and its end comes as the next turn's message.
+            "slowjob" if turn == 1 => {
+                let cmd = std::env::var("FAKE_AGY_JOB").unwrap_or_else(|_| "sleep 3".into());
+                let out = a.call_mcp("shell", json!({"command": cmd}));
+                log(&format!("slowjob shell: {}", out.replace('\n', " ")));
+                let r = a.call_mcp("submit_report", json!({"summary": "too early"}));
+                log(&format!("early report: {}", r.replace('\n', " ")));
+                a.end();
+            }
+            "slowjob" => {
+                log(&format!("result turn: {}", text.replace('\n', " ")));
+                let r = a.call_mcp("submit_report", json!({"summary": "done"}));
+                log(&format!("report: {r}"));
                 a.end();
             }
             _ => {

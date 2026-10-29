@@ -1,9 +1,9 @@
-//! Quota used up in the middle of a ticket (decision 3j): the worker's provider answers a real model for a few calls,
-//! then "insufficient_quota". The work so far must stay (worktree, conversation) and the user must be told; then the
-//! work goes on. `same`: a Solo agent, which the user gives another model (the API model again, or a vendor CLI with
-//! `--worker-cli`): it goes on from its conversation. `team`: a Lead and two workers; the Lead, told in its inbox, hands
-//! the ticket to the other worker (on a vendor CLI with `--worker-cli`), which goes on from the worktree. Graded on the
-//! golden task's own check after the merge, and on the handover.
+//! Quota used up in the middle of a ticket (decision 3j, ADR-132): the worker's provider answers a real model until the
+//! worker has changed a file, then "insufficient_quota". The work so far must stay (worktree, conversation) and the user
+//! must be told; then the user gives that same agent another model (the API model again, or a vendor CLI with
+//! `--worker-cli`) and it goes on from its conversation: the agent stays, only its model changes. `same`: a Solo agent;
+//! `team`: a Lead and two workers, where the ticket stays with its worker though the other is free. Graded on the golden
+//! task's own check after the merge.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -17,7 +17,7 @@ use agenium_orchestrator::runtime::{
     AutoApprove, DenyApprover, RunSummary, Runtime, StaticProviders,
 };
 use agenium_orchestrator::CallCtx;
-use agenium_store::core::{comments, events, runs};
+use agenium_store::core::{events, runs};
 use async_trait::async_trait;
 use serde_json::json;
 
@@ -147,8 +147,8 @@ pub async fn run(
         tags: vec![],
         model: binding(provider),
     };
-    // The worker whose quota runs out, and in a team the one that can take over.
-    let (first, other) = if team {
+    // The worker whose quota runs out (in a team, beside a free one that must not take its ticket).
+    let first = if team {
         let (_, m) = app.create_team(
             project.id,
             "team",
@@ -158,25 +158,13 @@ pub async fn run(
                 agent("worker-b", "backend", RoleKind::Worker, "eval"),
             ],
         )?;
-        if let Some((cli, cli_model)) = &taker_cli {
-            app.set_agent_backend(
-                m[2].id,
-                BackendKind::Cli,
-                &ModelBinding {
-                    provider: cli.clone(),
-                    model: cli_model.clone(),
-                    effort: effort.clone(),
-                    max_tokens: None,
-                },
-            )?;
-        }
-        (m[1].clone(), Some(m[2].clone()))
+        m[1].clone()
     } else {
         let (_, a) = app.create_solo(
             project.id,
             &agent("solo", "solo", RoleKind::Lead, "eval-limited"),
         )?;
-        (a, None)
+        a
     };
 
     let user = CallCtx::user(project.id);
@@ -304,30 +292,32 @@ pub async fn run(
             .is_ok_and(|s| !s.is_empty())
     });
 
-    // The work goes on: the user gives the Solo agent another model; in a team the Lead hands the ticket over.
-    if !team {
-        match &taker_cli {
-            Some((cli, cli_model)) => app.set_agent_backend(
-                first.id,
-                BackendKind::Cli,
-                &ModelBinding {
-                    provider: cli.clone(),
-                    model: cli_model.clone(),
-                    effort: effort.clone(),
-                    max_tokens: None,
-                },
-            )?,
-            None => app.set_agent_model(first.id, &binding("eval"))?,
-        }
-        if app.agent(first.id)?.status != AgentStatus::Idle {
-            problems.push("the new model did not free the agent".into());
-        }
+    // The ticket waits with its agent (in a team too: no one else takes it).
+    if app.ticket(project.id, &key)?.assignee != Some(first.id) {
+        problems.push(format!("{key} left {} while it was set aside", first.name));
+    }
+    // The work goes on: the user gives the agent another model, which frees it at once.
+    match &taker_cli {
+        Some((cli, cli_model)) => app.set_agent_backend(
+            first.id,
+            BackendKind::Cli,
+            &ModelBinding {
+                provider: cli.clone(),
+                model: cli_model.clone(),
+                effort: effort.clone(),
+                max_tokens: None,
+            },
+        )?,
+        None => app.set_agent_model(first.id, &binding("eval"))?,
+    }
+    if app.agent(first.id)?.status != AgentStatus::Idle {
+        problems.push("the new model did not free the agent".into());
     }
     summaries.extend(rt.drive(project.id, 12).await?);
 
     // Grading.
     let t = app.ticket(project.id, &key)?;
-    let taker = other.as_ref().unwrap_or(&first);
+    let taker = &first;
     if t.assignee != Some(taker.id) {
         problems.push(format!(
             "{key} ended with {:?}, not {}",
@@ -345,16 +335,6 @@ pub async fn run(
     }
     if let Err(e) = (task.check)(&root) {
         problems.push(e);
-    }
-    let handed = app
-        .store()
-        .read(|c| comments::for_ticket(c, t.id))?
-        .iter()
-        .any(
-            |c| matches!(&c.body, CommentBody::System { text } if text.starts_with("Handed from")),
-        );
-    if team && !handed {
-        problems.push("the ticket was not handed over".into());
     }
 
     let (mut tool_errors, mut error_codes, mut errors) =
@@ -426,7 +406,6 @@ pub async fn run(
             "quota_stopped": stopped,
             "user_told": told,
             "work_left_in_worktree": changed,
-            "handed_over": handed,
             "taker": taker.name,
             "taker_on": taker_cli.as_ref().map_or_else(|| "api".to_owned(), |(c, m)| format!("{c} {m}")),
         })),

@@ -40,6 +40,15 @@
       "default": "",
       "type": "string"
     },
+    "follows": {
+      "default": null,
+      "description": "The closed ticket this one goes on from: more work the user asked for on accepted work (a closed ticket is\nnever reopened). Linked `follow_up_of`, shown on both tickets.",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "kind": {
       "oneOf": [
         {

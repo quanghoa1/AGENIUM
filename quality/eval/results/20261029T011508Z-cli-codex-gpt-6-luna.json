@@ -1,0 +1,40 @@
+[
+  {
+    "id": "slow-check",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 16,
+    "tool_errors": 3,
+    "error_codes": {
+      "invalid_path": 1,
+      "not_found": 2
+    },
+    "errors": [
+      "list_dir: invalid_path: path is empty",
+      "read_file: not_found: deliverables/runs.log does not exist",
+      "read_file: not_found: deliverables/check.txt does not exist"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 8,
+      "review_ticket": 1,
+      "shell": 1,
+      "shell_output": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 271907,
+    "tokens_out": 1218,
+    "tokens_cached": 206080,
+    "cost_usd": 0.0,
+    "elapsed_ms": 126063
+  }
+]

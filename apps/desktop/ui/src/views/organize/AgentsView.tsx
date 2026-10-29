@@ -257,8 +257,8 @@ export function AgentsView() {
                 </div>
                 <div className="flex gap-1.5">
                   {(a.status === "QuotaExhausted" || a.status === "Offline") && (
-                    <button className="btn" title={app.t("agents.toIdle")} onClick={() => api.setAgentIdle(a.id).then(app.refresh)}>
-                      <RotateCcw className="h-3.5 w-3.5" />
+                    <button className="btn-primary" title={app.t("agents.resumeHint")} onClick={() => api.setAgentIdle(a.id).then(app.refresh)}>
+                      <RotateCcw className="h-3.5 w-3.5" /> {app.t("agents.resume")}
                     </button>
                   )}
                   <button className="btn" onClick={() => setEdit(edit === a.id ? null : a.id)}>

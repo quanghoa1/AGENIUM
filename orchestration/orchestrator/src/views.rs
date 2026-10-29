@@ -407,6 +407,9 @@ pub struct NeedItem {
     /// Spec or plan version to approve.
     pub version: Option<u32>,
     pub agent: Option<String>,
+    /// The agent to resume (`AgentBlocked`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<AgentId>,
     /// The role proposal to decide (`RoleProposal`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proposal: Option<String>,
@@ -425,21 +428,26 @@ impl App {
             comment: None,
             version: None,
             agent: None,
+            agent_id: None,
             proposal: None,
             text,
             at: at.to_owned(),
         };
         let team = self.team_of_project(project)?;
         if let Some((_, members)) = &team {
+            // The agent waits for the user (ADR-132): what is wrong with its model, and that resuming goes on from
+            // where it stopped (its ticket, its conversation).
             for a in members.iter().filter(|a| !a.status.assignable()) {
+                let model = format!("{}/{}", a.model.provider, a.model.model);
+                let text = if a.status == AgentStatus::QuotaExhausted {
+                    format!("{} ran out of quota or credit on {model}: add credit or give it another model, then resume it; it goes on from where it stopped", a.name)
+                } else {
+                    format!("{} cannot use {model} (its provider unreachable, or its CLI missing or logged out): fix it or give it another model, then resume it; it goes on from where it stopped", a.name)
+                };
                 out.push(NeedItem {
                     agent: Some(a.name.clone()),
-                    ..need(
-                        NeedKind::AgentBlocked,
-                        None,
-                        format!("{} is {}: change its model or add credit", a.name, a.status),
-                        "",
-                    )
+                    agent_id: Some(a.id),
+                    ..need(NeedKind::AgentBlocked, None, text, "")
                 });
             }
         }

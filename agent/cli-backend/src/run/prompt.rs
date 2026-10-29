@@ -146,6 +146,12 @@ pub fn isolated_home(
         env.entry(k.to_owned())
             .or_insert_with(|| home.display().to_string());
     }
+    // The git a CLI runs for itself reads no global or system configuration: a `.gitconfig` a model planted in the
+    // home (an alias, `core.fsmonitor`) would run a command outside every gate.
+    env.entry("GIT_CONFIG_GLOBAL".to_owned())
+        .or_insert_with(|| if cfg!(windows) { "NUL" } else { "/dev/null" }.to_owned());
+    env.entry("GIT_CONFIG_NOSYSTEM".to_owned())
+        .or_insert_with(|| "1".to_owned());
     env
 }
 

@@ -45,14 +45,6 @@ Long outputs are cut; the full output is saved as an artifact."
                 "workdir must be inside your worktree",
             ));
         }
-        // An approval the user has not given yet is given up when the run is stopped.
-        let decision = tokio::select! {
-            d = ctx.gate.check(&a.command, &cwd) => d,
-            _ = ctx.until_stopped() => return Err(ToolError::new("stopped", "the run was stopped before the command was approved")),
-        };
-        if let GateDecision::Deny(reason) = decision {
-            return Err(ToolError::new("command_denied", format!("{reason}. If you need it, explain why with ask_question or request_permission (kind=command).")));
-        }
         let timeout = a
             .timeout_ms
             .map(Duration::from_millis)
@@ -60,11 +52,23 @@ Long outputs are cut; the full output is saved as an artifact."
             .min(ctx.limits.shell_timeout_max);
         let mut spec = agenium_sandbox::CommandSpec {
             command: a.command.clone(),
-            cwd,
+            cwd: cwd.clone(),
             timeout,
             env: ctx.env.clone(),
             ..Default::default()
         };
+        // A vendor CLI waits only so long for a tool: its command goes on as a job the run waits for (ADR-133).
+        if let (Some(limit), false) = (ctx.foreground_limit, a.background) {
+            return super::shell_awaited::call(ctx, spec, limit).await;
+        }
+        // An approval the user has not given yet is given up when the run is stopped.
+        let decision = tokio::select! {
+            d = ctx.gate.check(&a.command, &cwd) => d,
+            _ = ctx.until_stopped() => return Err(ToolError::new("stopped", "the run was stopped before the command was approved")),
+        };
+        if let GateDecision::Deny(reason) = decision {
+            return Err(denied(&reason));
+        }
         if a.background {
             let id = ctx
                 .jobs
@@ -82,30 +86,47 @@ Long outputs are cut; the full output is saved as an artifact."
             .run(&spec, &ctx.policy)
             .await
             .map_err(|e| ToolError::new("exec_failed", e.to_string()))?;
-        let mut text = match (out.timed_out, out.exit_code) {
-            (false, None) if ctx.stopped() => {
-                "stopped: the run was stopped while the command ran (process tree killed)\n".into()
-            }
-            (true, _) => format!(
-                "timed out after {} ms (process tree killed)\n",
-                timeout.as_millis()
-            ),
-            (false, Some(c)) => format!("exit code {c}\n"),
-            (false, None) => "terminated by a signal\n".into(),
-        };
-        if !out.stdout.is_empty() {
-            text.push_str("--- stdout ---\n");
-            text.push_str(&out.stdout);
-            if !out.stdout.ends_with('\n') {
-                text.push('\n');
-            }
-        }
-        if !out.stderr.is_empty() {
-            text.push_str("--- stderr ---\n");
-            text.push_str(&out.stderr);
-        }
-        Ok(ctx.finish_output(text, false))
+        Ok(ctx.finish_output(command_text(&out, timeout, ctx.stopped()), false))
     }
+}
+
+/// The refusal of a command the gate did not allow.
+pub(super) fn denied(reason: &str) -> ToolError {
+    ToolError::new(
+        "command_denied",
+        format!("{reason}. If you need it, explain why with ask_question or request_permission (kind=command)."),
+    )
+}
+
+/// What a command that ended says: how it ended, then its output.
+pub(super) fn command_text(
+    out: &agenium_sandbox::ExecOutput,
+    timeout: Duration,
+    stopped: bool,
+) -> String {
+    let mut text = match (out.timed_out, out.exit_code) {
+        (false, None) if stopped => {
+            "stopped: the run was stopped while the command ran (process tree killed)\n".into()
+        }
+        (true, _) => format!(
+            "timed out after {} ms (process tree killed)\n",
+            timeout.as_millis()
+        ),
+        (false, Some(c)) => format!("exit code {c}\n"),
+        (false, None) => "terminated by a signal\n".into(),
+    };
+    if !out.stdout.is_empty() {
+        text.push_str("--- stdout ---\n");
+        text.push_str(&out.stdout);
+        if !out.stdout.ends_with('\n') {
+            text.push('\n');
+        }
+    }
+    if !out.stderr.is_empty() {
+        text.push_str("--- stderr ---\n");
+        text.push_str(&out.stderr);
+    }
+    text
 }
 
 use crate::paths;

@@ -93,6 +93,8 @@ export interface NeedItem {
   comment?: string | null;
   version?: number | null;
   agent?: string | null;
+  /** The agent to resume (`AgentBlocked`). */
+  agent_id?: string;
   /** The role proposal to decide (`RoleProposal`). */
   proposal?: string | null;
   text: string;

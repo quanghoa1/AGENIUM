@@ -6,7 +6,14 @@ async fn scripted_golden_tasks_pass() {
     for t in tasks() {
         let r = run_task(&t, &Mode::Scripted).await.unwrap();
         assert!(r.passed, "{}: {}", r.id, r.detail);
-        assert_eq!((r.runs, r.tool_errors, r.reopened), (2, 0, 0), "{}", r.id);
+        // A work run and a review; `ask-first` asks the user first, and its work goes on in a second run.
+        let runs = if t.id == "ask-first" { 3 } else { 2 };
+        assert_eq!(
+            (r.runs, r.tool_errors, r.reopened),
+            (runs, 0, 0),
+            "{}",
+            r.id
+        );
     }
 }
 

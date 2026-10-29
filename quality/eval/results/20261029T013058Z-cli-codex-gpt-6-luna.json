@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ask-first",
+    "passed": true,
+    "closed": true,
+    "detail": "ok (the CLI resumed its session)",
+    "runs": 3,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "ask_question": 1,
+      "close_ticket": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Parked",
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 231100,
+    "tokens_out": 874,
+    "tokens_cached": 165888,
+    "cost_usd": 0.0,
+    "elapsed_ms": 31125
+  }
+]

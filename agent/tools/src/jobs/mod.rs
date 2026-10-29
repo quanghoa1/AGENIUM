@@ -1,7 +1,8 @@
 //! Background commands of a run (ADR-129): `shell` with `background: true` starts one (a dev server, a watcher, a long
 //! build), `shell_output` reads what it printed since the last read and whether it ended, `shell_stop` ends its
 //! process tree. They run under the same sandbox, gate and environment as `shell`, at most `MAX_RUNNING` at a time,
-//! for at most `MAX_LIFETIME`, and end with the run (the tool context is dropped).
+//! for at most `MAX_LIFETIME`, and end with the run (the tool context is dropped). A `shell` command of a vendor CLI's
+//! run that outlasts its call goes on as one too, awaited by the run (`awaited`, ADR-133).
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -9,6 +10,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use agenium_sandbox::{CommandSpec, ExecOutput, Executor, Live, SandboxPolicy};
+
+mod awaited;
+pub use awaited::{Ended, DENIED, STOPPED};
 
 /// Background commands running at once in one run.
 pub const MAX_RUNNING: usize = 4;
@@ -24,6 +28,22 @@ struct Job {
     stop: Arc<AtomicBool>,
     /// Set when the command ended: its exit (or why it could not run).
     done: Arc<Mutex<Option<Result<ExecOutput, String>>>>,
+    /// Set once the command runs (an awaited one may first wait for the user's approval).
+    running: Arc<AtomicBool>,
+    /// A `shell` command that outlasted its call: the run hands its end to the agent (ADR-133).
+    awaited: bool,
+    /// Its end was handed to the agent (by `shell_output` or by the run).
+    told: bool,
+    timeout: Duration,
+}
+
+impl Job {
+    fn ended(&self) -> bool {
+        self.done
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+    }
 }
 
 /// What a read of a background command gives: the new output and where the command stands.
@@ -47,12 +67,13 @@ pub struct Jobs {
 }
 
 impl Jobs {
+    /// Background commands the agent started that are still running (an awaited one is not the agent's to stop).
     fn running(&self) -> usize {
         self.map
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .values()
-            .filter(|j| j.done.lock().unwrap_or_else(|e| e.into_inner()).is_none())
+            .filter(|j| !j.awaited && !j.ended())
             .count()
     }
 
@@ -93,6 +114,10 @@ impl Jobs {
                 read: 0,
                 stop,
                 done,
+                running: Arc::new(AtomicBool::new(true)),
+                awaited: false,
+                told: false,
+                timeout: MAX_LIFETIME,
             },
         );
         Ok(id)
@@ -169,6 +194,10 @@ impl Jobs {
                 timed_out: o.timed_out,
             },
         };
+        // Read to its end by the agent: the run does not hand it over again.
+        if !matches!(state, JobState::Running { .. }) {
+            j.told = true;
+        }
         JobRead {
             command: j.command.clone(),
             new_output,
