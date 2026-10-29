@@ -9,8 +9,9 @@ const TOOLS: &str = include_str!("../../../../agent/mcp/data/many-tools.json");
 
 /// A Streamable HTTP MCP server with the 123 tools of `many-tools.json`. `start_small`: it lists only its own search
 /// (`find_tools`, `run_tool`) until the search is used, which fails (out of quota); from then on it lists every tool,
-/// the failed call's event stream carrying `notifications/tools/list_changed` before the answer.
-async fn many_tools(start_small: bool) -> String {
+/// the failed call's event stream carrying `notifications/tools/list_changed` before the answer. Unless `announce`:
+/// then it declares no `listChanged`, sends no notice and does not say its tools changed.
+async fn many_tools(start_small: bool, announce: bool) -> String {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let small = Arc::new(AtomicBool::new(start_small));
     let all: serde_json::Value = serde_json::from_str(TOOLS).unwrap();
@@ -68,7 +69,7 @@ async fn many_tools(start_small: bool) -> String {
                     let name = msg["params"]["name"].as_str().unwrap_or("").to_owned();
                     let result = match msg["method"].as_str().unwrap_or("") {
                         "initialize" => {
-                            json!({"protocolVersion": "2025-06-18", "capabilities": {"tools": {"listChanged": true}}, "serverInfo": {"name": "many"}})
+                            json!({"protocolVersion": "2025-06-18", "capabilities": {"tools": {"listChanged": announce}}, "serverInfo": {"name": "many"}})
                         }
                         "tools/list" => {
                             json!({"tools": if small.load(Ordering::SeqCst) { own } else { all.clone() }})
@@ -77,6 +78,14 @@ async fn many_tools(start_small: bool) -> String {
                             if name == "find_tools" && small.swap(false, Ordering::SeqCst) =>
                         {
                             let r = json!({"jsonrpc": "2.0", "id": msg["id"], "result": {"content": [{"type": "text", "text": "the tool search is out of quota: every tool is listed now"}], "isError": true}});
+                            if !announce {
+                                let r = json!({"jsonrpc": "2.0", "id": msg["id"], "result": {"content": [{"type": "text", "text": "the tool search is out of quota"}], "isError": true}});
+                                let _ = s
+                                    .write_all(reply("application/json", r.to_string()).as_bytes())
+                                    .await;
+                                let _ = s.shutdown().await;
+                                return;
+                            }
                             let notice = json!({"jsonrpc": "2.0", "method": "notifications/tools/list_changed"});
                             let stream = format!("data: {notice}\n\ndata: {r}\n\n");
                             let _ = s
@@ -151,7 +160,7 @@ async fn many_mcp_tools_are_found_by_search_and_called() {
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
     let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
-    bind(&app, agent, many_tools(false).await);
+    bind(&app, agent, many_tools(false, true).await);
     let first = Arc::new(Mutex::new(Vec::new()));
     let f1 = first.clone();
     p.push(Box::new(move |req| {
@@ -257,7 +266,7 @@ async fn a_server_that_falls_back_to_all_its_tools_mid_run_is_followed() {
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
     let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
-    bind(&app, agent, many_tools(true).await);
+    bind(&app, agent, many_tools(true, true).await);
     let first = Arc::new(Mutex::new(Vec::new()));
     let f1 = first.clone();
     p.push(Box::new(move |req| {
@@ -353,5 +362,74 @@ async fn a_server_that_falls_back_to_all_its_tools_mid_run_is_followed() {
         Err(agenium_llm::LlmError::Unsupported("stop here".into()))
     }));
     let _ = rt.review(project, &key("AGN-1")).await;
+    assert_eq!(p.remaining(), 0);
+}
+
+/// A server that changes its tools without saying so (no `listChanged`, no notice): small as it starts, the run still
+/// gets `tool_search` and `call_tool`; the failed call lists the server again and says what changed, and the agent
+/// reaches the tools listed since.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_server_that_changes_its_tools_without_a_word_is_followed() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    bind(&app, agent, many_tools(true, false).await);
+    p.push(Box::new(move |req| {
+        let n = names(req);
+        for t in ["mcp__many__find_tools", "tool_search", "call_tool"] {
+            assert!(n.contains(&t.to_owned()), "{t} in {n:?}");
+        }
+        Ok(calls_response(
+            "",
+            vec![(
+                "mcp__many__find_tools",
+                json!({"query": "release codename"}),
+            )],
+        ))
+    }));
+    p.push(Box::new(move |req| {
+        let (text, err) = last_result(req);
+        assert!(
+            err && text.contains("out of quota")
+                && text.contains("changed its tools during the run: it offers 123 now")
+                && text.contains("tool_search"),
+            "{text}"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "tool_search",
+                json!({"query": "codename of a release version"}),
+            )],
+        ))
+    }));
+    p.push(Box::new(move |req| {
+        let (text, err) = last_result(req);
+        assert!(
+            !err && text.starts_with("## mcp__many__releases_codename"),
+            "{text}"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "call_tool",
+                json!({"name": "mcp__many__releases_codename", "arguments": {"version": "4.2"}}),
+            )],
+        ))
+    }));
+    p.push(Box::new(move |req| {
+        let (text, err) = last_result(req);
+        assert!(!err && text.contains("BLUE-HERON"), "{text}");
+        Ok(calls_response(
+            "",
+            vec![(
+                "submit_report",
+                serde_json::to_value(report("AGN-1")).unwrap(),
+            )],
+        ))
+    }));
+    let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(s.outcome, "Completed");
     assert_eq!(p.remaining(), 0);
 }

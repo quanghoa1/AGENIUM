@@ -1,0 +1,41 @@
+[
+  {
+    "id": "mcp-fallback",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid_arguments": 1,
+      "mcp_tool_error": 1
+    },
+    "errors": [
+      "mcp__tools__find_tools: mcp_tool_error: the tool search is out of quota (MCP server tools changed its tools during the run: it offers 123 now; find the one you need with tool_search and call it with call_tool)",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `result`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`"
+    ],
+    "tools": {
+      "call_tool": 1,
+      "cli:ToolSearch": 3,
+      "close_ticket": 1,
+      "mcp__tools__find_tools": 1,
+      "mcp__tools__releases_codename": 1,
+      "read_file": 1,
+      "review_ticket": 1,
+      "submit_report": 2,
+      "tool_search": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 227163,
+    "tokens_out": 2203,
+    "tokens_cached": 205154,
+    "cost_usd": 0.0,
+    "elapsed_ms": 30491
+  }
+]

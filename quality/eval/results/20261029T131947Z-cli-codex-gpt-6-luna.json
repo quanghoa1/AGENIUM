@@ -1,0 +1,43 @@
+[
+  {
+    "id": "mcp-fallback-late",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 18,
+    "tool_errors": 3,
+    "error_codes": {
+      "mcp_tool_error": 1,
+      "not_found": 1,
+      "tool_gone": 1
+    },
+    "errors": [
+      "mcp__tools__run_tool: mcp_tool_error: the tool search is out of quota (MCP server tools changed its tools during the run: it offers 123 now; find the one you need with tool_search and call it with call_tool)",
+      "mcp__tools__run_tool: tool_gone: MCP server tools no longer offers run_tool (its tool list changed during the run; it offers 123 other tools now): find what you need with tool_search and call it with call_tool",
+      "read_file: not_found: deliverables/codenames.txt does not exist"
+    ],
+    "tools": {
+      "call_tool": 2,
+      "close_ticket": 1,
+      "mcp__tools__find_tools": 2,
+      "mcp__tools__releases_codename": 2,
+      "mcp__tools__run_tool": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "tool_search": 3,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 302623,
+    "tokens_out": 1222,
+    "tokens_cached": 228480,
+    "cost_usd": 0.0,
+    "elapsed_ms": 78206
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "mcp-fallback",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 2,
+    "error_codes": {
+      "mcp_tool_error": 1,
+      "unknown_tool": 1
+    },
+    "errors": [
+      "mcp__tools__find_tools: mcp_tool_error: the tool search is out of quota (MCP server tools changed its tools during the run: it offers 123 now; find the one you need with tool_search and call it with call_tool)",
+      "call_tool: unknown_tool: no MCP tool is named \"mcp__tools__noop\" now; find it with tool_search"
+    ],
+    "tools": {
+      "call_tool": 3,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "mcp__tools__find_tools": 1,
+      "mcp__tools__releases_codename": 1,
+      "read_file": 1,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "tool_search": 3,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 160425,
+    "tokens_out": 1635,
+    "tokens_cached": 133248,
+    "cost_usd": 0.0,
+    "elapsed_ms": 51947
+  }
+]

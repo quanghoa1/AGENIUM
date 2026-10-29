@@ -127,6 +127,20 @@ impl McpTool {
         &self.session.server
     }
 
+    /// `e` with what changed when the server's tool list is no longer the one the run had (listed again now).
+    async fn changed(&self, mut e: ToolError) -> ToolError {
+        let Some(l) = &self.listed else { return e };
+        if let Ok(true) = crate::catalog::relist(&self.session, l, false, true).await {
+            let n = l.lock().unwrap_or_else(|e| e.into_inner()).tools.len();
+            e.message.push_str(&format!(
+                " (MCP server {} changed its tools during the run: it offers {n} now; find the one you need with \
+                 tool_search and call it with call_tool)",
+                self.session.server
+            ));
+        }
+        e
+    }
+
     /// The tool's output fenced as the server's (ADR-142).
     fn fenced(&self, text: &str) -> String {
         agenium_tools::untrusted::fence(
@@ -238,11 +252,15 @@ impl Tool for McpTool {
                 attempt(c, args).await
             }
             r => r,
-        }
-        .map_err(tool_error)?;
-        if r.is_error {
-            return Err(ToolError::new("mcp_tool_error", r.text));
-        }
+        };
+        // A tool that fails may be one its server no longer offers, the server having changed its tools without
+        // saying so: it is listed again at once and the agent told what changed (ADR-139).
+        let r = match r {
+            Ok(r) if !r.is_error => r,
+            Ok(r) => return Err(self.changed(ToolError::new("mcp_tool_error", r.text)).await),
+            Err(e @ McpError::Rpc { .. }) => return Err(self.changed(tool_error(e)).await),
+            Err(e) => return Err(tool_error(e)),
+        };
         let mut out = ctx.finish_output(r.text, true);
         out.text = self.fenced(&out.text);
         out.images = r

@@ -26,7 +26,9 @@ Amends ADR-62 (agents' MCP servers) and ADR-109 (MCP client).
    stream). A server is listed again when it said its tools changed, when its connection was opened again, or — when it
    declares `tools.listChanged`, whose notice may never reach a client without an open event stream — when its list is
    older than 20 seconds; each run starts from the list as it is. A tool the server no longer lists is not called: it
-   says the server dropped it and points to `tool_search` (`tool_gone`).
+   says the server dropped it and points to `tool_search` (`tool_gone`). A server can also change its tools without
+   saying anything (no `listChanged`, no notice): when one of its tools fails, the server is listed again at once and
+   the error says so ("… changed its tools during the run: it offers 123 now; find the one you need with tool_search").
 2. **Past a threshold the MCP tools are found, not listed** (`orchestration/orchestrator/src/tool_search/`,
    `[tool_search]` in `config.toml`): with more than `over_tools` (20) tools or more than `over_tokens` (10,000) of
    definitions (`mode = "auto"`; `always`, `never`), a run lists only the `keep_used` (5) MCP tools its agent called
@@ -41,8 +43,9 @@ Amends ADR-62 (agents' MCP servers) and ADR-109 (MCP client).
      server has it); the arguments, an object or a JSON string, are fitted to the tool's schema (ADR-105), and the
      tool runs as a listed one (cut output, untrusted, read-only tools only in a review or chat).
 
-   The run's tool list never changes, so a provider's prompt-cache prefix holds (ADR-113) on every vendor. A server
-   that declares its tools may change gets the pair at any size: the tools it adds are found, not added to the prompt.
+   The run's tool list never changes, so a provider's prompt-cache prefix holds (ADR-113) on every vendor. Below the
+   threshold the pair is offered too (about 350 tokens) whenever an MCP server is bound: any server may change its
+   tools during the run, and the tools it adds are found, not added to the prompt.
 3. **Ranking** (`agent/mcp/src/rank.rs`, `tool_search/index.rs`, `tool_search/jev.rs`): words — BM25 over the name
    (twice), description, argument names and descriptions, common words left out and words stemmed — and meaning — the
    memory's local embedding model (`bge-small-en-v1.5`, ADR-47; each tool embedded once per process) — fused by
@@ -103,6 +106,14 @@ often (2.4 calls a run against 2.2).
   `tool_search` and called it with `call_tool`; in `mcp-fallback` each first used the server's own search, got its
   out-of-quota error, and found the tool among the 123 listed since. Claude Code loaded Agenium's `tool_search` with its
   own `ToolSearch` and used it.
+- The owner's case and its variants (a server whose own search, as with Jev, runs out of quota): `mcp-fallback` (out of
+  quota at its first use; the server says its tools changed), `mcp-fallback-late` (its search and runs work twice, then
+  out of quota in the middle of the task; the server lists all 123 without a word — no `listChanged`, no notice — and
+  the second codename is reached only through them), `a_server_that_changes_its_tools_without_a_word_is_followed`
+  (runtime), `a_server_whose_own_search_comes_back_is_followed` (the server back to its two tools without a word: the
+  failed call says it offers 2 now, and its search works again). DeepSeek v4.1 flash, Codex gpt-6-luna and Claude Code
+  Haiku 5.5 passed `mcp-fallback-late` and `mcp-fallback` again: each turned to `tool_search` on the error that said
+  the tools changed (Codex tried the server's run tool once more first and was told it was gone).
 
 ## Consequences
 

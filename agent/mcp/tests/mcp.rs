@@ -499,3 +499,63 @@ async fn a_catalogue_follows_a_server_that_changes_its_tools() {
         .await;
     assert_eq!(again.tools.len(), 123);
 }
+
+/// ADR-139: the server's own search comes back (its quota renewed) and it lists only its two tools again, without a
+/// notice: a call to one of the 123 fails, the server is listed again at once, and the error says what changed.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_server_whose_own_search_comes_back_is_followed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
+    let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
+    let cfg = McpServerConfig {
+        id: "many".into(),
+        command: Some(env!("CARGO_BIN_EXE_agenium-mcp-many-tools").into()),
+        args: vec!["--start-small".into(), "--back-after".into(), "1".into()],
+        env: BTreeMap::new(),
+        url: None,
+        headers: BTreeMap::new(),
+        timeout_secs: 10,
+        oauth: None,
+    };
+    let b = Binding {
+        server: "many".into(),
+        credentials: Default::default(),
+        keys: Default::default(),
+        tools: None,
+    };
+    let catalog = hub
+        .tools_for("a1", std::slice::from_ref(&b), std::slice::from_ref(&cfg))
+        .await
+        .catalog(Arc::new(|_| true));
+    let first = catalog.current().await;
+    assert!(first[0].call(&ctx, json!({"query": "x"})).await.is_err());
+    let all = catalog.current().await;
+    assert_eq!(all.len(), 123);
+    let find = |n: &str| all.iter().find(|t| t.name() == n).unwrap().clone();
+    // One call while every tool is listed; then the server is back to its own two, without a word.
+    let out = find("mcp__many__releases_codename")
+        .call(&ctx, json!({"version": "4.2"}))
+        .await
+        .unwrap();
+    assert!(out.text.contains("BLUE-HERON"));
+    let e = find("mcp__many__slack_post_message")
+        .call(&ctx, json!({"channel": "#x", "text": "hi"}))
+        .await
+        .unwrap_err();
+    assert!(
+        e.message
+            .contains("MCP server many changed its tools during the run: it offers 2 now"),
+        "{e}"
+    );
+    let now = catalog.current().await;
+    let names: Vec<&str> = now.iter().map(|t| t.name()).collect();
+    assert_eq!(names, ["mcp__many__find_tools", "mcp__many__run_tool"]);
+    let out = now[1]
+        .call(
+            &ctx,
+            json!({"name": "releases_codename", "arguments": {"version": "4.2"}}),
+        )
+        .await
+        .unwrap();
+    assert!(out.text.contains("BLUE-HERON"), "{}", out.text);
+}

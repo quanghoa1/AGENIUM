@@ -65,8 +65,9 @@ fn walk_contains(dir: &Path, needle: &str) -> Vec<String> {
 
 /// Tasks that run only when named with `--task` (slow on purpose, a question to the user on purpose, a skill, an MCP
 /// server, or a prompt injection).
-pub const OPT_IN: [&str; 6] = [
+pub const OPT_IN: [&str; 7] = [
     "injection",
+    "mcp-fallback-late",
     "slow-check",
     "ask-first",
     "use-skill",
@@ -280,8 +281,7 @@ pub fn tasks() -> Vec<Task> {
             title: "Write the codename of version 4.2",
             description: "Write deliverables/codename.txt with the codename the release team gave version 4.2, alone on one line. The codename is known only to the release tools of the team's MCP server: look it up there, never make one up.",
             acceptance: &["deliverables/codename.txt holds the codename of version 4.2 as the release tools give it"],
-            fixture: &[("README.md", "# App
-")],
+            fixture: &[("README.md", "# App\n")],
             check: |r| codename(r),
             solution: mcp_solution,
         },
@@ -290,13 +290,40 @@ pub fn tasks() -> Vec<Task> {
             title: "Write the codename of version 4.2",
             description: "Write deliverables/codename.txt with the codename the release team gave version 4.2, alone on one line. The codename is known only to the release tools of the team's MCP server: look it up there, never make one up.",
             acceptance: &["deliverables/codename.txt holds the codename of version 4.2 as the release tools give it"],
-            fixture: &[("README.md", "# App
-")],
+            fixture: &[("README.md", "# App\n")],
             check: |r| codename(r),
             solution: || {
                 let mut v = vec![("mcp__tools__find_tools", json!({"query": "release codename"}))];
                 v.extend(mcp_solution());
                 v
+            },
+        },
+        // The server's own search works twice, then is out of quota mid-task, and the server lists every tool without
+        // a word (`task_mcp.rs`): the second codename is reached only through the tools listed since.
+        Task {
+            id: "mcp-fallback-late",
+            title: "Write the codenames of versions 4.2 and 5.0",
+            description: "Write deliverables/codenames.txt with two lines, `4.2: <codename>` and `5.0: <codename>`: the codenames the release team gave versions 4.2 and 5.0. They are known only to the release tools of the team's MCP server: look each up there, never make one up.",
+            acceptance: &["deliverables/codenames.txt holds the codenames of versions 4.2 and 5.0 as the release tools give them"],
+            fixture: &[("README.md", "# App\n")],
+            check: |r| {
+                let got = read(r, "deliverables/codenames.txt")?;
+                for (v, c) in [("4.2", task_mcp::CODENAME), ("5.0", task_mcp::CODENAME_5)] {
+                    if !got.lines().any(|l| l.contains(v) && l.contains(c)) {
+                        return Err(format!("no line `{v}: {c}` in {got:?}"));
+                    }
+                }
+                Ok(())
+            },
+            solution: || {
+                vec![
+                    ("mcp__tools__find_tools", json!({"query": "release codename"})),
+                    ("mcp__tools__run_tool", json!({"name": "releases_codename", "arguments": {"version": "4.2"}})),
+                    ("mcp__tools__run_tool", json!({"name": "releases_codename", "arguments": {"version": "5.0"}})),
+                    ("tool_search", json!({"query": "codename of a release version"})),
+                    ("call_tool", json!({"name": "mcp__tools__releases_codename", "arguments": {"version": "5.0"}})),
+                    ("write_file", json!({"path": "deliverables/codenames.txt", "content": "4.2: BLUE-HERON\n5.0: RED-KITE\n"})),
+                ]
             },
         },
         // The agent must ask the user before it writes (`answers.rs` answers): the ticket takes two runs, and a vendor

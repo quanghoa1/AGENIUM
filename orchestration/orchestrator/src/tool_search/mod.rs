@@ -155,7 +155,9 @@ pub(crate) async fn offer(
     if !defer {
         let mut tools: Vec<Arc<dyn Tool>> = all.into_iter().map(|t| t as Arc<dyn Tool>).collect();
         let mut lines = Vec::new();
-        if catalog.may_change() {
+        // Small as the servers' lists are, the pair is offered: a server may change its tools during the run without
+        // saying so (its own search out of quota, say), and the tools it adds are reached through it.
+        if !catalog.servers().is_empty() {
             tools.extend(pair(&catalog));
             lines.push(
                 "An MCP server may change its tools during the run: tools it adds are found with tool_search and \

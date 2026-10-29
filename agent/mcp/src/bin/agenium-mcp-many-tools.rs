@@ -3,6 +3,8 @@
 //! `find_tools` and `run_tool` listed — whose search is out of quota at the first use: the call fails, the server lists
 //! all its tools from then on and says so (`notifications/tools/list_changed`). Every tool answers with what it was
 //! called with; `releases_codename` answers the codename of a version (`BLUE-HERON`), which nothing else holds.
+//! `--back-after N`: N calls after it listed every tool, its search is back and it lists only its own two again,
+//! without a notice.
 
 use std::io::{BufRead, Write};
 
@@ -38,6 +40,13 @@ fn answer(name: &str, args: &Value) -> String {
 fn main() {
     let all: Value = serde_json::from_str(TOOLS).expect("the catalogue");
     let mut small = std::env::args().any(|a| a == "--start-small");
+    // `--back-after N`: once listing every tool, its search's quota comes back after N calls and it lists only its own
+    // search again, without a word.
+    let back_after: Option<u32> = std::env::args()
+        .skip_while(|a| a != "--back-after")
+        .nth(1)
+        .and_then(|n| n.parse().ok());
+    let mut calls_full = 0u32;
     let stdin = std::io::stdin();
     let mut out = std::io::stdout();
     for line in stdin.lock().lines() {
@@ -73,6 +82,10 @@ fn main() {
                     let n = args["name"].as_str().unwrap_or("");
                     json!({"content": [{"type": "text", "text": answer(n, &args["arguments"])}]})
                 } else if all.as_array().unwrap().iter().any(|t| t["name"] == name) && !small {
+                    calls_full += 1;
+                    if back_after.is_some_and(|n| calls_full >= n) {
+                        small = true;
+                    }
                     json!({"content": [{"type": "text", "text": answer(name, args)}]})
                 } else {
                     send(
