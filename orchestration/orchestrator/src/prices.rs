@@ -23,6 +23,26 @@ pub struct PriceView {
     pub fetched_at: Option<String>,
     /// Per configured provider: the price of each model it has one for (USD per million tokens).
     pub providers: BTreeMap<String, BTreeMap<String, Price>>,
+    /// Per configured provider and vendor CLI: the models the catalogue marks deprecated (no longer served, or soon
+    /// not), each with a served model of its family to use instead when there is one.
+    pub deprecated: BTreeMap<String, BTreeMap<String, Option<String>>>,
+}
+
+/// The catalogue provider whose models a vendor CLI runs.
+const CLI_VENDORS: [(&str, &str); 5] = [
+    ("claude", "anthropic"),
+    ("codex", "openai"),
+    ("agy", "google"),
+    ("grok", "xai"),
+    ("opencode", "opencode"),
+];
+
+/// A catalogue provider's deprecated models, each with the one to use instead.
+fn deprecated_of(p: &agenium_llm::pricing::CatalogueProvider) -> BTreeMap<String, Option<String>> {
+    p.deprecated
+        .iter()
+        .map(|m| (m.clone(), p.instead_of(m)))
+        .collect()
 }
 
 /// The modification times of `pricing.toml` and the catalogue: the price list is read again when one changes.
@@ -90,7 +110,16 @@ impl App {
     pub fn price_view(&self) -> PriceView {
         let prices = self.prices();
         let mut providers = BTreeMap::new();
+        let mut deprecated = BTreeMap::new();
+        for (cli, vendor) in CLI_VENDORS {
+            if let Some(p) = prices.catalogue.providers.iter().find(|p| p.id == vendor) {
+                deprecated.insert(cli.to_owned(), deprecated_of(p));
+            }
+        }
         for cfg in self.config().providers {
+            if let Some(p) = prices.catalogue.provider(&cfg.id, cfg.base_url.as_deref()) {
+                deprecated.insert(cfg.id.clone(), deprecated_of(p));
+            }
             let mut models: BTreeMap<String, Price> = prices
                 .catalogue
                 .provider(&cfg.id, cfg.base_url.as_deref())
@@ -118,6 +147,7 @@ impl App {
             source: known.then(|| prices.catalogue.source.clone()),
             fetched_at: known.then(|| prices.catalogue.fetched_at.clone()),
             providers,
+            deprecated,
         }
     }
 

@@ -83,11 +83,29 @@ pub enum GateDecision {
     Deny(String),
 }
 
+/// An MCP tool call that may wait for the user (ADR-143): the tool, its arguments and what its server says of it.
+#[derive(Debug, Clone)]
+pub struct ToolAsk {
+    pub server: String,
+    /// The server's own name of the tool.
+    pub tool: String,
+    pub arguments: serde_json::Value,
+    /// `annotations.readOnlyHint`.
+    pub read_only: bool,
+    /// `annotations.destructiveHint` (`None`: the server does not say).
+    pub destructive: Option<bool>,
+}
+
 /// Who decides whether a shell command may run: the user (approval mode, before the sandbox exists on this OS)
 /// or the sandbox policy (YOLO only with a working backend). Implemented by the runtime.
 #[async_trait]
 pub trait CommandGate: Send + Sync {
     async fn check(&self, command: &str, cwd: &Path) -> GateDecision;
+
+    /// Whether an MCP tool call may run (ADR-143); every call by default.
+    async fn check_tool(&self, _ask: &ToolAsk) -> GateDecision {
+        GateDecision::Allow
+    }
 }
 
 /// A gate that refuses everything (headless runs without an approver).

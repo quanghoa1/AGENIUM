@@ -28,6 +28,8 @@ pub struct JudgeInput {
     #[serde(default)]
     pub memory_gate: bool,
     #[serde(default)]
+    pub memory_settle: bool,
+    #[serde(default)]
     pub skill_quality: bool,
     #[serde(default)]
     pub done_check: bool,
@@ -88,6 +90,7 @@ impl App {
             review_assist: j.review_assist,
             skill_hint: j.skill_hint,
             memory_gate: j.memory_gate,
+            memory_settle: j.memory_settle,
             skill_quality: j.skill_quality,
             done_check: j.done_check,
             trim_output: j.trim_output,

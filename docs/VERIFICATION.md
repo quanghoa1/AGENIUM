@@ -57,6 +57,7 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Recall into the work order; rule vs hint by scope; reuse signals (helped / hurt) | `retrieve.rs`, `gm2_scope_trap` | memory reuse: first merge with memory on 3/3 on Haiku, Sonnet, Opus, gpt-6-luna, gpt-6.1-sol; 0/3 off (memory-eval.md §4) |
 | Lessons validated per context, decay, consolidation, shared pool | `validation_decay_and_consolidation`, `pooled_recall_...` | learning chain (below) |
 | Learning from the Lead chat, long chat summary | `the_chat_with_the_lead_is_learned...`, `a_long_chat_is_summarised...` | `real_checks chat` on DeepSeek |
+| Memory settled by its vectors, the judge on unclear pairs, contradictions to the user (ADR-145) | `settle::tests`, `agent/memory/tests/settle.rs`, runtime `the_memory_is_settled_once_enough_was_learned`, UI smoke (Tidy → a contradiction decided) | `memory_settle_eval`: 70 labelled pairs, bge + Jev: 19/20 folded, 18/20 contradictions, 0 wrong folds |
 
 ## Skills — `agent/skills`, `orchestration/orchestrator/src/skill_*`
 
@@ -72,12 +73,21 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 |---|---|---|
 | stdio, Streamable HTTP, legacy SSE, OAuth, resources and prompts as tools, per-agent keys | `mcp.rs`, `legacy_sse.rs`, OAuth tests | official `server-everything` (16 tools, 7 resources, 4 prompts); M1.5 run used an MCP tool |
 | Many tools found by search (`tool_search`, `call_tool`), a server whose tools change during a run followed (`list_changed`, a dropped tool refused) (ADR-139) | `rank::tests`, `mcp.rs::a_catalogue_follows_a_server_that_changes_its_tools`, `runtime/mcp_search.rs` (2), golden `mcp-search`, `mcp-fallback` | DeepSeek (API), Codex gpt-6-luna and Claude Code Haiku pass `mcp-search` and `mcp-fallback`; ranking on 123 tools × 58 requests: 30/58 → 36/58 → 55/58 first (words, + meaning, + Jev) |
+| MCP tools that ask first: a destructive tool waits for the user, read-only runs, per-server setting, allowed always (ADR-143) | `mcp_approval::tests`, runtime `a_destructive_mcp_tool_waits_for_the_user`, UI smoke (MCP tab) | — |
 
 ## Providers — `agent/llm`
 
 | Behaviour | Tests | Real runs |
 |---|---|---|
 | Anthropic, Gemini, OpenAI-compatible, Responses, OpenCode relay; 32 presets | `adapters.rs` (contract tests), `every_vendor_preset_builds_an_adapter` | OpenCode Go (DeepSeek), OpenRouter (free models); the rest are contract-tested only |
+| Strict tool arguments to Anthropic's and OpenAI's own APIs, fitted within Claude's limits; a refused schema sent again plain (ADR-144) | `strict::tests`, `strict_tools_go_strict_only_to_claude_and_openai`, `a_refused_strict_schema_is_sent_again_plain` | not yet against the live APIs |
+| Deprecated models marked with one to use instead | `a_deprecated_model_is_told_its_family_s_newest`, UI smoke (price view) | — |
+
+## Runs of 2026-10-30
+
+| Check | Result |
+|---|---|
+| The default golden set after MCP approval, strict tool arguments and the null/empty argument repair (ADR-143, ADR-144), effort low | 5/5 on DeepSeek v4.1 flash (API), Codex gpt-6-luna, Grok 4.7, Claude Code Haiku 5.5 and agy Gemini 3.8 Flash; no tool error came from the argument repair (the models' own guesses: a missing `confidence`, agy wrapping arguments in `Arguments`) |
 
 ## Runs of 2026-10-29
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, RotateCcw, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, Plug, RotateCcw, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ListItem } from "../components/motion";
@@ -131,14 +131,27 @@ export function CommandRow({ a }: { a: CommandApproval }) {
       .catch((e) => app.notify(String(e)));
   return (
     <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-      <Terminal className="mt-0.5 h-4 w-4 text-amber-500" />
+      {a.tool ? <Plug className="mt-0.5 h-4 w-4 text-amber-500" /> : <Terminal className="mt-0.5 h-4 w-4 text-amber-500" />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="label">{a.agent}</span>
           {a.ticket && <Mono className="text-subtle">{a.ticket}</Mono>}
           <Mono className="text-subtle">{ago(a.at)}</Mono>
         </div>
-        <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.command}</pre>
+        {a.tool ? (
+          <>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+              <span>{app.t("needs.mcpTool")}</span>
+              <Mono className="font-semibold">
+                {a.tool.server}/{a.tool.tool}
+              </Mono>
+              {a.tool.destructive && <span className="chip border-rose-500/30 text-rose-600">destructive</span>}
+            </div>
+            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.tool.arguments}</pre>
+          </>
+        ) : (
+          <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.command}</pre>
+        )}
       </div>
       <div className="flex shrink-0 gap-1.5">
         <button className="btn-danger" onClick={() => decide("deny")}>

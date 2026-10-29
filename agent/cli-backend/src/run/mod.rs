@@ -331,12 +331,14 @@ impl CliRun<'_> {
                 description: s.description.clone(),
                 input_schema: s.parameters.clone(),
                 read_only: false,
+                destructive: None,
             })
             .chain(self.tools.iter().map(|t| ToolInfo {
                 name: t.name().to_owned(),
                 description: t.description().to_owned(),
                 input_schema: t.parameters(),
                 read_only: t.read_only(),
+                destructive: None,
             }))
             .collect();
         let bridge = Bridge {

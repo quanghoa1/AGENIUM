@@ -37,6 +37,19 @@ pub trait Approver: Send + Sync {
         command: &str,
         cwd: &Path,
     ) -> Approval;
+
+    /// An MCP tool call the user approves first (ADR-143); by default asked as a command line saying what it is.
+    async fn approve_tool(
+        &self,
+        project: ProjectId,
+        ticket: Option<&TicketKey>,
+        agent: &str,
+        ask: &agenium_tools::ToolAsk,
+    ) -> Approval {
+        let line = super::mcp_gate::line(ask);
+        self.approve_command(project, ticket, agent, &line, Path::new("."))
+            .await
+    }
 }
 
 /// Refuses every command (headless runs where nobody can approve).
@@ -253,6 +266,10 @@ impl CommandGate for RunGate {
                 GateDecision::Deny(format!("the user denied the command: {reason}"))
             }
         }
+    }
+
+    async fn check_tool(&self, ask: &agenium_tools::ToolAsk) -> GateDecision {
+        super::mcp_gate::check(self, ask).await
     }
 }
 

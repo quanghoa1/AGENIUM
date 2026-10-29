@@ -386,6 +386,7 @@ fn support_bundle_has_diagnostics_without_secrets() {
             .into(),
             timeout_secs: 10,
             oauth: None,
+            approval: None,
         })
         .unwrap();
     let out = f.root.parent().unwrap().join("bundle-out");

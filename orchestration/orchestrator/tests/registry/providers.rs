@@ -78,6 +78,7 @@ fn library_skills_and_mcp_servers_are_switched_per_agent() {
             headers: Default::default(),
             timeout_secs: 60,
             oauth: None,
+            approval: None,
         })
         .unwrap();
     f.app.toggle_agent_mcp(ana.id, "files", true).unwrap();

@@ -113,6 +113,10 @@ pub struct ToolSpec {
     pub description: String,
     /// JSON Schema of the arguments (object).
     pub parameters: serde_json::Value,
+    /// Ask the provider to decode the call against the schema (ADR-144): Claude's and OpenAI's APIs do, within their
+    /// limits (`strict`); other providers ignore it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub strict: bool,
 }
 
 /// One block of the system prompt. `cache` marks the end of a stable prefix (prompt caching breakpoint).

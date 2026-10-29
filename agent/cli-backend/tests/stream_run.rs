@@ -102,11 +102,13 @@ fn specs() -> Vec<ToolSpec> {
             name: "submit_report".into(),
             description: "Report.".into(),
             parameters: json!({"type": "object"}),
+            strict: false,
         },
         ToolSpec {
             name: "note".into(),
             description: "Note.".into(),
             parameters: json!({"type": "object"}),
+            strict: false,
         },
     ]
 }

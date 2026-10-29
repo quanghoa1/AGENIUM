@@ -69,6 +69,7 @@ fn cfg(url: &str) -> McpServerConfig {
         headers: Default::default(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     }
 }
 

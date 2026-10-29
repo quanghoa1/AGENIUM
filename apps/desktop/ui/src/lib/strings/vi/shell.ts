@@ -110,6 +110,7 @@ export const shell: Record<keyof typeof en, string> = {
   "needs.empty": "Không có việc nào chờ bạn.",
   "needs.toLead": "Đã gửi cho Lead: Lead sẽ trả lời trên ticket cho team.",
   "needs.allow": "Cho phép lần này",
+  "needs.mcpTool": "muốn gọi tool MCP",
   "needs.always": "Luôn cho phép trong dự án",
   "needs.answer": "Câu trả lời của bạn…",
   "need.AgentBlocked": "Agent bị chặn",

@@ -108,6 +108,7 @@ async fn agent(
         name: "submit_report".into(),
         description: "Finish: give your answer.".into(),
         parameters: json!({"type": "object", "properties": {"answer": {"type": "string"}}, "required": ["answer"]}),
+        strict: false,
     });
     let report = Report::default();
     let r = Run {
@@ -262,6 +263,7 @@ async fn main() -> Result<()> {
             name: "read_file".into(),
             description: "Read a file.".into(),
             parameters: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+            strict: false,
         };
         let history = vec![
             Message::user_text("Read a.txt."),
@@ -414,6 +416,7 @@ async fn main() -> Result<()> {
             headers: Default::default(),
             timeout_secs: 20,
             oauth: None,
+            approval: None,
         };
         let browser = |u: &str| {
             let u = u.to_owned();

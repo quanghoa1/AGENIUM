@@ -9,6 +9,7 @@ pub mod local;
 pub mod pipeline;
 pub mod resolve;
 pub mod retrieve;
+pub mod settle;
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};

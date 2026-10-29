@@ -19,6 +19,8 @@ import type {
   LocalServer,
   McpServerConfig,
   McpServerRow,
+  McpApproval,
+  McpApprovalSettings,
   ToolSearchSettings,
   ModelCapsRow,
   ModelInfo,
@@ -114,6 +116,8 @@ export const api = {
   capabilities: (refresh = false, clis = true) => call<Capabilities>("capabilities", { refresh, clis }),
   templates: () => call<TeamTemplate[]>("templates"),
   memory: (agent: string) => call<MemoryData>("memory", { agent }),
+  resolveMemoryConflict: (agent: string, a: number, b: number, choice: "a" | "b" | "both") =>
+    call<void>("resolve_memory_conflict", { agent, a, b, choice }),
   memoryAction: (agent: string, action: string, fact?: number, skill?: string) =>
     call<unknown>("memory_action", { agent, action, fact: fact ?? null, skill: skill ?? null }),
   saveTemplate: (template: TeamTemplate) => call<TeamTemplate>("save_template", { template }),
@@ -218,6 +222,8 @@ export const api = {
   skillFile: (name: string, path: string) => call<{ path: string; content?: string; binary?: boolean; size?: number; base64?: string }>("skill_file", { name, path }),
   mcpServers: () => call<McpServerRow[]>("mcp_servers"),
   putMcp: (server: McpServerConfig) => call<void>("put_mcp", { server }),
+  mcpApproval: () => call<McpApprovalSettings>("mcp_approval"),
+  setMcpApproval: (server: string | null, approval: McpApproval | null) => call<McpApprovalSettings>("set_mcp_approval", { server, approval }),
   toolSearch: () => call<ToolSearchSettings>("tool_search_settings"),
   setToolSearch: (section: ToolSearchSettings) => call<ToolSearchSettings>("set_tool_search", { section }),
   importMcpJson: (text: string) => call<{ servers: string[] }>("import_mcp_json", { text }),
@@ -225,7 +231,7 @@ export const api = {
   loginMcp: (id: string) => call<{ client_id: string; scope?: string | null }>("login_mcp", { id }),
   logoutMcp: (id: string) => call<void>("logout_mcp", { id }),
   testMcp: (id: string) =>
-    call<{ server: any; protocol: string; tools: { name: string; description?: string | null; read_only: boolean }[] }>("test_mcp", { id }),
+    call<{ server: any; protocol: string; tools: { name: string; description?: string | null; read_only: boolean; destructive?: boolean | null }[] }>("test_mcp", { id }),
   putProvider: (form: {
     id: string;
     kind: string;

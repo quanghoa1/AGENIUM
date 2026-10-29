@@ -24,7 +24,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { isFree, priceOf, usePrices } from "../lib/prices";
+import { deprecation, isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
 import type { AgentStatus, BackendKind, ModelBinding, TicketStatus } from "../lib/types";
 
@@ -160,15 +160,30 @@ export function FreeTag({ className }: { className?: string }) {
   return <span className={cn("chip border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0 text-[11px] font-bold text-emerald-600 dark:text-emerald-300", className)}>FREE</span>;
 }
 
+/** A model its provider no longer serves, or soon will not (the price catalogue says so), with one to use instead. */
+export function DeprecatedTag({ instead, className }: { instead: string | null; className?: string }) {
+  const app = useApp();
+  return (
+    <span
+      className={cn("chip border-amber-500/40 bg-amber-500/15 px-1.5 py-0 text-[11px] font-bold text-amber-600 dark:text-amber-300", className)}
+      title={`${app.t("model.deprecatedHint")}${instead ? ` ${app.t("model.useInstead")} ${instead}` : ""}`}
+    >
+      DEPRECATED
+    </span>
+  );
+}
+
 export function RuntimeBadge({ backend, model }: { backend: BackendKind; model: ModelBinding }) {
   const cli = backend === "Cli";
   const prices = usePrices(useApp().tick);
+  const old = deprecation(prices, model.provider, model.model);
   return (
     <span className="chip border-line-strong bg-elevated text-muted">
       {cli ? <Terminal className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
       {cli ? `CLI:${model.provider}` : model.provider} · {model.model || useApp().t("model.default")}
       <span className="text-subtle">· {model.effort}</span>
       {!cli && isFree(priceOf(prices, model.provider, model.model)) && <FreeTag />}
+      {old && <DeprecatedTag instead={old.instead} />}
     </span>
   );
 }

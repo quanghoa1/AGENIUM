@@ -234,6 +234,7 @@ impl App {
                 headers: strings("headers"),
                 timeout_secs: 120,
                 oauth: None,
+                approval: None,
             };
             out.servers.push(id);
             configs.push(cfg);

@@ -21,7 +21,8 @@ pub fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
-/// A shell command an agent wants to run, waiting for the user's decision in the UI.
+/// A shell command an agent wants to run, or an MCP tool it wants to call (`tool`, ADR-143), waiting for the user's
+/// decision in the UI.
 #[derive(Debug, Clone, Serialize)]
 pub struct CommandApproval {
     pub id: u64,
@@ -31,6 +32,17 @@ pub struct CommandApproval {
     pub command: String,
     pub cwd: String,
     pub at: String,
+    pub tool: Option<ToolRequest>,
+}
+
+/// The MCP tool of an approval: its server, its name, the arguments (pretty JSON) and whether the server marks it
+/// destructive.
+#[derive(Debug, Clone, Serialize)]
+pub struct ToolRequest {
+    pub server: String,
+    pub tool: String,
+    pub arguments: String,
+    pub destructive: bool,
 }
 
 #[derive(Default)]
@@ -83,16 +95,50 @@ impl Approver for UiApprover {
         command: &str,
         cwd: &Path,
     ) -> Approval {
-        let id = self.approvals.next.fetch_add(1, Ordering::SeqCst) + 1;
         let req = CommandApproval {
-            id,
+            id: 0,
             project,
             ticket: ticket.cloned(),
             agent: agent.to_owned(),
             command: command.to_owned(),
             cwd: cwd.display().to_string(),
             at: agenium_core::now_iso(),
+            tool: None,
         };
+        self.ask(req).await
+    }
+
+    async fn approve_tool(
+        &self,
+        project: ProjectId,
+        ticket: Option<&TicketKey>,
+        agent: &str,
+        ask: &agenium_tools::ToolAsk,
+    ) -> Approval {
+        let req = CommandApproval {
+            id: 0,
+            project,
+            ticket: ticket.cloned(),
+            agent: agent.to_owned(),
+            command: format!("MCP {}/{}", ask.server, ask.tool),
+            cwd: String::new(),
+            at: agenium_core::now_iso(),
+            tool: Some(ToolRequest {
+                server: ask.server.clone(),
+                tool: ask.tool.clone(),
+                arguments: serde_json::to_string_pretty(&ask.arguments).unwrap_or_default(),
+                destructive: ask.destructive == Some(true),
+            }),
+        };
+        self.ask(req).await
+    }
+}
+
+impl UiApprover {
+    /// Puts the request in Needs you and waits for the user's answer.
+    async fn ask(&self, mut req: CommandApproval) -> Approval {
+        let id = self.approvals.next.fetch_add(1, Ordering::SeqCst) + 1;
+        req.id = id;
         let (tx, rx) = oneshot::channel();
         self.approvals
             .waiting

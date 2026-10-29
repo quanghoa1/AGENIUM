@@ -108,6 +108,7 @@ export const shell = {
   "needs.toLead": "Sent to the Lead: it answers on the ticket for the team.",
   "needs.empty": "Nothing waits for you.",
   "needs.allow": "Allow once",
+  "needs.mcpTool": "wants to call the MCP tool",
   "needs.always": "Always for this project",
   "needs.answer": "Your answer…",
   "need.AgentBlocked": "Agent blocked",

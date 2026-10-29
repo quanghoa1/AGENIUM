@@ -223,6 +223,19 @@ impl Runtime {
         }
     }
 
+    /// The protocol tools whose calls Claude's and OpenAI's APIs decode against the schema (ADR-144): the forms that
+    /// move a ticket, a plan or a spec. Together they stay within Claude's limits for strict schemas in one request
+    /// (23 of 24 optional parameters, 6 of 16 with alternatives, 7 of 20 tools), whatever the role.
+    const STRICT: [ProtocolTool; 7] = [
+        ProtocolTool::SubmitReport,
+        ProtocolTool::ReviewTicket,
+        ProtocolTool::CreateTicket,
+        ProtocolTool::CreatePlan,
+        ProtocolTool::ProposeSpec,
+        ProtocolTool::AssignTicket,
+        ProtocolTool::SubmitPlanDraft,
+    ];
+
     pub(super) fn protocol_specs(
         role: RoleKind,
         solo: bool,
@@ -238,6 +251,7 @@ impl Runtime {
                 name: t.name().into(),
                 description: t.description().into(),
                 parameters: t.parameters(),
+                strict: Self::STRICT.contains(t),
             })
             .collect();
         (specs, tools.iter().map(|t| t.name().to_owned()).collect())
@@ -393,6 +407,22 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use agenium_sandbox::Shell;
+
+    /// ADR-144: every strict protocol tool has a strict form, and all of them fit Claude's limits in one request.
+    #[test]
+    fn the_strict_protocol_tools_fit_claude_s_limits_together() {
+        let costs: Vec<_> = super::Runtime::STRICT
+            .iter()
+            .map(|t| agenium_llm::strict::fit(&t.parameters()).map(|(_, c)| c))
+            .collect();
+        assert!(costs.iter().all(Option::is_some), "{costs:?}");
+        assert!(
+            agenium_llm::strict::claude_admits(&costs)
+                .iter()
+                .all(|x| *x),
+            "{costs:?}"
+        );
+    }
 
     #[test]
     fn windows_powershell_5_is_named_with_its_byte_order_mark() {

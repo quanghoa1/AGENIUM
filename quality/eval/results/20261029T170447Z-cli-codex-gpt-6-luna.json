@@ -1,0 +1,154 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_path": 1
+    },
+    "errors": [
+      "list_dir: invalid_path: path is empty"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "list_dir": 2,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 143347,
+    "tokens_out": 557,
+    "tokens_cached": 104960,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25595
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 145352,
+    "tokens_out": 705,
+    "tokens_cached": 125952,
+    "cost_usd": 0.0,
+    "elapsed_ms": 29143
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 17,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "close_ticket": 1,
+      "grep": 4,
+      "read_file": 9,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 162922,
+    "tokens_out": 1090,
+    "tokens_cached": 115584,
+    "cost_usd": 0.0,
+    "elapsed_ms": 28610
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 133802,
+    "tokens_out": 656,
+    "tokens_cached": 102656,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25972
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid_arguments": 2
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `summary`",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "submit_report": 3,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 169424,
+    "tokens_out": 1017,
+    "tokens_cached": 136320,
+    "cost_usd": 0.0,
+    "elapsed_ms": 27398
+  }
+]

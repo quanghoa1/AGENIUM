@@ -26,12 +26,14 @@ impl ToolHost for Host {
                 description: "Report the result.".into(),
                 input_schema: json!({"type": "object", "properties": {"summary": {"type": "string"}}}),
                 read_only: false,
+                destructive: None,
             },
             ToolInfo {
                 name: "status".into(),
                 description: "Ticket status.".into(),
                 input_schema: json!({"type": "object"}),
                 read_only: true,
+                destructive: None,
             },
         ]
     }

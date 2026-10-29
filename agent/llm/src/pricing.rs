@@ -156,6 +156,33 @@ pub struct CatalogueProvider {
     pub deprecated: std::collections::BTreeSet<String>,
 }
 
+impl CatalogueProvider {
+    /// A served model to use instead of the deprecated `model`: of the same family (the words of its id without a
+    /// digit: `deepseek-v4-flash` → deepseek, flash), the highest version. `None` when it is served or none is found.
+    pub fn instead_of(&self, model: &str) -> Option<String> {
+        if !self.deprecated.contains(model) {
+            return None;
+        }
+        let family = |m: &str| -> Vec<String> {
+            m.split(['-', '_', '/'])
+                .filter(|w| !w.chars().any(|c| c.is_ascii_digit()))
+                .map(str::to_lowercase)
+                .collect()
+        };
+        let version = |m: &str| -> Vec<u64> {
+            m.split(|c: char| !c.is_ascii_digit())
+                .filter_map(|n| n.parse().ok())
+                .collect()
+        };
+        let want = family(model);
+        self.models
+            .keys()
+            .filter(|m| !self.deprecated.contains(*m) && family(m) == want)
+            .max_by(|a, b| version(a).cmp(&version(b)).then(b.len().cmp(&a.len())))
+            .cloned()
+    }
+}
+
 /// Model prices from a public catalogue, trimmed to what pricing needs.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Catalogue {
@@ -325,6 +352,48 @@ impl Price {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_deprecated_model_is_told_its_family_s_newest() {
+        let price = Price {
+            input: 1.0,
+            output: 1.0,
+            cache_read: 1.0,
+            cache_write: 1.0,
+            cache_write_1h: None,
+            long_prompt: None,
+        };
+        let p = CatalogueProvider {
+            id: "x".into(),
+            api: None,
+            models: [
+                "deepseek-v4-flash",
+                "deepseek-v4.1-flash",
+                "deepseek-v4.1-pro",
+                "gpt-4.1-nano",
+                "gpt-5-nano",
+                "gpt-5.2-nano",
+                "o1",
+            ]
+            .into_iter()
+            .map(|m| (m.to_owned(), price))
+            .collect(),
+            deprecated: ["deepseek-v4-flash", "gpt-4.1-nano", "o1"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+        };
+        assert_eq!(
+            p.instead_of("deepseek-v4-flash").as_deref(),
+            Some("deepseek-v4.1-flash")
+        );
+        assert_eq!(
+            p.instead_of("gpt-4.1-nano").as_deref(),
+            Some("gpt-5.2-nano")
+        );
+        assert_eq!(p.instead_of("o1"), None);
+        assert_eq!(p.instead_of("gpt-5-nano"), None);
+    }
 
     #[test]
     fn builtin_and_overrides() {

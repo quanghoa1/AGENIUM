@@ -1,0 +1,160 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "cli:ToolSearch": 1,
+      "close_ticket": 1,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 145425,
+    "tokens_out": 1403,
+    "tokens_cached": 121663,
+    "cost_usd": 0.0,
+    "elapsed_ms": 26600
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 170752,
+    "tokens_out": 1693,
+    "tokens_cached": 150928,
+    "cost_usd": 0.0,
+    "elapsed_ms": 26355
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 18,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 2,
+      "close_ticket": 1,
+      "grep": 3,
+      "multi_edit": 3,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 182476,
+    "tokens_out": 2772,
+    "tokens_cached": 159848,
+    "cost_usd": 0.0,
+    "elapsed_ms": 30820
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "cli:ToolSearch": 1,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 146813,
+    "tokens_out": 1585,
+    "tokens_cached": 129162,
+    "cost_usd": 0.0,
+    "elapsed_ms": 25430
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 12,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:ToolSearch": 3,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 172849,
+    "tokens_out": 2119,
+    "tokens_cached": 152161,
+    "cost_usd": 0.0,
+    "elapsed_ms": 28316
+  }
+]

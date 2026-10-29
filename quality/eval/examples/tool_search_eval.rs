@@ -87,6 +87,7 @@ async fn main() -> Result<()> {
         headers: Default::default(),
         timeout_secs: 30,
         oauth: None,
+        approval: None,
     };
     let b = agenium_mcp::Binding {
         server: "many".into(),

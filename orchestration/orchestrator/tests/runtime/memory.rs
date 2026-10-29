@@ -484,3 +484,60 @@ async fn closing_a_ticket_teaches_the_assignee() {
     let _ = rt.run_ticket(project, &key("AGN-2")).await;
     assert_eq!(p.remaining(), 0);
 }
+
+/// ADR-145: an agent's memory is settled once it learned 20 facts since the last pass (not before, not twice); facts
+/// that say the same are folded and a changed figure goes to the user; the user's decision is kept.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_memory_is_settled_once_enough_was_learned() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, _rt) = runtime(&f, p, Arc::new(AutoApprove));
+    let (_project, agent) = solo(&app);
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    // A unit vector on axis `i`, turned `deg` degrees towards axis `i + 1`.
+    let v = |i: usize, deg: f64| {
+        let mut x = vec![0.0f32; e.dim()];
+        x[i] = deg.to_radians().cos() as f32;
+        x[i + 1] = deg.to_radians().sin() as f32;
+        x
+    };
+    let add = |text: &str, x: Vec<f32>| {
+        mem.add(
+            &agenium_store::NewFact::fact(text, "ticket:AGN-1"),
+            Some(&x),
+        )
+        .unwrap()
+    };
+    let a = add("The dev server listens on port 8080.", v(0, 0.0));
+    let b = add("The development server listens on port 8080.", v(0, 3.0));
+    let c = add("The dev server listens on port 9090.", v(0, 6.0));
+    for i in 0..16 {
+        add(&format!("Unrelated fact number {i}."), v(10 + 4 * i, 0.0));
+    }
+    // 19 facts: not due yet.
+    assert!(app.settle_when_due(&mem).await.is_none());
+    add("One more unrelated fact.", v(90, 0.0));
+    let r = app
+        .settle_when_due(&mem)
+        .await
+        .expect("20 new facts: a pass");
+    assert_eq!((r.folded(), r.conflicts()), (1, 1), "{r:?}");
+    assert!(mem.get(a).unwrap().is_live() != mem.get(b).unwrap().is_live());
+    let open = mem.open_conflicts().unwrap();
+    assert_eq!(open.len(), 1);
+    assert!(open[0].a.id == c || open[0].b.id == c);
+    // Not due again until 20 more.
+    assert!(app.settle_when_due(&mem).await.is_none());
+    // The user's decision: both hold (different services after all).
+    mem.resolve_conflict(
+        open[0].a.id,
+        open[0].b.id,
+        agenium_store::agent::ConflictChoice::Both,
+    )
+    .unwrap();
+    assert!(mem.open_conflicts().unwrap().is_empty());
+    // A manual pass (the Memory page's Tidy) asks nothing again.
+    let again = app.settle_memory(agent, false).await.unwrap();
+    assert!(again.done.is_empty(), "{again:?}");
+}

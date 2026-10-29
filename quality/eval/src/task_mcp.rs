@@ -217,6 +217,7 @@ pub async fn install(app: &App, agent: AgentId, task: &str) -> anyhow::Result<()
         headers: Default::default(),
         timeout_secs: 30,
         oauth: None,
+        approval: None,
     })?;
     app.set_agent_mcp(
         agent,

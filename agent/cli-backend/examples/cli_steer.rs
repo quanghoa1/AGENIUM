@@ -114,11 +114,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 name: "submit_report".into(),
                 description: "Finish: give your answer.".into(),
                 parameters: json!({"type": "object", "properties": {"answer": {"type": "string"}}, "required": ["answer"]}),
+                strict: false,
             },
             ToolSpec {
                 name: "note".into(),
                 description: "Record your progress (one line).".into(),
                 parameters: json!({"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}),
+                strict: false,
             },
         ],
         tools: vec![],

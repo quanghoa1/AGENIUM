@@ -16,6 +16,7 @@ local = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tok
 agenium-core.workspace = true
 agenium-llm.workspace = true
 agenium-store.workspace = true
+async-trait.workspace = true
 chrono.workspace = true
 tokio.workspace = true
 serde.workspace = true

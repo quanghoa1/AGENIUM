@@ -196,6 +196,7 @@ dependencies = [
  "agenium-core",
  "agenium-llm",
  "agenium-store",
+ "async-trait",
  "candle-core",
  "candle-nn",
  "candle-transformers",

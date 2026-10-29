@@ -397,6 +397,9 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
       return { skills: [], problems: [] };
     case "agent_trace":
       return { run: null, steps: [], terminal: [] };
+    case "mcp_approval":
+    case "set_mcp_approval":
+      return { default: "destructive", servers: {} };
     case "tool_search_settings":
       return { mode: "auto", over_tools: 20, over_tokens: 10000, keep_used: 5, judge: "unsure" };
     case "set_tool_search":

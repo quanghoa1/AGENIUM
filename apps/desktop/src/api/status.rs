@@ -130,3 +130,44 @@ pub fn set_tool_search(
         .map_err(err)?;
     Ok(c.tool_search)
 }
+
+/// Which MCP tool calls wait for the user (ADR-143): the default of every server and each server's own setting.
+#[tauri::command]
+pub fn mcp_approval(d: State<'_, Desktop>) -> R<Value> {
+    let c = d.opened()?.app.config();
+    let servers: serde_json::Map<String, Value> = c
+        .mcp
+        .iter()
+        .map(|s| (s.id.clone(), json!(s.approval)))
+        .collect();
+    Ok(json!({ "default": c.sandbox.mcp_tools, "servers": servers }))
+}
+
+/// Sets the default (`server` empty) or one server's setting (`approval` empty: the server follows the default).
+#[tauri::command]
+pub fn set_mcp_approval(
+    d: State<'_, Desktop>,
+    server: Option<String>,
+    approval: Option<agenium_config::McpApproval>,
+) -> R<Value> {
+    let o = d.opened()?;
+    match server.filter(|s| !s.is_empty()) {
+        None => {
+            let a = approval.ok_or("the default needs a setting")?;
+            o.app
+                .update_config(|c| c.sandbox.mcp_tools = a)
+                .map_err(err)?;
+        }
+        Some(id) => {
+            let mut cfg = o
+                .app
+                .config()
+                .mcp_server(&id)
+                .cloned()
+                .ok_or(format!("no MCP server {id}"))?;
+            cfg.approval = approval;
+            o.app.put_mcp_server(cfg).map_err(err)?;
+        }
+    }
+    mcp_approval(d)
+}

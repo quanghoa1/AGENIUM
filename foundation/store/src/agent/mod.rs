@@ -22,11 +22,13 @@ mod facts;
 mod overlays;
 mod portable;
 mod search;
+mod settle;
 mod upkeep;
 mod write;
 
 pub use facts::*;
 pub use search::{fts_query, fts_search_query};
+pub use settle::{ConflictChoice, FactConflict, PairVerdict};
 
 pub const AGENT_MIGRATIONS: &[Migration] = &[
     Migration {
@@ -52,6 +54,10 @@ pub const AGENT_MIGRATIONS: &[Migration] = &[
     Migration {
         version: 6,
         sql: include_str!("../schema/agent_006.sql"),
+    },
+    Migration {
+        version: 7,
+        sql: include_str!("../schema/agent_007.sql"),
     },
 ];
 

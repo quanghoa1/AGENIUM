@@ -104,6 +104,8 @@ pub struct ToolInfo {
     pub input_schema: Value,
     /// `annotations.readOnlyHint`: safe to retry after a reconnect.
     pub read_only: bool,
+    /// `annotations.destructiveHint` (`None`: the server does not say): a call may wait for the user (ADR-143).
+    pub destructive: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -473,6 +475,7 @@ impl Client {
                         .to_owned(),
                     input_schema: schema,
                     read_only: t["annotations"]["readOnlyHint"].as_bool().unwrap_or(false),
+                    destructive: t["annotations"]["destructiveHint"].as_bool(),
                 });
             }
             match r["nextCursor"].as_str() {

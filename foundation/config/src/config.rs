@@ -180,6 +180,10 @@ pub struct JudgeSection {
     /// model runs; skip extraction only when it is confident nothing is worth keeping and there is nothing to
     /// reconcile. Fail-open: on doubt the extraction runs as usual.
     pub memory_gate: bool,
+    /// When an agent's memory is settled, let it say whether two facts that read alike say the same, contradict each
+    /// other or both hold (ADR-145); a contradiction goes to the user, never settled by it. At most 20 questions a
+    /// pass, each pair once. Fail-open: without it only near-identical facts are folded.
+    pub memory_settle: bool,
     /// Let it judge a skill's quality against the methodology principles (one job, actionable steps, a proof that
     /// demands evidence, no stale embedded code) when a skill is imported or an agent upgrades one (ADR-90). The
     /// deterministic shape check always runs; this adds a calibrated semantic read. Fail-open.
@@ -210,6 +214,7 @@ impl Default for JudgeSection {
             review_assist: true,
             skill_hint: true,
             memory_gate: true,
+            memory_settle: true,
             skill_quality: true,
             done_check: true,
             trim_output: true,
@@ -404,6 +409,8 @@ pub struct SandboxSection {
     /// their commands directly in the ticket's worktree without asking (Codex's full-access level) and a CLI that
     /// runs contained elsewhere runs on the host. Has no effect where a sandbox works.
     pub unsandboxed: bool,
+    /// Which MCP tool calls wait for the user (ADR-143); a server's own `approval` differs from it.
+    pub mcp_tools: crate::mcp_approval::McpApproval,
 }
 
 impl Default for SandboxSection {
@@ -412,6 +419,7 @@ impl Default for SandboxSection {
             approval: ApprovalPolicy::default(),
             network: true,
             unsandboxed: false,
+            mcp_tools: Default::default(),
         }
     }
 }
@@ -544,6 +552,9 @@ pub struct McpServerConfig {
     /// them, `agenium mcp login` discovers the authorization server and registers Agenium (ADR-97).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub oauth: Option<McpOAuthConfig>,
+    /// Which of this server's tool calls wait for the user, instead of `[sandbox] mcp_tools` (ADR-143).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval: Option<crate::mcp_approval::McpApproval>,
 }
 
 /// A pre-registered OAuth client for an MCP server (ADR-97).

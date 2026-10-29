@@ -559,6 +559,7 @@ pub fn work_specs(tools: &[Arc<dyn Tool>]) -> Vec<ToolSpec> {
             name: t.name().into(),
             description: t.description().into(),
             parameters: t.parameters(),
+            strict: false,
         })
         .collect()
 }

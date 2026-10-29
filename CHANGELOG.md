@@ -34,6 +34,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
 ### Models
+- On Anthropic's and OpenAI's own APIs the forms that move work (the report, a ticket, the plan, the spec, a review)
+  are decoded against their schema (`strict`), so their arguments always parse; other providers as before (ADR-144).
+- A model its provider no longer serves, or soon will not (the price catalogue says so), is marked DEPRECATED on the
+  agent's model badge and in the model picker, with the newest model of its family to use instead.
 - When a model declines to go on (a safety classifier), the ticket says why — the vendor's category and explanation —
   and the declined answer is not kept, so resuming starts from the last good step; an answer stopped by a full context
   window is treated like one cut by the output limit; a run's output limit is the model's own (up to 64k) unless the
@@ -91,6 +95,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 
 ### Safety
+- An MCP tool its server marks destructive (deleting, refunding, sending) waits for the user in Needs you, like a
+  command: allowed once, always for the project, or refused; set for every server or per server on the MCP tab, down to
+  every tool that is not read-only, or none (ADR-143).
 - Web pages and MCP answers reach the model in a fence that names their source and closes with a random id, so a page
   cannot end it and speak as Agenium; an opt-in golden task checks that agents do not follow instructions planted in a
   file (DeepSeek, Codex and Claude Code passed) (ADR-142).
@@ -107,6 +114,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   as an API agent. The vendored Codex sandbox follows upstream f021168.
 
 ### Memory, skills, tools
+- An agent's memory is settled as it grows: memories that say the same are folded and ones that contradict each other
+  (a changed port, version or tool) are put to the user on the Memory page, found by the local embedding model and,
+  with a judge key, a few typed questions — no model rereads the memory (ADR-145).
 - Per-agent memory with a local embedding model (bge-small), keyword and knowledge-graph search, scoped facts, lessons
   with decay, consolidation; strictly gated learning of new skills and lessons.
 - Memory stays fast past 100 000 facts per agent: an approximate (HNSW) vector index takes over from exact search,

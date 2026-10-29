@@ -48,6 +48,7 @@ fn report_spec() -> ToolSpec {
         name: "submit_report".into(),
         description: "Finish: give your answer.".into(),
         parameters: json!({"type": "object", "properties": {"answer": {"type": "string"}}, "required": ["answer"]}),
+        strict: false,
     }
 }
 

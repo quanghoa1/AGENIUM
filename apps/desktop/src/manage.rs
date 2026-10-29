@@ -493,8 +493,13 @@ pub fn mcp_servers(d: State<'_, Desktop>) -> R<Value> {
 }
 
 #[tauri::command]
-pub fn put_mcp(d: State<'_, Desktop>, server: McpServerConfig) -> R<()> {
-    d.opened()?.app.put_mcp_server(server).map_err(err)
+pub fn put_mcp(d: State<'_, Desktop>, mut server: McpServerConfig) -> R<()> {
+    let app = &d.opened()?.app;
+    // The form does not hold the approval setting (set on the server's row): a server saved again keeps it.
+    if server.approval.is_none() {
+        server.approval = app.config().mcp_server(&server.id).and_then(|s| s.approval);
+    }
+    app.put_mcp_server(server).map_err(err)
 }
 
 /// Pasted `{"mcpServers": {...}}` JSON; values are kept as written.
@@ -564,7 +569,7 @@ pub async fn test_mcp(d: State<'_, Desktop>, id: String) -> R<Value> {
     let (info, protocol, tools) = hub.test(&cfg, &binding).await.map_err(err)?;
     let tools: Vec<Value> = tools
         .iter()
-        .map(|t| json!({ "name": t.name, "description": t.description, "read_only": t.read_only }))
+        .map(|t| json!({ "name": t.name, "description": t.description, "read_only": t.read_only, "destructive": t.destructive }))
         .collect();
     Ok(json!({ "server": info, "protocol": protocol, "tools": tools }))
 }

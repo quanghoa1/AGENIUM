@@ -1,0 +1,179 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 14,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid_arguments": 1,
+      "not_found": 1
+    },
+    "errors": [
+      "read_file: not_found: deliverables/hello.txt does not exist",
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`"
+    ],
+    "tools": {
+      "cli:read_file": 3,
+      "close_ticket": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 142472,
+    "tokens_out": 916,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 58917
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: unknown field `criteria_results`, expected one of `ticket_id`, `summary`, `acceptance`, `artifacts`, `extension`, `risks`, `follow_ups`, `confidence`"
+    ],
+    "tools": {
+      "cli:read_file": 4,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 2
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 146614,
+    "tokens_out": 1401,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 59804
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 25,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "grep: invalid_arguments: missing field `pattern`"
+    ],
+    "tools": {
+      "cli:read_file": 4,
+      "close_ticket": 1,
+      "edit_file": 3,
+      "grep": 5,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 3,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 230014,
+    "tokens_out": 2102,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 81882
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 1,
+    "error_codes": {
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "edit_file: invalid_arguments: unknown field `target`, expected one of `path`, `old_string`, `new_string`, `replace_all`"
+    ],
+    "tools": {
+      "cli:read_file": 1,
+      "close_ticket": 1,
+      "edit_file": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 111309,
+    "tokens_out": 1060,
+    "tokens_cached": 0,
+    "cost_usd": 0.0,
+    "elapsed_ms": 54451
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 23,
+    "tool_errors": 5,
+    "error_codes": {
+      "denied": 1,
+      "invalid_arguments": 4
+    },
+    "errors": [
+      "submit_report: invalid_arguments: invalid arguments for submit_report: missing field `confidence`",
+      "cli:run_command: denied: run_command is turned off in Agenium runs: use the tools of the \"agenium\" MCP server instead (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file to change files; shell for every command; todo for your task list)",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `Arguments`, expected one of `ticket_id`, `decision`, `ac_feedback`, `required_changes`",
+      "close_ticket: invalid_arguments: invalid arguments for close_ticket: unknown field `Arguments`, expected `ticket_id` or `reason`",
+      "review_ticket: invalid_arguments: invalid arguments for review_ticket: unknown field `AC-1`, expected `ac_id` or `feedback`"
+    ],
+    "tools": {
+      "cli:read_file": 1,
+      "cli:run_command": 1,
+      "close_ticket": 2,
+      "read_file": 4,
+      "review_ticket": 3,
+      "shell": 2,
+      "submit_report": 2,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 189225,
+    "tokens_out": 1623,
+    "tokens_cached": 10519,
+    "cost_usd": 0.0,
+    "elapsed_ms": 68742
+  }
+]

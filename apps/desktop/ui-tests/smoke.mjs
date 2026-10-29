@@ -207,6 +207,60 @@ const tsSaved = await until(`window.__TAURI_INTERNALS__.invoke('tool_search_sett
 await shot("library-mcp-tool-search");
 check("the tool search settings are saved from the MCP tab", tsPicked && tsSaved);
 
+// 8. MCP tools that ask first (ADR-143): the default set to every tool not read-only, on the same tab.
+const apCard = "[...document.querySelectorAll('main .card')].find(c => c.innerText.includes('MCP tools that ask first'))";
+await until(`!!${apCard}`, 10000);
+await js(`[...(${apCard}?.querySelectorAll('button[role=radio]') ?? [])].find(b => b.innerText.includes('Every tool that is not read-only'))?.click()`);
+const apSaved = await until(`window.__TAURI_INTERNALS__.invoke('mcp_approval').then(s => s.default === 'writes')`, 10000);
+await shot("library-mcp-approval");
+check("the MCP approval default is saved from the MCP tab", apSaved);
+// The price view carries the models the catalogue marks deprecated (shown on runtime badges and in the model picker).
+const pv = JSON.parse((await invoke("prices")) || "{}");
+check("the price view lists deprecated models", !!pv && typeof pv.deprecated === "object", Object.keys(pv ?? {}).join(","));
+
+// 9. Settling memory (ADR-145): an agent imported with three memories of its dev server — two that say the same, one
+// with another port. Tidy folds the two, puts the other port to the user; the user says the other port holds.
+if (exported) {
+  const { createHash } = await import("node:crypto");
+  const { readFileSync } = await import("node:fs");
+  const lines = readFileSync(exported, "utf8").split("\n").filter(Boolean).slice(0, -1);
+  const at = lines.findIndex((l) => JSON.parse(l).table === "fact");
+  const fact = (id, text) =>
+    JSON.stringify({ kind: "row", v: [id, text, "fact", null, "{}", null, null, "ticket:AGN-1", 0, { r: 0.6 }, { r: 1.0 }, null, null, "2026-10-29T10:00:00.000Z", "2026-10-29T10:00:00.000Z", null, null, null, "own", null, 0, "[]"] });
+  lines.splice(at + 1, 0,
+    fact(1, "The dev server listens on port 8080."),
+    fact(2, "The dev server listens on port 8080 locally."),
+    fact(3, "The dev server listens on port 9090."),
+    fact(4, "Release notes list breaking changes first."));
+  const sha = createHash("sha256").update(lines.map((l) => l + "\n").join("")).digest("hex");
+  lines.push(JSON.stringify({ kind: "end", lines: lines.length, sha256: sha }));
+  const seeded = resolve(out, "memo.agenium.jsonl");
+  writeFileSync(seeded, lines.join("\n") + "\n");
+  const proj = JSON.parse((await invoke("create_project", { name: "memory target" })) || "null");
+  const memo = JSON.parse((await invoke("import_agent", { file: seeded, project: proj?.id ?? "", name: "memo" })) || "null");
+  await js("location.reload()");
+  await until("!!document.querySelector('main')", 30000);
+  await js(`window.location.hash = '/memory'`);
+  const memoButton = "[...document.querySelectorAll('main button')].find(b => b.innerText.includes('memo (solo)'))";
+  await until(`!!${memoButton}`, 15000);
+  await js(`${memoButton}?.click()`);
+  await sleep(800);
+  await clickText("Tidy memory", "document.querySelector('main')");
+  const card = "document.querySelector('main [data-conflict]')";
+  const shownConflict = await until(`!!${card} && ${card}.innerText.includes('9090') && ${card}.innerText.includes('8080')`, 30000);
+  await shot("memory-conflict");
+  check("tidying folds the same memories and shows the contradicting ones", shownConflict, memo?.id);
+  await js(`(() => { const side = [...${card}.querySelectorAll('div')].find(d => d.querySelectorAll('button').length === 1 && d.innerText.includes('9090')); side?.querySelector('button')?.click(); })()`);
+  const decided = await until(`!${card}`, 15000);
+  const m = JSON.parse((await invoke("memory", { agent: memo?.id ?? "" })) || "{}");
+  const live = (m.facts ?? []).map((f) => f.text);
+  check(
+    "the user's decision keeps the port that holds",
+    decided && (m.conflicts ?? []).length === 0 && live.some((t) => t.includes("9090")) && !live.some((t) => t.includes("8080")) && live.length === 2,
+    JSON.stringify(live),
+  );
+}
+
 check("no console errors overall", errors.length === 0, errors.slice(0, 5).join(" | ").slice(0, 400));
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILED`);
 ws.close();

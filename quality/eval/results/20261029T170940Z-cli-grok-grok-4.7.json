@@ -1,0 +1,165 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 8,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:search_tool": 2,
+      "close_ticket": 1,
+      "read_file": 2,
+      "review_ticket": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 178311,
+    "tokens_out": 1215,
+    "tokens_cached": 142592,
+    "cost_usd": 0.0,
+    "elapsed_ms": 47756
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 12,
+    "tool_errors": 1,
+    "error_codes": {
+      "denied": 1
+    },
+    "errors": [
+      "cli:read_file: denied: D:\\Work\\tmp\\.tmprDnDHf\\root\\projects\\fix-config-key\\.agenium\\worktrees\\AGN-1\\config\\app.json is in the ticket worktree: work on it through the tools of the \"agenium\" MCP server (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write"
+    ],
+    "tools": {
+      "cli:read_file": 1,
+      "cli:search_tool": 4,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 228109,
+    "tokens_out": 1658,
+    "tokens_cached": 156544,
+    "cost_usd": 0.0,
+    "elapsed_ms": 56891
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 18,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "cli:search_tool": 2,
+      "close_ticket": 1,
+      "glob": 2,
+      "grep": 3,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 227805,
+    "tokens_out": 2016,
+    "tokens_cached": 157568,
+    "cost_usd": 0.0,
+    "elapsed_ms": 63135
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "cli:search_tool": 3,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 230768,
+    "tokens_out": 1324,
+    "tokens_cached": 189440,
+    "cost_usd": 0.0,
+    "elapsed_ms": 56347
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 17,
+    "tool_errors": 3,
+    "error_codes": {
+      "denied": 2,
+      "invalid_arguments": 1
+    },
+    "errors": [
+      "shell: invalid_arguments: unknown field `description`, expected one of `command`, `workdir`, `timeout_ms`, `background`",
+      "cli:read_file: denied: D:\\Work\\tmp\\.tmpMqNRia\\root\\projects\\csv-total\\.agenium\\worktrees\\AGN-1\\deliverables\\total.txt is in the ticket worktree: work on it through the tools of the \"agenium\" MCP server (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and wri",
+      "cli:read_file: denied: D:\\Work\\tmp\\.tmpMqNRia\\root\\projects\\csv-total\\.agenium\\worktrees\\AGN-1\\data\\sales.csv is in the ticket worktree: work on it through the tools of the \"agenium\" MCP server (read_file, list_dir, glob, grep and find_code to read; edit_file, multi_edit, apply_patch and write_file "
+    ],
+    "tools": {
+      "cli:read_file": 2,
+      "cli:search_tool": 4,
+      "close_ticket": 1,
+      "glob": 1,
+      "read_file": 4,
+      "review_ticket": 1,
+      "shell": 2,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 257720,
+    "tokens_out": 2155,
+    "tokens_cached": 215808,
+    "cost_usd": 0.0,
+    "elapsed_ms": 68695
+  }
+]

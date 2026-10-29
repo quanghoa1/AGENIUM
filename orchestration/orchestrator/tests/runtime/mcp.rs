@@ -27,6 +27,7 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
         .into(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     })
     .unwrap();
     // A key written as a plain value is the server's system key (the owner's decision: shown in the app).
@@ -39,6 +40,7 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
         headers: Default::default(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     })
     .unwrap();
     app.remove_mcp_server("plain").unwrap();
@@ -135,4 +137,127 @@ async fn mcp_tools_reach_the_agent_with_its_credential() {
     }));
     let _ = rt.review(project, &key("AGN-1")).await;
     assert_eq!(p.remaining(), 0, "both review requests were made");
+}
+
+/// ADR-143: an MCP tool its server marks destructive waits for the user (here refused: the agent is told and the
+/// server is not called); a read-only one runs without asking; with the server set to never ask it runs, and so it
+/// does once allowed always for the project.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_destructive_mcp_tool_waits_for_the_user() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(Denier));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1", "PI-2", "PI-3"]);
+    let url = mcp_stub("docs-token-9").await;
+    app.secrets().set("docs-key", b"docs-token-9").unwrap();
+    let server = |approval| agenium_config::McpServerConfig {
+        id: "docs".into(),
+        command: None,
+        args: vec![],
+        env: Default::default(),
+        url: Some(url.clone()),
+        headers: [(
+            "Authorization".to_string(),
+            "Bearer ${cred:TOKEN}".to_string(),
+        )]
+        .into(),
+        timeout_secs: 10,
+        oauth: None,
+        approval,
+    };
+    app.put_mcp_server(server(None)).unwrap();
+    app.set_agent_mcp(
+        agent,
+        &[agenium_mcp::Binding {
+            server: "docs".into(),
+            credentials: [("TOKEN".to_string(), "docs-key".to_string())].into(),
+            keys: Default::default(),
+            tools: None,
+        }],
+    )
+    .unwrap();
+    // Calls `publish` then `search`, and reads what came back of each.
+    let script = |p: &ScriptedProvider, k: &'static str, publish_ok: bool| {
+        p.push(Box::new(|_| {
+            Ok(calls_response(
+                "",
+                vec![
+                    ("mcp__docs__publish", json!({"q": "the page"})),
+                    ("mcp__docs__search", json!({"q": "retry"})),
+                ],
+            ))
+        }));
+        p.push(Box::new(move |req| {
+            let results: Vec<(String, bool)> = req
+                .messages
+                .last()
+                .unwrap()
+                .parts
+                .iter()
+                .filter_map(|x| match x {
+                    agenium_llm::Part::ToolResult {
+                        content, is_error, ..
+                    } => Some((content.clone(), *is_error)),
+                    _ => None,
+                })
+                .collect();
+            if publish_ok {
+                assert!(
+                    !results[0].1 && results[0].0.contains("found: the page"),
+                    "{results:?}"
+                );
+            } else {
+                assert!(
+                    results[0].1 && results[0].0.contains("the user did not allow docs/publish"),
+                    "{results:?}"
+                );
+                assert!(
+                    results[0].0.contains("not now: MCP docs/publish"),
+                    "{results:?}"
+                );
+            }
+            assert!(
+                !results[1].1 && results[1].0.contains("found: retry"),
+                "{results:?}"
+            );
+            Ok(calls_response(
+                "",
+                vec![("submit_report", serde_json::to_value(report(k)).unwrap())],
+            ))
+        }));
+    };
+    script(&p, "AGN-1", false);
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-1")).await.unwrap().outcome,
+        "Completed"
+    );
+
+    // The server set to never ask: publish runs.
+    app.put_mcp_server(server(Some(agenium_config::McpApproval::Never)))
+        .unwrap();
+    rt.mcp.disconnect_all().await;
+    script(&p, "AGN-2", true);
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-2")).await.unwrap().outcome,
+        "Completed"
+    );
+
+    // Back to the default, publish allowed always for the project: it runs without asking.
+    app.put_mcp_server(server(None)).unwrap();
+    rt.mcp.disconnect_all().await;
+    app.store()
+        .commit(None, "user", |w| {
+            agenium_store::core::projects::add_allowlist(
+                w.tx,
+                project,
+                &["mcp:docs/publish".to_string()],
+            )
+        })
+        .unwrap();
+    script(&p, "AGN-3", true);
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-3")).await.unwrap().outcome,
+        "Completed"
+    );
+    assert_eq!(p.remaining(), 0);
 }

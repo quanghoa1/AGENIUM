@@ -125,6 +125,7 @@ fn bind(app: &agenium_orchestrator::App, agent: AgentId, url: String) {
         headers: Default::default(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     })
     .unwrap();
     app.set_agent_mcp(

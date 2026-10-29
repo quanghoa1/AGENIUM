@@ -14,6 +14,7 @@ mod context;
 mod execute;
 mod lead_runs;
 pub mod learn;
+mod mcp_gate;
 mod models;
 mod quota_back;
 mod scheduling;

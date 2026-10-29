@@ -147,14 +147,38 @@ pub fn build_body(req: &ChatRequest) -> Value {
     build_body_with(req, false)
 }
 
-/// The request body; with `binding`, a replayed thinking block whose earlier history changed is dropped rather than
-/// rejected with a 400 (accounts created from 2026-08-31 enforce the check; ADR-113). Needs [`BINDING_BETA`].
+/// The request body; with `binding` (Anthropic's own API), a replayed thinking block whose earlier history changed is
+/// dropped rather than rejected with a 400 (accounts created from 2026-08-31 enforce the check; ADR-113; needs
+/// [`BINDING_BETA`]), and the tools asked strict are sent strict while they fit the API's limits (ADR-144).
 pub fn build_body_with(req: &ChatRequest, binding: bool) -> Value {
     let long = req.long_cache;
+    let fitted: Vec<Option<(Value, crate::strict::Cost)>> = req
+        .tools
+        .iter()
+        .map(|t| {
+            (binding && t.strict)
+                .then(|| crate::strict::fit(&t.parameters))
+                .flatten()
+        })
+        .collect();
+    let admits = crate::strict::claude_admits(
+        &fitted
+            .iter()
+            .map(|f| f.as_ref().map(|x| x.1))
+            .collect::<Vec<_>>(),
+    );
     let mut tools: Vec<Value> = req
         .tools
         .iter()
-        .map(|t| json!({"name": t.name, "description": t.description, "input_schema": t.parameters, "eager_input_streaming": true}))
+        .zip(fitted)
+        .zip(admits)
+        .map(|((t, f), strict)| match f {
+            // A strict call is decoded whole against its schema: no input streamed ahead of it.
+            Some((schema, _)) if strict => {
+                json!({"name": t.name, "description": t.description, "input_schema": schema, "strict": true})
+            }
+            _ => json!({"name": t.name, "description": t.description, "input_schema": t.parameters, "eager_input_streaming": true}),
+        })
         .collect();
     if let Some(last) = tools.last_mut() {
         last["cache_control"] = cache_control(long);
@@ -561,6 +585,27 @@ impl Provider for Anthropic {
     }
 
     async fn chat(
+        &self,
+        req: &ChatRequest,
+        emit: &(dyn Fn(ChatEvent) + Send + Sync),
+    ) -> Result<ChatResponse, LlmError> {
+        // A strict schema the API refuses costs one request, not the run (ADR-144).
+        let key = format!("{}|{}", self.base_url, req.model);
+        if let Some(plain) = crate::strict::plain_for(&key, req) {
+            return self.send(&plain, emit).await;
+        }
+        match self.send(req, emit).await {
+            Err(e) if crate::strict::refused(&e, req) => {
+                crate::strict::remember_refused(&key);
+                self.send(&crate::strict::plain(req), emit).await
+            }
+            r => r,
+        }
+    }
+}
+
+impl Anthropic {
+    async fn send(
         &self,
         req: &ChatRequest,
         emit: &(dyn Fn(ChatEvent) + Send + Sync),

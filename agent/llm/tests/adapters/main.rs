@@ -132,6 +132,7 @@ fn tool() -> ToolSpec {
         name: "read_file".into(),
         description: "Read a file".into(),
         parameters: json!({"type": "object", "properties": {"path": {"type": "string"}, "limit": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": null}}, "required": ["path"], "additionalProperties": false}),
+        strict: false,
     }
 }
 

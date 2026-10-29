@@ -111,12 +111,14 @@ pub fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
         "overlays": o.app.skill_overlays(id).map_err(err)?,
         // ADR-91: skills the agent created itself, with the lesson behind each and whether it was flagged.
         "created": o.app.created_skills(id).map_err(err)?,
+        // ADR-145: pairs of facts that may contradict each other, for the user to decide.
+        "conflicts": mem.open_conflicts().map_err(err)?,
         "hide_below": agenium_store::agent::HIDE_BELOW_WEIGHT,
     }))
 }
 
 /// Memory actions of the user: `retire` a fact, `remove_skill` (a skill the agent created), `revert` or `promote` a
-/// skill overlay, `rebase`, `tidy` (decay and consolidation now).
+/// skill overlay, `rebase`, `tidy` (decay, consolidation and a settling pass now, ADR-145).
 #[tauri::command]
 pub async fn memory_action(
     d: State<'_, Desktop>,
@@ -126,7 +128,43 @@ pub async fn memory_action(
     skill: Option<String>,
 ) -> R<Value> {
     let o = d.opened()?;
-    blocking(move || memory_action_now(&o, agent, action, fact, skill)).await
+    let tidy = action == "tidy";
+    let id = agent.clone();
+    let o2 = d.opened()?;
+    let mut out = blocking(move || memory_action_now(&o, agent, action, fact, skill)).await?;
+    if tidy {
+        let id: AgentId = id.parse().map_err(|e: IdParseError| e.to_string())?;
+        let s = o2.app.settle_memory(id, false).await.map_err(err)?;
+        out["folded"] = json!(s.folded());
+        out["conflicts"] = json!(s.conflicts());
+        out["asked"] = json!(s.asked);
+    }
+    Ok(out)
+}
+
+/// The user's decision on two facts that may contradict each other (ADR-145): `a` or `b` holds (the other is folded
+/// into it), or `both` hold.
+#[tauri::command]
+pub async fn resolve_memory_conflict(
+    d: State<'_, Desktop>,
+    agent: String,
+    a: i64,
+    b: i64,
+    choice: agenium_store::agent::ConflictChoice,
+) -> R<()> {
+    let o = d.opened()?;
+    blocking(move || {
+        let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+        let mem = o
+            .app
+            .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
+            .map_err(err)?;
+        mem.resolve_conflict(a, b, choice).map_err(err)?;
+        // ADR-91: a skill built on a fact folded away is flagged for review.
+        o.app.audit_created_skills(id).map_err(err)?;
+        Ok(())
+    })
+    .await
 }
 
 pub(super) fn memory_action_now(
@@ -351,7 +389,7 @@ pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
     let has_key = keys.iter().any(|k| k["has_value"] == true);
     Ok(json!({
         "base_url": j.base_url, "model": j.model, "has_key": has_key,
-        "review_assist": j.review_assist, "skill_hint": j.skill_hint, "memory_gate": j.memory_gate,
+        "review_assist": j.review_assist, "skill_hint": j.skill_hint, "memory_gate": j.memory_gate, "memory_settle": j.memory_settle,
         "skill_quality": j.skill_quality, "done_check": j.done_check, "trim_output": j.trim_output, "find_code": j.find_code, "shadow": j.shadow,
         "configured": j.enabled(), "disabled": h.disabled, "reason": h.reason, "keys": keys,
     }))

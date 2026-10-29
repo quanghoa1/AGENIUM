@@ -37,6 +37,7 @@ pub(crate) async fn mcp_cmd(cli: &Cli, mc: &McpCmd) -> Result<()> {
                 headers: pairs(headers)?,
                 timeout_secs: *timeout,
                 oauth,
+                approval: None,
             })?;
             println!("MCP server {id} saved (test it: agenium mcp test {id})");
         }

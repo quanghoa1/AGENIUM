@@ -95,11 +95,13 @@ fn run<'a>(
         name: "submit_report".into(),
         description: "x".into(),
         parameters: json!({"type": "object"}),
+        strict: false,
     });
     specs.push(ToolSpec {
         name: "ask_question".into(),
         description: "x".into(),
         parameters: json!({"type": "object"}),
+        strict: false,
     });
     Run {
         provider: p,

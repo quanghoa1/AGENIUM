@@ -398,7 +398,18 @@ pub fn build_body(flavor: Flavor, req: &ChatRequest) -> Value {
         body["tools"] = Value::Array(
             req.tools
                 .iter()
-                .map(|t| json!({"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.parameters}}))
+                .map(|t| {
+                    // OpenAI's own API (and Azure's) decodes a strict call against its schema (ADR-144).
+                    let fitted = (t.strict && matches!(flavor, Flavor::OpenAi | Flavor::Azure))
+                        .then(|| crate::strict::fit(&t.parameters))
+                        .flatten();
+                    match fitted {
+                        Some((schema, _)) => json!({"type": "function", "function": {"name": t.name,
+                            "description": t.description, "parameters": crate::strict::openai(&schema), "strict": true}}),
+                        None => json!({"type": "function", "function": {"name": t.name, "description": t.description,
+                            "parameters": t.parameters}}),
+                    }
+                })
                 .collect(),
         );
     }
@@ -608,6 +619,27 @@ impl Provider for OpenAiCompat {
     }
 
     async fn chat(
+        &self,
+        req: &ChatRequest,
+        emit: &(dyn Fn(ChatEvent) + Send + Sync),
+    ) -> Result<ChatResponse, LlmError> {
+        // A strict schema the API refuses costs one request, not the run (ADR-144).
+        let key = format!("{}|{}", self.base_url, req.model);
+        if let Some(plain) = crate::strict::plain_for(&key, req) {
+            return self.send(&plain, emit).await;
+        }
+        match self.send(req, emit).await {
+            Err(e) if crate::strict::refused(&e, req) => {
+                crate::strict::remember_refused(&key);
+                self.send(&crate::strict::plain(req), emit).await
+            }
+            r => r,
+        }
+    }
+}
+
+impl OpenAiCompat {
+    async fn send(
         &self,
         req: &ChatRequest,
         emit: &(dyn Fn(ChatEvent) + Send + Sync),

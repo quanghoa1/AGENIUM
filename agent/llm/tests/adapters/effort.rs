@@ -243,3 +243,73 @@ async fn a_custom_endpoint_sends_the_users_headers_and_effort() {
     assert_eq!(s[0].body["temperature"], 0.2);
     assert!(s[1].body.get("reasoning_effort").is_none(), "{}", s[1].body);
 }
+
+/// ADR-144: a tool asked strict is sent strict to Anthropic's own API (its schema fitted, no input streamed ahead)
+/// and to OpenAI's (every property required, the optional ones nullable); relays and other vendors get it as before.
+#[test]
+fn strict_tools_go_strict_only_to_claude_and_openai() {
+    let mut req = request("m");
+    req.tools[0].strict = true;
+    let claude = anthropic::build_body_with(&req, true);
+    let t = &claude["tools"][0];
+    assert_eq!(t["strict"], true);
+    assert!(t.get("eager_input_streaming").is_none());
+    assert_eq!(t["input_schema"]["additionalProperties"], false);
+    let relay = anthropic::build_body(&req);
+    assert!(relay["tools"][0].get("strict").is_none());
+    assert_eq!(relay["tools"][0]["eager_input_streaming"], true);
+
+    let o = openai::build_body(openai::Flavor::OpenAi, &req);
+    let f = &o["tools"][0]["function"];
+    assert_eq!(f["strict"], true);
+    assert_eq!(f["parameters"]["required"], json!(["limit", "path"]));
+    assert!(f["parameters"]["properties"]["limit"]["anyOf"]
+        .as_array()
+        .unwrap()
+        .contains(&json!({"type": "null"})));
+    for flavor in [
+        openai::Flavor::DeepSeek,
+        openai::Flavor::OpenCode,
+        openai::Flavor::Generic,
+    ] {
+        assert!(openai::build_body(flavor, &req)["tools"][0]["function"]
+            .get("strict")
+            .is_none());
+    }
+    // Not asked strict: as before everywhere.
+    req.tools[0].strict = false;
+    assert!(anthropic::build_body_with(&req, true)["tools"][0]
+        .get("strict")
+        .is_none());
+}
+
+/// ADR-144: a strict schema the API refuses costs one request, not the run: the request goes again without strict
+/// tools, and so do the next ones to that endpoint and model.
+#[tokio::test]
+async fn a_refused_strict_schema_is_sent_again_plain() {
+    let refusal = json!({"type": "error", "error": {"type": "invalid_request_error",
+        "message": "tools.0.input_schema: Schema is too complex for compilation"}});
+    let (base, seen) = server(vec![
+        json_reply(400, refusal.clone(), &[]),
+        sse(200, ANTHROPIC_STREAM),
+        sse(200, ANTHROPIC_STREAM),
+    ])
+    .await;
+    let p = anthropic::Anthropic::new("a", Some(&format!("{base}/api.anthropic.com")), "k", http());
+    let mut req = request("claude-haiku-5-5");
+    req.tools[0].strict = true;
+    p.chat(&req, &|_| {}).await.unwrap();
+    p.chat(&req, &|_| {}).await.unwrap();
+    let s = seen.lock().unwrap().clone();
+    assert_eq!(s.len(), 3);
+    assert_eq!(s[0].body["tools"][0]["strict"], true);
+    assert!(s[1].body["tools"][0].get("strict").is_none());
+    assert!(s[2].body["tools"][0].get("strict").is_none());
+
+    let (base, seen) = server(vec![json_reply(400, refusal, &[]), sse(200, OPENAI_STREAM)]).await;
+    let p = openai::OpenAiCompat::new("o", &format!("{base}/api.openai.com/v1"), Some("k"), http());
+    p.chat(&req, &|_| {}).await.unwrap();
+    let s = seen.lock().unwrap().clone();
+    assert_eq!(s[0].body["tools"][0]["function"]["strict"], true);
+    assert!(s[1].body["tools"][0]["function"].get("strict").is_none());
+}

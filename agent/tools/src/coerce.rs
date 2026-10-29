@@ -114,8 +114,23 @@ fn fix(root: &Value, schema: &Value, v: Value) -> Value {
         Value::Object(map) if want("object") => {
             let props = s["properties"].as_object();
             let map = props.map(|p| rename_aliases(p, map.clone())).unwrap_or(map);
+            // An optional argument sent as null means it is not given: OpenAI's strict mode makes the model send
+            // every argument, the optional ones as null (ADR-144). So does an empty text for one that is not a text
+            // (an object asked as JSON text).
+            let required: Vec<&str> = s["required"]
+                .as_array()
+                .map(|r| r.iter().filter_map(Value::as_str).collect())
+                .unwrap_or_default();
             let out: Map<String, Value> = map
                 .into_iter()
+                .filter(|(k, x)| {
+                    let Some(ps) = props.and_then(|p| p.get(k)) else {
+                        return true;
+                    };
+                    let empty = x.as_str().is_some_and(|t| t.trim().is_empty())
+                        && !types(resolve(root, ps)).contains(&"string");
+                    !((x.is_null() || empty) && !required.contains(&k.as_str()))
+                })
                 .map(|(k, x)| {
                     let x = match props.and_then(|p| p.get(&k)) {
                         Some(ps) => fix(root, ps, x),
@@ -218,6 +233,7 @@ mod tests {
     fn schema() -> Value {
         json!({
             "type": "object",
+            "required": ["path"],
             "properties": {
                 "path": {"type": "string"},
                 "offset": {"type": ["integer", "null"]},
@@ -246,6 +262,26 @@ mod tests {
         // One object where a list is expected; the whole object as a JSON string.
         let got = coerce(&schema(), json!("{\"edits\": {\"line\": 1}}"));
         assert_eq!(got, json!({"edits": [{"line": 1}]}));
+    }
+
+    /// ADR-144: OpenAI's strict mode sends an optional argument as null; it is left out, as not given.
+    #[test]
+    fn an_optional_argument_sent_as_null_is_not_given() {
+        let got = coerce(
+            &schema(),
+            json!({"path": "a.rs", "label": null, "offset": null, "edits": [{"line": null}]}),
+        );
+        assert_eq!(got, json!({"path": "a.rs", "edits": [{}]}));
+        // An object asked as JSON text comes back as the object; left empty, it is not given.
+        let s = json!({"type": "object", "properties": {"extension": {"type": "object"}, "label": {"type": "string"}}});
+        assert_eq!(
+            coerce(&s, json!({"extension": "{\"cvss\": 7.5}"})),
+            json!({"extension": {"cvss": 7.5}})
+        );
+        assert_eq!(
+            coerce(&s, json!({"extension": " ", "label": ""})),
+            json!({"label": ""})
+        );
     }
 
     #[test]

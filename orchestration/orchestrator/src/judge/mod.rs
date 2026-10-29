@@ -18,6 +18,7 @@ pub mod done_check;
 pub mod find_code;
 mod health;
 mod memory_gate;
+pub mod memory_settle;
 mod review_assist;
 mod settings;
 mod skill_hint;

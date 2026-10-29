@@ -185,6 +185,16 @@ impl Runtime {
                 if let Err(e) = self.app.audit_created_skills(agent_id) {
                     tracing::warn!(error = %e, "auditing created skills failed");
                 }
+                // ADR-145: once enough was learned since the last pass, facts that say the same are folded and
+                // contradictions put to the user.
+                if let Some(s) = self.app.settle_when_due(&mem).await {
+                    let _ = self.app.run_log(
+                        log_run,
+                        "memory",
+                        serde_json::json!({ "settled": { "facts": s.facts, "folded": s.folded(),
+                            "conflicts": s.conflicts(), "asked": s.asked, "left": s.left } }),
+                    );
+                }
                 Ok(Some(rep))
             }
             Some(Err(e)) => {

@@ -1,6 +1,7 @@
 //! Agenium root, `config.toml`, setup wizard backend and system requirements (decisions 12 and 24).
 
 pub mod config;
+pub mod mcp_approval;
 pub mod presets;
 pub mod root;
 pub mod setup;
@@ -14,6 +15,7 @@ pub use config::{
     valid_mcp_id, ApprovalPolicy, BodyField, CliSection, Config, JudgeKey, JudgeSection,
     McpOAuthConfig, McpServerConfig, ModelCaps, ProviderConfig, ProviderKind, SecretsBackend,
 };
+pub use mcp_approval::McpApproval;
 pub use root::{resolve_root, resolve_root_with, Bootstrap, RootInputs, RootLayout, RootSource};
 pub use tool_search::ToolSearchSection;
 

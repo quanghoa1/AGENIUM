@@ -91,6 +91,7 @@ async fn arm(name: &str, a: &Args, server: &Path, dir: &Path) -> Result<Arm> {
         headers: Default::default(),
         timeout_secs: 30,
         oauth: None,
+        approval: None,
     };
     let b = agenium_mcp::Binding {
         server: "many".into(),
@@ -161,6 +162,7 @@ async fn run(
             name: t.name().into(),
             description: t.description().into(),
             parameters: t.parameters(),
+            strict: false,
         })
         .collect();
     specs.sort_by(|a, b| a.name.cmp(&b.name));

@@ -4,7 +4,8 @@ import { ConfirmModal, PanelSwap, Segmented } from "../../components/motion";
 import { Empty, Mono, cn } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/store";
-import type { McpServerConfig, McpServerRow } from "../../lib/types";
+import type { McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow } from "../../lib/types";
+import { McpApprovalCard } from "./McpApprovalCard";
 import { ToolSearchCard } from "./ToolSearchCard";
 
 const lines = (s: string) =>
@@ -27,10 +28,11 @@ export function McpPanel() {
   const [rows, setRows] = useState<McpServerRow[] | null>(null);
   const [mode, setMode] = useState<"stdio" | "http" | "json">("stdio");
   const [form, setForm] = useState({ id: "", command: "", args: "", env: "", url: "", headers: "", timeout: 120, json: "" });
-  const [tested, setTested] = useState<Record<string, { tools: { name: string; description?: string | null; read_only: boolean }[]; error?: string } | "busy">>({});
+  const [tested, setTested] = useState<Record<string, { tools: { name: string; description?: string | null; read_only: boolean; destructive?: boolean | null }[]; error?: string } | "busy">>({});
+  const [approval, setApproval] = useState<McpApprovalSettings | null>(null);
   const [del, setDel] = useState<McpServerRow | null>(null);
   const [signing, setSigning] = useState<string | null>(null);
-  const load = () => api.mcpServers().then(setRows);
+  const load = () => (api.mcpServers().then(setRows), api.mcpApproval().then(setApproval).catch(() => undefined));
   const signIn = (id: string) => {
     setSigning(id);
     app.notify(app.t("library.signingIn"));
@@ -194,6 +196,30 @@ export function McpPanel() {
                   <span className="text-[11px] text-subtle">–</span>
                 )}
               </div>
+              {approval && (
+                <label className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="label">{app.t("library.approval.server")}</span>
+                  <select
+                    className="input w-auto py-1"
+                    value={approval.servers[r.config.id] ?? ""}
+                    onChange={(e) =>
+                      api
+                        .setMcpApproval(r.config.id, (e.target.value || null) as McpApproval | null)
+                        .then(setApproval)
+                        .catch((x) => app.notify(String(x)))
+                    }
+                  >
+                    <option value="">
+                      {app.t("library.approval.default")}: {app.t(`library.approval.${approval.default}`)}
+                    </option>
+                    {(["destructive", "writes", "never"] as const).map((a) => (
+                      <option key={a} value={a}>
+                        {app.t(`library.approval.${a}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {t && t !== "busy" && (
                 <div className="mt-3 rounded-lg border border-line bg-elevated/40 p-3">
                   {t.error ? (
@@ -207,6 +233,7 @@ export function McpPanel() {
                         <div key={x.name} className="text-[11px]">
                           <Mono className="font-semibold">{x.name}</Mono>
                           {x.read_only && <span className="chip ml-1 border-emerald-500/30 text-emerald-600">read-only</span>}
+                          {x.destructive && !x.read_only && <span className="chip ml-1 border-rose-500/30 text-rose-600">destructive</span>}
                           <span className="ml-2 text-subtle">{x.description}</span>
                         </div>
                       ))}
@@ -219,6 +246,7 @@ export function McpPanel() {
         })}
       </div>
       {rows && rows.length === 0 && <Empty>{app.t("library.noMcp")}</Empty>}
+      {approval && <McpApprovalCard settings={approval} onChange={setApproval} />}
       <ToolSearchCard />
       <ConfirmModal
         open={!!del}

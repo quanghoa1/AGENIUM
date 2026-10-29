@@ -23,6 +23,12 @@ export function priceOf(v: PriceView | null, provider: string, model: string): P
   return v?.providers[provider]?.[model];
 }
 
+/** The model's deprecation, when the catalogue marks it deprecated: the model to use instead (`null`: none known). */
+export function deprecation(v: PriceView | null, provider: string, model: string): { instead: string | null } | undefined {
+  const d = v?.deprecated?.[provider];
+  return d && model in d ? { instead: d[model] } : undefined;
+}
+
 export const isFree = (p?: Price) => !!p && p.input === 0 && p.output === 0;
 
 /** "$0.15 / $0.60" per million tokens in / out. */

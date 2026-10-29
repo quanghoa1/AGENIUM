@@ -1,0 +1,162 @@
+[
+  {
+    "id": "hello-file",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 7,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "glob": 1,
+      "grep": 2,
+      "read_file": 1,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 72545,
+    "tokens_out": 1109,
+    "tokens_cached": 51712,
+    "cost_usd": 0.0,
+    "elapsed_ms": 36877
+  },
+  {
+    "id": "fix-config-key",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 13,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "close_ticket": 1,
+      "edit_file": 1,
+      "grep": 1,
+      "list_dir": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 4,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 144951,
+    "tokens_out": 1699,
+    "tokens_cached": 122624,
+    "cost_usd": 0.0,
+    "elapsed_ms": 48007
+  },
+  {
+    "id": "rename-function",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "apply_patch": 1,
+      "close_ticket": 1,
+      "grep": 4,
+      "list_dir": 2,
+      "read_file": 6,
+      "review_ticket": 1,
+      "shell": 1,
+      "submit_report": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 108426,
+    "tokens_out": 1721,
+    "tokens_cached": 86400,
+    "cost_usd": 0.0,
+    "elapsed_ms": 49853
+  },
+  {
+    "id": "readme-usage",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 10,
+    "tool_errors": 2,
+    "error_codes": {
+      "invalid": 2
+    },
+    "errors": [
+      "submit_report: invalid: report extension does not match template coding@1: tests.ran must be a non-negative integer",
+      "submit_report: invalid: report extension does not match template coding@1: tests.passed must be a non-negative integer"
+    ],
+    "tools": {
+      "close_ticket": 1,
+      "edit_file": 1,
+      "list_dir": 2,
+      "read_file": 3,
+      "review_ticket": 1,
+      "submit_report": 3
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 109878,
+    "tokens_out": 1941,
+    "tokens_cached": 88064,
+    "cost_usd": 0.0,
+    "elapsed_ms": 43673
+  },
+  {
+    "id": "csv-total",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 11,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {
+      "close_ticket": 1,
+      "grep": 1,
+      "list_dir": 1,
+      "read_file": 3,
+      "review_ticket": 1,
+      "shell": 3,
+      "submit_report": 1,
+      "write_file": 1
+    },
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 120160,
+    "tokens_out": 2016,
+    "tokens_cached": 98048,
+    "cost_usd": 0.0,
+    "elapsed_ms": 43920
+  }
+]

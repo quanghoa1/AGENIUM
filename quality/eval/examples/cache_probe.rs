@@ -28,6 +28,7 @@ fn tool(name: &str, words: usize) -> ToolSpec {
             "Reads part of the project and reports what it found. ".repeat(words)
         ),
         parameters: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+        strict: false,
     }
 }
 

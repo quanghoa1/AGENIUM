@@ -121,6 +121,8 @@ export interface CommandApproval {
   command: string;
   cwd: string;
   at: string;
+  /** An MCP tool call rather than a shell command (ADR-143). */
+  tool?: { server: string; tool: string; arguments: string; destructive: boolean } | null;
 }
 
 export interface RunRow {
@@ -449,8 +451,18 @@ export interface CreatedSkill {
   flagged?: string | null;
 }
 
+/** Two memories that may contradict each other, for the user to decide (ADR-145). */
+export interface MemoryConflict {
+  a: Fact;
+  b: Fact;
+  similarity: number;
+  /** Who found it: `figures` (the same words, other numbers or names), `judge`. */
+  by: string;
+}
+
 export interface MemoryData {
   facts: Fact[];
+  conflicts?: MemoryConflict[];
   overlays: OverlayView[];
   /** Skill name -> what the agent created and why. */
   created: Record<string, CreatedSkill>;
@@ -525,6 +537,15 @@ export interface LibrarySkill {
   dir: string;
 }
 
+/** Which MCP tool calls wait for the user (ADR-143): the server's destructive tools, every tool not read-only, none. */
+export type McpApproval = "destructive" | "writes" | "never";
+
+export interface McpApprovalSettings {
+  default: McpApproval;
+  /** server id -> its own setting (`null`: the default) */
+  servers: Record<string, McpApproval | null>;
+}
+
 export interface McpServerConfig {
   id: string;
   command?: string | null;
@@ -583,6 +604,8 @@ export interface PriceView {
   fetched_at?: string | null;
   /** provider id -> model -> price */
   providers: Record<string, Record<string, Price>>;
+  /** provider id or vendor CLI -> models the catalogue marks deprecated -> a served model of its family, if any */
+  deprecated?: Record<string, Record<string, string | null>>;
 }
 
 /** The TypeSafe Jev judge's settings as the app shows them (the key itself never leaves the vault). */
@@ -590,6 +613,7 @@ export interface JudgeUses {
   review_assist: boolean;
   skill_hint: boolean;
   memory_gate: boolean;
+  memory_settle: boolean;
   skill_quality: boolean;
   done_check: boolean;
   trim_output: boolean;

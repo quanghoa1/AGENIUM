@@ -101,6 +101,7 @@ impl Extra {
             description: description.into(),
             input_schema: schema,
             read_only: true,
+            destructive: Some(false),
         }
     }
 }
@@ -230,6 +231,17 @@ impl Tool for McpTool {
                     ),
                 ));
             }
+        }
+        // A call the user approves first (ADR-143): the runtime's gate decides from what the server says of the tool.
+        let ask = agenium_tools::ToolAsk {
+            server: self.session.server.clone(),
+            tool: self.info.name.clone(),
+            arguments: args.clone(),
+            read_only: self.info.read_only,
+            destructive: self.info.destructive,
+        };
+        if let agenium_tools::GateDecision::Deny(why) = ctx.gate.check_tool(&ask).await {
+            return Err(ToolError::new("denied", why));
         }
         let attempt = |c: Arc<Client>, a: Value| async move {
             c.call_tool(&self.info.name, a, self.session.timeout).await

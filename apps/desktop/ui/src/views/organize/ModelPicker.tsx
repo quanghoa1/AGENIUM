@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { FreeTag, cn } from "../../components/ui";
+import { DeprecatedTag, FreeTag, cn } from "../../components/ui";
 import { api, type ModelArg } from "../../lib/api";
-import { isFree, priceLabel, priceOf, usePrices } from "../../lib/prices";
+import { deprecation, isFree, priceLabel, priceOf, usePrices } from "../../lib/prices";
 import { useApp } from "../../lib/store";
 import type { Capabilities, ModelInfo } from "../../lib/types";
 
@@ -51,6 +51,8 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   // Only the opencode CLI's list is OpenCode's free models; the other CLIs list what their login can run.
   const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []).map((m) => m.id) : []);
   const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
+  const old = (id: string) => deprecation(prices, value.provider, id);
+  const picked = old(value.model);
   return (
     <div className="grid grid-cols-4 gap-2">
       <select className="input" value={value.backend ?? "api"} onChange={(e) => onChange({ ...value, backend: e.target.value as "api" | "cli", provider: "", model: "" })}>
@@ -76,15 +78,19 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
             ))}
       </select>
       <div className="relative">
-        <input className={cn("input w-full", isFree(price(value.model)) && "pr-14")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
-        {isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />}
+        <input className={cn("input w-full", isFree(price(value.model)) && "pr-14", picked && "pr-28")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
+        {picked ? (
+          <DeprecatedTag instead={picked.instead} className="absolute right-2 top-1/2 -translate-y-1/2" />
+        ) : (
+          isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />
+        )}
       </div>
       <datalist id={listId}>
         {models.map((m) => {
           const p = price(m.id);
           return (
             <option key={m.id} value={m.id}>
-              {[isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
+              {[old(m.id) ? "DEPRECATED" : "", isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
             </option>
           );
         })}
@@ -101,6 +107,16 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
         <select className="input" disabled title={levels ? app.t("model.noEffortTitle") : app.t("model.vendorDefaultTitle")}>
           <option>{levels ? app.t("model.noEffort") : app.t("model.vendorDefault")}</option>
         </select>
+      )}
+      {picked && (
+        <div className="col-span-4 flex flex-wrap items-center gap-2 text-[11px] text-amber-600 dark:text-amber-300">
+          <span>{app.t("model.deprecatedPicked")}</span>
+          {picked.instead && (
+            <button type="button" className="btn" onClick={() => onChange({ ...value, model: picked.instead! })}>
+              {app.t("model.useInstead")} {picked.instead}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

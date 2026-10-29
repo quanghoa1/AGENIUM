@@ -9,6 +9,7 @@ import { Avatar, Empty, Mono, PageHeader, Section, ago, cn } from "../components
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { AgentEntry, Fact, MemoryData } from "../lib/types";
+import { MemoryConflicts } from "./MemoryConflicts";
 
 type Tab = "lesson" | "fact" | "preference" | "overlay";
 
@@ -132,7 +133,15 @@ export function MemoryView() {
     agent &&
     api
       .memoryAction(agent, action, extra.fact, extra.skill)
-      .then((r) => (app.notify(msg ?? app.t("common.done") + (r && (r as any).consolidated !== undefined ? ` (${(r as any).decayed} / ${(r as any).consolidated})` : "")), load()))
+      .then((r: any) =>
+        (app.notify(
+          msg ??
+            (r && r.consolidated !== undefined
+              ? app.t("memory.tidied").replace("{folded}", String(r.consolidated + (r.folded ?? 0))).replace("{conflicts}", String(r.conflicts ?? 0))
+              : app.t("common.done")),
+        ),
+        load()),
+      )
       .catch((e) => app.notify(String(e)));
   const counts = useMemo(() => {
     const c = { lesson: 0, fact: 0, preference: 0 };
@@ -176,6 +185,7 @@ export function MemoryView() {
           </div>
         </Section>
         <div className="min-w-0 space-y-3">
+          {agent && <MemoryConflicts agent={agent} conflicts={data?.conflicts ?? []} onDone={load} />}
           <div className="flex flex-wrap items-center gap-2">
             {current && (
               <span className="flex items-center gap-1.5 text-sm font-semibold">

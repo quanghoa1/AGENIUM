@@ -41,6 +41,7 @@ async fn main() -> Result<()> {
         name: "lookup".into(),
         description: "Looks up a record by key and returns its fields.".into(),
         parameters: json!({"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}),
+        strict: false,
     };
     let base = |messages: Vec<Message>| {
         ChatRequest {

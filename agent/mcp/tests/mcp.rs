@@ -34,6 +34,7 @@ fn stdio_cfg() -> McpServerConfig {
         headers: BTreeMap::new(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     }
 }
 
@@ -325,6 +326,7 @@ async fn streamable_http_server() {
         .into(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     };
     let b = Binding {
         server: "docs".into(),
@@ -449,6 +451,7 @@ async fn a_catalogue_follows_a_server_that_changes_its_tools() {
         headers: BTreeMap::new(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     };
     let b = Binding {
         server: "many".into(),
@@ -516,6 +519,7 @@ async fn a_server_whose_own_search_comes_back_is_followed() {
         headers: BTreeMap::new(),
         timeout_secs: 10,
         oauth: None,
+        approval: None,
     };
     let b = Binding {
         server: "many".into(),
