@@ -119,9 +119,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   an own key pasted bare keeps the system key's `Bearer ` (it reached the server without it and was refused).
 - An agent with many MCP tools (past 20, or 10k tokens of definitions) gets the few it uses most and finds the others
   with `tool_search` — by words, meaning and, with a judge key, Jev's reading (55 of 58 requests found the right tool
-  first among 123) — and calls them with `call_tool`; requests stay small and cached on every vendor. A server whose
-  tools change during a run (it says so, or its own tool search runs out of quota and it lists everything) is followed
-  (ADR-139).
+  first among 123) — and calls them with `call_tool`; requests stay small and cached on every vendor. Jev reads only
+  when words and meaning disagree or the agent searches again, about half the searches, for the same choices. A server
+  whose tools change during a run (it says so, or its own tool search runs out of quota and it lists everything) is
+  followed; a server whose tool names say nothing is summed up by its descriptions. The thresholds and the judge are
+  set on the desktop's MCP tab (ADR-139).
 - `view_image` for vision models; `fetch` through an allowlist.
 - Background commands for every agent: `shell` with `background` starts a server or watcher, `shell_output` reads it
   while it runs, `shell_stop` ends it; all stop with the run (ADR-129).

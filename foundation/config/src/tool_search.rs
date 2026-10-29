@@ -12,8 +12,10 @@ pub struct ToolSearchSection {
     pub over_tokens: usize,
     /// The MCP tools an agent used most that stay listed when the others are found by search.
     pub keep_used: usize,
-    /// Let the judge (Jev) rate the best candidates of a search; fail-open (without it, words and meaning rank them).
-    pub judge: bool,
+    /// When the judge (Jev) rates the best candidates of a search, fail-open (without it, words and meaning rank them):
+    /// `unsure` — when words and meaning put different tools first, or the agent searches again without calling a
+    /// tool found; `always`; `off`.
+    pub judge: String,
 }
 
 impl Default for ToolSearchSection {
@@ -23,7 +25,7 @@ impl Default for ToolSearchSection {
             over_tools: 20,
             over_tokens: 10_000,
             keep_used: 5,
-            judge: true,
+            judge: "unsure".into(),
         }
     }
 }

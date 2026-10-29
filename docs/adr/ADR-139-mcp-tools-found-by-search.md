@@ -34,7 +34,8 @@ Amends ADR-62 (agents' MCP servers) and ADR-109 (MCP client).
    definitions (`mode = "auto"`; `always`, `never`), a run lists only the `keep_used` (5) MCP tools its agent called
    most with success (`runs::mcp_tools_used`, a call through `call_tool` counted for the tool it called), names the
    others by server in its capabilities (up to 30 names; past that each server's tools summed up by the first word of
-   their names, `github 20, slack 11, …`), and gets two tools:
+   their names, `github 20, slack 11, …`, or — names that say nothing, `tool_000…` or one prefix on all — by the words
+   their descriptions share, `about: issue 22, page 9, …`; `tool_search/summary.rs`), and gets two tools:
    - `tool_search(query, limit?, server?)`: the tools that do what the agent describes, each with its server, its
      description and its arguments one line each (name, type, required, what it is; a schema that cannot be said so —
      references, alternatives, nested objects — as JSON); `select:<name>,<name>` names tools exactly. Output marked
@@ -49,8 +50,9 @@ Amends ADR-62 (agents' MCP servers) and ADR-109 (MCP client).
 3. **Ranking** (`agent/mcp/src/rank.rs`, `tool_search/index.rs`, `tool_search/jev.rs`): words — BM25 over the name
    (twice), description, argument names and descriptions, common words left out and words stemmed — and meaning — the
    memory's local embedding model (`bge-small-en-v1.5`, ADR-47; each tool embedded once per process) — fused by
-   reciprocal rank (k = 60). With the judge on (`[tool_search] judge`, default on, fail-open), the 30 best candidates
-   are read in one request (the request written once, each question pointing at a tool) and ordered by the probability
+   reciprocal rank (k = 60). The judge (`[tool_search] judge`, fail-open) reads when unsure (`unsure`, the default:
+   words and meaning put different tools first, or the agent searches again without calling a tool it found; `always`;
+   `off`): the 30 best candidates are read in one request (the request written once, each question pointing at a tool) and ordered by the probability
    that a tool does what is asked; candidates under 0.15 are dropped when another is above it. Without the judge, out
    of quota or failing, words and meaning rank alone; without the embedding model installed, its hashing stand-in.
 
@@ -99,6 +101,15 @@ the judge, plain names or not (about 2,000). Words alone keep up because the mod
 and searches again when none fits: the right tool has only to be among the 5 (47 of 58 by words, 57 with the judge), so
 the judge mostly saves searches and tokens. It stays on by default, fail-open; it is worth more with a weaker model or
 thin descriptions.
+
+### The judge only when unsure
+
+Since the model picks among the 5 tools returned, the judge reads only when words and meaning disagree on the first
+tool or the agent searches again without calling one (`judge = "unsure"`, the default; `always` reads every search).
+On the 58 requests it read 27 searches of 58 (35 with names that say nothing), about half the judge's tokens, and the
+right tool was in the 5 returned as often as with `always` (57/58; 55/58 with names that say nothing), first 52/58
+against 55/58. DeepSeek v4.1 flash over the API: 56/58 (57/58 with `always`, within a round's noise). The setting is on
+the desktop's MCP tab, with the thresholds and `keep_used`.
 
 ## Verified (2026-10-29)
 

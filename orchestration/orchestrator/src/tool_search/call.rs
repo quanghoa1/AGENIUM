@@ -2,6 +2,7 @@
 //! agent uses tools that are not on it, so a provider's prompt cache keeps the prefix; the arguments are fitted to the
 //! tool's schema (ADR-105) and the tool runs as when it is listed (output cut and marked untrusted).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use agenium_mcp::Catalog;
@@ -19,6 +20,8 @@ struct Args {
 
 pub(super) struct CallTool {
     pub catalog: Arc<Catalog>,
+    /// Cleared on a call: the next search is not a search again (`tool_search`'s judge).
+    pub searched: Arc<AtomicBool>,
 }
 
 #[async_trait]
@@ -46,6 +49,7 @@ impl Tool for CallTool {
     async fn call(&self, ctx: &ToolCtx, args: serde_json::Value) -> Result<ToolOutput, ToolError> {
         let a: Args = serde_json::from_value(args)
             .map_err(|e| ToolError::new("invalid_arguments", e.to_string()))?;
+        self.searched.store(false, Ordering::SeqCst);
         let tools = self.catalog.current().await;
         let name = a.name.trim();
         let mut hits = tools.iter().filter(|t| t.name() == name);

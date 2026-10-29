@@ -1,4 +1,4 @@
-//! Setup and status: the root, the command policy, the sandbox, model downloads.
+//! Setup and status: the root, the command policy, the sandbox, model downloads, how MCP tools are found.
 
 use super::*;
 
@@ -100,4 +100,33 @@ pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R
     }
     d.open(&handle)?;
     Ok(status(d))
+}
+
+/// How agents reach many MCP tools (ADR-139): found with `tool_search` past the thresholds, the tools used most kept
+/// listed, the judge reading a search's candidates.
+#[tauri::command]
+pub fn tool_search_settings(d: State<'_, Desktop>) -> R<agenium_config::ToolSearchSection> {
+    Ok(d.opened()?.app.config().tool_search)
+}
+
+#[tauri::command]
+pub fn set_tool_search(
+    d: State<'_, Desktop>,
+    section: agenium_config::ToolSearchSection,
+) -> R<agenium_config::ToolSearchSection> {
+    if !["auto", "always", "never"].contains(&section.mode.as_str()) {
+        return Err(format!("unknown mode {:?}", section.mode));
+    }
+    if !["unsure", "always", "off"].contains(&section.judge.as_str()) {
+        return Err(format!("unknown judge setting {:?}", section.judge));
+    }
+    if section.over_tools == 0 || section.over_tokens == 0 {
+        return Err("the thresholds must be above 0".into());
+    }
+    let c = d
+        .opened()?
+        .app
+        .update_config(|c| c.tool_search = section)
+        .map_err(err)?;
+    Ok(c.tool_search)
 }

@@ -21,7 +21,7 @@ pub(super) async fn rate(
     candidates: &[Arc<McpTool>],
     ticket: Option<&str>,
 ) -> Option<Vec<Option<f64>>> {
-    if candidates.len() < 2 || !app.config().tool_search.judge {
+    if candidates.len() < 2 || app.config().tool_search.judge == "off" {
         return None;
     }
     app.judge().ok().flatten()?;

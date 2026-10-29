@@ -11,6 +11,7 @@ mod call;
 mod index;
 mod jev;
 mod search;
+mod summary;
 
 use std::sync::{Arc, Mutex};
 
@@ -27,12 +28,10 @@ pub(crate) struct McpOffer {
     pub lines: Vec<String>,
 }
 
-/// Names of found-by-search tools listed in the prompt at most; beyond this each server's tools are summed up by the
-/// first word of their names. Measured (ADR-139): with 123 tools the full list cost about 2,700 input tokens a run and
-/// changed no choice — the search found them as well without it.
+/// Names of found-by-search tools listed in the prompt at most; beyond this each server's tools are summed up
+/// (`summary.rs`). Measured (ADR-139): with 123 tools the full list cost about 2,700 input tokens a run and changed no
+/// choice — the search found them as well without it.
 const NAME_LIST: usize = 30;
-/// Groups named in a server's summary at most.
-const GROUPS: usize = 25;
 
 /// An estimate of the tokens a tool's definition takes in a request.
 fn tokens(t: &dyn Tool) -> usize {
@@ -41,7 +40,7 @@ fn tokens(t: &dyn Tool) -> usize {
 
 impl App {
     /// The tools `tool_search` returns for `query` from `catalog`, best first, by words alone or with their meaning
-    /// (the judge as `[tool_search] judge` says) — ADR-139's measurement.
+    /// (the judge as `[tool_search] judge` says, for a first search) — ADR-139's measurement.
     pub async fn find_mcp_tools(
         self: &Arc<Self>,
         catalog: Arc<Catalog>,
@@ -55,9 +54,10 @@ impl App {
             ticket: None,
             index: Mutex::new(None),
             meaning,
+            searched: Default::default(),
         };
         let idx = s.index().await;
-        s.find(&idx, query, None, limit)
+        s.find(&idx, query, None, limit, false)
             .await
             .into_iter()
             .map(|i| idx.tools[i].mcp_name().to_owned())
@@ -67,6 +67,7 @@ impl App {
 
 /// `tool_search` and `call_tool` over `catalog`.
 fn pair(app: &Arc<App>, catalog: &Arc<Catalog>, ticket: Option<String>) -> Vec<Arc<dyn Tool>> {
+    let searched: Arc<std::sync::atomic::AtomicBool> = Default::default();
     vec![
         Arc::new(search::ToolSearch {
             app: app.clone(),
@@ -74,9 +75,11 @@ fn pair(app: &Arc<App>, catalog: &Arc<Catalog>, ticket: Option<String>) -> Vec<A
             ticket,
             index: Mutex::new(None),
             meaning: true,
+            searched: searched.clone(),
         }),
         Arc::new(call::CallTool {
             catalog: catalog.clone(),
+            searched,
         }),
     ]
 }
@@ -88,44 +91,24 @@ fn found_line(found: &[Arc<McpTool>]) -> String {
          call_tool.",
         found.len()
     );
-    let mut by_server: std::collections::BTreeMap<&str, Vec<&str>> = Default::default();
+    let mut by_server: std::collections::BTreeMap<&str, Vec<&McpTool>> = Default::default();
     for t in found {
-        by_server.entry(t.server()).or_default().push(t.mcp_name());
+        by_server.entry(t.server()).or_default().push(t);
     }
-    for (server, names) in by_server {
+    for (server, tools) in by_server {
+        let names: Vec<&str> = tools.iter().map(|t| t.mcp_name()).collect();
         if found.len() <= NAME_LIST {
             line.push_str(&format!(" {server}: {}.", names.join(", ")));
         } else {
+            let descriptions: Vec<&str> = tools.iter().map(|t| t.plain_description()).collect();
             line.push_str(&format!(
                 " {server}: {} tools ({}).",
                 names.len(),
-                groups(&names)
+                summary::summary(&names, &descriptions)
             ));
         }
     }
     line
-}
-
-/// What a server's tools are about, from their names' first word: `github 20, slack 11, …` (the rest as `other`).
-fn groups(names: &[&str]) -> String {
-    let mut count: std::collections::BTreeMap<String, usize> = Default::default();
-    for n in names {
-        let first = n.split(['_', '-', '.']).next().unwrap_or(n).to_lowercase();
-        *count.entry(first).or_default() += 1;
-    }
-    let mut other = 0;
-    let mut parts: Vec<String> = Vec::new();
-    for (g, c) in &count {
-        if *c > 1 && parts.len() < GROUPS {
-            parts.push(format!("{g} {c}"));
-        } else {
-            other += c;
-        }
-    }
-    if other > 0 {
-        parts.push(format!("other {other}"));
-    }
-    parts.join(", ")
 }
 
 impl App {

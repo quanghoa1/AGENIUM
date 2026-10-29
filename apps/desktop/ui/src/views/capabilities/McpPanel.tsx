@@ -5,6 +5,7 @@ import { Empty, Mono, cn } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/store";
 import type { McpServerConfig, McpServerRow } from "../../lib/types";
+import { ToolSearchCard } from "./ToolSearchCard";
 
 const lines = (s: string) =>
   s
@@ -218,6 +219,7 @@ export function McpPanel() {
         })}
       </div>
       {rows && rows.length === 0 && <Empty>{app.t("library.noMcp")}</Empty>}
+      <ToolSearchCard />
       <ConfirmModal
         open={!!del}
         title={`${app.t("common.delete")} ${del?.config.id ?? ""}`}

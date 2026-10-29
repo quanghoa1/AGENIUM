@@ -2,6 +2,7 @@
 //! description and arguments, to call with `call_tool`. Ranked by words (BM25) and meaning (embeddings) fused by
 //! reciprocal rank; the judge then reads the best candidates when it is on. `select:a,b` names tools exactly.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use agenium_mcp::{rank, Catalog, McpTool};
@@ -39,6 +40,19 @@ pub(super) struct ToolSearch {
     pub index: Mutex<Option<Arc<Index>>>,
     /// Rank by meaning too (off only to measure words alone).
     pub meaning: bool,
+    /// The agent searched and has not called a tool since (shared with `call_tool`): a search now is a search again.
+    pub searched: Arc<AtomicBool>,
+}
+
+/// Whether the judge reads this search's candidates (`[tool_search] judge`): `unsure` when words and meaning put
+/// different tools first, or when the agent searches again without calling what it found. Measured (ADR-139): the
+/// model reads the 5 tools returned and picks, so the judge's better order matters little when the two rankings agree.
+fn judge_reads(mode: &str, words: &[usize], meaning: &[usize], again: bool) -> bool {
+    match mode {
+        "off" => false,
+        "always" => true,
+        _ => again || words.is_empty() || words.first() != meaning.first(),
+    }
 }
 
 impl ToolSearch {
@@ -63,6 +77,7 @@ impl ToolSearch {
         query: &str,
         server: Option<&str>,
         limit: usize,
+        again: bool,
     ) -> Vec<usize> {
         let in_server = |i: &usize| server.is_none_or(|s| idx.tools[*i].server() == s);
         let words: Vec<usize> = idx.by_words(query).into_iter().filter(in_server).collect();
@@ -76,6 +91,12 @@ impl ToolSearch {
         .into_iter()
         .filter(in_server)
         .collect();
+        let judge = judge_reads(
+            &self.app.config().tool_search.judge,
+            &words,
+            &meaning,
+            again,
+        );
         let fused: Vec<usize> = rank::fuse(&[words, meaning], 60.0)
             .into_iter()
             .map(|(i, _)| i)
@@ -83,6 +104,9 @@ impl ToolSearch {
             .collect();
         if fused.len() <= 1 {
             return fused;
+        }
+        if !judge {
+            return fused.into_iter().take(limit).collect();
         }
         let candidates: Vec<Arc<McpTool>> = fused.iter().map(|i| idx.tools[*i].clone()).collect();
         let rated = super::jev::rate(&self.app, query, &candidates, self.ticket.as_deref()).await;
@@ -248,7 +272,11 @@ impl Tool for ToolSearch {
                         .position(|t| t.name() == n || t.mcp_name() == n)
                 })
                 .collect(),
-            None => self.find(&idx, query, a.server.as_deref(), limit).await,
+            None => {
+                let again = self.searched.swap(true, Ordering::SeqCst);
+                self.find(&idx, query, a.server.as_deref(), limit, again)
+                    .await
+            }
         };
         let text = if found.is_empty() {
             let servers = self.catalog.servers().join(", ");
@@ -300,5 +328,15 @@ mod tests {
         assert_eq!(arguments(&json!({"type": "object"})), "none");
         let nested = json!({"type": "object", "properties": {"filter": {"type": "object", "properties": {"a": {}}}}});
         assert!(arguments(&nested).starts_with("(JSON schema) {"));
+    }
+
+    #[test]
+    fn the_judge_reads_when_the_rankings_disagree_or_the_agent_searches_again() {
+        assert!(!judge_reads("unsure", &[3, 1], &[3, 2], false));
+        assert!(judge_reads("unsure", &[3, 1], &[1, 3], false));
+        assert!(judge_reads("unsure", &[3, 1], &[3, 2], true));
+        assert!(judge_reads("unsure", &[3], &[], false));
+        assert!(judge_reads("always", &[3], &[3], false));
+        assert!(!judge_reads("off", &[3], &[1], true));
     }
 }

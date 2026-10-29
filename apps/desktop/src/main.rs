@@ -145,6 +145,8 @@ fn main() {
             manage::save_skill,
             manage::evaluate_skill_text,
             manage::skill_file,
+            api::tool_search_settings,
+            api::set_tool_search,
             manage::mcp_servers,
             manage::put_mcp,
             manage::import_mcp_json,

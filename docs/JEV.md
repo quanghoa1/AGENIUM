@@ -32,7 +32,7 @@ Each use is a separate switch in **Settings → Judge** (`[judge]` in `config.to
 | **Done check** (`done_check`, ADR-126) | When a worker submits its report and the run changed files with no test/build/check passing after the last change | "Does the report read as done, would a check apply, does it claim checks passed?" (with the run's changed files and commands as facts) | On a confident unverified done, the report goes back to the worker once, in the same run, to run the check. Measured on 10 labelled reports with the real API: 9/9 as expected, ≈ 430 input tokens per ask (ADR-127). |
 | **Output trimmer** (`trim_output`, ADR-127) | In a work run, when a `shell` or `grep` result is over 80 lines | "Does this chunk hold something the ticket needs?" (one Noul per middle chunk) | Chunks it is confident are not needed, and that rank low, are left out; head, tail and every key line (failure, error, test result) stay; the full output is saved and linked. On six real outputs it lost nothing needed but trimmed only one (82 of 257 lines), as most of a capped test log is evidence (ADR-127). |
 | **find_code** (`find_code`, ADR-128) | A work tool for coding workers and the reviewing Lead | Which folders, files and units of source answer the agent's question about behaviour | The relevant files and the code that does it, verbatim with line numbers. On this repository: the answering file in the top 3 and its code excerpted for 10/10 questions, ≈ 3.4 s and $0.003 per search. On pinned Flask 3.1.0, every agent (four CLIs and DeepSeek over the API) spent 5–33 % fewer input tokens and fewer steps with it ([results](../quality/eval/results/find-code/README.md)). |
-| **Tool search** (`[tool_search] judge`, ADR-139) | When an agent with many MCP tools calls `tool_search` | "Is this tool one to call for what the agent asks?" for the 30 best candidates by words and meaning, in one request | The candidates in the judge's order, unlikely ones left out. On 123 tools and 58 requests worded unlike the descriptions: the right tool first for 55/58 (36/58 without the judge), ≈ 3,200 input tokens per search. Without the judge, words and meaning rank alone. |
+| **Tool search** (`[tool_search] judge`, ADR-139) | When an agent with many MCP tools calls `tool_search` and words and meaning disagree on the best tool, or it searches again (`unsure`, the default; `always` reads every search) | "Is this tool one to call for what the agent asks?" for the 30 best candidates by words and meaning, in one request | The candidates in the judge's order, unlikely ones left out. On 123 tools and 58 requests worded unlike the descriptions: the right tool first for 55/58 (36/58 without the judge), ≈ 3,200 input tokens per search. Without the judge, words and meaning rank alone. |
 | **Shadow mode** (`shadow`, ADR-127) | With any use on | — | Every use asks and records what it would do, and changes nothing: measure a use before turning it on. |
 
 What is sent to Jev: the text the question needs (a ticket's report and criteria, skill descriptions, a transcript
@@ -107,7 +107,8 @@ trim_output = true
 find_code = true
 
 [tool_search]          # ADR-139: many MCP tools found by search instead of listed
-judge = true           # let Jev read the best candidates (fail-open)
+judge = "unsure"       # Jev reads a search's best candidates when words and meaning disagree or the agent
+                       # searches again; "always", "off" (fail-open; also on the desktop's MCP tab)
 ```
 
 Decisions behind this: [ADR-75](adr/ADR-75-typesafe-jev-judge.md) (the judge),

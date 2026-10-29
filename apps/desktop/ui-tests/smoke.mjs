@@ -190,6 +190,23 @@ const imported = await until("location.hash.startsWith('#/agent/') && document.q
 await shot("agent-imported");
 check("an exported agent is imported through the dialog", !!exported && imported, String(exported));
 
+// 7. Many MCP tools (ADR-139): on the library's MCP tab, the judge set to read every search and saved to config.toml.
+await js(`window.location.hash = '/library'`);
+await until("[...document.querySelectorAll('main button')].some(b => b.textContent.trim() === 'MCP')");
+await clickText("MCP", "document.querySelector('main')");
+const tsCard = "[...document.querySelectorAll('main .card')].find(c => c.innerText.includes('Many MCP tools'))";
+await until(`!!${tsCard}`, 10000);
+const tsPicked = await js(`(() => {
+  const s = [...(${tsCard}?.querySelectorAll('select') ?? [])].find(s => [...s.options].some(o => o.value === 'unsure'));
+  if (!s) return false;
+  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'always');
+  s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+await sleep(200);
+await js(`[...(${tsCard}?.querySelectorAll('button') ?? [])].find(b => b.textContent.trim() === 'Save')?.click()`);
+const tsSaved = await until(`window.__TAURI_INTERNALS__.invoke('tool_search_settings').then(s => s.judge === 'always')`, 10000);
+await shot("library-mcp-tool-search");
+check("the tool search settings are saved from the MCP tab", tsPicked && tsSaved);
+
 check("no console errors overall", errors.length === 0, errors.slice(0, 5).join(" | ").slice(0, 400));
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILED`);
 ws.close();

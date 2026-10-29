@@ -115,29 +115,33 @@ async fn main() -> Result<()> {
         }
     }
     let show = std::env::var("TOOL_SEARCH_SHOW").is_ok();
+    // (label, rank by meaning too, the judge's `[tool_search] judge` mode)
     let mut arms = vec![
-        ("words (BM25)", false, false),
-        ("words + meaning", true, false),
+        ("words (BM25)", false, "off"),
+        ("words + meaning", true, "off"),
     ];
     let key = std::env::var("JEV_KEY").ok();
-    if key.is_some() {
-        arms.push(("words + meaning + judge", true, true));
+    if let Some(key) = &key {
+        app.set_judge(&agenium_orchestrator::judge::JudgeInput {
+            base_url: "https://api.typesafe.ai".into(),
+            model: "jev-1.14.0".into(),
+            ..Default::default()
+        })?;
+        app.add_judge_key("eval", key)?;
+        arms.push(("+ judge on every search", true, "always"));
+        arms.push(("+ judge when unsure (default)", true, "unsure"));
     }
-    println!("\n| Ranking | first | in 3 | in 5 | MRR | ms / search |");
-    println!("|---|---|---|---|---|---|");
+    println!(
+        "\n| Ranking | first | in 3 | in 5 | MRR | ms / search | judge reads | judge tokens / search |"
+    );
+    println!("|---|---|---|---|---|---|---|---|");
     for (label, meaning, judge) in arms {
-        if judge {
-            app.set_judge(&agenium_orchestrator::judge::JudgeInput {
-                base_url: "https://api.typesafe.ai".into(),
-                model: "jev-1.14.0".into(),
-                ..Default::default()
-            })?;
-            app.add_judge_key("eval", key.as_deref().unwrap_or(""))?;
-        }
+        app.update_config(|c| c.tool_search.judge = judge.into())?;
         // The first search embeds the catalogue; that is paid once per process, not per search.
         let _ = app
             .find_mcp_tools(catalog.clone(), "warm up", 5, meaning)
             .await;
+        let before = app.judge_activity(1000).len();
         let (mut first, mut in3, mut in5, mut rr, mut ms) = (0, 0, 0, 0.0, 0u128);
         for c in &cases {
             let t = std::time::Instant::now();
@@ -163,22 +167,19 @@ async fn main() -> Result<()> {
             }
         }
         let n = cases.len();
-        println!(
-            "| {label} | {first}/{n} | {in3}/{n} | {in5}/{n} | {:.2} | {} |",
-            rr / n as f64,
-            ms / n as u128
-        );
-    }
-    if key.is_some() {
-        let tokens: u64 = app
-            .judge_activity(1000)
+        // The judge's reads of this arm (the activity is newest first).
+        let activity = app.judge_activity(1000);
+        let reads = &activity[..activity.len() - before];
+        let tokens: u64 = reads
             .iter()
-            .filter(|a| a.use_ == "tool_search")
             .filter_map(|a| a.usage.as_ref()?["input_tokens"].as_u64())
             .sum();
         println!(
-            "\nJudge input tokens: {tokens} over {} searches",
-            cases.len()
+            "| {label} | {first}/{n} | {in3}/{n} | {in5}/{n} | {:.2} | {} | {} | {} |",
+            rr / n as f64,
+            ms / n as u128,
+            reads.len(),
+            tokens / n as u64
         );
     }
     Ok(())

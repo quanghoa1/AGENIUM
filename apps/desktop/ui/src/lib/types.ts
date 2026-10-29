@@ -536,6 +536,17 @@ export interface McpServerConfig {
   oauth?: { client_id?: string | null; client_secret?: string | null; scopes?: string[]; callback_port?: number | null } | null;
 }
 
+/** `[tool_search]` (ADR-139): past `over_tools` MCP tools (or `over_tokens` of their definitions) an agent finds them
+ *  with tool_search instead of getting them all listed; `keep_used` it used most stay listed; the judge reads a
+ *  search's candidates `unsure` (words and meaning disagree, or the agent searches again), `always` or `off`. */
+export interface ToolSearchSettings {
+  mode: "auto" | "always" | "never";
+  over_tools: number;
+  over_tokens: number;
+  keep_used: number;
+  judge: "unsure" | "always" | "off";
+}
+
 export interface McpServerRow {
   config: McpServerConfig;
   users: string[];
