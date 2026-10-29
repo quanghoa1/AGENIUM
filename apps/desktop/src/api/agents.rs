@@ -134,10 +134,12 @@ pub async fn memory_action(
     let mut out = blocking(move || memory_action_now(&o, agent, action, fact, skill)).await?;
     if tidy {
         let id: AgentId = id.parse().map_err(|e: IdParseError| e.to_string())?;
-        let s = o2.app.settle_memory(id, false).await.map_err(err)?;
-        out["folded"] = json!(s.folded());
-        out["conflicts"] = json!(s.conflicts());
-        out["asked"] = json!(s.asked);
+        // `None`: the embedding model is not installed; decay and consolidation ran.
+        if let Some(s) = o2.app.settle_memory(id, false).await.map_err(err)? {
+            out["folded"] = json!(s.folded());
+            out["conflicts"] = json!(s.conflicts());
+            out["asked"] = json!(s.asked);
+        }
     }
     Ok(out)
 }

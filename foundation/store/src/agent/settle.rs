@@ -88,6 +88,17 @@ impl AgentStore {
         })
     }
 
+    /// Every pair a verdict was given on, `(smaller id, larger id)`.
+    pub fn judged_pairs(&self) -> Result<std::collections::HashSet<(i64, i64)>, StoreError> {
+        self.db.read(|c| {
+            let mut st = c.prepare_cached("SELECT a, b FROM fact_pair")?;
+            let rows = st
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<std::collections::HashSet<(i64, i64)>>>()?;
+            Ok(rows)
+        })
+    }
+
     /// Records a verdict on a pair (`by`: who gave it).
     pub fn set_pair(
         &self,

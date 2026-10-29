@@ -3,16 +3,20 @@
 //! contradict each other. Writing a fact already reconciles it with the memories it was shown next to (the UPDATE /
 //! DELETE of the pipeline); this catches what slipped between episodes — a paraphrase, a figure that changed.
 //!
-//! Per pair of facts of the same kind, scope, project and trust, by cosine similarity:
-//! - at least [`SAME`] with the same figures (numbers, versions) and the same negation: the same fact, folded;
-//! - at least [`SAME`] with other figures or a negation on one side only ("port 8080" / "port 8081"): a conflict — the
-//!   judge says which when it is on, else the user decides;
-//! - between [`RELATED`] and [`SAME`]: the judge, when on, says same / contradicting / both hold; without it, left.
+//! Per pair of facts of the same kind, scope, project and trust read at least [`RELATED`] alike:
+//! - the same words (figures and negations aside), figures and names, at least [`SAME`] alike: the same fact reworded,
+//!   folded;
+//! - the same words with other figures or a negation on one side ("port 8080" / "port 9090"): a conflict for the user;
+//! - parallel facts (one sentence about three or more subjects: "the X service keeps its logs for N days"): left;
+//! - else the judge, when on, says same / contradicting / both hold, value swaps first; without it, left.
+//!
+//! Measured (ADR-145): in a memory crowded with facts written alike about different things, looser rules folded facts
+//! about different subjects by the thousand; these made no wrong fold there.
 //!
 //! The judge is asked at most `max_questions` times a pass, each pair once (`fact_pair`). Nothing is learned here: a
 //! fact is only folded into one that says the same, and a contradiction is never settled without the user.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use agenium_store::agent::{Fact, PairVerdict};
 use agenium_store::AgentStore;
@@ -21,8 +25,8 @@ use serde::Serialize;
 
 use crate::MemoryError;
 
-/// Cosine similarity from which two facts with the same figures and names read as the same (bge-small-en-v1.5).
-/// Measured on 70 labelled pairs (ADR-145): no wrong fold down to 0.90; at 0.93, 10 of 20 folded without the judge.
+/// Cosine similarity from which two facts with the same words, figures and names read as the same (bge-small-en-v1.5,
+/// ADR-145).
 pub const SAME: f64 = 0.93;
 /// Cosine similarity from which two facts are about the same thing and may be the same or contradict. Measured on 70
 /// labelled pairs (ADR-145): at 0.85 the judge found 13 of 20 contradictions, at 0.75 18 of 20 for 42 questions
@@ -55,6 +59,21 @@ pub struct SettleOptions {
     /// [`SAME`] and [`RELATED`] (other values to measure them).
     pub same: f64,
     pub related: f64,
+    /// The order the judge reads pairs in (another to measure it).
+    pub order: Order,
+}
+
+/// The order the judge reads related pairs in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Order {
+    /// The closest by the vectors first.
+    Similarity,
+    /// Pairs that differ by one word on each side (and are not parallel facts) first — a value swapped for another
+    /// ("pnpm" / "npm", "Fridays" / "Mondays", "GitHub" / "GitLab"), where contradictions are — then the closest.
+    /// Measured (ADR-145): in a crowded memory it reached contradictions far sooner than similarity alone, and sooner
+    /// than the share of rare words.
+    #[default]
+    SwapsFirst,
 }
 
 impl Default for SettleOptions {
@@ -64,6 +83,7 @@ impl Default for SettleOptions {
             dry_run: false,
             same: SAME,
             related: RELATED,
+            order: Order::default(),
         }
     }
 }
@@ -93,6 +113,9 @@ pub struct SettleReport {
     pub asked: usize,
     /// Related pairs left for want of a judge or of questions.
     pub left: usize,
+    /// Related pairs of parallel facts (one sentence about three or more subjects: "the X service keeps its logs for N
+    /// days"), not put to the judge.
+    pub parallel: usize,
     pub done: Vec<Settled>,
 }
 
@@ -170,23 +193,26 @@ fn names_shared(a: &str, b: &str) -> bool {
     names(a).iter().all(|n| has(b, n)) && names(b).iter().all(|n| has(a, n))
 }
 
-/// Whether two texts use nearly the same words, figures aside (three in four words shared): "The dev server listens
-/// on port 8080." / "The dev server listens on port 9090.".
+/// The words of a text that say what it is about: lower case, figures, number words, negations and `do` aside (those
+/// are compared on their own, `figures`).
+fn content(t: &str) -> BTreeSet<String> {
+    words(t)
+        .map(|w| w.to_lowercase())
+        .filter(|w| {
+            !w.chars().any(|c| c.is_ascii_digit())
+                && !NUMBER_WORDS.contains(&w.as_str())
+                && !NEGATIONS.contains(&w.as_str())
+                && !["do", "does", "did"].contains(&w.as_str())
+        })
+        .collect()
+}
+
+/// Whether two texts use the same words, figures and negations aside: "The dev server listens on port 8080." / "The
+/// dev server listens on port 9090.". Measured (ADR-145): a looser test (three words in four) read "the orders
+/// service keeps its logs for 14 days" and "the shipping service …" as one fact with another figure.
+#[cfg(test)]
 fn same_words(a: &str, b: &str) -> bool {
-    let set = |t: &str| -> std::collections::BTreeSet<String> {
-        words(t)
-            .map(|w| w.to_lowercase())
-            // Figures and negations are compared on their own (`figures`).
-            .filter(|w| {
-                !w.chars().any(|c| c.is_ascii_digit())
-                    && !NUMBER_WORDS.contains(&w.as_str())
-                    && !NEGATIONS.contains(&w.as_str())
-            })
-            .collect()
-    };
-    let (x, y) = (set(a), set(b));
-    let union = x.union(&y).count();
-    union > 0 && x.intersection(&y).count() * 4 >= union * 3
+    content(a) == content(b)
 }
 
 /// Numbers written as words, by their value.
@@ -251,7 +277,7 @@ pub async fn settle(
     let ids: Vec<i64> = facts.iter().map(|f| f.id).collect();
     let vectors = store.vectors_of(&ids)?;
     // Same kind, scope, project and trust (newest first, as `live` returns them).
-    let mut groups: HashMap<(String, String, Option<String>, bool), Vec<&Fact>> = HashMap::new();
+    let mut groups: HashMap<(String, String, Option<String>, bool), Vec<i64>> = HashMap::new();
     for f in facts.iter().filter(|f| vectors.contains_key(&f.id)) {
         let g = groups
             .entry((
@@ -262,34 +288,108 @@ pub async fn settle(
             ))
             .or_default();
         if g.len() < GROUP_MAX {
-            g.push(f);
+            g.push(f.id);
         }
     }
-    let mut pairs: Vec<(f64, &Fact, &Fact)> = Vec::new();
-    for g in groups.values() {
-        for (i, a) in g.iter().enumerate() {
-            for b in &g[i + 1..] {
-                let s = cosine(&vectors[&a.id], &vectors[&b.id]);
-                if s >= opts.related {
-                    pairs.push((s, a, b));
+    // A thousand facts make half a million comparisons: off the async threads.
+    let related = opts.related;
+    let found: Vec<(f64, i64, i64)> = tokio::task::spawn_blocking(move || {
+        let mut out = Vec::new();
+        for g in groups.values() {
+            for (i, a) in g.iter().enumerate() {
+                for b in &g[i + 1..] {
+                    let s = cosine(&vectors[a], &vectors[b]);
+                    if s >= related {
+                        out.push((s, *a, *b));
+                    }
                 }
             }
         }
-    }
-    pairs.sort_by(|x, y| y.0.total_cmp(&x.0).then(x.1.id.cmp(&y.1.id)));
+        out
+    })
+    .await
+    .map_err(|e| MemoryError::Embedder(format!("comparing the facts: {e}")))?;
+    let by_id: HashMap<i64, &Fact> = facts.iter().map(|f| (f.id, f)).collect();
+    let pairs: Vec<(f64, &Fact, &Fact)> = found
+        .into_iter()
+        .map(|(s, a, b)| (s, by_id[&a], by_id[&b]))
+        .collect();
     report.related = pairs.len();
+    // Pairs judged in an earlier pass, read once.
+    let known = store.judged_pairs()?;
+    let words: HashMap<i64, BTreeSet<String>> =
+        facts.iter().map(|f| (f.id, content(&f.text))).collect();
+    // Parallel facts: pairs that differ by one word on each side, the rest the same; a sentence filled with three or more
+    // such words is about as many subjects (services, pages, tables), not one fact said twice or contradicted.
+    let mut fillers: HashMap<Vec<String>, BTreeSet<String>> = HashMap::new();
+    let swap =
+        |a: &BTreeSet<String>, b: &BTreeSet<String>| -> Option<(Vec<String>, String, String)> {
+            let only_a: Vec<&String> = a.difference(b).collect();
+            let only_b: Vec<&String> = b.difference(a).collect();
+            (only_a.len() == 1 && only_b.len() == 1).then(|| {
+                (
+                    a.intersection(b).cloned().collect(),
+                    only_a[0].clone(),
+                    only_b[0].clone(),
+                )
+            })
+        };
+    for (_, a, b) in &pairs {
+        if let Some((key, x, y)) = swap(&words[&a.id], &words[&b.id]) {
+            let f = fillers.entry(key).or_default();
+            f.insert(x);
+            f.insert(y);
+        }
+    }
+    let parallel = |a: &Fact, b: &Fact| {
+        let (wa, wb) = (&words[&a.id], &words[&b.id]);
+        let family = |key: Vec<String>| fillers.get(&key).is_some_and(|f| f.len() >= 3);
+        // One word swapped for another, or one word more on one side whose rest is the family's sentence (a filler
+        // that is also a word of the sentence: "the gateway service is called by the gateway").
+        swap(wa, wb).is_some_and(|(key, _, _)| family(key))
+            || (wa.len() + 1 == wb.len()
+                && wa.is_subset(wb)
+                && family(wa.iter().cloned().collect()))
+            || (wb.len() + 1 == wa.len()
+                && wb.is_subset(wa)
+                && family(wb.iter().cloned().collect()))
+    };
+    let swapped =
+        |a: &Fact, b: &Fact| swap(&words[&a.id], &words[&b.id]).is_some() && !parallel(a, b);
+    let tier = |a: &Fact, b: &Fact| match opts.order {
+        Order::SwapsFirst => u8::from(!swapped(a, b)),
+        Order::Similarity => 0,
+    };
+    let mut pairs = pairs;
+    pairs.sort_by(|x, y| {
+        tier(x.1, x.2)
+            .cmp(&tier(y.1, y.2))
+            .then(y.0.total_cmp(&x.0))
+            .then(x.1.id.cmp(&y.1.id))
+    });
     let mut gone: std::collections::HashSet<i64> = Default::default();
     for (s, a, b) in pairs {
         if gone.contains(&a.id) || gone.contains(&b.id) {
             continue;
         }
-        if store.pair_verdict(a.id, b.id)?.is_some() {
+        if known.contains(&(a.id.min(b.id), a.id.max(b.id))) {
             report.known += 1;
             continue;
         }
+        let (wa, wb) = (&words[&a.id], &words[&b.id]);
         let same_figures = figures(&a.text) == figures(&b.text) && names_shared(&a.text, &b.text);
-        let verdict = if s >= opts.same && same_figures {
+        // Only the same words, the same figures and names fold without the judge: measured (ADR-145), one sentence
+        // holding all the other's words still read "the support service is called by the gateway" as "the gateway
+        // service is called by the gateway".
+        let verdict = if s >= opts.same && same_figures && wa == wb {
             Some((PairVerdict::Same, "vectors"))
+        } else if wa == wb && figures(&a.text) != figures(&b.text) {
+            // The same words with other figures or one side saying no: for the user. The vectors read "port 8080" and
+            // "port 9090" only 0.89 alike, so the words decide.
+            Some((PairVerdict::Conflict, "figures"))
+        } else if parallel(a, b) {
+            report.parallel += 1;
+            continue;
         } else if let Some(j) = judge.filter(|_| report.asked < opts.max_questions) {
             report.asked += 1;
             match j.judge(a, b).await {
@@ -298,10 +398,6 @@ pub async fn settle(
                 Some(Verdict::Distinct) => Some((PairVerdict::Distinct, "judge")),
                 None => None,
             }
-        } else if !same_figures && (s >= opts.same || same_words(&a.text, &b.text)) {
-            // The same words with other figures, other names or one side saying no: for the user. The vectors read
-            // "port 8080" and "port 9090" only 0.89 alike, so the words are compared too.
-            Some((PairVerdict::Conflict, "figures"))
         } else {
             None
         };
@@ -309,7 +405,12 @@ pub async fn settle(
             report.left += 1;
             continue;
         };
-        let (keep, other) = keeper(a, b);
+        // The fuller text stays when one says more; else the more trusted one.
+        let (keep, other) = match (wa.is_subset(wb), wb.is_subset(wa)) {
+            (true, false) => (b, a),
+            (false, true) => (a, b),
+            _ => keeper(a, b),
+        };
         let (first, second) = if verdict == PairVerdict::Same {
             (keep.id, other.id)
         } else {

@@ -156,6 +156,7 @@ async fn main() -> Result<()> {
                 same,
                 related,
                 dry_run: false,
+                order: Default::default(),
             },
         )
         .await?;

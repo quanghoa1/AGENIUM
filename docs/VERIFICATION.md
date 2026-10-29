@@ -57,7 +57,7 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Recall into the work order; rule vs hint by scope; reuse signals (helped / hurt) | `retrieve.rs`, `gm2_scope_trap` | memory reuse: first merge with memory on 3/3 on Haiku, Sonnet, Opus, gpt-6-luna, gpt-6.1-sol; 0/3 off (memory-eval.md §4) |
 | Lessons validated per context, decay, consolidation, shared pool | `validation_decay_and_consolidation`, `pooled_recall_...` | learning chain (below) |
 | Learning from the Lead chat, long chat summary | `the_chat_with_the_lead_is_learned...`, `a_long_chat_is_summarised...` | `real_checks chat` on DeepSeek |
-| Memory settled by its vectors, the judge on unclear pairs, contradictions to the user (ADR-145) | `settle::tests`, `agent/memory/tests/settle.rs`, runtime `the_memory_is_settled_once_enough_was_learned`, UI smoke (Tidy → a contradiction decided) | `memory_settle_eval`: 70 labelled pairs, bge + Jev: 19/20 folded, 18/20 contradictions, 0 wrong folds |
+| Memory settled by its vectors, the judge on unclear pairs, contradictions to the user (ADR-145) | `settle::tests`, `agent/memory/tests/settle.rs`, runtime `the_memory_is_settled_once_enough_was_learned`, UI smoke (Tidy → a contradiction decided) | `memory_settle_eval` (70 labelled pairs) and `memory_settle_scale` (1,000 crowded facts), bge + Jev: 17/20 folded, 18/20 contradictions, 0 wrong folds in both |
 
 ## Skills — `agent/skills`, `orchestration/orchestrator/src/skill_*`
 

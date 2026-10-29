@@ -4,7 +4,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
-use agenium_memory::settle::{settle, PairJudge, SettleOptions, Verdict};
+use agenium_memory::settle::{settle, Order, PairJudge, SettleOptions, Verdict};
 use agenium_store::agent::{ConflictChoice, Fact, FactKind, NewFact, PairVerdict};
 use agenium_store::AgentStore;
 use async_trait::async_trait;
@@ -52,12 +52,9 @@ async fn paraphrases_fold_changed_figures_go_to_the_user_without_a_judge() {
     let a = add(&s, "The dev server listens on port 8080.", &at(0.0), |n| {
         n.confidence = 0.6
     });
-    let b = add(
-        &s,
-        "The dev server listens on port 8080 locally.",
-        &at(5.0),
-        |n| n.confidence = 0.9,
-    );
+    let b = add(&s, "On port 8080 the dev server listens.", &at(5.0), |n| {
+        n.confidence = 0.9
+    });
     let c = add(
         &s,
         "The dev server listens on port 9090.",
@@ -163,6 +160,7 @@ async fn the_judge_decides_the_related_pairs_within_its_questions() {
         SettleOptions {
             max_questions: 1,
             dry_run: false,
+            order: Order::Similarity,
             ..Default::default()
         },
     )
@@ -204,7 +202,7 @@ async fn an_unsure_judge_leaves_the_pair_and_a_dry_run_changes_nothing() {
     let a = add(&s, "The API is versioned in the URL.", &at(0.0), |_| {});
     let b = add(&s, "API versions are in the path.", &at(23.0), |_| {});
     let c = add(&s, "Use tabs.", &at(90.0), |_| {});
-    let d = add(&s, "Use tabs for indentation.", &at(92.0), |_| {});
+    let d = add(&s, "Tabs, use.", &at(92.0), |_| {});
     let judge = Judge {
         answers: vec![],
         calls: AtomicUsize::new(0),
@@ -234,4 +232,51 @@ async fn an_unsure_judge_leaves_the_pair_and_a_dry_run_changes_nothing() {
     assert_eq!(r.folded(), 1);
     assert!(s.get(c).unwrap().is_live() != s.get(d).unwrap().is_live());
     assert_eq!(judge.calls.load(Ordering::SeqCst), 2);
+}
+
+/// Parallel facts (one sentence about three or more subjects) are not put to the judge, also when a subject is a word
+/// of the sentence too ("the gateway service is called by the gateway"); a value swapped for another is asked first.
+#[tokio::test]
+async fn parallel_facts_are_not_asked_and_swapped_values_come_first() {
+    let tmp = tempfile::tempdir().unwrap();
+    let s = store(tmp.path());
+    for (i, svc) in ["billing", "search", "gateway", "orders"]
+        .iter()
+        .enumerate()
+    {
+        add(
+            &s,
+            &format!("The {svc} service is called by the gateway over gRPC."),
+            &at(30.0 + i as f64 * 3.0),
+            |_| {},
+        );
+    }
+    // Far from the family; a value swapped (pnpm / npm), less alike than the family's pairs.
+    let a = add(&s, "Use pnpm to install dependencies.", &at(200.0), |_| {});
+    let b = add(&s, "Use npm to install dependencies.", &at(225.0), |_| {});
+    let judge = Judge {
+        answers: vec![("npm", Some(Verdict::Conflict))],
+        calls: AtomicUsize::new(0),
+        seen: Mutex::new(vec![]),
+    };
+    let r = settle(
+        &s,
+        Some(&judge),
+        SettleOptions {
+            max_questions: 1,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(r.parallel, 6, "{r:?}");
+    let seen: Vec<(i64, i64)> = judge
+        .seen
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(x, y)| (*x.min(y), *x.max(y)))
+        .collect();
+    assert_eq!(seen, vec![(a.min(b), a.max(b))]);
+    assert_eq!(s.open_conflicts().unwrap().len(), 1);
 }

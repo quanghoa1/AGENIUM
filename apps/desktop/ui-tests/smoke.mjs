@@ -229,7 +229,7 @@ if (exported) {
     JSON.stringify({ kind: "row", v: [id, text, "fact", null, "{}", null, null, "ticket:AGN-1", 0, { r: 0.6 }, { r: 1.0 }, null, null, "2026-10-29T10:00:00.000Z", "2026-10-29T10:00:00.000Z", null, null, null, "own", null, 0, "[]"] });
   lines.splice(at + 1, 0,
     fact(1, "The dev server listens on port 8080."),
-    fact(2, "The dev server listens on port 8080 locally."),
+    fact(2, "On port 8080 the dev server listens."),
     fact(3, "The dev server listens on port 9090."),
     fact(4, "Release notes list breaking changes first."));
   const sha = createHash("sha256").update(lines.map((l) => l + "\n").join("")).digest("hex");
