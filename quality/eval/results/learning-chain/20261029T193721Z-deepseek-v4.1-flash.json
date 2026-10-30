@@ -1,0 +1,914 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 8 steps; recall showed 7 fact(s)",
+    "runs": 10,
+    "steps": 43,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 483037,
+    "tokens_out": 6374,
+    "tokens_cached": 442624,
+    "cost_usd": 0.0,
+    "elapsed_ms": 316046,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "docs-owner-header-check (Agent)"
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 6,
+                "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' be",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 3,
+                "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as re",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-1 {}) write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "[Fact w=1.00] (ticket:AGN-1 {}) In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 5,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, every team document placed under deliverables/ or reports/ must name its owning team on its first line; for this project that line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "When creating or editing any file under deliverables/ or reports/ in the docs project, add the exact first line 'Owner: docs-team' before submitting, or the pre-merge check will reject the work."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project keeps short team documents in the deliverables/ and reports/ directories."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 7,
+                "entities_linked": 7,
+                "entities_new": 9,
+                "extracted": 5,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1613,
+                "tokens_out": 1750,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 5,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating or editing any file under deliverables/ or reports/ in the docs project, add the exact first line 'Owner: docs-team' before submitting, or the pre-merge check will reject the work."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed under deliverables/ or reports/ must name its owning team on its first line; for this project that line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project keeps short team documents in the deliverables/ and reports/ directories."
+                  },
+                  {
+                    "exact": false,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+                  }
+                ]
+              },
+              {
+                "added": 4,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+                    "was": "In the docs project, every team document placed under deliverables/ or reports/ must name its owning team on its first line; for this project that line is exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "delete",
+                    "text": "When creating or editing any file under deliverables/ or reports/ in the docs project, add the exact first line 'Owner: docs-team' before submitting, or the pre-merge check will reject the work."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 1,
+                "edges": 4,
+                "entities_linked": 5,
+                "entities_new": 4,
+                "extracted": 5,
+                "helped": 5,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [
+                  "external content may not rewrite trusted memory 4; stored beside it as untrusted"
+                ],
+                "tokens_in": 4774,
+                "tokens_out": 4008,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 8,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JBV8WNTT1P7NS5EPARCN0",
+                "shown": 0,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JC6J0VQEY2VRA2X3VT0TX",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JCPG4DDNAQ7RW93WEYCVF",
+                "shown": 5,
+                "steps": 8
+              },
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JDEXZCEJ76RK37NCX3XCR",
+                "shown": 0,
+                "steps": 5
+              }
+            ],
+            "shown": [
+              "run 01M64JCPG4DDNAQ7RW93WEYCVF #1 hybrid Some(Lesson): Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines.",
+              "run 01M64JCPG4DDNAQ7RW93WEYCVF #2 hybrid Some(Lesson): When creating or editing any file under deliverables/ or reports/ in the docs project, add the exact first line 'Owner: docs-team' before submitting, or the pre-merge check will reject the work.",
+              "run 01M64JCPG4DDNAQ7RW93WEYCVF #3 hybrid Some(Fact): In the docs project, every team document placed under deliverables/ or reports/ must name its owning team on its first line; for this project that line is exactly 'Owner: docs-team'.",
+              "run 01M64JCPG4DDNAQ7RW93WEYCVF #4 hybrid Some(Fact): The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "run 01M64JCPG4DDNAQ7RW93WEYCVF #5 hybrid Some(Fact): The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-2"
+                ],
+                "id": 6,
+                "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' be",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-2"
+                ],
+                "id": 3,
+                "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as re",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\" and an empty pre_merge value under [checks].",
+              "[Fact w=1.00] (ticket:AGN-1 {}) write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "[Fact w=1.00] (ticket:AGN-1 {}) In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project keeps short team documents in the deliverables/ and reports/ directories."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field."
+                  },
+                  {
+                    "exact": false,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+                  }
+                ]
+              },
+              {
+                "added": 1,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\" and an empty pre_merge value under [checks]."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch.",
+                    "was": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 5,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 2,
+                "entities_new": 2,
+                "extracted": 4,
+                "helped": 7,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "DELETE of trusted memory 4 without a trusted new fact that contradicts it"
+                ],
+                "tokens_in": 3770,
+                "tokens_out": 2376,
+                "updated": 1,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 9,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JEVJWGWXXMAR47KPMSWFE",
+                "shown": 7,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JFRTGASPEX57VHW8WYG1K",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #1 hybrid Some(Lesson): In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #2 hybrid Some(Lesson): Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines.",
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #3 hybrid Some(Fact): write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #4 hybrid Some(Fact): The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #5 hybrid Some(Fact): In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #6 hybrid Some(Fact): submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "run 01M64JEVJWGWXXMAR47KPMSWFE #7 hybrid Some(Fact): The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-2",
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-3"
+                ],
+                "id": 6,
+                "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' be",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-2",
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-3"
+                ],
+                "id": 3,
+                "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as re",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/; when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/.",
+              "[Fact w=1.00] (ticket:AGN-3 {}) write_file in the Agenium worktree creates missing parent directories (e.g., writing handbook/onboarding.txt works without pre-creating handbook/), but refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\", and an empty pre_merge value under [checks], so no pre-merge check command runs for the docs project.",
+              "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; short team documents such as deliverables/hello.txt and reports/weekly.txt begin with that line followed by their one-word content.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project keeps short team documents in the deliverables/ and reports/ directories."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field."
+                  },
+                  {
+                    "exact": false,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch."
+                  }
+                ]
+              },
+              {
+                "added": 1,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; short team documents such as deliverables/hello.txt and reports/weekly.txt begin with that line followed by their one-word content."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\", and an empty pre_merge value under [checks], so no pre-merge check command runs for the docs project.",
+                    "was": "The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\" and an empty pre_merge value under [checks]."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "write_file in the Agenium worktree creates missing parent directories (e.g., writing handbook/onboarding.txt works without pre-creating handbook/), but refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+                    "was": "write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error)."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/; when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/.",
+                    "was": "The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 4,
+                "deleted": 0,
+                "edges": 6,
+                "entities_linked": 5,
+                "entities_new": 5,
+                "extracted": 5,
+                "helped": 7,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [
+                  "DELETE of trusted memory 4 without a trusted new fact that contradicts it",
+                  "external content may not rewrite trusted memory 6; stored beside it as untrusted"
+                ],
+                "tokens_in": 4260,
+                "tokens_out": 6128,
+                "updated": 3,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 10,
+                  "folded": 0,
+                  "left": 2
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "new",
+                    "lesson": 6,
+                    "reason": "No existing skills cover this, and the lesson is a repeatable pre-submission check (exact first line 'Owner: docs-team') that applies across all team document locations in the docs project; it has held in two tickets, so a standing skill is warranted.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding",
+                        "skill": "docs-owner-header-check",
+                        "status": "created"
+                      }
+                    },
+                    "skill": "docs-owner-header-check"
+                  },
+                  {
+                    "action": "update",
+                    "lesson": 3,
+                    "reason": "The proven lesson is the same situation the skill covers (pre-submission check of a created/edited document in a project with pre-merge checks), but the skill only enforces the 'Owner: docs-team' line. It should also tell me to apply repository-wide document conventions beyond acceptance criteria — e.g. scan CONTRIBUTING/pre-merge config for other required first lines and formatting before submitting.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own skill is rewritten; the user can review or delete it",
+                        "skill": "docs-owner-header-check",
+                        "status": "revised"
+                      }
+                    },
+                    "skill": "docs-owner-header-check"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JGNQ07ATF61X65JKXGEZV",
+                "shown": 7,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JH3C752N6DFSB86E2JFCE",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JGNQ07ATF61X65JKXGEZV #1 hybrid Some(Lesson): In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "run 01M64JGNQ07ATF61X65JKXGEZV #2 hybrid Some(Lesson): Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines.",
+              "run 01M64JGNQ07ATF61X65JKXGEZV #3 hybrid Some(Fact): write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "run 01M64JGNQ07ATF61X65JKXGEZV #4 hybrid Some(Fact): The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "run 01M64JGNQ07ATF61X65JKXGEZV #5 hybrid Some(Fact): In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "run 01M64JGNQ07ATF61X65JKXGEZV #6 hybrid Some(Fact): submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "run 01M64JGNQ07ATF61X65JKXGEZV #7 hybrid Some(Fact): The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-2",
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-3",
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-4"
+                ],
+                "id": 6,
+                "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' be",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-2",
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-3",
+                  "01M64JBT97N0DANFWDA6NEETY4/ticket:AGN-4"
+                ],
+                "id": 3,
+                "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as re",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project worktree has top-level README.md, agenium.toml and the directories artifacts/, deliverables/, handbook/, notes/ and reports/ (no minutes/); short team documents live in deliverables/, reports/ and handbook/, and when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; the short team documents deliverables/hello.txt, reports/weekly.txt and handbook/onboarding.txt each begin with that line followed by a single topic word.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The agent has a skill named docs-owner-header-check that documents enforcing the exact first line 'Owner: docs-team' on team documents in the docs project before submission.",
+              "[Fact w=1.00] (ticket:AGN-3 {}) write_file in the Agenium worktree creates missing parent directories (e.g., writing handbook/onboarding.txt works without pre-creating handbook/), but refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\", and an empty pre_merge value under [checks], so no pre-merge check command runs for the docs project.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+                  },
+                  {
+                    "exact": true,
+                    "id": 16,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/; when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 15,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "write_file in the Agenium worktree creates missing parent directories (e.g., writing handbook/onboarding.txt works without pre-creating handbook/), but refuses to overwrite an existing file until that file has been read with read_file (read_first error)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project keeps short team documents in the deliverables/ and reports/ directories."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field."
+                  },
+                  {
+                    "exact": false,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch."
+                  }
+                ]
+              },
+              {
+                "added": 1,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The agent has a skill named docs-owner-header-check that documents enforcing the exact first line 'Owner: docs-team' on team documents in the docs project before submission."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; the short team documents deliverables/hello.txt, reports/weekly.txt and handbook/onboarding.txt each begin with that line followed by a single topic word.",
+                    "was": "In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; short team documents such as deliverables/hello.txt and reports/weekly.txt begin with that line followed by their one-word content."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project worktree has top-level README.md, agenium.toml and the directories artifacts/, deliverables/, handbook/, notes/ and reports/ (no minutes/); short team documents live in deliverables/, reports/ and handbook/, and when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/.",
+                    "was": "The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/; when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 6,
+                "deleted": 0,
+                "edges": 6,
+                "entities_linked": 6,
+                "entities_new": 3,
+                "extracted": 4,
+                "helped": 8,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 4672,
+                "tokens_out": 2705,
+                "updated": 2,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 11,
+                  "folded": 0,
+                  "left": 5
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JKMEPVTCGTCG944WQ6NYY",
+                "shown": 8,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M64JBTYSMBFVC36FWJC3FWR6",
+                "outcome": "Completed",
+                "run": "01M64JM45WHZZJX4R9CVWRBK8F",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #1 hybrid Some(Lesson): In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #2 hybrid Some(Lesson): Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines.",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #3 hybrid Some(Fact): The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/; when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/.",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #4 hybrid Some(Fact): write_file in the Agenium worktree creates missing parent directories (e.g., writing handbook/onboarding.txt works without pre-creating handbook/), but refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #5 hybrid Some(Fact): The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #6 hybrid Some(Fact): In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #7 hybrid Some(Fact): submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+              "run 01M64JKMEPVTCGTCG944WQ6NYY #8 hybrid Some(Fact): The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 8,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 84608,
+            "tokens_in": 88839,
+            "tokens_out": 1128
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 8,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 70400,
+            "tokens_in": 94571,
+            "tokens_out": 1258
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project worktree has top-level README.md, agenium.toml and the directories artifacts/, deliverables/, handbook/, notes/ and reports/ (no minutes/); short team documents live in deliverables/, reports/ and handbook/, and when a ticket asks for a file under a topic directory, place it at that path (e.g., handbook/onboarding.txt) rather than in deliverables/ or reports/.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; the short team documents deliverables/hello.txt, reports/weekly.txt and handbook/onboarding.txt each begin with that line followed by a single topic word.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The agent has a skill named docs-owner-header-check that documents enforcing the exact first line 'Owner: docs-team' on team documents in the docs project before submission.",
+        "[Fact w=1.00] (ticket:AGN-3 {}) write_file in the Agenium worktree creates missing parent directories (e.g., writing handbook/onboarding.txt works without pre-creating handbook/), but refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+        "[Fact untrusted w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml declares template \"coding@1\", main_branch \"main\", and an empty pre_merge value under [checks], so no pre-merge check command runs for the docs project.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item; file contents are verified before submit_report with Get-Content -LiteralPath and Select-String -SimpleMatch.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {}) write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+        "[Fact w=1.00] (ticket:AGN-1 {}) In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in deliverables/, reports/, handbook/, and minutes/.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 19,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 204032,
+        "tokens_in": 211817,
+        "tokens_out": 2823
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 8,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 83584,
+        "tokens_in": 87810,
+        "tokens_out": 1165
+      },
+      "ticket2_facts_shown": 7,
+      "ticket2_shown": [
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #1 hybrid: In the docs project, every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have the exact first line 'Owner: docs-team' before submitting; missing it fails the pre-merge check.",
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #2 hybrid: Meeting acceptance criteria alone is not enough before submitting in a project with pre-merge checks: also apply repository-wide document conventions such as required first lines.",
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #3 hybrid: write_file in the Agenium worktree refuses to overwrite an existing file until that file has been read with read_file (read_first error).",
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #4 hybrid: The docs project keeps short team documents in the deliverables/ and reports/ directories.",
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #5 hybrid: In submit_report each acceptance entry carries its own ac_id and evidence fields inside the acceptance array.",
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #6 hybrid: submit_report accepts ticket_id, summary, acceptance, artifacts, extension, risks, follow_ups and confidence; a top-level ac_id field is rejected as an unknown field.",
+        "run 01M64JEVJWGWXXMAR47KPMSWFE #7 hybrid: The docs project worktree on this Windows host is inspected with PowerShell commands such as Get-Content and Get-Item."
+      ]
+    }
+  }
+]

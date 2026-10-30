@@ -1,0 +1,871 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 9 steps; recall showed 6 fact(s)",
+    "runs": 10,
+    "steps": 52,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 587789,
+    "tokens_out": 6917,
+    "tokens_cached": 502656,
+    "cost_usd": 0.0,
+    "elapsed_ms": 285897,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "docs-owner-first-line (Agent)"
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 7,
+                "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before sub",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 6,
+                "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-1 {}) The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 4,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (agenium.toml, README) before submitting."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 2,
+                "entities_new": 7,
+                "extracted": 4,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1529,
+                "tokens_out": 764,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (agenium.toml, README) before submitting."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted.",
+                    "was": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+                    "was": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (agenium.toml, README) before submitting."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 9,
+                "entities_new": 5,
+                "extracted": 4,
+                "helped": 4,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3864,
+                "tokens_out": 2785,
+                "updated": 2,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 6,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JBVA679ETECJN1GGZ7GSJ",
+                "shown": 0,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JC7WZ2627XRF2XE07X76R",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JCME3XCA6XMFBGS9D9QGE",
+                "shown": 4,
+                "steps": 8
+              },
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JD811N002PE1Z11T5K7DV",
+                "shown": 0,
+                "steps": 6
+              }
+            ],
+            "shown": [
+              "run 01M64JCME3XCA6XMFBGS9D9QGE #1 hybrid Some(Lesson): Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (agenium.toml, README) before submitting.",
+              "run 01M64JCME3XCA6XMFBGS9D9QGE #2 hybrid Some(Lesson): When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting.",
+              "run 01M64JCME3XCA6XMFBGS9D9QGE #3 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "run 01M64JCME3XCA6XMFBGS9D9QGE #4 hybrid Some(Fact): The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-2"
+                ],
+                "id": 9,
+                "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-2"
+                ],
+                "id": 7,
+                "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before sub",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted."
+                  },
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention.",
+                    "was": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 5,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 1,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 6,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3424,
+                "tokens_out": 1429,
+                "updated": 1,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 6,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JEG1Q774WJVQ637SZBRW2",
+                "shown": 6,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JEX7RARM36H4N7AAVKG5F",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JEG1Q774WJVQ637SZBRW2 #1 hybrid Some(Lesson): Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "run 01M64JEG1Q774WJVQ637SZBRW2 #2 hybrid Some(Lesson): When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted.",
+              "run 01M64JEG1Q774WJVQ637SZBRW2 #3 hybrid Some(Fact): In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M64JEG1Q774WJVQ637SZBRW2 #4 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "run 01M64JEG1Q774WJVQ637SZBRW2 #5 hybrid Some(Fact): The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "run 01M64JEG1Q774WJVQ637SZBRW2 #6 hybrid Some(Fact): The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-2",
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-3"
+                ],
+                "id": 11,
+                "text": "When adding or editing any document under deliverables/, reports/ or handbook/ in the docs project, put the owning team line 'Owner: <team>' as the exact first ",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-2",
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-3"
+                ],
+                "id": 7,
+                "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before sub",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"os\":\"windows\",\"project\":\"docs\"}) In docs project worktrees on Windows, file content is verified with PowerShell Get-Content and Select-String.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch = \"main\", template = \"coding@1\" and leaves [checks] pre_merge empty.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When adding or editing any document under deliverables/, reports/ or handbook/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/, reports/ or handbook/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config."
+                  },
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document placed in deliverables/, reports/ or handbook/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+                    "was": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When adding or editing any document under deliverables/, reports/ or handbook/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention.",
+                    "was": "When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project's agenium.toml sets main_branch = \"main\", template = \"coding@1\" and leaves [checks] pre_merge empty."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In docs project worktrees on Windows, file content is verified with PowerShell Get-Content and Select-String."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 8,
+                "entities_new": 3,
+                "extracted": 5,
+                "helped": 6,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 4537,
+                "tokens_out": 2488,
+                "updated": 2,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 8,
+                  "folded": 0,
+                  "left": 1
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "new",
+                    "lesson": 11,
+                    "reason": "The lesson is a repeatable procedure for a specific kind of work (editing docs project deliverables/reports/handbook files) and no existing skill covers it. It should become a new skill: ensure the owning team line 'Owner: <team>' is the exact first line while preserving required ticket content on following lines.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding",
+                        "skill": "docs-owner-first-line",
+                        "status": "created"
+                      }
+                    },
+                    "skill": "docs-owner-first-line"
+                  },
+                  {
+                    "action": "update",
+                    "lesson": 7,
+                    "reason": "The lesson is a missing check in this docs-deliverable skill: before submitting, verify the project's document conventions from the README/project rules (not local agenium.toml, whose pre_merge value can be empty in a ticket worktree) rather than relying on ticket acceptance criteria alone. Adding this step makes the skill cover the proven failure mode.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own skill is rewritten; the user can review or delete it",
+                        "skill": "docs-owner-first-line",
+                        "status": "revised"
+                      }
+                    },
+                    "skill": "docs-owner-first-line"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JFKVH7CG1YXY7KXM93TFX",
+                "shown": 6,
+                "steps": 7
+              },
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JG3XVNSD0JPY60X0FSSZ5",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JFKVH7CG1YXY7KXM93TFX #1 hybrid Some(Lesson): When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention.",
+              "run 01M64JFKVH7CG1YXY7KXM93TFX #2 hybrid Some(Lesson): Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "run 01M64JFKVH7CG1YXY7KXM93TFX #3 hybrid Some(Fact): In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M64JFKVH7CG1YXY7KXM93TFX #4 hybrid Some(Fact): The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "run 01M64JFKVH7CG1YXY7KXM93TFX #5 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "run 01M64JFKVH7CG1YXY7KXM93TFX #6 hybrid Some(Fact): The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-2",
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-3",
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-4"
+                ],
+                "id": 15,
+                "text": "When adding or editing any document under deliverables/, reports/, handbook/ or minutes/ in the docs project, put the owning team line 'Owner: <team>' as the ex",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-2",
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-3",
+                  "01M64JBT9S1SVP03YQ688WR3ZP/ticket:AGN-4"
+                ],
+                "id": 7,
+                "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before sub",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) When adding or editing any document under deliverables/, reports/, handbook/ or minutes/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. The docs-owner-first-line skill covers minutes/ as well, and deliverables/hello",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/, reports/, handbook/ or minutes/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"os\":\"windows\",\"project\":\"docs\"}) In docs project worktrees on Windows, file content is verified with PowerShell Get-Content and Select-String.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch = \"main\", template = \"coding@1\" and leaves [checks] pre_merge empty.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 11,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding or editing any document under deliverables/, reports/ or handbook/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config."
+                  },
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project's agenium.toml sets main_branch = \"main\", template = \"coding@1\" and leaves [checks] pre_merge empty."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/, reports/ or handbook/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+                  },
+                  {
+                    "exact": false,
+                    "id": 13,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In docs project worktrees on Windows, file content is verified with PowerShell Get-Content and Select-String."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document placed in deliverables/, reports/, handbook/ or minutes/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+                    "was": "In the docs project, every team document placed in deliverables/, reports/ or handbook/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When adding or editing any document under deliverables/, reports/, handbook/ or minutes/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. The docs-owner-first-line skill covers minutes/ as well, and deliverables/hello",
+                    "was": "When adding or editing any document under deliverables/, reports/ or handbook/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 6,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 5,
+                "entities_new": 1,
+                "extracted": 3,
+                "helped": 8,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [],
+                "tokens_in": 4520,
+                "tokens_out": 3775,
+                "updated": 2,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 8,
+                  "folded": 0,
+                  "left": 1
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "update",
+                    "lesson": 15,
+                    "reason": "The lesson reinforces and extends an existing skill: the Owner first-line rule now also applies to documents under handbook/ and minutes/, and the Owner line must be added rather than substituted for ticket-required content. The skill's description already covers the core situation, so writing these clarified scope and preservation rules into it is better than creating a new skill.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own skill is rewritten; the user can review or delete it",
+                        "skill": "docs-owner-first-line",
+                        "status": "revised"
+                      }
+                    },
+                    "skill": "docs-owner-first-line"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JHW7V6TEQN3E8ZQ6DGKJ8",
+                "shown": 8,
+                "steps": 8
+              },
+              {
+                "agent": "agent_01M64JBV0G074CHMPH1HEAF7MG",
+                "outcome": "Completed",
+                "run": "01M64JJQ15568JDE28VNA2X4HX",
+                "shown": 0,
+                "steps": 4
+              }
+            ],
+            "shown": [
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #1 hybrid Some(Lesson): When adding or editing any document under deliverables/, reports/ or handbook/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. deliverables/hello.txt is the reference team document demonstrating this convention.",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #2 hybrid Some(Lesson): Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #3 hybrid Some(Fact): In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #4 hybrid Some(Fact): The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #5 hybrid Some(Fact): The docs project's agenium.toml sets main_branch = \"main\", template = \"coding@1\" and leaves [checks] pre_merge empty.",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #6 hybrid Some(Fact): In the docs project, every team document placed in deliverables/, reports/ or handbook/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #7 hybrid Some(Fact): The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time.",
+              "run 01M64JHW7V6TEQN3E8ZQ6DGKJ8 #8 hybrid Some(Fact): In docs project worktrees on Windows, file content is verified with PowerShell Get-Content and Select-String."
+            ],
+            "skill_calls": [
+              {
+                "accepted": true,
+                "answer": "{\"note\":\"your own skill is rewritten; the user can review or delete it\",\"skill\":\"docs-owner-first-line\",\"status\":\"revised\"}",
+                "args": {
+                  "lesson": 11,
+                  "patch": "--- a/SKILL.md\n+++ b/SKILL.md\n@@\n-Add the owning team line `Owner: <team>` as the exact first line of any document you create or edit under `deliverables/`, `reports/`, or `handbook/` in the docs project, while keeping all ticket-required content on the following lines.\n+Add the owning team line `Owner: <team>` as the exact first line of any document you create or edit under `deliverables/`, `reports/`, `handbook/`, or `minutes/` in the docs project, while keeping all ticket-required content on the following lines.\n@@\n-Use when a ticket requires specific file content in `deliverables/` or `reports/` of the docs project, or when editing any document under `deliverables/`, `reports/`, or `handbook/` there.\n+Use when a ticket requires specific file content in `deliverables/`, `reports/`, `handbook/`, or `minutes/` of the docs project, or when editing any document under those folders there. The docs README names exactly these four folders as the team-document locations, so the convention applies to all of them.\n@@\n-1. Read the ticket to identify the required file path, exact required content, and owning team.\n+1. Read the ticket to identify the required file path, exact required content, and owning team. Read README.md to confirm the target folder is one of the four team-document folders (deliverables/, reports/, handbook/, minutes/).\n@@\n-5. Check `deliverables/hello.txt` as the reference example of this convention.\n+5. Check `deliverables/hello.txt` (and `reports/weekly.txt`, `handbook/onboarding.txt`) as reference examples of this convention: first line `Owner: docs-team`, required word on the next line.\n@@\n-- The first line is exactly `Owner: <team>` with the correct team.\n+- The first line is exactly `Owner: <team>` with the correct team, also for files under `minutes/`.\n",
+                  "reason": "AGN-4 required a team document in minutes/, which the docs README lists alongside deliverables/, reports/ and handbook/; the same 'Owner: docs-team' first line convention was applied and passed verification. The skill only named three folders, so extend it to minutes/.",
+                  "skill": "docs-owner-first-line"
+                },
+                "tool": "propose_skill_update"
+              }
+            ],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 10,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 108288,
+            "tokens_in": 111437,
+            "tokens_out": 1321
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 12,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 121600,
+            "tokens_in": 147463,
+            "tokens_out": 2447
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) When adding or editing any document under deliverables/, reports/, handbook/ or minutes/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted. The docs-owner-first-line skill covers minutes/ as well, and deliverables/hello",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/, reports/, handbook/ or minutes/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"os\":\"windows\",\"project\":\"docs\"}) In docs project worktrees on Windows, file content is verified with PowerShell Get-Content and Select-String.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project's agenium.toml sets main_branch = \"main\", template = \"coding@1\" and leaves [checks] pre_merge empty.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {}) The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 21,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 195584,
+        "tokens_in": 230188,
+        "tokens_out": 2095
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 9,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 77184,
+        "tokens_in": 98701,
+        "tokens_out": 1054
+      },
+      "ticket2_facts_shown": 6,
+      "ticket2_shown": [
+        "run 01M64JEG1Q774WJVQ637SZBRW2 #1 hybrid: Satisfying the ticket's acceptance criteria alone is not enough in the docs project; check the project's document conventions (README, project rules) before submitting — the [checks] pre_merge value in agenium.toml can be empty inside a ticket worktree, so conventions must be taken from the project rule/README rather than from local config.",
+        "run 01M64JEG1Q774WJVQ637SZBRW2 #2 hybrid: When adding or editing any document under deliverables/ or reports/ in the docs project, put the owning team line 'Owner: <team>' as the exact first line before submitting; also keep the ticket-required content (e.g. the word hello) on the following lines — the Owner line is added, not substituted.",
+        "run 01M64JEG1Q774WJVQ637SZBRW2 #3 hybrid: In the docs project, the README states that team documents live in deliverables/, reports/, handbook/ and minutes/.",
+        "run 01M64JEG1Q774WJVQ637SZBRW2 #4 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+        "run 01M64JEG1Q774WJVQ637SZBRW2 #5 hybrid: The write_file tool refuses to overwrite an existing file unless that file was first opened with read_file (read_first error).",
+        "run 01M64JEG1Q774WJVQ637SZBRW2 #6 hybrid: The docs project enforces document conventions (such as the 'Owner:' first line) in a pre-merge check that fails the merge instead of at review time."
+      ]
+    }
+  }
+]

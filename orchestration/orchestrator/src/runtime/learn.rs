@@ -195,6 +195,16 @@ impl Runtime {
                             "conflicts": s.conflicts(), "asked": s.asked, "left": s.left } }),
                     );
                 }
+                // ADR-146: a lesson proven in two contexts is reflected on once: a skill of the agent's, a new one, or
+                // a memory only — through every gate a run's proposal goes through.
+                let reflected = self.reflect_on_lessons(&agent, &mem).await;
+                if !reflected.is_empty() {
+                    let _ = self.app.run_log(
+                        log_run,
+                        "memory",
+                        serde_json::json!({ "reflected": reflected }),
+                    );
+                }
                 Ok(Some(rep))
             }
             Some(Err(e)) => {
@@ -286,7 +296,27 @@ impl Runtime {
         ep: &Episode,
         rep: &LearnReport,
     ) -> Result<()> {
-        let u = &rep.usage;
+        self.record_side_call(
+            agent,
+            provider,
+            model,
+            &rep.usage,
+            serde_json::json!({ "kind": "memory", "source": ep.source, "project": ep.project, "from_run": ep.run }),
+            serde_json::to_value(rep).unwrap_or_default(),
+        )
+    }
+
+    /// Records model calls made beside the runs (memory extraction, reflection on a lesson) as a finished run of
+    /// `agent` with outcome `Memory`: `what` says what it was, `log` what it did. Nothing is recorded for no tokens.
+    pub(super) fn record_side_call(
+        &self,
+        agent: AgentId,
+        provider: &str,
+        model: &str,
+        u: &agenium_llm::Usage,
+        what: serde_json::Value,
+        log: serde_json::Value,
+    ) -> Result<()> {
         if u.total_input() + u.output == 0 {
             return Ok(());
         }
@@ -313,13 +343,8 @@ impl Runtime {
             runs::finish(w.tx, run, &now, "Memory")?;
             Ok(())
         })?;
-        self.app.run_log(
-            run,
-            "run",
-            serde_json::json!({ "kind": "memory", "source": ep.source, "project": ep.project, "from_run": ep.run }),
-        )?;
-        self.app
-            .run_log(run, "memory", serde_json::to_value(rep).unwrap_or_default())
+        self.app.run_log(run, "run", what)?;
+        self.app.run_log(run, "memory", log)
     }
 
     /// Learns from the part of the project's chat with the Lead not learned from yet, once the chat has been quiet

@@ -237,6 +237,7 @@ pub async fn run(
     extract: Option<(Arc<dyn Provider>, String)>,
     models: Option<&Path>,
     chain: bool,
+    skills: &[String],
 ) -> anyhow::Result<TaskResult> {
     let start = Instant::now();
     let tmp = tempfile::tempdir()?;
@@ -339,6 +340,15 @@ pub async fn run(
             },
         },
     )?;
+    // `--skill`: library skills the agent has, whose own copy it may improve from what it learns (ADR-146); the
+    // system's files are read before and after to show they are never changed.
+    let library_before: Vec<(String, String)> = skills
+        .iter()
+        .map(|s| {
+            app.toggle_agent_skill(agent.id, s, true)?;
+            Ok((s.clone(), app.library_skill_body(s).unwrap_or_default()))
+        })
+        .collect::<anyhow::Result<_>>()?;
     if let Mode::Cli { cli, model, .. } = mode {
         app.set_agent_backend(
             agent.id,
@@ -565,6 +575,11 @@ pub async fn run(
                 "tickets": tickets.iter().skip(2).cloned().collect::<Vec<_>>(),
                 "agent_skills": app.agent(agent.id).ok().map(|a| rt.skills(&a).skills.iter()
                     .map(|k| format!("{} ({:?})", k.meta.name, k.meta.origin)).collect::<Vec<_>>()),
+                "overlays": app.skill_overlays(agent.id).ok().map(|o| o.iter().map(|v| json!({
+                    "skill": v.skill, "base": v.base, "diff": v.diff, "changelog": v.changelog,
+                })).collect::<Vec<_>>()),
+                "library_unchanged": library_before.iter()
+                    .all(|(s, before)| app.library_skill_body(s).unwrap_or_default() == *before),
             })),
         })),
         discipline: None,

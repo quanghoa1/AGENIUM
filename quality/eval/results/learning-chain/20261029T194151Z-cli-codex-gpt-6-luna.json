@@ -1,0 +1,937 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 5 fact(s)",
+    "runs": 12,
+    "steps": 50,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 894866,
+    "tokens_out": 3946,
+    "tokens_cached": 702848,
+    "cost_usd": 0.0,
+    "elapsed_ms": 270210,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "docs-team-owner-line (Agent)"
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and t",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status).",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project the owning team identifier for team documents is 'docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "When creating any file in deliverables/ or reports/ in the docs project, start line 1 with 'Owner: <team>' or the pre-merge check will fail."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project the owning team identifier for team documents is 'docs-team'."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 3,
+                "entities_new": 5,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1455,
+                "tokens_out": 601,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 3,
+                  "folded": 0,
+                  "left": 1
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any file in deliverables/ or reports/ in the docs project, start line 1 with 'Owner: <team>' or the pre-merge check will fail."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project the owning team identifier for team documents is 'docs-team'."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+                    "was": "In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+                    "was": "When creating any file in deliverables/ or reports/ in the docs project, start line 1 with 'Owner: <team>' or the pre-merge check will fail."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status)."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 6,
+                "entities_linked": 7,
+                "entities_new": 8,
+                "extracted": 5,
+                "helped": 3,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "relation Owner: docs-team -fixes-> pre-merge check names an entity the fact does not list"
+                ],
+                "tokens_in": 3407,
+                "tokens_out": 3197,
+                "updated": 2,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 5,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JNG6ST03003C24F3FQ9FX",
+                "shown": 0,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JNTVT4F3TPM4W781YHS39",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JP6N01VSMCKZAWK08REVQ",
+                "shown": 3,
+                "steps": 8
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JQ3JS4G5B4QXJ4RBZQGD3",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JP6N01VSMCKZAWK08REVQ #1 hybrid Some(Lesson): When creating any file in deliverables/ or reports/ in the docs project, start line 1 with 'Owner: <team>' or the pre-merge check will fail.",
+              "run 01M64JP6N01VSMCKZAWK08REVQ #2 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must name its owning team on its first line, e.g. 'Owner: docs-team'.",
+              "run 01M64JP6N01VSMCKZAWK08REVQ #3 hybrid Some(Fact): In the docs project the owning team identifier for team documents is 'docs-team'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JNEZFHQG9SEGBDT4ZFMZR/ticket:AGN-2"
+                ],
+                "id": 5,
+                "text": "When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and t",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"product\":\"agenium\"}) Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status.",
+              "[Fact w=1.00] (ticket:AGN-2 {}) Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project the owning team identifier for team documents is 'docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project the owning team identifier for team documents is 'docs-team'."
+                  }
+                ]
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status.",
+                    "was": "Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 4,
+                "entities_new": 4,
+                "extracted": 5,
+                "helped": 5,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3467,
+                "tokens_out": 1853,
+                "updated": 1,
+                "validated": 1
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 8,
+                  "folded": 0,
+                  "left": 3
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JR1T3PWV4W7RVR6MSM1B1",
+                "shown": 5,
+                "steps": 7
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JRJD3FFTGG7HZRYFWG7D5",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JR1T3PWV4W7RVR6MSM1B1 #1 hybrid Some(Lesson): When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+              "run 01M64JR1T3PWV4W7RVR6MSM1B1 #2 hybrid Some(Fact): The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "run 01M64JR1T3PWV4W7RVR6MSM1B1 #3 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+              "run 01M64JR1T3PWV4W7RVR6MSM1B1 #4 hybrid Some(Fact): Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status).",
+              "run 01M64JR1T3PWV4W7RVR6MSM1B1 #5 hybrid Some(Fact): In the docs project the owning team identifier for team documents is 'docs-team'."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JNEZFHQG9SEGBDT4ZFMZR/ticket:AGN-2"
+                ],
+                "id": 15,
+                "text": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Ow",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, handbook/onboarding.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'onboarding' on line 2.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error. This holds even when the ticket only requires a content word—line 1 is still 'Owner: docs-team' and the required content goes on the following line.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"product\":\"agenium\"}) Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status.",
+              "[Fact w=1.00] (ticket:AGN-2 {}) Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project the owning team identifier for team documents is 'docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project the owning team identifier for team documents is 'docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root."
+                  },
+                  {
+                    "exact": false,
+                    "id": 11,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status."
+                  }
+                ]
+              },
+              {
+                "added": 1,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it.",
+                    "was": "In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, handbook/onboarding.txt is a team document and needs the 'Owner: docs-team' first line followed by the required content."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error.",
+                    "was": "When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 6,
+                "deleted": 0,
+                "edges": 3,
+                "entities_linked": 6,
+                "entities_new": 2,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [
+                  5,
+                  4
+                ],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3274,
+                "tokens_out": 1644,
+                "updated": 2,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 9,
+                  "folded": 0,
+                  "left": 6
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 14,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it."
+                  },
+                  {
+                    "exact": true,
+                    "id": 13,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, handbook/onboarding.txt is a team document and needs the 'Owner: docs-team' first line followed by the required content."
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project the owning team identifier for team documents is 'docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error. This holds even when the ticket only requires a content word—line 1 is still 'Owner: docs-team' and the required content goes on the following line.",
+                    "was": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, handbook/onboarding.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'onboarding' on line 2.",
+                    "was": "In the docs project, handbook/onboarding.txt is a team document and needs the 'Owner: docs-team' first line followed by the required content."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 5,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 8,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3603,
+                "tokens_out": 2232,
+                "updated": 2,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 9,
+                  "folded": 0,
+                  "left": 6
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JT4BH2S07JHESXNSXKYJ5",
+                "shown": 8,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JTHH5G6648FD97XXB76A5",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JV3HMJRKDSG4KTW64MKX8",
+                "shown": 8,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JVMFW0HRFMF0T0F09DCB7",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #1 hybrid Some(Lesson): When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #2 hybrid Some(Fact): In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #3 hybrid Some(Fact): The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #4 hybrid Some(Fact): In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #5 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #6 hybrid Some(Fact): In the docs project the owning team identifier for team documents is 'docs-team'.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #7 hybrid Some(Fact): Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root.",
+              "run 01M64JT4BH2S07JHESXNSXKYJ5 #8 hybrid Some(Fact): Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #1 hybrid Some(Lesson): When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #2 hybrid Some(Fact): In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #3 hybrid Some(Fact): The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #4 hybrid Some(Fact): In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #5 hybrid Some(Fact): In the docs project, handbook/onboarding.txt is a team document and needs the 'Owner: docs-team' first line followed by the required content.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #6 hybrid Some(Fact): In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #7 hybrid Some(Fact): In the docs project the owning team identifier for team documents is 'docs-team'.",
+              "run 01M64JV3HMJRKDSG4KTW64MKX8 #8 hybrid Some(Fact): Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M64JNEZFHQG9SEGBDT4ZFMZR/ticket:AGN-2",
+                  "01M64JNEZFHQG9SEGBDT4ZFMZR/ticket:AGN-4"
+                ],
+                "id": 15,
+                "text": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Ow",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project root contains README.md, agenium.toml, artifacts/, deliverables/, handbook/, minutes/, notes/ and reports/, and has no AGENTS.md.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, the reports/ and minutes/ directories do not exist until the first file is written into them; write_file creates them.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, minutes/standup.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'standup' on line 2.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, handbook/onboarding.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'onboarding' on line 2.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error. This holds even when the ticket only requires a content word—line 1 is still 'Owner: docs-team' and the required content goes on the following line.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"product\":\"agenium\"}) Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status.",
+              "[Fact w=1.00] (ticket:AGN-2 {}) Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project the owning team identifier for team documents is 'docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 15,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error. This holds even when the ticket only requires a content word—line 1 is still 'Owner: docs-team' and the required content goes on the following line."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md."
+                  },
+                  {
+                    "exact": true,
+                    "id": 16,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, handbook/onboarding.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'onboarding' on line 2."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project the owning team identifier for team documents is 'docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root."
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it."
+                  }
+                ]
+              },
+              {
+                "added": 1,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, minutes/standup.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'standup' on line 2."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, the reports/ and minutes/ directories do not exist until the first file is written into them; write_file creates them.",
+                    "was": "In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/, handbook/, minutes/, notes/ and reports/, and has no AGENTS.md.",
+                    "was": "The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 0,
+                "edges": 3,
+                "entities_linked": 3,
+                "entities_new": 4,
+                "extracted": 3,
+                "helped": 8,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3416,
+                "tokens_out": 1379,
+                "updated": 2,
+                "validated": 1
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 10,
+                  "folded": 0,
+                  "left": 10
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "new",
+                    "lesson": 15,
+                    "reason": "No existing skill covers creating team documents in the docs project, and the lesson is a repeatable rule (owner line must be exactly 'Owner: docs-team', even when the ticket only asks for a content word) proven across two tickets, so it should become a new skill.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding",
+                        "skill": "docs-team-owner-line",
+                        "status": "created"
+                      }
+                    },
+                    "skill": "docs-team-owner-line"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JWAAG7R777AG9ZZZVWKP4",
+                "shown": 8,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M64JNFR7N6RA24CG10ZF83ZA",
+                "outcome": "Completed",
+                "run": "01M64JWNJAZ5Z5BEXAH6J5XHZ7",
+                "shown": 0,
+                "steps": 2
+              }
+            ],
+            "shown": [
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #1 hybrid Some(Lesson): When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error. This holds even when the ticket only requires a content word—line 1 is still 'Owner: docs-team' and the required content goes on the following line.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #2 hybrid Some(Fact): In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #3 hybrid Some(Fact): In the docs project, the reports/ directory does not exist until the first file is written into it; write_file creates it.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #4 hybrid Some(Fact): The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #5 hybrid Some(Fact): In the docs project, handbook/onboarding.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'onboarding' on line 2.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #6 hybrid Some(Fact): In the docs project the owning team identifier for team documents is 'docs-team'.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #7 hybrid Some(Fact): Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root.",
+              "run 01M64JWAAG7R777AG9ZZZVWKP4 #8 hybrid Some(Fact): In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": false,
+            "merge_failures": 1,
+            "reopened": 1,
+            "runs": 4,
+            "status": "Closed",
+            "steps": 15,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 198656,
+            "tokens_in": 283034,
+            "tokens_out": 1265
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 8,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 102144,
+            "tokens_in": 132251,
+            "tokens_out": 581
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\"",
+        "AGN-3: handbook/onboarding.txt: \"onboarding\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project root contains README.md, agenium.toml, artifacts/, deliverables/, handbook/, minutes/, notes/ and reports/, and has no AGENTS.md.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, the reports/ and minutes/ directories do not exist until the first file is written into them; write_file creates them.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, minutes/standup.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'standup' on line 2.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, handbook/onboarding.txt is a team document with exactly 'Owner: docs-team' on line 1 and 'onboarding' on line 2.",
+        "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When creating any new team document in the docs project, including outside deliverables/ and reports/, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough, and the pre-merge check fails with an owner-line error. This holds even when the ticket only requires a content word—line 1 is still 'Owner: docs-team' and the required content goes on the following line.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, every team document—regardless of directory (deliverables/, reports/, handbook/, or elsewhere)—must have exactly 'Owner: docs-team' as its first line; a pre-merge check enforces it.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"product\":\"agenium\"}) Agenium's submit_report tool requires summary and confidence; payloads take either a results array (each result with criterion, evidence, status) or, as worked in the docs project, ticket_id plus an acceptance array of objects with ac_id, evidence and status.",
+        "[Fact w=1.00] (ticket:AGN-2 {}) Agenium's list_dir tool returns an invalid_path error when given an empty path string; omit the path key (or pass a directory) to list the worktree root.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, deliverables/hello.txt exists with 'Owner: docs-team' on line 1 and 'hello' on line 2, and is the model for new team documents.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project the owning team identifier for team documents is 'docs-team'."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status).",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project the owning team identifier for team documents is 'docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 243456,
+        "tokens_in": 286662,
+        "tokens_out": 1433
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 158592,
+        "tokens_in": 192919,
+        "tokens_out": 667
+      },
+      "ticket2_facts_shown": 5,
+      "ticket2_shown": [
+        "run 01M64JR1T3PWV4W7RVR6MSM1B1 #1 hybrid: When creating a file in deliverables/ or reports/ in the docs project, write line 1 as exactly 'Owner: docs-team'; a generic 'Owner: <team>' is not enough and the pre-merge check fails.",
+        "run 01M64JR1T3PWV4W7RVR6MSM1B1 #2 hybrid: The docs project root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/, and has no AGENTS.md.",
+        "run 01M64JR1T3PWV4W7RVR6MSM1B1 #3 hybrid: In the docs project, every team document placed in deliverables/ or reports/ must have exactly 'Owner: docs-team' as its first line, enforced by a pre-merge check.",
+        "run 01M64JR1T3PWV4W7RVR6MSM1B1 #4 hybrid: Agenium's submit_report tool requires the fields summary, confidence and results (each result with criterion, evidence, status).",
+        "run 01M64JR1T3PWV4W7RVR6MSM1B1 #5 hybrid: In the docs project the owning team identifier for team documents is 'docs-team'."
+      ]
+    }
+  }
+]

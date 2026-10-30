@@ -518,3 +518,133 @@ async fn the_memory_is_not_settled_without_the_embedding_model() {
     assert!(mem.get(a).unwrap().is_live());
     assert!(mem.open_conflicts().unwrap().is_empty());
 }
+
+/// ADR-146: after a ticket is learned from, a lesson proven in two contexts is reflected on once with the agent's own
+/// model; what it proposes goes through the same gates as a run's proposal (here refused: the lesson's contexts are
+/// not closed tickets on record, ADR-118), the outcome is logged, and the lesson is not asked about again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_proven_lesson_is_reflected_on_once_through_the_gates() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1", "PI-2"]);
+    app.toggle_agent_skill(agent, "commit-and-pr", true)
+        .unwrap();
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let lesson = mem
+        .add(
+            &agenium_store::NewFact {
+                kind: agenium_store::FactKind::Lesson,
+                cue: Some("when committing work".into()),
+                ..agenium_store::NewFact::fact(
+                    "Commit subjects start with the ticket key.",
+                    "ticket:AGN-0",
+                )
+            },
+            None,
+        )
+        .unwrap();
+    mem.validate_in(lesson, "p/ticket:AGN-7").unwrap();
+    mem.validate_in(lesson, "p/ticket:AGN-8").unwrap();
+    let skill_file = app
+        .skill_registry()
+        .dir_of(&agenium_skills::Owner::Library)
+        .join("commit-and-pr")
+        .join("SKILL.md");
+    let before = std::fs::read_to_string(&skill_file).unwrap();
+
+    let work = |k: &'static str| {
+        p.push_calls(
+            "",
+            vec![(
+                "write_file",
+                json!({"path": "deliverables/hello.txt", "content": "hello\n"}),
+            )],
+        );
+        p.push_calls(
+            "",
+            vec![("submit_report", serde_json::to_value(report(k)).unwrap())],
+        );
+        p.push_calls(
+            "",
+            vec![(
+                "review_ticket",
+                json!({"ticket_id": k, "decision": "Approve"}),
+            )],
+        );
+        p.push_calls(
+            "",
+            vec![(
+                "close_ticket",
+                json!({"ticket_id": k, "reason": "All AC met, merged"}),
+            )],
+        );
+        // The extraction finds nothing new.
+        p.push_text("{\"facts\": []}");
+    };
+    work("AGN-1");
+    // The reflection: the lesson belongs in commit-and-pr; the new body; the gates then refuse it.
+    p.push(Box::new(move |req| {
+        let t = req.messages[0].text();
+        assert!(
+            t.contains(&format!("Lesson #{lesson}")) && t.contains("- commit-and-pr:"),
+            "{t}"
+        );
+        Ok(calls_response(
+            "{\"action\": \"update\", \"skill\": \"commit-and-pr\", \"reason\": \"a commit rule\"}",
+            vec![],
+        ))
+    }));
+    p.push(Box::new(|req| {
+        assert!(req.messages[0]
+            .text()
+            .contains("## The skill commit-and-pr (its body now)"));
+        Ok(calls_response(
+            "{\"content\": \"## Job\nCommit.\n\", \"reason\": \"the ticket key first\"}",
+            vec![],
+        ))
+    }));
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-1")).await.unwrap().outcome,
+        "Completed"
+    );
+    let s = rt.review(project, &key("AGN-1")).await.unwrap();
+    let log = app.store().read(|c| runs::log_entries(c, s.run)).unwrap();
+    let reflected = log
+        .iter()
+        .find(|e| e.kind == "memory" && e.data.get("reflected").is_some())
+        .unwrap_or_else(|| panic!("{log:?}"));
+    let r = &reflected.data["reflected"][0];
+    assert_eq!(
+        (r["lesson"].as_i64(), r["action"].as_str()),
+        (Some(lesson), Some("update")),
+        "{r}"
+    );
+    assert!(r["result"]["refused"].as_str().is_some(), "{r}");
+    assert_eq!(std::fs::read_to_string(&skill_file).unwrap(), before);
+    assert!(app.agent_overlay_body(agent, "commit-and-pr").is_none());
+
+    // The next ticket: no reflection on the same lesson (no scripted answer left for one).
+    app.apply(
+        &agenium_orchestrator::CallCtx {
+            project,
+            actor: Actor::Lead(agent),
+            intent_id: None,
+            run: None,
+        },
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-2"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .ok();
+    work("AGN-2");
+    assert_eq!(
+        rt.run_ticket(project, &key("AGN-2")).await.unwrap().outcome,
+        "Completed"
+    );
+    rt.review(project, &key("AGN-2")).await.unwrap();
+    assert_eq!(p.remaining(), 0);
+}

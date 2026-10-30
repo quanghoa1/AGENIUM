@@ -23,16 +23,20 @@ conflicts_with, applies_to, replaced_by, related_to). A lesson also needs a \"cu
 that should bring it to mind); a lesson without a cue is not kept. Lessons come only from the SIGNALS listed with the \
 episode (a reopen, a failed merge, the Lead's correction or praise, the user's feedback): a lesson is a rule with its \
 reason, not an incident log; with no signals extract facts and preferences only. At most 12 facts; none is fine. If the episode lists MEMORIES \
-SHOWN and the ticket was reopened, list in \"misleading\" the ids of the memories that led to the rejected work. \
+SHOWN and the ticket was reopened, list in \"misleading\" the ids of the memories that led to the rejected work, \
+including one that was followed but too narrow or incomplete for this case (it said deliverables/ and the rule held \
+everywhere). \
 Answer with JSON only: {\"facts\": [{\"text\": \"...\", \"kind\": \"fact|preference|lesson\", \"external\": false, \
 \"cue\": \"when ...\", \"scope\": {}, \"entities\": [{\"name\": \"...\", \"type\": \"...\", \"role\": \"subject\"}], \"relations\": [{\"src\": \
 \"...\", \"type\": \"...\", \"dst\": \"...\", \"scope\": {}}]}], \"misleading\": []}";
 
 pub(super) const DECIDE_RULES: &str = "You maintain your own long-term memory. For each NEW fact you see the most similar EXISTING \
-memories (with ids). Decide per new fact: ADD (new information), UPDATE (an existing memory about the same thing is \
-outdated or less precise: give its id and the merged text), DELETE (an existing memory is contradicted and the new fact \
+memories (with ids). Decide per new fact: ADD (new information about something no existing memory covers), UPDATE (an existing memory \
+about the same thing is outdated, less precise, too narrow or missing a step: give its id and the merged text, which \
+keeps what still holds of both), DELETE (an existing memory is contradicted and the new fact \
 needs no record of its own: give its id and the new fact that contradicts it), NOOP (already known or not worth \
-keeping). Use only ids shown to you. Answer with JSON only: {\"ops\": [{\"op\": \"ADD\", \"fact\": 0}, {\"op\": \"UPDATE\", \
+keeping). Keep one lesson per rule: a new lesson that widens, narrows, adds a step to or restates an existing lesson \
+about the same rule or situation is an UPDATE of that lesson, never an ADD beside it. Use only ids shown to you. Answer with JSON only: {\"ops\": [{\"op\": \"ADD\", \"fact\": 0}, {\"op\": \"UPDATE\", \
 \"fact\": 1, \"id\": 12, \"text\": \"...\"}, {\"op\": \"DELETE\", \"fact\": 3, \"id\": 7}, {\"op\": \"NOOP\", \"fact\": 2}]}";
 
 /// The entity-resolution question for the ambiguous band (public for `quality/eval/examples/entity_ask.rs`).

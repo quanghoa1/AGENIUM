@@ -1,0 +1,89 @@
+[
+  {
+    "id": "learning-loop",
+    "passed": true,
+    "closed": true,
+    "detail": "ok",
+    "runs": 2,
+    "steps": 15,
+    "tool_errors": 1,
+    "error_codes": {},
+    "errors": [
+      "propose_new_skill: invalid_arguments: invalid arguments for propose_new_skill: missing field `lesson`"
+    ],
+    "tools": {},
+    "outcomes": [
+      "work:Completed",
+      "review:Completed"
+    ],
+    "reopened": 0,
+    "tokens_in": 189838,
+    "tokens_out": 4017,
+    "tokens_cached": 163456,
+    "cost_usd": 0.0,
+    "elapsed_ms": 94708,
+    "learning": {
+      "applied_procedure": true,
+      "calls": [
+        {
+          "before_work": false,
+          "lesson": "covered",
+          "ok": true,
+          "result": "{\"note\":\"your own copy of the skill is updated; other agents keep the base, and the user can review or revert it\",\"skill\":\"commit-and-pr\",\"status\":\"applied\"}",
+          "sent": null,
+          "skill": "commit-and-pr",
+          "tool": "propose_skill_update"
+        },
+        {
+          "before_work": false,
+          "lesson": "unknown",
+          "ok": false,
+          "result": "invalid_arguments: invalid arguments for propose_new_skill: missing field `lesson`",
+          "sent": "# Skill: deliverables-index-maintenance\n\n## Job\nKeep `deliverables/INDEX.md` an accurate, alphabetically sorted one-line-per-file listing whenever the contents of `deliverables/` change, so a reviewer can see what the folder holds without opening every file.\n\n## When to use\nWhenever a task creates, renames or deletes a file under `deliverables/` (including when the ticket's acceptance criteria only mention the file itself). Also use it when `deliverables/` has content but no `INDEX.md` yet.\n\n## Steps\n1. Read `deliverables/INDEX.md` if it exists (`read_file`); if it does not exist, create it with the heading `# Deliverables index` and the line `One line per file, sorted by file name.`\n2. For every file you add, add exactly one line of the form `- <file name> - <purpose in a few words>`, using the bare file name (no directory prefix) exactly as it appears on disk.\n3. Keep the list sorted by file name (case-insensitive), not by the order you touched files; re-sort the whole list when you insert in the middle.\n4. For a rename, edit the existing line in place and re-sort; for a delete, remove its line.\n5. Ignore `.gitkeep`; do not list it.\n6. Leave the rest of the folder untouched: this skill is bookkeeping only, never move or rewrite deliverable files.\n\n## Tools\n`read_file` to read the index, `write_file` to create it, `edit_file`/`multi_edit` or `apply_patch` for small in-place changes, `glob`/`list_dir` on `deliverables/` to confirm what actually exists.\n\n## Proof\nShow `list_di",
+          "skill": "deliverables-index-maintenance",
+          "tool": "propose_new_skill"
+        },
+        {
+          "before_work": false,
+          "lesson": "procedure",
+          "ok": true,
+          "result": "{\"note\":\"your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding\",\"skill\":\"deliverables-index-maintenance\",\"status\":\"created\"}",
+          "sent": null,
+          "skill": "deliverables-index-maintenance",
+          "tool": "propose_new_skill"
+        }
+      ],
+      "created": [
+        {
+          "lesson": "procedure",
+          "skill": "deliverables-index-maintenance"
+        }
+      ],
+      "lessons": [
+        {
+          "id": 1,
+          "label": "procedure"
+        },
+        {
+          "id": 2,
+          "label": "covered"
+        },
+        {
+          "id": 3,
+          "label": "fact"
+        }
+      ],
+      "overlays": [
+        {
+          "lessons": [
+            "covered"
+          ],
+          "skill": "commit-and-pr"
+        }
+      ],
+      "system_skill_unchanged": true,
+      "used_tools": true,
+      "violations": []
+    }
+  }
+]

@@ -114,6 +114,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   as an API agent. The vendored Codex sandbox follows upstream f021168.
 
 ### Memory, skills, tools
+- One lesson per rule: a refinement updates the lesson (keeping where it held), a too-narrow lesson is blamed when it
+  misleads, and a ticket closed without a signal can no longer delete a lesson. A lesson proven in two tickets is
+  reflected on once — improve a skill, make one, or keep it as a memory — through the same gates as a proposal in a
+  run; an agent can now improve the skills it made. On real memory chains (DeepSeek, Codex) agents now write and
+  revise skills from their own experience (ADR-146).
 - An agent's memory is settled as it grows: memories that say the same are folded and ones that contradict each other
   (a changed port, version or tool) are put to the user on the Memory page, found by the local embedding model and,
   with a judge key, a few typed questions — no model rereads the memory (ADR-145).

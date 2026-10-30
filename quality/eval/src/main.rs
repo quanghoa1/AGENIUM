@@ -177,6 +177,12 @@ async fn main() -> Result<()> {
                 extract,
                 models.as_deref(),
                 args.iter().any(|a| a == "--chain"),
+                &args
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, a)| *a == "--skill")
+                    .filter_map(|(i, _)| args.get(i + 1).cloned())
+                    .collect::<Vec<_>>(),
             )
             .await?,
         );

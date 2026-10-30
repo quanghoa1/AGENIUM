@@ -434,6 +434,17 @@ pub async fn learn(
                     ));
                     continue;
                 }
+                // A ticket closed without a signal (no reopen, failed merge or correction) confirms the work; it does
+                // not disprove a lesson. Found on DeepSeek (ADR-146): a clean ticket deleted the lesson that had kept
+                // it right, and the next ticket, no longer reminded, was reopened. Refining it is an UPDATE.
+                if ep.signals.is_empty() && store.get(id).is_ok_and(|o| o.kind == FactKind::Lesson)
+                {
+                    report.rejected.push(format!(
+                        "DELETE of lesson {id} by an episode with no signal: a clean ticket does not disprove a \
+                         lesson (UPDATE refines it)"
+                    ));
+                    continue;
+                }
                 let gone = store.get(id).ok();
                 store.retire(id)?;
                 report.deleted += 1;

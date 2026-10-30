@@ -156,9 +156,13 @@ impl App {
     ) -> Result<serde_json::Value> {
         let a = self.agent(agent)?;
         let name = u.skill.trim();
+        // ADR-146: a skill the agent created has no base to overlay: it is rewritten in place, under the same gates.
+        if self.base_skill(&a, name).is_none() && self.is_created_skill(agent, name) {
+            return self.revise_created_skill(agent, u);
+        }
         let base = self.base_skill(&a, name).ok_or_else(|| {
             invalid(format!(
-                "{name:?} is not a role or library skill of yours: only those have overlays (write your own skills in your skills folder)"
+                "{name:?} is not a role or library skill of yours, nor one you created"
             ))
         })?;
         let mem = self.agent_memory_store(agent)?;
@@ -459,6 +463,11 @@ impl App {
         })?;
         Ok(())
     }
+}
+
+/// The text of a skill after `u` (a patch or a whole new body), for a skill the agent created (ADR-146).
+pub(crate) fn revised_text(current: &str, u: &ProposeSkillUpdate) -> Result<String> {
+    patching::updated_text(current, u)
 }
 
 #[cfg(test)]

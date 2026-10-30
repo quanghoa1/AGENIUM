@@ -28,6 +28,8 @@ pub mod sched;
 pub mod skill_conflict;
 pub mod skill_create;
 pub mod skill_overlay;
+pub mod skill_propose;
+pub mod skill_revise;
 pub mod skill_shape;
 pub mod support;
 pub mod team_templates;

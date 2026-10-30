@@ -67,13 +67,50 @@ pub fn json_object(text: &str) -> Option<Value> {
             '}' => {
                 depth -= 1;
                 if depth == 0 {
-                    return serde_json::from_str(&text[start..start + i + 1]).ok();
+                    let raw = &text[start..start + i + 1];
+                    return serde_json::from_str(raw)
+                        .ok()
+                        .or_else(|| serde_json::from_str(&escape_controls(raw)).ok());
                 }
             }
             _ => {}
         }
     }
     None
+}
+
+/// `json` with the line breaks and tabs written raw inside its strings escaped: models write a multi-line field (a
+/// skill's body) that way.
+fn escape_controls(json: &str) -> String {
+    let mut out = String::with_capacity(json.len() + 16);
+    let (mut in_str, mut esc) = (false, false);
+    for c in json.chars() {
+        if in_str && !esc {
+            match c {
+                '\n' => {
+                    out.push_str("\\n");
+                    continue;
+                }
+                '\r' => {
+                    out.push_str("\\r");
+                    continue;
+                }
+                '\t' => {
+                    out.push_str("\\t");
+                    continue;
+                }
+                _ => {}
+            }
+        }
+        match (in_str, esc, c) {
+            (true, true, _) => esc = false,
+            (true, false, '\\') => esc = true,
+            (_, false, '"') => in_str = !in_str,
+            _ => {}
+        }
+        out.push(c);
+    }
+    out
 }
 
 /// The complete objects of the array under `key` in a JSON answer that was cut off before it closed.
@@ -124,4 +161,20 @@ pub(super) fn kind_of(k: Option<&str>) -> FactKind {
 
 pub(super) fn is_empty_scope(v: &Value) -> bool {
     v.as_object().is_none_or(|o| o.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A model writes a multi-line field with raw line breaks inside the JSON string (ADR-146: a skill's body).
+    #[test]
+    fn raw_line_breaks_inside_strings_are_read() {
+        let raw = "Here:\n{\"content\": \"## Job\nCommit.\n\tthen push\", \"reason\": \"a \\\"quoted\\\" word\"}";
+        let v = json_object(raw).unwrap();
+        assert_eq!(v["content"], "## Job\nCommit.\n\tthen push");
+        assert_eq!(v["reason"], "a \"quoted\" word");
+        assert_eq!(json_object("{\"a\": 1}").unwrap()["a"], 1);
+        assert!(json_object("no json").is_none());
+    }
 }

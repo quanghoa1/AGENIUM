@@ -348,3 +348,52 @@ async fn an_unscoped_fact_stays_in_its_project_and_confidence_starts_from_the_ev
         "{elsewhere:?}"
     );
 }
+
+/// ADR-146: a ticket closed without a signal confirms the work; it does not disprove a lesson. Its DELETE of a lesson is
+/// refused (found on DeepSeek: a clean ticket deleted the lesson that kept it right, and the next one was reopened);
+/// an episode with a signal may still retire one.
+#[tokio::test]
+async fn a_clean_episode_does_not_delete_a_lesson() {
+    let tmp = tempfile::tempdir().unwrap();
+    let e = HashEmbedder::new(384);
+    let store = Arc::new(
+        AgentStore::open(
+            &tmp.path().join("a.db"),
+            384,
+            e.model_id(),
+            &tmp.path().join("b"),
+        )
+        .unwrap(),
+    );
+    let text = "Every team document in the docs project starts with the line Owner: docs-team.";
+    let v = e.embed(&[text.to_owned()]).unwrap().pop().unwrap();
+    let lesson = store
+        .add(
+            &agenium_store::NewFact {
+                kind: agenium_store::FactKind::Lesson,
+                cue: Some("when writing a team document".into()),
+                ..agenium_store::NewFact::fact(text, "ticket:AGN-1")
+            },
+            Some(&v),
+        )
+        .unwrap();
+    let p = ScriptedProvider::new("mock");
+    let delete = format!("{{\"ops\": [{{\"op\": \"DELETE\", \"fact\": 0, \"id\": {lesson}}}, {{\"op\": \"ADD\", \"fact\": 0}}]}}");
+    // A clean ticket: the DELETE is refused, the lesson stays.
+    p.push_text("{\"facts\": [{\"text\": \"The docs project agenium.toml names the team documents folders: deliverables, reports and handbook.\"}]}");
+    p.push_text(&delete);
+    let r = learn(&p, &model(), &store, &e, &episode("ticket:AGN-3"), &clean)
+        .await
+        .unwrap();
+    assert_eq!(r.deleted, 0, "{r:?}");
+    assert!(r.rejected.iter().any(|x| x.contains("no signal")), "{r:?}");
+    assert!(store.get(lesson).unwrap().is_live());
+    // A reopened ticket (a signal): the same DELETE goes through.
+    let mut ep = episode("ticket:AGN-4");
+    ep.signals = vec!["reopened: the pre-merge check failed".into()];
+    p.push_text("{\"facts\": [{\"text\": \"Team documents in the docs project start with the line Owner: <team name>, not docs-team.\"}]}");
+    p.push_text(&delete);
+    let r = learn(&p, &model(), &store, &e, &ep, &clean).await.unwrap();
+    assert_eq!(r.deleted, 1, "{r:?}");
+    assert!(!store.get(lesson).unwrap().is_live());
+}

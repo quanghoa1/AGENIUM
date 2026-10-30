@@ -15,7 +15,6 @@ use async_trait::async_trait;
 
 use crate::app::App;
 use crate::engine::{CallCtx, RunEffect};
-use crate::OrchError;
 
 /// How the user answers a command approval request.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -320,19 +319,7 @@ pub struct RunProtocol {
     pub skills: Arc<agenium_skills::SkillSet>,
 }
 
-fn tool_error(e: &OrchError) -> ToolError {
-    let te = e.to_tool_error();
-    let prefix = format!("{}: ", te.code);
-    let mut message = te
-        .message
-        .strip_prefix(&prefix)
-        .map(str::to_owned)
-        .unwrap_or(te.message);
-    if let Some(d) = te.detail {
-        message.push_str(&format!(" | detail: {d}"));
-    }
-    ToolError::new(&te.code, message)
-}
+use crate::skill_propose::tool_error;
 
 impl RunProtocol {
     /// The unverified-done check for this run's report (asked at most once per run).
@@ -408,94 +395,16 @@ impl Protocol for RunProtocol {
                 )),
             };
         }
-        // Decision 35: the agent's own skill overlay, checked and applied by the orchestrator.
+        // Decision 35, ADR-91: the agent's own skill overlay or new skill, through every gate (`skill_propose`).
         if let Intent::ProposeSkillUpdate(u) = intent {
-            let (app, agent) = (self.app.clone(), self.agent);
-            let skill = u.skill.trim().to_owned();
-            // ADR-92: with the judge on, read the would-be skill for contradictions before anything is written.
-            if app.config().judge.skill_quality {
-                let preview = tokio::task::spawn_blocking({
-                    let (app, u) = (app.clone(), u.clone());
-                    move || app.preview_skill_update(agent, &u)
-                })
-                .await
-                .map_err(|e| ToolError::new("internal", e.to_string()))?;
-                if let Ok((_, updated)) = preview {
-                    let body = crate::skill_shape::strip_frontmatter(&updated);
-                    let desc = updated
-                        .lines()
-                        .find_map(|l| l.strip_prefix("description: "))
-                        .unwrap_or("");
-                    let subject = crate::skill_conflict::subject(desc, &body);
-                    let hits = app
-                        .judged_contradictions(agent, &skill, &subject, &body)
-                        .await;
-                    if !hits.is_empty() {
-                        return Err(ToolError::new(
-                            "contradiction",
-                            format!(
-                                "the judge reads this change as contradicting skill {}: reconcile the skills (or improve \
-                                 that one) first",
-                                hits.join(", ")
-                            ),
-                        ));
-                    }
-                }
-            }
-            let mut v = tokio::task::spawn_blocking({
-                let app = app.clone();
-                move || app.apply_skill_update(agent, &u)
-            })
-            .await
-            .map_err(|e| ToolError::new("internal", e.to_string()))?
-            .map_err(|e| tool_error(&e))?;
-            // ADR-90: with the judge on, a calibrated quality read of the upgraded skill is added to the result the
-            // agent sees. Fail-open: without the judge (or on any failure) the result is just the shape check.
-            if let Some(body) = app.agent_overlay_body(agent, &skill) {
-                if let Some(quality) = app.skill_quality(&body).await {
-                    let _ = app.run_log(self.run, "judge", serde_json::json!({ "use": "skill_quality", "skill": skill, "text": quality.join("; ") }));
-                    if let Some(obj) = v.as_object_mut() {
-                        obj.insert("quality".into(), serde_json::json!(quality));
-                    }
-                }
-            }
+            let v = self
+                .app
+                .propose_skill_update(self.agent, u, Some(self.run))
+                .await?;
             return Ok((v, Effect::Continue));
         }
-        // ADR-91: a new skill distilled from a validated lesson, created only when every gate passes.
         if let Intent::ProposeNewSkill(u) = intent {
-            let (app, agent) = (self.app.clone(), self.agent);
-            let skill = u.name.trim().to_owned();
-            // ADR-92: with the judge on, a semantic contradiction read against the closest skills before anything is
-            // written. Without it the deterministic gates in create_agent_skill decide alone.
-            let subject = crate::skill_conflict::subject(&u.description, &u.body);
-            let hits = app
-                .judged_contradictions(agent, &skill, &subject, &u.body)
-                .await;
-            if !hits.is_empty() {
-                return Err(ToolError::new(
-                    "contradiction",
-                    format!(
-                        "the judge reads the new skill as contradicting skill {}: improve that skill instead, or \
-                         reconcile them first",
-                        hits.join(", ")
-                    ),
-                ));
-            }
-            let mut v = tokio::task::spawn_blocking({
-                let app = app.clone();
-                move || app.create_agent_skill(agent, &u)
-            })
-            .await
-            .map_err(|e| ToolError::new("internal", e.to_string()))?
-            .map_err(|e| tool_error(&e))?;
-            // Same fail-open quality read as an update: only with the judge on.
-            if let Some(body) = app.agent_overlay_body(agent, &skill) {
-                if let Some(quality) = app.skill_quality(&body).await {
-                    if let Some(obj) = v.as_object_mut() {
-                        obj.insert("quality".into(), serde_json::json!(quality));
-                    }
-                }
-            }
+            let v = self.app.propose_new_skill(self.agent, u).await?;
             return Ok((v, Effect::Continue));
         }
         // ADR-126: a report that reads as done while nothing checked the work after its last change goes back to

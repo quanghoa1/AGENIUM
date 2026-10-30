@@ -47,6 +47,18 @@ pub struct CreatedSkill {
     /// Set when the lesson stopped holding: why, and when it was noticed.
     #[serde(default)]
     pub flagged: Option<String>,
+    /// Later lessons written into it (ADR-146).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub revisions: Vec<Revision>,
+}
+
+/// A lesson written into a skill the agent created, after it was made (ADR-146).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Revision {
+    pub lesson: i64,
+    pub lesson_text: String,
+    pub reason: String,
+    pub at: String,
 }
 
 fn refuse<T>(m: impl Into<String>) -> Result<T> {
@@ -58,6 +70,10 @@ fn load(mem: &AgentStore) -> Result<BTreeMap<String, CreatedSkill>> {
         .meta(META_KEY)?
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default())
+}
+
+pub(crate) fn save_created(mem: &AgentStore, map: &BTreeMap<String, CreatedSkill>) -> Result<()> {
+    save(mem, map)
 }
 
 fn save(mem: &AgentStore, map: &BTreeMap<String, CreatedSkill>) -> Result<()> {
@@ -223,6 +239,7 @@ impl App {
                 reason: u.reason.trim().to_owned(),
                 at: now_iso(),
                 flagged: None,
+                revisions: Vec::new(),
             },
         );
         save(&mem, &created)?;

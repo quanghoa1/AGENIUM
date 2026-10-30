@@ -30,8 +30,8 @@ schedule (the "dreams" of other agents), which costs hundreds of thousands of to
      ("pnpm" / "npm", "Fridays" / "Mondays") are asked first, then the closest.
    A contradiction is never settled without the user: the Memory page lists them ("May contradict each other"); the
    user keeps one (the other is folded into it) or says both hold.
-2. **When**: after an episode is learned, once the agent learned 20 facts since the last pass (`settled_upto`), and
-   when the user tidies an agent's memory. Only with bge-small-en-v1.5 (`SETTLE_MODEL`): the bands were measured on
+2. **When**: the free part (vectors and words) after every episode learned; the judge once the agent learned 10 facts
+   since it last read (`settled_upto`; ADR-146: four tickets learn about ten), and when the user tidies an agent's memory. Only with bge-small-en-v1.5 (`SETTLE_MODEL`): the bands were measured on
    it, and the hashing stand-in used while the model is not installed reads other similarities — the pass waits for
    the model (exact-text consolidation runs as before).
 3. **The judge use** `memory_settle` (on by default, its own switch in the judge settings): two typed questions per pair
@@ -79,7 +79,7 @@ What the crowded memory showed (and changed):
 - Tests: `settle::tests` (figures, number words, negations, names, words); `agent/memory/tests/settle.rs` (folds only of
   the same words, conflicts without a judge, the user's decision, nothing judged twice, the judge's questions within
   their limit, an unsure judge, a dry run, parallel facts not asked and swaps first); orchestrator
-  `a_pass_is_due_every_twenty_new_facts`, runtime `the_memory_is_not_settled_without_the_embedding_model`.
+  `the_judge_reads_every_ten_new_facts`, runtime `the_memory_is_not_settled_without_the_embedding_model`.
 - Desktop UI smoke: an agent imported with three memories of its dev server (two the same reordered, one on port
   9090): Tidy folds the two and shows the other port as a possible contradiction; "This one holds" keeps port 9090.
 
