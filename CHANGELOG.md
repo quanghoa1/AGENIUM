@@ -139,8 +139,7 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 
 ### Memory, skills, tools
 - Learning is credited to what the agent was shown (a continuation recalls nothing), and owed by every close or reopen,
-  the user's on the board too; a skill an agent created is read by the judge before a revision, keeps the earlier
-  text, and the user can undo the last revision (ADR-147).
+  the user's on the board too; a skill an agent created is read by the judge before a revision (ADR-147).
 - One lesson per rule: a refinement updates the lesson (keeping where it held), a too-narrow lesson is blamed when it
   misleads, and a ticket closed without a signal can no longer delete a lesson. A lesson proven in two tickets is
   reflected on once — improve a skill, make one, or keep it as a memory — through the same gates as a proposal in a

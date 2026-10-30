@@ -237,11 +237,6 @@ export function MemoryView() {
                   }
                   right={
                     <div className="flex gap-2">
-                      {c.revisions?.at(-1)?.before != null && (
-                        <button className="btn" onClick={() => act("undo_revision", { skill: name }, app.t("memory.revisionUndone"))}>
-                          <RotateCcw className="h-3.5 w-3.5" /> {app.t("memory.undoRevision")}
-                        </button>
-                      )}
                       <button className="btn" onClick={() => act("remove_skill", { skill: name }, app.t("memory.skillRemoved"))}>
                         <Trash2 className="h-3.5 w-3.5" /> {app.t("memory.removeSkill")}
                       </button>

@@ -59,9 +59,6 @@ pub struct Revision {
     pub lesson_text: String,
     pub reason: String,
     pub at: String,
-    /// The skill's SKILL.md before this revision, so the user can undo it (ADR-147). Absent on revisions made before.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub before: Option<String>,
 }
 
 fn refuse<T>(m: impl Into<String>) -> Result<T> {

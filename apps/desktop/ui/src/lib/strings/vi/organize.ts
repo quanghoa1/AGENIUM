@@ -47,8 +47,6 @@ export const organize: Record<keyof typeof en, string> = {
   "memory.created": "agent tự tạo",
   "memory.flagged": "bài học không còn đúng",
   "memory.removeSkill": "Xóa skill",
-  "memory.undoRevision": "Hoàn tác thay đổi cuối",
-  "memory.revisionUndone": "Skill đã trở về nội dung trước thay đổi cuối.",
   "memory.skillRemoved": "Đã xóa skill; agent không dùng nó nữa.",
   "memory.fromLesson": "từ lesson",
   "memory.noOverlays": "Chưa có skill nào được cập nhật: agent dùng bản gốc.",

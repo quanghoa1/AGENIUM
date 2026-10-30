@@ -454,8 +454,8 @@ export interface CreatedSkill {
   at: string;
   /** Set when the lesson stopped holding: why, and when. */
   flagged?: string | null;
-  /** Later lessons written into it (ADR-146); `before` is the text the last one can be undone to (ADR-147). */
-  revisions?: { lesson: number; lesson_text: string; reason: string; at: string; before?: string }[];
+  /** Later lessons written into it (ADR-146). */
+  revisions?: { lesson: number; lesson_text: string; reason: string; at: string }[];
 }
 
 /** Two memories that may contradict each other, for the user to decide (ADR-145). */

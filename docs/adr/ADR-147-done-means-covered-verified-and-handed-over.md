@@ -60,7 +60,8 @@ full — and found ways the system could say "done" early, lose progress, or lea
 6. **Attribution.** A continuation run recalls and records nothing; the episode credits the memories of the run that
    started the conversation (the one that showed them).
 7. **Created skills.** Their revision is previewed and read by the judge like an overlay; whether the judge read it
-   (read, not read, skipped) is logged. Each revision keeps the text before it; the user can undo the last one.
+   (read, not read, skipped) is logged. (An undo of the last revision was added, then removed at the owner's word on
+   2026-10-30: a revision passes the same gates as a new skill before it is written, and the user can delete it.)
 8. **Learning owed.** A transition to Closed or Reopened records a learning row in the same transaction
    (`learn_pending`); each round (and a project that is no longer running) pays it, once per ticket state.
 9. **Chain verdict.** Every ticket closed and correct, and the library skills unchanged.
@@ -83,7 +84,7 @@ Tests (the ones marked † were also run with their fix removed, and failed):
 - `lifecycle::review::a_cited_check_the_logs_do_not_back_needs_the_reviewers_word`,
   `dependencies_unlock_on_approve_and_merge_not_close` (plan dependencies)
 - `verification::tests` (cited checks, backing), `memory_reuse::tests::a_chain_fails_on_any_ticket_or_a_changed_library_skill`
-- `team::skills::an_agent_creates_a_skill_only_through_every_gate` (preview, undo of a revision)
+- `team::skills::an_agent_creates_a_skill_only_through_every_gate` (preview of a revision)
 - `store::core::v1_database_with_data_migrates_to_the_latest` (legacy cancels waived)
 
 Real models (VERIFICATION.md, runs of 2026-10-30): the default golden set 5/5 on DeepSeek v4.1 flash and Codex

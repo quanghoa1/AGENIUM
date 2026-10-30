@@ -252,7 +252,6 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
         .to_string();
     assert!(e9.contains("injected"), "{e9}");
     // ADR-147: the judge can read a revision of a created skill before it is applied, as it reads an overlay's.
-    let before = f.app.agent_overlay_body(t.web, "changelog-entry").unwrap();
     let (current, next) = f
         .app
         .preview_skill_update(t.web, &update(later, ""))
@@ -275,22 +274,6 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
         (rec.lesson, rec.revisions.len(), rec.revisions[0].lesson),
         (good, 1, later)
     );
-    // ADR-147: the user can undo the revision: the text before it comes back, once.
-    f.app.undo_skill_revision(t.web, "changelog-entry").unwrap();
-    assert_eq!(
-        f.app.agent_overlay_body(t.web, "changelog-entry").unwrap(),
-        before
-    );
-    assert!(f.app.created_skills(t.web).unwrap()["changelog-entry"]
-        .revisions
-        .is_empty());
-    let e10 = f
-        .app
-        .undo_skill_revision(t.web, "changelog-entry")
-        .unwrap_err()
-        .to_string();
-    assert!(e10.contains("no revision"), "{e10}");
-    f.app.apply_skill_update(t.web, &update(later, "")).unwrap();
 
     // Anti-drift: once the lesson is retired the skill is flagged once for the user.
     assert!(

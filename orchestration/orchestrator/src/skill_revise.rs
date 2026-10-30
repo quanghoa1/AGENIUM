@@ -117,7 +117,6 @@ impl App {
                 lesson_text: lesson.text.clone(),
                 reason: u.reason.trim().to_owned(),
                 at: now_iso(),
-                before: Some(current.clone()),
             });
         }
         crate::skill_create::save_created(&mem, &created)?;
@@ -131,38 +130,7 @@ impl App {
         Ok(serde_json::json!({
             "status": "revised",
             "skill": name,
-            "note": "your own skill is rewritten; the user can review, undo or delete it",
+            "note": "your own skill is rewritten; the user can review or delete it",
         }))
-    }
-
-    /// The user undoes the last revision of a skill the agent created (ADR-147): its SKILL.md goes back to the text
-    /// before it, and the revision is dropped from the record. Like reverting an overlay, one revision at a time.
-    pub fn undo_skill_revision(&self, agent: AgentId, name: &str) -> Result<()> {
-        let name = name.trim();
-        let mem = self.agent_memory_store(agent)?;
-        let mut created = self.created_skills(agent)?;
-        let c = created.get_mut(name).ok_or_else(|| {
-            OrchError::Invalid(format!("{name:?} is not a skill this agent created"))
-        })?;
-        let Some(before) = c.revisions.last().and_then(|r| r.before.clone()) else {
-            return refuse(format!(
-                "{name} has no revision that can be undone (none, or one made before revisions kept the earlier text)"
-            ));
-        };
-        let own = self
-            .skill_registry()
-            .dir_of(&Owner::Agent(agent.to_string()))
-            .join(name);
-        std::fs::write(own.join(agenium_skills::SKILL_FILE), before)?;
-        c.revisions.pop();
-        crate::skill_create::save_created(&mem, &created)?;
-        self.store().commit(None, "user", |w| {
-            w.emit(DomainEvent::AgentUpdated {
-                agent,
-                field: format!("skill_revision_undone:{name}"),
-            })
-            .map_err(OrchError::from)
-        })?;
-        Ok(())
     }
 }
