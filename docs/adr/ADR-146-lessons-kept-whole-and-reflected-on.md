@@ -37,7 +37,10 @@ follow) on DeepSeek v4.1 flash and Codex gpt-6-luna showed:
    model, or a CLI agent's `[cli]` fallback): update a skill of its own set, make a new skill, or keep it as a memory.
    What it proposes goes through the gates of a proposal made in a run (`skill_propose`, shared by both): a trusted
    lesson held in two closed tickets, the shape, one subject, no injected instructions or secrets, the judge's
-   contradiction read. Its tokens count as a `Memory` run; the outcome is in the ticket run's log.
+   contradiction read. Its tokens count as a `Memory` run; the outcome is in the ticket run's log. What was decided
+   of each lesson is kept (`lesson_reflections`): a lesson refined later (an UPDATE gives it a new id) is told what
+   was decided of its earlier version — when it went into a skill, that skill is updated (never a second skill about
+   it); when it was kept as a memory, a rewording does not make it a skill.
 4. **An agent's own skills are improved in place** (`skill_revise.rs`): `propose_skill_update` on a skill the agent
    created rewrites it in its own folder under the overlay's gates, recording the lesson as a revision.
 5. **Settling** (ADR-145): the free pass (vectors and words) after every learned episode; the judge every 10 new facts.
@@ -50,7 +53,18 @@ follow) on DeepSeek v4.1 flash and Codex gpt-6-luna showed:
 | DeepSeek (two runs after) | lessons 2 → 0 after ticket 3 (a clean ticket deleted it) and ticket 4 reopened | 1 reopen (ticket 1, by design) in each; 2 lessons, held in 1 → 2 → 3 tickets; a skill made at ticket 3 (`docs-owner-first-line`, `docs-owner-header-check`) and revised with the other lesson, and in one run again at ticket 4 when the lesson widened to handbook/ and minutes/ |
 | Codex | 5 lessons on one rule; the narrow one not blamed | 1 lesson; the narrow ones listed as misleading at ticket 3 and rewritten; a skill made at ticket 4 (`docs-team-owner-line`) |
 
-Every reflection's proposal was accepted by the gates. Learning loop (three lessons held in two closed tickets): PASS
+Every reflection's proposal was accepted by the gates.
+
+**A library skill improved from experience** (`--skill doc-writing`: the chain's agent has the library skill
+`doc-writing`; the system's file is read before and after):
+
+| Run | Before the lineage | After the lineage |
+|---|---|---|
+| DeepSeek #1 | made its own skill (read `doc-writing` as user-facing docs only) | both proven lessons written into its own copy of `doc-writing` |
+| DeepSeek #2 | its own copy of `doc-writing` updated, then the refined lesson made a second skill on the same rule | its own copy of `doc-writing` updated, nothing more |
+| Codex | two skills, one from a tool quirk first kept as a memory | one skill of its own |
+
+The system's `doc-writing` was unchanged in every run. Learning loop (three lessons held in two closed tickets): PASS
 on DeepSeek ×2, Codex and Claude Code, 0 violations, the system skill unchanged; both DeepSeek runs updated their own
 `commit-and-pr` and one made the procedure's skill (1 of 4 before); nothing was built from the fact.
 

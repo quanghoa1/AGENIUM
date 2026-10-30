@@ -280,3 +280,37 @@ async fn parallel_facts_are_not_asked_and_swapped_values_come_first() {
     assert_eq!(seen, vec![(a.min(b), a.max(b))]);
     assert_eq!(s.open_conflicts().unwrap().len(), 1);
 }
+
+/// ADR-146: the earlier versions of a lesson (what UPDATEs replaced by it), so a reflection on a refined lesson knows
+/// what was decided of the one before; a retired fact (its own tombstone) is not its own earlier version.
+#[test]
+fn a_fact_knows_its_earlier_versions() {
+    let tmp = tempfile::tempdir().unwrap();
+    let s = store(tmp.path());
+    let v1 = add(&s, "Team documents start with Owner.", &at(0.0), |_| {});
+    let v2 = s
+        .supersede(
+            v1,
+            &NewFact::fact(
+                "Team documents in deliverables/ start with Owner: docs-team.",
+                "ticket:AGN-2",
+            ),
+            Some(&at(1.0)),
+        )
+        .unwrap();
+    let v3 = s
+        .supersede(
+            v2,
+            &NewFact::fact(
+                "Every team document starts with Owner: docs-team.",
+                "ticket:AGN-3",
+            ),
+            Some(&at(2.0)),
+        )
+        .unwrap();
+    let other = add(&s, "Logs go to stdout.", &at(90.0), |_| {});
+    s.retire(other).unwrap();
+    assert_eq!(s.earlier_versions(v3).unwrap(), vec![v2, v1]);
+    assert_eq!(s.earlier_versions(v1).unwrap(), Vec::<i64>::new());
+    assert_eq!(s.earlier_versions(other).unwrap(), Vec::<i64>::new());
+}

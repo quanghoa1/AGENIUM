@@ -1,0 +1,750 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 3 fact(s)",
+    "runs": 10,
+    "steps": 42,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 466094,
+    "tokens_out": 6228,
+    "tokens_cached": 407808,
+    "cost_usd": 0.0,
+    "elapsed_ms": 249969,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "doc-writing (Overlay)"
+        ],
+        "library_unchanged": true,
+        "overlays": [
+          {
+            "base": "library",
+            "changelog": [
+              {
+                "at": "2026-10-30T01:44:05.618Z",
+                "lesson": 9,
+                "lesson_text": "When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg",
+                "patch": "",
+                "reason": "Added the lesson as a new step 5 (owner header rule applicable whenever a team document is created) and a matching byte-level verification check in Proof, keeping all existing content unchanged.",
+                "shape_notes": [],
+                "validated": [
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-2",
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-3"
+                ]
+              }
+            ],
+            "diff": "diff --git a/a/SKILL.md b/b/SKILL.md\nindex 938057c..13facc6 100644\n--- a/a/SKILL.md\n+++ b/b/SKILL.md\n@@ -3,7 +3,6 @@ name: doc-writing\n description: Writes or updates user-facing docs for a change so a reader can use it without the code. Use when a ticket changes what users see or do, or asks for a README, guide or reference.\n tags: coding docs\n ---\n-\n ## Job\n Write or update the user-facing docs for a change so a reader can use it without reading the code.\n \n@@ -11,13 +10,14 @@ Write or update the user-facing docs for a change so a reader can use it without\n A change adds or alters behaviour a user or developer relies on (a command, flag, API, config, UI).\n \n ## Steps\n-1. Find who reads this and what they need to do; write for that task, not the implementation.\n+1. Find who readers are and what they need to do; write for that task, not the implementation.\n 2. Update the right place (README, reference, changelog) rather than adding a stray file.\n 3. Lead with what it does and a working example; then the details and edge cases.\n 4. Keep it accurate: every command, flag and path must be real and current.\n+5. When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content, and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'. Acceptance criteria alone won't catch a missing or mangled header, and an agent review approval does not guarantee it survived to merge.\n \n ## Tools\n `read_file` and `grep` to find existing docs and confirm names/flags; `shell` to run any example you include and confirm it works.\n \n ## Proof\n-Show that the example you wrote actually runs (paste the command and its output), and name the file(s) you updated. Do not document a flag or path you have not verified exists.\n+Show that the example you wrote actually runs (paste the command and its output), and name the file(s) you updated. Do not document a flag or path you have not verified exists. For team documents, verify the header by checking the raw bytes (e.g. `[IO.File]::ReadAllBytes`) for the 'Owner' prefix and confirm the first line reads exactly 'Owner: docs-team' with no BOM.\n",
+            "skill": "doc-writing"
+          }
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 4,
+                "text": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acc",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since the acceptance criteria alone won't catch it."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 3,
+                "entities_linked": 3,
+                "entities_new": 4,
+                "extracted": 3,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1429,
+                "tokens_out": 654,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 3,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since the acceptance criteria alone won't catch it."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+                    "was": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since the acceptance criteria alone won't catch it."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 1,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3187,
+                "tokens_out": 1363,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 3,
+                  "folded": 0,
+                  "left": 0
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657F3M7QDA7RRY9YB4H451G",
+                "shown": 0,
+                "steps": 3
+              },
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657FBY7NWKCR5Z9GYJQ4AZV",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657G3Y2K6SNTNBQ23VH5N96",
+                "shown": 3,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657GKQ991Z5HCYCXFVM4PZ5",
+                "shown": 0,
+                "steps": 5
+              }
+            ],
+            "shown": [
+              "run 01M657G3Y2K6SNTNBQ23VH5N96 #1 hybrid Some(Lesson): When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since the acceptance criteria alone won't catch it.",
+              "run 01M657G3Y2K6SNTNBQ23VH5N96 #2 hybrid Some(Fact): In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+              "run 01M657G3Y2K6SNTNBQ23VH5N96 #3 hybrid Some(Fact): A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-2"
+                ],
+                "id": 7,
+                "text": "When creating any team document in this project, write the 'Owner: docs-team' line as the first line before the requested content, since acceptance criteria alo",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml.",
+              "[Lesson w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) When creating any team document in this project, write the 'Owner: docs-team' line as the first line before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md).",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md)."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+                    "was": "In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When creating any team document in this project, write the 'Owner: docs-team' line as the first line before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+                    "was": "When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 4,
+                "entities_new": 4,
+                "extracted": 3,
+                "helped": 3,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [
+                  "relation deliverables/ -part_of-> docs names an entity the fact does not list",
+                  "relation reports/ -part_of-> docs names an entity the fact does not list",
+                  "unknown relation type \"configures\""
+                ],
+                "tokens_in": 3563,
+                "tokens_out": 1919,
+                "updated": 2,
+                "validated": 1
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 5,
+                  "folded": 0,
+                  "left": 0
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657HEMGD7WR6J31G23D8R2N",
+                "shown": 3,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657J1T00DJDB3D470SRXKY6",
+                "shown": 0,
+                "steps": 4
+              }
+            ],
+            "shown": [
+              "run 01M657HEMGD7WR6J31G23D8R2N #1 hybrid Some(Lesson): When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+              "run 01M657HEMGD7WR6J31G23D8R2N #2 hybrid Some(Fact): In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+              "run 01M657HEMGD7WR6J31G23D8R2N #3 hybrid Some(Fact): A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-2",
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-3"
+                ],
+                "id": 9,
+                "text": "When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so t",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"os\":\"windows\",\"project\":\"docs\"}) In the docs project, shell commands run under PowerShell, so file checks use cmdlets like Get-Content instead of cat.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, the write_file tool creates missing parent directories, so a new handbook/onboarding.txt can be written even though handbook/ is not yet tracked in the repo.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md).",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any team document in this project, write the 'Owner: docs-team' line as the first line before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting."
+                  },
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+                  }
+                ]
+              },
+              {
+                "added": 2,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg",
+                    "was": "When creating any team document in this project, write the 'Owner: docs-team' line as the first line before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, the write_file tool creates missing parent directories, so a new handbook/onboarding.txt can be written even though handbook/ is not yet tracked in the repo."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, shell commands run under PowerShell, so file checks use cmdlets like Get-Content instead of cat."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 0,
+                "edges": 3,
+                "entities_linked": 3,
+                "entities_new": 6,
+                "extracted": 3,
+                "helped": 5,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3463,
+                "tokens_out": 1603,
+                "updated": 1,
+                "validated": 1
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 7,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "update",
+                    "lesson": 9,
+                    "reason": "The proven lesson is a concrete rule for writing team documents in this project — a mandatory 'Owner: docs-team' first line, UTF-8 without BOM, plus a byte-level verification check — that the doc-writing skill currently lacks. It applies exactly when that skill is used (writing/updating docs), so add the rule and verification step there rather than creating a second skill.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own copy of the skill is updated; other agents keep the base, and the user can review or revert it",
+                        "skill": "doc-writing",
+                        "status": "applied"
+                      }
+                    },
+                    "skill": "doc-writing"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657JZM8AS1GTZHJ7QB4HZ5H",
+                "shown": 5,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657KKNTC41E499DQZEYT9W7",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M657JZM8AS1GTZHJ7QB4HZ5H #1 hybrid Some(Lesson): When creating any team document in this project, write the 'Owner: docs-team' line as the first line before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+              "run 01M657JZM8AS1GTZHJ7QB4HZ5H #2 hybrid Some(Fact): In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md).",
+              "run 01M657JZM8AS1GTZHJ7QB4HZ5H #3 hybrid Some(Fact): In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+              "run 01M657JZM8AS1GTZHJ7QB4HZ5H #4 hybrid Some(Fact): The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml.",
+              "run 01M657JZM8AS1GTZHJ7QB4HZ5H #5 hybrid Some(Fact): A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-2",
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-3",
+                  "01M657F0P12D7ETMX5SWAWXBE2/ticket:AGN-4"
+                ],
+                "id": 9,
+                "text": "When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so t",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md); minutes/ is an accepted location, and a new file there is created as an untracked directory that the merge picks up.",
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, shell commands run under PowerShell; for case-sensitive content checks on files use [IO.File]::ReadAllText(...) -cmatch 'word', because Get-Content/Select-String matching is case-insensitive by default.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, the write_file tool creates missing parent directories, so a new handbook/onboarding.txt can be written even though handbook/ is not yet tracked in the repo.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg"
+                  },
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 6,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt)."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, the write_file tool creates missing parent directories, so a new handbook/onboarding.txt can be written even though handbook/ is not yet tracked in the repo."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+                  },
+                  {
+                    "exact": false,
+                    "id": 11,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, shell commands run under PowerShell, so file checks use cmdlets like Get-Content instead of cat."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, shell commands run under PowerShell; for case-sensitive content checks on files use [IO.File]::ReadAllText(...) -cmatch 'word', because Get-Content/Select-String matching is case-insensitive by default.",
+                    "was": "In the docs project, shell commands run under PowerShell, so file checks use cmdlets like Get-Content instead of cat."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md); minutes/ is an accepted location, and a new file there is created as an untracked directory that the merge picks up.",
+                    "was": "In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 3,
+                "entities_new": 1,
+                "extracted": 2,
+                "helped": 7,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3562,
+                "tokens_out": 1096,
+                "updated": 2,
+                "validated": 1
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 7,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657MZDQ8FZ2D98W7YPCKZHZ",
+                "shown": 7,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M657F233YSBM3M12Q05JWQ13",
+                "outcome": "Completed",
+                "run": "01M657NK292KGS261TNFQ8X530",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #1 hybrid Some(Lesson): When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg",
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #2 hybrid Some(Fact): In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md).",
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #3 hybrid Some(Fact): In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #4 hybrid Some(Fact): In the docs project, the write_file tool creates missing parent directories, so a new handbook/onboarding.txt can be written even though handbook/ is not yet tracked in the repo.",
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #5 hybrid Some(Fact): The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml.",
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #6 hybrid Some(Fact): A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge.",
+              "run 01M657MZDQ8FZ2D98W7YPCKZHZ #7 hybrid Some(Fact): In the docs project, shell commands run under PowerShell, so file checks use cmdlets like Get-Content instead of cat."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 9,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 95360,
+            "tokens_in": 99474,
+            "tokens_out": 1176
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 8,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 68736,
+            "tokens_in": 92681,
+            "tokens_out": 1355
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, team documents live in the directories deliverables/, reports/, handbook/ and minutes/ (per README.md); minutes/ is an accepted location, and a new file there is created as an untracked directory that the merge picks up.",
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) In the docs project, shell commands run under PowerShell; for case-sensitive content checks on files use [IO.File]::ReadAllText(...) -cmatch 'word', because Get-Content/Select-String matching is case-insensitive by default.",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, the write_file tool creates missing parent directories, so a new handbook/onboarding.txt can be written even though handbook/ is not yet tracked in the repo.",
+        "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) When creating any team document in this project, write 'Owner: docs-team' as the first line before the requested content and save it as UTF-8 without a BOM so the first line reads exactly 'Owner: docs-team'; verify by checking the raw bytes (e.g. [IO.File]::ReadAllBytes) for the 'Owner' prefix. Acceptance criteria alone won't catch this, and an agent review approval does not guarantee the pre-merg",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project is keyed AGN, uses main as main branch and the coding@1 report template, configured in agenium.toml.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In this project every team document must name its owning team on its first line as exactly 'Owner: docs-team' (for example deliverables/hello.txt).",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 15,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 136576,
+        "tokens_in": 162465,
+        "tokens_out": 2214
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 107136,
+        "tokens_in": 111474,
+        "tokens_out": 1483
+      },
+      "ticket2_facts_shown": 3,
+      "ticket2_shown": [
+        "run 01M657HEMGD7WR6J31G23D8R2N #1 hybrid: When creating any team document under deliverables/ or reports/ in this project, write the 'Owner: docs-team' line first before the requested content, since acceptance criteria alone won't catch it; an agent review approval does not guarantee the pre-merge check will pass, so verify project-wide file rules before submitting.",
+        "run 01M657HEMGD7WR6J31G23D8R2N #2 hybrid: In this project every team document placed in deliverables/ or reports/ must name its owning team on its first line as exactly 'Owner: docs-team'.",
+        "run 01M657HEMGD7WR6J31G23D8R2N #3 hybrid: A pre-merge check in this project rejects team documents whose first line is not 'Owner: docs-team', so tickets only describing file content can still fail merge."
+      ]
+    }
+  }
+]

@@ -88,6 +88,28 @@ impl AgentStore {
         })
     }
 
+    /// The earlier versions of a fact (the facts an UPDATE replaced by it, and theirs), newest first.
+    pub fn earlier_versions(&self, id: i64) -> Result<Vec<i64>, StoreError> {
+        self.db.read(|c| {
+            let mut st =
+                c.prepare_cached("SELECT id FROM fact WHERE superseded_by = ?1 AND id != ?1")?;
+            let (mut out, mut next) = (Vec::new(), vec![id]);
+            while let Some(f) = next.pop() {
+                let older = st
+                    .query_map([f], |r| r.get::<_, i64>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                for o in older {
+                    if !out.contains(&o) && o != id {
+                        out.push(o);
+                        next.push(o);
+                    }
+                }
+            }
+            out.sort_by(|a, b| b.cmp(a));
+            Ok(out)
+        })
+    }
+
     /// Every pair a verdict was given on, `(smaller id, larger id)`.
     pub fn judged_pairs(&self) -> Result<std::collections::HashSet<(i64, i64)>, StoreError> {
         self.db.read(|c| {

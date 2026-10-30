@@ -14,8 +14,10 @@ use serde_json::{json, Value};
 
 use super::Runtime;
 
-/// The lessons reflected on (agent meta: a JSON list of fact ids).
-const REFLECTED: &str = "reflected_lessons";
+/// What was decided of each lesson reflected on (agent meta: fact id -> {action, skill}). A lesson refined later (an
+/// UPDATE gives it a new id) is told what was decided of its earlier version, so a refinement updates the skill it went
+/// into, and a lesson kept as a memory does not turn into a skill by being reworded (both found on DeepSeek and Codex).
+const REFLECTIONS: &str = "lesson_reflections";
 /// Lessons reflected on after one episode at most (the rest wait for the next).
 const PER_EPISODE: usize = 2;
 
@@ -26,7 +28,9 @@ step or check it lacks: write the lesson into your own copy of that skill.\n\
 - \"new\": the lesson is a procedure you will follow again (steps for a kind of work) and no skill of yours is about it: \
 make a new skill.\n\
 - \"none\": the lesson is a single fact, the skill already says it, or it is too narrow to guide other work.\n\
-Prefer improving a skill you have over a new one. Answer with JSON only: {\"action\": \"update|new|none\", \"skill\": \
+Prefer improving a skill you have over a new one. If an earlier version of the lesson is shown with what was decided of \
+it: when it went into a skill, update that skill if this version adds something, else none (never a second skill about \
+it); when it was kept as a memory, keep this one too unless it has become a procedure. Answer with JSON only: {\"action\": \"update|new|none\", \"skill\": \
 \"<the skill to update>\", \"reason\": \"...\"}";
 
 const UPDATE: &str = "Write the lesson into your own copy of the skill below. Give the complete new body (everything \
@@ -48,8 +52,8 @@ impl Runtime {
         agent: &agenium_store::core::agents::Agent,
         mem: &AgentStore,
     ) -> Vec<Value> {
-        let mut done: Vec<i64> = mem
-            .meta(REFLECTED)
+        let mut done: std::collections::BTreeMap<i64, Value> = mem
+            .meta(REFLECTIONS)
             .ok()
             .flatten()
             .and_then(|v| serde_json::from_str(&v).ok())
@@ -62,7 +66,7 @@ impl Runtime {
                 f.kind == FactKind::Lesson
                     && !f.untrusted
                     && f.validated.len() >= 2
-                    && !done.contains(&f.id)
+                    && !done.contains_key(&f.id)
             })
             .take(PER_EPISODE)
             .collect();
@@ -75,8 +79,21 @@ impl Runtime {
         let mut out = Vec::new();
         for lesson in proven {
             let mut usage = Usage::default();
+            // What was decided of its earlier versions, the newest first.
+            let earlier: Option<Value> = mem
+                .earlier_versions(lesson.id)
+                .unwrap_or_default()
+                .iter()
+                .find_map(|id| done.get(id).cloned());
             let r = self
-                .reflect_one(agent, &lesson, provider.as_ref(), &model, &mut usage)
+                .reflect_one(
+                    agent,
+                    &lesson,
+                    earlier.as_ref(),
+                    provider.as_ref(),
+                    &model,
+                    &mut usage,
+                )
                 .await;
             if let Err(e) = self.record_side_call(
                 agent.id,
@@ -90,7 +107,10 @@ impl Runtime {
             }
             match r {
                 Ok(v) => {
-                    done.push(lesson.id);
+                    done.insert(
+                        lesson.id,
+                        json!({ "action": v["action"], "skill": v["skill"] }),
+                    );
                     out.push(v);
                 }
                 // The model could not be reached or answered nothing usable: the lesson is asked about again later.
@@ -100,7 +120,10 @@ impl Runtime {
                 }
             }
         }
-        if let Err(e) = mem.set_meta(REFLECTED, &serde_json::to_string(&done).unwrap_or_default()) {
+        if let Err(e) = mem.set_meta(
+            REFLECTIONS,
+            &serde_json::to_string(&done).unwrap_or_default(),
+        ) {
             tracing::warn!(error = %e, "the reflected lessons were not saved");
         }
         out
@@ -149,6 +172,7 @@ impl Runtime {
         &self,
         agent: &agenium_store::core::agents::Agent,
         lesson: &Fact,
+        earlier: Option<&Value>,
         provider: &dyn agenium_llm::Provider,
         model: &str,
         usage: &mut Usage,
@@ -159,8 +183,17 @@ impl Runtime {
             .iter()
             .map(|s| format!("- {}: {}\n", s.meta.name, s.meta.description))
             .collect();
+        let before = match earlier {
+            Some(e) => match (e["action"].as_str(), e["skill"].as_str()) {
+                (Some("update" | "new"), Some(skill)) => format!(
+                    "\n## An earlier version of this lesson\nIt went into your skill {skill}.\n"
+                ),
+                _ => "\n## An earlier version of this lesson\nIt was kept as a memory, not a skill.\n".into(),
+            },
+            None => String::new(),
+        };
         let about = format!(
-            "## Lesson #{} (held in: {})\n{}\nWhen it applies: {}\n\n## Your skills\n{}",
+            "## Lesson #{} (held in: {})\n{}\nWhen it applies: {}\n{before}\n## Your skills\n{}",
             lesson.id,
             lesson.validated.join(", "),
             lesson.text,

@@ -1,0 +1,802 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 12 steps; recall showed 4 fact(s)",
+    "runs": 12,
+    "steps": 51,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 2,
+    "tokens_in": 1068209,
+    "tokens_out": 4137,
+    "tokens_cached": 862592,
+    "cost_usd": 0.0,
+    "elapsed_ms": 309051,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "doc-writing (Library)",
+          "docs-owner-layout (Agent)"
+        ],
+        "library_unchanged": true,
+        "overlays": [],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file th",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/ and reports/."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 4,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, team documents live under deliverables/ and reports/."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "Lesson: in the docs project every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; otherwise the pre-merge check fails."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 6,
+                "entities_linked": 2,
+                "entities_new": 9,
+                "extracted": 4,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1547,
+                "tokens_out": 1192,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; otherwise the pre-merge check fails."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, team documents live under deliverables/ and reports/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+                    "was": "Lesson: in the docs project every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; otherwise the pre-merge check fails."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 3,
+                "deleted": 0,
+                "edges": 0,
+                "entities_linked": 3,
+                "entities_new": 0,
+                "extracted": 3,
+                "helped": 4,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [
+                  "UPDATE of id 2 that was not shown (or twice)",
+                  "relation Owner: docs-team -fixes-> pre-merge check names an entity the fact does not list"
+                ],
+                "tokens_in": 2919,
+                "tokens_out": 3941,
+                "updated": 1,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657S2J5P4G0WABZXDJ6J0P1",
+                "shown": 0,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657SK7N1SESVQWY0B63V7S8",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657T9X6YDP3SCDWP4GGPG26",
+                "shown": 4,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657TQ7N3N9SX2XJNHK250F7",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M657T9X6YDP3SCDWP4GGPG26 #1 hybrid Some(Lesson): Lesson: in the docs project every team document in deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; otherwise the pre-merge check fails.",
+              "run 01M657T9X6YDP3SCDWP4GGPG26 #2 hybrid Some(Fact): The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+              "run 01M657T9X6YDP3SCDWP4GGPG26 #3 hybrid Some(Fact): In the docs project, team documents live under deliverables/ and reports/.",
+              "run 01M657T9X6YDP3SCDWP4GGPG26 #4 hybrid Some(Fact): The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657S1K16EDRDCFP7SW30AG3/ticket:AGN-2"
+                ],
+                "id": 5,
+                "text": "Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file th",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/.",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/, reports/, handbook/ and minutes/ according to the root README.md.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/ and reports/."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, team documents live under deliverables/ and reports/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+                  }
+                ]
+              },
+              {
+                "added": 1,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, team documents live under deliverables/, reports/, handbook/ and minutes/ according to the root README.md."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/.",
+                    "was": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 5,
+                "entities_new": 2,
+                "extracted": 4,
+                "helped": 4,
+                "misleading": [],
+                "noop": 2,
+                "rejected": [
+                  "external content may not rewrite trusted memory 1; stored beside it as untrusted"
+                ],
+                "tokens_in": 2955,
+                "tokens_out": 1560,
+                "updated": 1,
+                "validated": 1
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 5,
+                  "folded": 0,
+                  "left": 0
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657VZXNS9E5KS7P8KBYV08G",
+                "shown": 4,
+                "steps": 9
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657WJY7XH6JWK49NAHAMJNM",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M657VZXNS9E5KS7P8KBYV08G #1 hybrid Some(Lesson): Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+              "run 01M657VZXNS9E5KS7P8KBYV08G #2 hybrid Some(Fact): The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+              "run 01M657VZXNS9E5KS7P8KBYV08G #3 hybrid Some(Fact): In the docs project, team documents live under deliverables/ and reports/.",
+              "run 01M657VZXNS9E5KS7P8KBYV08G #4 hybrid Some(Fact): The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 12,
+                "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory t",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M657S1K16EDRDCFP7SW30AG3/ticket:AGN-2"
+                ],
+                "id": 10,
+                "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact fir",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; create the file with write_file instead of trying to list it first.",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/, notes/ and handbook/ (the latter containing onboarding.txt).",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content, and this must be in place at creation time; the pre-merge check enforces this for every team document and rejects the merge otherwise, so adding the owner line only after a failed pre-merge check wastes a reopen ",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/, reports/, handbook/ and minutes/ according to the root README.md."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, team documents live under deliverables/ and reports/."
+                  },
+                  {
+                    "exact": true,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content; the pre-merge check enforces this for every team document and rejects the merge otherwise.",
+                    "was": "Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "delete",
+                    "text": "In the docs project, team documents live under deliverables/ and reports/."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet (e.g. handbook/) returns not_a_directory; create the file with write_file instead of trying to list it first.",
+                    "was": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 1,
+                "edges": 3,
+                "entities_linked": 5,
+                "entities_new": 1,
+                "extracted": 4,
+                "helped": 0,
+                "misleading": [
+                  5,
+                  1
+                ],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3204,
+                "tokens_out": 3121,
+                "updated": 2,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content; the pre-merge check enforces this for every team document and rejects the merge otherwise."
+                  },
+                  {
+                    "exact": true,
+                    "id": 9,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet (e.g. handbook/) returns not_a_directory; create the file with write_file instead of trying to list it first."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content, and this must be in place at creation time; the pre-merge check enforces this for every team document and rejects the merge otherwise, so adding the owner line only after a failed pre-merge check wastes a reopen ",
+                    "was": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content; the pre-merge check enforces this for every team document and rejects the merge otherwise."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/, notes/ and handbook/ (the latter containing onboarding.txt).",
+                    "was": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; create the file with write_file instead of trying to list it first.",
+                    "was": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet (e.g. handbook/) returns not_a_directory; create the file with write_file instead of trying to list it first."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 6,
+                "entities_linked": 7,
+                "entities_new": 2,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3267,
+                "tokens_out": 1620,
+                "updated": 3,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657XCEPQWES2RMXKF3WZ0KQ",
+                "shown": 4,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657XVS63297YQEVFX0VQ1JG",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657Z3ECFVGW4C0GT32PP7EY",
+                "shown": 3,
+                "steps": 4
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M657ZK0XXPFT3BRQX35VYWCG",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M657XCEPQWES2RMXKF3WZ0KQ #1 hybrid Some(Lesson): Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+              "run 01M657XCEPQWES2RMXKF3WZ0KQ #2 hybrid Some(Fact): The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/.",
+              "run 01M657XCEPQWES2RMXKF3WZ0KQ #3 hybrid Some(Fact): In the docs project, team documents live under deliverables/ and reports/.",
+              "run 01M657XCEPQWES2RMXKF3WZ0KQ #4 hybrid Some(Fact): The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root.",
+              "run 01M657Z3ECFVGW4C0GT32PP7EY #1 hybrid Some(Lesson): Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content; the pre-merge check enforces this for every team document and rejects the merge otherwise.",
+              "run 01M657Z3ECFVGW4C0GT32PP7EY #2 hybrid Some(Lesson): The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet (e.g. handbook/) returns not_a_directory; create the file with write_file instead of trying to list it first.",
+              "run 01M657Z3ECFVGW4C0GT32PP7EY #3 hybrid Some(Fact): The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/ and notes/."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657S1K16EDRDCFP7SW30AG3/ticket:AGN-2",
+                  "01M657S1K16EDRDCFP7SW30AG3/ticket:AGN-4"
+                ],
+                "id": 14,
+                "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must follow the layout: line 1 'Owner: docs-t",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M657S1K16EDRDCFP7SW30AG3/ticket:AGN-4"
+                ],
+                "id": 13,
+                "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory t",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must follow the layout: line 1 'Owner: docs-team', blank line, then a short title line and optional body (as in handbook/onboarding.txt and minutes/standup.txt). The owner line must be in place at creation time; the pre-merge check enforces this for every team document and rejects the",
+              "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; instead of trying to list it first, just create the file with write_file, which creates missing parent directories automatically (e.g. writing minutes/standup.txt created minutes/ with n",
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/, notes/ and handbook/ (the latter containing onboarding.txt).",
+              "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/, reports/, handbook/ and minutes/ according to the root README.md."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content, and this must be in place at creation time; the pre-merge check enforces this for every team document and rejects the merge otherwise, so adding the owner line only after a failed pre-merge check wastes a reopen "
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; create the file with write_file instead of trying to list it first."
+                  },
+                  {
+                    "exact": true,
+                    "id": 11,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/, notes/ and handbook/ (the latter containing onboarding.txt)."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; instead of trying to list it first, just create the file with write_file, which creates missing parent directories automatically (e.g. writing minutes/standup.txt created minutes/ with n",
+                    "was": "The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; create the file with write_file instead of trying to list it first."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must follow the layout: line 1 'Owner: docs-team', blank line, then a short title line and optional body (as in handbook/onboarding.txt and minutes/standup.txt). The owner line must be in place at creation time; the pre-merge check enforces this for every team document and rejects the",
+                    "was": "Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content, and this must be in place at creation time; the pre-merge check enforces this for every team document and rejects the merge otherwise, so adding the owner line only after a failed pre-merge check wastes a reopen "
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 3,
+                "entities_new": 2,
+                "extracted": 2,
+                "helped": 3,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 2989,
+                "tokens_out": 1434,
+                "updated": 2,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "new",
+                    "lesson": 14,
+                    "reason": "The lesson is a repeatable procedure for a distinct kind of work: creating team documents (deliverables/, reports/, handbook/, minutes/) in the docs project, which must be written with the 'Owner: docs-team' line, a blank line, then title/optional body, and validated against the pre-merge check. My only existing skill, doc-writing, covers user-facing docs changed by a ticket (README/guide/reference), not internal team-document creation conventions, so it is not an applicable home for this rule.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding",
+                        "skill": "docs-owner-layout",
+                        "status": "created"
+                      }
+                    },
+                    "skill": "docs-owner-layout"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M6580MPJSR30M0DDK5SX80JP",
+                "shown": 3,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657S26M5WR9TK837SRVXRFN",
+                "outcome": "Completed",
+                "run": "01M65813A37F4FDCXZC27V4G4Y",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M6580MPJSR30M0DDK5SX80JP #1 hybrid Some(Lesson): Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must have 'Owner: docs-team' as its exact first line before any content, and this must be in place at creation time; the pre-merge check enforces this for every team document and rejects the merge otherwise, so adding the owner line only after a failed pre-merge check wastes a reopen ",
+              "run 01M6580MPJSR30M0DDK5SX80JP #2 hybrid Some(Lesson): The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; create the file with write_file instead of trying to list it first.",
+              "run 01M6580MPJSR30M0DDK5SX80JP #3 hybrid Some(Fact): The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/, notes/ and handbook/ (the latter containing onboarding.txt)."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": false,
+            "merge_failures": 1,
+            "reopened": 1,
+            "runs": 4,
+            "status": "Closed",
+            "steps": 15,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 269056,
+            "tokens_in": 329056,
+            "tokens_out": 1263
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 9,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 157824,
+            "tokens_in": 195090,
+            "tokens_out": 745
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\"",
+        "AGN-3: handbook/onboarding.txt: \"Onboarding\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) Lesson: in the docs project every team document, wherever it lives (deliverables/, reports/, handbook/, minutes/), must follow the layout: line 1 'Owner: docs-team', blank line, then a short title line and optional body (as in handbook/onboarding.txt and minutes/standup.txt). The owner line must be in place at creation time; the pre-merge check enforces this for every team document and rejects the",
+        "[Lesson w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root. In the docs project, a directory that has not been created yet returns not_a_directory; instead of trying to list it first, just create the file with write_file, which creates missing parent directories automatically (e.g. writing minutes/standup.txt created minutes/ with n",
+        "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/, reports/, notes/ and handbook/ (the latter containing onboarding.txt).",
+        "[Fact untrusted w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/, reports/, handbook/ and minutes/ according to the root README.md."
+      ],
+      "memories_before_ticket2": [
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, team documents live under deliverables/ and reports/."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 15,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 265472,
+        "tokens_in": 339121,
+        "tokens_out": 1383
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 12,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 170240,
+        "tokens_in": 204942,
+        "tokens_out": 746
+      },
+      "ticket2_facts_shown": 4,
+      "ticket2_shown": [
+        "run 01M657VZXNS9E5KS7P8KBYV08G #1 hybrid: Lesson: in the docs project every team document under deliverables/ or reports/ must have its first line exactly 'Owner: docs-team'; when creating a new file there, write 'Owner: docs-team' as the exact first line before any content, otherwise the pre-merge check fails and the merge is rejected.",
+        "run 01M657VZXNS9E5KS7P8KBYV08G #2 hybrid: The docs project repo root contains README.md, agenium.toml, artifacts/, deliverables/ and notes/.",
+        "run 01M657VZXNS9E5KS7P8KBYV08G #3 hybrid: In the docs project, team documents live under deliverables/ and reports/.",
+        "run 01M657VZXNS9E5KS7P8KBYV08G #4 hybrid: The list_dir tool errors with invalid_path when given an empty path; omit the path or pass a directory name to list the root."
+      ]
+    }
+  }
+]

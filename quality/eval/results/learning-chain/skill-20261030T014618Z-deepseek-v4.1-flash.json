@@ -1,0 +1,860 @@
+[
+  {
+    "id": "memory-reuse-on",
+    "passed": true,
+    "closed": true,
+    "detail": "ticket 2: first merge passed, 0 merge failure(s), 10 steps; recall showed 6 fact(s)",
+    "runs": 10,
+    "steps": 47,
+    "tool_errors": 0,
+    "error_codes": {},
+    "errors": [],
+    "tools": {},
+    "outcomes": [],
+    "reopened": 1,
+    "tokens_in": 532100,
+    "tokens_out": 7398,
+    "tokens_cached": 475904,
+    "cost_usd": 0.0,
+    "elapsed_ms": 328491,
+    "learning": {
+      "chain": {
+        "agent_skills": [
+          "doc-writing (Overlay)"
+        ],
+        "library_unchanged": true,
+        "overlays": [
+          {
+            "base": "library",
+            "changelog": [
+              {
+                "at": "2026-10-30T01:45:12.105Z",
+                "lesson": 11,
+                "lesson_text": "In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md.",
+                "patch": "",
+                "reason": "Added the docs-project team-document format and location as a new step with a pre-submit check, leaving the existing body unchanged.",
+                "shape_notes": [],
+                "validated": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-3"
+                ]
+              },
+              {
+                "at": "2026-10-30T01:45:26.165Z",
+                "lesson": 2,
+                "lesson_text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check.",
+                "patch": "",
+                "reason": "Added the lesson's ordering rule (write the `Owner: docs-team` header line first) into step 5, where team-document header requirements already live, keeping all existing wording unchanged and matching the skill's imperative style.",
+                "shape_notes": [],
+                "validated": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-3"
+                ]
+              }
+            ],
+            "diff": "diff --git a/a/SKILL.md b/b/SKILL.md\nindex 938057c..40406fa 100644\n--- a/a/SKILL.md\n+++ b/b/SKILL.md\n@@ -3,7 +3,6 @@ name: doc-writing\n description: Writes or updates user-facing docs for a change so a reader can use it without the code. Use when a ticket changes what users see or do, or asks for a README, guide or reference.\n tags: coding docs\n ---\n-\n ## Job\n Write or update the user-facing docs for a change so a reader can use it without reading the code.\n \n@@ -15,6 +14,7 @@ A change adds or alters behaviour a user or developer relies on (a command, flag\n 2. Update the right place (README, reference, changelog) rather than adding a stray file.\n 3. Lead with what it does and a working example; then the details and edge cases.\n 4. Keep it accurate: every command, flag and path must be real and current.\n+5. For team documents in the docs project, use exactly two lines: line 1 must be exactly `Owner: docs-team` and line 2 is the document's content word. Write the `Owner: docs-team` header line first, before drafting the content. Put team documents in `deliverables/`, `reports/`, `handbook/` or `minutes/` per `README.md`. Before calling `submit_report`, check the file has both lines; a file containing only the requested content fails the pre-merge check.\n \n ## Tools\n `read_file` and `grep` to find existing docs and confirm names/flags; `shell` to run any example you include and confirm it works.\n",
+            "skill": "doc-writing"
+          }
+        ],
+        "steps": [
+          {
+            "lessons_after": [
+              {
+                "held_in": [],
+                "id": 5,
+                "text": "In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, repor",
+                "untrusted": false
+              },
+              {
+                "held_in": [],
+                "id": 2,
+                "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merg",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+              "[Fact w=1.00] (ticket:AGN-1 {}) Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+            ],
+            "memory_ops": [
+              {
+                "recalled": []
+              },
+              {
+                "added": 4,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must have the first line exactly 'Owner: docs-team'; the pre-merge check enforces this."
+                  },
+                  {
+                    "kind": "lesson",
+                    "op": "add",
+                    "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "Shell commands in the docs project worktree run in PowerShell on Windows (Get-Item, Get-Content, Select-String available; backslash paths)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 0,
+                "deleted": 0,
+                "edges": 4,
+                "entities_linked": 5,
+                "entities_new": 6,
+                "extracted": 4,
+                "helped": 0,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 1690,
+                "tokens_out": 892,
+                "updated": 0,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 4,
+                  "folded": 0,
+                  "left": 0
+                }
+              },
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml."
+                  },
+                  {
+                    "exact": true,
+                    "id": 1,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, every team document placed in deliverables/ or reports/ must have the first line exactly 'Owner: docs-team'; the pre-merge check enforces this."
+                  },
+                  {
+                    "exact": false,
+                    "id": 4,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Shell commands in the docs project worktree run in PowerShell on Windows (Get-Item, Get-Content, Select-String available; backslash paths)."
+                  }
+                ]
+              },
+              {
+                "added": 3,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+                    "was": "In the docs project, every team document placed in deliverables/ or reports/ must have the first line exactly 'Owner: docs-team'; the pre-merge check enforces this."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "add",
+                    "text": "Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+                    "was": "Shell commands in the docs project worktree run in PowerShell on Windows (Get-Item, Get-Content, Select-String available; backslash paths)."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 2,
+                "deleted": 0,
+                "edges": 5,
+                "entities_linked": 8,
+                "entities_new": 8,
+                "extracted": 5,
+                "helped": 4,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [
+                  "DELETE of trusted memory 2 without a trusted new fact that contradicts it",
+                  "external content may not rewrite trusted memory 3; stored beside it as untrusted"
+                ],
+                "tokens_in": 4524,
+                "tokens_out": 8909,
+                "updated": 2,
+                "validated": 0
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 7,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657F2W8681SMM3X85YV6YYD",
+                "shown": 0,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657FKXE0QZ5TK3ZV525PN6J",
+                "shown": 0,
+                "steps": 2
+              },
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657G5SZYZQD83HH5Q15T1YY",
+                "shown": 4,
+                "steps": 7
+              },
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657GXWWM41XEM67PX3PQV5P",
+                "shown": 0,
+                "steps": 3
+              }
+            ],
+            "shown": [
+              "run 01M657G5SZYZQD83HH5Q15T1YY #1 hybrid Some(Lesson): When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check.",
+              "run 01M657G5SZYZQD83HH5Q15T1YY #2 hybrid Some(Fact): The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "run 01M657G5SZYZQD83HH5Q15T1YY #3 hybrid Some(Fact): In the docs project, every team document placed in deliverables/ or reports/ must have the first line exactly 'Owner: docs-team'; the pre-merge check enforces this.",
+              "run 01M657G5SZYZQD83HH5Q15T1YY #4 hybrid Some(Fact): Shell commands in the docs project worktree run in PowerShell on Windows (Get-Item, Get-Content, Select-String available; backslash paths)."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-1"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2"
+                ],
+                "id": 5,
+                "text": "In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, repor",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2"
+                ],
+                "id": 2,
+                "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merg",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml."
+                  },
+                  {
+                    "exact": true,
+                    "id": 8,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks."
+                  },
+                  {
+                    "exact": false,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+                    "was": "Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 6,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 2,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 6,
+                "misleading": [],
+                "noop": 1,
+                "rejected": [],
+                "tokens_in": 3410,
+                "tokens_out": 1050,
+                "updated": 1,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 7,
+                  "folded": 0,
+                  "left": 1
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657KDEG3TKX9KE7A6FDNXN4",
+                "shown": 6,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657M0BCFEY2T3QR45Z6A9R1",
+                "shown": 0,
+                "steps": 4
+              }
+            ],
+            "shown": [
+              "run 01M657KDEG3TKX9KE7A6FDNXN4 #1 hybrid Some(Lesson): In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+              "run 01M657KDEG3TKX9KE7A6FDNXN4 #2 hybrid Some(Lesson): When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check.",
+              "run 01M657KDEG3TKX9KE7A6FDNXN4 #3 hybrid Some(Fact): The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "run 01M657KDEG3TKX9KE7A6FDNXN4 #4 hybrid Some(Fact): Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting.",
+              "run 01M657KDEG3TKX9KE7A6FDNXN4 #5 hybrid Some(Fact): In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "run 01M657KDEG3TKX9KE7A6FDNXN4 #6 hybrid Some(Fact): Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-2"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-3"
+                ],
+                "id": 11,
+                "text": "In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containin",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-3"
+                ],
+                "id": 2,
+                "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merg",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ is a valid team-document location but may not exist in the worktree until a file is written there.",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 5,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks."
+                  },
+                  {
+                    "exact": false,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "lesson",
+                    "op": "update",
+                    "text": "In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md.",
+                    "was": "In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge."
+                  },
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ is a valid team-document location but may not exist in the worktree until a file is written there.",
+                    "was": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 2,
+                "entities_linked": 6,
+                "entities_new": 0,
+                "extracted": 2,
+                "helped": 6,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3809,
+                "tokens_out": 1662,
+                "updated": 2,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 7,
+                  "folded": 0,
+                  "left": 2
+                }
+              },
+              {
+                "reflected": [
+                  {
+                    "action": "update",
+                    "lesson": 11,
+                    "reason": "The lesson is a repeatable check to apply before submit_report when creating/editing team documents in the docs project (two-line format: 'Owner: docs-team' then the content word, in deliverables/, reports/, handbook/, minutes/). doc-writing is the skill about producing documents and currently lacks this pre-submission format check, so add it there rather than creating a second, narrower skill.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own copy of the skill is updated; other agents keep the base, and the user can review or revert it",
+                        "skill": "doc-writing",
+                        "status": "applied"
+                      }
+                    },
+                    "skill": "doc-writing"
+                  },
+                  {
+                    "action": "update",
+                    "lesson": 2,
+                    "reason": "The lesson is a repeatable check for writing team documents, which fits doc-writing's scope; the skill lacks the step of adding the 'Owner: docs-team' header line to documents under deliverables/ or reports/ in the docs project before submitting, which the pre-merge check requires.",
+                    "result": {
+                      "accepted": {
+                        "note": "your own copy of the skill is updated; other agents keep the base, and the user can review or revert it",
+                        "skill": "doc-writing",
+                        "status": "applied"
+                      }
+                    },
+                    "skill": "doc-writing"
+                  }
+                ]
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657MTJBSWPQAN2VA94RV0VH",
+                "shown": 6,
+                "steps": 6
+              },
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657NEE31N2BZQPWN93Y4DQ9",
+                "shown": 0,
+                "steps": 5
+              }
+            ],
+            "shown": [
+              "run 01M657MTJBSWPQAN2VA94RV0VH #1 hybrid Some(Lesson): In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+              "run 01M657MTJBSWPQAN2VA94RV0VH #2 hybrid Some(Lesson): When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check.",
+              "run 01M657MTJBSWPQAN2VA94RV0VH #3 hybrid Some(Fact): Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+              "run 01M657MTJBSWPQAN2VA94RV0VH #4 hybrid Some(Fact): The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "run 01M657MTJBSWPQAN2VA94RV0VH #5 hybrid Some(Fact): In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "run 01M657MTJBSWPQAN2VA94RV0VH #6 hybrid Some(Fact): Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-3"
+          },
+          {
+            "lessons_after": [
+              {
+                "held_in": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-3",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-4"
+                ],
+                "id": 11,
+                "text": "In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containin",
+                "untrusted": false
+              },
+              {
+                "held_in": [
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-2",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-3",
+                  "01M657F0P1JHS7WS6W0CESCEGM/ticket:AGN-4"
+                ],
+                "id": 2,
+                "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merg",
+                "untrusted": false
+              }
+            ],
+            "memories_after": [
+              "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ and minutes/ are valid team-document locations but may not exist in the worktree until a file is first written there, and write_file creates the missing parent directory alo",
+              "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md.",
+              "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+            ],
+            "memory_ops": [
+              {
+                "recalled": [
+                  {
+                    "exact": true,
+                    "id": 11,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md."
+                  },
+                  {
+                    "exact": true,
+                    "id": 2,
+                    "kind": "lesson",
+                    "shared": false,
+                    "text": "When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+                  },
+                  {
+                    "exact": true,
+                    "id": 12,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ is a valid team-document location but may not exist in the worktree until a file is written there."
+                  },
+                  {
+                    "exact": true,
+                    "id": 10,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree."
+                  },
+                  {
+                    "exact": true,
+                    "id": 3,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml."
+                  },
+                  {
+                    "exact": true,
+                    "id": 7,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks."
+                  },
+                  {
+                    "exact": false,
+                    "id": 9,
+                    "kind": "fact",
+                    "shared": false,
+                    "text": "Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+                  }
+                ]
+              },
+              {
+                "added": 0,
+                "changes": [
+                  {
+                    "kind": "fact",
+                    "op": "update",
+                    "text": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ and minutes/ are valid team-document locations but may not exist in the worktree until a file is first written there, and write_file creates the missing parent directory alo",
+                    "was": "The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ is a valid team-document location but may not exist in the worktree until a file is written there."
+                  }
+                ],
+                "consolidated": 0,
+                "decayed": 1,
+                "deleted": 0,
+                "edges": 1,
+                "entities_linked": 3,
+                "entities_new": 0,
+                "extracted": 1,
+                "helped": 7,
+                "misleading": [],
+                "noop": 0,
+                "rejected": [],
+                "tokens_in": 3618,
+                "tokens_out": 1236,
+                "updated": 1,
+                "validated": 2
+              },
+              {
+                "settled": {
+                  "asked": 0,
+                  "conflicts": 0,
+                  "facts": 7,
+                  "folded": 0,
+                  "left": 3
+                }
+              }
+            ],
+            "runs": [
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657QE2KV8QQGP1VYRJ49EB0",
+                "shown": 7,
+                "steps": 5
+              },
+              {
+                "agent": "agent_01M657F1Y04NQXRS09Q1NR63QR",
+                "outcome": "Completed",
+                "run": "01M657R40SK74VCMCJMEATX7Y6",
+                "shown": 0,
+                "steps": 4
+              }
+            ],
+            "shown": [
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #1 hybrid Some(Lesson): In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md.",
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #2 hybrid Some(Lesson): When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check.",
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #3 hybrid Some(Fact): The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ is a valid team-document location but may not exist in the worktree until a file is written there.",
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #4 hybrid Some(Fact): Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #5 hybrid Some(Fact): The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #6 hybrid Some(Fact): In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+              "run 01M657QE2KV8QQGP1VYRJ49EB0 #7 hybrid Some(Fact): Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+            ],
+            "skill_calls": [],
+            "ticket": "AGN-4"
+          }
+        ],
+        "tickets": [
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 11,
+            "ticket": "AGN-3",
+            "tickets_in_project": 3,
+            "tokens_cached": 118912,
+            "tokens_in": 122547,
+            "tokens_out": 1680
+          },
+          {
+            "closed": true,
+            "correct": true,
+            "cost_usd": 0.0,
+            "files_after": [
+              "README.md",
+              "agenium.toml",
+              "deliverables/hello.txt",
+              "handbook/onboarding.txt",
+              "minutes/standup.txt",
+              "reports/weekly.txt"
+            ],
+            "first_merge_ok": true,
+            "merge_failures": 0,
+            "reopened": 0,
+            "runs": 2,
+            "status": "Closed",
+            "steps": 9,
+            "ticket": "AGN-4",
+            "tickets_in_project": 4,
+            "tokens_cached": 81280,
+            "tokens_in": 105962,
+            "tokens_out": 1767
+          }
+        ]
+      },
+      "check_rejected": [
+        "AGN-1: deliverables/hello.txt: \"hello\""
+      ],
+      "embedder": "bge-small-en-v1.5",
+      "memories_after": [
+        "[Fact w=1.00] (ticket:AGN-4 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/. handbook/ and minutes/ are valid team-document locations but may not exist in the worktree until a file is first written there, and write_file creates the missing parent directory alo",
+        "[Lesson w=1.00] (ticket:AGN-3 {\"project\":\"docs\"}) In the docs project, team documents use exactly two lines: line 1 must be exactly 'Owner: docs-team' and line 2 is the document's content word; a file containing only the requested content fails the pre-merge check. Team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md.",
+        "[Fact w=1.00] (ticket:AGN-2 {\"project\":\"docs\"}) Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting; in the docs project, write_file also creates a new file together with its parent directory when that directory does not yet exist in the worktree.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+      ],
+      "memories_before_ticket2": [
+        "[Fact w=1.00] (ticket:AGN-1 {\"os\":\"windows\",\"project\":\"docs\"}) Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines.",
+        "[Fact w=1.00] (ticket:AGN-1 {}) Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+        "[Fact untrusted w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml; README.md lists team document locations as deliverables/, reports/, handbook/ and minutes/.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+        "[Fact w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+        "[Lesson w=1.00] (ticket:AGN-1 {\"project\":\"docs\"}) When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check."
+      ],
+      "memory": true,
+      "ticket1": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt"
+        ],
+        "first_merge_ok": false,
+        "merge_failures": 1,
+        "reopened": 1,
+        "runs": 4,
+        "status": "Closed",
+        "steps": 17,
+        "ticket": "AGN-1",
+        "tickets_in_project": 1,
+        "tokens_cached": 168192,
+        "tokens_in": 192782,
+        "tokens_out": 2571
+      },
+      "ticket2": {
+        "closed": true,
+        "correct": true,
+        "cost_usd": 0.0,
+        "files_after": [
+          "README.md",
+          "agenium.toml",
+          "deliverables/hello.txt",
+          "reports/weekly.txt"
+        ],
+        "first_merge_ok": true,
+        "merge_failures": 0,
+        "reopened": 0,
+        "runs": 2,
+        "status": "Closed",
+        "steps": 10,
+        "ticket": "AGN-2",
+        "tickets_in_project": 2,
+        "tokens_cached": 107520,
+        "tokens_in": 110809,
+        "tokens_out": 1380
+      },
+      "ticket2_facts_shown": 6,
+      "ticket2_shown": [
+        "run 01M657KDEG3TKX9KE7A6FDNXN4 #1 hybrid: In the docs project, the pre-merge check requires every team document's first line to be exactly 'Owner: docs-team'; team documents live in deliverables/, reports/, handbook/ and minutes/ per README.md, and a file containing only the requested content fails the merge.",
+        "run 01M657KDEG3TKX9KE7A6FDNXN4 #2 hybrid: When adding any document under deliverables/ or reports/ in the docs project, write the 'Owner: docs-team' header line first, or the merge fails at the pre-merge check.",
+        "run 01M657KDEG3TKX9KE7A6FDNXN4 #3 hybrid: The docs project repo contains deliverables/, reports/, notes/, artifacts/ (each with .gitkeep), README.md and agenium.toml.",
+        "run 01M657KDEG3TKX9KE7A6FDNXN4 #4 hybrid: Agenium's write_file tool refuses to overwrite an existing file until it has been opened with read_file (error code read_first), so read before rewriting.",
+        "run 01M657KDEG3TKX9KE7A6FDNXN4 #5 hybrid: In the docs project, agenium.toml has an empty [checks] pre_merge value yet a pre-merge check is still enforced, so the config file does not list all active checks.",
+        "run 01M657KDEG3TKX9KE7A6FDNXN4 #6 hybrid: Shell commands in the docs project worktree run in PowerShell on Windows, so use Get-Item, Get-Content, Select-String and backslash paths; byte-level checks work via [IO.File]::ReadAllBytes and ReadAllLines."
+      ]
+    }
+  }
+]
