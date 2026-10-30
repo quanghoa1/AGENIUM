@@ -4,68 +4,34 @@
 use super::*;
 
 impl Runtime {
-    /// Delivers `text` to the project's Lead (or Solo agent) if it is running now: it reads it before its next model
-    /// request (ADR-104). `false` when it is not running (or runs through a vendor CLI), so a new turn is needed.
+    /// Queues `text` for the project's Lead (or Solo agent) when it is running now (ADR-149): its next chat turn takes
+    /// it, and until then the user can change or take it back. `false` when the Lead is not running (a chat turn
+    /// answers at once instead); the text is not stored then.
     pub fn steer(&self, project: ProjectId, text: &str) -> Result<bool> {
         let Some(lead) = self.app.team_of_project(project)?.and_then(|(t, _)| t.lead) else {
             return Ok(false);
         };
-        let map = self.steering.lock().unwrap_or_else(|e| e.into_inner());
-        let Some(s) = map.get(&lead).and_then(|qs| recipient(qs)) else {
+        if !self.lead_busy(lead) {
             return Ok(false);
-        };
-        s.q.lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(text.to_owned());
-        tracing::info!(%project, "message delivered to the running Lead");
+        }
+        self.app.post_lead_message(project, text)?;
+        tracing::info!(%project, "message queued for the busy Lead");
         Ok(true)
     }
 
     /// One chat turn of the user with the Lead/Solo (discovery, spec, plan, ticket creation). The conversation is kept
-    /// per project in the Lead's private database. When the Lead is running already, the message goes to that run.
+    /// per project in the Lead's private database. The message is stored first (ADR-147); when the Lead is busy it
+    /// waits in the queue for the Lead's next chat turn (ADR-149).
     pub async fn chat(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
-        // ADR-147: the message is stored before anything that waits, so a crash before the Lead's turn loses nothing.
         if !user_text.trim().is_empty() && self.app.team_of_project(project)?.is_some() {
             self.app.post_lead_message(project, user_text)?;
         }
-        self.deliver_to_lead(project, user_text).await
+        self.deliver_queued(project).await
     }
 
-    /// The Lead's turn on a message already stored with [`App::post_lead_message`] (`chat` stores and delivers).
-    pub async fn deliver_to_lead(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
-        // Messages left after the Lead's last step open this turn; a turn that fails keeps them for the next one.
-        let left = self
-            .steer_left
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&project)
-            .unwrap_or_default();
-        let text = if left.is_empty() {
-            user_text.to_owned()
-        } else {
-            format!("{}\n\n{user_text}", left.join("\n\n"))
-        };
-        let mut opened = OpenRun::new(&self.app);
-        let r = self.chat_run(project, &text, &mut opened.run).await;
-        if r.is_ok() {
-            self.left_failures
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .remove(&project);
-        } else if !left.is_empty() {
-            let mut m = self.steer_left.lock().unwrap_or_else(|e| e.into_inner());
-            let v = m.entry(project).or_default();
-            v.splice(0..0, left);
-        }
-        self.end_on_error(opened.take(), r)
-    }
-
-    async fn chat_run(
-        &self,
-        project: ProjectId,
-        user_text: &str,
-        opened: &mut Option<RunId>,
-    ) -> Result<RunSummary> {
+    /// The Lead's chat turn on every message in the queue, oldest first; when the Lead is busy they stay queued and
+    /// the summary says so (`queued`). Messages a turn took and did not answer go back to the queue.
+    pub async fn deliver_queued(&self, project: ProjectId) -> Result<RunSummary> {
         let (team, _) = self
             .app
             .team_of_project(project)?
@@ -75,26 +41,59 @@ impl Runtime {
                 .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
         )?;
         let run = RunId::new();
-        // Before anything that waits: a message sent while this turn starts reaches it, not a second turn (ADR-104).
-        let Some(_steering) = self.steer_or_register(project, lead.id, run, user_text) else {
-            let name = lead.name;
-            return Ok(RunSummary {
-                run: RunId::new(),
-                kind: "steer".into(),
-                ticket: None,
-                agent: name.clone(),
-                outcome: "Delivered".into(),
-                steps: 0,
-                usage: Default::default(),
-                text: format!("{name} is working; your message reaches it before its next step."),
-            });
+        let queued = |text: String| RunSummary {
+            run: RunId::new(),
+            kind: "queued".into(),
+            ticket: None,
+            agent: lead.name.clone(),
+            outcome: "Queued".into(),
+            steps: 0,
+            usage: Default::default(),
+            text,
         };
+        // Under the steering lock: a message sent while this turn starts waits for the next one.
+        let Some(_turn) = self.register_if_idle(project, lead.id, run) else {
+            return Ok(queued(format!(
+                "{} is working: your message waits in the queue (you can change it until then) and opens its next turn.",
+                lead.name
+            )));
+        };
+        let taken = self.app.take_lead_messages(project)?;
+        if taken.messages.is_empty() {
+            return Ok(queued(String::new()));
+        }
+        let mut opened = OpenRun::new(&self.app);
+        let r = self
+            .chat_run(project, &lead, run, &taken.text(), &mut opened.run)
+            .await;
+        if r.is_ok() {
+            taken.keep();
+            self.left_failures
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&project);
+        }
+        self.end_on_error(opened.take(), r)
+    }
+
+    async fn chat_run(
+        &self,
+        project: ProjectId,
+        lead: &agenium_store::core::agents::Agent,
+        run: RunId,
+        user_text: &str,
+        opened: &mut Option<RunId>,
+    ) -> Result<RunSummary> {
+        let (team, _) = self
+            .app
+            .team_of_project(project)?
+            .ok_or_else(|| OrchError::Invalid("the project has no team".into()))?;
         let p = self.app.project(project)?;
         let root = PathBuf::from(&p.path);
         let mem = self.agent_memory(lead.id)?;
         let session = learn::chat_session(project);
         // Older turns of a long chat are seen as a summary (ADR-106); the stored conversation stays whole.
-        let (history, summary_usage) = self.chat_history(&lead, &mem, project).await?;
+        let (history, summary_usage) = self.chat_history(lead, &mem, project).await?;
         let run = self
             .app
             .store()
@@ -126,7 +125,7 @@ impl Runtime {
             .value;
         *opened = Some(run);
         let state = self.project_state_text(project)?;
-        let soul = self.soul_and_role(&lead);
+        let soul = self.soul_and_role(lead);
         let solo = team.solo;
         let started = Instant::now();
         // The turn's own context (worktree, the team's state now) opens the user's message, which is stored exactly as
@@ -153,7 +152,7 @@ impl Runtime {
             "{run_context}\n\n{user_text}\n\n<project_state>\n{state}\n</project_state>"
         ));
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
-            let (manifest, _) = self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow);
+            let (manifest, _) = self.manifest(lead, solo, ctx, specs, None, &ctx.fetch_allow);
             let system = vec![
                 SystemBlock { text: prompt::system_rules(true), cache: false },
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
@@ -172,7 +171,7 @@ impl Runtime {
             .execute(
                 RunKind::Chat,
                 project,
-                &lead,
+                lead,
                 solo,
                 run,
                 None,
@@ -210,7 +209,7 @@ impl Runtime {
         usage.add(&summary_usage);
         self.app
             .finish_run(run, &report.outcome.label(), report.steps, &usage)?;
-        self.agent_state_after(&lead, None, &report.outcome)?;
+        self.agent_state_after(lead, None, &report.outcome)?;
         let text = match (&report.outcome, text.is_empty()) {
             (Outcome::QuotaExhausted { message }, _) => {
                 format!("The provider reports exhausted quota or credit: {message}")

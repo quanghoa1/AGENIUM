@@ -17,8 +17,33 @@ pub async fn chat(d: State<'_, Desktop>, project: String, message: String) -> R<
     let o = d.opened()?;
     let s = o.rt.chat(pid(&project)?, &message).await.map_err(err)?;
     Ok(
-        json!({ "run": s.run, "outcome": s.outcome, "text": s.text, "steps": s.steps, "usage": s.usage }),
+        json!({ "run": s.run, "kind": s.kind, "outcome": s.outcome, "text": s.text, "steps": s.steps, "usage": s.usage }),
     )
+}
+
+/// The messages waiting for the busy Lead (ADR-149), oldest first; the user can still change or take them back.
+#[tauri::command]
+pub fn lead_queue(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    let q = o
+        .app
+        .undelivered_lead_messages(pid(&project)?)
+        .map_err(err)?;
+    Ok(json!(q))
+}
+
+#[tauri::command]
+pub fn edit_lead_message(d: State<'_, Desktop>, project: String, id: i64, text: String) -> R<()> {
+    let o = d.opened()?;
+    o.app
+        .edit_lead_message(pid(&project)?, id, &text)
+        .map_err(err)
+}
+
+#[tauri::command]
+pub fn drop_lead_message(d: State<'_, Desktop>, project: String, id: i64) -> R<()> {
+    let o = d.opened()?;
+    o.app.drop_lead_message(pid(&project)?, id).map_err(err)
 }
 
 #[tauri::command]
@@ -122,12 +147,13 @@ pub fn answer(
     {
         UserAnswer::Answered(out) => Ok(out.result),
         // In a team the answer is a message to the Lead (ADR-122); its turn runs in the background. It is stored first
-        // (ADR-147): acknowledged, it reaches the Lead even if the app stops before the turn.
+        // (ADR-147): acknowledged, it reaches the Lead even if the app stops before the turn; while the Lead is busy it
+        // waits in the queue (ADR-149).
         UserAnswer::ToLead(message) => {
             o.app.post_lead_message(p, &message).map_err(err)?;
             let rt = o.rt.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = rt.deliver_to_lead(p, &message).await {
+                if let Err(e) = rt.deliver_queued(p).await {
                     tracing::warn!(error = %e, "the answer did not reach the Lead");
                 }
             });

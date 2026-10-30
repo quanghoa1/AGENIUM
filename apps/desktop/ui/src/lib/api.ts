@@ -30,6 +30,7 @@ import type {
   AuditEntry,
   Capabilities,
   ChatLine,
+  QueuedMessage,
   Column,
   ApprovalPolicy,
   CommandApproval,
@@ -128,8 +129,12 @@ export const api = {
   templateFromTeam: (team: string, id: string, name: string) => call<TeamTemplate>("template_from_team", { team, id, name }),
   /** Export (`id`: the TOML text) or import (`text`: saved, returns the template). */
   templateToml: (id?: string, text?: string) => call<unknown>("template_toml", { id: id ?? null, text: text ?? null }),
+  /** `kind` "queued": the Lead is busy and the message waits in its queue (ADR-149). */
   chat: (project: string, message: string) =>
-    call<{ run: string; outcome: string; text: string }>("chat", { project, message }),
+    call<{ run: string; kind: string; outcome: string; text: string }>("chat", { project, message }),
+  leadQueue: (project: string) => call<QueuedMessage[]>("lead_queue", { project }),
+  editLeadMessage: (project: string, id: number, text: string) => call<void>("edit_lead_message", { project, id, text }),
+  dropLeadMessage: (project: string, id: number) => call<void>("drop_lead_message", { project, id }),
   chatHistory: (project: string) => call<ChatLine[]>("chat_history", { project }),
   approve: (project: string, what: "spec" | "plan" | "merge", target: string) =>
     call<void>("approve", { project, what, target }),

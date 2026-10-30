@@ -5,7 +5,8 @@ import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Send, Wre
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, useLive, type LiveRun } from "../lib/store";
-import type { ChatLine } from "../lib/types";
+import type { ChatLine, QueuedMessage } from "../lib/types";
+import { LeadQueue } from "./LeadQueue";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
@@ -114,7 +115,10 @@ export function ChatPane({
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [text, setText] = useState("");
   const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // This pane's own turns in flight (a message sent while one runs waits in the Lead's queue: ADR-149).
+  const [turns, setTurns] = useState(0);
+  const busy = turns > 0;
+  const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const pastes = useRef(new Map<number, string>());
@@ -128,10 +132,36 @@ export function ChatPane({
             .sort((a, b) => a.at - b.at)
             .slice(-1)[0]
         : undefined;
+  // Any run of the Lead going on (a chat turn from another window, a review, an inbox run): a message waits for it.
+  const leadWorking = busy || (!!agentId && Object.values(live).some((l) => !l.done && l.agent === agentId));
+  const reloadQueue = () => api.leadQueue(project).then(setQueue).catch(() => {});
   useEffect(() => {
     setLines([]);
+    setQueue([]);
     api.chatHistory(project).then(setLines);
+    reloadQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
+  // A run of the agent that ends (the turn that read the queue among them) may have added to the conversation.
+  const ended = agentId ? Object.values(live).filter((l) => l.done && l.agent === agentId).length : 0;
+  useEffect(() => {
+    if (ended > 0) api.chatHistory(project).then(setLines);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ended]);
+  useEffect(() => {
+    // While messages wait, the queue is read again; once the Lead's turn takes them, the conversation shows them.
+    if (queue.length === 0) return;
+    const t = window.setInterval(() => {
+      api
+        .leadQueue(project)
+        .then((q) => {
+          if (q.length < queue.length) api.chatHistory(project).then(setLines);
+          setQueue(q);
+        })
+        .catch(() => {});
+    }, 2500);
+    return () => window.clearInterval(t);
+  }, [project, queue.length]);
   useEffect(() => {
     if (!prefill) return;
     setText(prefill.text);
@@ -209,13 +239,28 @@ export function ChatPane({
     pastes.current.clear();
     setText("");
     setNote(null);
-    setLines((l) => [...l, { role: "user", text: msg }]);
-    setBusy(true);
+    // While the Lead works, the message joins its queue; otherwise it opens a turn now. The app decides; the pane
+    // shows where it expects it and corrects itself from the reply.
+    const waits = leadWorking;
+    if (waits) setQueue((q) => [...q, { id: -Date.now(), text: msg, created_at: "" }]);
+    else setLines((l) => [...l, { role: "user", text: msg }]);
+    setTurns((n) => n + 1);
     api
       .chat(project, msg)
-      .then((r) => setLines((l) => [...l, { role: "assistant", text: r.text || `(${r.outcome})` }]))
+      .then((r) => {
+        if (r.kind === "queued") {
+          if (!waits) setLines((l) => l.filter((x, i) => !(i === l.length - 1 && x.role === "user" && x.text === msg)));
+        } else {
+          setLines((l) => [...l, { role: "assistant", text: r.text || `(${r.outcome})` }]);
+          if (waits) api.chatHistory(project).then(setLines);
+        }
+      })
       .catch((e) => setLines((l) => [...l, { role: "system", text: String(e) }]))
-      .finally(() => (setBusy(false), app.refresh()));
+      .finally(() => {
+        setTurns((n) => n - 1);
+        reloadQueue();
+        app.refresh();
+      });
   };
 
   const prefix = app.projects.find((p) => p.id === project)?.key_prefix;
@@ -244,6 +289,7 @@ export function ChatPane({
         {lines.length === 0 && !busy && <Empty>{app.t("chat.intro")}</Empty>}
         <div ref={end} />
       </div>
+      <LeadQueue project={project} agentName={agentName} queue={queue} reload={reloadQueue} />
       {note && (
         <div className="flex items-start gap-2 border-t border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs text-cyan-700 dark:text-cyan-300">
           <MessageSquarePlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -260,7 +306,7 @@ export function ChatPane({
           rows={2}
           placeholder={app.t("chat.placeholder")}
           value={text}
-          disabled={busy || !enabled}
+          disabled={!enabled}
           onChange={(e) => setText(e.target.value)}
           onPaste={onPaste}
           onKeyDown={(e) => {
@@ -271,7 +317,7 @@ export function ChatPane({
             }
           }}
         />
-        <button className="btn-primary btn-lg self-end" disabled={busy || !text.trim() || !enabled} onClick={send}>
+        <button className="btn-primary btn-lg self-end" disabled={!text.trim() || !enabled} onClick={send}>
           <Send className="h-3.5 w-3.5" /> {app.t("common.send")}
         </button>
       </div>

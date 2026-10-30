@@ -48,7 +48,7 @@ mod providers;
 pub use providers::{ConfiguredProviders, ProviderSource, StaticProviders};
 
 pub use models::apply_caps;
-use steering::{recipient, SteerQueue};
+use steering::SteerQueue;
 
 /// Text-only answers in a review run: the review ends with a decision, then the close.
 const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_ticket (Approve, or Reopen with feedback per unmet acceptance criterion). Once an approved ticket is merged, or has no code, call close_ticket with a reason. Stop only when a tool result tells you to.";
@@ -130,15 +130,9 @@ pub struct Runtime {
     /// a review or inbox run of the same Lead can overlap. Workers are never here: they get work through tickets and
     /// the Lead's plan only.
     steering: Mutex<std::collections::HashMap<AgentId, Vec<SteerQueue>>>,
-    /// Messages that reached a Lead's queue after its last step: the next chat turn of the project starts with them.
-    steer_left: Mutex<std::collections::HashMap<ProjectId, Vec<String>>>,
-    /// Turns in a row that failed to answer a project's `steer_left`: from MAX_FAILED_RUNS on, the messages wait for
-    /// the user's next message instead of a failing turn every round.
+    /// Turns in a row that failed to answer a project's queued messages: from MAX_FAILED_RUNS on, the messages wait
+    /// for the user's next message instead of a failing turn every round.
     left_failures: Mutex<std::collections::HashMap<ProjectId, usize>>,
-    /// Projects whose undelivered messages to the Lead were handed to its next turn (once per process, ADR-147).
-    lead_replayed: Mutex<std::collections::HashSet<ProjectId>>,
-    /// When this runtime started: a message stored before it and never delivered is replayed.
-    started_at: String,
     /// Agents set aside for their quota: when each is tried again (ADR-135).
     quota_waits: Mutex<std::collections::HashMap<AgentId, quota_back::QuotaWait>>,
 }
@@ -176,10 +170,7 @@ impl Runtime {
             inbox_failures: Mutex::default(),
             planner_failures: Mutex::default(),
             steering: Mutex::default(),
-            steer_left: Mutex::default(),
             left_failures: Mutex::default(),
-            lead_replayed: Mutex::default(),
-            started_at: now_iso(),
             quota_waits: Mutex::default(),
             mcp,
             app,

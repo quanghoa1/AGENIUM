@@ -493,6 +493,13 @@ export interface ChatLine {
   text: string;
 }
 
+/** A message waiting for the busy Lead (ADR-149): the user can change or take it back until its next turn reads it. */
+export interface QueuedMessage {
+  id: number;
+  text: string;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------- registry (ADR-61)
 
 export interface RoleInfo {

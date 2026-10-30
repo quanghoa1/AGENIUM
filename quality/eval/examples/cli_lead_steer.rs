@@ -1,5 +1,6 @@
-//! Real check of ADR-110 through the runtime: a Solo agent on a vendor CLI is messaged while its chat turn runs, the
-//! message reaches the running CLI (no second turn starts) and is followed. Uses the CLI's own login.
+//! Real check through the runtime (ADR-110, ADR-149): a Solo agent on a vendor CLI is messaged while its chat turn
+//! runs; the message waits in the queue (no second turn starts beside it) and the Lead's next chat turn follows it.
+//! Uses the CLI's own login.
 //!
 //! cargo run -p agenium-eval --example cli_lead_steer -- <claude|grok|codex> [model]
 
@@ -67,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
         })
     };
-    // The second message: delivered to the running turn as soon as the Lead's queue exists.
+    // The second message: queued as soon as the Lead's turn is going on.
     let started = std::time::Instant::now();
     let mut delivered = false;
     while started.elapsed() < Duration::from_secs(120) && !turn.is_finished() {
@@ -83,11 +84,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let s = turn.await??;
     println!("outcome: {}", s.outcome);
-    let last = s.text.clone();
+    // The queue opens the Lead's next chat turn once the first one ended.
+    let next = rt.deliver_queued(p.id).await?;
+    println!("next turn: {} {}", next.kind, next.outcome);
+    let last = next.text.clone();
     println!("reply: {last}");
-    let ok = delivered && last.contains("BANANA");
+    let ok = delivered && next.kind == "chat" && last.contains("BANANA");
     println!(
-        "{} a message to a running CLI Lead is followed",
+        "{} a message to a running CLI Lead is queued and followed",
         if ok { "PASS" } else { "FAIL" }
     );
     Ok(())

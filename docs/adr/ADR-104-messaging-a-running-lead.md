@@ -1,6 +1,6 @@
 # ADR-104: The user can message a running Lead or Solo agent — never a worker
 
-Status: Accepted (2026-10-26). Evidence: `agent/loop/tests/loop.rs::messages_sent_during_the_run_reach_the_next_request`,
+Status: Accepted (2026-10-26); delivery replaced by [ADR-149](ADR-149-messages-to-a-busy-lead-wait-in-a-queue.md) (2026-10-30): a message to a busy Lead waits in a queue for its next chat turn, and the user can change it until then. Evidence: `agent/loop/tests/loop.rs::messages_sent_during_the_run_reach_the_next_request`,
 `orchestration/orchestrator/tests/runtime.rs::the_user_messages_a_running_lead_and_never_a_worker`. Source: pi's steering
 queue (`docs/reference/PI-COMPARISON.md`), shaped by the owner's rule.
 

@@ -496,8 +496,8 @@ async fn a_failed_chat_extraction_waits_before_the_next_try() {
     assert_eq!(p.remaining(), 0);
 }
 
-/// ADR-104: a message to a running Lead reaches it before its next step; a worker is never messaged; a message that
-/// arrives after the Lead's last step opens its next chat turn.
+/// ADR-149: a message to a running Lead waits in its queue (it does not reach the run going on), where the user can
+/// change it; the Lead's next chat turn reads every queued message; a worker is never messaged (ADR-104).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_user_messages_a_running_lead_and_never_a_worker() {
     let f = fixture();
@@ -527,34 +527,46 @@ async fn the_user_messages_a_running_lead_and_never_a_worker() {
     let (lead, api) = (members[0].id, members[1].id);
     assert!(!rt.steer(project, "nobody runs").unwrap());
 
-    // The Lead's chat turn: the user writes again while it works.
+    // The Lead's chat turn: the user writes twice while it works; both wait in the queue, and one is changed.
     let r2 = rt.clone();
+    let a2 = app.clone();
     p.push(Box::new(move |_| {
         assert!(r2.steer(project, "Also keep the API in Rust.").unwrap());
+        let busy = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(r2.chat(project, "And add a README."))
+        })
+        .unwrap();
+        assert_eq!(busy.kind, "queued");
+        let q = a2.undelivered_lead_messages(project).unwrap();
+        assert_eq!(q.len(), 2);
+        a2.edit_lead_message(project, q[0].id, "Also keep the API in Go.")
+            .unwrap();
         Ok(calls_response("", vec![("list_dir", json!({}))]))
     }));
-    let r3 = rt.clone();
     p.push(Box::new(move |req| {
-        let last = req.messages.last().unwrap().text();
+        let all: String = req.messages.iter().map(|m| m.text()).collect();
         assert!(
-            last.starts_with("[Message from the user while you work] Also keep the API in Rust."),
-            "{last}"
+            !all.contains("keep the API") && !all.contains("README"),
+            "{all}"
         );
-        // A message after the last step: kept for the next turn.
-        assert!(r3.steer(project, "And add a README.").unwrap());
-        Ok(calls_response("Noted both.", vec![]))
+        Ok(calls_response("Planning.", vec![]))
     }));
     let s = rt.chat(project, "Plan an API.").await.unwrap();
     assert_eq!(s.outcome, "Completed");
+    // The next turn reads the queue, as changed, with the user's new message after it.
     p.push(Box::new(|req| {
         let last = req.messages.last().unwrap().text();
-        assert!(
-            last.contains("And add a README.") && last.contains("Thanks."),
-            "{last}"
-        );
+        let go = last.find("Also keep the API in Go.").unwrap();
+        let readme = last.find("And add a README.").unwrap();
+        let thanks = last.find("Thanks.").unwrap();
+        assert!(go < readme && readme < thanks, "{last}");
+        assert!(!last.contains("in Rust"), "{last}");
         Ok(calls_response("Will do.", vec![]))
     }));
     rt.chat(project, "Thanks.").await.unwrap();
+    assert!(app.undelivered_lead_messages(project).unwrap().is_empty());
+    // Read by the Lead: no longer changed or taken back.
+    assert!(app.drop_lead_message(project, 1).is_err());
 
     // A worker's run: the user cannot reach it (only its ticket and the Lead's plan give it work).
     let as_lead = agenium_orchestrator::CallCtx {

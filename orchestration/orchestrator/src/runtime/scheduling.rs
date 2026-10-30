@@ -14,25 +14,24 @@ impl Runtime {
         }
         // Before work runs: a ticket the user reopened is learned from while it is still Reopened (ADR-147).
         self.learn_owed(project).await;
-        let mut out = self.tick_runs(project).await?;
-        out.extend(self.answer_left(project).await);
+        // The user's queued messages first: the user waits on them, the inbox and the work do not (ADR-149).
+        let mut out: Vec<RunSummary> = self.answer_left(project).await.into_iter().collect();
+        out.extend(self.tick_runs(project).await?);
         if let Err(e) = self.learn_from_chat(project, false).await {
             tracing::warn!(error = %e, "learning from the chat failed");
         }
         Ok(out)
     }
 
-    /// Messages that reached the Lead after its last step get their own turn (ADR-104), unless the project is paused
-    /// (the next turn starts with them then). A turn that fails keeps them; after MAX_FAILED_RUNS such turns in a row
-    /// they wait for the user's next message instead of a failing turn every round.
+    /// Messages queued while the Lead was busy get its next chat turn once it is free (ADR-149), unless the project is
+    /// paused (they wait for it to go on). Messages from before a restart are in the queue too (ADR-147). A turn that
+    /// fails puts them back; after MAX_FAILED_RUNS such turns in a row they wait for the user's next message instead
+    /// of a failing turn every round.
     async fn answer_left(&self, project: ProjectId) -> Option<RunSummary> {
-        self.replay_lead_messages(project);
         let pending = self
-            .steer_left
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&project)
-            .is_some_and(|v| !v.is_empty());
+            .app
+            .undelivered_lead_messages(project)
+            .is_ok_and(|m| !m.is_empty());
         let failures = self
             .left_failures
             .lock()
@@ -43,10 +42,15 @@ impl Runtime {
         if !pending || failures >= MAX_FAILED_RUNS || self.project_cancel(project).is_cancelled() {
             return None;
         }
-        match self.chat(project, "").await {
+        let lead = self.app.team_of_project(project).ok().flatten()?.0.lead?;
+        if self.lead_busy(lead) {
+            return None;
+        }
+        match self.deliver_queued(project).await {
+            Ok(s) if s.kind == "queued" => None,
             Ok(s) => Some(s),
             Err(e) => {
-                tracing::warn!(error = %e, "answering messages sent during a run failed");
+                tracing::warn!(error = %e, "answering the queued messages failed");
                 *self
                     .left_failures
                     .lock()
@@ -55,34 +59,6 @@ impl Runtime {
                     .or_default() += 1;
                 None
             }
-        }
-    }
-
-    /// Once per project and process: messages to the Lead stored before this runtime started and never delivered (the
-    /// app stopped before a run of the Lead had them) go to its next turn (ADR-147).
-    fn replay_lead_messages(&self, project: ProjectId) {
-        if !self
-            .lead_replayed
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(project)
-        {
-            return;
-        }
-        let old: Vec<String> = match self.app.undelivered_lead_messages(project) {
-            Ok(ms) => ms
-                .into_iter()
-                .filter(|m| m.created_at < self.started_at)
-                .map(|m| m.text)
-                .collect(),
-            Err(e) => {
-                tracing::warn!(error = %e, "undelivered messages to the Lead not read");
-                return;
-            }
-        };
-        if !old.is_empty() {
-            let mut m = self.steer_left.lock().unwrap_or_else(|e| e.into_inner());
-            m.entry(project).or_default().splice(0..0, old);
         }
     }
 

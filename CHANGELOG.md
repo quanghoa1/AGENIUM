@@ -7,6 +7,9 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- Messages to a busy Lead wait in a queue (ADR-149): shown above the chat input, each can be changed or taken back
+  until the Lead's next chat turn reads them all; they then show in the conversation with the answer (a message once
+  steered into a review or inbox run was acted on but never shown). Answers routed to the Lead go the same way.
 - Found end to end in the app (ADR-147 amended): a plan item whose tickets were all cancelled no longer goes back to the
   Lead every round (it re-created work the user had dropped); it waits for the user in **Needs you** (Cancelled work,
   **Waive**), and a new ticket of the item carries the cancelled work on by itself. The project card shows the

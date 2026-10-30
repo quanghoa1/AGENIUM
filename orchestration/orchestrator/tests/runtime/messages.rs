@@ -2,8 +2,8 @@
 
 use super::*;
 
-/// ADR-104: when the Lead's chat turn and another of its runs overlap, the user's messages go to the chat turn, and
-/// none is lost or misrouted when the other run ends.
+/// ADR-149: when the Lead's chat turn and another of its runs overlap, the user's messages wait in the queue until no
+/// run of the Lead goes on, then one chat turn reads them all; none is lost or misrouted.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn overlapping_lead_runs_keep_the_users_messages() {
     let f = fixture();
@@ -31,7 +31,7 @@ async fn overlapping_lead_runs_keep_the_users_messages() {
         assert!(inbox.unwrap().is_some());
         assert!(
             r.steer(project, "And keep it small.").unwrap(),
-            "the chat turn still takes messages"
+            "the chat turn still goes on: the message waits"
         );
         Ok(calls_response("", vec![("list_dir", json!({}))]))
     }));
@@ -45,33 +45,51 @@ async fn overlapping_lead_runs_keep_the_users_messages() {
     p.push(Box::new(|req| {
         let all: String = req.messages.iter().map(|m| m.text()).collect();
         assert!(
-            all.contains("Use Rust.") && all.contains("And keep it small."),
+            !all.contains("Use Rust.") && !all.contains("keep it small"),
             "{all}"
         );
         Ok(calls_response("Noted.", vec![]))
     }));
     let s = rt.chat(project, "Plan an API.").await.unwrap();
     assert_eq!(s.outcome, "Completed");
+    assert_eq!(app.undelivered_lead_messages(project).unwrap().len(), 2);
+    // No run of the Lead goes on: its next chat turn reads both, oldest first ("Use Rust." was sent during the inbox
+    // run the chat turn's first step ran).
+    p.push(Box::new(|req| {
+        let last = req.messages.last().unwrap().text();
+        let rust = last.find("Use Rust.").unwrap();
+        let small = last.find("And keep it small.").unwrap();
+        assert!(rust < small, "{last}");
+        Ok(calls_response("Small, in Rust.", vec![]))
+    }));
+    let left = rt.work(project).await.unwrap();
+    assert!(
+        left.iter()
+            .any(|r| r.kind == "chat" && r.text == "Small, in Rust."),
+        "{left:?}"
+    );
+    assert!(app.undelivered_lead_messages(project).unwrap().is_empty());
     assert_eq!(p.remaining(), 0);
 }
 
-/// ADR-104: a message that reached the Lead after its last step is answered while the project is not running yet
-/// (Agreeing), and one whose turn fails is kept for the user's next message (tried twice, not every round).
+/// ADR-149: a message queued while the Lead works is answered once the project is not running yet (Agreeing); one
+/// whose turn fails goes back to the queue, is tried twice (not every round), then waits for the user's next message;
+/// a queued message is taken back before the Lead reads it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn messages_left_after_the_last_step_are_answered_or_kept() {
+async fn queued_messages_are_answered_kept_or_taken_back() {
     let f = fixture();
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
     let rt = Arc::new(rt);
     let (project, agent) = solo(&app);
-    let left_behind = |text: &'static str| -> agenium_llm::mock::Responder {
+    let while_working = |text: &'static str| -> agenium_llm::mock::Responder {
         let r = rt.clone();
         Box::new(move |_| {
             assert!(r.steer(project, text).unwrap());
             Ok(calls_response("Noted.", vec![]))
         })
     };
-    p.push(left_behind("And add a README."));
+    p.push(while_working("And add a README."));
     rt.chat(project, "Plan an API.").await.unwrap();
     use agenium_orchestrator::views::RunState;
     assert_eq!(app.run_state(project).unwrap(), RunState::Agreeing);
@@ -85,9 +103,17 @@ async fn messages_left_after_the_last_step_are_answered_or_kept() {
     assert_eq!(runs[0].text, "Will do.");
     assert!(rt.work(project).await.unwrap().is_empty(), "answered once");
 
-    // The turn that would answer fails: the message is kept, tried twice, then waits for the user's next message.
-    p.push(left_behind("Also a licence."));
+    // Taken back before the Lead reads it: no turn.
+    p.push(while_working("Never mind this."));
     rt.chat(project, "Thanks.").await.unwrap();
+    let q = app.undelivered_lead_messages(project).unwrap();
+    assert_eq!(q.len(), 1);
+    app.drop_lead_message(project, q[0].id).unwrap();
+    assert!(rt.work(project).await.unwrap().is_empty());
+
+    // The turn that would answer fails: the message goes back to the queue, tried twice, then waits for the user.
+    p.push(while_working("Also a licence."));
+    rt.chat(project, "Good.").await.unwrap();
     app.set_agent_backend(agent, BackendKind::Cli, &devin())
         .unwrap();
     for _ in 0..3 {
@@ -105,6 +131,7 @@ async fn messages_left_after_the_last_step_are_answered_or_kept() {
         })
         .count();
     assert_eq!(failed, 2);
+    assert_eq!(app.undelivered_lead_messages(project).unwrap().len(), 1);
     app.set_agent_backend(agent, BackendKind::Api, &model())
         .unwrap();
     p.push(Box::new(|req| {

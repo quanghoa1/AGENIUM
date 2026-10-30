@@ -59,6 +59,38 @@ pub fn mark_delivered(c: &Connection, ids: &[i64], at: &str) -> Result<(), Store
     Ok(())
 }
 
+/// Puts `ids` back in the queue (the turn that took them did not reach its end).
+pub fn mark_undelivered(c: &Connection, ids: &[i64]) -> Result<(), StoreError> {
+    for id in ids {
+        c.execute(
+            "UPDATE lead_message SET delivered_at = NULL WHERE id = ?1",
+            params![id],
+        )?;
+    }
+    Ok(())
+}
+
+/// Rewrites a queued message (ADR-149); `false` when the Lead has it already (or it is not this project's).
+pub fn edit_queued(
+    c: &Connection,
+    project: ProjectId,
+    id: i64,
+    text: &str,
+) -> Result<bool, StoreError> {
+    Ok(c.execute(
+        "UPDATE lead_message SET text = ?3 WHERE id = ?1 AND project = ?2 AND delivered_at IS NULL",
+        params![id, project.to_string(), text],
+    )? == 1)
+}
+
+/// Takes a queued message back (ADR-149); `false` when the Lead has it already (or it is not this project's).
+pub fn drop_queued(c: &Connection, project: ProjectId, id: i64) -> Result<bool, StoreError> {
+    Ok(c.execute(
+        "DELETE FROM lead_message WHERE id = ?1 AND project = ?2 AND delivered_at IS NULL",
+        params![id, project.to_string()],
+    )? == 1)
+}
+
 // ---------------------------------------------------------------- learning owed
 
 /// Records that `ticket` reached `state` (`<status>:<reopen_count>`) and its assignee should learn from it.

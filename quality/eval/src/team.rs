@@ -84,7 +84,8 @@ fn play_user(app: &App, project: ProjectId) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The message the harness sends while the team works: it must reach the Lead, and only the Lead.
+/// The message the harness sends while the team works: it waits in the Lead's queue and reaches the Lead, and only the
+/// Lead, in its next chat turn (ADR-149).
 const STEER: &str =
     "While you work: when you next write a ticket comment or answer, include the tag ACK-42.";
 
@@ -152,6 +153,17 @@ fn discipline(
             "the user's message reached {who}, who is not the Lead"
         ));
     }
+    // ADR-149: a message sent while the Lead works waits in its queue for its next chat turn.
+    let still_queued = app
+        .undelivered_lead_messages(project)?
+        .iter()
+        .any(|m| m.text == STEER);
+    if still_queued {
+        problems.push("the user's message was still waiting for the Lead at the end".into());
+    }
+    let lead_chatted = summaries
+        .iter()
+        .any(|s| s.kind == "chat" && by_name.get(&s.agent).is_some_and(|a| Some(a.id) == lead));
     // Evidence on the tickets: the worker's report covers every criterion, and a review approved it before the merge.
     let mut reports = 0;
     for t in tickets.iter().filter(|t| t.status == TicketStatus::Closed) {
@@ -224,7 +236,7 @@ fn discipline(
         serde_json::json!({
             "counts": counts,
             "reports_with_evidence": reports,
-            "message_reached_lead": steered_to.iter().any(|(_, l)| *l),
+            "message_reached_lead": steered_to.iter().any(|(_, l)| *l) || (!still_queued && lead_chatted),
             "lead_acknowledged_message": acked,
         }),
     ))

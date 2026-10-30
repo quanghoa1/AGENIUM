@@ -267,8 +267,8 @@ impl Runtime {
         // guidance), so a new ticket starts on the server that already holds it instead of a cold one.
         let cache_key = agent.id.to_string();
         if let Some((driver, program)) = cli_ready {
-            // The project's Lead can be messaged while its CLI runs, as on the API backend (ADR-104, ADR-110).
-            let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
+            // A run of the project's Lead is registered as going on: messages to it wait for its end (ADR-149).
+            let (steer, steering) = self.steer_queue(project, agent.id, run)?;
             let report = self
                 .cli_run(
                     agent, driver, program, kind, &ctx, &protocol, pspecs, work, &observer, &order,
@@ -277,7 +277,6 @@ impl Runtime {
                 .await;
             drop(steering);
             let report = report?;
-            self.lead_messages_seen(project, &order, &report);
             // Subscription plans: tokens are recorded, no per-token price is known.
             return Ok((report, 0.0));
         }
@@ -313,7 +312,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             }
         }
         cfg.vision = vision;
-        let (steer, steering) = self.steer_queue(project, agent.id, run, kind)?;
+        let (steer, steering) = self.steer_queue(project, agent.id, run)?;
         let r = Run {
             provider: provider.as_ref(),
             tools: &work,
@@ -330,27 +329,12 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         };
         let report = r.run(&order).await;
         drop(steering);
-        self.lead_messages_seen(project, &order, &report);
         // Priced request by request as the run went (exact for a per-request tier), else on the run's sum.
         let cost = match observer.price {
             Some(_) => *observer.cost.lock().unwrap_or_else(|p| p.into_inner()),
             None => self.cost(&agent.model.provider, &report.model, &report.usage),
         };
         Ok((report, cost))
-    }
-
-    /// Messages to the Lead this run had in its conversation are delivered (ADR-147).
-    fn lead_messages_seen(&self, project: ProjectId, order: &WorkOrder, report: &RunReport) {
-        let seen: Vec<String> = order
-            .messages
-            .iter()
-            .chain(report.messages.iter())
-            .filter(|m| m.role == agenium_llm::Role::User)
-            .map(|m| m.text())
-            .collect();
-        if let Err(e) = self.app.lead_messages_seen(project, &seen) {
-            tracing::warn!(error = %e, "messages to the Lead not marked delivered");
-        }
     }
 
     /// Ends the run a failed `r` opened with an Error outcome, so a failure between a run's start and its outcome
