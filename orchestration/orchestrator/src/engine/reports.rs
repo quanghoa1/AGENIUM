@@ -299,8 +299,16 @@ impl App {
                     blocked.push(d.key);
                 }
             }
+            let mut result = serde_json::json!({ "ticket_id": t.key, "status": t.status, "blocked_dependents": blocked });
+            if ctx.actor != Actor::User && replacement.is_none() {
+                result["note"] = serde_json::json!(format!(
+                    "No ticket carries {k}'s work on: the user waives it in Needs you if it is dropped (nothing more for                      you to do). If the work is still needed, a new ticket of {item} carries it on.",
+                    k = t.key,
+                    item = t.plan_item
+                ));
+            }
             Ok(Outcome {
-                result: serde_json::json!({ "ticket_id": t.key, "status": t.status, "blocked_dependents": blocked }),
+                result,
                 run: RunEffect::Continue,
                 ops,
             })

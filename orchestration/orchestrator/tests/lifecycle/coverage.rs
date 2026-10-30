@@ -110,12 +110,18 @@ fn a_lead_cancel_waits_for_a_replacement_that_closes() {
         .filter_map(|e| e.decode())
         .any(|e| matches!(e, DomainEvent::NeedsUser { reason, .. } if reason.contains("no ticket carries its work on")));
     assert!(asked);
+    // The user decides it (Needs you); the item still has a live ticket, so nothing goes back to the Lead.
+    let needs = f.app.needs_you(f.project.id).unwrap();
+    assert!(
+        needs.iter().any(
+            |n| n.kind == agenium_orchestrator::views::NeedKind::CancelledWork
+                && n.ticket.as_ref() == Some(&k2)
+        ),
+        "{needs:?}"
+    );
     let inbox = f.app.lead_inbox(f.project.id).unwrap();
     assert!(
-        inbox
-            .iter()
-            .any(|i| i.text.contains(k2.as_str())
-                && i.text.contains("whose work no ticket carries on")),
+        !inbox.iter().any(|i| i.text.contains(k2.as_str())),
         "{inbox:?}"
     );
 
@@ -216,4 +222,86 @@ fn the_handover_report_is_complete_and_outlives_the_team() {
         md.contains("| AGN-1 | Write the greeting | Closed | ada |"),
         "the author outlives the team:\n{md}"
     );
+}
+
+/// e2e of 2026-10-30: a Lead re-created cancelled work without naming it. A new ticket of the item carries the item's
+/// cancelled work on by itself; until one does, Needs you lists the work with the waiver, and the cancel says so.
+#[test]
+fn a_new_ticket_of_the_item_carries_its_cancelled_work_on() {
+    use agenium_orchestrator::views::NeedKind;
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let lead = Actor::Lead(a.id);
+    let k1 = started(&f, a.id, "PI-1", "Write the greeting", &[], &["a/**"]);
+    let out = f.app.apply(&ctx(&f, lead), cancel(k1.as_str())).unwrap();
+    assert!(
+        out.result["note"]
+            .as_str()
+            .is_some_and(|n| n.contains("waives it in Needs you")),
+        "{}",
+        out.result
+    );
+    let cancelled_work = |f: &Fixture| {
+        f.app
+            .needs_you(f.project.id)
+            .unwrap()
+            .into_iter()
+            .filter(|n| n.kind == NeedKind::CancelledWork)
+            .filter_map(|n| n.ticket)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(cancelled_work(&f), vec![k1.clone()]);
+
+    // A ticket of another item does not carry it on; one of the same item does, without naming it.
+    let other = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket("PI-2", "Something else", &[], &["c/**"])),
+        )
+        .unwrap();
+    assert!(other.result.get("replaces").is_none());
+    assert_eq!(cancelled_work(&f), vec![k1.clone()]);
+    let again = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket(
+                "PI-1",
+                "Write the greeting again",
+                &[],
+                &["a/**"],
+            )),
+        )
+        .unwrap();
+    assert_eq!(again.result["replaces"], serde_json::json!(k1));
+    assert!(cancelled_work(&f).is_empty());
+    assert!(item(&f, "PI-1").unaccounted.is_empty());
+}
+
+/// e2e of 2026-10-30: work the user dropped is not put back to the Lead. An item whose only ticket the Lead cancelled
+/// goes to the user (Needs you), not to the Lead's inbox every round; once the user waives it, the project is done.
+#[test]
+fn cancelled_work_waits_for_the_user_not_the_lead() {
+    use agenium_orchestrator::views::NeedKind;
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let lead = Actor::Lead(a.id);
+    let k1 = started(&f, a.id, "PI-1", "Write the greeting", &[], &["a/**"]);
+    let k2 = started(&f, a.id, "PI-2", "Write the farewell", &[], &["b/**"]);
+    close_no_code(&f, a.id, &k1);
+    f.app.apply(&ctx(&f, lead), cancel(k2.as_str())).unwrap();
+    let inbox = f.app.lead_inbox(f.project.id).unwrap();
+    assert!(!inbox.iter().any(|i| i.text.contains("PI-2")), "{inbox:?}");
+    let needs = f.app.needs_you(f.project.id).unwrap();
+    assert!(
+        needs
+            .iter()
+            .any(|n| n.kind == NeedKind::CancelledWork && n.ticket.as_ref() == Some(&k2)),
+        "{needs:?}"
+    );
+    assert_ne!(state(&f), RunState::Done);
+    f.app.waive_cancelled(f.project.id, &k2, None).unwrap();
+    assert!(f.app.needs_you(f.project.id).unwrap().is_empty());
+    assert_eq!(state(&f), RunState::Done);
 }

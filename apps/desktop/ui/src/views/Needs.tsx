@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, Plug, RotateCcw, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Ban, Check, CheckCircle2, FileText, GitMerge, HelpCircle, KeyRound, Plug, RotateCcw, ShieldAlert, Terminal, UserPlus, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ListItem } from "../components/motion";
@@ -17,6 +17,7 @@ const icon: Record<NeedKind, ReactNode> = {
   Question: <HelpCircle className="h-4 w-4 text-blue-500" />,
   MergeReview: <GitMerge className="h-4 w-4 text-purple-500" />,
   RoleProposal: <UserPlus className="h-4 w-4 text-cyan-500" />,
+  CancelledWork: <Ban className="h-4 w-4 text-amber-500" />,
 };
 
 /** Stable identity of a "needs you" item across refreshes (for list animations). */
@@ -95,6 +96,11 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
         {n.kind === "MergeReview" && n.ticket && (
           <button disabled={busy} className="btn-primary" onClick={() => act(api.approve(n.project, "merge", n.ticket!), app.t("common.done"))}>
             <GitMerge className="h-3.5 w-3.5" /> Merge
+          </button>
+        )}
+        {n.kind === "CancelledWork" && n.ticket && (
+          <button disabled={busy} className="btn-primary" title={app.t("ticket.waiveHint")} onClick={() => act(api.ticketAction(n.project, n.ticket!, "waive"), app.t("common.done"))}>
+            <Ban className="h-3.5 w-3.5" /> {app.t("ticket.waive")}
           </button>
         )}
         {n.ticket && (compact || n.kind !== "Question") && (

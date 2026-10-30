@@ -91,6 +91,29 @@ gpt-6-luna (twice), the team task, the memory chain and the learning loop on Dee
 project ended Completed with `handover-v1.md`. The eval did not complete projects before (its rounds stop at the last
 ticket); it now runs the app's loop once a project is done, and records each task's checks, report lists and handover.
 
+## Amended after the end-to-end run in the app (2026-10-30)
+
+Driving the desktop app as a user (a Solo project and a team, real models) showed what the tests did not:
+
+- Asked to cancel a ticket "without a replacement" and to hold the other, the Solo Lead cancelled both, and then
+  — told every round by its inbox that the items had no live ticket (ADR-64 §8) and that the cancelled work had no
+  replacement (this ADR) — re-created the work in eight more tickets and did it: the user's decision was undone by
+  the system's own nudges. The user was told only by an OS notification. Now:
+  - an item whose tickets were all cancelled no longer goes back to the Lead's inbox (ADR-64 §8 is replaced): the
+    cancel's result tells the Lead, once, that a new ticket of the item carries the work on if it is still needed;
+    otherwise the user decides in **Needs you**, which lists the cancelled work with **Waive**
+    (`NeedKind::CancelledWork`);
+  - a new ticket of the same plan item carries the item's latest unaccounted cancel on by itself (unless it
+    `follows` another; `create_ticket` says `replaces`).
+- The handover was announced only in an OS notification: the project card now has **Handover report**, which shows
+  the latest report and its file in the app (`App::handovers`, desktop `handover`).
+- A project completing (or becoming active again) by itself was recorded in the audit trail as the user's change; it
+  is the system's now.
+
+Tests: `lifecycle::coverage::a_new_ticket_of_the_item_carries_its_cancelled_work_on`,
+`lifecycle::coverage::cancelled_work_waits_for_the_user_not_the_lead`, `team::teams::a_solo_inbox_has_the_work_left_to_plan`,
+`runtime::memory::a_ticket_the_user_closes_teaches_the_assignee` (handover listed, completed by the system).
+
 ## Consequences
 
 - A Lead that creates tickets out of plan order, or cancels without a replacement, is told what to do; the user may

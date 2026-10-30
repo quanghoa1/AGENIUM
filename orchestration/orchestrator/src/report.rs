@@ -342,6 +342,29 @@ impl App {
 
     /// Writes the report as a new version under `<root>/reports/<project>/` and returns its path (ADR-147: a project
     /// is marked Completed only once its report is written).
+    /// The handover reports written for `project`, oldest first (`handover-v1.md`, `handover-v2.md` …).
+    pub fn handovers(&self, project: ProjectId) -> Result<Vec<std::path::PathBuf>> {
+        let p = self.project(project)?;
+        let dir = self.layout().root.join("reports").join(&p.name);
+        let mut found: Vec<(u32, std::path::PathBuf)> = match std::fs::read_dir(&dir) {
+            Ok(rd) => rd
+                .filter_map(|e| e.ok())
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    let n = name
+                        .strip_prefix("handover-v")?
+                        .strip_suffix(".md")?
+                        .parse()
+                        .ok()?;
+                    Some((n, e.path()))
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        found.sort();
+        Ok(found.into_iter().map(|(_, f)| f).collect())
+    }
+
     pub fn save_handover(&self, project: ProjectId) -> Result<std::path::PathBuf> {
         let p = self.project(project)?;
         let md = self.project_report_md(project)?;

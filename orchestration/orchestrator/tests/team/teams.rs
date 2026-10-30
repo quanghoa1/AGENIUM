@@ -516,7 +516,9 @@ fn a_solo_inbox_has_the_work_left_to_plan() {
         [agenium_orchestrator::inbox::InboxKind::Plan]
     );
     assert!(inbox[0].text.contains("PI-1") && inbox[0].text.contains("PI-2"));
-    // An item whose only ticket was cancelled is neither done nor in work: it comes back (found on a real run).
+    // An item whose only ticket the Lead cancelled is neither done nor in work. It once came back to the Lead (ADR-64,
+    // found on a real run); it now waits for the user in Needs you (ADR-147: put to the Lead every round, a Lead
+    // re-created work the user had dropped), and the cancel told the Lead to carry the work on if it is needed.
     let lead = Actor::Lead(a.id);
     for (item, title) in [("PI-1", "one"), ("PI-2", "two")] {
         f.app
@@ -526,7 +528,8 @@ fn a_solo_inbox_has_the_work_left_to_plan() {
             )
             .unwrap();
     }
-    f.app
+    let out = f
+        .app
         .apply(
             &ctx(&f, lead),
             Intent::CancelTicket(CancelTicket {
@@ -536,17 +539,22 @@ fn a_solo_inbox_has_the_work_left_to_plan() {
             }),
         )
         .unwrap();
-    let plan = f.app.lead_inbox(f.project.id).unwrap();
-    let plan: Vec<_> = plan
-        .iter()
-        .filter(|i| i.kind == agenium_orchestrator::inbox::InboxKind::Plan)
-        .collect();
-    assert_eq!(plan.len(), 1);
+    assert!(out.result["note"]
+        .as_str()
+        .is_some_and(|n| n.contains("a new ticket of PI-2 carries it on")));
+    let inbox = f.app.lead_inbox(f.project.id).unwrap();
     assert!(
-        plan[0].text.contains("PI-2") && !plan[0].text.contains("PI-1"),
-        "{}",
-        plan[0].text
+        !inbox
+            .iter()
+            .any(|i| i.kind == agenium_orchestrator::inbox::InboxKind::Plan),
+        "{inbox:?}"
     );
+    assert!(f
+        .app
+        .needs_you(f.project.id)
+        .unwrap()
+        .iter()
+        .any(|n| n.kind == agenium_orchestrator::views::NeedKind::CancelledWork));
 }
 
 /// Runs of a model without a price cost 0 until the price catalogue knows the model; storing the catalogue prices

@@ -516,7 +516,7 @@ impl Runtime {
             match self.app.save_handover(project) {
                 Ok(file) => {
                     self.app
-                        .set_project_status(project, ProjectStatus::Completed)?;
+                        .set_project_status_as(project, ProjectStatus::Completed, "system")?;
                     let shown = file.display().to_string();
                     self.app.store().commit(None, "system", |w| {
                         w.emit(DomainEvent::NeedsUser {
@@ -532,7 +532,7 @@ impl Runtime {
             }
         } else if !done && status == ProjectStatus::Completed {
             self.app
-                .set_project_status(project, ProjectStatus::Active)?;
+                .set_project_status_as(project, ProjectStatus::Active, "system")?;
         }
         Ok(out)
     }

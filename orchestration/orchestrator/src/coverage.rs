@@ -134,6 +134,26 @@ pub fn unaccounted(c: &Connection, t: &Ticket) -> std::result::Result<bool, Stor
         .is_none_or(|x| x.replaced_by.is_none() && x.waived_by.is_none()))
 }
 
+/// The latest cancelled ticket of `item` whose work nothing carries on: a new ticket of the item that names no other
+/// `follows` becomes its replacement (a Lead re-creating cancelled work rarely names it; e2e of 2026-10-30).
+pub(crate) fn unaccounted_of_item(
+    c: &Connection,
+    project: ProjectId,
+    item: &str,
+) -> std::result::Result<Option<Ticket>, StoreError> {
+    let f = tickets::TicketFilter {
+        statuses: vec![TicketStatus::Cancelled],
+        plan_item: Some(item.to_owned()),
+        ..Default::default()
+    };
+    for t in tickets::list(c, project, &f)?.into_iter().rev() {
+        if unaccounted(c, &t)? {
+            return Ok(Some(t));
+        }
+    }
+    Ok(None)
+}
+
 /// The cancel of `t` by `actor` on record: the user's cancel is a waiver; the Lead's names the ticket that carries the
 /// work on, or waits for the user (told in Needs you).
 pub(crate) fn record_cancel(

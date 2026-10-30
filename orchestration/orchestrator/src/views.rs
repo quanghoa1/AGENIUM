@@ -430,6 +430,8 @@ pub enum NeedKind {
     MergeReview,
     /// The Lead proposes a role its team lacks (decision 3l): approve (an agent joins) or decline.
     RoleProposal,
+    /// The Lead cancelled a ticket and no ticket carries its work on (ADR-147): waive it, or ask the Lead for it.
+    CancelledWork,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -631,6 +633,20 @@ impl App {
                     &p.created_at,
                 )
             });
+        }
+        for keys in self.unaccounted_cancels(project)?.into_values() {
+            for k in keys {
+                let t = self.ticket(project, &k)?;
+                out.push(need(
+                    NeedKind::CancelledWork,
+                    Some(&t),
+                    format!(
+                        "The Lead cancelled {} ({}) and no ticket carries its work on: waive it if it is not needed, or ask                          the Lead for it",
+                        t.key, t.title
+                    ),
+                    &t.updated_at,
+                ));
+            }
         }
         out.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.at.cmp(&b.at)));
         Ok(out)

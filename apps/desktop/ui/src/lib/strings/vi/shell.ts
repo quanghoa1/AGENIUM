@@ -121,6 +121,7 @@ export const shell: Record<keyof typeof en, string> = {
   "need.Question": "Câu hỏi cho bạn",
   "need.MergeReview": "Chờ bạn duyệt merge",
   "need.RoleProposal": "Role mới",
+  "need.CancelledWork": "Việc đã hủy",
   "need.approveRole": "Duyệt: một agent với role này (dùng model của Lead) vào team",
   "need.declineRole": "Từ chối role",
   "need.roleAdded": "Agent đã vào team. Đổi model ở trang agent nếu cần.",

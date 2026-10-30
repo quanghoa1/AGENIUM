@@ -56,6 +56,7 @@ fn main() {
             browser::browser_save_pick,
             api::setup,
             api::projects,
+            api::handover,
             api::overview,
             api::needs_you,
             api::inbox,

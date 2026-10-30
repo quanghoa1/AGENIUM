@@ -119,6 +119,7 @@ export const shell = {
   "need.Question": "Question for you",
   "need.MergeReview": "Merge review",
   "need.RoleProposal": "New role",
+  "need.CancelledWork": "Cancelled work",
   "need.approveRole": "Approve: an agent with this role (the Lead's model) joins the team",
   "need.declineRole": "Decline the role",
   "need.roleAdded": "The agent joined the team. Change its model on its page if needed.",

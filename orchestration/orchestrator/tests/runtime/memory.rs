@@ -737,4 +737,15 @@ async fn a_ticket_the_user_closes_teaches_the_assignee() {
         .filter_map(|e| e.decode())
         .any(|e| matches!(e, DomainEvent::NeedsUser { reason, .. } if reason.contains("handover report")));
     assert!(told);
+    // The report is found again in the app; the status change is the system's, not the user's (e2e 2026-10-30).
+    assert_eq!(app.handovers(project).unwrap(), vec![report.clone()]);
+    let completed_by = app
+        .store()
+        .read(|c| events::since(c, 0, 10_000))
+        .unwrap()
+        .into_iter()
+        .rev()
+        .find(|e| e.kind == "ProjectStatusChanged")
+        .map(|e| e.actor);
+    assert_eq!(completed_by.as_deref(), Some("system"));
 }

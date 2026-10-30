@@ -7,6 +7,10 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- Found end to end in the app (ADR-147 amended): a plan item whose tickets were all cancelled no longer goes back to the
+  Lead every round (it re-created work the user had dropped); it waits for the user in **Needs you** (Cancelled work,
+  **Waive**), and a new ticket of the item carries the cancelled work on by itself. The project card shows the
+  **Handover report**; a project completing by itself is the system's change in the audit trail, not the user's.
 - A check is tied to the files it ran on (ADR-148): each check a run makes is logged with the worktree's tree, so a
   file changed afterwards by a shell command, a formatter or a generator makes it stale, not only an edit tool. The
   worker's report lists what it changed beyond the ticket and the tests it changed, skipped or removed (shown on the

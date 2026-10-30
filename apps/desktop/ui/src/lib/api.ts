@@ -94,6 +94,9 @@ export const api = {
   browserSavePick: (project: string, png: string) => call<string>("browser_save_pick", { project, png }),
   setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
   projects: () => call<ProjectSummary[]>("projects"),
+  /** The latest handover report of a project (ADR-147); null before the project first completes. */
+  handover: (project: string) =>
+    call<{ path: string; version: number; markdown: string } | null>("handover", { project }),
   overview: () => call<Overview>("overview"),
   needsYou: (project: string) =>
     call<{ needs: NeedItem[]; command_approvals: CommandApproval[] }>("needs_you", { project }),

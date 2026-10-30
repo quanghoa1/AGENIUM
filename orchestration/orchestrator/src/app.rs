@@ -438,8 +438,19 @@ impl App {
     }
 
     pub fn set_project_status(&self, id: ProjectId, status: projects::ProjectStatus) -> Result<()> {
+        self.set_project_status_as(id, status, "user")
+    }
+
+    /// The status change as `actor` says it: the system's own (a done project completing, new work making it active
+    /// again) is not the user's in the audit trail.
+    pub fn set_project_status_as(
+        &self,
+        id: ProjectId,
+        status: projects::ProjectStatus,
+        actor: &str,
+    ) -> Result<()> {
         self.store
-            .commit(None, "user", |w| -> std::result::Result<_, StoreError> {
+            .commit(None, actor, |w| -> std::result::Result<_, StoreError> {
                 projects::set_status(w.tx, id, status)?;
                 w.emit(DomainEvent::ProjectStatusChanged {
                     project: id,

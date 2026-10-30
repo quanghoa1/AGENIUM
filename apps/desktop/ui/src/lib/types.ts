@@ -67,6 +67,8 @@ export interface ProjectSummary {
   spec_version?: number | null;
   needs_you: number;
   inbox: number;
+  /** Handover reports written so far (ADR-147: one each time the project completes). */
+  handovers?: number;
   /** Agreeing: Lead and user settle the requirements; Running: the team works on its own; Paused by the user; Done;
    *  Closed by the user once done (ADR-130). */
   run_state?: "Agreeing" | "Running" | "Paused" | "Done" | "Closed";
@@ -84,7 +86,8 @@ export type NeedKind =
   | "Permission"
   | "Question"
   | "MergeReview"
-  | "RoleProposal";
+  | "RoleProposal"
+  | "CancelledWork";
 
 export interface NeedItem {
   kind: NeedKind;

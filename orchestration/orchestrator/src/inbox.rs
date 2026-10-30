@@ -271,12 +271,11 @@ impl App {
             }
         }
         if let Some(plan) = self.store.read(|c| plans::current_plan(c, project))? {
-            // An item whose tickets were all cancelled is neither done nor in work: it comes back to the Lead.
-            let planned: HashSet<&str> = tickets
-                .iter()
-                .filter(|t| t.status != TicketStatus::Cancelled)
-                .map(|t| t.plan_item.as_str())
-                .collect();
+            // An item with no ticket yet is the Lead's to start. One whose tickets were all cancelled is not (ADR-147,
+            // e2e 2026-10-30: put to the Lead every round, a Lead re-created work the user had dropped until it was
+            // done): its cancel told the Lead to carry the work on if needed; otherwise the user waives it or asks the
+            // Lead again from Needs you.
+            let planned: HashSet<&str> = tickets.iter().map(|t| t.plan_item.as_str()).collect();
             let missing: Vec<String> = plan
                 .body
                 .items
@@ -284,25 +283,6 @@ impl App {
                 .filter(|i| !planned.contains(i.id.as_str()))
                 .map(|i| format!("{} {} (role {})", i.id, i.title, i.role))
                 .collect();
-            // ADR-147: a cancelled ticket whose work nothing carries on keeps its item open.
-            let unaccounted: Vec<String> = self
-                .unaccounted_cancels(project)?
-                .into_iter()
-                .filter(|(item, _)| planned.contains(item.as_str()))
-                .flat_map(|(item, ks)| ks.into_iter().map(move |k| format!("{k} (item {item})")))
-                .collect();
-            if !unaccounted.is_empty() {
-                out.push(InboxItem {
-                    kind: InboxKind::Plan,
-                    ticket: None,
-                    comment: None,
-                    created_at: String::new(),
-                    text: format!(
-                        "Cancelled tickets whose work no ticket carries on: {}. If the work is still needed, create_ticket with follows set to the cancelled ticket (it becomes its replacement); if not, the user waives it on the ticket page (ask them).",
-                        unaccounted.join(", ")
-                    ),
-                });
-            }
             if !missing.is_empty() {
                 out.push(InboxItem {
                     kind: InboxKind::Plan,
@@ -310,7 +290,7 @@ impl App {
                     comment: None,
                     created_at: String::new(),
                     text: format!(
-                        "Approved plan v{} has items without a live ticket (none yet, or every ticket cancelled): {}. create_ticket for each (respect depends_on between items), then assign_ticket; an item that is no longer needed is changed or dropped with revise_plan; when no worker role fits, propose_role (the user decides) or revise_plan.",
+                        "Approved plan v{} has items without a ticket: {}. create_ticket for each (respect depends_on between items), then assign_ticket; an item that is no longer needed is changed or dropped with revise_plan; when no worker role fits, propose_role (the user decides) or revise_plan.",
                         plan.version,
                         missing.join("; ")
                     ),

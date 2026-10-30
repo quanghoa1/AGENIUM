@@ -19,9 +19,19 @@ impl App {
                 .as_ref()
                 .map(|k| ticket_by_key(w, pid, k))
                 .transpose()?;
+            let item = nt.plan_item.clone();
             let t = insert_ticket(w, pid, nt, default_template)?;
             if let Some(prev) = &prev {
                 crate::coverage::replaced_by_follower(w, prev, &t)?;
+            }
+            // ADR-147: a ticket of an item whose cancelled work nothing carries on carries it on, unless it follows
+            // another ticket.
+            let replaces = match &prev {
+                Some(_) => None,
+                None => crate::coverage::unaccounted_of_item(w.tx, pid, &item)?,
+            };
+            if let Some(c) = &replaces {
+                crate::coverage::replaced_by_follower(w, c, &t)?;
             }
             if let Some(prev) = prev {
                 tickets::add_link(
@@ -41,9 +51,11 @@ impl App {
                     confirmed: true,
                 })?;
             }
-            Ok(Outcome::ok(
-                serde_json::json!({ "ticket_id": t.key, "status": t.status }),
-            ))
+            let mut result = serde_json::json!({ "ticket_id": t.key, "status": t.status });
+            if let Some(c) = replaces {
+                result["replaces"] = serde_json::json!(c.key);
+            }
+            Ok(Outcome::ok(result))
         })
     }
 

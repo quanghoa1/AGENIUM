@@ -44,6 +44,9 @@ of agent personas, rules only, our own text)
    project stalled in `Running`. The Lead's inbox now lists it with the other items without a live ticket: create a
    new ticket, or change or drop the item with `revise_plan`. On the real run the Lead moved PI-3 from its own role to
    a researcher, the new ticket was worked, reviewed and merged, and the project reached `Done`.
+   *Replaced by ADR-147 (amended 2026-10-30):* such an item now waits for the user in Needs you (waive it, or ask the
+   Lead for it), and the cancel tells the Lead once that a new ticket of the item carries the work on — put to the Lead
+   every round, a Lead re-created work the user had dropped.
 9. **Not taken from the catalogue:** personality and emoji, long prompts, free-text orchestration (ours is tools and
    tickets), roles without path or tool limits. No text or file of it is copied.
 

@@ -1,5 +1,6 @@
 import { Check, FolderPlus, Users } from "lucide-react";
 import { CloseProject } from "../../components/CloseProject";
+import { HandoverReport } from "../../components/HandoverReport";
 import { ReopenProject } from "../../components/ReopenProject";
 import { useEffect, useState } from "react";
 import { Empty, Mono, PageHeader, ProjectStateChips, cn, projectGlow } from "../../components/ui";
@@ -108,6 +109,7 @@ export function ProjectsView() {
               <button className="btn" onClick={() => (app.setProject(p.id), app.go("chat"))}>
                 {app.t("top.talk")}
               </button>
+              <HandoverReport p={p} />
               {p.run_state === "Done" && <CloseProject p={p} />}
               {p.run_state === "Closed" && <ReopenProject p={p} />}
               {p.waits_for && (

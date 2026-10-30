@@ -52,6 +52,7 @@ pub(super) fn project_summary(o: &Opened, p: &agenium_store::core::projects::Pro
             "previous_team": o.app.previous_team(p.id).map_err(err)?,
             "waits_for": waits_for,
             "inbox": o.app.lead_inbox(p.id).map_err(err)?.len(),
+            "handovers": o.app.handovers(p.id).map_err(err)?.len(),
         }))
     }
 }
@@ -173,6 +174,18 @@ pub fn needs_you(d: State<'_, Desktop>, project: String) -> R<Value> {
         "needs": o.app.needs_you(p).map_err(err)?,
         "command_approvals": d.approvals.pending(Some(p)),
     }))
+}
+
+/// The latest handover report of a project (ADR-147): its file and its text.
+#[tauri::command]
+pub fn handover(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    let all = o.app.handovers(pid(&project)?).map_err(err)?;
+    let Some(file) = all.last() else {
+        return Ok(Value::Null);
+    };
+    let markdown = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    Ok(json!({ "path": file.display().to_string(), "version": all.len(), "markdown": markdown }))
 }
 
 #[tauri::command]
