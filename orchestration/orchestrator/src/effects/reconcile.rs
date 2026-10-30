@@ -43,6 +43,16 @@ impl App {
                 }
                 Ok(())
             })?;
+            // What an interrupted run left in its worktree is the agent's work (ADR-147): recorded as the run's state,
+            // so the next run goes on from it instead of the guard undoing it as a change made outside Agenium.
+            for r in &dead {
+                if let Some(t) = r.ticket {
+                    let project = self.store.read(|c| tickets::get(c, t))?.project;
+                    if let Err(e) = self.record_worktree_state(project, r.id) {
+                        tracing::warn!(run = %r.id, error = %e, "worktree state of an interrupted run not recorded");
+                    }
+                }
+            }
             report
                 .actions
                 .push(format!("closed {} interrupted run(s)", dead.len()));

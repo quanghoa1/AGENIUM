@@ -5,7 +5,8 @@
 //!
 //! Claude: every object `additionalProperties: false`; no numeric, length or pattern constraints; per request at most
 //! 20 strict tools, 24 optional parameters and 16 parameters with alternatives (`anyOf`, a list of types) — past
-//! them the request is refused, so tools are admitted in order while they fit. OpenAI: every property listed in
+//! them the request is refused, so tools are admitted in order while they fit. A list that defaults to empty is
+//! always asked (`[]` for none) and costs no optional parameter (ADR-148). OpenAI: every property listed in
 //! `required`, an optional one taking `null` as well (read back as not given, `coerce`).
 
 use serde_json::{json, Map, Value};
@@ -134,6 +135,23 @@ fn node(s: &Value, cost: &mut Cost) -> Option<Value> {
         }
         out.insert("additionalProperties".into(), Value::Bool(false));
         let props = out["properties"].as_object().cloned().unwrap_or_default();
+        // A list whose default is empty is asked for always: `[]` says "none" as its absence did, and it costs no
+        // optional parameter (ADR-148: the report's lists of what was not run, went beyond the ticket, or changed tests).
+        let empty_list: Vec<Value> = props
+            .iter()
+            .filter(|(_, p)| p.get("default") == Some(&json!([])))
+            .map(|(n, _)| Value::String(n.clone()))
+            .collect();
+        if !empty_list.is_empty() {
+            let r = out.entry("required").or_insert_with(|| json!([]));
+            if let Some(r) = r.as_array_mut() {
+                for n in empty_list {
+                    if !r.contains(&n) {
+                        r.push(n);
+                    }
+                }
+            }
+        }
         let required: Vec<&str> = out
             .get("required")
             .and_then(Value::as_array)
@@ -334,6 +352,24 @@ mod tests {
             Cost {
                 optional: 3,
                 unions: 2
+            }
+        );
+    }
+
+    #[test]
+    fn a_list_that_defaults_to_empty_is_always_asked_and_costs_nothing() {
+        let (v, cost) = fit(&json!({"type": "object", "additionalProperties": false, "required": ["summary"], "properties": {
+            "summary": {"type": "string"},
+            "risks": {"type": "array", "items": {"type": "string"}, "default": []},
+            "note": {"type": "string"}
+        }}))
+        .unwrap();
+        assert_eq!(v["required"], json!(["summary", "risks"]));
+        assert_eq!(
+            cost,
+            Cost {
+                optional: 1,
+                unions: 0
             }
         );
     }

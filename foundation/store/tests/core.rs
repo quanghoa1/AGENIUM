@@ -420,7 +420,8 @@ fn comments_blocking_inbox_and_grants() {
 }
 
 /// core_002 (agent tombstones) and core_003 (agent pool: the agent table rebuilt with a nullable team) upgrade a
-/// populated v1 database after a pre-migrate snapshot; references to the rebuilt table still hold.
+/// populated v1 database after a pre-migrate snapshot; references to the rebuilt table still hold. core_005 (ADR-147)
+/// counts a ticket cancelled before it as waived, so a project that was done stays done.
 #[test]
 fn v1_database_with_data_migrates_to_the_latest() {
     let tmp = tempfile::tempdir().unwrap();
@@ -436,13 +437,31 @@ fn v1_database_with_data_migrates_to_the_latest() {
              INSERT INTO agent(id, name, team, role, role_kind, status, backend, model)
                VALUES ('agent_01', 'ada', 'T1', 'solo', 'lead', 'Idle', 'Api', '{}');
              INSERT INTO run(id, agent, provider, model, started_at)
-               VALUES ('run_01', 'agent_01', 'p', 'm', '2026-10-24T00:00:00Z');",
+               VALUES ('run_01', 'agent_01', 'p', 'm', '2026-10-24T00:00:00Z');
+             INSERT INTO project(id, name, path, status) VALUES ('P1', 'shop', 'D:/shop', 'Completed');
+             INSERT INTO ticket(id, key, project, kind, title, description, acceptance, status, plan_item, priority,
+                                report_template)
+               VALUES ('tk_01', 'AGN-1', 'P1', 'Task', 't', '', '[{\"id\":\"AC-1\",\"text\":\"x\"}]', 'Cancelled',
+                       'PI-1', 2, 'coding@1');",
         )
         .unwrap();
     }
     let s = open(tmp.path());
     assert_eq!(s.migration().from, 1);
-    assert_eq!(s.migration().to, 4);
+    assert_eq!(
+        s.migration().to,
+        agenium_store::core::CORE_MIGRATIONS.last().unwrap().version
+    );
+    let waived: Option<String> = s
+        .read(|c| {
+            Ok(c.query_row(
+                "SELECT waived_by FROM ticket_cancel WHERE ticket = 'tk_01'",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .unwrap();
+    assert_eq!(waived.as_deref(), Some("legacy"));
     s.commit(None, "user", |w| -> Result<(), StoreError> {
         let c = w.tx;
         let team: Option<String> = c.query_row("SELECT team FROM agent WHERE id = 'agent_01'", [], |r| r.get(0))?;

@@ -238,6 +238,7 @@ async fn a_ticket_cancelled_under_its_run_stops_it() {
             Intent::CancelTicket(agenium_core::forms::CancelTicket {
                 ticket_id: key("AGN-1"),
                 reason: "Out of scope now".into(),
+                replaced_by: None,
             }),
         )
         .unwrap();
@@ -343,4 +344,44 @@ async fn background_shell_tools_come_only_with_shell() {
             .any(|n| n == "shell_output" || n == "shell_stop"),
         "{review:?}"
     );
+}
+
+/// ADR-147: a message to the Lead is stored before it is acknowledged. One whose turn never ran (the app stopped
+/// first) reaches the Lead's next turn after a restart, once; a delivered one is not sent again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_message_to_the_lead_survives_a_stop_before_its_turn() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, _, _) = team_project(&app, "duo");
+
+    // A chat turn: its message is delivered.
+    p.push_text("Hello.");
+    rt.chat(project, "Hi, plan an API.").await.unwrap();
+    assert!(app.undelivered_lead_messages(project).unwrap().is_empty());
+
+    // An answer is acknowledged (stored), then the app stops before the Lead's turn.
+    app.post_lead_message(project, "My answer: use Postgres.")
+        .unwrap();
+    drop(rt);
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let rt = Runtime::new(
+        app.clone(),
+        Arc::new(StaticProviders(vec![(
+            "mock".into(),
+            p.clone() as Arc<dyn Provider>,
+        )])),
+        Arc::new(AutoApprove),
+    );
+    p.push(Box::new(|req| {
+        let all: String = req.messages.iter().map(|m| m.text()).collect();
+        assert!(all.contains("use Postgres"), "{all}");
+        Ok(calls_response("Noted: Postgres.", vec![]))
+    }));
+    let out = rt.work(project).await.unwrap();
+    assert_eq!(out.len(), 1, "the Lead's turn ran on it");
+    assert!(app.undelivered_lead_messages(project).unwrap().is_empty());
+    assert!(rt.work(project).await.unwrap().is_empty(), "once");
+    assert_eq!(p.remaining(), 0);
 }

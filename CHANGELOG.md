@@ -7,6 +7,23 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- A check is tied to the files it ran on (ADR-148): each check a run makes is logged with the worktree's tree, so a
+  file changed afterwards by a shell command, a formatter or a generator makes it stale, not only an edit tool. The
+  worker's report lists what it changed beyond the ticket and the tests it changed, skipped or removed (shown on the
+  ticket page and in the handover); the review goes in order: the ask, undisclosed scope, weakened tests, what is missing.
+  `python -m unittest` counts as a check. The eval completes a done project as the app does and records each task's
+  checks, report lists and handover; a new opt-in golden task, `fix-failing-test`.
+- Done means covered, verified and handed over (ADR-147): a plan must trace every requirement; a ticket follows its
+  plan item's dependencies; a cancelled ticket's work is carried on by a replacement (`replaced_by`, or a ticket that
+  `follows` it) or waived by the user (**Waive** on the ticket page, `agenium ticket waive`) before its item is done;
+  a reviewer approving a criterion whose cited check the runs' logs do not back says how it verified it; a project
+  completes only once its handover report is written (`<root>/reports/<project>/handover-vN.md`): coverage per
+  requirement, results per criterion with what checked them, reviews (a Solo agent's own review said so), commits,
+  checks not run, risks, follow-ups and usage.
+- Nothing is lost between a decision and its effect (ADR-147): a message to the Lead (and the answer to a worker's
+  question routed through it) is stored before it is acknowledged and reaches the Lead after a restart; an interrupted
+  run's edits are kept as its work instead of being undone; a run that panics or is dropped is ended at once and its
+  ticket goes on without a restart.
 - An agent is told when a tenth of its run's steps is left, so it wraps up instead of being cut off; a work report is
   read the way models write it (`results` for `acceptance`, a path for an artifact, "high" for confidence) instead of
   being refused field after field (ADR-142).
@@ -114,6 +131,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   as an API agent. The vendored Codex sandbox follows upstream f021168.
 
 ### Memory, skills, tools
+- Learning is credited to what the agent was shown (a continuation recalls nothing), and owed by every close or reopen,
+  the user's on the board too; a skill an agent created is read by the judge before a revision, keeps the earlier
+  text, and the user can undo the last revision (ADR-147).
 - One lesson per rule: a refinement updates the lesson (keeping where it held), a too-narrow lesson is blamed when it
   misleads, and a ticket closed without a signal can no longer delete a lesson. A lesson proven in two tickets is
   reflected on once — improve a skill, make one, or keep it as a memory — through the same gates as a proposal in a

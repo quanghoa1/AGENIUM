@@ -134,9 +134,21 @@ impl App {
     ) -> Result<(String, String)> {
         let a = self.agent(agent)?;
         let name = u.skill.trim();
-        let base = self
-            .base_skill(&a, name)
-            .ok_or_else(|| invalid(format!("{name:?} is not a role or library skill of yours")))?;
+        // ADR-147: a skill the agent created is read before its revision too, like an overlay.
+        if self.base_skill(&a, name).is_none() && self.is_created_skill(agent, name) {
+            let own = self
+                .skill_registry()
+                .dir_of(&agenium_skills::Owner::Agent(agent.to_string()))
+                .join(name);
+            let current = std::fs::read_to_string(own.join(agenium_skills::SKILL_FILE))?;
+            let updated = revised_text(&current, u)?;
+            return Ok((current, updated));
+        }
+        let base = self.base_skill(&a, name).ok_or_else(|| {
+            invalid(format!(
+                "{name:?} is not a role or library skill of yours, nor one you created"
+            ))
+        })?;
         let dir = self.overlay_dir(agent, name);
         let path = if dir.join("SKILL.md").is_file() {
             dir.join("SKILL.md")

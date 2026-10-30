@@ -256,6 +256,9 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
                 extension: json!({}),
                 risks: vec![],
                 follow_ups: vec![],
+                checks_not_run: vec![],
+                beyond_ticket: vec![],
+                tests_changed: vec![],
                 confidence: 0.9,
             }),
         )?;
@@ -496,6 +499,7 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
         tokens_out: t.usage.tokens_out,
         cost_usd: t.usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
+        record: None,
         learning: Some(json!({
             "lessons": ids.iter().map(|(l, i)| json!({"label": l, "id": i})).collect::<Vec<_>>(),
             "used_tools": !calls.is_empty(),

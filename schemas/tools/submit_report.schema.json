@@ -58,6 +58,22 @@
       },
       "type": "array"
     },
+    "beyond_ticket": {
+      "default": [],
+      "description": "What you changed beyond the ticket's ask (a refactor, a rename, a new dependency, a file it did not need), each\nwith why. The reviewer reads the diff against it: an extra not listed here is a reason to reopen (ADR-148).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "checks_not_run": {
+      "default": [],
+      "description": "Checks that apply to this work but were not run (a test suite, a browser check …), each with why. The handover\nreport lists them beside the checks the runs' logs show (ADR-147).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "confidence": {
       "description": "Your confidence that every criterion is met, 0..1.",
       "format": "double",
@@ -89,6 +105,14 @@
       "description": "What was done, at most 800 characters.",
       "maxLength": 800,
       "type": "string"
+    },
+    "tests_changed": {
+      "default": [],
+      "description": "Tests you changed, skipped, loosened or removed, each with why (ADR-148).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "ticket_id": {
       "description": "Ticket key, e.g. AGN-11",

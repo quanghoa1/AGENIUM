@@ -655,4 +655,13 @@ pub(crate) enum TicketCmd {
         key: String,
         reason: String,
     },
+    /// Waive a ticket the Lead cancelled: its work is not needed, and its plan item no longer waits for it.
+    Waive {
+        #[arg(long)]
+        project: String,
+        key: String,
+        /// Why the work is not needed.
+        #[arg(long)]
+        note: Option<String>,
+    },
 }

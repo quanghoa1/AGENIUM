@@ -43,6 +43,7 @@ use crate::app::App;
 use crate::{OrchError, Result};
 pub use bridge::{Approval, Approver, AutoApprove, DenyApprover, RunKind};
 use bridge::{RunGate, RunObserver, RunProtocol};
+use execute::OpenRun;
 mod providers;
 pub use providers::{ConfiguredProviders, ProviderSource, StaticProviders};
 
@@ -134,6 +135,10 @@ pub struct Runtime {
     /// Turns in a row that failed to answer a project's `steer_left`: from MAX_FAILED_RUNS on, the messages wait for
     /// the user's next message instead of a failing turn every round.
     left_failures: Mutex<std::collections::HashMap<ProjectId, usize>>,
+    /// Projects whose undelivered messages to the Lead were handed to its next turn (once per process, ADR-147).
+    lead_replayed: Mutex<std::collections::HashSet<ProjectId>>,
+    /// When this runtime started: a message stored before it and never delivered is replayed.
+    started_at: String,
     /// Agents set aside for their quota: when each is tried again (ADR-135).
     quota_waits: Mutex<std::collections::HashMap<AgentId, quota_back::QuotaWait>>,
 }
@@ -173,6 +178,8 @@ impl Runtime {
             steering: Mutex::default(),
             steer_left: Mutex::default(),
             left_failures: Mutex::default(),
+            lead_replayed: Mutex::default(),
+            started_at: now_iso(),
             quota_waits: Mutex::default(),
             mcp,
             app,

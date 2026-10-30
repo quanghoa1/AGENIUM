@@ -532,6 +532,7 @@ fn a_solo_inbox_has_the_work_left_to_plan() {
             Intent::CancelTicket(CancelTicket {
                 ticket_id: key("AGN-2"),
                 reason: "the Lead cannot take it".into(),
+                replaced_by: None,
             }),
         )
         .unwrap();

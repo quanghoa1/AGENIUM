@@ -172,6 +172,9 @@ pub fn report(key: &str) -> WorkReport {
         extension: serde_json::json!({}),
         risks: vec![],
         follow_ups: vec![],
+        checks_not_run: vec![],
+        beyond_ticket: vec![],
+        tests_changed: vec![],
         confidence: 0.9,
     }
 }

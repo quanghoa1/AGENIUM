@@ -121,11 +121,13 @@ pub fn answer(
         .map_err(err)?
     {
         UserAnswer::Answered(out) => Ok(out.result),
-        // In a team the answer is a message to the Lead (ADR-122); its turn runs in the background.
+        // In a team the answer is a message to the Lead (ADR-122); its turn runs in the background. It is stored first
+        // (ADR-147): acknowledged, it reaches the Lead even if the app stops before the turn.
         UserAnswer::ToLead(message) => {
+            o.app.post_lead_message(p, &message).map_err(err)?;
             let rt = o.rt.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = rt.chat(p, &message).await {
+                if let Err(e) = rt.deliver_to_lead(p, &message).await {
                     tracing::warn!(error = %e, "the answer did not reach the Lead");
                 }
             });
@@ -262,8 +264,14 @@ pub fn ticket_action(
             Intent::CancelTicket(forms::CancelTicket {
                 ticket_id: k,
                 reason,
+                replaced_by: None,
             }),
         ),
+        "waive" => {
+            let note = (!reason.trim().is_empty()).then_some(reason.trim());
+            o.app.waive_cancelled(p, &k, note).map_err(err)?;
+            Ok(json!({ "waived": true }))
+        }
         other => Err(format!("unknown ticket action {other}")),
     }
 }

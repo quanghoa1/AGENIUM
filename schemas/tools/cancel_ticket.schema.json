@@ -8,6 +8,15 @@
       "minLength": 5,
       "type": "string"
     },
+    "replaced_by": {
+      "default": null,
+      "description": "The ticket that carries this one's work on, when there is one. Without it the plan item waits for the user to\nwaive the work (or for a new ticket that `follows` this one).",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "ticket_id": {
       "description": "Ticket key, e.g. AGN-11",
       "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",

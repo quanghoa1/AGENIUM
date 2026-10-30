@@ -6,9 +6,9 @@ use super::*;
 impl Runtime {
     /// Runs the assignee on a ready ticket (start -> loop -> outcome handling).
     pub async fn run_ticket(&self, project: ProjectId, key: &TicketKey) -> Result<RunSummary> {
-        let mut opened = None;
-        let r = self.work_run(project, key, &mut opened).await;
-        self.end_on_error(opened, r)
+        let mut opened = OpenRun::new(&self.app);
+        let r = self.work_run(project, key, &mut opened.run).await;
+        self.end_on_error(opened.take(), r)
     }
 
     async fn work_run(
@@ -88,21 +88,28 @@ impl Runtime {
                 .collect::<Vec<_>>()
                 .join("\n")
         );
-        let recalled = retriever
-            .recall_in(
-                &query,
-                &agenium_memory::retrieve::RecallContext {
-                    project: Some(project.to_string()),
-                    scope: serde_json::json!({ "project": self.app.project(project)?.name }),
-                },
-                self.memory_k,
-            )
-            .unwrap_or_default();
-        retriever
-            .record(&start.run.to_string(), Some(t.key.as_str()), &recalled)
-            .ok();
-        // The run page shows what the agent was reminded of: the memories its first message carries.
+        // Memories reach the model only in a conversation's first message: a run that goes on from its conversation
+        // recalls nothing and records nothing, so the close credits what the agent was shown, not what a later
+        // recall would have found.
+        let recalled = if prev.is_empty() {
+            retriever
+                .recall_in(
+                    &query,
+                    &agenium_memory::retrieve::RecallContext {
+                        project: Some(project.to_string()),
+                        scope: serde_json::json!({ "project": self.app.project(project)?.name }),
+                    },
+                    self.memory_k,
+                )
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         if prev.is_empty() {
+            retriever
+                .record(&start.run.to_string(), Some(t.key.as_str()), &recalled)
+                .ok();
+            // The run page shows what the agent was reminded of: the memories its first message carries.
             let shown: Vec<serde_json::Value> = recalled
                 .iter()
                 .map(|r| serde_json::json!({ "id": r.id, "kind": r.kind, "text": r.text, "shared": r.shared, "exact": r.exact }))
@@ -282,9 +289,9 @@ impl Runtime {
 
     /// Lead review of a Resolved ticket: report + diff -> review_ticket (approve merges) -> close_ticket.
     pub async fn review(&self, project: ProjectId, key: &TicketKey) -> Result<RunSummary> {
-        let mut opened = None;
-        let r = self.review_run(project, key, &mut opened).await;
-        self.end_on_error(opened, r)
+        let mut opened = OpenRun::new(&self.app);
+        let r = self.review_run(project, key, &mut opened.run).await;
+        self.end_on_error(opened.take(), r)
     }
 
     async fn review_run(
@@ -359,10 +366,21 @@ impl Runtime {
             CommentBody::Report(r) => Some(crate::judge::report_text(r)),
             _ => None,
         });
-        let evidence = match &report_text {
+        let mut evidence = match &report_text {
             Some(rep) => self.app.review_evidence(&t, rep).await.unwrap_or_default(),
             None => String::new(),
         };
+        // ADR-147: what checked the work, from the runs' logs, beside the report's claims.
+        if let Some(rep) = all_comments.iter().rev().find_map(|c| match &c.body {
+            CommentBody::Report(r) => Some(r),
+            _ => None,
+        }) {
+            let logs = self
+                .app
+                .store()
+                .read(|c| crate::verification::ticket_logs(c, t.id))?;
+            evidence.push_str(&crate::verification::record(rep, &logs).text());
+        }
         if !evidence.is_empty() {
             let _ = self.app.run_log(
                 run,
@@ -406,7 +424,7 @@ impl Runtime {
             let text = format!(
                 "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
                  Treat the report as a claim: check each criterion's evidence yourself (the test, the changed lines, the file) before you count it as met.\n\
-                 Then call review_ticket: Approve if every criterion is met (one the report left Partial or NotMet needs ac_feedback saying how you verified it), otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
+                 Then call review_ticket: Approve if every criterion is met (one the report left Partial or NotMet, or whose cited check the record below does not back, needs ac_feedback saying how you verified it), otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
                  Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
                 prompt::ticket_text(&t, None),
                 requirements,

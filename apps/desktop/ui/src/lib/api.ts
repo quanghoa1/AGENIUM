@@ -142,7 +142,7 @@ export const api = {
   ticketAction: (
     project: string,
     ticket: string,
-    action: "priority" | "assign" | "approve" | "reopen" | "close" | "cancel",
+    action: "priority" | "assign" | "approve" | "reopen" | "close" | "cancel" | "waive",
     extra: { reason?: string; agent?: string; priority?: number; feedback?: { ac_id: string; feedback: string }[] } = {},
   ) => call<unknown>("ticket_action", { project, ticket, action, ...extra }),
   createProject: (name: string, source?: string, keyPrefix?: string) =>

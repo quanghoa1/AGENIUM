@@ -189,6 +189,7 @@ pub(super) fn memory_action_now(
             o.app.audit_created_skills(id).map_err(err)?;
         }
         "remove_skill" => o.app.remove_created_skill(id, &skill()?).map_err(err)?,
+        "undo_revision" => o.app.undo_skill_revision(id, &skill()?).map_err(err)?,
         "revert" => o.app.revert_skill_overlay(id, &skill()?).map_err(err)?,
         "promote" => o.app.promote_skill_overlay(id, &skill()?).map_err(err)?,
         "rebase" => {

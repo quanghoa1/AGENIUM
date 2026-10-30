@@ -633,6 +633,24 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
                 </label>
               )}
 
+              {d.waivable && (
+                <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                  <div className="text-xs text-muted">{app.t("ticket.waiveHint")}</div>
+                  <input
+                    className="input"
+                    placeholder={app.t("common.reason")}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                  <button
+                    className="btn w-full justify-center"
+                    onClick={() => act(api.ticketAction(project, t.key, "waive", { reason }))}
+                  >
+                    {app.t("ticket.waive")}
+                  </button>
+                </div>
+              )}
+
               {!["Closed", "Cancelled"].includes(t.status) && (
                 <div className="space-y-2">
                   <input

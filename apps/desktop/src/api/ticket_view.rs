@@ -75,9 +75,17 @@ pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
                          "proposed_by": l.proposed_by, "confirmed": l.confirmed_by.is_some(), "note": l.note }))
         })
         .collect();
+    // ADR-147: a cancelled ticket whose work nothing carries on waits for the user's waiver (or a replacement).
+    let waivable = t.status == agenium_core::TicketStatus::Cancelled
+        && o.app
+            .store()
+            .read(|c| agenium_orchestrator::coverage::accounted(c, &t))
+            .map_err(err)?
+            == agenium_orchestrator::coverage::Accounted::No;
     Ok(json!({
         "ticket": t, "assignee_name": t.assignee.and_then(|a| names.get(&a).cloned()),
         "comments": comments, "runs": rs, "workspace": ws, "links": links, "dependents": dependents,
+        "waivable": waivable,
         "audit": o.app.audit(p, Some(&k)).map_err(err)?,
     }))
 }

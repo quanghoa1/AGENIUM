@@ -349,3 +349,47 @@ fn a_merge_that_keeps_failing_tells_the_user_once_and_backs_off() {
     assert!(ticket(&f, "AGN-1").merged);
     assert_eq!(notes(), 1, "told once");
 }
+
+/// ADR-147: a run that dies with the process leaves its edits in the worktree; they are the agent's work, not a change
+/// made outside Agenium. The run after the restart goes on from them; the guard undoes nothing.
+#[test]
+fn an_interrupted_runs_edits_survive_the_restart() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "t", &[], &[]);
+    let wt = worktree(&f, k.as_str());
+    // Run A ends normally: its state is the guard's reference.
+    let ra = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    write(&wt, "notes.md", "from run A\n");
+    f.app
+        .finish_run(ra.run, "Stopped:max_steps", 1, &UsageSummary::default())
+        .unwrap();
+    // Run B edits more, then the process dies with B open.
+    let rb = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    write(&wt, "notes.md", "from run A\nand run B\n");
+    write(&wt, "b.txt", "B's new file\n");
+    let (f, actions) = restart(f);
+    assert!(
+        actions.iter().any(|x| x.contains("interrupted run")),
+        "{actions:?}"
+    );
+    let b = f.app.store().read(|c| runs::get(c, rb.run)).unwrap();
+    assert_eq!(b.outcome.as_deref(), Some("Interrupted"));
+    assert!(
+        f.app.guard_worktree(f.project.id, &k).unwrap().is_none(),
+        "B's work is not undone"
+    );
+    let wt = worktree(&f, k.as_str());
+    assert_eq!(
+        std::fs::read_to_string(wt.join("notes.md")).unwrap(),
+        "from run A\nand run B\n"
+    );
+    assert!(wt.join("b.txt").is_file());
+    // A change made by hand after the restart is still undone.
+    write(&wt, "notes.md", "by hand\n");
+    assert!(f.app.guard_worktree(f.project.id, &k).unwrap().is_some());
+    assert_eq!(
+        std::fs::read_to_string(wt.join("notes.md")).unwrap(),
+        "from run A\nand run B\n"
+    );
+}

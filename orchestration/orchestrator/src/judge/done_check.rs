@@ -23,13 +23,13 @@ use agenium_store::core::runs::LogEntry;
 use crate::app::App;
 
 /// Tools that change files in the worktree.
-const EDIT_TOOLS: &[&str] = &["write_file", "edit_file", "multi_edit", "apply_patch"];
+pub(crate) const EDIT_TOOLS: &[&str] = &["write_file", "edit_file", "multi_edit", "apply_patch"];
 
 /// Words that make a shell command a check of the work (tests, builds, linters, type checkers).
-const CHECK_WORDS: &[&str] = &[
+pub(crate) const CHECK_WORDS: &[&str] = &[
     "test", "pytest", "jest", "vitest", "mocha", "rspec", "phpunit", "ctest", "build", "check",
     "clippy", "lint", "eslint", "ruff", "flake8", "mypy", "pyright", "tsc", "make", "gradle",
-    "mvn", "verify", "compile",
+    "mvn", "verify", "compile", "unittest",
 ];
 
 /// A Noul at or above this is a confident yes.
@@ -88,7 +88,7 @@ impl RunFacts {
     }
 }
 
-fn is_check(cmd: &str) -> bool {
+pub fn is_check(cmd: &str) -> bool {
     let lower = cmd.to_lowercase();
     lower
         .split(|c: char| !c.is_alphanumeric())
@@ -347,6 +347,7 @@ mod tests {
             "cargo test",
             "npx vitest run",
             "python -m pytest",
+            "python -m unittest discover -s tests",
             "make",
             "go vet ./... && go test ./...",
             "tsc --noEmit",

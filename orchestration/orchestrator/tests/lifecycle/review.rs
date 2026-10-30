@@ -337,13 +337,31 @@ fn dependencies_unlock_on_approve_and_merge_not_close() {
     let f = fixture();
     let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &["PI-1"])]);
     let lead = Actor::Lead(a.id);
+    // ADR-147: a ticket of PI-2 before PI-1 has one is refused: the plan says PI-2 builds on PI-1.
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket("PI-2", "Too early", &[], &["docs/**"])),
+        )
+        .unwrap_err();
+    assert!(e.to_string().contains("has no ticket yet"), "{e}");
     let k1 = started(&f, a.id, "PI-1", "Base", &[], &["src/a/**"]);
+    // ... and once it has, PI-2's ticket depends on it.
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket("PI-2", "No dependency", &[], &["docs/**"])),
+        )
+        .unwrap_err();
+    assert!(e.to_string().contains("add AGN-1 to depends_on"), "{e}");
     // Overlapping scope without a dependency is refused (decision 18).
     let e = f
         .app
         .apply(
             &ctx(&f, lead),
-            Intent::CreateTicket(new_ticket("PI-2", "Overlap", &[], &["src/**"])),
+            Intent::CreateTicket(new_ticket("PI-1", "Overlap", &[], &["src/**"])),
         )
         .unwrap_err();
     assert!(e.to_string().contains("overlap"), "{e}");
@@ -460,4 +478,84 @@ fn reopen_flow_and_escalation_after_three() {
         .read(|c| events::recent_of_kind(c, "TicketEscalated", 10))
         .unwrap();
     assert_eq!(needs.len(), 1, "escalated exactly once");
+}
+
+/// ADR-147: a Met criterion whose evidence cites a check is approved without the reviewer's word only when the runs'
+/// logs show that check passing after the last change; a check that never ran needs the reviewer's own verification.
+#[test]
+fn a_cited_check_the_logs_do_not_back_needs_the_reviewers_word() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let review = |k: &TicketKey, feedback: &str| {
+        f.app.apply(
+            &ctx(&f, Actor::Lead(a.id)),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: k.clone(),
+                decision: ReviewVerdict::Approve,
+                ac_feedback: (!feedback.is_empty())
+                    .then(|| AcFeedback {
+                        ac_id: "AC-1".into(),
+                        feedback: feedback.into(),
+                    })
+                    .into_iter()
+                    .collect(),
+                required_changes: vec![],
+            }),
+        )
+    };
+    let submit = |k: &TicketKey, log: &[(&str, serde_json::Value, &str)]| {
+        let run = f.app.start_run(f.project.id, k, "mock", "m").unwrap();
+        for (tool, args, result) in log {
+            f.app
+                .run_log(
+                    run.run,
+                    "tool",
+                    serde_json::json!({ "tool": tool, "args": args, "ok": true, "result": result }),
+                )
+                .unwrap();
+        }
+        let mut rep = report(k.as_str());
+        rep.acceptance[0].evidence = "`python check.py` exits 0".into();
+        f.app
+            .apply(&ctx(&f, Actor::Worker(a.id)), Intent::SubmitReport(rep))
+            .unwrap();
+    };
+
+    // The check ran after the last change and passed: the record backs the evidence.
+    let k1 = started(&f, a.id, "PI-1", "Fix the checker", &[], &[]);
+    submit(
+        &k1,
+        &[
+            (
+                "edit_file",
+                serde_json::json!({ "path": "check.py" }),
+                "edited",
+            ),
+            (
+                "shell",
+                serde_json::json!({ "command": "python check.py" }),
+                "exit code 0\nok",
+            ),
+        ],
+    );
+    review(&k1, "").unwrap();
+    assert!(ticket(&f, k1.as_str()).approved);
+
+    // The cited check never ran: approved only on the reviewer's word.
+    let k2 = started(&f, a.id, "PI-2", "Fix the other checker", &[], &[]);
+    submit(
+        &k2,
+        &[(
+            "edit_file",
+            serde_json::json!({ "path": "other.py" }),
+            "edited",
+        )],
+    );
+    match review(&k2, "") {
+        Err(OrchError::Invalid(m)) => assert!(m.contains("never ran"), "{m}"),
+        other => panic!("approved an unbacked check silently: {other:?}"),
+    }
+    assert!(!ticket(&f, k2.as_str()).approved);
+    review(&k2, "Ran python check.py on the worktree myself: exit 0.").unwrap();
+    assert!(ticket(&f, k2.as_str()).approved);
 }

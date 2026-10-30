@@ -44,16 +44,35 @@ impl App {
             })
             .await
             .map_err(|e| ToolError::new("internal", e.to_string()))?;
-            if let Ok((_, updated)) = preview {
-                let body = crate::skill_shape::strip_frontmatter(&updated);
-                let desc = updated
-                    .lines()
-                    .find_map(|l| l.strip_prefix("description: "))
-                    .unwrap_or("");
-                let subject = crate::skill_conflict::subject(desc, &body);
-                let hits = self
-                    .judged_contradictions(agent, &skill, &subject, &body)
-                    .await;
+            // ADR-147: whether the judge read the change is logged — read, not read (unavailable, nothing related) or
+            // skipped (no preview: the update itself is refused below) — so a fail-open pass is never silent.
+            let read = match &preview {
+                Ok((_, updated)) => {
+                    let body = crate::skill_shape::strip_frontmatter(updated);
+                    let desc = updated
+                        .lines()
+                        .find_map(|l| l.strip_prefix("description: "))
+                        .unwrap_or("");
+                    let subject = crate::skill_conflict::subject(desc, &body);
+                    self.judged_contradictions_read(agent, &skill, &subject, &body)
+                        .await
+                }
+                Err(_) => None,
+            };
+            if let Some(run) = run {
+                let status = match (&preview, &read) {
+                    (Err(e), _) => format!("skipped: {e}"),
+                    (Ok(_), None) => "not read: judge unavailable or nothing related".to_owned(),
+                    (Ok(_), Some(h)) if h.is_empty() => "read: no contradiction".to_owned(),
+                    (Ok(_), Some(h)) => format!("read: contradicts {}", h.join(", ")),
+                };
+                let _ = self.run_log(
+                    run,
+                    "judge",
+                    serde_json::json!({ "use": "skill_contradiction", "skill": skill, "text": status }),
+                );
+            }
+            if let Some(hits) = read {
                 if !hits.is_empty() {
                     return Err(ToolError::new(
                         "contradiction",

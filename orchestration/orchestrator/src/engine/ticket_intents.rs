@@ -20,6 +20,9 @@ impl App {
                 .map(|k| ticket_by_key(w, pid, k))
                 .transpose()?;
             let t = insert_ticket(w, pid, nt, default_template)?;
+            if let Some(prev) = &prev {
+                crate::coverage::replaced_by_follower(w, prev, &t)?;
+            }
             if let Some(prev) = prev {
                 tickets::add_link(
                     w.tx,

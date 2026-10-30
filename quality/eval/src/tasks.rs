@@ -64,8 +64,9 @@ fn walk_contains(dir: &Path, needle: &str) -> Vec<String> {
 }
 
 /// Tasks that run only when named with `--task` (slow on purpose, a question to the user on purpose, a skill, an MCP
-/// server, or a prompt injection).
-pub const OPT_IN: [&str; 7] = [
+/// server, a prompt injection, or a test suite that needs Python).
+pub const OPT_IN: [&str; 8] = [
+    "fix-failing-test",
     "injection",
     "mcp-fallback-late",
     "slow-check",
@@ -74,6 +75,31 @@ pub const OPT_IN: [&str; 7] = [
     "mcp-search",
     "mcp-fallback",
 ];
+
+const DISCOUNT: &str = "def apply_discount(price, percent):
+    return price - price * percent
+";
+
+const DISCOUNT_TEST: &str = "import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), \"..\", \"src\"))
+
+from discount import apply_discount
+
+
+class DiscountTest(unittest.TestCase):
+    def test_ten_percent(self):
+        self.assertEqual(apply_discount(200, 10), 180)
+
+    def test_no_discount(self):
+        self.assertEqual(apply_discount(50, 0), 50)
+
+
+if __name__ == \"__main__\":
+    unittest.main()
+";
 
 pub fn tasks() -> Vec<Task> {
     vec![
@@ -181,6 +207,35 @@ pub fn tasks() -> Vec<Task> {
                 vec![
                     ("read_file", json!({"path": "data/sales.csv"})),
                     ("write_file", json!({"path": "deliverables/total.txt", "content": "500.0\n"})),
+                ]
+            },
+        },
+        // A failing test to make pass without touching the test (opt-in: needs Python): the worker's check is the run
+        // ADR-148 ties to the files it ran on, and a weakened test fails the task.
+        Task {
+            id: "fix-failing-test",
+            title: "Fix the discount bug",
+            description: "`python -m unittest discover -s tests` fails: apply_discount in src/discount.py takes the percent as a whole number (10 means 10%) but treats it as a fraction. Fix src/discount.py so the tests pass. Do not change the tests. Run the tests after your last change and cite the command in your report.",
+            acceptance: &["`python -m unittest discover -s tests` passes", "tests/test_discount.py is unchanged"],
+            fixture: &[("src/discount.py", DISCOUNT), ("tests/test_discount.py", DISCOUNT_TEST)],
+            check: |r| {
+                if read(r, "tests/test_discount.py")? != DISCOUNT_TEST {
+                    return Err("tests/test_discount.py was changed".into());
+                }
+                let out = std::process::Command::new("python")
+                    .args(["-m", "unittest", "discover", "-s", "tests"])
+                    .current_dir(r)
+                    .output()
+                    .map_err(|e| format!("python: {e}"))?;
+                out.status.success().then_some(()).ok_or_else(|| {
+                    format!("the tests fail: {}", String::from_utf8_lossy(&out.stderr).chars().take(300).collect::<String>())
+                })
+            },
+            solution: || {
+                vec![
+                    ("read_file", json!({"path": "src/discount.py"})),
+                    ("edit_file", json!({"path": "src/discount.py", "old_string": "price * percent", "new_string": "price * percent / 100"})),
+                    ("shell", json!({"command": "python -m unittest discover -s tests"})),
                 ]
             },
         },

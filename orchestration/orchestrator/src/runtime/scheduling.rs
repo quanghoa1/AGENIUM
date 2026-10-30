@@ -12,6 +12,8 @@ impl Runtime {
         if let Err(e) = self.quota_back_round(std::time::SystemTime::now()) {
             tracing::warn!(error = %e, "resuming agents after their quota failed");
         }
+        // Before work runs: a ticket the user reopened is learned from while it is still Reopened (ADR-147).
+        self.learn_owed(project).await;
         let mut out = self.tick_runs(project).await?;
         out.extend(self.answer_left(project).await);
         if let Err(e) = self.learn_from_chat(project, false).await {
@@ -24,6 +26,7 @@ impl Runtime {
     /// (the next turn starts with them then). A turn that fails keeps them; after MAX_FAILED_RUNS such turns in a row
     /// they wait for the user's next message instead of a failing turn every round.
     async fn answer_left(&self, project: ProjectId) -> Option<RunSummary> {
+        self.replay_lead_messages(project);
         let pending = self
             .steer_left
             .lock()
@@ -52,6 +55,34 @@ impl Runtime {
                     .or_default() += 1;
                 None
             }
+        }
+    }
+
+    /// Once per project and process: messages to the Lead stored before this runtime started and never delivered (the
+    /// app stopped before a run of the Lead had them) go to its next turn (ADR-147).
+    fn replay_lead_messages(&self, project: ProjectId) {
+        if !self
+            .lead_replayed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(project)
+        {
+            return;
+        }
+        let old: Vec<String> = match self.app.undelivered_lead_messages(project) {
+            Ok(ms) => ms
+                .into_iter()
+                .filter(|m| m.created_at < self.started_at)
+                .map(|m| m.text)
+                .collect(),
+            Err(e) => {
+                tracing::warn!(error = %e, "undelivered messages to the Lead not read");
+                return;
+            }
+        };
+        if !old.is_empty() {
+            let mut m = self.steer_left.lock().unwrap_or_else(|e| e.into_inner());
+            m.entry(project).or_default().splice(0..0, old);
         }
     }
 
@@ -205,9 +236,11 @@ impl Runtime {
         planner: &agenium_store::core::agents::Agent,
         spec: &agenium_store::core::plans::SpecRow,
     ) -> Result<RunSummary> {
-        let mut opened = None;
-        let r = self.plan_draft(project, planner, spec, &mut opened).await;
-        self.end_on_error(opened, r)
+        let mut opened = OpenRun::new(&self.app);
+        let r = self
+            .plan_draft(project, planner, spec, &mut opened.run)
+            .await;
+        self.end_on_error(opened.take(), r)
     }
 
     async fn plan_draft(
@@ -463,6 +496,10 @@ impl Runtime {
     pub async fn work(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
         use agenium_store::core::projects::ProjectStatus;
         let state = self.app.run_state(project)?;
+        // A project that is done (the user closed its last ticket) still learns from what made it so (ADR-147).
+        if state != crate::views::RunState::Running {
+            self.learn_owed(project).await;
+        }
         let out = match state {
             crate::views::RunState::Running => self.tick(project).await?,
             crate::views::RunState::Paused => Vec::new(),
@@ -474,8 +511,25 @@ impl Runtime {
         let status = self.app.project(project)?.status;
         let done = self.app.run_state(project)? == crate::views::RunState::Done;
         if done && status == ProjectStatus::Active {
-            self.app
-                .set_project_status(project, ProjectStatus::Completed)?;
+            // ADR-147: done means handed over: the report is written first, then the project completes and the user
+            // is told where the report is. A report that cannot be written leaves the project Active (tried again).
+            match self.app.save_handover(project) {
+                Ok(file) => {
+                    self.app
+                        .set_project_status(project, ProjectStatus::Completed)?;
+                    let shown = file.display().to_string();
+                    self.app.store().commit(None, "system", |w| {
+                        w.emit(DomainEvent::NeedsUser {
+                            ticket: None,
+                            reason: format!(
+                                "The project is done: its handover report (requirements, results, checks, reviews, \
+                                 risks) is in {shown}. Read it, then close the project."
+                            ),
+                        })
+                    })?;
+                }
+                Err(e) => tracing::warn!(error = %e, "the handover report could not be written"),
+            }
         } else if !done && status == ProjectStatus::Completed {
             self.app
                 .set_project_status(project, ProjectStatus::Active)?;

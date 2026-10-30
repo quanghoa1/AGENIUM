@@ -8,6 +8,7 @@ use agenium_store::core::{comments, events, ops, workspaces};
 use common::*;
 
 mod close;
+mod coverage;
 mod merge;
 mod review;
 mod scope;
@@ -25,5 +26,6 @@ fn cancel(k: &str) -> Intent {
     Intent::CancelTicket(CancelTicket {
         ticket_id: key(k),
         reason: "No longer needed".into(),
+        replaced_by: None,
     })
 }

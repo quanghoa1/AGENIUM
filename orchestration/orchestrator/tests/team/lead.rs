@@ -306,6 +306,7 @@ fn permissions_lead_inside_allowlist_user_outside_and_always_allow() {
             Intent::CancelTicket(CancelTicket {
                 ticket_id: k.clone(),
                 reason: "The dependency is not needed".into(),
+                replaced_by: None,
             }),
         )
         .unwrap();

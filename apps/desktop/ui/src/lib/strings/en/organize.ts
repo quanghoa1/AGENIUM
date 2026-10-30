@@ -45,6 +45,8 @@ export const organize = {
   "memory.created": "created by the agent",
   "memory.flagged": "lesson no longer holds",
   "memory.removeSkill": "Delete skill",
+  "memory.undoRevision": "Undo last change",
+  "memory.revisionUndone": "The skill is back to its text before the last change.",
   "memory.skillRemoved": "The skill was deleted; the agent no longer uses it.",
   "memory.fromLesson": "from lesson",
   "memory.noOverlays": "No skill updates: the agent uses the base versions.",

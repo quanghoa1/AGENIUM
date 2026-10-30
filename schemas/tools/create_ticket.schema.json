@@ -42,7 +42,7 @@
     },
     "follows": {
       "default": null,
-      "description": "The closed ticket this one goes on from: more work the user asked for on accepted work (a closed ticket is\nnever reopened). Linked `follow_up_of`, shown on both tickets.",
+      "description": "The closed ticket this one goes on from: more work the user asked for on accepted work (a closed ticket is\nnever reopened). Linked `follow_up_of`, shown on both tickets. A cancelled ticket named here is replaced by this\none: its work is carried on.",
       "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
       "type": [
         "string",

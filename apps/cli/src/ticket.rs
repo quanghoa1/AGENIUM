@@ -203,8 +203,22 @@ pub(crate) async fn run(cli: &Cli, tc: &TicketCmd) -> Result<()> {
                 Intent::CancelTicket(forms::CancelTicket {
                     ticket_id: key.parse().map_err(|e: IdParseError| anyhow!(e))?,
                     reason: reason.clone(),
+                    replaced_by: None,
                 }),
             )?;
+        }
+        TicketCmd::Waive {
+            project: pname,
+            key,
+            note,
+        } => {
+            let p = project(&app, pname)?;
+            app.waive_cancelled(
+                p.id,
+                &key.parse().map_err(|e: IdParseError| anyhow!(e))?,
+                note.as_deref(),
+            )?;
+            println!("{key} waived: its plan item no longer waits for it");
         }
     }
     Ok(())

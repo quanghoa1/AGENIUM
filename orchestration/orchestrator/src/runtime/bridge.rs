@@ -478,6 +478,8 @@ pub struct RunObserver {
     /// The model's price (an API provider), and the run's cost so far, priced request by request.
     pub price: Option<agenium_llm::pricing::Price>,
     pub cost: Mutex<f64>,
+    /// The run's ticket: each check it runs is logged with the tree its worktree held then (ADR-148).
+    pub ticket: Option<TicketId>,
 }
 
 impl Observer for RunObserver {
@@ -512,11 +514,17 @@ impl Observer for RunObserver {
             .unwrap_or_else(|p| p.into_inner())
             .remove(name)
             .map(|t| t.elapsed().as_millis() as u64);
-        let _ = self.app.run_log(
-            self.run,
-            "tool",
-            serde_json::json!({ "tool": name, "args": args, "ok": ok, "result": preview, "ms": ms }),
-        );
+        let mut entry = serde_json::json!({ "tool": name, "args": args, "ok": ok, "result": preview, "ms": ms });
+        let check = name == "shell"
+            && args["command"]
+                .as_str()
+                .is_some_and(crate::judge::done_check::is_check);
+        if let (true, Some(t)) = (check, self.ticket) {
+            if let Some(tree) = self.app.worktree_tree(t) {
+                entry["tree"] = tree.into();
+            }
+        }
+        let _ = self.app.run_log(self.run, "tool", entry);
     }
 
     fn response(&self, usage: &Usage) {

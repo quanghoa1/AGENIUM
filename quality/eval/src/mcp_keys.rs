@@ -593,6 +593,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
         tokens_out: usage.tokens_out,
         cost_usd: usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
+        record: None,
         learning: None,
         discipline: Some(json!({
             "server_calls": calls

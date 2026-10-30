@@ -533,13 +533,14 @@ pub async fn run(
         }
     }
 
-    let t1 = &tickets[0];
     let t2m = &tickets[1];
-    let closed = t1["closed"] == true && t2m["closed"] == true;
-    let correct = t1["correct"] == true && t2m["correct"] == true;
+    let library_unchanged = library_before
+        .iter()
+        .all(|(s, before)| app.library_skill_body(s).unwrap_or_default() == *before);
+    let closed = tickets.iter().all(|t| t["closed"] == true);
     Ok(TaskResult {
         id: format!("{ID}-{}", if memory_on { "on" } else { "off" }),
-        passed: closed && correct,
+        passed: verdict(&tickets, library_unchanged),
         closed,
         detail: format!(
             "ticket 2: first merge {}, {} merge failure(s), {} steps; recall showed {shown} fact(s)",
@@ -560,6 +561,7 @@ pub async fn run(
         tokens_out: tickets.iter().map(|t| t["tokens_out"].as_u64().unwrap_or(0)).sum(),
         cost_usd: tickets.iter().map(|t| t["cost_usd"].as_f64().unwrap_or(0.0)).sum(),
         elapsed_ms: start.elapsed().as_millis() as u64,
+        record: None,
         learning: Some(json!({
             "memory": memory_on,
             "embedder": app.embedder().model_id(),
@@ -578,10 +580,44 @@ pub async fn run(
                 "overlays": app.skill_overlays(agent.id).ok().map(|o| o.iter().map(|v| json!({
                     "skill": v.skill, "base": v.base, "diff": v.diff, "changelog": v.changelog,
                 })).collect::<Vec<_>>()),
-                "library_unchanged": library_before.iter()
-                    .all(|(s, before)| app.library_skill_body(s).unwrap_or_default() == *before),
+                "library_unchanged": library_unchanged,
             })),
         })),
         discipline: None,
     })
+}
+
+/// The scenario passes only when every ticket it ran (both of the pair, and every ticket of a chain) closed with
+/// correct work, and no library skill changed: a later ticket of a chain that fails, or a lesson written into the
+/// system's skill instead of the agent's own copy, fails it.
+fn verdict(tickets: &[Value], library_unchanged: bool) -> bool {
+    !tickets.is_empty()
+        && tickets
+            .iter()
+            .all(|t| t["closed"] == true && t["correct"] == true)
+        && library_unchanged
+}
+
+#[cfg(test)]
+mod tests {
+    use super::verdict;
+    use serde_json::json;
+
+    #[test]
+    fn a_chain_fails_on_any_ticket_or_a_changed_library_skill() {
+        let ok = json!({ "closed": true, "correct": true });
+        let wrong = json!({ "closed": true, "correct": false });
+        let open = json!({ "closed": false, "correct": true });
+        assert!(verdict(&[ok.clone(), ok.clone()], true));
+        assert!(verdict(
+            &[ok.clone(), ok.clone(), ok.clone(), ok.clone()],
+            true
+        ));
+        // Ticket 3 of a chain is wrong, or ticket 4 never closed: red, though tickets 1 and 2 passed.
+        assert!(!verdict(&[ok.clone(), ok.clone(), wrong, ok.clone()], true));
+        assert!(!verdict(&[ok.clone(), ok.clone(), ok.clone(), open], true));
+        // The base skill changed: red.
+        assert!(!verdict(&[ok.clone(), ok.clone(), ok.clone()], false));
+        assert!(!verdict(&[], true));
+    }
 }

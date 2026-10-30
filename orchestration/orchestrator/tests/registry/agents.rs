@@ -300,6 +300,7 @@ fn teams_are_composed_from_pool_agents_and_the_lead_is_only_suggested() {
             Intent::CancelTicket(agenium_core::forms::CancelTicket {
                 ticket_id: k.clone(),
                 reason: "not needed any more".into(),
+                replaced_by: None,
             }),
         )
         .unwrap();

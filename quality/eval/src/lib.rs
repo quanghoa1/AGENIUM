@@ -23,6 +23,7 @@ pub mod learning;
 pub mod mcp_keys;
 pub mod memory_reuse;
 pub mod quota;
+pub mod record;
 pub mod stats;
 pub mod task_mcp;
 pub mod task_skills;
@@ -63,6 +64,9 @@ pub struct TaskResult {
     /// The team task's protocol checks and counts (ticket discipline, evidence, retries, nudges); absent elsewhere.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discipline: Option<Value>,
+    /// What the task left on record: checks with their tree, the reports' extra lists, the handover (`record`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record: Option<Value>,
 }
 
 pub enum Mode {
@@ -315,6 +319,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     if answers::answer(&app, project.id, &key, task.id)? {
         summaries.extend(rt.drive(project.id, 8).await?);
     }
+    summaries.extend(record::complete(&app, &rt, project.id).await?);
     let t = app.ticket(project.id, &key)?;
     let resumed = answers::resumed(&app, t.id)?;
     let check = (task.check)(&root);
@@ -373,6 +378,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
     }
     let closed = t.status == TicketStatus::Closed && (t.merged || !t.has_code);
     let passed = closed && check.is_ok() && resumed != Some(false);
+    let on_record = record::record(&app, project.id, &[t.id])?;
     let detail = match (&check, closed) {
         (Ok(()), true) if resumed == Some(false) => "the CLI could not resume its session".into(),
         (Ok(()), true) if resumed == Some(true) => "ok (the CLI resumed its session)".into(),
@@ -403,6 +409,7 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
         elapsed_ms: start.elapsed().as_millis() as u64,
         learning: None,
         discipline: None,
+        record: Some(on_record),
     })
 }
 
@@ -445,6 +452,9 @@ pub fn table(results: &[TaskResult]) -> String {
                     .collect::<Vec<_>>()
                     .join(", ")
             ));
+        }
+        if let Some(v) = &r.record {
+            s.push_str(&record::line(v));
         }
     }
     let passed = results.iter().filter(|r| r.passed).count();

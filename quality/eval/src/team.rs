@@ -363,6 +363,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
         }
     }
 
+    summaries.extend(crate::record::complete(&app, &rt, project.id).await?);
     // Grading.
     let tickets = app.tickets(project.id)?;
     let drafted = !app
@@ -470,6 +471,8 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
         u.add(&s.usage);
         u
     });
+    let ids: Vec<TicketId> = tickets.iter().map(|t| t.id).collect();
+    let on_record = crate::record::record(&app, project.id, &ids)?;
     Ok(TaskResult {
         id: ID.into(),
         passed: problems.is_empty(),
@@ -503,6 +506,7 @@ pub async fn run(mode: &Mode, worker_cli: Option<(String, String)>) -> anyhow::R
         tokens_out: usage.tokens_out,
         cost_usd: usage.estimated_cost_usd,
         elapsed_ms: start.elapsed().as_millis() as u64,
+        record: Some(on_record),
         learning: None,
         discipline: Some(discipline),
     })

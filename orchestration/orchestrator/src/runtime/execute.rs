@@ -5,6 +5,41 @@ use super::*;
 /// The output limit of a run whose agent sets none: the model's own, up to this.
 const MAX_OUTPUT_DEFAULT: u32 = 64_000;
 
+/// The run an entry point opened, ended as Interrupted when the entry point does not get to end it: a panic in the
+/// run, or its future dropped (ADR-147). Without it the run would stay open until a restart, its agent Working and
+/// its ticket skipped by the scheduler.
+pub(super) struct OpenRun {
+    app: Arc<App>,
+    pub(super) run: Option<RunId>,
+}
+
+impl OpenRun {
+    pub(super) fn new(app: &Arc<App>) -> Self {
+        OpenRun {
+            app: app.clone(),
+            run: None,
+        }
+    }
+
+    /// The run, handed to `end_on_error`: from here the entry point ends it.
+    pub(super) fn take(&mut self) -> Option<RunId> {
+        self.run.take()
+    }
+}
+
+impl Drop for OpenRun {
+    fn drop(&mut self) {
+        if let Some(run) = self.run.take() {
+            if let Err(e) = self
+                .app
+                .finish_run(run, "Interrupted", 0, &UsageSummary::default())
+            {
+                tracing::warn!(%run, error = %e, "the interrupted run could not be ended");
+            }
+        }
+    }
+}
+
 impl Runtime {
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn execute(
@@ -206,6 +241,7 @@ impl Runtime {
                 &agent.model.model,
             ),
             cost: Mutex::new(0.0),
+            ticket: ticket.map(|t| t.id),
         };
         // Persist the work order's messages so a continuation sees the whole conversation. A chat turn replays the
         // chat, which lives in the chat session: its run keeps only the turn's new message (never read back to resume).
@@ -241,6 +277,7 @@ impl Runtime {
                 .await;
             drop(steering);
             let report = report?;
+            self.lead_messages_seen(project, &order, &report);
             // Subscription plans: tokens are recorded, no per-token price is known.
             return Ok((report, 0.0));
         }
@@ -293,12 +330,27 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         };
         let report = r.run(&order).await;
         drop(steering);
+        self.lead_messages_seen(project, &order, &report);
         // Priced request by request as the run went (exact for a per-request tier), else on the run's sum.
         let cost = match observer.price {
             Some(_) => *observer.cost.lock().unwrap_or_else(|p| p.into_inner()),
             None => self.cost(&agent.model.provider, &report.model, &report.usage),
         };
         Ok((report, cost))
+    }
+
+    /// Messages to the Lead this run had in its conversation are delivered (ADR-147).
+    fn lead_messages_seen(&self, project: ProjectId, order: &WorkOrder, report: &RunReport) {
+        let seen: Vec<String> = order
+            .messages
+            .iter()
+            .chain(report.messages.iter())
+            .filter(|m| m.role == agenium_llm::Role::User)
+            .map(|m| m.text())
+            .collect();
+        if let Err(e) = self.app.lead_messages_seen(project, &seen) {
+            tracing::warn!(error = %e, "messages to the Lead not marked delivered");
+        }
     }
 
     /// Ends the run a failed `r` opened with an Error outcome, so a failure between a run's start and its outcome

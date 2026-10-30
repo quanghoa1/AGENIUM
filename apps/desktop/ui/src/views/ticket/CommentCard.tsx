@@ -132,7 +132,11 @@ export function CommentCard({
           )}
 
           {/* Field 3: Risks & Follow-ups */}
-          {(d.risks?.length > 0 || d.follow_ups?.length > 0) && (
+          {(d.risks?.length > 0 ||
+            d.follow_ups?.length > 0 ||
+            d.checks_not_run?.length > 0 ||
+            d.beyond_ticket?.length > 0 ||
+            d.tests_changed?.length > 0) && (
             <div className="grid gap-3 sm:grid-cols-2">
               {d.risks?.length > 0 && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
@@ -155,6 +159,25 @@ export function CommentCard({
                     ))}
                   </ul>
                 </div>
+              )}
+              {(
+                [
+                  ["checks_not_run", "ticket.checksNotRun"],
+                  ["beyond_ticket", "ticket.beyondTicket"],
+                  ["tests_changed", "ticket.testsChanged"],
+                ] as const
+              ).map(
+                ([field, label]) =>
+                  d[field]?.length > 0 && (
+                    <div key={field} className="rounded-lg border border-line bg-background/50 p-3">
+                      <div className="label">{app.t(label)}</div>
+                      <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-muted">
+                        {d[field].map((c: string, i: number) => (
+                          <li key={i}>{c}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ),
               )}
             </div>
           )}

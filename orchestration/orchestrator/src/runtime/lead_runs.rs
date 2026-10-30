@@ -24,6 +24,15 @@ impl Runtime {
     /// One chat turn of the user with the Lead/Solo (discovery, spec, plan, ticket creation). The conversation is kept
     /// per project in the Lead's private database. When the Lead is running already, the message goes to that run.
     pub async fn chat(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
+        // ADR-147: the message is stored before anything that waits, so a crash before the Lead's turn loses nothing.
+        if !user_text.trim().is_empty() && self.app.team_of_project(project)?.is_some() {
+            self.app.post_lead_message(project, user_text)?;
+        }
+        self.deliver_to_lead(project, user_text).await
+    }
+
+    /// The Lead's turn on a message already stored with [`App::post_lead_message`] (`chat` stores and delivers).
+    pub async fn deliver_to_lead(&self, project: ProjectId, user_text: &str) -> Result<RunSummary> {
         // Messages left after the Lead's last step open this turn; a turn that fails keeps them for the next one.
         let left = self
             .steer_left
@@ -36,8 +45,8 @@ impl Runtime {
         } else {
             format!("{}\n\n{user_text}", left.join("\n\n"))
         };
-        let mut opened = None;
-        let r = self.chat_run(project, &text, &mut opened).await;
+        let mut opened = OpenRun::new(&self.app);
+        let r = self.chat_run(project, &text, &mut opened.run).await;
         if r.is_ok() {
             self.left_failures
                 .lock()
@@ -48,7 +57,7 @@ impl Runtime {
             let v = m.entry(project).or_default();
             v.splice(0..0, left);
         }
-        self.end_on_error(opened, r)
+        self.end_on_error(opened.take(), r)
     }
 
     async fn chat_run(
@@ -225,9 +234,9 @@ impl Runtime {
     /// Lead run on its inbox (team mode): answer or escalate worker questions, decide permission requests inside the
     /// allowlist, turn approved plan items into tickets and assign them. `None` when the inbox is empty.
     pub async fn inbox(&self, project: ProjectId) -> Result<Option<RunSummary>> {
-        let mut opened = None;
-        let r = self.inbox_run(project, &mut opened).await;
-        self.end_on_error(opened, r)
+        let mut opened = OpenRun::new(&self.app);
+        let r = self.inbox_run(project, &mut opened.run).await;
+        self.end_on_error(opened.take(), r)
     }
 
     async fn inbox_run(

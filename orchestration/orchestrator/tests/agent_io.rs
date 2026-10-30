@@ -274,6 +274,7 @@ fn delete_agent_rules() {
             Intent::CancelTicket(CancelTicket {
                 ticket_id: key("AGN-1"),
                 reason: "not needed any more".into(),
+                replaced_by: None,
             }),
         )
         .unwrap();

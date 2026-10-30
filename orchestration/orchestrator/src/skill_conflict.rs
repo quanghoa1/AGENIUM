@@ -317,20 +317,30 @@ impl crate::app::App {
         subject: &str,
         text: &str,
     ) -> Vec<String> {
+        self.judged_contradictions_read(agent, skip, subject, text)
+            .await
+            .unwrap_or_default()
+    }
+
+    /// [`Self::judged_contradictions`], telling a read from none: `None` when the judge did not read the change (off,
+    /// unavailable, nothing related to read it against).
+    pub async fn judged_contradictions_read(
+        &self,
+        agent: agenium_core::AgentId,
+        skip: &str,
+        subject: &str,
+        text: &str,
+    ) -> Option<Vec<String>> {
         if !self.config().judge.skill_quality {
-            return Vec::new();
+            return None;
         }
-        let Ok(a) = self.agent(agent) else {
-            return Vec::new();
-        };
+        let a = self.agent(agent).ok()?;
         let known = self.known_skills(Some(&a), skip);
         let related: Vec<(String, String)> = closest(subject, &known, 3)
             .into_iter()
             .map(|k| (k.name.clone(), k.guidance.clone()))
             .collect();
-        self.skill_contradiction(text, &related)
-            .await
-            .unwrap_or_default()
+        self.skill_contradiction(text, &related).await
     }
 
     /// Advisory for the user after importing a library skill: explicit opposite directives against the rest of the

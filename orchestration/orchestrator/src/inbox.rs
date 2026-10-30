@@ -284,6 +284,25 @@ impl App {
                 .filter(|i| !planned.contains(i.id.as_str()))
                 .map(|i| format!("{} {} (role {})", i.id, i.title, i.role))
                 .collect();
+            // ADR-147: a cancelled ticket whose work nothing carries on keeps its item open.
+            let unaccounted: Vec<String> = self
+                .unaccounted_cancels(project)?
+                .into_iter()
+                .filter(|(item, _)| planned.contains(item.as_str()))
+                .flat_map(|(item, ks)| ks.into_iter().map(move |k| format!("{k} (item {item})")))
+                .collect();
+            if !unaccounted.is_empty() {
+                out.push(InboxItem {
+                    kind: InboxKind::Plan,
+                    ticket: None,
+                    comment: None,
+                    created_at: String::new(),
+                    text: format!(
+                        "Cancelled tickets whose work no ticket carries on: {}. If the work is still needed, create_ticket with follows set to the cancelled ticket (it becomes its replacement); if not, the user waives it on the ticket page (ask them).",
+                        unaccounted.join(", ")
+                    ),
+                });
+            }
             if !missing.is_empty() {
                 out.push(InboxItem {
                     kind: InboxKind::Plan,

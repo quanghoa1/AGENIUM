@@ -9,7 +9,7 @@
 use agenium_core::*;
 use agenium_llm::{Message, Part};
 use agenium_memory::pipeline::{learn, Episode, LearnReport, PipelineModel};
-use agenium_store::core::{comments, runs};
+use agenium_store::core::{comments, runs, tickets};
 use agenium_store::AgentStore;
 
 use super::Runtime;
@@ -90,7 +90,17 @@ impl Runtime {
             None => vec![],
         };
         let cmts = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
-        let used: Vec<(i64, String)> = match last_work {
+        // The memories the agent was shown went in its conversation's first message: the run that started the
+        // conversation the last work run goes on (a continuation recalls nothing, ADR-147).
+        let shown_in = last_work.map(|lw| {
+            all.iter()
+                .rev()
+                .skip_while(|r| r.id != lw.id)
+                .filter(|r| r.agent == agent.id && r.ended_at.is_some() && !self.is_review_run(r))
+                .find(|r| self.started_conversation(r))
+                .unwrap_or(lw)
+        });
+        let used: Vec<(i64, String)> = match shown_in {
             Some(r) => mem
                 .facts_used_in(&r.id.to_string())?
                 .into_iter()
@@ -128,7 +138,7 @@ impl Runtime {
             project: Some(project.to_string()),
             project_name: Some(self.app.project(project)?.name),
             reopened: t.status == TicketStatus::Reopened,
-            run: last_work.map(|r| r.id.to_string()),
+            run: shown_in.map(|r| r.id.to_string()),
             used,
             outcome: match t.status {
                 TicketStatus::Reopened => {
@@ -503,6 +513,55 @@ impl Runtime {
             n += 1;
         }
         Ok(n)
+    }
+
+    /// Pays the learning owed by the project's tickets that became Closed or Reopened (ADR-147): the Lead's review
+    /// learns at once (this finds it learned and only drops the row); a user's review, reopen or close is learned from
+    /// here. One attempt per ticket state: a failure is logged, not retried every round.
+    pub async fn learn_owed(&self, project: ProjectId) {
+        use agenium_store::core::ledger;
+        let owed = match self.app.store().read(|c| ledger::learning_owed(c, project)) {
+            Ok(o) => o,
+            Err(e) => {
+                tracing::warn!(error = %e, "learning owed not read");
+                return;
+            }
+        };
+        for (ticket, state) in owed {
+            let last = self
+                .app
+                .store()
+                .read(|c| runs::for_ticket(c, ticket))
+                .ok()
+                .and_then(|rs| rs.last().map(|r| r.id));
+            let key = self
+                .app
+                .store()
+                .read(|c| tickets::get(c, ticket))
+                .map(|t| t.key);
+            if let (Some(run), Ok(key)) = (last, key) {
+                if let Err(e) = self.learn_from_ticket(project, &key, run).await {
+                    tracing::warn!(ticket = %key, error = %e, "memory pipeline skipped");
+                }
+            }
+            if let Err(e) = self.app.store().commit(None, "system", |w| {
+                ledger::learning_done(w.tx, ticket, &state)
+            }) {
+                tracing::warn!(error = %e, "learning owed not cleared");
+            }
+        }
+    }
+
+    /// Whether `r` started a conversation: its first message carried the recalled memories (logged as `memory`).
+    fn started_conversation(&self, r: &runs::Run) -> bool {
+        self.app
+            .store()
+            .read(|c| runs::log_entries(c, r.id))
+            .map(|l| {
+                l.iter()
+                    .any(|e| e.kind == "memory" && e.data.get("recalled").is_some())
+            })
+            .unwrap_or(false)
     }
 
     pub(super) fn is_review_run(&self, r: &runs::Run) -> bool {

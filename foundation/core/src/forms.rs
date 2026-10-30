@@ -83,6 +83,17 @@ pub struct WorkReport {
     pub risks: Vec<String>,
     #[serde(default)]
     pub follow_ups: Vec<String>,
+    /// Checks that apply to this work but were not run (a test suite, a browser check …), each with why. The handover
+    /// report lists them beside the checks the runs' logs show (ADR-147).
+    #[serde(default)]
+    pub checks_not_run: Vec<String>,
+    /// What you changed beyond the ticket's ask (a refactor, a rename, a new dependency, a file it did not need), each
+    /// with why. The reviewer reads the diff against it: an extra not listed here is a reason to reopen (ADR-148).
+    #[serde(default)]
+    pub beyond_ticket: Vec<String>,
+    /// Tests you changed, skipped, loosened or removed, each with why (ADR-148).
+    #[serde(default)]
+    pub tests_changed: Vec<String>,
     /// Your confidence that every criterion is met, 0..1.
     #[schemars(range(min = 0.0, max = 1.0))]
     #[serde(deserialize_with = "crate::lenient::confidence")]
@@ -322,7 +333,8 @@ pub struct NewTicket {
     #[schemars(pattern(r"^[a-z0-9_-]+@[0-9]+$"))]
     pub report_template: Option<String>,
     /// The closed ticket this one goes on from: more work the user asked for on accepted work (a closed ticket is
-    /// never reopened). Linked `follow_up_of`, shown on both tickets.
+    /// never reopened). Linked `follow_up_of`, shown on both tickets. A cancelled ticket named here is replaced by this
+    /// one: its work is carried on.
     #[serde(default)]
     pub follows: Option<TicketKey>,
 }
@@ -485,6 +497,10 @@ pub struct CancelTicket {
     pub ticket_id: TicketKey,
     #[schemars(length(min = 5))]
     pub reason: String,
+    /// The ticket that carries this one's work on, when there is one. Without it the plan item waits for the user to
+    /// waive the work (or for a new ticket that `follows` this one).
+    #[serde(default)]
+    pub replaced_by: Option<TicketKey>,
 }
 
 fn validate_reason(reason: &str) -> Result<(), FormErrors> {

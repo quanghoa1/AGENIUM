@@ -75,8 +75,13 @@ pub struct ItemProgress {
     pub id: String,
     pub milestone: String,
     pub title: String,
-    /// Every ticket of the item ended and at least one Closed (the item is ticked).
+    /// The item has tickets and each is accounted for (ADR-147): closed, carried on by a replacement that closed, or
+    /// waived by the user — at least one by work (the item is ticked).
     pub done: bool,
+    /// Every ticket of the item was waived by the user: nothing was built for it, and nothing is owed.
+    pub waived: bool,
+    /// Cancelled tickets whose work nothing accounts for yet: the item waits for a replacement or the user's waiver.
+    pub unaccounted: Vec<TicketKey>,
     pub tickets: Vec<(TicketKey, TicketStatus)>,
 }
 
@@ -192,8 +197,15 @@ impl App {
             .tickets(project)?
             .iter()
             .any(|t| !t.status.is_terminal());
-        let all_done = !v.items.is_empty() && v.items.iter().all(|i| i.done);
-        if all_done && !open_tickets && !spec_open && !plan_open && !plan_behind {
+        let all_done = !v.items.is_empty() && v.items.iter().all(|i| i.done || i.waived);
+        // ADR-147: and the plan covers every requirement of the agreed spec (a plan made before this was checked).
+        let covered = match (&v.spec, &v.plan) {
+            (Some(s), Some(p)) if s.locked_at.is_some() && p.spec_version == s.version => {
+                crate::coverage::uncovered(s, &p.body.items).is_empty()
+            }
+            _ => true,
+        };
+        if all_done && covered && !open_tickets && !spec_open && !plan_open && !plan_behind {
             return Ok(RunState::Done);
         }
         Ok(RunState::Running)
@@ -208,6 +220,21 @@ impl App {
             ))
         })?;
         let tickets = self.tickets(project)?;
+        let counted: HashMap<TicketId, (crate::coverage::Accounted, bool)> =
+            self.store.read(|c| {
+                tickets
+                    .iter()
+                    .map(|t| {
+                        Ok((
+                            t.id,
+                            (
+                                crate::coverage::accounted(c, t)?,
+                                crate::coverage::unaccounted(c, t)?,
+                            ),
+                        ))
+                    })
+                    .collect()
+            })?;
         let items = plan
             .as_ref()
             .map(|p| {
@@ -215,15 +242,23 @@ impl App {
                     .items
                     .iter()
                     .map(|i| {
+                        use crate::coverage::Accounted;
                         let mine: Vec<&Ticket> =
                             tickets.iter().filter(|t| t.plan_item == i.id).collect();
+                        let of = |t: &&Ticket| counted.get(&t.id).map_or(Accounted::No, |c| c.0);
+                        let all = !mine.is_empty() && mine.iter().all(|t| of(t) != Accounted::No);
+                        let worked = mine.iter().any(|t| of(t) == Accounted::Done);
                         ItemProgress {
                             id: i.id.clone(),
                             milestone: i.milestone.clone(),
                             title: i.title.clone(),
-                            done: !mine.is_empty()
-                                && mine.iter().all(|t| t.status.is_terminal())
-                                && mine.iter().any(|t| t.status == TicketStatus::Closed),
+                            done: all && worked,
+                            waived: all && !worked,
+                            unaccounted: mine
+                                .iter()
+                                .filter(|t| counted.get(&t.id).is_some_and(|c| c.1))
+                                .map(|t| t.key.clone())
+                                .collect(),
                             tickets: mine.iter().map(|t| (t.key.clone(), t.status)).collect(),
                         }
                     })

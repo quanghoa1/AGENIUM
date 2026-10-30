@@ -557,3 +557,80 @@ async fn an_agent_out_of_quota_goes_back_to_work_when_the_quota_is_back() {
     );
     assert_eq!(rt.quota_back_round(t0 + min(217)).unwrap(), vec![agent]);
 }
+
+/// A provider whose model never answers: its run waits until its future is dropped.
+struct Silent;
+
+#[async_trait]
+impl Provider for Silent {
+    fn id(&self) -> &str {
+        "mock"
+    }
+    fn kind(&self) -> &'static str {
+        "mock"
+    }
+    async fn list_models(&self) -> Result<Vec<agenium_llm::ModelInfo>, agenium_llm::LlmError> {
+        Ok(vec![])
+    }
+    async fn chat(
+        &self,
+        _req: &agenium_llm::ChatRequest,
+        _emit: &(dyn Fn(agenium_llm::ChatEvent) + Send + Sync),
+    ) -> Result<agenium_llm::ChatResponse, agenium_llm::LlmError> {
+        std::future::pending().await
+    }
+}
+
+/// ADR-147: a run whose task panics, or whose future is dropped, is ended as Interrupted at once: its agent is Idle
+/// and its ticket ready for a continuation run, without a restart.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_panicking_or_dropped_run_is_ended_without_a_restart() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let open = |app: &agenium_orchestrator::App| app.store().read(runs::unfinished).unwrap();
+    let ready = |app: &agenium_orchestrator::App| {
+        app.ready_tickets(project)
+            .unwrap()
+            .iter()
+            .any(|r| r.ticket.key == key("AGN-1"))
+    };
+
+    // A panic in the run (here: the provider's).
+    p.push(Box::new(|_| panic!("a bug in the provider")));
+    let rt = Arc::new(rt);
+    let task = tokio::spawn({
+        let rt = rt.clone();
+        async move { rt.run_ticket(project, &key("AGN-1")).await }
+    });
+    assert!(task.await.unwrap_err().is_panic());
+    assert!(open(&app).is_empty(), "the panicked run was ended");
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    assert!(ready(&app), "the ticket goes on without a restart");
+
+    // A run whose future is dropped (a timeout, a task aborted).
+    let silent = Runtime::new(
+        app.clone(),
+        Arc::new(StaticProviders(vec![(
+            "mock".into(),
+            Arc::new(Silent) as Arc<dyn Provider>,
+        )])),
+        Arc::new(AutoApprove),
+    );
+    let r = tokio::time::timeout(
+        std::time::Duration::from_millis(1500),
+        silent.run_ticket(project, &key("AGN-1")),
+    )
+    .await;
+    assert!(r.is_err(), "the model never answered");
+    assert!(open(&app).is_empty(), "the dropped run was ended");
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    assert!(ready(&app));
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    let rs = app.store().read(|c| runs::for_ticket(c, t.id)).unwrap();
+    assert_eq!(rs.len(), 2);
+    assert!(rs
+        .iter()
+        .all(|r| r.outcome.as_deref() == Some("Interrupted")));
+}

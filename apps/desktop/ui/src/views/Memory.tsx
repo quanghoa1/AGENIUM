@@ -236,9 +236,16 @@ export function MemoryView() {
                     </span>
                   }
                   right={
-                    <button className="btn" onClick={() => act("remove_skill", { skill: name }, app.t("memory.skillRemoved"))}>
-                      <Trash2 className="h-3.5 w-3.5" /> {app.t("memory.removeSkill")}
-                    </button>
+                    <div className="flex gap-2">
+                      {c.revisions?.at(-1)?.before != null && (
+                        <button className="btn" onClick={() => act("undo_revision", { skill: name }, app.t("memory.revisionUndone"))}>
+                          <RotateCcw className="h-3.5 w-3.5" /> {app.t("memory.undoRevision")}
+                        </button>
+                      )}
+                      <button className="btn" onClick={() => act("remove_skill", { skill: name }, app.t("memory.skillRemoved"))}>
+                        <Trash2 className="h-3.5 w-3.5" /> {app.t("memory.removeSkill")}
+                      </button>
+                    </div>
                   }
                 >
                   <div className="space-y-1 text-[11px]">
@@ -248,6 +255,11 @@ export function MemoryView() {
                     <div className="text-muted">
                       {app.t("memory.fromLesson")} #{c.lesson}: {c.lesson_text}
                     </div>
+                    {(c.revisions ?? []).map((r, i) => (
+                      <div key={i} className="text-muted">
+                        <Mono className="text-subtle">{ago(r.at)}</Mono> {r.reason} — {app.t("memory.fromLesson")} #{r.lesson}
+                      </div>
+                    ))}
                     {c.flagged && <div className="text-amber-600 dark:text-amber-400">{c.flagged}</div>}
                   </div>
                 </Section>

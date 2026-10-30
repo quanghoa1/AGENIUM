@@ -143,6 +143,16 @@ pub(crate) fn transition(
     if to.is_terminal() {
         runs::revoke_ticket_grants(w.tx, t.id, &now_iso())?;
     }
+    // ADR-147: the assignee learns from a close or a reopen whoever made it (the Lead's review, the user on the board):
+    // owed with the transition, paid by the runtime's next round.
+    if matches!(to, TicketStatus::Closed | TicketStatus::Reopened) && t.assignee.is_some() {
+        agenium_store::core::ledger::owe_learning(
+            w.tx,
+            t.id,
+            &format!("{}:{}", to, t.reopen_count),
+            &now_iso(),
+        )?;
+    }
     if fx.escalated_now {
         let reason = format!(
             "{} was reopened {} times; the user decides how to continue",
@@ -255,6 +265,9 @@ pub(crate) fn insert_ticket(
     // Overlapping scope with an open ticket requires a dependency path between them (decision 18). A ticket that
     // declares no scope is read for the files it names (ADR-120): two tickets that both write `check.py` in parallel
     // duplicate the work and collide at the merge; the later one waits for the earlier and starts from its result.
+    // ADR-147: the ticket follows its plan item's dependencies.
+    let ancestors_all = closure(&tickets::dep_graph(w.tx, pid)?, &dep_ids);
+    crate::coverage::check_item_dependencies(w.tx, pid, &plan.body, &nt.plan_item, &ancestors_all)?;
     let own = effective_scope(&nt.scope_paths, &nt.title, &nt.acceptance);
     if !own.is_empty() {
         let graph = tickets::dep_graph(w.tx, pid)?;
@@ -443,7 +456,8 @@ pub(crate) fn check_trace(spec: &SpecRow, items: &[agenium_core::plan::PlanItem]
             }
         }
     }
-    Ok(())
+    // ADR-147: and every requirement is traced by an item.
+    crate::coverage::check_requirements_covered(spec, items)
 }
 /// Human-readable diff between plan versions and whether it changes scope (requirements covered or acceptance
 /// criteria of existing items).

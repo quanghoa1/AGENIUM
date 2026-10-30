@@ -87,12 +87,16 @@ impl App {
                     _ => None,
                 });
                 if let Some(rep) = report {
+                    // ADR-147: a Met criterion whose evidence cites a check the runs' logs do not back (it failed, ran
+                    // only before the last change, or never ran) is approved only on the reviewer's word too.
+                    let record = crate::verification::record(rep, &crate::verification::ticket_logs(w.tx, t.id)?);
+                    let said = |id: &str| r.ac_feedback.iter().any(|f| f.ac_id == id && f.feedback.trim().len() >= 10);
                     let unverified: Vec<&str> = t
                         .acceptance
                         .iter()
                         .filter(|ac| {
                             rep.acceptance.iter().find(|x| x.ac_id == ac.id).is_none_or(|x| x.status != AcStatus::Met)
-                                && !r.ac_feedback.iter().any(|f| f.ac_id == ac.id && f.feedback.trim().len() >= 10)
+                                && !said(&ac.id)
                         })
                         .map(|ac| ac.id.as_str())
                         .collect();
@@ -101,6 +105,20 @@ impl App {
                             "the report of {} leaves {} not Met: approve with ac_feedback saying how you verified each, or reopen",
                             t.key,
                             unverified.join(", ")
+                        )));
+                    }
+                    let unbacked: Vec<String> = record
+                        .criteria
+                        .iter()
+                        .filter(|c| c.backing.unverified() && !said(&c.ac_id))
+                        .map(|c| format!("{}: {}", c.ac_id, c.backing.text()))
+                        .collect();
+                    if !unbacked.is_empty() {
+                        return Err(invalid(format!(
+                            "the evidence of {} cites checks the runs' logs do not back ({}): run the check yourself and \
+                             approve with ac_feedback saying what you verified, or reopen",
+                            t.key,
+                            unbacked.join("; ")
                         )));
                     }
                 }
@@ -224,6 +242,19 @@ impl App {
         self.commit(ctx, |w| {
             require_lead(w, pid, &ctx.actor)?;
             let mut t = ticket_by_key(w, pid, &c.ticket_id)?;
+            let replacement = match &c.replaced_by {
+                Some(k) => {
+                    let r = ticket_by_key(w, pid, k)?;
+                    if r.id == t.id || r.status == TicketStatus::Cancelled {
+                        return Err(invalid(format!(
+                            "{k} cannot carry {}'s work on: name an open or closed ticket other than it",
+                            t.key
+                        )));
+                    }
+                    Some(r)
+                }
+                None => None,
+            };
             let was = t.status;
             t.close_reason = Some(c.reason.trim().to_owned());
             transition(
@@ -234,6 +265,8 @@ impl App {
                 &Guards::default(),
             )?;
             system_comment(w, &t, format!("Cancelled: {}", c.reason.trim()))?;
+            // ADR-147: how the cancelled work is accounted for in its plan item.
+            crate::coverage::record_cancel(w, &t, &ctx.actor, replacement.as_ref())?;
             // A run still working on the ticket stops (the runtime watches its ticket) and keeps the worktree until it
             // ends; its agent stays busy until then (`finish_run` sets it Idle), or the scheduler could start a
             // second run of the same agent beside it.

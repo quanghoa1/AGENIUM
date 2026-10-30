@@ -47,6 +47,23 @@ impl App {
         }
     }
 
+    /// The tree of what `ticket`'s worktree holds now: logged with each check a run makes, so the check is tied to the
+    /// files it ran on, whatever changed them (ADR-148). `None` without a live worktree or when git fails.
+    pub fn worktree_tree(&self, ticket: TicketId) -> Option<String> {
+        let t = self
+            .store
+            .read(|c| agenium_store::core::tickets::get(c, ticket))
+            .ok()?;
+        let ws = self.store.read(|c| workspaces::get(c, ticket)).ok()??;
+        if ws.removed || t.status.is_terminal() || !Path::new(&ws.worktree).join(".git").exists() {
+            return None;
+        }
+        let repo = self.repo(&self.project(t.project).ok()?);
+        repo.worktree_state(Path::new(&ws.worktree))
+            .ok()
+            .map(|s| s.tree)
+    }
+
     /// The state the last run of `ticket` left, if one was recorded.
     fn left_by_last_run(&self, ticket: TicketId) -> Result<Option<WorktreeState>> {
         let rs = self.store.read(|c| runs::for_ticket(c, ticket))?;

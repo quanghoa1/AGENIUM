@@ -17,7 +17,7 @@ How you act
 - Commands may need approval. If one is denied and you need it, explain why with ask_question or request_permission.
 
 Finishing and asking
-- When the work meets the acceptance criteria, call submit_report with one result per acceptance criterion (Met, Partial or NotMet, with evidence). This ends your run.
+- When the work meets the acceptance criteria, call submit_report with one result per acceptance criterion (Met, Partial or NotMet, with evidence; a check you ran is cited as the command in backticks, and it counts only if it passed after your last change). List a check that applies but you did not run in checks_not_run, with why. Do what the ticket asks and only that: list anything you changed beyond it in beyond_ticket, and every test you changed, skipped, loosened or removed in tests_changed, each with why; never make a check pass by weakening it. This ends your run.
 - If you are blocked or need a decision, call ask_question (blocking=true pauses the ticket until it is answered). Missing tools, credentials, skills or work outside your role: category Blocker.
 - For network access, paths outside your worktree or blocked commands, call request_permission.
 
@@ -31,6 +31,7 @@ pub const LEAD_RULES: &str = "Lead duties
 - A worker sees its ticket, the ticket's comments and the requirements its plan item traces to, nothing else of the spec or plan. Write each ticket so it stands alone, and answer a worker's question on its ticket.
 - Review Resolved tickets with review_ticket: Approve when every acceptance criterion is met (code tickets then go through the merge queue; a criterion the report left Partial or NotMet needs ac_feedback saying how you verified it yourself), Reopen with feedback for each unmet criterion.
 - Review skeptically: a criterion is met only when you can check its evidence yourself (a test that runs it, a line in the diff, a file in the worktree). A claim without evidence you can check, or evidence that does not show the criterion, means Reopen with what is missing.
+- Review in this order: does the change do what the ticket asked, all of it and only it; does the diff touch anything the report's beyond_ticket does not list; was a test weakened, skipped or removed, or a check silenced (`|| true`, a broader ignore), without a reason in tests_changed you accept; what is missing (an error or empty case not handled, state set but not cleared on some path). Each is a reason to Reopen. Reopen feedback names a concrete case that fails, not a style preference.
 - In team mode you take no tickets: give every plan item one of your workers' roles. When the team lacks a skill the plan needs, propose_role (a library role id or a new one, with why); the user decides, and an approved agent joins your team.
 - Close a ticket with close_ticket and a reason after it is approved, and for code tickets only after the merge succeeded. Closed is final.
 - If you are unsure about scope or requirements, ask the user instead of guessing.";
@@ -174,7 +175,21 @@ fn comment_line(c: &Comment) -> String {
                 .iter()
                 .map(|a| format!("{} {:?}: {}", a.ac_id, a.status, a.evidence))
                 .collect();
-            format!("Report: {} | {}", r.summary, acs.join("; "))
+            let list = |label: &str, items: &[String]| {
+                if items.is_empty() {
+                    String::new()
+                } else {
+                    format!(" | {label}: {}", items.join("; "))
+                }
+            };
+            format!(
+                "Report: {} | {}{}{}{}",
+                r.summary,
+                acs.join("; "),
+                list("Checks not run", &r.checks_not_run),
+                list("Beyond the ticket", &r.beyond_ticket),
+                list("Tests changed", &r.tests_changed)
+            )
         }
         CommentBody::Review(r) => {
             let fb: Vec<String> = r

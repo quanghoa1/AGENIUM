@@ -648,3 +648,93 @@ async fn a_proven_lesson_is_reflected_on_once_through_the_gates() {
     rt.review(project, &key("AGN-2")).await.unwrap();
     assert_eq!(p.remaining(), 0);
 }
+
+/// ADR-147: a ticket the user approves and closes on the board (no review run of the Lead) teaches its assignee too,
+/// at the next round, once.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_ticket_the_user_closes_teaches_the_assignee() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let user = agenium_orchestrator::CallCtx::user(project);
+    p.push_calls(
+        "",
+        vec![(
+            "write_file",
+            json!({"path": "deliverables/hello.txt", "content": "hello\n"}),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    app.apply(
+        &user,
+        Intent::ReviewTicket(agenium_core::forms::ReviewDecision {
+            ticket_id: key("AGN-1"),
+            decision: agenium_core::forms::ReviewVerdict::Approve,
+            ac_feedback: vec![],
+            required_changes: vec![],
+        }),
+    )
+    .unwrap();
+    app.apply(
+        &user,
+        Intent::CloseTicket(agenium_core::forms::CloseTicket {
+            ticket_id: key("AGN-1"),
+            reason: "Checked it myself: merged".into(),
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Closed
+    );
+    p.push(Box::new(|req| {
+        let t = req.messages[0].text();
+        assert!(t.contains("Episode ticket:AGN-1"), "{t}");
+        Ok(calls_response(
+            "{\"facts\": [{\"text\": \"Greeting files in this project end with a newline.\", \"kind\": \"fact\"}]}",
+            vec![],
+        ))
+    }));
+    rt.work(project).await.unwrap();
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    assert_eq!(
+        mem.live(10).unwrap().len(),
+        1,
+        "learned from the user's close"
+    );
+    assert_eq!(p.remaining(), 0);
+    rt.work(project).await.unwrap();
+    assert_eq!(p.requests().len(), 3, "once");
+    // ADR-147: done is handed over: the report is written, then the project completes and the user is told where.
+    let pr = app.project(project).unwrap();
+    assert_eq!(
+        pr.status,
+        agenium_store::core::projects::ProjectStatus::Completed
+    );
+    let report = app
+        .layout()
+        .root
+        .join("reports")
+        .join(&pr.name)
+        .join("handover-v1.md");
+    assert!(std::fs::read_to_string(&report)
+        .unwrap()
+        .contains("Review: approved by user"));
+    let told = app
+        .store()
+        .read(|c| events::since(c, 0, 10_000))
+        .unwrap()
+        .iter()
+        .filter_map(|e| e.decode())
+        .any(|e| matches!(e, DomainEvent::NeedsUser { reason, .. } if reason.contains("handover report")));
+    assert!(told);
+}

@@ -21,6 +21,7 @@ mod memory;
 mod messages;
 mod solo;
 mod team;
+mod verify;
 
 fn runtime(
     f: &Fixture,

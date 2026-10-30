@@ -265,6 +265,8 @@ export interface TicketDetail {
   links?: { kind: string; out: boolean; key: string; title: string; proposed_by: string; confirmed: boolean; note?: string | null }[];
   /** Tickets whose depends_on names this one: they start once it is done. */
   dependents?: string[];
+  /** Cancelled, and no ticket carries its work on: its plan item waits for the user's waiver (ADR-147). */
+  waivable?: boolean;
   audit: AuditEntry[];
 }
 
@@ -449,6 +451,8 @@ export interface CreatedSkill {
   at: string;
   /** Set when the lesson stopped holding: why, and when. */
   flagged?: string | null;
+  /** Later lessons written into it (ADR-146); `before` is the text the last one can be undone to (ADR-147). */
+  revisions?: { lesson: number; lesson_text: string; reason: string; at: string; before?: string }[];
 }
 
 /** Two memories that may contradict each other, for the user to decide (ADR-145). */
