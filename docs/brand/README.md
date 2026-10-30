@@ -6,6 +6,7 @@ across them (indigo to sky), with a white diamond at its centre. It sits on a li
 | File | Used for |
 |---|---|
 | `agenium-logo-banner-dark.svg` | the README banner |
+| `agenium-how-it-works.svg` | the README's diagram of how Agenium works (plan, work, review and merge, learn), in the banner's palette |
 | `agenium-logo-mark.svg` | the full mark |
 | `agenium-logo-symbol.svg` | the symbol without its tile |
 | `apps/desktop/ui/public/logo.svg` | the app's favicon and the source of the app icons: the same artwork as `agenium-logo-mark.svg` |

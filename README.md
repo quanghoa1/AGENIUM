@@ -2,141 +2,167 @@
   <img src="docs/brand/agenium-logo-banner-dark.svg" alt="AGENIUM — Ticket-Driven Multi-Agent Orchestrator" width="100%" />
 </p>
 
-# Agenium
+<p align="center">
+  <img alt="Version 0.1.0 pre-release" src="https://img.shields.io/badge/version-0.1.0--pre-2563EB" />
+  <img alt="License Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0EA5E9" />
+  <img alt="Rust 1.89+" src="https://img.shields.io/badge/rust-1.89%2B-F97316" />
+  <img alt="Windows and Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-10B981" />
+</p>
 
-**Agenium runs a team of AI coding agents the way a good engineering team runs itself: through tickets.**
-You describe what you want to the team's Lead in your own language. The Lead writes a requirement spec for you to
-approve, turns it into a plan and tickets, and hands each ticket to the agent whose role fits. Each agent works in its
-own git worktree; nothing reaches `main` without a review against the ticket's acceptance criteria and a merge
-through a single queue. You watch it happen in a desktop app, step in when an agent asks, and keep the final say.
+<p align="center">
+  <b>Run a team of AI coding agents the way a good engineering team runs itself: through tickets.</b>
+</p>
 
-Agents can be any mix of models: API models (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, Azure, Bedrock, local
-LM Studio / Ollama, or your own OpenAI-compatible endpoint) and the coding CLIs you are already logged in to
-(Claude Code, Codex, Gemini/Antigravity, Grok, OpenCode). A Claude Lead with Codex, Grok and DeepSeek workers is one
-team.
+<p align="center">
+  <a href="README.vi.md">Tiếng Việt</a> ·
+  <a href="docs/PROGRESS.md">Status</a> ·
+  <a href="docs/VERIFICATION.md">Verification</a> ·
+  <a href="docs/adr/README.md">Design decisions</a> ·
+  <a href="CHANGELOG.md">Changelog</a> ·
+  <a href="docs/JEV.md">Jev judge</a>
+</p>
 
-[Tiếng Việt](README.vi.md) · [Status and limits](docs/PROGRESS.md) · [What is verified, and how](docs/VERIFICATION.md) ·
-[Jev judge](docs/JEV.md) · [Changelog](CHANGELOG.md) · [Decisions (ADRs)](docs/adr/README.md)
+---
 
-> **Status: 0.1.0, pre-release.** Feature-complete for a first release on Windows and Linux (Ubuntu); the
-> installers are being built and tested on clean virtual machines. macOS runs the full test suite; its desktop build
-> follows. See [Status](#status) for what has and has not been run against real models.
+You describe what you want to the team's **Lead** in your own language. The Lead writes a requirement spec for you to
+approve, turns it into a plan of tickets with acceptance criteria, and hands each ticket to the agent whose role fits.
+Every agent works in its own git worktree inside a sandbox; nothing reaches `main` without a review against the
+ticket's criteria and a merge through a single queue. You follow it all in a desktop app, answer when an agent asks,
+and keep the final say.
+
+A team can mix any models: API models from Anthropic, OpenAI, Google, DeepSeek and others, local models, and the
+coding CLIs you already use — Claude Code, Codex, Grok, Gemini (Antigravity) and OpenCode. A Claude Lead with Codex,
+Grok and DeepSeek workers is one team.
 
 ## How it works
 
-```
- You ──chat──▶ Lead ──spec──▶ You approve ──▶ Lead: plan + tickets ──▶ Workers (one worktree per ticket)
-                 ▲                                                          │
-                 ├── questions, permission requests ◀───────────────────────┤
-                 └── review against acceptance criteria ◀── report ─────────┘
-                         │ approved
-                         ▼
-                   merge queue ──▶ main ──▶ ticket Closed
-```
+<p align="center">
+  <img src="docs/brand/agenium-how-it-works.svg" alt="How Agenium works: you, the Lead, the spec, the plan and tickets; workers on any model in their own worktrees; review per criterion and one merge queue; memory, reflection and skills" width="100%" />
+</p>
 
-- **Tickets are the only channel for work.** Agents change state only through typed, validated tool calls
-  (`create_ticket`, `submit_report`, `ask_question`, `review_ticket` …). Every change is an event in a log, so the
-  board, the audit trail and the live view always agree, and a crash loses nothing.
-- **Plans you can hold the team to.** A spec has numbered requirements; every plan item traces back to one; every
-  ticket carries acceptance criteria; a review checks each criterion against evidence. A ticket that fails review is
-  reopened with per-criterion feedback; one that keeps failing is escalated to you.
-- **Dependencies are real.** A ticket that needs another waits until that one is merged; the board shows what blocks
-  what and what each ticket is needed for.
-- **You are asked, not surprised.** Agents ask you questions through the Lead, request permission for anything outside
-  their sandbox, and a change of scope waits for you.
+1. **Plan.** The Lead turns your request into a spec of numbered requirements. Once you approve it, every plan item
+   traces back to a requirement and every ticket carries acceptance criteria, dependencies and the role it needs.
+2. **Work.** Each ticket runs in its own git worktree. Agent commands run in an OS sandbox that can write only to that
+   worktree; anything outside it — a network domain, a system install, an MCP tool that deletes or sends — waits for
+   your approval. Questions reach you through the Lead.
+3. **Review and merge.** A worker reports one result per criterion with its evidence. The Lead checks each one; a
+   ticket that falls short is reopened with feedback per criterion, one that keeps failing is escalated to you. Approved
+   work passes the project's checks and merges through one queue; the tickets that depended on it start.
+4. **Learn.** After each ticket the agent keeps what it learned. A lesson that has proven itself is weighed once:
+   it may improve a skill — always the agent's own copy, never the system's — become a new skill, or stay a memory.
 
-## Features
+Tickets are the only channel for work. Agents change state only through typed, validated tool calls
+(`create_ticket`, `submit_report`, `review_ticket` …), each recorded as an event, so the board, the audit trail and the
+live view always agree and a crash loses nothing.
 
-| Area | What you get |
+## Highlights
+
+| | |
 |---|---|
-| **Teams** | Solo agent (Lead and worker in one) or a Lead with workers and an optional planner. Team templates for coding, research, content and security testing; 27 ready-made roles (backend, frontend, API tester, UI tester, code reviewer, technical writer, SRE …); compose a team from your own agents. |
-| **Any model, mixed** | API providers with vendor presets and a custom OpenAI-compatible endpoint (your headers, per-model settings, extra request fields — [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md)). Vendor CLIs driven headless, every tool call decided by Agenium. Effort levels per agent; an agent whose model or CLI cannot go on waits for you to give it another and resume it, and each CLI resumes its own session of a ticket. |
-| **Desktop app** | Overview, chat with the Lead, Kanban board, ticket pages with side-by-side diffs (Monaco), live office view of who is doing what, run logs with a terminal view, memory browser, team organiser, settings. English and Vietnamese. |
-| **Safety** | Agent commands run in an OS sandbox (Linux bubblewrap, macOS Seatbelt, Windows MXC containers where Windows provides them): writes only in the ticket's worktree, no access to your secrets; without a sandbox every command waits for your approval. Secrets live in an encrypted vault keyed by the OS keyring and never reach agents, logs or git; commits are secret-scanned. |
-| **Memory that learns, carefully** | Each agent keeps memories (facts, lessons, a knowledge graph) found by a local embedding model (bge-small, runs on your machine, installed with the app) plus keyword and graph search. New skills and lessons need evidence and pass strict gates, so an agent does not drift. |
-| **Skills and tools** | `SKILL.md` skills per role or agent (13 built in), MCP servers (stdio, Streamable HTTP, legacy SSE, OAuth) bound per agent with their own credentials, image viewing for vision models (`view_image`). |
-| **Cost and control** | Tokens and estimated cost per run, ticket and agent; prompt caching; context compaction for long runs; pause, cancel, re-run. |
-| **Operations** | Hourly/daily backups with retention, restore into a new root, database migrations with a backup first, a support bundle without secrets, Markdown project reports, optional push to your remote on close. |
-| **Optional judge (Jev)** | TypeSafe's Jev model can take small decisions off the main agents — whether a ticket is worth remembering, which skill fits — to save their tokens. Used once you add a key (every use on), fail-open. See [docs/JEV.md](docs/JEV.md). |
+| **Teams** | A Solo agent, or a Lead with workers and an optional planner. Templates for coding, research, content and authorized security testing; a library of ready-made roles; teams composed from your own agents. |
+| **Any model, mixed** | API providers with presets, plus any OpenAI-compatible endpoint with your own headers and request fields. Vendor CLIs driven headless, every tool call decided by Agenium. Effort per agent; an agent whose model runs out of quota waits to be given another and resumes. |
+| **Desktop app** | Overview, chat with the Lead, Kanban board, ticket pages with side-by-side diffs, a live office view of who does what, run logs with a terminal, memory browser, usage and cost, team organiser. English and Vietnamese. |
+| **Memory and skills** | Facts, lessons and a knowledge graph per agent, found by a local embedding model plus keyword and graph search, kept tidy without rereading it with a model. Skills as `SKILL.md`, per role and per agent, with a built-in library. |
+| **MCP** | Servers over stdio, Streamable HTTP and SSE, with OAuth, bound per agent with their own keys. When a server offers many tools an agent finds them by search instead of reading them all; a server that changes its tools mid-run is followed. |
+| **Safety** | OS sandbox per command (Linux bubblewrap, macOS Seatbelt, Windows process containers where available). Secrets in an encrypted vault keyed by the OS keyring, never in prompts, logs or git; commits secret-scanned. External content is fenced as data. |
+| **Control** | Tokens and estimated cost per run, ticket and agent; prompt caching; context compaction; pause, cancel, re-run; backups, restore, a support bundle without secrets. |
+| **Optional judge** | TypeSafe's Jev can take small decisions off the main agents — whether an episode is worth remembering, which tool or skill fits — to save their tokens. Fail-open: without it Agenium works the same. |
 
-## Install and first run
+## Supported models
 
-**Desktop app.** Download the installer for your system from the releases page: `Agenium_0.1.0_x64-setup.exe` (or
-the `.msi`) on Windows 10/11, `Agenium_0.1.0_amd64.deb` (`sudo apt install ./Agenium_0.1.0_amd64.deb`) or the
-AppImage on Linux. Agenium needs **Git** (on Windows: https://git-scm.com/downloads). On first start the app
-prepares the local embedding model (bundled with the installer, so no download), then a short setup asks for your
-language and where Agenium keeps its data. Add a model provider (an API key goes straight to the encrypted vault) or
-use a coding CLI you are logged in to, create a project, pick a team, and start chatting with the Lead.
+| API providers | Coding CLIs |
+|---|---|
+| Anthropic · OpenAI · Google Gemini · DeepSeek · xAI · OpenRouter · Azure OpenAI · Amazon Bedrock · OpenCode Go · LM Studio / Ollama · any OpenAI-compatible endpoint | Claude Code · Codex · Grok · Gemini (Antigravity) · OpenCode |
 
-**From source** (any of Windows, Linux, macOS):
+On Anthropic's and OpenAI's own APIs the forms that move work are decoded strictly against their schema, so a report
+always parses; other providers get the same tools with a lenient reader.
+
+## Getting started
+
+### Desktop app
+
+Download the installer for your system from the releases page — `Agenium_0.1.0_x64-setup.exe` (or the `.msi`) on
+Windows 10/11, `Agenium_0.1.0_amd64.deb` or the AppImage on Linux. Agenium needs **Git**. The local embedding model
+ships with the installer. On first start a short setup asks for your language and where Agenium keeps its data; then
+add a model provider (the key goes straight to the encrypted vault) or pick a coding CLI you are logged in to, create
+a project, choose a team and start chatting with the Lead.
+
+### From source
 
 ```sh
-# Requirements: Rust stable >= 1.89, a C/C++ compiler, git >= 2.30, Node.js >= 20 (desktop UI)
+# Requirements: Rust stable 1.89+, a C/C++ compiler, Git 2.30+, Node.js 20+ (desktop UI)
 npm --prefix apps/desktop/ui install
 npm --prefix apps/desktop/ui run build
 cd apps/desktop && cargo run --release --features tauri/custom-protocol
 ```
 
-**Headless CLI.** Everything the app does is also available as the `agenium` command:
+On Windows the repository builds with the GNU toolchain and MSYS2 gcc (`.cargo/config.toml` maps `rc.exe` to MinGW
+`windres`).
+
+### Command line
+
+Everything the app does is also available as the `agenium` command:
 
 ```sh
-agenium setup --user-language vi
-agenium models download                      # the local embedding model (~130 MB, checksum verified)
-agenium provider presets                     # known vendors and the key each one needs
-agenium provider add deepseek --preset deepseek --key-env DEEPSEEK_API_KEY   # the key goes to the encrypted vault
+agenium setup --user-language en
+agenium models download                                   # the local embedding model (~130 MB, checksum verified)
+agenium provider add deepseek --preset deepseek --key-env DEEPSEEK_API_KEY
 agenium project create shop
 agenium team create --project shop --template coding --model deepseek/deepseek-chat --prefix shop
-agenium agent cli shop-lead --cli claude --model claude-opus-5-5   # the Lead now runs through Claude Code
+agenium agent cli shop-lead --cli claude --model claude-opus-5-5   # the Lead runs through Claude Code
 agenium chat --project shop "Add a product search page with filters"
 agenium approve --project shop spec 1
-agenium run --project shop                   # work, review and merge until the plan is done
+agenium run --project shop                                 # work, review and merge until the plan is done
 agenium board --project shop
 ```
 
+## Learning without drifting
+
+Agents get better at a project from their own work, under rules that keep them from drifting:
+
+- **One lesson per rule.** A lesson comes from a signal — a reopen, a failed check, a correction — and a later
+  refinement updates it rather than adding a near-copy. A lesson that misled a run loses confidence; a ticket that
+  closes cleanly cannot delete one.
+- **Proven before it is written down.** A lesson becomes part of a skill only after it has held across several closed tickets,
+  and only through gates: the right shape, one subject per skill, no contradiction with another skill, no injected
+  instructions or secrets.
+- **Contained.** An agent improves its own copy of a skill; the system's skills, the roles and other agents are never
+  changed. You can review, revert or promote any change, and a skill whose lesson stops holding is flagged.
+
 ## Status
 
-0.1.0 is the first release candidate. What has been verified (details and evidence in
-[docs/PROGRESS.md](docs/PROGRESS.md) and [docs/VERIFICATION.md](docs/VERIFICATION.md)):
+**0.1.0 is the first release candidate** for Windows and Linux; macOS runs the full test suite and its desktop build
+follows. Each behaviour is covered by automated tests — unit, contract, end-to-end runtime and crash tests — and checked
+with real models, over APIs and through the coding CLIs, in single-agent tasks, full team runs and memory chains. The
+evidence is in [docs/VERIFICATION.md](docs/VERIFICATION.md); the raw runs are in
+[`quality/eval/results`](quality/eval/results).
 
-- **439 automated tests** across the workspace (unit, contract tests against local HTTP servers, end-to-end runtime
-  tests with a scripted model, crash tests that kill the process mid-write), clippy clean, dependency policy checked
-  with `cargo-deny`, a 25-check UI smoke test that drives the real app.
-- **Real models:** golden coding tasks 5/5 on DeepSeek (API) and through the Claude, Codex, Gemini (Antigravity),
-  Grok and OpenCode CLIs; full team runs (spec → plan → tickets → reviews → merges) on DeepSeek and on a mixed team
-  of Claude Opus (Lead), Codex, Grok, Gemini and DeepSeek.
-- **Platforms:** Windows 11 (development machine and a clean VM), Ubuntu 25.10 (real VM, sandbox escape tests:
-  0 escapes), macOS (Apple Silicon VM: full suite, sandbox containment).
-
-Known limits of 0.1.0: on Windows the agent sandbox uses MXC process containers, which current stable Windows 11
-releases (23H2 tested) do not provide yet — there every agent command waits for your approval unless you choose, in
-Settings, to let agents run without a sandbox (ADR-117); Git must be installed
-(Agenium tells you where to get it). Anthropic, Gemini and OpenAI APIs are contract-tested but have not been called
-with a real key; the extra request fields of [ADR-115](docs/adr/ADR-115-custom-endpoint-requests.md) apply to
-OpenAI-compatible endpoints only; Devin's CLI cannot be driven; installers are not code-signed yet.
+**Known limits.** Windows' process containers are not in current stable Windows 11 releases, so there each agent
+command waits for your approval unless you allow agents to run without a sandbox. Some API vendors are contract-tested
+but not yet called with a real key. Installers are not code-signed yet.
 
 ## Repository layout
 
 ```
 apps/            what users run: cli/ (the agenium command), desktop/ (Tauri 2 app + React UI)
-orchestration/   orchestrator: app service, intent engine, scheduler, agent runtime, git effects, templates
+orchestration/   the orchestrator: intent engine, scheduler, agent runtime, git effects, templates
 agent/           loop (agent loop), llm (providers), cli-backend (vendor CLIs), tools, memory, skills, mcp
-security/        sandbox (Windows MXC, bubblewrap, Seatbelt), secrets (vault, keyring, redaction, secret scan)
+security/        sandbox (Windows containers, bubblewrap, Seatbelt), secrets (vault, keyring, redaction, scanning)
 foundation/      core (domain, protocol tools, ticket state machine), config, store (SQLite), bus, vcs (git)
-quality/eval/    golden tasks, team scenario, memory and judge evaluations; results/ holds real-model runs
+quality/eval/    golden tasks, team and memory scenarios, judge evaluations; results/ holds real-model runs
 devtools/        xtask, local CI scripts, UI smoke test
-docs/            ADRs, progress, verification map, evaluations, original design pack
+docs/            design decisions (ADRs), verification map, evaluations, brand assets
 ```
 
-Build and check everything locally:
+## Development
 
 ```sh
 .\devtools\scripts\ci-local.ps1 -Ui     # Windows: fmt, clippy -D warnings, tests, schemas, golden tasks, UI smoke
 devtools/scripts/ci-local.sh            # Linux / macOS
 ```
 
-On Windows the repository builds with the GNU toolchain and MSYS2 gcc (`.cargo/config.toml` maps `rc.exe` to MinGW
-`windres`).
+Every design decision is recorded as an ADR in [docs/adr](docs/adr/README.md), with what was measured to make it.
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) (third-party code and assets).
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for third-party code and assets.
