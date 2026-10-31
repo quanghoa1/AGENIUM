@@ -1,0 +1,24 @@
+== machine  (17:53:17)
+== build (cargo build --workspace --all-targets)  (17:53:20)
+   exit=0 seconds=153
+== tests (cargo test --workspace --no-fail-fast)  (17:55:53)
+   exit=0 seconds=150
+== the three tests that failed in run 6, alone (fixed since: F_GETPATH, a linked root, python3)  (17:58:23)
+   exit=0 seconds=160
+== golden tasks with the scripted model (no model API)  (18:01:03)
+   exit=0 seconds=4
+== doctor  (18:01:07)
+   exit=0 seconds=2
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (18:01:09)
+   exit=0 seconds=57
+== desktop: UI dependencies (npm ci)  (18:02:06)
+   exit=0 seconds=2
+== desktop: build the installer (tauri build --bundles app,dmg; downloads the embedding model once)  (18:02:08)
+   exit=0 seconds=170
+== desktop: its own tests (cargo test in apps/desktop)  (18:04:58)
+   exit=0 seconds=135
+== desktop: the .dmg checked, installed from it into work/Applications, signature read  (18:07:13)
+== desktop: start the installed app for 45 s on an empty root (setup screen; the bundled model is copied)  (18:07:16)
+installer copied: /Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/Agenium_0.1.0_aarch64.dmg
+== processes left  (18:08:04)
+== summary  (18:08:04)

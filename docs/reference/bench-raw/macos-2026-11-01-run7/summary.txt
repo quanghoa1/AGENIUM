@@ -1,0 +1,39 @@
+commit: 6354368
+tests: passed 623, failed 0, ignored 3
+failing tests:
+  (none)
+focus tests (run 6's three failures):
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.28s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 88.67s
+golden: score: 5/5 passed; prompt cache 0.0% of 2300 input tokens (exit=0 seconds=4)
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+sandbox network: private network (outbound only; no inbound, no host loopback)
+sandboxed modes: 0 escape(s) or broken must-work item(s)
+desktop:
+  desktop-npm.log: exit=0 seconds=2
+  desktop-build.log: exit=0 seconds=170
+  desktop-test.log: exit=0 seconds=135
+  test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  dmg: Agenium_0.1.0_aarch64.dmg
+  dmg bytes: 95550230
+  dmg sha256: 8506119c7355980166fe9d912c665f2b999de9af27b6096a6eaf28cc6041b792
+  hdiutil verify: ok
+  dmg contents: Agenium.app Applications 
+  copied out of the dmg: yes
+  179M	/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/Applications/Agenium.app
+  bundled model files: config.json model.safetensors tokenizer.json 
+  codesign verify: ok
+  Identifier=dev.agenium.desktop
+  Format=app bundle with Mach-O thin (arm64)
+  CodeDirectory v=20500 size=104404 flags=0x10002(adhoc,runtime) hashes=3256+3 location=embedded
+  Signature=adhoc
+  TeamIdentifier=not set
+  Runtime Version=26.5.0
+  gatekeeper (spctl, expected to reject an app that is not notarized):
+    /Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/Applications/Agenium.app: rejected
+  binary: /Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/Applications/Agenium.app/Contents/MacOS/agenium-desktop
+  still running after 45 s: yes
+  root created: yes
+  model in the root: yes, same as the bundled files: yes
+processes left: (none)

@@ -1,0 +1,17 @@
+dmg: Agenium_0.1.0_aarch64.dmg
+dmg bytes: 95550230
+dmg sha256: 8506119c7355980166fe9d912c665f2b999de9af27b6096a6eaf28cc6041b792
+hdiutil verify: ok
+dmg contents: Agenium.app Applications 
+copied out of the dmg: yes
+179M	/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/Applications/Agenium.app
+bundled model files: config.json model.safetensors tokenizer.json 
+codesign verify: ok
+Identifier=dev.agenium.desktop
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20500 size=104404 flags=0x10002(adhoc,runtime) hashes=3256+3 location=embedded
+Signature=adhoc
+TeamIdentifier=not set
+Runtime Version=26.5.0
+gatekeeper (spctl, expected to reject an app that is not notarized):
+  /Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/Applications/Agenium.app: rejected

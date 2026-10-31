@@ -145,7 +145,7 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   the Lead's chat leads to the live office, the tickets and the runs, and its ticket keys open the ticket.
 - First start prepares the local embedding model (bundled with the installer) before the app opens.
 - Installers: Windows (NSIS, MSI), Linux (`.deb`, AppImage) and macOS (an ad-hoc signed `.app` in a `.dmg`, not
-  notarized). Found on a clean Windows 11 VM (2026-11-01): the app built since the vector index (ADR-125) did not start
+  notarized; Apple silicon; checked in macOS run 7: installed from the `.dmg`, it starts and copies its model). Found on a clean Windows 11 VM (2026-11-01): the app built since the vector index (ADR-125) did not start
   there, as it needed the C++ library of the build machine (`libstdc++-6.dll`); it is now linked in, and local CI fails
   a Windows build that imports a DLL of the build toolchain (`check-dlls.ps1`).
 - A newer version installs over the old one and keeps everything: the data lives in the root (`~/.agenium`), apart

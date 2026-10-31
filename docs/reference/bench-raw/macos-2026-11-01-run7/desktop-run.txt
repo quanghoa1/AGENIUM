@@ -1,0 +1,4 @@
+binary: /Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/Applications/Agenium.app/Contents/MacOS/agenium-desktop
+still running after 45 s: yes
+root created: yes
+model in the root: yes, same as the bundled files: yes

@@ -1,0 +1,149 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling stable_deref_trait v1.2.1
+   Compiling num-traits v0.2.19
+   Compiling zerocopy v0.8.63
+   Compiling futures-task v0.3.34
+   Compiling slab v0.4.12
+   Compiling crossbeam-utils v0.8.23
+   Compiling getrandom v0.4.3
+   Compiling tracing-core v0.1.36
+   Compiling log v0.4.34
+   Compiling regex-automata v0.4.18
+   Compiling futures-channel v0.3.34
+   Compiling crypto-common v0.1.7
+   Compiling futures-util v0.3.34
+   Compiling tempfile v3.27.0
+   Compiling uuid v1.29.0
+   Compiling getrandom v0.2.17
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling tracing v0.1.44
+   Compiling crossbeam-epoch v0.9.21
+   Compiling crossbeam-deque v0.8.8
+   Compiling quote v1.0.47
+   Compiling syn v3.0.9
+   Compiling globset v0.4.20
+   Compiling regex v1.13.1
+   Compiling ignore v0.4.33
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.9.0
+   Compiling rand v0.9.5
+   Compiling synstructure v0.14.0
+   Compiling serde_derive_internals v0.30.0
+   Compiling zerovec-derive v0.11.7
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling displaydoc v0.2.7
+   Compiling tokio-macros v2.7.2
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling ref-cast-impl v1.0.27
+   Compiling async-trait v0.1.92
+   Compiling schemars_derive v1.2.3
+   Compiling ref-cast v1.0.27
+   Compiling tokio v1.54.1
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling tinystr v0.8.5
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.4.0
+   Compiling thiserror v2.0.21
+   Compiling icu_locale_core v2.4.0
+   Compiling serde v1.0.229
+   Compiling chrono v0.4.45
+   Compiling ulid v1.2.1
+   Compiling hyper v1.12.0
+   Compiling tower v0.5.3
+   Compiling tokio-rustls v0.26.6
+   Compiling icu_provider v2.4.0
+   Compiling mxc-sdk v1.0.1
+   Compiling icu_properties v2.4.0
+   Compiling icu_normalizer v2.4.0
+   Compiling hyper-util v0.1.21
+   Compiling schemars v1.2.3
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling agenium-core v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/foundation/core)
+   Compiling hyper-rustls v0.27.10
+   Compiling url v2.5.8
+   Compiling tower-http v0.6.11
+   Compiling reqwest v0.13.5
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/security/sandbox)
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/tools)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.43s
+     Running unittests src/lib.rs (target/debug/deps/agenium_tools-7a71b3131623eac6)
+
+running 1 test
+test work::real_remove::tests::a_folder_swapped_for_a_link_keeps_deletes_and_writes_inside ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+   Compiling typenum v1.20.1
+   Compiling zeroize v1.9.1
+   Compiling aho-corasick v1.1.5
+   Compiling keyring-core v1.0.1
+   Compiling getrandom v0.2.17
+   Compiling security-framework-sys v2.17.0
+   Compiling core-foundation v0.10.1
+   Compiling syn v3.0.9
+   Compiling errno v0.3.14
+   Compiling once_cell v1.21.4
+   Compiling rustix v1.1.5
+   Compiling rand_core v0.6.4
+   Compiling security-framework v3.7.0
+   Compiling generic-array v0.14.7
+   Compiling regex-automata v0.4.18
+   Compiling crypto-common v0.1.7
+   Compiling inout v0.1.4
+   Compiling tempfile v3.27.0
+   Compiling cipher v0.4.4
+   Compiling universal-hash v0.5.1
+   Compiling poly1305 v0.8.0
+   Compiling chacha20 v0.9.1
+   Compiling aead v0.5.2
+   Compiling apple-native-keyring-store v1.0.2
+   Compiling chacha20poly1305 v0.10.1
+   Compiling keyring v4.2.0
+   Compiling regex v1.13.1
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling thiserror v2.0.21
+   Compiling agenium-secrets v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/security/secrets)
+   Compiling serde v1.0.229
+   Compiling agenium-vcs v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/foundation/vcs)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.76s
+     Running tests/vcs.rs (target/debug/deps/vcs-0026256477021d83)
+
+running 1 test
+test a_worktree_left_mid_rebase_is_recovered_not_deleted ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.28s
+
+   Compiling mxc-sdk v1.0.1
+   Compiling safetensors v0.8.0
+   Compiling zip v9.1.1
+   Compiling candle-core v0.11.0
+   Compiling agenium-skills v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/skills)
+   Compiling candle-nn v0.11.0
+   Compiling candle-transformers v0.11.0
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/security/sandbox)
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/tools)
+   Compiling agenium-backend v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/loop)
+   Compiling agenium-mcp v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/mcp)
+   Compiling agenium-cli-backend v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/cli-backend)
+   Compiling agenium-memory v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/agent/memory)
+   Compiling agenium-orchestrator v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/orchestration/orchestrator)
+   Compiling agenium-eval v0.1.0 (/Users/devin/agenium-macos-test-v7/agenium-macos-test-kit-v7/work/agenium-6354368/quality/eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.24s
+     Running tests/golden.rs (target/debug/deps/golden-2e60eec1edc2475d)
+
+running 1 test
+test scripted_golden_tasks_pass has been running for over 60 seconds
+test scripted_golden_tasks_pass ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 88.67s
+
+exit=0 seconds=160
