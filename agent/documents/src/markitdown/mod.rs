@@ -100,10 +100,11 @@ fn install_roots(program: &Path) -> Vec<PathBuf> {
     {
         add_venv(&t, &mut out);
     }
-    // A link is followed inside the sandbox only when its target is readable too. uv's `home` is a link to the Python
-    // of the minor version (`cpython-3.12-linux-x86_64-gnu` -> `cpython-3.12.15-…`), and a venv's `bin/python` links
-    // there: without the real folders the program's interpreter was not found ("cannot execute: required file not
-    // found", Ubuntu, 2026-11-01).
+    // The sandbox mounts each read root at its real path, so a link on the way to the interpreter does not exist inside
+    // it. uv's `home` is a link to the Python of the minor version (`cpython-3.12-linux-x86_64-gnu` ->
+    // `cpython-3.12.15-…`), and a venv's `bin/python` goes through it: markitdown's interpreter was not found ("cannot
+    // execute: required file not found", Ubuntu, 2026-11-01). The folder that holds such a link is read whole, the
+    // link with it.
     #[cfg(unix)]
     {
         let venvs: Vec<PathBuf> = out
@@ -111,12 +112,18 @@ fn install_roots(program: &Path) -> Vec<PathBuf> {
             .filter(|r| r.join("pyvenv.cfg").is_file())
             .cloned()
             .collect();
-        for v in venvs {
-            if let Some(install) = std::fs::canonicalize(v.join("bin").join("python"))
-                .ok()
-                .and_then(|p| p.parent()?.parent().map(Path::to_path_buf))
-            {
-                out.push(install);
+        let mut via: Vec<PathBuf> = out.clone();
+        via.extend(
+            venvs
+                .iter()
+                .filter_map(|v| std::fs::read_link(v.join("bin").join("python")).ok()),
+        );
+        for p in via {
+            for a in p.ancestors() {
+                let link = std::fs::symlink_metadata(a).is_ok_and(|m| m.file_type().is_symlink());
+                if let (true, Some(parent)) = (link, a.parent()) {
+                    out.push(parent.to_path_buf());
+                }
             }
         }
         let real: Vec<PathBuf> = out
@@ -323,6 +330,7 @@ mod tests {
         let roots = install_roots(&exe);
         let real = std::fs::canonicalize(&real).unwrap();
         assert!(roots.contains(&real), "{roots:?}");
-        assert!(roots.contains(&link), "{roots:?}");
+        // The folder holding the link is read whole: the sandbox mounts real paths, the link lives only in its folder.
+        assert!(roots.contains(&t.path().join("python")), "{roots:?}");
     }
 }
