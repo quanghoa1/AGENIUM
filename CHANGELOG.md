@@ -151,7 +151,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - A newer version installs over the old one and keeps everything: the data lives in the root (`~/.agenium`), apart
   from the app's folder, and uninstalling leaves it too. Checked on a clean Windows 11 VM (2026-11-01) through the
   installers' own windows: 0.1.0 with a project, a team, a provider and its key, then 0.1.1 over it while the app ran
-  (closed and restarted by the installer), then the MSI. The app now shows the installer's version, not the crate's.
+  (closed and restarted by the installer), then the MSI; on Ubuntu, `apt install` of 0.1.1 over 0.1.0 changed no file of
+  the root. The app now shows the installer's version, not the crate's.
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 
 ### Safety
