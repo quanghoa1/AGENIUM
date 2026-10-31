@@ -59,44 +59,10 @@ const MODEL_ENV: &str = "AGENIUM_OPENCODE_MODEL";
 /// The key of the model's provider, from the user's own opencode (empty when the user has none).
 const KEY_ENV: &str = "AGENIUM_OPENCODE_KEY";
 
-/// The API key the user's own opencode holds for `provider` (`opencode auth login`: a row of `credential` in its
-/// database), read-only; `None` when there is none or it is not an API key.
-fn user_login(provider: &str) -> Option<String> {
-    let data = std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("USERPROFILE")
-                .or_else(|| std::env::var_os("HOME"))
-                .map(|h| PathBuf::from(h).join(".local").join("share"))
-        })?;
-    login_in(&data, provider)
-}
-
-/// [`user_login`] from the data folder `data` (opencode keeps `opencode/opencode.db` there).
-fn login_in(data: &Path, provider: &str) -> Option<String> {
-    let db = data.join("opencode").join("opencode.db");
-    if !db.is_file() {
-        return None;
-    }
-    let c = rusqlite::Connection::open_with_flags(
-        &db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .ok()?;
-    let value: String = c
-        .query_row(
-            "SELECT value FROM credential WHERE integration_id = ?1 AND active = 1 \
-             ORDER BY time_updated DESC LIMIT 1",
-            [provider],
-            |r| r.get(0),
-        )
-        .ok()?;
-    let v: Value = serde_json::from_str(&value).ok()?;
-    v["key"]
-        .as_str()
-        .filter(|k| !k.is_empty())
-        .map(str::to_owned)
-}
+mod account;
+pub use account::account_models;
+use account::user_login;
+pub(crate) use account::user_signed_in;
 
 /// opencode model ids are `provider/model`; a bare id means OpenCode's own provider.
 fn model_ref(model: &str) -> Value {
@@ -159,14 +125,12 @@ impl Driver for Opencode {
         }
         std::fs::create_dir_all(dirs[0].join("opencode"))?;
         // ADR-129: its own shell, file, search and to-do tools are off; the work goes through Agenium's MCP tools.
-        // The provider's key from the user's own opencode, when the model is not a free one: handed over in the
-        // environment, the configuration only names the variable.
-        let (provider, id) = s.model.split_once('/').unwrap_or(("opencode", s.model));
-        let login = if id.ends_with("-free") {
-            None
-        } else {
-            user_login(provider)
-        };
+        // The provider's key from the user's own opencode: handed over in the environment, the configuration only
+        // names the variable. A free model (`opencode/*-free`) uses the user's OpenCode login too when there is one:
+        // without it the run was a guest, and OpenCode's guest allowance ran out ("Free usage limit reached.
+        // Connect a provider…", 2026-10-31) while the user was signed in.
+        let provider = s.model.split_once('/').map_or("opencode", |(p, _)| p);
+        let login = user_login(provider);
         let mut permission = json!({
             "*": "ask",
             "read": "deny",
@@ -673,28 +637,6 @@ mod tests {
 
     /// A paid model's provider key comes from the user's own opencode login (the active one), read-only; none when
     /// the user has no login for that provider.
-    #[test]
-    fn the_users_login_for_a_provider_is_found() {
-        let data = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(data.path().join("opencode")).unwrap();
-        let c =
-            rusqlite::Connection::open(data.path().join("opencode").join("opencode.db")).unwrap();
-        c.execute_batch(
-            "CREATE TABLE credential (id TEXT, integration_id TEXT, label TEXT, value TEXT, connector_id TEXT, \
-             method_id TEXT, active INTEGER, time_created INTEGER, time_updated INTEGER);
-             INSERT INTO credential VALUES ('c1', 'opencode-go', 'Go', '{\"type\":\"api\",\"key\":\"sk-old\"}', NULL, NULL, 0, 1, 1);
-             INSERT INTO credential VALUES ('c2', 'opencode-go', 'Go', '{\"type\":\"api\",\"key\":\"sk-go\"}', NULL, NULL, 1, 2, 2);",
-        )
-        .unwrap();
-        drop(c);
-        assert_eq!(
-            login_in(data.path(), "opencode-go").as_deref(),
-            Some("sk-go")
-        );
-        assert_eq!(login_in(data.path(), "anthropic"), None);
-        assert_eq!(login_in(&data.path().join("none"), "opencode-go"), None);
-    }
-
     #[test]
     fn the_home_isolates_opencode() {
         let home = std::env::temp_dir().join(format!("agenium-oc-{}", std::process::id()));

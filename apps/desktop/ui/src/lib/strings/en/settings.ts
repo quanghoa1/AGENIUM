@@ -149,5 +149,9 @@ export const settings = {
   "providers.cliNote": "Detected in PATH with their version and login. Log in with the CLI itself in your terminal; Agenium runs it with its own per-run home.",
   "providers.usable": "usable",
   "providers.notInstalled": "not installed",
+  "providers.note.opencodeGo": "OpenCode Go: your Go subscription pays — its models and its free ones (beam-free). The same account key works for Zen.",
+  "providers.note.opencodeZen": "OpenCode Zen: pay as you go — each request is paid from your account's credit; a Go subscription is not used here. Its free models answer only inside OpenCode.",
+  "model.goPlan": "OpenCode Go subscription",
+  "model.zenCredit": "OpenCode Zen credit",
   "providers.more": "More vendors…",
 } as const;

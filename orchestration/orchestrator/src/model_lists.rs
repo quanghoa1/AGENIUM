@@ -75,14 +75,22 @@ async fn one_cli(
             CliKind::Claude => Ok(ids(agenium_cli_backend::claude::MODELS
                 .map(str::to_owned)
                 .to_vec())),
-            CliKind::Opencode => Ok(app
-                .opencode_free_models()
-                .into_iter()
-                .map(|id| ModelInfo {
-                    id,
-                    ..Default::default()
+            // What the user's own OpenCode account offers (its Go subscription, Zen); without a login, OpenCode's free
+            // models from the price catalogue (they need none).
+            CliKind::Opencode => {
+                let account = agenium_cli_backend::opencode::account_models().await;
+                Ok(if account.is_empty() {
+                    app.opencode_free_models()
+                        .into_iter()
+                        .map(|id| ModelInfo {
+                            id,
+                            ..Default::default()
+                        })
+                        .collect()
+                } else {
+                    account
                 })
-                .collect()),
+            }
             CliKind::Grok => agenium_cli_backend::grok::models(program).await.map(ids),
             CliKind::Devin => return None,
         };

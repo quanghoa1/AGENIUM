@@ -67,6 +67,15 @@ function LoginState({ login, installed }: { login: unknown; installed: boolean }
   return <span className={tone}>{app.t(key)}</span>;
 }
 
+/** What the picked vendor is, when it needs saying: OpenCode Go and Zen take the same key and bill differently. */
+function PresetNote({ draft, vendors }: { draft: ProviderDraft; vendors: Preset[] }) {
+  const app = useApp();
+  const same = (p: Preset) => !p.local && !draft.local && (p.base_url ?? "") === draft.base_url && p.kind === draft.kind;
+  const p = PRESETS.find((x) => same(x) && x.note) ?? vendors.find((x) => same(x) && x.hint);
+  if (!p) return null;
+  return <div className="text-[11px] text-subtle">{p.note ? app.t(p.note) : p.hint}</div>;
+}
+
 export function ProvidersView() {
   const app = useApp();
   const [c, setC] = useState<Capabilities | null>(null);
@@ -84,7 +93,7 @@ export function ProvidersView() {
   useEffect(() => {
     api
       .providerPresets()
-      .then((v) => setVendors((v ?? []).map((p) => ({ id: p.id, label: p.name, kind: p.kind, base_url: p.base_url ?? undefined, key: p.key_env !== "", local: p.key_env === "" }))))
+      .then((v) => setVendors((v ?? []).map((p) => ({ id: p.id, label: p.name, kind: p.kind, base_url: p.base_url ?? undefined, key: p.key_env !== "", local: p.key_env === "", hint: p.note || undefined }))))
       .catch(() => setVendors([]));
   }, []);
   if (!c)
@@ -119,7 +128,7 @@ export function ProvidersView() {
         title={app.t("providers.api")}
         right={
           !draft && (
-            <button className="btn" onClick={() => setDraft(fromPreset(PRESETS[6]))}>
+            <button className="btn" onClick={() => setDraft(fromPreset(PRESETS.find((p) => p.id === "custom")!))}>
               <Plus className="h-3.5 w-3.5" /> {app.t("providers.add")}
             </button>
           )
@@ -163,6 +172,7 @@ export function ProvidersView() {
                 ))}
               </div>
             )}
+            {!draft.editing && <PresetNote draft={draft} vendors={vendors} />}
             <ProviderForm key={`${draft.id}-${draft.kind}-${draft.base_url}-${draft.local}`} draft={draft} onDone={() => (setDraft(null), load())} />
           </div>
         )}

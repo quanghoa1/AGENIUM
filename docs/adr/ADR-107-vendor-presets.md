@@ -36,3 +36,11 @@ The other vendors have not been called with a key.
 
 Not here yet (another sign-in or request signing): Azure OpenAI, Amazon Bedrock, Google Vertex, GitHub Copilot,
 Cloudflare Workers AI (account id in the URL), Mistral's own Conversations API.
+
+## Amendment (2026-10-31): OpenCode Go and OpenCode Zen
+
+The provider form's quick choices had one "OpenCode", which was the Go endpoint: a user paying Zen by credit got the
+subscription's endpoint, and one with a Go subscription could not tell which to pick. They are two choices now, "OpenCode
+Go" (`https://opencode.ai/zen/go/v1`) and "OpenCode Zen" (`https://opencode.ai/zen/v1`), each with a line saying how it
+bills (the same account key works on both; the endpoint decides). Zen's "Insufficient account funds" (402) says where a
+Go subscription is used. Checked in the desktop app, English and Vietnamese.

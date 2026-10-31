@@ -151,5 +151,9 @@ export const settings: Record<keyof typeof en, string> = {
   "providers.cliNote": "Tự phát hiện trong PATH cùng phiên bản và trạng thái đăng nhập. Đăng nhập bằng chính CLI trong terminal của bạn; Agenium chạy nó với thư mục home riêng cho mỗi run.",
   "providers.usable": "dùng được",
   "providers.notInstalled": "chưa cài",
+  "providers.note.opencodeGo": "OpenCode Go: trừ vào gói Go của bạn — các model của gói và model free (beam-free). Cùng một key tài khoản dùng được cho cả Zen.",
+  "providers.note.opencodeZen": "OpenCode Zen: trả theo lượt dùng — mỗi request trừ vào credit của tài khoản, không dùng gói Go. Model free của Zen chỉ chạy bên trong OpenCode.",
+  "model.goPlan": "gói OpenCode Go",
+  "model.zenCredit": "credit OpenCode Zen",
   "providers.more": "Nhà cung cấp khác…",
 };

@@ -13,7 +13,8 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   useEffect(() => {
     setModels([]);
     if (cli) {
-      // What this CLI runs with the user's login (codex model/list, agy models, Claude aliases, OpenCode's free models).
+      // What this CLI runs with the user's login (codex model/list, agy models, Claude aliases, the user's OpenCode
+      // account: its Go subscription and Zen; OpenCode's free models when not signed in).
       setModels(caps?.cli_models?.[value.provider] ?? []);
       return;
     }
@@ -48,9 +49,16 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
     }
   }, [value.model, levelKey]);
   const prices = usePrices(app.tick);
-  // Only the opencode CLI's list is OpenCode's free models; the other CLIs list what their login can run.
-  const freeCli = new Set(cli && value.provider === "opencode" ? (caps?.cli_models?.[value.provider] ?? []).map((m) => m.id) : []);
-  const price = (id: string) => (cli ? (freeCli.has(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
+  // The opencode CLI lists the user's OpenCode account: `opencode-go/…` is paid by the Go subscription, `opencode/…` from
+  // Zen's credit, a `-free` model (and big-pickle) by nobody. The other CLIs list what their login can run.
+  const opencode = cli && value.provider === "opencode";
+  const ocName = (id: string) => (id.includes("/") ? id.split("/", 2) : ["opencode", id]);
+  const ocFree = (id: string) => {
+    const m = ocName(id)[1];
+    return m.endsWith("-free") || m === "big-pickle";
+  };
+  const ocBill = (id: string) => (!opencode || ocFree(id) ? "" : ocName(id)[0] === "opencode-go" ? app.t("model.goPlan") : ocName(id)[0] === "opencode" ? app.t("model.zenCredit") : "");
+  const price = (id: string) => (cli ? (opencode && ocFree(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
   const old = (id: string) => deprecation(prices, value.provider, id);
   const picked = old(value.model);
   return (
@@ -90,7 +98,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           const p = price(m.id);
           return (
             <option key={m.id} value={m.id}>
-              {[old(m.id) ? "DEPRECATED" : "", isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : "", m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
+              {[old(m.id) ? "DEPRECATED" : "", isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : ocBill(m.id), m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
             </option>
           );
         })}

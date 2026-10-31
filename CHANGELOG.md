@@ -68,6 +68,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
 ### Models
+- OpenCode Go and OpenCode Zen are two choices when adding a provider, each saying how it bills (the same account key
+  works on both; Go uses the subscription, Zen the credit); Zen's "insufficient funds" points to Go. The opencode
+  CLI offers the models of the user's OpenCode account (its Go subscription and Zen, each labelled free, Go
+  subscription or Zen credit) and runs a free model with the user's login too; its sign-in is read without starting
+  opencode.
 - On Anthropic's and OpenAI's own APIs the forms that move work (the report, a ticket, the plan, the spec, a review)
   are decoded against their schema (`strict`), so their arguments always parse; other providers as before (ADR-144).
 - A model its provider no longer serves, or soon will not (the price catalogue says so), is marked DEPRECATED on the

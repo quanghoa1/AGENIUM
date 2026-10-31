@@ -86,7 +86,7 @@ pub const PRESETS: &[ProviderPreset] = &[
         Compat,
         Some("https://opencode.ai/zen/v1"),
         "OPENCODE_API_KEY",
-        "",
+        "pay as you go: each request is paid from the account's credit (a Go subscription is not used here); its          free models answer only inside OpenCode",
     ),
     p(
         "opencode-go",
@@ -94,7 +94,7 @@ pub const PRESETS: &[ProviderPreset] = &[
         Compat,
         Some("https://opencode.ai/zen/go/v1"),
         "OPENCODE_API_KEY",
-        "subscription models",
+        "the OpenCode Go subscription: its models and its free ones (beam-free), from the same account key as Zen",
     ),
     p(
         "xai",

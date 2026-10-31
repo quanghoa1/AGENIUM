@@ -7,7 +7,8 @@ import type { Key } from "../../lib/i18n";
 import { useApp } from "../../lib/store";
 import type { LocalServer, ModelCapsRow } from "../../lib/types";
 
-export type Preset = { id: string; label: string; kind: "anthropic" | "gemini" | "openai_compat"; base_url?: string; key: boolean; local?: boolean };
+/** `note`: shown under the presets while this one is picked (a translated key), `hint`: the vendor list's own note. */
+export type Preset = { id: string; label: string; kind: "anthropic" | "gemini" | "openai_compat"; base_url?: string; key: boolean; local?: boolean; note?: Key; hint?: string };
 
 export const PRESETS: Preset[] = [
   { id: "anthropic", label: "Anthropic", kind: "anthropic", key: true },
@@ -15,7 +16,9 @@ export const PRESETS: Preset[] = [
   { id: "openai", label: "OpenAI", kind: "openai_compat", base_url: "https://api.openai.com/v1", key: true },
   { id: "openrouter", label: "OpenRouter", kind: "openai_compat", base_url: "https://openrouter.ai/api/v1", key: true },
   { id: "deepseek", label: "DeepSeek", kind: "openai_compat", base_url: "https://api.deepseek.com/v1", key: true },
-  { id: "opencode-go", label: "OpenCode", kind: "openai_compat", base_url: "https://opencode.ai/zen/go/v1", key: true },
+  // One account key works on both: the endpoint decides the bill (a Go subscription, or Zen's credit).
+  { id: "opencode-go", label: "OpenCode Go", kind: "openai_compat", base_url: "https://opencode.ai/zen/go/v1", key: true, note: "providers.note.opencodeGo" },
+  { id: "opencode-zen", label: "OpenCode Zen", kind: "openai_compat", base_url: "https://opencode.ai/zen/v1", key: true, note: "providers.note.opencodeZen" },
   { id: "custom", label: "OpenAI-compatible", kind: "openai_compat", base_url: "", key: true },
   { id: "local", label: "Local model", kind: "openai_compat", base_url: "http://127.0.0.1:11434/v1", key: false, local: true },
 ];

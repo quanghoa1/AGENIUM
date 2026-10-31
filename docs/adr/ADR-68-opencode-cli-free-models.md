@@ -42,3 +42,23 @@ poses as its client.
   keeps a run's CLI home for diagnostics; `cargo run -p agenium-sandbox --example contained` runs a command in the
   sandbox by hand.
 - opencode's shell commands run on the host after the gate decides (as for claude and agy), not in the container.
+
+## Amendment (2026-10-31): the user's OpenCode account, Go and Zen
+
+Probed with the user's account (an OpenCode Go subscription, no Zen credit):
+
+- One account key works on both endpoints; the endpoint decides the bill: Go (`/zen/go/v1`) the subscription, Zen
+  (`/zen/v1`) the credit (402 "Insufficient account funds" without). Go has free models of its own (`beam-free`,
+  `iceman-contributor-free`: cost 0, the subscription's allowance untouched), which work over the API too. Zen's free
+  models (`opencode/*-free`, `big-pickle`) answer only inside OpenCode, and their allowance is dynamic: on 2026-10-31
+  it was spent for a guest and a signed-in user alike ("Free usage limit reached").
+- A free model now runs with the user's OpenCode login too, as their own opencode does after `/connect` (before, a
+  `-free` model always ran as a guest).
+- The models offered for the opencode CLI are what the user's account lists (`opencode-go/<id>` from the Go
+  subscription, `opencode/<id>` from Zen), asked of the endpoints with the user's key, read-only and without starting
+  opencode; the price catalogue's free models remain the list without a login. The picker labels each: free, the Go
+  subscription, or Zen's credit.
+- Whether the user signed in is read from opencode's database instead of `opencode auth list`, which starts
+  opencode's server even with `--standalone`.
+- The shared-pool loop (audit M3) passed through the opencode CLI on `opencode-go/deepseek-v4.1-flash`,
+  `opencode-go/beam-free` and `opencode-go/iceman-contributor-free`.
