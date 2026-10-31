@@ -87,6 +87,24 @@ pub fn tool_text(name: &str, description: &str, schema: &Value) -> String {
     s
 }
 
+/// Characters of a description its meaning is taken from.
+const MEANING_CHARS: usize = 300;
+
+/// What a tool's meaning (its embedding) is taken from: its name and the start of its description, cut at a word.
+/// Real servers' descriptions run long (Sentry's hold examples and "use this tool when" lists) and dilute a single
+/// vector; the arguments, which the BM25 text keeps, did the same. Measured on 330 real tools (ADR-139).
+pub fn meaning_text(name: &str, description: &str) -> String {
+    let d = description.split_whitespace().collect::<Vec<_>>().join(" ");
+    let d = match d.char_indices().nth(MEANING_CHARS) {
+        None => d,
+        Some((at, _)) => d[..at]
+            .rsplit_once(' ')
+            .map_or(&d[..at], |(a, _)| a)
+            .to_owned(),
+    };
+    format!("{name}: {d}")
+}
+
 /// Okapi BM25 over a fixed set of texts.
 pub struct Bm25 {
     docs: Vec<HashMap<String, u32>>,
@@ -154,12 +172,13 @@ pub fn order(scores: &[f64]) -> Vec<usize> {
     v
 }
 
-/// Reciprocal rank fusion of rankings (each best first): an item's score is the sum of `1 / (k + rank)`.
-pub fn fuse(rankings: &[Vec<usize>], k: f64) -> Vec<(usize, f64)> {
+/// Reciprocal rank fusion of weighted rankings (each best first): an item's score is the sum of
+/// `weight / (k + rank)`.
+pub fn fuse(rankings: &[(&[usize], f64)], k: f64) -> Vec<(usize, f64)> {
     let mut score: HashMap<usize, f64> = HashMap::new();
-    for r in rankings {
+    for (r, weight) in rankings {
         for (rank, i) in r.iter().enumerate() {
-            *score.entry(*i).or_default() += 1.0 / (k + rank as f64 + 1.0);
+            *score.entry(*i).or_default() += weight / (k + rank as f64 + 1.0);
         }
     }
     let mut v: Vec<(usize, f64)> = score.into_iter().collect();
@@ -241,9 +260,26 @@ mod tests {
     }
 
     #[test]
+    fn meaning_is_taken_from_the_name_and_the_start_of_the_description() {
+        assert_eq!(
+            meaning_text("github create_issue", "Create  an\nissue."),
+            "github create_issue: Create an issue."
+        );
+        let long = "word ".repeat(100);
+        let t = meaning_text("n", &long);
+        assert!(
+            t.len() <= "n: ".len() + MEANING_CHARS && t.ends_with("word"),
+            "{t}"
+        );
+    }
+
+    #[test]
     fn rankings_fuse_by_reciprocal_rank() {
         // 1 is second and third: ahead of 0, second in one ranking only.
-        let f = fuse(&[vec![2, 0, 1], vec![2, 1]], 60.0);
+        let f = fuse(&[(&[2, 0, 1], 1.0), (&[2, 1], 1.0)], 60.0);
         assert_eq!(f.iter().map(|x| x.0).collect::<Vec<_>>(), [2, 1, 0]);
+        // A heavier ranking decides between two items each first in one ranking.
+        let f = fuse(&[(&[0], 1.0), (&[1], 1.5)], 10.0);
+        assert_eq!(f.iter().map(|x| x.0).collect::<Vec<_>>(), [1, 0]);
     }
 }

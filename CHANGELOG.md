@@ -178,6 +178,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   whose tools change during a run (it says so, or its own tool search runs out of quota and it lists everything) is
   followed; a server whose tool names say nothing is summed up by its descriptions. The thresholds and the judge are
   set on the desktop's MCP tab (ADR-139).
+- `tool_search` ranks real servers' tools better: swept on 330 tools of GitHub's, Sentry's, Playwright's, Notion's,
+  Slack's and git's MCP servers with 128 requests, a tool's meaning is now taken from its name and the start of its
+  description (long descriptions diluted it), and words and meaning are fused with k = 10 and meaning weighed 1.5. The
+  right tool is among the 5 a search returns for 93 of 128 requests (86 before) and 53 of 58 on the earlier set (52);
+  no model API, same local embedding model (ADR-139).
 - `view_image` for vision models; `fetch` through an allowlist.
 - Background commands for every agent: `shell` with `background` starts a server or watcher, `shell_output` reads it
   while it runs, `shell_stop` ends it; all stop with the run (ADR-129).

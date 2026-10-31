@@ -9,3 +9,5 @@
 /apps/desktop/ui/dist
 /apps/desktop/ui/*.tsbuildinfo
 /apps/desktop/resources
+# Real MCP servers' tool definitions, fetched from pinned commits by agent/mcp/data/make_real_tools.py (not ours to keep).
+/agent/mcp/data/real-tools.json

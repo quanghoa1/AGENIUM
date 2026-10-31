@@ -49,8 +49,9 @@ Amends ADR-62 (agents' MCP servers) and ADR-109 (MCP client).
    tools during the run, and the tools it adds are found, not added to the prompt.
 3. **Ranking** (`agent/mcp/src/rank.rs`, `tool_search/index.rs`, `tool_search/jev.rs`): words — BM25 over the name
    (twice), description, argument names and descriptions, common words left out and words stemmed — and meaning — the
-   memory's local embedding model (`bge-small-en-v1.5`, ADR-47; each tool embedded once per process) — fused by
-   reciprocal rank (k = 60). The judge (`[tool_search] judge`, fail-open) reads when unsure (`unsure`, the default:
+   memory's local embedding model (`bge-small-en-v1.5`, ADR-47; each tool embedded once per process, from its name and
+   the first 300 characters of its description, `rank::meaning_text`) — fused by reciprocal rank (k = 10, meaning
+   weighed 1.5 against words; swept on real servers' tools, below). The judge (`[tool_search] judge`, fail-open) reads when unsure (`unsure`, the default:
    words and meaning put different tools first, or the agent searches again without calling a tool it found; `always`;
    `off`): the 30 best candidates are read in one request (the request written once, each question pointing at a tool) and ordered by the probability
    that a tool does what is asked; candidates under 0.15 are dropped when another is above it. Without the judge, out
@@ -110,6 +111,45 @@ On the 58 requests it read 27 searches of 58 (35 with names that say nothing), a
 right tool was in the 5 returned as often as with `always` (57/58; 55/58 with names that say nothing), first 52/58
 against 55/58. DeepSeek v4.1 flash over the API: 56/58 (57/58 with `always`, within a round's noise). The setting is on
 the desktop's MCP tab, with the thresholds and `keep_used`.
+
+## Ranking swept on real servers' tools (2026-10-31)
+
+The owner asked whether the ranking's parameters were the best. They were textbook values (BM25 k1 = 1.2, b = 0.75,
+reciprocal rank k = 60, words and meaning alike), the name counted twice and the BM25 text embedded, none of them tried
+against another. `quality/eval/examples/tool_search_sweep.rs` sweeps them offline (no model API; the shipped words and
+the local bge) on two sets, and a change counts only when it holds on both:
+
+- the 123 tools shaped like real servers' and their 58 requests (above);
+- **330 real tools**: GitHub's MCP server (127, its own tool snapshots), Sentry (77), Playwright (72), Notion (24, its
+  OpenAPI operations), Slack (18), git (12), fetched from pinned commits by `agent/mcp/data/make_real_tools.py` (not
+  kept: their licenses differ), with 128 requests of ours (`real-tools-queries.json`), worded as a user or an agent
+  would ask, several tools accepted where several do the job.
+
+86,016 combinations of k1, b, the name's count, the embedded text (the BM25 text; the name and whole description; the
+name and the description's first 300 characters), k, meaning's weight, the meaning ranking's depth, and a third ranking
+(the place of the tool's server by meaning). From what shipped (right tool first / in the 5 returned / MRR):
+
+| | 123 tools, 58 requests | 330 real tools, 128 requests |
+|---|---|---|
+| shipped until now | 37 / 52 / 0.731 | 49 / 86 / 0.515 |
+| words only | 30 / 47 / 0.630 | 46 / 71 / 0.462 |
+| **name + first 300 characters embedded, k = 10, meaning × 1.5 (shipped)** | **37 / 53 / 0.747** | **55 / 93 / 0.568** |
+| + the server's place, weight 1 (left out) | 37 / 53 / 0.747 | 55 / 94 / 0.573 |
+| best of the grid (name × 4, k = 5, server place) | 37 / 53 / 0.740 | 61 / 94 / 0.597 |
+
+- The real tools are much harder than the shaped ones: before, a third of the requests did not have their tool in the
+  5 returned. The embedded text moved most: real descriptions run long (Sentry's hold examples and "use this tool when"
+  lists, GitHub's tools carry many arguments) and one vector of all of it means little. BM25's k1 and b, the name's count and
+  the meaning ranking's depth each move the mean MRR by 0.005 at most.
+- Kept: the three changes that improve both sets and read plainly. Left out: the grid's best (a name counted 4 times
+  and k = 5 sit at the grid's edge and gain on one set only: a fit to these requests) and the server's place (+0.005
+  for a third ranking).
+- Through the shipped code (`tool_search_eval`, the 58 requests, no judge): words and meaning 37 / 49 / 53 of 58, MRR
+  0.74 (0.71 before).
+- What is left is not a parameter: requests that share no word or close meaning with their tool ("bookmark this repo"
+  → `star_repository`, "client key" → a DSN, "thumbs up" → a reaction), and requests whose words belong to another
+  server ("open a ticket on the repo" drew Sentry's issue tools). The judge (when on) and the model, which reads the 5
+  returned and searches again, cover them; the embedding model stays (owner: what Claude does with, we can too).
 
 ## Verified (2026-10-29)
 

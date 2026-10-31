@@ -22,6 +22,12 @@ const JUDGE_READS: usize = 30;
 const JUDGE_DROPS: f64 = 0.15;
 /// Schema characters shown per tool.
 const SCHEMA_CHARS: usize = 3_000;
+/// Reciprocal rank fusion of words and meaning: the constant, and meaning's weight against words. Swept on 123 tools
+/// shaped like real servers' and on 330 real ones (GitHub, Sentry, Playwright, Notion, Slack, git;
+/// `examples/tool_search_sweep.rs`, ADR-139): k = 10 and 1.5 put the right tool in the 5 returned more often on both
+/// than the textbook 60 and 1.
+const FUSE_K: f64 = 10.0;
+const MEANING_WEIGHT: f64 = 1.5;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -97,7 +103,7 @@ impl ToolSearch {
             &meaning,
             again,
         );
-        let fused: Vec<usize> = rank::fuse(&[words, meaning], 60.0)
+        let fused: Vec<usize> = rank::fuse(&[(&words, 1.0), (&meaning, MEANING_WEIGHT)], FUSE_K)
             .into_iter()
             .map(|(i, _)| i)
             .take(JUDGE_READS)

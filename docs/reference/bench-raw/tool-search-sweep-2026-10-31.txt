@@ -1,0 +1,122 @@
+set columns: first/n, in 3, in 5, MRR
+
+config                                                                 many-tools-queries        real-tools-queries        
+shipped                                                                 37/58  48  53 0.747       55/128  83  93 0.568     
+words only (shipped BM25)                                               30/58  42  47 0.630       46/128  65  71 0.462     
+meaning only (shipped text)                                             37/58  49  51 0.740       52/128  79  90 0.542     
+before 2026-10-31                                                       37/58  46  52 0.731       49/128  75  86 0.515     
+server place w=1 (tried, not shipped)                                   37/58  48  53 0.747       55/128  85  94 0.573     
+
+86016 configs; best by the worst set's MRR:
+k1=0.9 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=1       37/58  49  53 0.740       61/128  83  94 0.597     
+k1=0.4 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=0.5     37/58  49  53 0.739       61/128  82  95 0.596     
+k1=0.9 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=0.5     37/58  49  53 0.740       61/128  81  94 0.596     
+k1=0.6 b=0.9 name×3 embed=meaning-text k=5 w=1 depth=30 server=0.5      37/58  49  53 0.740       61/128  82  95 0.595     
+k1=0.6 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=0.5     37/58  49  53 0.740       61/128  81  95 0.595     
+k1=0.6 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=0       37/58  49  53 0.740       61/128  82  94 0.594     
+k1=0.4 b=0.75 name×4 embed=meaning-text k=2 w=1 depth=30 server=0.5     35/58  50  53 0.728       62/128  80  96 0.594     
+k1=0.6 b=0.75 name×4 embed=meaning-text k=3 w=1 depth=30 server=0.5     37/58  49  53 0.742       62/128  79  95 0.594     
+k1=0.9 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=all server=1      37/58  48  53 0.739       60/128  84  94 0.593     
+k1=0.9 b=0.75 name×2 embed=meaning-text k=5 w=1 depth=30 server=0.5     37/58  49  53 0.739       60/128  83  94 0.593     
+k1=0.6 b=0.5 name×2 embed=meaning-text k=10 w=2 depth=all server=0      37/58  49  53 0.750       60/128  82  94 0.592     
+k1=0.6 b=0.5 name×2 embed=meaning-text k=10 w=2 depth=all server=0.5    37/58  49  53 0.750       60/128  82  94 0.592     
+k1=0.6 b=0.9 name×4 embed=meaning-text k=5 w=1 depth=30 server=0.5      37/58  49  53 0.740       60/128  82  95 0.592     
+k1=0.4 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=all server=0.5    37/58  48  53 0.738       60/128  82  95 0.592     
+k1=1.2 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=1       37/58  49  53 0.742       60/128  82  94 0.592     
+k1=0.6 b=0.5 name×2 embed=meaning-text k=10 w=2 depth=30 server=0       37/58  49  53 0.749       60/128  82  94 0.592     
+k1=0.6 b=0.9 name×3 embed=meaning-text k=5 w=1 depth=30 server=0        37/58  49  53 0.740       61/128  82  94 0.592     
+k1=0.9 b=0.75 name×4 embed=meaning-text k=5 w=1 depth=30 server=0       37/58  49  53 0.740       61/128  82  94 0.591     
+k1=0.9 b=0.75 name×3 embed=meaning-text k=5 w=1 depth=30 server=0.5     37/58  49  53 0.740       60/128  81  94 0.591     
+k1=0.9 b=0.75 name×3 embed=meaning-text k=5 w=1 depth=30 server=1       37/58  49  53 0.740       60/128  82  94 0.591     
+
+not in the first 5 (shipped):
+  [many-tools-queries] "see what changed in PR 17" -> want ["many:github_get_pull_request_diff"], got ["many:postgres_execute", "many:linear_update_issue", "many:sentry_list_releases"]
+  [many-tools-queries] "why did the CI build fail on main" -> want ["many:github_list_workflow_runs"], got ["many:github_rerun_workflow", "many:sentry_list_issues", "many:k8s_top_pods"]
+  [many-tools-queries] "tell the team in #deploys that the release is out" -> want ["many:slack_post_message"], got ["many:releases_codename", "many:github_create_release", "many:sentry_list_releases"]
+  [many-tools-queries] "add an index on orders.created_at" -> want ["many:postgres_execute"], got ["many:notion_create_page", "many:postgres_describe_table", "many:grafana_create_annotation"]
+  [many-tools-queries] "wake up the database team, the db is down" -> want ["many:pagerduty_create_incident"], got ["many:notion_update_page_properties", "many:releases_codename", "many:notion_query_database"]
+  [real-tools-queries] "open a ticket on the repo about the login page crashing" -> want ["github:create_issue", "github:issue_write"], got ["sentry:link_issue", "sentry:unlink_issue", "sentry:get_issue_user_reports"]
+  [real-tools-queries] "close bug 812 as fixed" -> want ["github:update_issue_state", "github:issue_write"], got ["playwright:browser_close", "github:resolve_review_thread", "playwright:browser_get_config"]
+  [real-tools-queries] "tag issue 15 as needs-triage" -> want ["github:update_issue_labels", "github:issue_write"], got ["sentry:add_issue_note", "sentry:get_issue_tag_values", "github:update_issue_state"]
+  [real-tools-queries] "leave a note on issue 31 saying I'm on it" -> want ["github:add_issue_comment"], got ["sentry:add_issue_note", "slack:usergroups_me", "sentry:get_issue_activity"]
+  [real-tools-queries] "thumbs up that bug report" -> want ["github:add_issue_reaction"], got ["sentry:get_issue_user_reports", "sentry:submit_feedback_to_sentry_team", "playwright:browser_mouse_up"]
+  [real-tools-queries] "which bugs are still open in our repo" -> want ["github:list_issues", "github:search_issues"], got ["github:list_code_scanning_alerts", "github:list_dependabot_alerts", "github:search_pull_requests"]
+  [real-tools-queries] "find tickets that talk about memory leaks in the parser" -> want ["github:search_issues"], got ["sentry:search_events", "sentry:find_dropped_events", "sentry:unlink_issue"]
+  [real-tools-queries] "what changed in pull request 88 and is it mergeable" -> want ["github:pull_request_read"], got ["github:update_pull_request_branch", "github:merge_pull_request", "github:update_pull_request_state"]
+  [real-tools-queries] "my PR is not finished yet, flag it as work in progress" -> want ["github:update_pull_request_draft_state", "github:update_pull_request"], got ["sentry:onboarding_status_update", "git:git_diff_unstaged", "git:git_status"]
+  [real-tools-queries] "mark that review conversation as done" -> want ["github:resolve_review_thread"], got ["slack:conversations_mark", "github:update_pull_request_draft_state", "github:discussion_comment_write"]
+  [real-tools-queries] "why did the CI build fail on main" -> want ["github:get_job_logs", "github:actions_list", "github:actions_get"], got ["github:create_repository_ruleset", "playwright:browser_get_config", "playwright:browser_network_state_set"]
+  [real-tools-queries] "show me the README of the project" -> want ["github:get_file_contents"], got ["git:git_show", "github:search_repositories", "github:issue_read"]
+  [real-tools-queries] "edit config.yaml directly on GitHub" -> want ["github:create_or_update_file"], got ["github:update_pull_request", "github:unstar_repository", "github:star_repository"]
+  [real-tools-queries] "remove the old migration script from the repository" -> want ["github:delete_file"], got ["github:remove_issue_reaction", "github:remove_pull_request_review_comment_reaction", "github:remove_issue_comment_reaction"]
+  [real-tools-queries] "find open source projects about vector databases in rust" -> want ["github:search_repositories"], got ["notion:API-retrieve-a-data-source", "github:search_orgs", "notion:API-query-data-source"]
+  [real-tools-queries] "did anyone commit an API key by accident" -> want ["github:list_secret_scanning_alerts"], got ["playwright:browser_localstorage_get", "slack:saved_update", "sentry:unlink_issue"]
+  [real-tools-queries] "static analysis findings for the repo" -> want ["github:list_code_scanning_alerts"], got ["sentry:create_metric_monitor", "sentry:get_profile", "sentry:analyze_issue_with_seer"]
+  [real-tools-queries] "bookmark this repo" -> want ["github:star_repository"], got ["github:mark_all_notifications_read", "github:fork_repository", "github:search_code"]
+  [real-tools-queries] "share a quick code snippet publicly" -> want ["github:create_gist"], got ["playwright:browser_run_code_unsafe", "github:search_code", "github:get_code_quality_finding"]
+  [real-tools-queries] "who can push to this repository" -> want ["github:list_repository_collaborators"], got ["github:push_files", "github:star_repository", "github:create_repository_ruleset"]
+  [real-tools-queries] "what did the user do right before the crash" -> want ["sentry:get_issue_breadcrumbs", "sentry:get_replay_details"], got ["sentry:get_issue_user_reports", "sentry:find_dropped_events", "playwright:browser_resume"]
+  [real-tools-queries] "get the client key for the frontend project" -> want ["sentry:find_dsns"], got ["sentry:update_dsn", "playwright:browser_sessionstorage_get", "playwright:browser_localstorage_get"]
+  [real-tools-queries] "what am I about to commit" -> want ["git:git_diff_staged"], got ["github:search_commits", "git:git_commit", "github:pull_request_review_write"]
+  [real-tools-queries] "save my staged work with a message" -> want ["git:git_commit"], got ["slack:saved_list", "slack:saved_update", "slack:conversations_mark"]
+  [real-tools-queries] "what did commit abc123 change" -> want ["git:git_show", "github:get_commit"], got ["git:git_commit", "git:git_diff_staged", "github:search_commits"]
+  [real-tools-queries] "add a paragraph at the end of the Notion page" -> want ["notion:API-patch-block-children", "notion:API-update-page-markdown"], got ["notion:API-move-page", "notion:API-post-page", "notion:API-retrieve-a-page"]
+  [real-tools-queries] "rows of the roadmap table where status is in progress" -> want ["notion:API-query-data-source"], got ["sentry:onboarding_status_update", "git:git_status", "slack:saved_update"]
+  [real-tools-queries] "what is on the page right now" -> want ["playwright:browser_snapshot"], got ["notion:API-retrieve-a-page", "notion:API-post-page", "notion:API-update-page-markdown"]
+  [real-tools-queries] "accept the confirm popup" -> want ["playwright:browser_handle_dialog"], got ["github:manage_notification_subscription", "github:delete_repository", "playwright:browser_verify_value"]
+  [real-tools-queries] "what API calls did the page make" -> want ["playwright:browser_network_requests"], got ["notion:API-retrieve-a-page", "notion:API-retrieve-a-page-property", "notion:API-post-page"]
+  [real-tools-queries] "run some javascript to read document.title" -> want ["playwright:browser_evaluate"], got ["playwright:browser_run_code_unsafe", "sentry:get_doc", "notion:API-post-search"]
+  [real-tools-queries] "post an update in #deploys" -> want ["slack:conversations_add_message"], got ["sentry:update_issue", "sentry:update_project", "sentry:find_releases"]
+  [real-tools-queries] "what did people say in #general today" -> want ["slack:conversations_history"], got ["slack:conversations_search_messages", "sentry:get_agent_conversation_details", "slack:conversations_mark"]
+  [real-tools-queries] "read the thread under that announcement" -> want ["slack:conversations_replies"], got ["github:dismiss_notification", "github:manage_notification_subscription", "slack:conversations_mark"]
+  [real-tools-queries] "find where someone mentioned the outage in Slack" -> want ["slack:conversations_search_messages"], got ["slack:conversations_unreads", "slack:saved_list", "slack:conversations_mark"]
+
+not in the first 5 (best):
+  [many-tools-queries] "see what changed in PR 17" -> want ["many:github_get_pull_request_diff"], got ["many:postgres_execute", "many:github_create_pull_request", "many:linear_update_issue"]
+  [many-tools-queries] "why did the CI build fail on main" -> want ["many:github_list_workflow_runs"], got ["many:github_rerun_workflow", "many:sentry_list_issues", "many:k8s_top_pods"]
+  [many-tools-queries] "tell the team in #deploys that the release is out" -> want ["many:slack_post_message"], got ["many:releases_codename", "many:github_create_release", "many:sentry_list_releases"]
+  [many-tools-queries] "add an index on orders.created_at" -> want ["many:postgres_execute"], got ["many:notion_create_page", "many:grafana_create_annotation", "many:postgres_describe_table"]
+  [many-tools-queries] "wake up the database team, the db is down" -> want ["many:pagerduty_create_incident"], got ["many:releases_codename", "many:notion_query_database", "many:notion_update_page_properties"]
+  [real-tools-queries] "open a ticket on the repo about the login page crashing" -> want ["github:create_issue", "github:issue_write"], got ["sentry:link_issue", "sentry:unlink_issue", "sentry:get_issue_user_reports"]
+  [real-tools-queries] "tag issue 15 as needs-triage" -> want ["github:update_issue_labels", "github:issue_write"], got ["sentry:add_issue_note", "sentry:get_issue_tag_values", "github:update_issue_state"]
+  [real-tools-queries] "leave a note on issue 31 saying I'm on it" -> want ["github:add_issue_comment"], got ["sentry:add_issue_note", "slack:usergroups_me", "sentry:update_issue"]
+  [real-tools-queries] "thumbs up that bug report" -> want ["github:add_issue_reaction"], got ["sentry:get_issue_user_reports", "sentry:submit_feedback_to_sentry_team", "playwright:browser_mouse_up"]
+  [real-tools-queries] "which bugs are still open in our repo" -> want ["github:list_issues", "github:search_issues"], got ["github:list_dependabot_alerts", "github:list_code_scanning_alerts", "github:update_pull_request_state"]
+  [real-tools-queries] "find tickets that talk about memory leaks in the parser" -> want ["github:search_issues"], got ["sentry:unlink_issue", "sentry:search_events", "sentry:find_dropped_events"]
+  [real-tools-queries] "what changed in pull request 88 and is it mergeable" -> want ["github:pull_request_read"], got ["github:update_pull_request_branch", "github:merge_pull_request", "github:update_pull_request_state"]
+  [real-tools-queries] "my PR is not finished yet, flag it as work in progress" -> want ["github:update_pull_request_draft_state", "github:update_pull_request"], got ["sentry:onboarding_status_update", "git:git_diff_unstaged", "sentry:submit_feedback_to_sentry_team"]
+  [real-tools-queries] "mark that review conversation as done" -> want ["github:resolve_review_thread"], got ["slack:conversations_mark", "github:update_pull_request_draft_state", "github:discussion_comment_write"]
+  [real-tools-queries] "why did the CI build fail on main" -> want ["github:get_job_logs", "github:actions_list", "github:actions_get"], got ["github:actions_run_trigger", "github:create_repository_ruleset", "github:resolve_review_thread"]
+  [real-tools-queries] "show me the README of the project" -> want ["github:get_file_contents"], got ["github:search_repositories", "git:git_show", "github:create_repository"]
+  [real-tools-queries] "edit config.yaml directly on GitHub" -> want ["github:create_or_update_file"], got ["github:update_pull_request", "github:create_pull_request", "github:unstar_repository"]
+  [real-tools-queries] "remove the old migration script from the repository" -> want ["github:delete_file"], got ["github:remove_issue_reaction", "github:remove_pull_request_review_comment_reaction", "github:remove_issue_comment_reaction"]
+  [real-tools-queries] "find open source projects about vector databases in rust" -> want ["github:search_repositories"], got ["github:search_orgs", "notion:API-retrieve-a-database", "notion:API-query-data-source"]
+  [real-tools-queries] "what's the newest version we published" -> want ["github:get_latest_release"], got ["sentry:find_releases", "sentry:get_release_details", "notion:API-update-page-markdown"]
+  [real-tools-queries] "did anyone commit an API key by accident" -> want ["github:list_secret_scanning_alerts"], got ["sentry:unlink_issue", "notion:API-update-a-block", "notion:API-post-search"]
+  [real-tools-queries] "static analysis findings for the repo" -> want ["github:list_code_scanning_alerts"], got ["sentry:analyze_issue_with_seer", "sentry:create_metric_monitor", "github:get_code_quality_finding"]
+  [real-tools-queries] "bookmark this repo" -> want ["github:star_repository"], got ["github:search_commits", "github:mark_all_notifications_read", "github:search_code"]
+  [real-tools-queries] "share a quick code snippet publicly" -> want ["github:create_gist"], got ["github:search_code", "playwright:browser_run_code_unsafe", "github:get_code_quality_finding"]
+  [real-tools-queries] "who can push to this repository" -> want ["github:list_repository_collaborators"], got ["github:push_files", "github:star_repository", "github:create_repository_ruleset"]
+  [real-tools-queries] "what did the user do right before the crash" -> want ["sentry:get_issue_breadcrumbs", "sentry:get_replay_details"], got ["sentry:get_issue_user_reports", "sentry:find_dropped_events", "playwright:browser_resume"]
+  [real-tools-queries] "get the client key for the frontend project" -> want ["sentry:find_dsns"], got ["sentry:update_dsn", "playwright:browser_sessionstorage_get", "playwright:browser_localstorage_get"]
+  [real-tools-queries] "what am I about to commit" -> want ["git:git_diff_staged"], got ["github:search_commits", "git:git_commit", "github:list_commits"]
+  [real-tools-queries] "save my staged work with a message" -> want ["git:git_commit"], got ["slack:saved_list", "slack:saved_update", "slack:conversations_mark"]
+  [real-tools-queries] "add a paragraph at the end of the Notion page" -> want ["notion:API-patch-block-children", "notion:API-update-page-markdown"], got ["notion:API-move-page", "notion:API-retrieve-a-page", "notion:API-post-page"]
+  [real-tools-queries] "read the whole spec page as text" -> want ["notion:API-retrieve-page-markdown"], got ["sentry:get_doc", "notion:API-update-page-markdown", "github:custom_properties_read"]
+  [real-tools-queries] "rows of the roadmap table where status is in progress" -> want ["notion:API-query-data-source"], got ["sentry:onboarding_status_update", "git:git_status", "sentry:update_metric_monitor"]
+  [real-tools-queries] "what is on the page right now" -> want ["playwright:browser_snapshot"], got ["notion:API-retrieve-a-page", "notion:API-post-page", "notion:API-update-page-markdown"]
+  [real-tools-queries] "what API calls did the page make" -> want ["playwright:browser_network_requests"], got ["notion:API-retrieve-a-page", "notion:API-retrieve-a-page-property", "notion:API-post-page"]
+  [real-tools-queries] "run some javascript to read document.title" -> want ["playwright:browser_evaluate"], got ["playwright:browser_run_code_unsafe", "sentry:get_doc", "notion:API-post-search"]
+  [real-tools-queries] "post an update in #deploys" -> want ["slack:conversations_add_message"], got ["sentry:update_issue", "sentry:add_issue_note", "sentry:update_project"]
+  [real-tools-queries] "what did people say in #general today" -> want ["slack:conversations_history"], got ["slack:conversations_search_messages", "sentry:get_agent_conversation_details", "sentry:get_trace_details"]
+  [real-tools-queries] "read the thread under that announcement" -> want ["slack:conversations_replies"], got ["github:dismiss_notification", "github:manage_notification_subscription", "github:mark_all_notifications_read"]
+  [real-tools-queries] "find where someone mentioned the outage in Slack" -> want ["slack:conversations_search_messages"], got ["slack:conversations_unreads", "slack:usergroups_create", "slack:conversations_mark"]
+
+one at a time from shipped (mean MRR over sets):
+  k1 0.4..2.0    0.661  0.661  0.660  0.658
+  b 0.2..0.9     0.660  0.658  0.658  0.658
+  name ×1..4     0.659  0.658  0.654  0.661
+  embed text     0.658  0.644
+  k 5..100       0.659  0.653  0.656  0.659  0.658  0.655  0.645  0.645
+  w .5..3        0.610  0.626  0.644  0.654  0.658  0.661  0.655
+  depth 30/all   0.658  0.659

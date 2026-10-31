@@ -31,6 +31,7 @@ pub(super) struct Index {
     /// What identifies this list of tools (a listed-again catalogue with other tools builds a new index).
     pub print: u64,
     bm25: Bm25,
+    /// What each tool's meaning is embedded from (`rank::meaning_text`).
     texts: Vec<String>,
 }
 
@@ -47,19 +48,18 @@ pub(super) fn print(tools: &[Arc<McpTool>]) -> u64 {
 
 impl Index {
     pub fn new(tools: Vec<Arc<McpTool>>) -> Index {
-        let texts: Vec<String> = tools
+        let name = |t: &McpTool| format!("{} {}", t.server(), t.mcp_name());
+        let words: Vec<String> = tools
             .iter()
-            .map(|t| {
-                rank::tool_text(
-                    &format!("{} {}", t.server(), t.mcp_name()),
-                    t.plain_description(),
-                    &t.parameters(),
-                )
-            })
+            .map(|t| rank::tool_text(&name(t), t.plain_description(), &t.parameters()))
+            .collect();
+        let texts = tools
+            .iter()
+            .map(|t| rank::meaning_text(&name(t), t.plain_description()))
             .collect();
         Index {
             print: print(&tools),
-            bm25: Bm25::new(&texts),
+            bm25: Bm25::new(&words),
             tools,
             texts,
         }

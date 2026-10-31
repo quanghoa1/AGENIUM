@@ -86,6 +86,12 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Strict tool arguments to Anthropic's and OpenAI's own APIs, fitted within Claude's limits; a refused schema sent again plain (ADR-144) | `strict::tests`, `strict_tools_go_strict_only_to_claude_and_openai`, `a_refused_strict_schema_is_sent_again_plain` | not yet against the live APIs |
 | Deprecated models marked with one to use instead | `a_deprecated_model_is_told_its_family_s_newest`, UI smoke (price view) | — |
 
+## Runs of 2026-10-31
+
+| Check | Result |
+|---|---|
+| `tool_search` ranking swept (ADR-139; `examples/tool_search_sweep.rs`, no model API, local bge; raw output in `docs/reference/bench-raw/tool-search-sweep-2026-10-31.txt`) | 86,016 combinations on the 123 shaped tools (58 requests) and 330 real tools of six MCP servers fetched from pinned commits (128 requests of ours). Shipped: a tool's meaning from its name and the description's first 300 characters, k = 10, meaning weighed 1.5. Right tool first / in the 5 returned / MRR, before → after: shaped 37/52/0.731 → 37/53/0.747; real 49/86/0.515 → 55/93/0.568. Through the shipped code (`tool_search_eval`, no judge): 37/49/53 of 58, MRR 0.74 (0.71 before). `rank` and tool-search tests pass. |
+
 ## Runs of 2026-10-30
 
 | Check | Result |
