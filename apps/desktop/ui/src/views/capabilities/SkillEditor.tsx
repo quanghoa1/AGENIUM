@@ -75,7 +75,24 @@ async function readUpload(f: File): Promise<{ text?: string; base64?: string }> 
   }
 }
 
-export function SkillEditor({ initial, create: create0, name0, files0, onClose, onSaved }: { initial: string; create: boolean; name0: string; files0: string[]; onClose: () => void; onSaved: () => void }) {
+export function SkillEditor({
+  initial,
+  create: create0,
+  name0,
+  files0,
+  newFiles0 = [],
+  onClose,
+  onSaved,
+}: {
+  initial: string;
+  create: boolean;
+  name0: string;
+  files0: string[];
+  /** Files not saved yet that the skill comes with (a skill the skill writer drafted, ADR-151). */
+  newFiles0?: { path: string; text: string }[];
+  onClose: () => void;
+  onSaved: (name?: string) => void;
+}) {
   const app = useApp();
   const parsed = useMemo(() => splitSkill(initial), [initial]);
   const field = (k: string) => parsed.fields.find(([f]) => f === k)?.[1] ?? "";
@@ -86,10 +103,10 @@ export function SkillEditor({ initial, create: create0, name0, files0, onClose, 
   const extra = parsed.fields.filter(([k]) => !["name", "description", "tags"].includes(k));
   const [body, setBody] = useState(parsed.body);
   const [saved, setSaved] = useState(initial);
-  const [files, setFiles] = useState<SkillFile[]>(files0.map((path) => ({ path, status: "saved" })));
+  const [files, setFiles] = useState<SkillFile[]>([...files0.map((path) => ({ path, status: "saved" as const })), ...newFiles0.map((f) => ({ path: f.path, status: "new" as const }))]);
   const [removed, setRemoved] = useState<string[]>([]);
   // Text of the files opened or added (a saved file is loaded on first open).
-  const [texts, setTexts] = useState<Record<string, string>>({});
+  const [texts, setTexts] = useState<Record<string, string>>(() => Object.fromEntries(newFiles0.map((f) => [f.path, f.text])));
   const [active, setActive] = useState(SKILL);
   const [adding, setAdding] = useState<{ dir: Dir; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -182,7 +199,7 @@ export function SkillEditor({ initial, create: create0, name0, files0, onClose, 
         setRemoved([]);
         setFiles((fs) => fs.map((f) => ({ path: f.path, status: "saved", binary: f.binary ? { size: f.binary.size, preview: f.binary.base64 ?? f.binary.preview } : undefined })));
         app.notify(`${app.t("library.saved")} ${r.name}`);
-        onSaved();
+        onSaved(r.name);
       })
       .catch((e) => app.notify(friendly(e, app.t)))
       .finally(() => setBusy(false));

@@ -45,7 +45,8 @@ pub struct RoleSpec {
     /// not exist yet; the user edits it there).
     #[serde(default)]
     pub prompt: String,
-    /// Skill names expected in the role's skill folder (`<root>/roles/<template>-<role>/skills/`).
+    /// The role's skills: in its folder (`<root>/roles/<template>-<role>/skills/`), else a library skill switched on
+    /// for each of its agents when the team is created.
     #[serde(default)]
     pub skills: Vec<String>,
     /// Write scope of the role's agents (worktree-relative globs; empty = the whole worktree).
@@ -337,10 +338,24 @@ impl App {
         let mut lead = None;
         let mut workers = Vec::new();
         let mut missing_skills = Vec::new();
+        // A role's skill is its folder's, else a library skill switched on for each of its agents (ADR-151).
+        let library: HashSet<String> = self
+            .skill_registry()
+            .library()
+            .skills
+            .into_iter()
+            .map(|s| s.meta.name)
+            .collect();
+        let mut from_library: Vec<(String, String)> = Vec::new();
         for r in &t.roles {
             let dir = self.layout().roles().join(t.role_dir(&r.id));
             for s in &r.skills {
-                if !dir.join("skills").join(s).join("SKILL.md").is_file() {
+                if dir.join("skills").join(s).join("SKILL.md").is_file() {
+                    continue;
+                }
+                if library.contains(s) {
+                    from_library.push((t.role_dir(&r.id), s.clone()));
+                } else {
                     missing_skills.push(format!("{}: {s}", t.role_dir(&r.id)));
                 }
             }
@@ -390,6 +405,11 @@ impl App {
         m.save(Path::new(&p.path))
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
         let (team, agents) = self.create_team(project, &t.name, &lead, &workers)?;
+        for a in &agents {
+            for (_, skill) in from_library.iter().filter(|(role, _)| *role == a.role) {
+                self.toggle_agent_skill(a.id, skill, true)?;
+            }
+        }
         // Role folders: written once, then owned by the user (ROLE.md is edited there).
         for r in &t.roles {
             self.materialize_role(&t, r)?;

@@ -20,6 +20,7 @@ mod pool;
 mod quota_back;
 mod reflect;
 mod scheduling;
+pub mod side_chat;
 mod stalls;
 mod steering;
 mod ticket_runs;

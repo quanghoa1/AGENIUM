@@ -110,6 +110,10 @@ root:
   out of quota goes back to work with the same model once the quota should be back; a turn refused for a login another
   run refreshed runs again; no read through a hard link; a closed ticket's kept CLI sessions end; checked on Windows
   and the Ubuntu VM.
+- **A team designer and a skill writer** (2026-11-01, ADR-151): the user describes a team in a chat on the model they
+  pick (API or CLI) and gets roles, counts, library skills, scopes and models with why, opened in the template editor;
+  a skill the library lacks is written by an agent from a request and documents, to Agenium's skill rules, and opened
+  in the skill editor. Both checked on seven models (API and four CLIs, OpenCode Go's free models among them): 15/15.
 
 | Release item | Status | Evidence |
 |---|---|---|

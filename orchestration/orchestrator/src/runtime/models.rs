@@ -137,8 +137,15 @@ impl Runtime {
         &self,
         agent: &agenium_store::core::agents::Agent,
     ) -> std::result::Result<(&'static dyn agenium_cli_backend::Driver, PathBuf), String> {
+        self.cli_ready_named(&agent.model.provider).await
+    }
+
+    /// [`Self::cli_ready`] for the CLI program `name` (an agent's or a side call's, ADR-151).
+    pub(super) async fn cli_ready_named(
+        &self,
+        name: &str,
+    ) -> std::result::Result<(&'static dyn agenium_cli_backend::Driver, PathBuf), String> {
         use agenium_cli_backend::{CliKind, Control, Login};
-        let name = agent.model.provider.as_str();
         let cli = CliKind::ALL
             .into_iter()
             .find(|k| k.program() == name)

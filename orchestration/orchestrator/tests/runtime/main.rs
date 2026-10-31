@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use common::*;
 use serde_json::json;
 
+mod design;
 mod failures;
 mod mcp;
 mod mcp_search;

@@ -1,6 +1,6 @@
 // Team templates and their wizard (M4): the built-in templates, the user's own (saved under the root, a copy of a
 // built-in with the same id overrides it), a template made from a team as it is, import and export as TOML.
-import { Download, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
+import { Download, Pencil, Plus, Sparkles, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmModal, Modal } from "../components/motion";
 import { PageHeader, Section, cn } from "../components/ui";
@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 import { missionOf } from "../lib/roles";
 import { useApp } from "../lib/store";
 import type { RoleInfo, RoleSpec, TeamTemplate, TeamsData } from "../lib/types";
+import { TeamDesigner } from "./TeamDesigner";
 
 const REPORTS = ["coding@1", "research@1", "pentest@1", "content@1"];
 const LIBRARY = "library@1";
@@ -39,6 +40,14 @@ export function TemplatesView() {
   const [importing, setImporting] = useState(false);
   // Deleting a template (or resetting a built-in one) asks first (audit L12, 2026-10-31).
   const [del, setDel] = useState<TeamTemplate | null>(null);
+  // The team designer (ADR-151); the Teams page opens it here as `#/templates/design`.
+  const [designing, setDesigning] = useState(app.route.id === "design");
+  const stopDesigning = () => {
+    setDesigning(false);
+    // The address loses `/design` without a route change: a route change remounts the page, and the draft the user
+    // just opened in the editor would be lost with it.
+    if (app.route.id === "design") window.history.replaceState(null, "", "#/templates");
+  };
   const load = () => api.templates().then(setTs);
   useEffect(() => {
     load();
@@ -53,6 +62,9 @@ export function TemplatesView() {
         </button>
         <button className="btn" onClick={() => setFromTeam(true)}>
           <Users className="h-3.5 w-3.5" /> {app.t("templates.fromTeam")}
+        </button>
+        <button className="btn" onClick={() => setDesigning(true)}>
+          <Sparkles className="h-3.5 w-3.5" /> {app.t("design.button")}
         </button>
         <button className="btn-primary" onClick={() => setEdit(blank())}>
           <Plus className="h-3.5 w-3.5" /> {app.t("templates.new")}
@@ -119,6 +131,7 @@ export function TemplatesView() {
           </div>
         </Section>
       ))}
+      {designing && <TeamDesigner onClose={stopDesigning} onDraft={(t) => (stopDesigning(), setEdit(t))} />}
       <FromTeam open={fromTeam} onClose={() => setFromTeam(false)} onDraft={(t) => (setFromTeam(false), setEdit(t))} />
       <ImportToml open={importing} onClose={() => setImporting(false)} onSaved={() => (setImporting(false), load())} />
       <ConfirmModal
@@ -214,9 +227,11 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
   const app = useApp();
   const [t, setT] = useState<TeamTemplate>(initial);
   const [roles, setRoles] = useState<RoleInfo[]>([]);
+  const [library, setLibrary] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     api.roles().then(setRoles);
+    api.skillLibrary().then((l) => setLibrary(l.skills.map((s) => s.name)));
   }, []);
   const role = (i: number, patch: Partial<RoleSpec>) => setT({ ...t, roles: t.roles.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const kindOf = (r: RoleSpec) => (r.planner ? "planner" : r.kind);
@@ -323,9 +338,23 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
                 </div>
               </div>
               <input className="input mt-2 font-mono text-[11px]" placeholder={app.t("templates.scope")} value={r.allowed_paths.join(", ")} onChange={(e) => role(i, { allowed_paths: list(e.target.value) })} />
+              {/* Library skills switched on for the role's agents when a team is made (ADR-151). */}
+              <input
+                className="input mt-2 font-mono text-[11px]"
+                list="template-skills"
+                placeholder={app.t("templates.skills")}
+                title={app.t("templates.skillsNote")}
+                value={r.skills.join(", ")}
+                onChange={(e) => role(i, { skills: list(e.target.value) })}
+              />
               <textarea className="input mt-2 h-40 font-mono text-[11px]" value={r.prompt} onChange={(e) => role(i, { prompt: e.target.value })} />
             </div>
           ))}
+          <datalist id="template-skills">
+            {library.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
           <button className="btn" onClick={() => setT({ ...t, roles: [...t.roles, blankRole(`role-${t.roles.length + 1}`, "worker")] })}>
             <Plus className="h-3.5 w-3.5" /> {app.t("templates.addRole")}
           </button>

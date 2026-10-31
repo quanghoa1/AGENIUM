@@ -149,6 +149,8 @@ fn main() {
             manage::evaluate_skill,
             manage::skill_skeleton,
             manage::save_skill,
+            api::design_team,
+            api::write_skill,
             manage::evaluate_skill_text,
             manage::skill_file,
             api::tool_search_settings,

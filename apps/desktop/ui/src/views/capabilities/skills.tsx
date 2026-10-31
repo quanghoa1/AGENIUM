@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Eye, FilePlus2, FileUp, Pencil, Plus, Sparkles, Tag, Trash2, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, FilePlus2, FileUp, Pencil, Plus, Sparkles, Tag, Trash2, Wand2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../../components/Markdown";
 import { ConfirmModal, Modal } from "../../components/motion";
@@ -7,6 +7,7 @@ import { api, inTauri } from "../../lib/api";
 import { useApp } from "../../lib/store";
 import type { LibrarySkill } from "../../lib/types";
 import { SkillEditor } from "./SkillEditor";
+import { SkillWriter } from "./SkillWriter";
 
 
 /** A new skill's starting SKILL.md: frontmatter (name, description, tags) + the section skeleton. */
@@ -31,6 +32,8 @@ export function SkillsPanel() {
   const [tag, setTag] = useState<string | null>(null);
   // The in-app SKILL.md editor (author a new skill or edit one); `create` tells the save to make a new folder.
   const [edit, setEdit] = useState<{ initial: string; create: boolean; name0: string; files0: string[] } | null>(null);
+  // Writing a skill with an agent (ADR-151), beside writing it by hand.
+  const [writing, setWriting] = useState(false);
   const openNew = () => api.skillSkeleton().then((r) => setEdit({ initial: newSkillTemplate(r.body), create: true, name0: "", files0: [] }));
   const openEdit = (name: string) => api.skillText(name).then((r) => setEdit({ initial: r.raw || r.body, create: false, name0: name, files0: r.files }));
   // On-demand evaluation (ADR-88/90/92): which skill is running, and the result shown in a popup (keeps the cards the
@@ -95,7 +98,7 @@ export function SkillsPanel() {
   return (
     <div className="space-y-4">
       {/* Two ways in: write a new skill in the app, or bring one in (a folder or a .zip, typed or dropped). */}
-      <div className="grid gap-3 lg:grid-cols-[minmax(260px,340px)_1fr]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(260px,340px)_minmax(260px,340px)_1fr]">
         <div className="card flex flex-col gap-2 p-4">
           <div className="flex items-center gap-2 text-xs font-semibold">
             <FilePlus2 className="h-4 w-4 text-accent" /> {app.t("library.writeTitle")}
@@ -103,6 +106,15 @@ export function SkillsPanel() {
           <div className="flex-1 text-[11px] leading-relaxed text-subtle">{app.t("library.writeNote")}</div>
           <button className="btn-primary self-start" onClick={openNew}>
             <Plus className="h-3.5 w-3.5" /> {app.t("library.newSkill")}
+          </button>
+        </div>
+        <div className="card flex flex-col gap-2 p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <Wand2 className="h-4 w-4 text-accent" /> {app.t("skillWriter.cardTitle")}
+          </div>
+          <div className="flex-1 text-[11px] leading-relaxed text-subtle">{app.t("skillWriter.cardNote")}</div>
+          <button className="btn-primary self-start" onClick={() => setWriting(true)}>
+            <Wand2 className="h-3.5 w-3.5" /> {app.t("skillWriter.auto")}
           </button>
         </div>
         <div className={cn("card flex flex-col gap-2 border-dashed p-4 transition-colors", drop && "border-accent bg-blue-600/10")}>
@@ -230,6 +242,7 @@ export function SkillsPanel() {
           </div>
         )}
       </Modal>
+      {writing && <SkillWriter onClose={() => setWriting(false)} onSaved={() => (setWriting(false), load())} />}
       {edit && <SkillEditor initial={edit.initial} create={edit.create} name0={edit.name0} files0={edit.files0} onClose={() => setEdit(null)} onSaved={load} />}
       <ConfirmModal
         open={!!del}

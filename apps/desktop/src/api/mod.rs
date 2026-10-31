@@ -17,12 +17,14 @@ use crate::state::{err, Desktop, Opened, R};
 
 mod actions;
 mod agents;
+mod design;
 mod overview;
 mod status;
 mod ticket_view;
 
 pub use actions::*;
 pub use agents::*;
+pub use design::*;
 pub use overview::*;
 pub use status::*;
 pub use ticket_view::*;

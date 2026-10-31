@@ -410,6 +410,9 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "provider_models":
     case "reload_cli_models":
       return { value: [], at: new Date().toISOString(), error: null };
+    case "design_team":
+    case "write_skill":
+      return { reply: "", questions: [], draft: null, raw: "", model: "demo" };
     case "agent_bus":
       return [];
     default:

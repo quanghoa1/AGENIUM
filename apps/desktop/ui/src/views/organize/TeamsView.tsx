@@ -1,4 +1,4 @@
-import { Crown, Lightbulb, Plus, Trash2, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Crown, Lightbulb, Plus, Sparkles, Trash2, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { ConfirmModal, Segmented } from "../../components/motion";
 import { AgentStatusBadge, Avatar, Empty, PageHeader, ProjectStateChips, RoleChip, Section, cn, modelLabel } from "../../components/ui";
@@ -246,6 +246,9 @@ export function TeamsView() {
             </button>
             <button className="btn" onClick={() => setMode("template")}>
               <Plus className="h-3.5 w-3.5" /> {app.t("teams.fromTemplate")}
+            </button>
+            <button className="btn" onClick={() => app.go("templates", "design")} title={app.t("design.teamsHint")}>
+              <Sparkles className="h-3.5 w-3.5" /> {app.t("design.button")}
             </button>
           </>
         ) : (

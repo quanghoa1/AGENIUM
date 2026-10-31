@@ -257,6 +257,11 @@ export const api = {
   removeProvider: (id: string) => call<void>("remove_provider", { id }),
   /** A provider's models as kept (listed again with `refresh`, when new or a week old): with when and any error. */
   providerModels: (id: string, refresh = false) => call<CachedModels>("provider_models", { id, refresh }),
+  /** One turn of the team designer (ADR-151) with the user's chosen model; the draft opens in the template editor. */
+  designTeam: (model: ModelArg, turns: ChatTurn[]) => call<TeamDesign>("design_team", { model, turns }),
+  /** One turn of the skill writer (ADR-151): the request, the user's documents, the designer's proposal if any. */
+  writeSkill: (model: ModelArg, turns: ChatTurn[], documents: SkillDoc[], seed: NewSkill | null) =>
+    call<SkillWrite>("write_skill", { model, turns, documents, seed }),
   /** Lists one CLI's models again now. */
   reloadCliModels: (cli: string) => call<CachedModels>("reload_cli_models", { cli }),
   localServers: () => call<LocalServer[]>("local_servers"),
@@ -321,4 +326,39 @@ export interface CachedModels {
   value: ModelInfo[];
   at?: string | null;
   error?: string | null;
+}
+
+/** One turn of a helper chat: the user's text, or the helper's whole answer (sent back so a change edits its draft). */
+export interface ChatTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
+/** A skill the team designer would give a role but the library lacks. */
+export interface NewSkill {
+  name: string;
+  does: string;
+  when: string;
+  roles: string[];
+}
+
+export interface TeamDesign {
+  reply: string;
+  questions: string[];
+  draft: { template: TeamTemplate; why: string; roles: { id: string; why: string }[]; new_skills: NewSkill[]; notes: string[] } | null;
+  raw: string;
+  model: string;
+}
+
+export interface SkillDoc {
+  name: string;
+  text: string;
+}
+
+export interface SkillWrite {
+  reply: string;
+  questions: string[];
+  draft: { name: string; description: string; tags: string[]; body: string; files: { path: string; text: string }[]; skill_md: string; exists: boolean; notes: string[] } | null;
+  raw: string;
+  model: string;
 }

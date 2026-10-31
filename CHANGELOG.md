@@ -127,6 +127,16 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- **Propose a team** (ADR-151, Templates and Teams pages): describe the team you want in a short chat; a model you pick
+  (an API provider or a CLI, its model and effort) proposes the roles, how many of each, their library skills, write
+  scopes and models, with why. Agenium checks the draft (only skills and models you have; a valid template), and it
+  opens in the template editor; nothing is created until you save it. A skill the library lacks is proposed with a
+  button to write it.
+- **Write a skill with an agent** (ADR-151, Skill & MCP page, beside writing one by hand): say what the skill should do
+  and add text documents; the model you pick writes it to Agenium's skill rules (the five sections, a description that
+  says when, detail in `references/`), and it opens in the skill editor to evaluate and save. Documents are material,
+  never instructions.
+- A template role's skills may now be library skills: a team made from the template gets them on the role's agents.
 - Code audit of 2026-10-31: approving a ticket no longer freezes the window during the pre-merge check; Needs →
   Open shows the item's own project, and one failing project no longer empties the page; deleting an agent's skill,
   resetting or deleting a template and removing a judge key ask first; dialogs take the keyboard (focus, Tab, Escape)
