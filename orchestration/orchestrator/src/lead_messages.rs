@@ -1,7 +1,9 @@
 //! Messages to a Lead (ADR-147, ADR-149): the user's message, or an answer to a worker's question routed through the
 //! Lead, is stored before it is acknowledged, so a crash loses nothing. While the Lead is busy a message waits in the
 //! project's queue, where the user can still change or take it back; the Lead's next chat turn takes every queued
-//! message at once, and a turn that does not reach its end puts them back.
+//! message at once, and a turn that does not reach its end puts them back. They are delivered only when the turn
+//! reaches its end: a process that dies during the turn finds them taken at the next start and puts them back
+//! (reconcile).
 
 use agenium_core::{now_iso, ProjectId};
 use agenium_store::core::ledger::{self, LeadMessage};
@@ -17,9 +19,16 @@ pub struct Taken<'a> {
 }
 
 impl Taken<'_> {
-    /// The turn had them to its end: they stay delivered.
+    /// The turn had them to its end: they are delivered.
     pub fn keep(mut self) {
         self.kept = true;
+        let ids: Vec<i64> = self.messages.iter().map(|m| m.id).collect();
+        if let Err(e) = self.app.store.commit(None, "system", |w| {
+            ledger::mark_delivered(w.tx, &ids, &now_iso())
+        }) {
+            // They stay taken: the next start puts them back, and the Lead reads them again rather than never.
+            tracing::warn!(error = %e, "messages to the Lead not marked delivered");
+        }
     }
 
     /// The messages as one user message, oldest first.
@@ -71,7 +80,7 @@ impl App {
             .commit(None, "system", |w| {
                 let ms = ledger::undelivered(w.tx, project)?;
                 let ids: Vec<i64> = ms.iter().map(|m| m.id).collect();
-                ledger::mark_delivered(w.tx, &ids, &now_iso())?;
+                ledger::mark_taken(w.tx, &ids, &now_iso())?;
                 Ok::<_, agenium_store::StoreError>(ms)
             })?
             .value;

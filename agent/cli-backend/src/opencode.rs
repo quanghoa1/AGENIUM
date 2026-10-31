@@ -33,6 +33,22 @@ use crate::driver::{
     own_tool_off, Check, CheckCtx, Control, Driver, Event, Setup, Turns, NO_SUBAGENTS,
 };
 
+/// The next line of `r`, its invalid UTF-8 replaced, `None` at the end (`lines()` stops for good at such a byte).
+async fn next_line_lossy<R: tokio::io::AsyncBufRead + Unpin>(
+    r: &mut R,
+    buf: &mut Vec<u8>,
+) -> Option<String> {
+    buf.clear();
+    match r.read_until(b'\n', buf).await {
+        Ok(0) | Err(_) => None,
+        Ok(_) => Some(
+            String::from_utf8_lossy(buf)
+                .trim_end_matches(['\r', '\n'])
+                .to_owned(),
+        ),
+    }
+}
+
 pub struct Opencode;
 
 const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
@@ -347,9 +363,11 @@ pub(crate) fn bridge(
         let fail = |out: &mpsc::UnboundedSender<Value>, msg: String| {
             let _ = out.send(json!({"type": "session.execution.failed", "data": {"error": msg}}));
         };
-        let mut lines = BufReader::new(stdout).lines();
+        // Read as bytes: one line that is not UTF-8 stopped `lines()` for good, and the server's pipe was no longer
+        // drained (audit M12, 2026-10-31).
+        let (mut r, mut buf) = (BufReader::new(stdout), Vec::new());
         let base = tokio::time::timeout(std::time::Duration::from_secs(90), async {
-            while let Ok(Some(l)) = lines.next_line().await {
+            while let Some(l) = next_line_lossy(&mut r, &mut buf).await {
                 crate::run::keep_tail(&tail, format!("{l}\n").as_bytes());
                 if let Some(u) = l.split("listening on ").nth(1) {
                     return Some(u.trim().trim_end_matches('/').to_owned());
@@ -366,7 +384,7 @@ pub(crate) fn bridge(
         // Keep draining the server's stdout (its tail explains failures).
         let t = tail.clone();
         tokio::spawn(async move {
-            while let Ok(Some(l)) = lines.next_line().await {
+            while let Some(l) = next_line_lossy(&mut r, &mut buf).await {
                 crate::run::keep_tail(&t, format!("{l}\n").as_bytes());
             }
         });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ConfirmModal } from "../components/motion";
 import { Mono, Section, ago, cn } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
@@ -112,6 +113,8 @@ function JudgeKeys({ keys, busy, run }: { keys: JudgeKeyState[]; busy: boolean; 
   const app = useApp();
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
+  // Removing a key deletes its stored value too: asked first (audit L12, 2026-10-31).
+  const [removing, setRemoving] = useState<string | null>(null);
   const resting = (k: JudgeKeyState) => !!k.off && !k.off.quota && !!k.off.until && new Date(k.off.until) > new Date();
   const out = (k: JudgeKeyState) => !!k.off && (k.off.quota || resting(k));
   return (
@@ -140,7 +143,7 @@ function JudgeKeys({ keys, busy, run }: { keys: JudgeKeyState[]; busy: boolean; 
                     {app.t("settings.judgeKeyEnable")}
                   </button>
                 )}
-                <button className="btn" disabled={busy} onClick={() => run(api.judgeRemoveKey(k.name), app.t("settings.judgeSaved"))}>
+                <button className="btn" disabled={busy} onClick={() => setRemoving(k.name)}>
                   {app.t("settings.judgeKeyRemove")}
                 </button>
               </span>
@@ -172,6 +175,18 @@ function JudgeKeys({ keys, busy, run }: { keys: JudgeKeyState[]; busy: boolean; 
           {app.t("settings.judgeKeyAdd")}
         </button>
       </div>
+      <ConfirmModal
+        open={!!removing}
+        title={`${app.t("settings.judgeKeyRemove")} ${removing ?? ""}`}
+        note={app.t("settings.judgeKeyRemoveNote")}
+        confirm={app.t("settings.judgeKeyRemove")}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => {
+          const n = removing!;
+          setRemoving(null);
+          run(api.judgeRemoveKey(n), app.t("settings.judgeSaved"));
+        }}
+      />
     </div>
   );
 }

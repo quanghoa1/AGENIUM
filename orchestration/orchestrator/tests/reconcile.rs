@@ -245,6 +245,56 @@ fn missing_and_orphan_worktrees_are_repaired() {
     assert!(actions.is_empty(), "{actions:?}");
 }
 
+/// Audit M10 (2026-10-31): a worktree that cannot be removed at start (a file still held, on Windows) kept
+/// Agenium from opening. It is reported and tried again at the next start.
+#[test]
+fn a_worktree_that_cannot_be_removed_does_not_keep_the_app_from_opening() {
+    let f = fixture();
+    let stray = worktree(&f, "AGN-98");
+    std::fs::create_dir_all(stray.join("locked")).unwrap();
+    std::fs::write(stray.join("locked/held.txt"), "x").unwrap();
+    // Held open on Windows; a folder without write permission on Unix: either way the removal fails.
+    // (Rust opens files sharing delete access by default: shared with nothing, as a program holding it would.)
+    #[cfg(windows)]
+    let held = {
+        use std::os::windows::fs::OpenOptionsExt;
+        std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(stray.join("locked/held.txt"))
+            .unwrap()
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(stray.join("locked"), std::fs::Permissions::from_mode(0o500))
+            .unwrap();
+    }
+    let (f, actions) = restart(f);
+    assert!(
+        actions
+            .iter()
+            .any(|x| x.contains("orphan worktree AGN-98 not removed yet")),
+        "{actions:?}"
+    );
+    #[cfg(windows)]
+    drop(held);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(stray.join("locked"), std::fs::Permissions::from_mode(0o700))
+            .unwrap();
+    }
+    let (f, actions) = restart(f);
+    assert!(
+        actions
+            .iter()
+            .any(|x| x.contains("removed orphan worktree AGN-98")),
+        "{actions:?}"
+    );
+    assert!(!worktree(&f, "AGN-98").exists());
+}
+
 #[test]
 fn failed_merge_is_retried_without_a_restart() {
     let f = fixture();
@@ -392,4 +442,43 @@ fn an_interrupted_runs_edits_survive_the_restart() {
         std::fs::read_to_string(wt.join("notes.md")).unwrap(),
         "from run A\nand run B\n"
     );
+}
+
+/// Audit M9 (2026-10-31): a message to the Lead was marked delivered when a chat turn took it, so a process that died
+/// during the turn lost it (neither queued nor in the conversation). It is delivered only at the turn's end; one the
+/// process died with goes back in the queue at the next start.
+#[test]
+fn a_message_taken_by_a_turn_the_process_died_in_is_queued_again() {
+    let f = fixture();
+    f.app.post_lead_message(f.project.id, "deploy it").unwrap();
+    let taken = f.app.take_lead_messages(f.project.id).unwrap();
+    assert_eq!(taken.messages.len(), 1);
+    assert!(f
+        .app
+        .undelivered_lead_messages(f.project.id)
+        .unwrap()
+        .is_empty());
+    // The process dies during the turn: nothing puts it back, nothing confirms it.
+    std::mem::forget(taken);
+    let (f, actions) = restart(f);
+    assert!(
+        actions.iter().any(|x| x.contains("back in the queue")),
+        "{actions:?}"
+    );
+    assert_eq!(
+        f.app.undelivered_lead_messages(f.project.id).unwrap().len(),
+        1
+    );
+    // A turn that reaches its end delivers it for good.
+    f.app.take_lead_messages(f.project.id).unwrap().keep();
+    let (f, actions) = restart(f);
+    assert!(
+        !actions.iter().any(|x| x.contains("back in the queue")),
+        "{actions:?}"
+    );
+    assert!(f
+        .app
+        .undelivered_lead_messages(f.project.id)
+        .unwrap()
+        .is_empty());
 }

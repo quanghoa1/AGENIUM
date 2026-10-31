@@ -89,7 +89,7 @@ File: docs/notes.md\\n+# Notes\\n*** End Patch'."
         // Write, restoring the originals if anything fails midway.
         let originals: Vec<(PathBuf, Option<Vec<u8>>)> = writes
             .iter()
-            .map(|(p, _, _)| (p.clone(), std::fs::read(p).ok()))
+            .map(|(p, _, _)| (p.clone(), super::handle::read_regular(p).ok()))
             .collect();
         for (p, rel, content) in &writes {
             let r = match content {

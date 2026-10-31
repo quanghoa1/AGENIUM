@@ -94,6 +94,24 @@ impl App {
     /// Applies a protocol intent. Errors are structured (see [`OrchError::to_tool_error`]) and change nothing.
     pub fn apply(&self, ctx: &CallCtx, intent: Intent) -> Result<Outcome> {
         let project = self.project(ctx.project)?;
+        // An intent committed already (the same call sent again: a retry after its answer was lost) returns its stored
+        // result before its handler's checks, which the first commit changed the state against: a report sent again
+        // failed with "not in progress" (audit L22, 2026-10-31). Its git operations ran after the first commit. One
+        // that parks the run (a permission, a blocking question) goes through its handler, which knows if it still
+        // waits.
+        let parks = matches!(
+            &intent,
+            Intent::RequestPermission(_) | Intent::AskQuestion(_)
+        );
+        if let (Some(id), false) = (ctx.intent_id.as_deref(), parks) {
+            let stored = self
+                .store
+                .intent_result(id)?
+                .and_then(|v| serde_json::from_value::<Outcome>(v).ok());
+            if let Some(o) = stored {
+                return Ok(Outcome { ops: vec![], ..o });
+            }
+        }
         let reviewed = match &intent {
             Intent::ReviewTicket(r) => Some(r.ticket_id.clone()),
             _ => None,

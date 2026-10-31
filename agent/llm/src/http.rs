@@ -113,7 +113,13 @@ impl Http {
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
             let h = resp.headers().clone();
-            let text = resp.text().await.unwrap_or_default();
+            // Under the same idle limit as the stream: a proxy that sent the headers and stalled the body held the turn
+            // for good, past the user's stop (audit L5, 2026-10-31).
+            let text = tokio::time::timeout(self.idle, resp.text())
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .unwrap_or_default();
             return Err(map_err(status, &h, &text));
         }
         let mut stream = resp.bytes_stream();

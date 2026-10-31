@@ -58,8 +58,22 @@ export function LiveView() {
     setRoom((r) => (r === "cctv" ? r : null));
   }, [app.project]);
 
+  const notifyRef = useRef(app.notify);
+  notifyRef.current = app.notify;
   useEffect(() => {
-    const load = () => api.live().then((d) => d && setData(d));
+    // Told once when it starts failing, not every 3 s while it does (audit L24, 2026-10-31).
+    let failing = false;
+    const load = () =>
+      api
+        .live()
+        .then((d) => {
+          failing = false;
+          if (d) setData(d);
+        })
+        .catch((e) => {
+          if (!failing) notifyRef.current(String(e));
+          failing = true;
+        });
     load();
     const h = window.setInterval(load, 3000);
     return () => window.clearInterval(h);

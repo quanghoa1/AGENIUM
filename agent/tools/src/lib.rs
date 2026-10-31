@@ -310,12 +310,18 @@ impl ToolCtx {
 
     /// Saves `full` as a run artifact; its worktree-relative path, for the model to read when it needs the whole.
     pub fn save_output(&self, full: &str) -> Option<String> {
-        let n = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
-        let rel = format!("{}/{n:04}.log", self.artifacts_rel);
-        let p = self.root.join(&rel);
-        (p.parent().map(std::fs::create_dir_all).transpose().is_ok()
-            && std::fs::write(&p, full).is_ok())
-        .then_some(rel)
+        // A new file only, and only where it really is inside the worktree (`write_new`, audit H2). A name already
+        // taken (a run going on in a new context counts from 1 again) moves on to the next.
+        for _ in 0..1000 {
+            let n = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
+            let rel = format!("{}/{n:04}.log", self.artifacts_rel);
+            match work::write_new(&self.root, &self.root.join(&rel), full.as_bytes()) {
+                Ok(()) => return Some(rel),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(_) => return None,
+            }
+        }
+        None
     }
 
     pub fn todo(&self) -> Vec<TodoItem> {

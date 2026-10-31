@@ -90,6 +90,7 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 
 | Check | Result |
 |---|---|
+| Code audit of 2026-10-31 ([AUDIT-2026-10-31.md](AUDIT-2026-10-31.md)): every fix with its test | Windows: local CI green (fmt, clippy, test, schemas, vendor, ratchet, deny, golden-scripted); the desktop crate builds, passes clippy and its tests; the UI builds, `npm audit` 0 vulnerabilities. Ubuntu VM (AppArmor userns restriction lifted for the run and restored): agenium-sandbox 15 + 4, agenium-tools 22 + 2 + 19, agenium-cli-backend 41 + 10, the orchestrator's reconcile 7, the store's backup 6 passed, the Unix-only tests among them (L1, L3, H2's link cases, M10's Unix branch). Not run: L2 on macOS. |
 | Linux sandbox: the host resolver's socket on the real Ubuntu 25.10 VM (kernel 6.17, bubblewrap 0.11.0, slirp4netns 1.2.1, systemd-resolved; AppArmor userns restriction lifted for the run and restored; raw output in `docs/reference/bench-raw/ubuntu-vm-2026-10-31/`) | With the mask: `net.resolver_socket` blocked with the network off and on, every other row as before, `sandboxed modes: 0 escape(s)`, DNS with the network on unchanged; agenium-sandbox tests 12 + 4 passed. With the mask off (`resolver_sockets()` replaced by an empty list for one run, source restored): ESCAPED in both sandboxed modes, the answer holding example.com's addresses, so the hole is real on a stock Ubuntu host too. |
 | `tool_search` ranking swept (ADR-139; `examples/tool_search_sweep.rs`, no model API, local bge; raw output in `docs/reference/bench-raw/tool-search-sweep-2026-10-31.txt`) | 86,016 combinations on the 123 shaped tools (58 requests) and 330 real tools of six MCP servers fetched from pinned commits (128 requests of ours). Shipped: a tool's meaning from its name and the description's first 300 characters, k = 10, meaning weighed 1.5. Right tool first / in the 5 returned / MRR, before → after: shaped 37/52/0.731 → 37/53/0.747; real 49/86/0.515 → 55/93/0.568. Through the shipped code (`tool_search_eval`, no judge): 37/49/53 of 58, MRR 0.74 (0.71 before). `rank` and tool-search tests pass. |
 
@@ -287,3 +288,6 @@ loses its cached prefix. The probe `cache_probe.rs` shows what a provider keeps.
   prompt-cache rules were measured on DeepSeek and Claude; OpenAI, Gemini and xAI are contract-tested.
 - The team task at n = 1 per configuration; variance across repeated runs is not measured.
 - Stall nudges and the SLA escalation to the user: scripted tests only (no real run stalled long enough).
+- Audit L2 (2026-10-31): a contained CLI's leftover processes killed on macOS by their stray token: built for Unix and
+  tested on Linux only; waits for the next macOS run.
+- Audit L9 (2026-10-31): the OAuth token refreshed on a 401 over the legacy SSE transport: no SSE + OAuth test server.

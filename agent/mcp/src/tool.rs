@@ -263,14 +263,32 @@ impl Tool for McpTool {
                 let c = self.session.client().await.map_err(tool_error)?;
                 attempt(c, args).await
             }
+            // The access token the connection was opened with ran out (the legacy SSE transport sends a fixed one; the
+            // Streamable HTTP one renews it itself): refused, the call did not run, so it goes again on a connection
+            // opened with a fresh token, side effects or not (audit L9, 2026-10-31: every call failed after an hour).
+            Err(McpError::Http { status: 401, .. }) => {
+                self.session.reset().await;
+                let c = self.session.client().await.map_err(tool_error)?;
+                attempt(c, args).await
+            }
             r => r,
         };
         // A tool that fails may be one its server no longer offers, the server having changed its tools without
         // saying so: it is listed again at once and the agent told what changed (ADR-139).
+        // The server's own words, in an error as in an answer: cut to the run's limits and fenced as its content
+        // (ADR-142). An error went to the model whole and bare (audit M2, 2026-10-31).
+        let server_error = |code: &str, text: &str| {
+            let (text, _) =
+                agenium_tools::text::truncate(text, ctx.limits.max_chars, ctx.limits.max_lines);
+            ToolError::new(code, self.fenced(&text))
+        };
         let r = match r {
             Ok(r) if !r.is_error => r,
-            Ok(r) => return Err(self.changed(ToolError::new("mcp_tool_error", r.text)).await),
-            Err(e @ McpError::Rpc { .. }) => return Err(self.changed(tool_error(e)).await),
+            Ok(r) => return Err(self.changed(server_error("mcp_tool_error", &r.text)).await),
+            Err(McpError::Rpc { code, message }) => {
+                let e = server_error("mcp_error", &format!("{message} (code {code})"));
+                return Err(self.changed(e).await);
+            }
             Err(e) => return Err(tool_error(e)),
         };
         let mut out = ctx.finish_output(r.text, true);

@@ -62,7 +62,9 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
       <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
         {(n.kind === "SpecApproval" || n.kind === "PlanApproval") && (
           <>
-            <button className="btn" onClick={() => app.go("tickets", "plan")}>
+            {/* The item's own project first: the plan page shows the selected one, so Open showed another project's plan
+                beside the Approve of this one (audit M5, 2026-10-31). */}
+            <button className="btn" onClick={() => (app.setProject(n.project), app.go("tickets", "plan"))}>
               {app.t("common.open")}
             </button>
             <button disabled={busy} className="btn-primary" onClick={() => act(api.approve(n.project, n.kind === "SpecApproval" ? "spec" : "plan", String(n.version)), app.t("common.done"))}>
@@ -176,9 +178,17 @@ export function CommandRow({ a }: { a: CommandApproval }) {
 
 export function NeedsView() {
   const app = useApp();
-  const [items, setItems] = useState<{ id: string; project: string; items: NeedItem[] }[]>([]);
+  const [items, setItems] = useState<{ id: string; project: string; items: NeedItem[]; failed?: boolean }[]>([]);
   useEffect(() => {
-    Promise.all(app.projects.map((p) => api.needsYou(p.id).then((r) => ({ id: p.id, project: p.name, items: r.needs, cmds: r.command_approvals })))).then((rs) => {
+    // One project that cannot be read does not empty the page for the others (audit L15, 2026-10-31): it says so.
+    Promise.all(
+      app.projects.map((p) =>
+        api
+          .needsYou(p.id)
+          .then((r) => ({ id: p.id, project: p.name, items: r.needs, cmds: r.command_approvals, failed: false }))
+          .catch(() => ({ id: p.id, project: p.name, items: [] as NeedItem[], cmds: [] as typeof app.approvals, failed: true })),
+      ),
+    ).then((rs) => {
       setItems(rs);
       const cmds = rs.flatMap((r) => r.cmds);
       app.setApprovals(cmds.filter((c, i) => cmds.findIndex((x) => x.id === c.id) === i));
@@ -191,9 +201,10 @@ export function NeedsView() {
       <PageHeader title={app.t("nav.needs")} sub={total ? `${total} ${app.t("needs.waiting")}` : app.t("needs.sub")} />
       {items
         .map((r) => ({ ...r, cmds: app.approvals.filter((a) => a.project === r.id) }))
-        .filter((r) => r.items.length || r.cmds.length)
+        .filter((r) => r.items.length || r.cmds.length || r.failed)
         .map((r) => (
           <Section key={r.id} title={r.project}>
+            {r.failed && <div className="text-sm text-rose-600 dark:text-rose-400">{app.t("needs.unreadable")}</div>}
             <div className="space-y-2">
               <AnimatePresence initial={false} mode="popLayout">
                 {r.cmds.map((a) => (

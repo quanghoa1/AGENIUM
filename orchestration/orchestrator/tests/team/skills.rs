@@ -224,6 +224,34 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
         good,
     ));
     assert!(e7.contains("already became skill changelog-entry"), "{e7}");
+    // Audit M16 (2026-10-31): along the lesson's line. A refinement of the lesson (a new id, held in the same
+    // contexts) is the same lesson: no second skill from it.
+    let refined = mem
+        .supersede(
+            good,
+            &agenium_store::NewFact {
+                kind: agenium_store::FactKind::Lesson,
+                cue: Some("when a change is merged".into()),
+                ..agenium_store::NewFact::fact(
+                    "Every merged change needs a changelog entry under its section.",
+                    "ticket:AGN-1",
+                )
+            },
+            None,
+        )
+        .unwrap();
+    for c in ["CTX-9", "CTX-10"] {
+        mem.validate_in(refined, &closed_context(f, c)).unwrap();
+    }
+    let e7b = refused(propose(
+        "changelog-entry-3",
+        body("Write the changelog entry once more."),
+        refined,
+    ));
+    assert!(
+        e7b.contains("already became skill changelog-entry"),
+        "{e7b}"
+    );
 
     // ADR-146: a later proven lesson improves the skill the agent created, in place, through the overlay's gates.
     let later = lesson("Changelog entries name the ticket key.", false);
@@ -251,6 +279,17 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
         .unwrap_err()
         .to_string();
     assert!(e9.contains("injected"), "{e9}");
+    // Audit M4 (2026-10-31): a revision passes the shape gate a new skill passes; one that drops the proof is refused.
+    let bare = agenium_core::forms::ProposeSkillUpdate {
+        content: Some("1. Write the entry.\n".into()),
+        ..update(later, "")
+    };
+    let e10 = f
+        .app
+        .apply_skill_update(t.web, &bare)
+        .unwrap_err()
+        .to_string();
+    assert!(e10.contains("not ready"), "{e10}");
     // ADR-147: the judge can read a revision of a created skill before it is applied, as it reads an overlay's.
     let (current, next) = f
         .app
@@ -275,12 +314,13 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
         (good, 1, later)
     );
 
-    // Anti-drift: once the lesson is retired the skill is flagged once for the user.
+    // Anti-drift: once a lesson it stands on is retired the skill is flagged once for the user. The refined lesson
+    // still holds; the revision's lesson counts too (audit M16: only the first lesson was looked at).
     assert!(
         f.app.audit_created_skills(t.web).unwrap().is_empty(),
-        "nothing to flag yet"
+        "nothing to flag yet: a refined lesson still holds"
     );
-    mem.retire(good).unwrap();
+    mem.retire(later).unwrap();
     let flagged = f.app.audit_created_skills(t.web).unwrap();
     assert_eq!(flagged.len(), 1, "{flagged:?}");
     assert!(f.app.created_skills(t.web).unwrap()["changelog-entry"]

@@ -21,6 +21,10 @@ type Child = mxc_sdk::v1::MxcProcess;
 pub struct Contained {
     #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     child: Child,
+    /// The token every process of the tree carries (`unix::STRAY_TOKEN_ENV`): what is left when it ends is found by it.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    token: String,
 }
 
 pub struct ContainedStdio {
@@ -54,6 +58,11 @@ impl Drop for Contained {
         if matches!(self.child.try_wait(), Ok(None)) {
             self.kill();
         }
+        // On macOS nothing else ends what the CLI left running (a server it started with `&`, a daemon): no PID
+        // namespace (Linux), no job object (Windows), and the kill above is a no-op once the CLI has exited itself
+        // (audit L2, 2026-10-31). Its processes carry the tree's token.
+        #[cfg(target_os = "macos")]
+        crate::unix::kill_strays(&self.token);
     }
 }
 
@@ -126,6 +135,8 @@ pub fn spawn_contained(
             std::fs::create_dir_all(t)?;
             env.insert("TMPDIR".into(), t.display().to_string());
         }
+        let token = crate::unix::stray_token();
+        env.insert(crate::unix::STRAY_TOKEN_ENV.into(), token.clone());
         let env: Vec<(String, String)> = env.into_iter().collect();
         let line: Vec<String> = argv.iter().map(|a| quote(a)).collect();
         let mut child = mxc_sdk::v1::spawn(
@@ -141,7 +152,7 @@ pub fn spawn_contained(
             stdout: child.take_stdout(),
             stderr: child.take_stderr(),
         };
-        Ok((Contained { child }, stdio))
+        Ok((Contained { child, token }, stdio))
     }
     #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {

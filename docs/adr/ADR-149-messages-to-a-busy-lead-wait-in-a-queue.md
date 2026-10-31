@@ -46,3 +46,10 @@ ADR-147 already stores every message to the Lead before it is acknowledged (`lea
 - A correction sent while the Lead works reaches it when that run ends, not in its middle: a long Solo work run is not
   turned by it (the user can pause the project to stop it).
 - The run's own message queue in the agent loop stays (a vendor CLI may still leave one there; it goes to the queue).
+
+## Amendment (2026-10-31, code audit M9)
+
+A turn's taken messages are marked taken, not delivered, and delivered when the turn ends: the in-memory guard puts
+them back on a failed turn, but a process that died in the turn left them read and lost. At start, messages still
+taken go back to the queue (`ledger::return_taken`, called from reconcile); test
+`a_message_taken_by_a_turn_the_process_died_in_is_queued_again`.

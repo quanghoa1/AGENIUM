@@ -85,7 +85,17 @@ fn protected(home: &Path) -> Vec<std::path::PathBuf> {
 
 /// agy's own command tools (name prefixes, lowercase): off in Agenium runs (ADR-129), commands go through Agenium's
 /// `shell`. agy has no flag that withholds a tool, so the hook refuses them.
-const COMMAND_TOOLS: [&str; 3] = ["run_command", "command_status", "send_command"];
+const COMMAND_TOOLS: [&str; 4] = [
+    "run_command",
+    "command_status",
+    "send_command",
+    "read_terminal",
+];
+
+/// agy's tools that touch neither files nor commands nor the network, allowed as they are: its task markers and its
+/// notes to the user. Any other tool is refused (audit M14, 2026-10-31: anything unknown was allowed, so a tool a new
+/// agy version adds, a command-like one too, ran unchecked). Seen in agy 1.4.7.
+const OTHER_TOOLS: [&str; 2] = ["task_boundary", "notify_user"];
 
 /// agy's own file and search tools (name prefixes, lowercase): its scratch folder only (the per-run home, its task
 /// notes); on the worktree the work goes through Agenium's tools (ADR-129).
@@ -321,6 +331,15 @@ impl Driver for Agy {
         // Its own file and search tools act on the worktree when no path is named.
         if paths.is_empty() && FILE_TOOLS.iter().any(|p| lower.starts_with(p)) {
             return Check::Deny(own_tool_off(name));
+        }
+        let known = FILE_TOOLS.iter().any(|p| lower.starts_with(p))
+            || lower.contains("resource")
+            || (lower.contains("subagent") && cx.subagents)
+            || OTHER_TOOLS.contains(&lower.as_str());
+        if !known {
+            return Check::Deny(format!(
+                "{name} is not a tool Agenium knows: use the tools of the \"agenium\" MCP server"
+            ));
         }
         for p in paths {
             if let Err(r) = file_access(Path::new(&p), cx, &protected(cx.home)) {
@@ -564,11 +583,27 @@ mod tests {
             ),
             Check::Deny(_)
         ));
-        // agy's other tools (no file, no command) stay.
+        // agy's other known tools (no file, no command) stay; one Agenium does not know is refused (audit M14).
         assert_eq!(
             call("task_boundary", json!({"TaskName": "x"})),
             Check::Allow
         );
+        assert_eq!(
+            call("notify_user", json!({"Message": "done"})),
+            Check::Allow
+        );
+        for name in ["read_terminal", "trajectory_search", "exec_shell_v2"] {
+            assert!(matches!(call(name, json!({})), Check::Deny(_)), "{name}");
+        }
+        // A move names its source as a path (it was read as text): one out of reach is refused.
+        let outside = tempfile::tempdir().unwrap();
+        assert!(matches!(
+            call(
+                "move_file",
+                json!({"Source": outside.path().join("secret.txt"), "Destination": home.path().join("notes/x.txt")})
+            ),
+            Check::Deny(_)
+        ));
         assert_eq!(
             call(
                 "call_mcp_tool",

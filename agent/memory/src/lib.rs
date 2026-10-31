@@ -179,7 +179,20 @@ pub struct Recalled {
     pub shared: bool,
 }
 
+/// Runs `f`, CPU-heavy work (an embedding: 100-400 ms on the CPU), so that it does not stall other tasks: on a
+/// multi-threaded runtime the thread hands its tasks to the others meanwhile (`block_in_place`); elsewhere it just runs
+/// (audit L17, 2026-10-31).
+pub fn cpu_bound<T>(f: impl FnOnce() -> T) -> T {
+    match tokio::runtime::Handle::try_current() {
+        Ok(h) if h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
+            tokio::task::block_in_place(f)
+        }
+        _ => f(),
+    }
+}
+
 /// Builds the memory block of a work order and records what was used.
+#[derive(Clone)]
 pub struct MemoryRetriever {
     store: Arc<AgentStore>,
     embedder: Arc<dyn Embedder>,

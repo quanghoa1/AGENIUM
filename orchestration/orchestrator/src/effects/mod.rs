@@ -6,7 +6,7 @@ use std::path::Path;
 
 use agenium_core::*;
 use agenium_store::core::{agents, ops, projects, runs, tickets, workspaces, WriteCtx};
-use agenium_vcs::{MergeOutcome, Repo};
+use agenium_vcs::{MergeOutcome, Prepared, Repo};
 use serde::{Deserialize, Serialize};
 
 use crate::app::App;

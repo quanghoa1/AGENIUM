@@ -4,7 +4,7 @@
 import { Brain, CheckCircle2, GitMerge, Lightbulb, RotateCcw, Search, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DiffView } from "../components/DiffView";
-import { Segmented } from "../components/motion";
+import { ConfirmModal, Segmented } from "../components/motion";
 import { Avatar, Empty, Mono, PageHeader, Section, ago, cn } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/store";
@@ -116,6 +116,8 @@ export function MemoryView() {
   const [tab, setTab] = useState<Tab>("lesson");
   const [q, setQ] = useState("");
   const [showFaded, setShowFaded] = useState(false);
+  // A skill the agent created is deleted for good (no undo): asked first (audit L12, 2026-10-31).
+  const [removing, setRemoving] = useState<string | null>(null);
   useEffect(() => {
     api.agents().then((xs) => {
       setAgents(xs);
@@ -237,7 +239,7 @@ export function MemoryView() {
                   }
                   right={
                     <div className="flex gap-2">
-                      <button className="btn" onClick={() => act("remove_skill", { skill: name }, app.t("memory.skillRemoved"))}>
+                      <button className="btn" onClick={() => setRemoving(name)}>
                         <Trash2 className="h-3.5 w-3.5" /> {app.t("memory.removeSkill")}
                       </button>
                     </div>
@@ -321,6 +323,18 @@ export function MemoryView() {
           )}
         </div>
       </div>
+      <ConfirmModal
+        open={!!removing}
+        title={`${app.t("memory.removeSkill")} ${removing ?? ""}`}
+        note={app.t("memory.removeSkillNote")}
+        confirm={app.t("memory.removeSkill")}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => {
+          const skill = removing!;
+          setRemoving(null);
+          act("remove_skill", { skill }, app.t("memory.skillRemoved"));
+        }}
+      />
     </div>
   );
 }

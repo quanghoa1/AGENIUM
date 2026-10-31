@@ -26,12 +26,18 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncReadExt;
 
+mod gitconfig;
+mod output;
 mod policy;
 mod shell;
 mod tree;
 
+use gitconfig::agent_gitconfig;
+use output::read_all;
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+pub(crate) use output::reader;
+pub use output::Live;
 pub use policy::*;
 pub use shell::*;
 pub use tree::*;
@@ -140,53 +146,6 @@ pub struct CommandSpec {
     pub live: Option<Live>,
 }
 
-/// Output of a running command, shared with whoever reads it while it runs.
-pub type Live = Arc<std::sync::Mutex<Vec<u8>>>;
-
-/// Appends what a stream read to the live output, if there is one.
-pub(crate) fn feed(live: &Option<Live>, bytes: &[u8]) {
-    if let Some(l) = live {
-        l.lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .extend_from_slice(bytes);
-    }
-}
-
-/// Reads a stream to its end, handing each chunk to the live output as it comes.
-async fn read_all(mut r: impl tokio::io::AsyncRead + Unpin, live: Option<Live>) -> Vec<u8> {
-    let mut all = Vec::new();
-    let mut buf = [0u8; 8192];
-    while let Ok(n) = r.read(&mut buf).await {
-        if n == 0 {
-            break;
-        }
-        feed(&live, &buf[..n]);
-        all.extend_from_slice(&buf[..n]);
-    }
-    all
-}
-
-/// Reads a stream of a contained process to its end on its own thread (the MXC and the bubblewrap / Seatbelt backends),
-/// handing each chunk to the live output as it comes.
-#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
-pub(crate) fn reader(
-    mut r: Box<dyn std::io::Read + Send>,
-    live: Option<Live>,
-) -> std::thread::JoinHandle<Vec<u8>> {
-    std::thread::spawn(move || {
-        let mut all = Vec::new();
-        let mut buf = [0u8; 8192];
-        while let Ok(n) = r.read(&mut buf) {
-            if n == 0 {
-                break;
-            }
-            feed(&live, &buf[..n]);
-            all.extend_from_slice(&buf[..n]);
-        }
-        all
-    })
-}
-
 /// Whether a background command was asked to stop.
 pub(crate) fn stopping(stop: &Option<Arc<AtomicBool>>) -> bool {
     stop.as_ref().is_some_and(|s| s.load(Ordering::Relaxed))
@@ -284,13 +243,10 @@ impl Executor {
             // ENOENT as on Linux, where it is not mounted) and git stops with "unable to access", exit 128 (likely
             // cause of the macOS containment run's `ok.git_status` failure, 2026-10-26). As on Windows, the agent's
             // git reads a config of its own.
-            let gc = t.join("agent.gitconfig");
-            if !gc.is_file() {
-                std::fs::write(
-                    &gc,
-                    "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n",
-                )?;
-            }
+            let gc = agent_gitconfig(
+                t,
+                "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n",
+            )?;
             env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
         }
         env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
@@ -399,6 +355,14 @@ impl Executor {
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         };
+        // What the command left running in its process group (a server started with `&`) ends with it, as the job
+        // object ends it on Windows: on Unix it ran on after the command, unsandboxed (audit L1, 2026-10-31).
+        #[cfg(unix)]
+        if let Some(pgid) = pid.and_then(|p| i32::try_from(p).ok()) {
+            // SAFETY: a signal to the process group the command was started in (`process_group(0)`); nothing in this
+            // process is touched.
+            unsafe { libc::killpg(pgid, libc::SIGKILL) };
+        }
         // Grandchildren may keep the pipes open after a kill; do not wait forever for them.
         let grace = Duration::from_secs(2);
         let stdout = tokio::time::timeout(grace, read_out)
@@ -439,10 +403,10 @@ pub(crate) fn mxc_env(
     }
     if let Some(t) = &policy.temp_dir {
         std::fs::create_dir_all(t)?;
-        let gc = t.join("agent.gitconfig");
-        if !gc.is_file() {
-            std::fs::write(&gc, "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n[core]\n\tlongpaths = true\n")?;
-        }
+        let gc = agent_gitconfig(
+            t,
+            "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n[core]\n\tlongpaths = true\n",
+        )?;
         env.insert("TEMP".into(), t.display().to_string());
         env.insert("TMP".into(), t.display().to_string());
         env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
@@ -791,5 +755,34 @@ try {{ require('fs').readFileSync({:?}); console.log('LEAK') }} catch (e) {{ con
         assert!(out.timed_out);
         assert!(out.elapsed_ms < 10_000, "{}", out.elapsed_ms);
         assert!(!out.stdout.contains("never"));
+    }
+
+    /// Audit L1 (2026-10-31): unsandboxed on Unix (approval mode), what a command started in the background ran on
+    /// after it ended; on Windows the job object ends it. It ends with the command.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_background_child_ends_with_its_unsandboxed_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ex = Executor::new(Shell::detect());
+        let mut full = policy(tmp.path());
+        full.mode = SandboxMode::FullAccess;
+        let out = ex
+            .run(
+                &CommandSpec {
+                    command: "sleep 100 & echo $!".into(),
+                    cwd: tmp.path().into(),
+                    timeout: Duration::from_secs(30),
+                    env: BTreeMap::new(),
+                    ..Default::default()
+                },
+                &full,
+            )
+            .await
+            .unwrap();
+        let child: i32 = out.stdout.trim().parse().unwrap();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        // SAFETY: signal 0 only asks whether the process exists.
+        let alive = unsafe { libc::kill(child, 0) } == 0;
+        assert!(!alive, "the background sleep was ended");
     }
 }

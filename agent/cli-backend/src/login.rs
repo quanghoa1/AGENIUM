@@ -39,11 +39,23 @@ fn good(home_file: &Path) -> PathBuf {
 /// and has it put back when it is found cut short: the CLI stopped (a run's end, its timeout) while it was writing a
 /// refreshed login, which left the user's own file empty and their CLI logged out. Run every few seconds and at the
 /// run's end (`Driver::finish`); a copy is kept in step by `sync_login` instead.
+///
+/// Whole means a login of the same shape: parsed, every field of the last whole state still there (one level down),
+/// the same account. The file is writable from the run (its home is), and the model, told to by injected text, could
+/// write it with `{}` or another account's login, which passed for whole and logged the user out (audit M13,
+/// 2026-10-31). A refresh changes the tokens only.
 pub fn guard_linked(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
     if original(home_file).exists() || !home_file.exists() {
         return Ok(());
     }
-    let whole = |b: &[u8]| !b.is_empty() && serde_json::from_slice::<Value>(b).is_ok();
+    let kept_state = std::fs::read(good(home_file))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+    let whole = |b: &[u8]| {
+        !b.is_empty()
+            && serde_json::from_slice::<Value>(b)
+                .is_ok_and(|v| kept_state.as_ref().is_none_or(|k| same_login(k, &v)))
+    };
     let now = std::fs::read(user_file)?;
     if whole(&now) {
         if std::fs::read(good(home_file)).ok().as_deref() != Some(now.as_slice()) {
@@ -67,6 +79,25 @@ pub fn guard_linked(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
         .truncate(true)
         .open(user_file)?;
     f.write_all(&kept)
+}
+
+/// `now` is the login `before` was, refreshed: every field of `before` still there (one level down), and any account
+/// id the same.
+fn same_login(before: &Value, now: &Value) -> bool {
+    let (Some(b), Some(n)) = (before.as_object(), now.as_object()) else {
+        return before.is_object() == now.is_object();
+    };
+    b.iter().all(|(k, bv)| {
+        let Some(nv) = n.get(k) else { return false };
+        match (bv.as_object(), nv.as_object()) {
+            (Some(bi), Some(ni)) => bi.iter().all(|(kk, bvv)| {
+                ni.get(kk)
+                    .is_some_and(|nvv| !kk.ends_with("account_id") || bvv.is_null() || bvv == nvv)
+            }),
+            (Some(_), None) => false,
+            _ => true,
+        }
+    })
 }
 
 /// The pristine copy of a login file copied into a per-run home.

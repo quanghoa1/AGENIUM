@@ -7,6 +7,11 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- Code audit of 2026-10-31 ([docs/AUDIT-2026-10-31.md](docs/AUDIT-2026-10-31.md)): a ticket reopened or cancelled
+  while its merge ran its checks is no longer merged (main moves only in the transaction that reads the ticket again);
+  a rebase interrupted by a crash no longer blocks the merge queue; one git failure at start-up no longer keeps the app
+  from opening; a message the Lead took in a chat turn that died is queued again; closing a ticket from its review run
+  keeps the worktree until the run ends; a report sent again returns what it returned the first time.
 - macOS run 6 (2026-10-30): the desktop app builds and starts on macOS. Fixed from the run: Agenium's file tools now
   ask macOS where an opened file really is (`F_GETPATH`), as they already did on Windows and Linux, so a folder swapped
   for a link after the path's check is not written through, and deletes go through the folder's handle; a worktree
@@ -113,6 +118,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- Code audit of 2026-10-31: approving a ticket no longer freezes the window during the pre-merge check; Needs →
+  Open shows the item's own project, and one failing project no longer empties the page; deleting an agent's skill,
+  resetting or deleting a template and removing a judge key ask first; dialogs take the keyboard (focus, Tab, Escape)
+  and are marked as dialogs; the browser preview hides under popups; Enter mid-IME no longer sends; the Live page
+  reports a failing backend once; `dompurify` raised past its advisories.
 - Overview, chat with the Lead, Kanban board, tickets in a popup over any view with Monaco side-by-side diffs, live
   office view, run logs with an xterm terminal, memory browser, team organiser, provider and skill/MCP settings, usage
   and audit trail. English and Vietnamese.
@@ -128,6 +138,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 
 ### Safety
+- Code audit of 2026-10-31: tool outputs and the sandbox's git config are no longer written through links a command
+  can plant; the file tools refuse a FIFO instead of waiting on it; command output is kept within 16 MiB (its first and
+  last 8 MiB); unsandboxed Unix commands leave no background processes; a CLI agent cannot write the files its CLI
+  loads as configuration into its run's home; agy's hook denies tools it does not know; Codex can no longer overwrite
+  your own login through the shared `auth.json`; the Claude usage probe runs with a clean environment.
 - An MCP tool its server marks destructive (deleting, refunding, sending) waits for the user in Needs you, like a
   command: allowed once, always for the project, or refused; set for every server or per server on the MCP tab, down to
   every tool that is not read-only, or none (ADR-143).
@@ -151,6 +166,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   microsoft/mxc#1568). The containment harness counts a payload that printed nothing as broken, not as 0 escapes.
 
 ### Memory, skills, tools
+- Code audit of 2026-10-31: the shared lesson pool follows the lessons it copied (retired, refined or less sure:
+  the copy goes); a revised agent skill passes the same shape and size gate as a new one, and "one lesson, one skill"
+  follows a lesson's refinements; a refused reflection is asked again (up to 3 times); recall runs off the async
+  threads; an MCP server's error text reaches the model cut and fenced; a stdio server's non-UTF-8 line no longer hangs
+  it; a context overflow reported with a 5xx is compacted, not retried.
 - Learning is credited to what the agent was shown (a continuation recalls nothing), and owed by every close or reopen,
   the user's on the board too; a skill an agent created is read by the judge before a revision (ADR-147).
 - One lesson per rule: a refinement updates the lesson (keeping where it held), a too-narrow lesson is blamed when it
@@ -190,6 +210,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   steps under the step that started it (ADR-129).
 
 ### Optional judge
+- Code audit of 2026-10-31: only a quota or a rejected key sets a judge key aside (another failure pauses the judge
+  a minute); requests too large for the judge are not sent; a key whose vault value is missing is passed over; an
+  output whose full text cannot be saved is not trimmed.
 - TypeSafe Jev for small decisions that save the main agents' tokens (memory gate, skill hint, review assist, skill
   quality). Used once a Jev key is added (every use on by default), fail-open: without a usable key Agenium works as
   it does without the judge. See [docs/JEV.md](docs/JEV.md).
@@ -204,6 +227,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   the judge whenever no key is usable (ADR-128).
 
 ### Operations
+- Code audit of 2026-10-31: incremental backups now hold every agent's memory (restoring the newest set no longer
+  brought memory back from the day's full set); a full set is taken as soon as the schema moves, and a set that spans
+  a migration is refused plainly; a half-written backup folder no longer breaks maintenance; pre-migrate snapshots are
+  kept by version number.
 - Backups (hourly incremental, daily full, retention), restore into a new root, migrations with a backup first,
   support bundle without secrets, Markdown project reports, cost per run/ticket/agent.
 - zstd raised to 0.14.3 for three advisories of 2026 (RUSTSEC-2026-0391, -0398, -0403), found by cargo-deny in the

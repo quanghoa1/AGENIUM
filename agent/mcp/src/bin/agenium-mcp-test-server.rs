@@ -42,6 +42,11 @@ fn main() {
                     &json!({"jsonrpc": "2.0", "method": "notifications/message", "params": {"level": "info", "data": "hi"}}),
                 );
                 writeln!(out, "not json").unwrap();
+                // Bytes that are not UTF-8 on both pipes (a Windows tool's output in its code page): the client reads
+                // on (audit M12, 2026-10-31: a line like these stopped its reader for good).
+                out.write_all(b"caf\xe9 \xff\xfe\n").unwrap();
+                out.flush().unwrap();
+                std::io::stderr().write_all(b"warn: caf\xe9\n").unwrap();
                 send(
                     &mut out,
                     &json!({"jsonrpc": "2.0", "id": "srv-1", "method": "ping"}),

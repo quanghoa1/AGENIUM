@@ -2,7 +2,7 @@
 // built-in with the same id overrides it), a template made from a team as it is, import and export as TOML.
 import { Download, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Modal } from "../components/motion";
+import { ConfirmModal, Modal } from "../components/motion";
 import { PageHeader, Section, cn } from "../components/ui";
 import { api } from "../lib/api";
 import { missionOf } from "../lib/roles";
@@ -37,6 +37,8 @@ export function TemplatesView() {
   const [edit, setEdit] = useState<TeamTemplate | null>(null);
   const [fromTeam, setFromTeam] = useState(false);
   const [importing, setImporting] = useState(false);
+  // Deleting a template (or resetting a built-in one) asks first (audit L12, 2026-10-31).
+  const [del, setDel] = useState<TeamTemplate | null>(null);
   const load = () => api.templates().then(setTs);
   useEffect(() => {
     load();
@@ -92,7 +94,7 @@ export function TemplatesView() {
               <Download className="h-3.5 w-3.5" /> TOML
             </button>
             {t.custom && (
-              <button className="btn-danger" onClick={() => api.removeTemplate(t.id).then(load).catch(fail)}>
+              <button className="btn-danger" onClick={() => setDel(t)}>
                 <Trash2 className="h-3.5 w-3.5" /> {t.builtin ? app.t("templates.reset") : app.t("common.delete")}
               </button>
             )}
@@ -119,6 +121,18 @@ export function TemplatesView() {
       ))}
       <FromTeam open={fromTeam} onClose={() => setFromTeam(false)} onDraft={(t) => (setFromTeam(false), setEdit(t))} />
       <ImportToml open={importing} onClose={() => setImporting(false)} onSaved={() => (setImporting(false), load())} />
+      <ConfirmModal
+        open={!!del}
+        title={`${del?.builtin ? app.t("templates.reset") : app.t("common.delete")} ${del?.name ?? ""}`}
+        note={del?.builtin ? app.t("templates.resetNote") : app.t("templates.deleteNote")}
+        confirm={del?.builtin ? app.t("templates.reset") : app.t("common.delete")}
+        onClose={() => setDel(null)}
+        onConfirm={() => {
+          const t = del!;
+          setDel(null);
+          api.removeTemplate(t.id).then(load).catch(fail);
+        }}
+      />
     </div>
   );
 }

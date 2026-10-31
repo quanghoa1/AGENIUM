@@ -70,7 +70,15 @@ impl App {
         let dir = self.backups_dir();
         let sets = backup::list_sets(&dir)?;
         let last_full = sets.iter().rev().find(|m| m.kind == BackupKind::Full);
-        let full_due = last_full.is_none_or(|m| age_hours(m, now) >= 24.0);
+        // A full set every day, and as soon as `core` was migrated since the last one: an incremental is applied to
+        // its base's image, which a newer schema does not fit (audit M8).
+        let version = backup::schema_version_of(self.store.db())?;
+        let full_due = last_full.is_none_or(|m| {
+            age_hours(m, now) >= 24.0
+                || m.dbs
+                    .iter()
+                    .any(|e| e.name == "core" && e.schema_version != version)
+        });
         let any_due = sets.last().is_none_or(|m| age_hours(m, now) >= 1.0);
         let kind = match req {
             BackupRequest::Full => BackupKind::Full,
@@ -80,23 +88,33 @@ impl App {
             BackupRequest::Scheduled if any_due => BackupKind::Incremental,
             BackupRequest::Scheduled => return Ok(None),
         };
+        let open = self.open_agent_stores();
+        let mut agents: Vec<(String, Source<'_>)> = Vec::new();
+        for (name, path) in self.agent_db_files()? {
+            let id = name.trim_start_matches("agents/");
+            match open.iter().find(|(a, _)| a.to_string() == id) {
+                Some((_, s)) => agents.push((name, Source::Open(s.db()))),
+                None => agents.push((name, Source::File(path))),
+            }
+        }
         let m = match kind {
             BackupKind::Full => {
-                let open = self.open_agent_stores();
                 let mut sources: Vec<(String, Source<'_>)> =
                     vec![("core".into(), Source::Open(self.store.db()))];
-                for (name, path) in self.agent_db_files()? {
-                    let id = name.trim_start_matches("agents/");
-                    match open.iter().find(|(a, _)| a.to_string() == id) {
-                        Some((_, s)) => sources.push((name, Source::Open(s.db()))),
-                        None => sources.push((name, Source::File(path))),
-                    }
-                }
+                sources.extend(agents);
                 backup::create_full_from(&dir, &sources, now)?.1
             }
+            // Every agent database in full: their memory is as new as `core` in a restore (audit H3).
             BackupKind::Incremental => {
                 let base = last_full.ok_or_else(|| OrchError::Invalid("no full backup".into()))?;
-                backup::create_incremental(&dir, &dir.join(&base.id), self.store.db(), now)?.1
+                backup::create_incremental(
+                    &dir,
+                    &dir.join(&base.id),
+                    self.store.db(),
+                    &agents,
+                    now,
+                )?
+                .1
             }
         };
         Ok(Some(m))

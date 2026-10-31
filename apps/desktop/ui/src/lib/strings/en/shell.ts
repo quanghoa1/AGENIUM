@@ -107,6 +107,7 @@ export const shell = {
   "top.stopShort": "Stop all",
   "needs.toLead": "Sent to the Lead: it answers on the ticket for the team.",
   "needs.empty": "Nothing waits for you.",
+  "needs.unreadable": "What this project waits for could not be read: open it to see what is wrong.",
   "needs.allow": "Allow once",
   "needs.mcpTool": "wants to call the MCP tool",
   "needs.always": "Always for this project",

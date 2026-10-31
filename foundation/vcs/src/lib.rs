@@ -132,6 +132,14 @@ impl CheckRunner for NoCheck {
     }
 }
 
+/// What [`Repo::prepare_merge`] leaves: a rebased and checked head ready for [`Repo::fast_forward`], or the outcome
+/// already (merged before, a conflict, a failed check).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Prepared {
+    Ready { head: String, main_before: String },
+    Done(MergeOutcome),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MergeOutcome {
     Merged {

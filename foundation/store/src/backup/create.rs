@@ -125,6 +125,7 @@ pub fn create_full_from(
         base: None,
         cuts,
         dbs: entries,
+        agents_in_full: false,
     };
     write_manifest(&tmp_dir, &m)?;
     fs::rename(&tmp_dir, &dir).map_err(|e| StoreError::io(&dir, e))?;
@@ -165,11 +166,18 @@ pub(crate) fn json_to_value(v: &serde_json::Value) -> Result<Value, StoreError> 
     })
 }
 
-/// Creates an incremental set for `core` relative to the full set `base_dir`.
+/// The schema version `core` is at now: a set whose base was taken at another one must be a full set.
+pub fn schema_version_of(db: &Db) -> Result<u32, StoreError> {
+    db.read(schema_version)
+}
+
+/// Creates an incremental set for `core` relative to the full set `base_dir`, with `agents` (every agent database)
+/// snapshotted in full.
 pub fn create_incremental(
     backups_dir: &Path,
     base_dir: &Path,
     core: &Db,
+    agents: &[(String, Source<'_>)],
     now: DateTime<Utc>,
 ) -> Result<(PathBuf, Manifest), StoreError> {
     let base = read_manifest(base_dir)?;
@@ -229,13 +237,28 @@ pub fn create_incremental(
         schema_version: version,
         tables,
     };
+    let mut dbs = vec![entry];
+    for (name, src) in agents {
+        let f = |c: &Connection| in_read_tx(c, |c| snapshot_entry(c, name, &tmp_dir));
+        dbs.push(match src {
+            Source::Open(db) => db.read(f)?,
+            Source::File(p) => {
+                register_sqlite_vec();
+                f(&Connection::open_with_flags(
+                    p,
+                    OpenFlags::SQLITE_OPEN_READ_ONLY,
+                )?)?
+            }
+        });
+    }
     let m = Manifest {
         id: id.clone(),
         kind: BackupKind::Incremental,
         created_at: now.to_rfc3339(),
         base: Some(base.id),
         cuts,
-        dbs: vec![entry],
+        dbs,
+        agents_in_full: true,
     };
     write_manifest(&tmp_dir, &m)?;
     fs::rename(&tmp_dir, &dir).map_err(|e| StoreError::io(&dir, e))?;

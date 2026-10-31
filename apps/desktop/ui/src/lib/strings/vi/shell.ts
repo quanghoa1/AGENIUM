@@ -131,6 +131,7 @@ export const shell: Record<keyof typeof en, string> = {
   "usage.tokensIn": "token vào",
   "usage.tokensOut": "token ra",
   "needs.waiting": "việc chờ bạn",
+  "needs.unreadable": "Không đọc được những việc project này đang chờ: mở project để xem lỗi.",
   "needs.commandGone": "Lệnh này đã được trả lời trước đó hoặc đã quá hạn (tự từ chối sau 30 phút): nó không chạy.",
   "usage.sub": "Token và chi phí của mọi run, theo vendor và model. Chỉ để xem (không đặt ngân sách).",
   "usage.range.days": "{n} ngày",

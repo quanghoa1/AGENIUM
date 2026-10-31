@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, Crosshair, Globe, Link2, Pencil, Plus, RotateCw,
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Annotate } from "../components/Annotate";
 import { NeedsProject } from "../components/GettingStarted";
-import { Overlay } from "../components/motion";
+import { Overlay, useCovered } from "../components/motion";
 import { Empty, Mono, cn } from "../components/ui";
 import { api, onBrowser } from "../lib/api";
 import { inTauri, useApp } from "../lib/store";
@@ -210,6 +210,14 @@ export function BrowserView() {
         .finally(() => addTab(app.project));
     }
   }, [addTab, app.project]);
+
+  // Hidden while anything is drawn over the page (the native view covers HTML): a palette, a ticket, a dialog.
+  const covered = useCovered();
+  useEffect(() => {
+    if (!inTauri) return;
+    const id = activeRef.current;
+    if (id) api.browserVisible(id, !covered).catch(() => undefined);
+  }, [covered]);
 
   // The active tab's native view follows its place in the page; all hide when the page goes away.
   useLayoutEffect(() => {

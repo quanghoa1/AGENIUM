@@ -2,7 +2,44 @@
 //! checked write (`real_write.rs`) and the checked read (`real_read.rs`) ask it after the open, which no link swapped in
 //! after the path's check can get around.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Opens `p` the way the file tools may: never blocking on a FIFO or a device (a command can leave one in the worktree:
+/// `mkfifo`), and only a regular file. The open of a FIFO waited for a writer forever, on an async thread and past the
+/// run's stop (audit L3, 2026-10-31). `write` opens it for writing (made where nothing is, with `create_new`).
+pub(super) fn open_regular(
+    p: &Path,
+    write: bool,
+    create_new: bool,
+) -> std::io::Result<std::fs::File> {
+    let mut o = std::fs::OpenOptions::new();
+    if write {
+        o.write(true).create_new(create_new);
+    } else {
+        o.read(true);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        o.custom_flags(libc::O_NONBLOCK);
+    }
+    let f = o.open(p)?;
+    if !f.metadata()?.file_type().is_file() {
+        return Err(std::io::Error::other(format!(
+            "{} is not a regular file (a pipe or a device)",
+            p.display()
+        )));
+    }
+    Ok(f)
+}
+
+/// The bytes of `p` read through [`open_regular`].
+pub(super) fn read_regular(p: &Path) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    let mut b = Vec::new();
+    open_regular(p, false, false)?.read_to_end(&mut b)?;
+    Ok(b)
+}
 
 /// Where an open file really is; `None` where the OS cannot say (the path was checked before the open).
 #[cfg(windows)]

@@ -113,6 +113,7 @@ fn hook(home: &Path) -> (PathBuf, String, String) {
         let body = format!(
             "$ErrorActionPreference = 'Stop'\r\n\
              [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)\r\n\
+             [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)\r\n\
              try {{\r\n\
              \x20 $body = [Console]::In.ReadToEnd()\r\n\
              \x20 $r = Invoke-WebRequest -UseBasicParsing -Method Post -Uri $env:{HOOK_URL_ENV} \
@@ -137,7 +138,11 @@ fn hook(home: &Path) -> (PathBuf, String, String) {
              -H \"Authorization: Bearer ${HOOK_TOKEN_ENV}\" --data-binary @- \"${HOOK_URL_ENV}\") || \
              {{ printf '%s' '{DENY}'; exit 2; }}\nprintf '%s' \"$out\"\n"
         );
-        let cmd = format!("sh '{}'", script.display());
+        // Quoted for sh, a `'` in the path too (audit L18, 2026-10-31: `sh '/tmp/O'Brien/…'` split it).
+        let cmd = format!(
+            "sh '{}'",
+            script.display().to_string().replace('\'', r"'\''")
+        );
         (script, body, cmd)
     }
 }
@@ -620,6 +625,22 @@ mod tests {
         ));
         assert_eq!(
             call("write", home.path().join("sessions/notes.md")),
+            Check::Allow
+        );
+        // Audit M6 (2026-10-31): what a CLI loads as configuration in later runs is not written in its home.
+        for name in [
+            "CLAUDE.md",
+            "agents/evil.md",
+            "skills/x/SKILL.md",
+            "hooks/h.sh",
+        ] {
+            assert!(
+                matches!(call("write", home.path().join(name)), Check::Deny(_)),
+                "{name}"
+            );
+        }
+        assert_eq!(
+            call("write", home.path().join("notes/plan.md")),
             Check::Allow
         );
         assert!(crate::driver::hook_deadline(&Grok) < std::time::Duration::from_secs(3500));

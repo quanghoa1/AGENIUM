@@ -543,6 +543,70 @@ async fn a_long_log_loses_only_confidently_unneeded_chunks() {
         .contains("left out 30 of 150 lines"));
 }
 
+/// Audit L20 (2026-10-31): when the full output could not be saved, the trimmed text still said the left-out lines
+/// were linked below, and they were lost. Such an output now goes whole.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_trimmed_output_whose_full_text_cannot_be_kept_goes_whole() {
+    use agenium_tools::{AllowAll, Tool, ToolCtx, ToolError, ToolOutput};
+    struct Long(String);
+    #[async_trait::async_trait]
+    impl Tool for Long {
+        fn name(&self) -> &str {
+            "shell"
+        }
+        fn description(&self) -> &str {
+            "a long log"
+        }
+        fn parameters(&self) -> serde_json::Value {
+            serde_json::json!({ "type": "object" })
+        }
+        async fn call(&self, _: &ToolCtx, _: serde_json::Value) -> Result<ToolOutput, ToolError> {
+            Ok(ToolOutput {
+                text: self.0.clone(),
+                truncated: false,
+                full: None,
+                untrusted: false,
+                images: Vec::new(),
+            })
+        }
+    }
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let k = started(&f, a.id, "PI-1", "Fix the parser", &[], &[]);
+    let t = f.app.ticket(f.project.id, &k).unwrap();
+    let mut lines: Vec<String> = (0..150)
+        .map(|i| format!("   Compiling crate{i} v1.0.0"))
+        .collect();
+    lines[0] = "exit code 101".into();
+    lines[100] = "test parser::cut ... FAILED".into();
+    let text = lines.join("\n");
+    let base = jev_once(
+        r#"{"answers":{"chunk_1":{"type":"noul","noul":0.05},"chunk_2":{"type":"noul","noul":0.6}}}"#,
+    )
+    .await;
+    judge_on(&f, base, |j| j.trim_output = true);
+    let Fixture {
+        app, _tmp: keep, ..
+    } = f;
+    let app = std::sync::Arc::new(app);
+    let tools = agenium_orchestrator::judge::trim::wrap(
+        app.clone(),
+        &t,
+        vec![std::sync::Arc::new(Long(text.clone()))],
+    );
+    // A file where the outputs' folder would go: the full output cannot be saved.
+    let wt = keep.path().join("wt");
+    std::fs::create_dir_all(&wt).unwrap();
+    std::fs::write(wt.join("artifacts"), "not a folder").unwrap();
+    let ctx = ToolCtx::new(&wt, "run1", std::sync::Arc::new(AllowAll));
+    let out = tools[0]
+        .call(&ctx, serde_json::json!({ "command": "cargo test" }))
+        .await
+        .unwrap();
+    assert_eq!(out.text, text, "the whole output");
+    assert!(out.full.is_none());
+}
+
 /// ADR-127: no secret reaches the judge — every text passes the redactor in the one place all uses ask through.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn secrets_never_reach_the_judge() {

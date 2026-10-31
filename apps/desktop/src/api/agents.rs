@@ -459,11 +459,46 @@ pub(super) fn export_agent_now(o: &Opened, agent: String, out: String) -> R<Stri
     } else {
         out
     });
-    let file = dir.join(format!("{name}.agenium.jsonl"));
+    let file = dir.join(format!("{}.agenium.jsonl", file_stem(&name)));
     o.app
         .export_agent(id, &file, o.rt.embedder.as_ref(), &Default::default())
         .map_err(err)?;
     Ok(file.display().to_string())
+}
+
+/// A file name made of an agent's name: letters, digits, `-`, `_` and spaces kept, anything else (a separator, `..`, a
+/// character Windows refuses) made `_`. The name was used as it was: `QA: web` failed on Windows, and an imported
+/// agent named `..\..\x` wrote its export outside the folder (audit M17, 2026-10-31).
+fn file_stem(name: &str) -> String {
+    let s: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(60)
+        .collect();
+    let s = s.trim().trim_matches('_').to_owned();
+    if s.is_empty() {
+        "agent".into()
+    } else {
+        s
+    }
+}
+
+#[cfg(test)]
+mod file_stem_tests {
+    #[test]
+    fn an_agent_name_makes_a_plain_file_name() {
+        assert_eq!(super::file_stem("QA: web"), "QA_ web");
+        assert_eq!(super::file_stem("..\\..\\x"), "x");
+        assert_eq!(super::file_stem("api/backend"), "api_backend");
+        assert_eq!(super::file_stem("///"), "agent");
+        assert_eq!(super::file_stem("Ada Lovelace"), "Ada Lovelace");
+    }
 }
 
 /// Imports an agent from a file into `project` as a Solo agent (renamed if `name` is given).

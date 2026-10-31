@@ -98,6 +98,7 @@ export const settings: Record<keyof typeof en, string> = {
   "settings.judgeKeyQuota": "hết quota — nạp credit rồi bật lại",
   "settings.judgeKeyEnable": "Bật lại",
   "settings.judgeKeyRemove": "Xoá",
+  "settings.judgeKeyRemoveNote": "Key bị gỡ và giá trị của nó bị xoá khỏi vault; muốn dùng lại thì dán lại.",
   "settings.judgeEnabled": "Judge đã bật.",
   "settings.supportNote": "Thông tin chẩn đoán để gửi khi cần trợ giúp: phiên bản, cấu hình (chỉ tên secret), thống kê, log đã che.",
   "settings.supportMake": "Tạo gói hỗ trợ",

@@ -37,7 +37,7 @@ impl Tool for WriteFile {
         }
         let existed = p.exists();
         if existed {
-            let cur = std::fs::read(&p).map_err(|e| io_err(&rel, e))?;
+            let cur = super::handle::read_regular(&p).map_err(|e| io_err(&rel, e))?;
             ctx.check_fresh(&p, &cur, &rel)?;
         }
         write_file(&ctx.root, &p, &rel, a.content.as_bytes())?;

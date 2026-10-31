@@ -96,6 +96,7 @@ export const settings = {
   "settings.judgeKeyQuota": "out of quota — add credit, then re-enable",
   "settings.judgeKeyEnable": "Re-enable",
   "settings.judgeKeyRemove": "Remove",
+  "settings.judgeKeyRemoveNote": "The key is removed and its value deleted from the vault; paste it again to use it.",
   "settings.judgeEnabled": "The judge is enabled.",
   "settings.supportNote": "Diagnostics to share when asking for help: versions, config (secret names only), store counts, masked logs.",
   "settings.supportMake": "Create support bundle",

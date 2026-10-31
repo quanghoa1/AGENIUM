@@ -80,16 +80,23 @@ fn full_and_incremental_restore_match_content_hashes() {
     .unwrap();
     assert_eq!(full.cuts.get("event"), Some(&50));
 
-    // Changes after the full: new events, a mutated project row.
+    // Changes after the full: new events, a mutated project row, a fact the agent learned.
     write_events(&core, p.id, 20, "b");
     core.commit(None, "user", |w| {
         projects::set_status(w.tx, p.id, projects::ProjectStatus::Paused)
     })
     .unwrap();
+    agent
+        .add(
+            &NewFact::fact("learned after the full set", "chat"),
+            Some(&[0.9, 0.1, 0.0, 0.0]),
+        )
+        .unwrap();
     let (_, incr) = backup::create_incremental(
         &backups,
         &backups.join(&full.id),
         core.db(),
+        &[("agents/agent_x".into(), backup::Source::Open(agent.db()))],
         t0 + Duration::hours(1),
     )
     .unwrap();
@@ -131,6 +138,19 @@ fn full_and_incremental_restore_match_content_hashes() {
         assert_eq!(h2.get(t), Some(v), "table {t}");
     }
     assert_eq!(h2, live_hash);
+    // Audit H3 (2026-10-31): the agent's memory is the incremental set's own, not the base's of up to a day before.
+    let a2 = AgentStore::open(
+        &r2.join("agents/agent_x.db"),
+        4,
+        "m",
+        &root.join("restore-incr/backups"),
+    )
+    .unwrap();
+    assert_eq!(
+        a2.knn(&[1.0, 0.0, 0.0, 0.0], 5).unwrap().len(),
+        2,
+        "the fact learned after the full set is restored"
+    );
     assert_eq!(
         c2.read(|c| projects::get(c, p.id)).unwrap().status,
         projects::ProjectStatus::Paused
@@ -172,8 +192,14 @@ fn retention_keeps_24_hourly_7_daily_4_weekly_and_bases() {
     let base = last_full.unwrap();
     let last_day = start + Duration::days(39);
     for h in 1..=30 {
-        backup::create_incremental(&backups, &base, core.db(), last_day + Duration::hours(h))
-            .unwrap();
+        backup::create_incremental(
+            &backups,
+            &base,
+            core.db(),
+            &[],
+            last_day + Duration::hours(h),
+        )
+        .unwrap();
     }
     let removed = backup::prune(&backups, Retention::default()).unwrap();
     assert!(!removed.is_empty());
@@ -277,6 +303,7 @@ fn an_incremental_after_run_log_compaction_restores() {
         &backups,
         &backups.join(&full.id),
         core.db(),
+        &[],
         t0 + Duration::hours(1),
     )
     .unwrap();
@@ -294,4 +321,86 @@ fn an_incremental_after_run_log_compaction_restores() {
         .map(|e| e.kind)
         .collect();
     assert_eq!(kinds, ["compacted"]);
+}
+
+/// Audit M8 (2026-10-31): an incremental set taken after `core` was migrated cannot be applied to its base's image;
+/// a restore says so plainly (maintenance takes a full set instead as soon as the schema moved).
+#[test]
+fn an_incremental_set_across_a_migration_is_refused_plainly() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    let backups = root.join("backups");
+    let core = CoreStore::open(&root.join("db/core.db"), &backups).unwrap();
+    let t0 = Utc.with_ymd_and_hms(2026, 10, 23, 10, 0, 0).unwrap();
+    let (_, full) = backup::create_full(&backups, &[("core", core.db())], t0).unwrap();
+    let v = backup::schema_version_of(core.db()).unwrap();
+    core.commit(None, "system", |w| -> Result<(), StoreError> {
+        w.tx.pragma_update(None, "user_version", v + 1)?;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(backup::schema_version_of(core.db()).unwrap(), v + 1);
+    let (_, incr) = backup::create_incremental(
+        &backups,
+        &backups.join(&full.id),
+        core.db(),
+        &[],
+        t0 + Duration::hours(1),
+    )
+    .unwrap();
+    let e = backup::restore(&backups, &incr.id, &root.join("r/db")).unwrap_err();
+    assert!(
+        matches!(e, StoreError::Invalid(ref m) if m.contains("cannot be applied")),
+        "{e}"
+    );
+}
+
+/// Audit L6 (2026-10-31): a set half-written (its manifest is written before the folder is renamed) was listed under its
+/// final id, whose folder did not exist: prune failed and maintenance stopped there.
+#[test]
+fn a_half_written_set_is_not_a_set() {
+    let tmp = tempfile::tempdir().unwrap();
+    let backups = tmp.path().join("backups");
+    let core = CoreStore::open(&tmp.path().join("db/core.db"), &backups).unwrap();
+    let t0 = Utc.with_ymd_and_hms(2026, 10, 23, 10, 0, 0).unwrap();
+    let (dir, full) = backup::create_full(&backups, &[("core", core.db())], t0).unwrap();
+    let partial = backups.join(format!(".{}.partial", "20261024T100000Z-full"));
+    std::fs::create_dir_all(&partial).unwrap();
+    let mut m = full.clone();
+    m.id = "20261024T100000Z-full".into();
+    std::fs::write(
+        partial.join("manifest.json"),
+        serde_json::to_vec(&m).unwrap(),
+    )
+    .unwrap();
+    let sets = backup::list_sets(&backups).unwrap();
+    assert_eq!(sets.len(), 1, "only the finished set");
+    assert_eq!(sets[0].id, full.id);
+    backup::prune(&backups, Retention::default()).unwrap();
+    assert!(dir.exists());
+}
+
+/// Audit L7 (2026-10-31): pre-migrate snapshots were ordered by name, `v10` before `v8`, so the newest was deleted.
+#[test]
+fn pre_migrate_snapshots_keep_the_newest_versions() {
+    let tmp = tempfile::tempdir().unwrap();
+    let c = rusqlite::Connection::open(tmp.path().join("x.db")).unwrap();
+    c.execute_batch("CREATE TABLE t(a); INSERT INTO t VALUES (1);")
+        .unwrap();
+    for v in [8, 9, 10, 11] {
+        backup::pre_migrate_snapshot(&c, tmp.path(), "agent", v).unwrap();
+    }
+    let mut kept: Vec<String> = std::fs::read_dir(tmp.path().join("pre-migrate"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    kept.sort();
+    assert_eq!(kept.len(), 3, "{kept:?}");
+    assert!(!kept.iter().any(|n| n.starts_with("agent-v8-")), "{kept:?}");
+    for v in [9, 10, 11] {
+        assert!(
+            kept.iter().any(|n| n.starts_with(&format!("agent-v{v}-"))),
+            "{kept:?}"
+        );
+    }
 }

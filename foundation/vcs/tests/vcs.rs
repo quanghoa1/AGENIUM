@@ -242,6 +242,24 @@ fn merge_queue_rebases_detects_conflicts_and_failed_checks() {
         r.status(&c.path).unwrap().is_empty(),
         "no rebase left in progress"
     );
+    // Audit M11 (2026-10-31): a rebase the process died in, left stopped mid-way, is aborted before the merge reads
+    // the worktree. Read as it was, its HEAD (main plus nothing of C) passed for rebased: C's work was "merged" empty.
+    let stopped = std::process::Command::new("git")
+        .args(["rebase", "main"])
+        .current_dir(&c.path)
+        .output()
+        .unwrap();
+    assert!(
+        !stopped.status.success(),
+        "the rebase stops on the conflict"
+    );
+    assert_eq!(
+        r.merge_ticket("AGN-3", &NoCheck).unwrap(),
+        MergeOutcome::Conflict {
+            files: vec!["shared.txt".into()]
+        }
+    );
+    assert_eq!(r.head_sha("agenium/AGN-3").unwrap(), c_head);
     // D fails its pre-merge check: main does not move.
     let main_before = r.head_sha("main").unwrap();
     assert!(

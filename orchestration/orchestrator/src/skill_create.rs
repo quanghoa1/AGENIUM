@@ -12,9 +12,10 @@
 //!   (ADR-88); only a SKILL.md — an agent never writes scripts or reference files into a skill;
 //! - **safe**: no injected instructions, no secrets; it is validated as a skill before it is swapped in;
 //! - **contained**: it lives only in the agent's own folder, so it never changes the library, a role, or another agent;
-//! - **accountable, anti-drift**: every creation is audited and listed for the user, who can delete it; when the
-//!   lesson stops holding (deleted, retired, replaced, or its confidence falls after reopens) the skill is flagged and
-//!   the user is asked to review it.
+//! - **accountable, anti-drift**: every creation is audited and listed for the user, who can delete it; when a
+//!   lesson it stands on (the one it was made from, or a revision's) stops holding — deleted, retired, or its
+//!   confidence falls after reopens; a refinement of it carries on — the skill is flagged and the user is asked to
+//!   review it. One lesson, one skill holds along the lesson's line of refinements.
 
 use std::collections::BTreeMap;
 
@@ -63,6 +64,28 @@ pub struct Revision {
 
 fn refuse<T>(m: impl Into<String>) -> Result<T> {
     Err(OrchError::Invalid(m.into()))
+}
+
+/// The live end of lesson `id`'s line: a refinement (UPDATE) supersedes a lesson with a new one, which carries its
+/// validated contexts; a retirement supersedes it with itself. `None` when the line ends retired or deleted.
+pub(crate) fn live_end(mem: &AgentStore, id: i64) -> Option<agenium_store::Fact> {
+    let mut at = id;
+    for _ in 0..64 {
+        let f = mem.get(at).ok()?;
+        match f.superseded_by {
+            None => return Some(f),
+            Some(next) if next == at => return None,
+            Some(next) => at = next,
+        }
+    }
+    None
+}
+
+impl CreatedSkill {
+    /// The lessons the skill stands on: the one it was made from and each revision's.
+    pub(crate) fn lessons(&self) -> impl Iterator<Item = i64> + '_ {
+        std::iter::once(self.lesson).chain(self.revisions.iter().map(|r| r.lesson))
+    }
 }
 
 fn load(mem: &AgentStore) -> Result<BTreeMap<String, CreatedSkill>> {
@@ -137,9 +160,15 @@ impl App {
             ));
         }
         let mut created = load(&mem)?;
-        if let Some((n, _)) = created.iter().find(|(_, c)| c.lesson == u.lesson) {
+        // One lesson, one skill, along the lesson's line: a refinement gets a new id and keeps the contexts it held
+        // in, and made a second skill of the same lesson before (audit M16, 2026-10-31).
+        if let Some((n, _)) = created.iter().find(|(_, c)| {
+            c.lessons()
+                .any(|l| l == u.lesson || live_end(&mem, l).is_some_and(|f| f.id == u.lesson))
+        }) {
             return refuse(format!(
-                "lesson #{} already became skill {n}: improve that one with propose_skill_update",
+                "lesson #{} already became skill {n} (or a lesson it was refined from did): improve that one with \
+                 propose_skill_update",
                 u.lesson
             ));
         }
@@ -268,14 +297,15 @@ impl App {
             if c.flagged.is_some() {
                 continue;
             }
-            let why = match mem.get(c.lesson) {
-                Err(_) => Some("its lesson was deleted"),
-                Ok(f) if !f.is_live() => Some("its lesson was retired or replaced"),
-                Ok(f) if f.confidence < DOUBTFUL_CONFIDENCE => {
-                    Some("its lesson lost confidence after reopens")
+            // Every lesson the skill stands on, each where its line is now: a refined lesson still holds; one retired,
+            // deleted or doubtful does not. A revision's lesson counted for nothing before (audit M16, 2026-10-31).
+            let why = c.lessons().find_map(|l| match live_end(&mem, l) {
+                None => Some("a lesson it stands on was retired or deleted"),
+                Some(f) if f.confidence < DOUBTFUL_CONFIDENCE => {
+                    Some("a lesson it stands on lost confidence after reopens")
                 }
-                _ => None,
-            };
+                Some(_) => None,
+            });
             if let Some(w) = why {
                 c.flagged = Some(format!("{w} ({})", now_iso()));
                 newly.push(format!("{name}: {w}"));

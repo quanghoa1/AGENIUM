@@ -71,6 +71,8 @@ pub struct App {
     pub(crate) judge_client: Mutex<crate::judge::KeptJudge>,
     /// Whose turn it is among the judge keys in use (they take turns, one request each).
     pub(crate) judge_turn: std::sync::atomic::AtomicUsize,
+    /// Until when the judge is not asked after a failure that was not a key's (`judge::client`).
+    pub(crate) judge_paused: Mutex<Option<std::time::Instant>>,
     /// Serializes writes of `<root>/vendor-usage.json`.
     pub(crate) vendor_usage_lock: Mutex<()>,
     /// The last price list read and the file times it was read at ([`App::prices`]).
@@ -171,6 +173,7 @@ impl App {
             agent_stores: Mutex::new(HashMap::new()),
             judge_client: Mutex::default(),
             judge_turn: Default::default(),
+            judge_paused: Mutex::default(),
             vendor_usage_lock: Mutex::new(()),
             prices_cache: Mutex::default(),
         };

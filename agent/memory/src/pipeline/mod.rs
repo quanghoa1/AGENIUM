@@ -261,9 +261,8 @@ pub async fn learn(
     }
 
     // Match each new fact against memory.
-    let vectors = embedder
-        .embed(&facts.iter().map(|f| f.text.clone()).collect::<Vec<_>>())
-        .map_err(MemoryError::Embedder)?;
+    let texts: Vec<String> = facts.iter().map(|f| f.text.clone()).collect();
+    let vectors = crate::cpu_bound(|| embedder.embed(&texts)).map_err(MemoryError::Embedder)?;
     let mut shown: BTreeSet<i64> = BTreeSet::new();
     // The memories shown under each new fact.
     let mut shown_for: Vec<BTreeSet<i64>> = vec![BTreeSet::new(); facts.len()];

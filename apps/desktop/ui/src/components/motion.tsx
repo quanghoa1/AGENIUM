@@ -5,7 +5,7 @@
 import { createPortal } from "react-dom";
 import { AnimatePresence, animate, motion, useAnimate, useMotionValue, useReducedMotion, useTransform, type Transition } from "motion/react";
 import { Trash2 } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useApp } from "../lib/store";
 import { cn } from "./ui";
 
@@ -210,6 +210,7 @@ export interface ToastMessage {
 }
 
 export function Toast({ message }: { message: ToastMessage | null }) {
+  useCover(!!message?.action);
   return (
     // Above the usage footer and the chat's input bar, never over them (a toast with a button stays 12 s).
     <div className="pointer-events-none fixed bottom-36 right-4 z-50" aria-live="polite">
@@ -236,6 +237,38 @@ export function Toast({ message }: { message: ToastMessage | null }) {
   );
 }
 
+/**
+ * What is drawn over the page now (an overlay, a toast with a button). The browser page's native preview is drawn above
+ * the page's HTML: it hides while anything is, or it covered the command palette, a ticket and an approval toast
+ * (audit L14, 2026-10-31).
+ */
+const covers = new Set<symbol>();
+const coverListeners = new Set<() => void>();
+
+function useCover(on: boolean) {
+  useEffect(() => {
+    if (!on) return;
+    const me = Symbol();
+    covers.add(me);
+    coverListeners.forEach((f) => f());
+    return () => {
+      covers.delete(me);
+      coverListeners.forEach((f) => f());
+    };
+  }, [on]);
+}
+
+/** Whether something is drawn over the page now. */
+export function useCovered(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      coverListeners.add(cb);
+      return () => coverListeners.delete(cb);
+    },
+    () => covers.size > 0,
+  );
+}
+
 /** Centered overlays: the backdrop fades; the command palette grows from 0.9, a dialog tips up into place. */
 export function Overlay({
   open,
@@ -251,6 +284,7 @@ export function Overlay({
   top?: string;
 }) {
   const reduce = useReducedMotion();
+  useCover(open);
   // Apple-style: the surface grows from slightly smaller with a soft spring while the page behind dims and blurs;
   // it leaves quicker than it came, shrinking a little.
   const from = reduce ? { opacity: 0 } : { opacity: 0, scale: kind === "palette" ? 0.96 : 0.94, y: kind === "palette" ? -4 : 10 };
@@ -283,11 +317,56 @@ export function Overlay({
 }
 
 /** A confirm dialog. Keeps showing its last content while it leaves. */
+/** What Tab moves through inside a dialog. */
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A dialog: it takes the keyboard while open — focus moves into it and comes back where it was when it closes, Tab stays
+ * inside, Escape closes it wherever the focus is — and says it is one to assistive technology. Focus stayed on the
+ * button behind it before: Escape did nothing and Tab walked the page underneath (audit L13, 2026-10-31).
+ */
 export function Modal({ open, title, onClose, children }: { open: boolean; title: ReactNode; onClose: () => void; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    const before = document.activeElement as HTMLElement | null;
+    const first = window.setTimeout(() => {
+      const el = box.current?.querySelector<HTMLElement>("input, textarea, select") ?? box.current?.querySelector<HTMLElement>(FOCUSABLE) ?? box.current;
+      el?.focus();
+    }, 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        close.current();
+      } else if (e.key === "Tab" && box.current) {
+        const items = Array.from(box.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+        if (items.length === 0) return;
+        const [head, tail] = [items[0], items[items.length - 1]];
+        if (e.shiftKey && document.activeElement === head) {
+          e.preventDefault();
+          tail.focus();
+        } else if (!e.shiftKey && document.activeElement === tail) {
+          e.preventDefault();
+          head.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.clearTimeout(first);
+      window.removeEventListener("keydown", onKey, true);
+      before?.focus?.();
+    };
+  }, [open]);
   return (
     <Overlay open={open} onClose={onClose} kind="dialog">
-      <div className="card w-[440px] max-w-[92vw] p-5 shadow-2xl" onKeyDown={(e) => e.key === "Escape" && onClose()}>
-        <div className="mb-3 text-sm font-semibold">{title}</div>
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="card w-[440px] max-w-[92vw] p-5 shadow-2xl outline-none">
+        <div id={titleId} className="mb-3 text-sm font-semibold">
+          {title}
+        </div>
         {children}
       </div>
     </Overlay>

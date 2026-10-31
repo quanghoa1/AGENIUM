@@ -46,6 +46,12 @@ pub enum Classified {
 }
 
 pub fn classify(e: &LlmError) -> Classified {
+    // A context overflow is the request's own size, whatever status it comes with (llama.cpp and other local servers
+    // answer 500): sent again it fails again. It goes to the loop, which clears old results or compacts (audit M1,
+    // 2026-10-31: it was retried as a server error, then the agent set Offline, never compacted).
+    if is_context_overflow(e) {
+        return Classified::Fatal;
+    }
     match e {
         LlmError::Network(_) | LlmError::Timeout | LlmError::StreamDropped(_) => {
             Classified::Retry(None)
@@ -208,6 +214,20 @@ mod overflow_tests {
             quota: false,
             retry_after: None,
         }
+    }
+
+    #[test]
+    fn an_overflow_is_never_retried_whatever_its_status() {
+        let e = http(
+            500,
+            "",
+            "prompt too long; exceeded max context length by 1200 tokens",
+        );
+        assert_eq!(classify(&e), Classified::Fatal);
+        assert_eq!(
+            classify(&http(500, "", "internal error")),
+            Classified::Retry(None)
+        );
     }
 
     #[test]

@@ -218,7 +218,7 @@ pub struct Feedback {
 // The arguments are the IPC call's named fields.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub fn ticket_action(
+pub async fn ticket_action(
     d: State<'_, Desktop>,
     project: String,
     ticket: String,
@@ -232,7 +232,9 @@ pub fn ticket_action(
     let p = pid(&project)?;
     let k = key(&ticket)?;
     let reason = reason.unwrap_or_default();
-    match action.as_str() {
+    // An approval runs the merge right here (the rebase and the pre-merge check: minutes for a test suite); on the
+    // window's thread it froze the whole window (audit H4, 2026-10-31).
+    blocking(move || match action.as_str() {
         "priority" => {
             let t = o
                 .app
@@ -299,7 +301,8 @@ pub fn ticket_action(
             Ok(json!({ "waived": true }))
         }
         other => Err(format!("unknown ticket action {other}")),
-    }
+    })
+    .await
 }
 
 /// A ticket prefix made from a project name, free among the projects (the form shows it until the user gives one).

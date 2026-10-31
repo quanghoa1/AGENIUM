@@ -72,7 +72,9 @@ impl SessionStore {
                 rd.flatten()
                     .filter(|e| {
                         let name = e.file_name().to_string_lossy().into_owned();
-                        driver.not_kept(&name) || login.is_some_and(|l| name.starts_with(l))
+                        driver.not_kept(&name)
+                            || login.is_some_and(|l| name.starts_with(l))
+                            || crate::driver::home_config_name(&name)
                     })
                     .map(|e| e.path()),
             );

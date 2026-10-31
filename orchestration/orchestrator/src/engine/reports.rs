@@ -219,7 +219,12 @@ impl App {
                     )?);
                 }
             }
-            if workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed) {
+            // The Lead closes from its review run, whose root is this worktree: removed when that run ends
+            // (`remove_ended_worktree`), as a cancel does, not under it (audit L8, 2026-10-31).
+            let live_run = runs::unfinished(w.tx)?
+                .iter()
+                .any(|r| r.ticket == Some(t.id));
+            if !live_run && workspaces::get(w.tx, t.id)?.is_some_and(|ws| !ws.removed) {
                 ops.push(crate::effects::journal(
                     w,
                     &t,

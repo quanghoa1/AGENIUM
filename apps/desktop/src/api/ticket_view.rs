@@ -92,10 +92,15 @@ pub fn ticket(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
 
 /// The ticket's changes: the live branch against its base, or what was merged (base..merged commit).
 #[tauri::command]
-pub fn ticket_diff(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
+pub async fn ticket_diff(d: State<'_, Desktop>, project: String, key: String) -> R<Value> {
     let o = d.opened()?;
-    let p = o.app.project(pid(&project)?).map_err(err)?;
-    let t = o.app.ticket(p.id, &self::key(&key)?).map_err(err)?;
+    // git diff of a whole branch: off the window's thread (audit H4).
+    super::actions::blocking(move || ticket_diff_now(&o, &project, &key)).await
+}
+
+fn ticket_diff_now(o: &crate::state::Opened, project: &str, key: &str) -> R<Value> {
+    let p = o.app.project(pid(project)?).map_err(err)?;
+    let t = o.app.ticket(p.id, &self::key(key)?).map_err(err)?;
     let Some(ws) = o
         .app
         .store()
@@ -136,11 +141,21 @@ pub fn ticket_diff(d: State<'_, Desktop>, project: String, key: String) -> R<Val
 /// One changed file of a ticket, before and after (for a side-by-side diff): the content at the ticket's base, and
 /// the worktree's file (or, once merged, the merge's). `null` = the file does not exist on that side.
 #[tauri::command]
-pub fn ticket_file(d: State<'_, Desktop>, project: String, key: String, path: String) -> R<Value> {
-    const MAX: usize = 2_000_000;
+pub async fn ticket_file(
+    d: State<'_, Desktop>,
+    project: String,
+    key: String,
+    path: String,
+) -> R<Value> {
     let o = d.opened()?;
-    let p = o.app.project(pid(&project)?).map_err(err)?;
-    let t = o.app.ticket(p.id, &self::key(&key)?).map_err(err)?;
+    // git show and file reads: off the window's thread (audit H4).
+    super::actions::blocking(move || ticket_file_now(&o, &project, &key, &path)).await
+}
+
+fn ticket_file_now(o: &crate::state::Opened, project: &str, key: &str, path: &str) -> R<Value> {
+    const MAX: usize = 2_000_000;
+    let p = o.app.project(pid(project)?).map_err(err)?;
+    let t = o.app.ticket(p.id, &self::key(key)?).map_err(err)?;
     let rel = std::path::Path::new(&path);
     if path.is_empty()
         || rel.is_absolute()

@@ -95,7 +95,15 @@ pub fn restore(
             (d, fm)
         }
     };
-    for e in &full.dbs {
+    // An incremental set made since 2026-10-31 holds every agent database of its own time: the base's are older
+    // (and may name agents deleted since).
+    let agents_in_full = m.kind == BackupKind::Incremental && m.agents_in_full;
+    let from_base: Vec<&DbEntry> = full
+        .dbs
+        .iter()
+        .filter(|e| !agents_in_full || e.name == "core")
+        .collect();
+    for e in &from_base {
         verify_entry(&full_dir, e)?;
         let dst = target_db_dir.join(format!("{}.db", e.name));
         if dst.exists() {
@@ -109,18 +117,41 @@ pub fn restore(
         }
         decompress(&full_dir.join(&e.file), &dst)?;
     }
-    let mut expected: BTreeMap<String, BTreeMap<String, String>> = full
-        .dbs
+    let mut expected: BTreeMap<String, BTreeMap<String, String>> = from_base
         .iter()
         .map(|e| (e.name.clone(), e.tables.clone()))
         .collect();
     if m.kind == BackupKind::Incremental {
         for e in &m.dbs {
             verify_entry(&set_dir, e)?;
-            apply_incremental(
-                &target_db_dir.join(format!("{}.db", e.name)),
-                &set_dir.join(&e.file),
-            )?;
+            let dst = target_db_dir.join(format!("{}.db", e.name));
+            if e.name == "core" {
+                let base = full
+                    .dbs
+                    .iter()
+                    .find(|b| b.name == "core")
+                    .map(|b| b.schema_version);
+                if base.is_some_and(|v| v != e.schema_version) {
+                    return Err(StoreError::Invalid(format!(
+                        "set {set_id} was taken at schema {} of core and its base at {}: it cannot be applied (restore \
+                         the base set or a full set taken since)",
+                        e.schema_version,
+                        base.unwrap_or_default()
+                    )));
+                }
+                apply_incremental(&dst, &set_dir.join(&e.file))?;
+            } else {
+                if dst.exists() {
+                    return Err(StoreError::Conflict(format!(
+                        "{} already exists",
+                        dst.display()
+                    )));
+                }
+                if let Some(parent) = dst.parent() {
+                    fs::create_dir_all(parent).map_err(|er| StoreError::io(parent, er))?;
+                }
+                decompress(&set_dir.join(&e.file), &dst)?;
+            }
             expected.insert(e.name.clone(), e.tables.clone());
         }
     }
@@ -169,7 +200,15 @@ pub fn pre_migrate_snapshot(
                 .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".db.zst"))
         })
         .collect();
-    files.sort_by_key(|p| p.file_name().map(|n| n.to_owned()));
+    // By version as a number, then time: as text `v10` came before `v8`, and the newest snapshot was deleted first
+    // (audit L7, 2026-10-31).
+    let order = |p: &PathBuf| {
+        let n = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        let rest = n.strip_prefix(&prefix).unwrap_or_default();
+        let (v, stamp) = rest.split_once('-').unwrap_or((rest, ""));
+        (v.parse::<u32>().unwrap_or(0), stamp.to_owned())
+    };
+    files.sort_by_key(order);
     while files.len() > 3 {
         let old = files.remove(0);
         fs::remove_file(&old).map_err(|e| StoreError::io(&old, e))?;

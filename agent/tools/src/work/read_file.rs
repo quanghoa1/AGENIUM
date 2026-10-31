@@ -51,10 +51,11 @@ impl Tool for ReadFile {
         }
         if total == 0 {
             out.push_str("(empty file)\n");
-        } else if start - 1 + limit < total {
+        // Saturating: a model's huge offset or limit overflowed (audit L4, 2026-10-31).
+        } else if (start - 1).saturating_add(limit) < total {
             out.push_str(&format!(
                 "[showing lines {start}-{} of {total}; use offset to read more]\n",
-                start - 1 + limit
+                (start - 1).saturating_add(limit)
             ));
         }
         Ok(ctx.finish_output(out, false))

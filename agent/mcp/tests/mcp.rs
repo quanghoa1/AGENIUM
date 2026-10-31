@@ -155,10 +155,15 @@ async fn stdio_server_per_agent_credentials_and_restarts() {
         .call(&ctx, json!({}))
         .await
         .unwrap_err();
-    assert_eq!(
-        (e.code.as_str(), e.message.as_str()),
-        ("mcp_tool_error", "it broke")
+    // The server's error is its content too: fenced as such (audit M2, 2026-10-31).
+    assert_eq!(e.code, "mcp_tool_error");
+    assert!(
+        e.message
+            .starts_with("<untrusted_content source=\"MCP server fake, tool fail\" id=\""),
+        "{}",
+        e.message
     );
+    assert_eq!(inner(&e.message), "it broke");
 
     // A read-only call that kills the server: retried once after a restart, then reported.
     let e = tool(&a, "mcp__fake__crash")

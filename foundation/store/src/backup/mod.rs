@@ -2,10 +2,12 @@
 //!
 //! * **Full** = a consistent snapshot image of each database (SQLite online-backup API), zstd-compressed, with
 //!   sha256 and a per-table logical content hash.
-//! * **Incremental** (core only) = zstd JSONL relative to a full: append-only tables (`event`, `intent`) carry
+//! * **Incremental** = zstd JSONL of `core` relative to a full: append-only tables (`event`, `intent`) carry
 //!   only rows past the base's cut; the mutable tables are dumped whole (`run_log` too: compaction deletes its rows,
-//!   ADR-76). Restoring = base snapshot + apply. Agent databases are snapshotted in full in every set (their
-//!   incremental form is M1.5).
+//!   ADR-76). Restoring = base snapshot + apply. Agent databases are snapshotted in full in every set, incremental
+//!   ones too (`agents_in_full`; before 2026-10-31 an incremental held `core` only and a restore took the agents'
+//!   memory from the base, up to a day old: audit H3). A schema change of `core` since the base makes the next set a
+//!   full one (a newer `core` cannot be applied to the base's image: audit M8).
 //! * Retention: 24 hourly / 7 daily / 4 weekly sets, plus the 3 newest pre-migrate snapshots.
 //! * Never contains secrets (they are not in any database) and never duplicates git content.
 
@@ -70,6 +72,9 @@ pub struct Manifest {
     /// Max rowid per append-only table of `core` at backup time (the next incremental's cut).
     pub cuts: BTreeMap<String, i64>,
     pub dbs: Vec<DbEntry>,
+    /// Incremental: its `dbs` hold every agent database of its time in full, and the base's are not restored.
+    #[serde(default)]
+    pub agents_in_full: bool,
 }
 
 #[cfg(test)]

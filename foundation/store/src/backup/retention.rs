@@ -29,8 +29,16 @@ pub fn list_sets(backups_dir: &Path) -> Result<Vec<Manifest>, StoreError> {
     };
     for e in rd.filter_map(|e| e.ok()) {
         let p = e.path();
-        if p.join(MANIFEST).is_file() {
-            out.push(read_manifest(&p)?);
+        // A set being written (`.<id>.partial`, its manifest written before the rename) or one whose rename failed
+        // is not a set: listed under its manifest's id, its folder was missing for `prune` and as a base (audit L6,
+        // 2026-10-31).
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') || !p.join(MANIFEST).is_file() {
+            continue;
+        }
+        let m = read_manifest(&p)?;
+        if m.id == name {
+            out.push(m);
         }
     }
     out.sort_by(|a, b| a.id.cmp(&b.id));
@@ -75,8 +83,27 @@ pub fn prune(backups_dir: &Path, r: Retention) -> Result<Vec<String>, StoreError
     for m in &sets {
         if !keep.contains(&m.id) {
             let d = backups_dir.join(&m.id);
-            fs::remove_dir_all(&d).map_err(|e| StoreError::io(&d, e))?;
+            match fs::remove_dir_all(&d) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(StoreError::io(&d, e)),
+            }
             removed.push(m.id.clone());
+        }
+    }
+    // Sets left half-written by a process that died (or whose rename failed) a day ago or more.
+    if let Ok(rd) = fs::read_dir(backups_dir) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let stale = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.elapsed().ok())
+                .is_some_and(|age| age > std::time::Duration::from_secs(24 * 3600));
+            if name.starts_with('.') && name.ends_with(".partial") && stale {
+                let _ = fs::remove_dir_all(e.path());
+            }
         }
     }
     Ok(removed)

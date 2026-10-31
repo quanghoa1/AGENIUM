@@ -6,12 +6,20 @@ use agenium_llm::systemone::Judging;
 use super::MET;
 use crate::app::App;
 
+/// Characters of an episode the judge reads at most.
+const MAX_EPISODE: usize = 120_000;
+
 impl App {
     /// `Some(false)` only when the judge is confident nothing in `episode` is worth keeping; `Some(true)` when it is;
     /// `None` when the judge is off/disabled, `memory_gate` is off, the verdict is unsure, the call failed, or in
     /// shadow mode — the caller then extracts as usual. A key/quota failure disables the judge.
     pub async fn worth_remembering(&self, episode: &str) -> Option<bool> {
         if !self.config().judge.memory_gate {
+            return None;
+        }
+        // A long run's whole transcript: too large a request, and cut it would be judged on a part (audit M15). The
+        // extraction runs as without the judge.
+        if episode.len() > MAX_EPISODE {
             return None;
         }
         self.judge().ok().flatten()?;

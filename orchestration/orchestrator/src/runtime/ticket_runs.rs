@@ -92,15 +92,17 @@ impl Runtime {
         // recalls nothing and records nothing, so the close credits what the agent was shown, not what a later
         // recall would have found.
         let recalled = if prev.is_empty() {
-            retriever
-                .recall_in(
-                    &query,
-                    &agenium_memory::retrieve::RecallContext {
-                        project: Some(project.to_string()),
-                        scope: serde_json::json!({ "project": self.app.project(project)?.name }),
-                    },
-                    self.memory_k,
-                )
+            // Embedding the ticket takes the CPU for 120-400 ms: off the async threads, where several tickets starting
+            // at once stalled every other task (audit L17, 2026-10-31).
+            let (r, k) = (retriever.clone(), self.memory_k);
+            let at = agenium_memory::retrieve::RecallContext {
+                project: Some(project.to_string()),
+                scope: serde_json::json!({ "project": self.app.project(project)?.name }),
+            };
+            tokio::task::spawn_blocking(move || r.recall_in(&query, &at, k))
+                .await
+                .ok()
+                .and_then(|r| r.ok())
                 .unwrap_or_default()
         } else {
             Vec::new()

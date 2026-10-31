@@ -1,9 +1,10 @@
 //! Which judge keys may be used (the keys take turns, `client`). A key out of quota is set aside and the user is told
 //! which one, by the name they gave it; it stays out until the user adds credit and re-enables it — never retried by
-//! itself. A key that fails otherwise (rejected, or the service still failing after the client's retries) rests and is
-//! tried again by itself: after 30 minutes, then after an hour if it fails again. The request it failed goes on with
-//! another key at once. With no key left the judge is off, and the work goes on without it (fail-open). A bad request is
-//! not the key's fault and sets nothing aside.
+//! itself. A rejected key rests and is tried again by itself: after 30 minutes, then after an hour if it fails again.
+//! The request either failed goes on with another key at once. With no key left the judge is off, and the work goes
+//! on without it (fail-open). A failure that is not the key's — a bad or too large request, a timeout, the service
+//! busy or down — sets no key aside: that request goes on without the judge, and the judge pauses a minute (audit
+//! M15, 2026-10-31: one request too large for the service set every key aside for up to an hour).
 
 use std::collections::BTreeMap;
 
@@ -63,17 +64,19 @@ pub struct JudgeHealth {
 pub(super) enum Stop {
     /// Out of quota: set aside until the user adds credit and re-enables it.
     Quota,
-    /// Rejected, or the service still failing after the client's retries: the key rests and is tried again by itself.
+    /// Rejected: the key rests and is tried again by itself.
     Failing,
 }
 
-/// What a failure means for its key. A bad request (400/422) is not the key's fault. (Before, any 429 turned the whole
-/// judge off until the user re-enabled it, and so did a 422 whose detail named a state key.)
+/// What a failure means for its key: `None` when it is not the key's (a bad or too large request, a timeout, the
+/// service busy or down, a rate limit), which another key would meet the same way. (Before, any 429 turned the whole
+/// judge off until the user re-enabled it, and so did a 422 whose detail named a state key; then a timeout set every
+/// key aside in turn.)
 pub(super) fn stop_for(e: &LlmError) -> Option<Stop> {
     match e {
         LlmError::Config(m) if m.starts_with("TypeSafe quota exhausted") => Some(Stop::Quota),
-        LlmError::Config(m) if m.starts_with("TypeSafe request invalid") => None,
-        _ => Some(Stop::Failing),
+        LlmError::Config(m) if m.starts_with("TypeSafe key rejected") => Some(Stop::Failing),
+        _ => None,
     }
 }
 
@@ -200,11 +203,16 @@ mod tests {
             stop_for(&cfg("TypeSafe key rejected: bad key")),
             Some(Stop::Failing)
         );
+        // Not the key's: another key would meet them the same way (audit M15).
         assert_eq!(
             stop_for(&LlmError::Network("TypeSafe busy (HTTP 503): x".into())),
-            Some(Stop::Failing)
+            None
         );
-        assert_eq!(stop_for(&LlmError::Timeout), Some(Stop::Failing));
+        assert_eq!(stop_for(&LlmError::Timeout), None);
+        assert_eq!(
+            stop_for(&LlmError::Network("TypeSafe HTTP 413: too large".into())),
+            None
+        );
         assert_eq!(
             stop_for(&cfg("TypeSafe request invalid: unknown state key `report`")),
             None

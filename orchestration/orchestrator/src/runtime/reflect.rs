@@ -66,7 +66,7 @@ impl Runtime {
                 f.kind == FactKind::Lesson
                     && !f.untrusted
                     && f.validated.len() >= 2
-                    && !done.contains_key(&f.id)
+                    && done.get(&f.id).is_none_or(again)
             })
             .take(PER_EPISODE)
             .collect();
@@ -106,6 +106,21 @@ impl Runtime {
                 tracing::warn!(error = %e, "the reflection's usage was not recorded");
             }
             match r {
+                // A gate's refusal is often for now (the cap of created skills, a contradiction to reconcile, contexts
+                // still to close): the lesson is asked about again, up to `REFUSED_TRIES` times (audit L21,
+                // 2026-10-31: one refusal settled it for good).
+                Ok(v) if v["result"].get("refused").is_some() => {
+                    let tries = done
+                        .get(&lesson.id)
+                        .and_then(|d| d["tries"].as_u64())
+                        .unwrap_or(0)
+                        + 1;
+                    done.insert(
+                        lesson.id,
+                        json!({ "action": v["action"], "skill": v["skill"], "tries": tries }),
+                    );
+                    out.push(v);
+                }
                 Ok(v) => {
                     done.insert(
                         lesson.id,
@@ -268,9 +283,31 @@ impl Runtime {
 }
 
 /// What the gates said of a proposal, for the log.
+/// Times a lesson whose proposal a gate refused is reflected on again.
+const REFUSED_TRIES: u64 = 3;
+
+/// A lesson reflected on before is asked about again only after a refusal, and not past [`REFUSED_TRIES`].
+fn again(done: &Value) -> bool {
+    done["tries"].as_u64().is_some_and(|n| n < REFUSED_TRIES)
+}
+
 fn gate(r: Result<Value, agenium_tools::ToolError>) -> Value {
     match r {
         Ok(v) => json!({ "accepted": v }),
         Err(e) => json!({ "refused": format!("{}: {}", e.code, e.message) }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Audit L21 (2026-10-31): a refusal is asked about again, a few times; an accepted or kept lesson is settled.
+    #[test]
+    fn a_refused_lesson_is_asked_about_again_a_few_times() {
+        assert!(again(&json!({ "action": "new", "tries": 1 })));
+        assert!(!again(&json!({ "action": "new", "tries": REFUSED_TRIES })));
+        assert!(!again(&json!({ "action": "new", "skill": "x" })));
+        assert!(!again(&json!({ "action": "none" })));
     }
 }

@@ -69,15 +69,15 @@ impl CheckFactory for Checks {
 }
 
 pub fn open_app(root: &Path, keyring: Arc<MemoryKeyring>, check: Option<(bool, String)>) -> App {
-    App::open(
-        root,
-        AppOptions {
-            keyring,
-            checks: Arc::new(Checks(check)),
-        },
-    )
-    .unwrap()
-    .0
+    open_app_checked(root, keyring, Arc::new(Checks(check)))
+}
+
+pub fn open_app_checked(
+    root: &Path,
+    keyring: Arc<MemoryKeyring>,
+    checks: Arc<dyn CheckFactory>,
+) -> App {
+    App::open(root, AppOptions { keyring, checks }).unwrap().0
 }
 
 pub fn fixture() -> Fixture {
@@ -85,10 +85,15 @@ pub fn fixture() -> Fixture {
 }
 
 pub fn fixture_with(check: Option<(bool, String)>) -> Fixture {
+    fixture_checked(Arc::new(Checks(check)))
+}
+
+/// A fixture whose pre-merge checks come from `checks`.
+pub fn fixture_checked(checks: Arc<dyn CheckFactory>) -> Fixture {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("root");
     let keyring = Arc::new(MemoryKeyring::default());
-    let app = open_app(&root, keyring.clone(), check);
+    let app = open_app_checked(&root, keyring.clone(), checks);
     let project = app
         .create_project(&CreateProject {
             name: "demo".into(),

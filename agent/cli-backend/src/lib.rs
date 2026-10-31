@@ -14,6 +14,7 @@ pub mod login;
 pub mod login_access;
 pub mod opencode;
 pub mod run;
+mod tool_paths;
 
 pub use detect::{detect_all, CliInfo, CliKind, Login};
 pub use driver::{Control, Driver, Event, Setup, Turns};

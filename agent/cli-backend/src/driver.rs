@@ -9,6 +9,8 @@ use agenium_core::Effort;
 use agenium_llm::Usage;
 use serde_json::Value;
 
+pub(crate) use crate::tool_paths::named_paths;
+
 /// Everything a driver writes into the per-run home.
 pub struct Setup<'a> {
     /// Fresh, empty directory owned by this run (deleted afterwards).
@@ -84,12 +86,18 @@ pub(crate) fn file_access(p: &Path, cx: &CheckCtx, protected: &[PathBuf]) -> Res
     }
     if inside(p, cx.worktree, cx.home) {
         let first = first_under(&normalize(p, cx.worktree), &normalize(cx.home, cx.worktree));
-        if let Some(f) = first.filter(|f| {
+        if let Some(f) = first.as_deref().filter(|f| {
             f.starts_with('.') && !HOME_DOT_DIRS.iter().any(|d| d.eq_ignore_ascii_case(f))
         }) {
             return Err(format!(
                 "{f} in your scratch folder is a file other programs read as the user's own (the folder is their \
                  home): keep your notes in a folder of it such as notes/"
+            ));
+        }
+        if let Some(f) = first.as_deref().filter(|f| home_config_name(f)) {
+            return Err(format!(
+                "{f} in your scratch folder is configuration your CLI loads in later runs: keep your notes in a \
+                 folder of it such as notes/"
             ));
         }
         return Ok(());
@@ -104,140 +112,43 @@ pub(crate) fn file_access(p: &Path, cx: &CheckCtx, protected: &[PathBuf]) -> Res
     Err(format!("{} is outside the ticket worktree", p.display()))
 }
 
-/// What the arguments of a CLI's own tool call name on the disk (ADR-129; path review of 2026-10-29): every string of
-/// any argument, nested values and lists included, that a path key holds or that looks like a path (absolute, a drive
-/// or a share, a separator, a `file:` URI of any case, percent-decoded). A search pattern that would start outside the
-/// folder it searches is an `Err`. The text a call carries (`content` and the like) is not read. Only a few known keys
-/// were: a path under another name, in a list, or as `FILE:///` or `file:///…%2F..` went unchecked.
-pub(crate) fn named_paths(args: &Value) -> Result<Vec<String>, String> {
-    fn walk(key: &str, v: &Value, out: &mut Vec<String>) -> Result<(), String> {
-        match v {
-            Value::Object(m) => m
-                .iter()
-                .try_for_each(|(k, x)| walk(&k.to_ascii_lowercase(), x, out)),
-            Value::Array(a) => a.iter().try_for_each(|x| walk(key, x, out)),
-            Value::String(_) if CONTENT_KEYS.iter().any(|c| key.ends_with(c)) => Ok(()),
-            Value::String(s) if PATTERN_KEYS.iter().any(|p| key.ends_with(p)) => {
-                if pattern_escapes(s) {
-                    Err(format!(
-                        "the pattern {s} reaches outside the folder searched: give one relative to it"
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Value::String(s) => {
-                if let Some(p) = file_uri(s) {
-                    out.push(p);
-                } else if !s.contains("://") && (is_path_key(key) || looks_like_path(s)) {
-                    out.push(s.clone());
-                }
-                Ok(())
-            }
-            _ => Ok(()),
-        }
-    }
-    let mut out = Vec::new();
-    walk("", args, &mut out)?;
-    Ok(out)
-}
-
-/// Argument names (lowercase endings) that hold the text a call carries, not a path.
-const CONTENT_KEYS: [&str; 14] = [
-    "content",
-    "contents",
-    "text",
-    "string",
-    "str",
-    "instruction",
-    "description",
-    "query",
-    "message",
-    "summary",
-    "explanation",
-    "prompt",
-    "title",
-    "source",
-];
-/// Argument names (lowercase endings) that hold a search pattern (a glob, or a regex for some tools).
-const PATTERN_KEYS: [&str; 5] = ["pattern", "includes", "excludes", "glob", "regex"];
-
-/// Argument names (lowercase endings) that hold a path whatever it looks like (a bare file name too).
-fn is_path_key(k: &str) -> bool {
-    [
-        "path",
-        "paths",
-        "file",
-        "files",
-        "directory",
-        "directories",
-        "dir",
-        "dirs",
-        "cwd",
-        "uri",
-        "folder",
-        "folders",
-        "root",
-    ]
-    .iter()
-    .any(|s| k.ends_with(s))
-}
-
-fn looks_like_path(s: &str) -> bool {
-    let b = s.as_bytes();
-    s.starts_with(['/', '\\', '~'])
-        || (b.len() >= 2 && b[1] == b':' && b[0].is_ascii_alphabetic())
-        || s.contains(['/', '\\'])
-}
-
-/// A search pattern that starts outside the folder searched: absolute, from a drive, a share or `~`, or with a `..`
-/// step.
-pub(crate) fn pattern_escapes(s: &str) -> bool {
-    let b = s.as_bytes();
-    s.starts_with(['/', '\\', '~'])
-        || (b.len() >= 2 && b[1] == b':' && b[0].is_ascii_alphabetic())
-        || s.split(['/', '\\']).any(|seg| seg == "..")
-}
-
-/// The path of a `file:` URI, any case, percent-decoded (`file:///C:/x`, `FILE://localhost/x`).
-fn file_uri(s: &str) -> Option<String> {
-    s.get(..5).filter(|h| h.eq_ignore_ascii_case("file:"))?;
-    let mut p = &s[5..];
-    if let Some(r) = p.strip_prefix("//") {
-        p = r.find('/').map_or(r, |i| &r[i..]);
-    }
-    // `/C:/x` names `C:/x`.
-    let b = p.as_bytes();
-    if b.len() >= 3 && b[0] == b'/' && b[2] == b':' && b[1].is_ascii_alphabetic() {
-        p = &p[1..];
-    }
-    let mut bytes = Vec::with_capacity(p.len());
-    let raw = p.as_bytes();
-    let mut i = 0;
-    while i < raw.len() {
-        let hex = |c: u8| (c as char).to_digit(16);
-        match (
-            raw[i],
-            raw.get(i + 1).and_then(|c| hex(*c)),
-            raw.get(i + 2).and_then(|c| hex(*c)),
-        ) {
-            (b'%', Some(h), Some(l)) => {
-                bytes.push((h * 16 + l) as u8);
-                i += 3;
-            }
-            (c, ..) => {
-                bytes.push(c);
-                i += 1;
-            }
-        }
-    }
-    Some(String::from_utf8_lossy(&bytes).into_owned())
-}
-
 /// Hidden entries of the per-run home a CLI's own tools may use: agy keeps its task notes in `.gemini`. Any other
 /// (`.gitconfig`, `.npmrc`, `.ssh`, `.config`) is read by other programs as the user's own, the home being their
 /// `HOME`: one a model planted could run commands outside every gate (git's `core.fsmonitor`).
 const HOME_DOT_DIRS: [&str; 1] = [".gemini"];
+
+/// Names at the top of a CLI's per-run home (lowercase) that a CLI loads as the user's own configuration or memory —
+/// instructions (`CLAUDE.md`), subagents, commands, skills, hooks, plugins, settings. The model's file tools may not
+/// write them, and a kept session leaves them out: written there, they were kept with the ticket's session and loaded
+/// by every later run of it, on the host and outside the hook (audit M6, 2026-10-31). Agenium writes its own files there
+/// again in every run (`Driver::prepare`).
+pub(crate) const HOME_CONFIG_NAMES: [&str; 19] = [
+    "claude.md",
+    "agents.md",
+    "gemini.md",
+    "agents",
+    "commands",
+    "skills",
+    "hooks",
+    "plugins",
+    "output-styles",
+    "rules",
+    "prompts",
+    "memory",
+    "settings.json",
+    "settings.local.json",
+    "config.toml",
+    "config.json",
+    "mcp.json",
+    "keybindings.json",
+    "statusline.sh",
+];
+
+/// Whether `name`, at the top of a CLI's per-run home, is one the CLI loads as configuration ([`HOME_CONFIG_NAMES`]).
+pub(crate) fn home_config_name(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    HOME_CONFIG_NAMES.contains(&n.as_str())
+}
 
 /// The first component of `p` below `root` (both normalised), compared without case as on Windows.
 fn first_under(p: &Path, root: &Path) -> Option<String> {
@@ -635,11 +546,34 @@ mod tests {
             r#"{"refresh":"r2"}"#,
             "still one file"
         );
+        // Audit M13 (2026-10-31): the model writes the login (the run's home is writable) with something that parses
+        // but is not this login: put back too. A refresh of the same shape stays.
+        let write = |text: &str| {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&run)
+                .and_then(|mut f| std::io::Write::write_all(&mut f, text.as_bytes()))
+                .unwrap()
+        };
+        write("{}");
+        crate::login::guard_linked(&user, &run).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&user).unwrap(),
+            r#"{"refresh":"r2"}"#
+        );
+        write(r#"{"refresh":"r3"}"#);
+        crate::login::guard_linked(&user, &run).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&user).unwrap(),
+            r#"{"refresh":"r3"}"#,
+            "a refresh stays"
+        );
         // The run's home goes: the user's login stays.
         std::fs::remove_dir_all(&home).unwrap();
         assert_eq!(
             std::fs::read_to_string(&user).unwrap(),
-            r#"{"refresh":"r2"}"#
+            r#"{"refresh":"r3"}"#
         );
     }
 

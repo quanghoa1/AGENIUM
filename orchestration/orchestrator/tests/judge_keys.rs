@@ -284,6 +284,70 @@ async fn a_failing_key_rests_then_comes_back_by_itself() {
     assert!(mock.seen()[before..].contains(&value("alpha")));
 }
 
+/// Audit M15 (2026-10-31): a failure that is not the key's (the service busy, a timeout, a request too large) set the
+/// key aside and sent the same request with the next key, until every key rested for up to an hour. Now no key is set
+/// aside, the request goes on without the judge, and the judge pauses a moment.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_failure_that_is_not_a_key_s_sets_no_key_aside() {
+    let f = fixture();
+    let mock = Mock::default();
+    mock.set(&value("alpha"), 503, r#"{"detail":"busy"}"#);
+    mock.set(&value("beta"), 503, r#"{"detail":"busy"}"#);
+    judge(&f, mock.start().await, &["alpha", "beta"]);
+    assert_eq!(ask(&f, 0).await, None, "fail-open");
+    let seen = mock.seen();
+    assert!(!seen.is_empty());
+    assert!(
+        seen.iter().all(|k| *k == seen[0]),
+        "not sent again with the other key: {seen:?}"
+    );
+    assert!(f.app.judge_health().keys_off.is_empty(), "no key set aside");
+    assert!(notices(&f).is_empty());
+    // A moment's pause: the next ask sends nothing.
+    assert_eq!(ask(&f, 1).await, None);
+    assert_eq!(mock.seen().len(), seen.len());
+}
+
+/// Audit M15: a long run's whole transcript is not sent to the judge (too large a request; cut, it would be judged on a
+/// part): the memory gate stands aside and the extraction runs.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_transcript_too_long_is_not_sent_to_the_judge() {
+    let f = fixture();
+    let mock = Mock::default();
+    mock.set(&value("alpha"), 200, WORTH);
+    judge(&f, mock.start().await, &["alpha"]);
+    let long = "step done\n".repeat(20_000);
+    assert_eq!(f.app.worth_remembering(&long).await, None);
+    assert!(mock.seen().is_empty(), "no request");
+    assert_eq!(ask(&f, 0).await, Some(true), "a short one still is");
+}
+
+/// Audit L19 (2026-10-31): the first key's vault entry gone (the vault restored from elsewhere, say) turned the judge
+/// off while the other keys worked. That key is passed over.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_key_without_its_value_is_passed_over() {
+    let f = fixture();
+    let mock = Mock::default();
+    mock.set(&value("beta"), 200, WORTH);
+    judge(&f, mock.start().await, &["beta"]);
+    f.app
+        .update_config(|c| {
+            c.judge.keys.insert(
+                0,
+                agenium_config::JudgeKey {
+                    name: "ghost".into(),
+                    secret_ref: "judge/key/ghost".into(),
+                },
+            )
+        })
+        .unwrap();
+    assert!(f.app.judge().unwrap().is_some(), "the judge is still on");
+    for i in 0..3 {
+        assert_eq!(ask(&f, i).await, Some(true), "ask {i}");
+    }
+    assert!(mock.seen().iter().all(|k| *k == value("beta")));
+}
+
 #[test]
 fn keys_live_in_the_vault_and_have_names() {
     let f = fixture();

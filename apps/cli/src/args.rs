@@ -414,7 +414,7 @@ pub(crate) enum McpCmd {
     Logout {
         id: String,
     },
-    /// Import pasted JSON ({"mcpServers": {...}}) from a file or "-" for stdin; secrets move to the vault.
+    /// Import pasted JSON ({"mcpServers": {...}}) from a file or "-" for stdin; keys are kept as written (the server's system key), logs mask them.
     Import {
         file: String,
     },

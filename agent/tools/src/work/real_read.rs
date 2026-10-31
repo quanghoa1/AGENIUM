@@ -7,7 +7,7 @@
 use std::io::Read;
 use std::path::Path;
 
-use super::handle::{links, real_path};
+use super::handle::{links, open_regular, real_path};
 use super::*;
 use crate::paths;
 
@@ -25,7 +25,7 @@ pub(super) fn read_checked(
             format!("{rel} is a directory; use list_dir"),
         ));
     }
-    let f = std::fs::File::open(p).map_err(|e| io_err(rel, e))?;
+    let f = open_regular(p, false, false).map_err(|e| io_err(rel, e))?;
     let len = f.metadata().map(|m| m.len()).unwrap_or(meta.len());
     if len > max {
         return Err(ToolError::new(

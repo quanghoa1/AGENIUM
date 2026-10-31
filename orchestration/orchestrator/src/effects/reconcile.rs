@@ -57,6 +57,18 @@ impl App {
                 .actions
                 .push(format!("closed {} interrupted run(s)", dead.len()));
         }
+        // Messages to a Lead that a chat turn took when the process died: back in the queue (audit M9).
+        let back = self
+            .store
+            .commit(None, "system", |w| {
+                agenium_store::core::ledger::return_taken(w.tx)
+            })?
+            .value;
+        if back > 0 {
+            report.actions.push(format!(
+                "put {back} message(s) to a Lead back in the queue (its chat turn was interrupted)"
+            ));
+        }
         for p in self.projects()? {
             if !Path::new(&p.path).is_dir() {
                 report.actions.push(format!(
@@ -90,19 +102,27 @@ impl App {
                             )
                         })?
                         .value;
-                    self.run_op(seq)?;
-                    report
-                        .actions
-                        .push(format!("removed worktree of finished ticket {}", t.key));
+                    // A failure (a file still held on Windows) is journaled and retried later, never a reason not to
+                    // open (audit M10, 2026-10-31: one held file kept Agenium from starting).
+                    report.actions.push(match self.run_op(seq) {
+                        Ok(()) => format!("removed worktree of finished ticket {}", t.key),
+                        Err(e) => format!(
+                            "worktree of finished ticket {} not removed yet (retried later): {e}",
+                            t.key
+                        ),
+                    });
                 } else if !Path::new(&ws.worktree).is_dir() {
                     let seq = self
                         .store
                         .commit(None, "system", |w| journal(w, &t, Op::CreateWorktree))?
                         .value;
-                    self.run_op(seq)?;
-                    report
-                        .actions
-                        .push(format!("restored missing worktree of {}", t.key));
+                    report.actions.push(match self.run_op(seq) {
+                        Ok(()) => format!("restored missing worktree of {}", t.key),
+                        Err(e) => format!(
+                            "missing worktree of {} not restored yet (retried later): {e}",
+                            t.key
+                        ),
+                    });
                 }
             }
             // Worktree directories that no live workspace owns.
@@ -115,7 +135,13 @@ impl App {
                             .is_some_and(|f| f.to_string_lossy() == name)
                     });
                     if !owned {
-                        repo.remove_worktree(&name)?;
+                        // Tried again at the next start when it fails (a file still held).
+                        if let Err(e) = repo.remove_worktree(&name) {
+                            report.actions.push(format!(
+                                "orphan worktree {name} not removed yet (tried again at the next start): {e}"
+                            ));
+                            continue;
+                        }
                         agenium_sandbox::remove_run_temp_dir(&repo.worktree_path(&name));
                         report
                             .actions

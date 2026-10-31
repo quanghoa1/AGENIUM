@@ -51,16 +51,30 @@ impl Repo {
         key: &str,
         check: &dyn CheckRunner,
     ) -> Result<MergeOutcome, VcsError> {
+        match self.prepare_merge(key, check)? {
+            Prepared::Ready { head, main_before } => self.fast_forward(&head, &main_before),
+            Prepared::Done(o) => Ok(o),
+        }
+    }
+
+    /// The slow part of [`Repo::merge_ticket`]: rebase on the latest main and the pre-merge check. A ticket can be
+    /// reopened or cancelled while it runs (minutes for a test suite), so the caller decides afterwards whether the
+    /// checked head still goes into main, and then calls [`Repo::fast_forward`].
+    pub fn prepare_merge(&self, key: &str, check: &dyn CheckRunner) -> Result<Prepared, VcsError> {
         let wt = self.worktree_path(key);
         let branch = ticket_branch(key);
         let head = self
             .head_sha(&branch)?
             .ok_or_else(|| VcsError::Invalid(format!("branch {branch} does not exist")))?;
         if self.is_ancestor(&head, &self.main)? {
-            return Ok(MergeOutcome::AlreadyMerged {
+            return Ok(Prepared::Done(MergeOutcome::AlreadyMerged {
                 sha: self.head_sha(&self.main)?.unwrap_or(head),
-            });
+            }));
         }
+        // A rebase of an earlier attempt the process died in is aborted first, which puts the branch back: read as it
+        // was, its partly rebased HEAD passed for rebased, was checked and could be fast-forwarded into main (audit
+        // M11, 2026-10-31). A worktree off its branch is an error, never merged.
+        self.recover_worktree(&wt, &branch)?;
         // Full outputs that tools of a later run (the review) spilled into the worktree are not part of the work.
         let dirty: Vec<String> = self
             .status(&wt)?
@@ -75,16 +89,23 @@ impl Repo {
         let main_before = self.head_sha(&self.main)?.unwrap_or_default();
         let head = match self.with_tool_output_aside(&wt, key, || self.rebase(&wt, &self.main))? {
             RebaseOutcome::Rebased { head } => head,
-            RebaseOutcome::Conflict { files } => return Ok(MergeOutcome::Conflict { files }),
+            RebaseOutcome::Conflict { files } => {
+                return Ok(Prepared::Done(MergeOutcome::Conflict { files }))
+            }
         };
         let c = check.run(&wt);
         if !c.ok {
-            return Ok(MergeOutcome::CheckFailed { log: c.log });
+            return Ok(Prepared::Done(MergeOutcome::CheckFailed { log: c.log }));
         }
-        // The project's own working tree has main checked out: a fast-forward keeps it in sync. It fails if the
-        // user edited main while the project was running (decision 19), which surfaces as an error. No hook runs:
-        // a relative `core.hooksPath` (husky's `.husky`) would find the hooks the merged branch brings, written by
-        // an agent, and run them here, on the host.
+        Ok(Prepared::Ready { head, main_before })
+    }
+
+    /// Fast-forwards main to `head`, the commit [`Repo::prepare_merge`] rebased and checked (not the branch's tip,
+    /// which may have moved since). The project's own working tree has main checked out: a fast-forward keeps it in
+    /// sync. It fails if the user edited main while the project was running (decision 19), which surfaces as an
+    /// error. No hook runs: a relative `core.hooksPath` (husky's `.husky`) would find the hooks the merged branch
+    /// brings, written by an agent, and run them here, on the host.
+    pub fn fast_forward(&self, head: &str, main_before: &str) -> Result<MergeOutcome, VcsError> {
         self.git.check(
             &self.root,
             [
@@ -95,12 +116,12 @@ impl Repo {
                 "merge",
                 "-q",
                 "--ff-only",
-                &branch,
+                head,
             ],
         )?;
-        let changed = self.changed_files(&self.root, &main_before, &head)?;
+        let changed = self.changed_files(&self.root, main_before, head)?;
         Ok(MergeOutcome::Merged {
-            sha: head,
+            sha: head.to_owned(),
             changed_files: changed,
         })
     }

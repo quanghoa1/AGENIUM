@@ -49,7 +49,17 @@ pub async fn rate_limits(
         "--setting-sources",
         "user",
     ])
-    .env("CLAUDE_CONFIG_DIR", &home)
+    // A run's clean environment, not Agenium's own: with an API key in it (`ANTHROPIC_API_KEY`) the probe billed that
+    // key and reported no limits, and the user's claude.ai connectors started (audit L11, 2026-10-31).
+    .env_clear()
+    .envs(agenium_sandbox::clean_env(&crate::run::isolated_home(
+        &home,
+        [
+            ("CLAUDE_CONFIG_DIR".to_owned(), home.display().to_string()),
+            ("ENABLE_CLAUDEAI_MCP_SERVERS".to_owned(), "false".to_owned()),
+        ]
+        .into(),
+    )))
     .current_dir(&cwd)
     .stdin(std::process::Stdio::null())
     .stdout(std::process::Stdio::piped())

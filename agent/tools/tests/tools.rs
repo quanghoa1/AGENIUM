@@ -1,49 +1,11 @@
+mod common;
+
 use std::path::Path;
 use std::sync::Arc;
 
 use agenium_tools::*;
+use common::*;
 use serde_json::json;
-
-fn ctx(root: &Path) -> ToolCtx {
-    ToolCtx::new(root, "run1", Arc::new(AllowAll))
-}
-
-fn tool(name: &str) -> Arc<dyn Tool> {
-    work_tools().into_iter().find(|t| t.name() == name).unwrap()
-}
-
-async fn call(c: &ToolCtx, name: &str, args: serde_json::Value) -> Result<ToolOutput, ToolError> {
-    tool(name).call(c, args).await
-}
-
-/// The test worktree. Its commands' TEMP lies outside it, under the system TEMP, and goes with it.
-struct Worktree {
-    root: std::path::PathBuf,
-    _tmp: tempfile::TempDir,
-}
-
-impl Drop for Worktree {
-    fn drop(&mut self) {
-        agenium_sandbox::remove_run_temp_dir(&self.root);
-    }
-}
-
-fn setup() -> (Worktree, ToolCtx) {
-    let tmp = tempfile::tempdir().unwrap();
-    let root = tmp.path().join("wt");
-    std::fs::create_dir_all(root.join("src")).unwrap();
-    std::fs::write(
-        root.join("src/lib.rs"),
-        "pub fn add(a: i32, b: i32) -> i32 {\n    a - b\n}\n// add\n",
-    )
-    .unwrap();
-    std::fs::write(root.join("README.md"), "# demo\n").unwrap();
-    std::fs::write(root.join(".gitignore"), "target/\n").unwrap();
-    std::fs::create_dir_all(root.join("target")).unwrap();
-    std::fs::write(root.join("target/junk.rs"), "add").unwrap();
-    let c = ctx(&root);
-    (Worktree { root, _tmp: tmp }, c)
-}
 
 #[test]
 fn catalogue_is_sorted_and_described() {
@@ -403,7 +365,9 @@ async fn a_stopped_run_ends_its_command_and_its_wait_for_approval() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_cli_runs_long_commands_as_jobs_it_is_told_the_end_of() {
     let (_t, mut c) = setup();
-    c.foreground_limit = Some(std::time::Duration::from_millis(800));
+    // Wide apart: a shell's first start after a build can take most of a second (a scan of the new binaries), and
+    // `echo hi` then counted as a long command (a flaky failure, audit of 2026-10-31).
+    c.foreground_limit = Some(std::time::Duration::from_secs(3));
     let quick = call(&c, "shell", json!({"command": "echo hi"}))
         .await
         .unwrap();
@@ -411,9 +375,9 @@ async fn a_cli_runs_long_commands_as_jobs_it_is_told_the_end_of() {
     assert!(c.jobs.awaited_going().is_empty() && c.jobs.take_ended_untold().is_empty());
 
     let slow = match c.executor.shell() {
-        agenium_sandbox::Shell::Cmd => "ping -n 4 127.0.0.1 > nul & echo done",
-        agenium_sandbox::Shell::PowerShell(_) => "Start-Sleep -Seconds 3; echo done",
-        agenium_sandbox::Shell::Bash(_) => "sleep 3; echo done",
+        agenium_sandbox::Shell::Cmd => "ping -n 9 127.0.0.1 > nul & echo done",
+        agenium_sandbox::Shell::PowerShell(_) => "Start-Sleep -Seconds 8; echo done",
+        agenium_sandbox::Shell::Bash(_) => "sleep 8; echo done",
     };
     let out = call(&c, "shell", json!({"command": slow})).await.unwrap();
     assert!(
@@ -500,181 +464,6 @@ async fn shell_gate_timeout_and_truncation_with_artifact() {
         .unwrap_err();
     assert_eq!(e.code, "command_denied");
     assert!(e.message.contains("the user declined"));
-}
-
-#[tokio::test]
-async fn fetch_needs_allowlist_and_marks_untrusted() {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let (_t, mut c) = setup();
-    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let port = l.local_addr().unwrap().port();
-    tokio::spawn(async move {
-        let (mut s, _) = l.accept().await.unwrap();
-        let mut b = [0u8; 4096];
-        let _ = s.read(&mut b).await;
-        let body = "<html><head><script>steal()</script></head><body><h1>Docs</h1><p>Use &amp; enjoy</p></body></html>";
-        let resp = format!("HTTP/1.1 200 OK\r\ncontent-type: text/html\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
-        s.write_all(resp.as_bytes()).await.unwrap();
-    });
-    let url = format!("http://127.0.0.1:{port}/docs");
-    assert_eq!(
-        call(&c, "fetch", json!({"url": url}))
-            .await
-            .unwrap_err()
-            .code,
-        "domain_not_allowed"
-    );
-    assert_eq!(
-        call(&c, "fetch", json!({"url": "file:///etc/passwd"}))
-            .await
-            .unwrap_err()
-            .code,
-        "invalid_url"
-    );
-    c.fetch_allow = vec!["127.0.0.1".into()];
-    let out = call(&c, "fetch", json!({"url": url})).await.unwrap();
-    assert!(out.untrusted);
-    // ADR-142: the page in a fence that names its host and closes with its own id.
-    assert!(
-        out.text
-            .starts_with("<untrusted_content source=\"127.0.0.1\" id=\"")
-            && out.text.trim_end().ends_with("\">"),
-        "{}",
-        out.text
-    );
-    assert!(
-        out.text.contains("Docs")
-            && out.text.contains("Use & enjoy")
-            && !out.text.contains("steal"),
-        "{}",
-        out.text
-    );
-    assert!(
-        domain_allowed("api.crates.io", &["*.crates.io".into()])
-            && !domain_allowed("evilcrates.io", &["*.crates.io".into()])
-    );
-}
-
-/// A local HTTP server answering every connection with `reply`; returns its port.
-async fn serve(reply: impl Fn() -> Vec<u8> + Send + Sync + 'static) -> u16 {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let port = l.local_addr().unwrap().port();
-    let reply = Arc::new(reply);
-    tokio::spawn(async move {
-        while let Ok((mut s, _)) = l.accept().await {
-            let reply = reply.clone();
-            tokio::spawn(async move {
-                let mut b = [0u8; 4096];
-                let _ = s.read(&mut b).await;
-                let _ = s.write_all(&reply()).await;
-                // Keep the connection open: a body without a length ends only when it closes.
-                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-            });
-        }
-    });
-    port
-}
-
-fn ok_reply(body: &str) -> Vec<u8> {
-    format!(
-        "HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
-        body.len()
-    )
-    .into_bytes()
-}
-
-/// Review of 2026-10-27: the fetch client followed redirects, so the allowlist held for the first URL only, a host
-/// let in by a wildcard could be a private address, and the whole body was read before the 2 MB cut.
-#[tokio::test]
-async fn fetch_checks_every_redirect_and_private_addresses_and_stops_at_the_cap() {
-    let (_t, mut c) = setup();
-    let secret = serve(|| ok_reply("internal admin page")).await;
-    let redirect = serve(move || {
-        format!("HTTP/1.1 302 Found\r\nlocation: http://127.0.0.1:{secret}/admin\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
-            .into_bytes()
-    })
-    .await;
-    // `localhost` is allowlisted by name; the redirect goes to 127.0.0.1, which is not.
-    c.fetch_allow = vec!["localhost".into()];
-    let e = call(
-        &c,
-        "fetch",
-        json!({"url": format!("http://localhost:{redirect}/")}),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(e.code, "domain_not_allowed", "{e:?}");
-    // Allowlisted by its exact name, the same redirect is followed.
-    c.fetch_allow = vec!["localhost".into(), "127.0.0.1".into()];
-    let out = call(
-        &c,
-        "fetch",
-        json!({"url": format!("http://localhost:{redirect}/")}),
-    )
-    .await
-    .unwrap();
-    assert!(out.text.contains("internal admin page"), "{}", out.text);
-    // A wildcard lets in a loopback address: refused.
-    c.fetch_allow = vec!["*.0.0.1".into()];
-    let e = call(
-        &c,
-        "fetch",
-        json!({"url": format!("http://127.0.0.1:{secret}/")}),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(e.code, "address_not_allowed", "{e:?}");
-
-    // A body without a length that never ends: read up to the cap, then the tool returns.
-    let endless = serve(|| {
-        let mut r =
-            b"HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\nconnection: close\r\n\r\n".to_vec();
-        r.extend(std::iter::repeat_n(b'a', 3 * 1024 * 1024));
-        r
-    })
-    .await;
-    c.fetch_allow = vec!["127.0.0.1".into()];
-    let out = tokio::time::timeout(
-        std::time::Duration::from_secs(20),
-        call(
-            &c,
-            "fetch",
-            json!({"url": format!("http://127.0.0.1:{endless}/")}),
-        ),
-    )
-    .await
-    .expect("the fetch stops at the cap instead of waiting for the end of the body")
-    .unwrap();
-    let full = std::fs::read_to_string(c.root.join(out.full.unwrap())).unwrap();
-    let body = full.matches('a').count();
-    assert!(
-        (2 * 1024 * 1024..=2 * 1024 * 1024 + 64).contains(&body),
-        "{body}"
-    );
-
-    use std::net::IpAddr;
-    for ip in [
-        "127.0.0.1",
-        "10.1.2.3",
-        "172.16.0.1",
-        "192.168.1.1",
-        "169.254.169.254",
-        "100.64.0.1",
-        "0.0.0.0",
-        "::1",
-        "::",
-        "fe80::1",
-        "fd00::1",
-        "::ffff:127.0.0.1",
-        "::ffff:169.254.169.254",
-        "64:ff9b::a9fe:a9fe",
-    ] {
-        assert!(!public_ip(ip.parse::<IpAddr>().unwrap()), "{ip}");
-    }
-    for ip in ["93.184.215.14", "2606:4700::1111", "::ffff:8.8.8.8"] {
-        assert!(public_ip(ip.parse::<IpAddr>().unwrap()), "{ip}");
-    }
 }
 
 #[tokio::test]
@@ -860,4 +649,97 @@ async fn a_hard_link_out_of_the_worktree_is_not_read_or_written() {
         std::fs::read_to_string(c.root.join("plain.txt")).unwrap(),
         "fine"
     );
+}
+
+/// Audit H2 (2026-10-31): a full output was written with a plain write, through a link a sandboxed command could
+/// plant at the name it would take. A name already taken is left alone and the next one is used.
+#[test]
+fn a_full_output_never_writes_over_what_is_at_its_name() {
+    let (w, c) = setup();
+    let first = c.save_output("one").unwrap();
+    let taken = w.root.join(first.replace("0001", "0002"));
+    std::fs::write(&taken, "the user's file").unwrap();
+    let second = c.save_output("two").unwrap();
+    assert!(second.ends_with("0003.log"), "{second}");
+    assert_eq!(std::fs::read_to_string(&taken).unwrap(), "the user's file");
+    assert_eq!(
+        std::fs::read_to_string(w.root.join(&second)).unwrap(),
+        "two"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_full_output_is_not_written_through_a_planted_link() {
+    let (w, c) = setup();
+    let outside = tempfile::tempdir().unwrap();
+    let target = outside.path().join("bashrc");
+    std::fs::write(&target, "export PATH\n").unwrap();
+    let first = c.save_output("one").unwrap();
+    // The next name, a link out of the worktree; and a folder of the next run's outputs turned into one.
+    let next = w.root.join(first.replace("0001", "0002"));
+    std::os::unix::fs::symlink(&target, &next).unwrap();
+    let saved = c.save_output("rm -rf ~").unwrap();
+    assert!(saved.ends_with("0003.log"), "{saved}");
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "export PATH\n");
+
+    // A later run whose output folder was turned into a link out of the worktree.
+    let other = ToolCtx::new(&w.root, "run2", Arc::new(AllowAll));
+    std::os::unix::fs::symlink(outside.path(), w.root.join("artifacts/tool-output/run2")).unwrap();
+    assert_eq!(
+        other.save_output("x"),
+        None,
+        "nothing is written out of the worktree"
+    );
+    // At most an empty file is left out there (as `write_file` leaves one), never the output.
+    assert!(std::fs::read_dir(outside.path()).unwrap().all(|e| {
+        let n = e.unwrap().file_name();
+        n == "bashrc" || std::fs::metadata(outside.path().join(&n)).unwrap().len() == 0
+    }));
+}
+
+/// Audit L4 (2026-10-31): a model's huge offset or limit overflowed the window arithmetic (a panic in a debug build).
+#[tokio::test]
+async fn a_huge_read_window_is_read_whole() {
+    let (_w, c) = setup();
+    let out = call(
+        &c,
+        "read_file",
+        json!({"path": "src/lib.rs", "offset": 2, "limit": u64::MAX}),
+    )
+    .await
+    .unwrap();
+    assert!(
+        out.text.contains("a - b") && !out.text.contains("showing lines"),
+        "{}",
+        out.text
+    );
+}
+
+/// Audit L3 (2026-10-31): a FIFO a command left in the worktree (`mkfifo`) blocked read_file and write_file for good,
+/// on an async thread and past the run's stop. It is refused at once.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_fifo_in_the_worktree_is_refused_not_waited_on() {
+    let (w, c) = setup();
+    let fifo = w.root.join("pipe.txt");
+    let path = std::ffi::CString::new(fifo.to_string_lossy().as_bytes()).unwrap();
+    // SAFETY: a valid NUL-terminated path.
+    assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
+    let quick = std::time::Duration::from_secs(5);
+    let read = tokio::time::timeout(quick, call(&c, "read_file", json!({"path": "pipe.txt"})))
+        .await
+        .expect("read_file returned");
+    assert!(read.is_err());
+    let write = tokio::time::timeout(
+        quick,
+        call(
+            &c,
+            "write_file",
+            json!({"path": "pipe.txt", "content": "x"}),
+        ),
+    )
+    .await
+    .expect("write_file returned");
+    assert!(write.is_err());
 }

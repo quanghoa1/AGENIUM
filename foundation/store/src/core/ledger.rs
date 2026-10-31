@@ -52,12 +52,36 @@ pub fn undelivered(c: &Connection, project: ProjectId) -> Result<Vec<LeadMessage
 pub fn mark_delivered(c: &Connection, ids: &[i64], at: &str) -> Result<(), StoreError> {
     for id in ids {
         c.execute(
-            "UPDATE lead_message SET delivered_at = ?2 WHERE id = ?1 AND delivered_at IS NULL",
-            params![id, at],
+            "UPDATE lead_message SET delivered_at = ?2 WHERE id = ?1 AND (delivered_at IS NULL OR delivered_at LIKE ?3)",
+            params![id, at, format!("{TAKEN}%")],
         )?;
     }
     Ok(())
 }
+
+/// Marks `ids` as taken by a chat turn that has not reached its end: out of the queue (no longer changed or taken
+/// back), not delivered yet. [`mark_delivered`] confirms them; [`return_taken`] puts back those of a turn the process
+/// died in (audit M9, 2026-10-31: they were marked delivered when taken, and a crash lost them).
+pub fn mark_taken(c: &Connection, ids: &[i64], at: &str) -> Result<(), StoreError> {
+    for id in ids {
+        c.execute(
+            "UPDATE lead_message SET delivered_at = ?2 WHERE id = ?1 AND delivered_at IS NULL",
+            params![id, format!("{TAKEN}{at}")],
+        )?;
+    }
+    Ok(())
+}
+
+/// Puts every message still marked taken back in the queue (at start: no turn survives a restart). Returns how many.
+pub fn return_taken(c: &Connection) -> Result<usize, StoreError> {
+    Ok(c.execute(
+        "UPDATE lead_message SET delivered_at = NULL WHERE delivered_at LIKE ?1",
+        params![format!("{TAKEN}%")],
+    )?)
+}
+
+/// `delivered_at` of a message a turn took and has not confirmed.
+const TAKEN: &str = "taken:";
 
 /// Puts `ids` back in the queue (the turn that took them did not reach its end).
 pub fn mark_undelivered(c: &Connection, ids: &[i64]) -> Result<(), StoreError> {

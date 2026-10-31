@@ -298,7 +298,7 @@ pub fn request(
 pub const STRAY_TOKEN_ENV: &str = "AGENIUM_SANDBOX_RUN";
 
 /// A fresh token for one command (128 random bits from the standard library's hasher keys).
-fn stray_token() -> String {
+pub(crate) fn stray_token() -> String {
     use std::hash::{BuildHasher, Hasher};
     let part = || {
         std::collections::hash_map::RandomState::new()

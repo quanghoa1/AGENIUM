@@ -18,6 +18,12 @@ pub type KeptJudge = HashMap<(String, String, String), Judge>;
 /// The judge's activity kept: the newest this many asks.
 const ACTIVITY_KEEP: usize = 300;
 
+/// A request's state larger than this is not sent (the service times out on it, and no key is at fault).
+const MAX_STATE_BYTES: usize = 400_000;
+
+/// How long the judge pauses after a failure that was not a key's (the service busy, down or timing out).
+const SERVICE_PAUSE: std::time::Duration = std::time::Duration::from_secs(60);
+
 /// One time the judge was asked: what for, about which ticket, what it answered (or why it could not).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JudgeActivity {
@@ -95,8 +101,23 @@ impl App {
         if !j.enabled() {
             return Ok(None);
         }
-        let in_use = self.keys_in_use();
         let keys = j.key_list();
+        // A key whose vault entry is gone is passed over (with a warning), not the end of the judge: the first key
+        // missing its value turned the judge off while the others worked (audit L19, 2026-10-31).
+        let in_use: Vec<String> = self
+            .keys_in_use()
+            .into_iter()
+            .filter(|n| {
+                let has = keys
+                    .iter()
+                    .find(|k| k.name == *n)
+                    .is_some_and(|k| self.secret(&k.secret_ref).ok().flatten().is_some());
+                if !has {
+                    tracing::warn!(key = %n, "judge key has no value in the vault: passed over");
+                }
+                has
+            })
+            .collect();
         let turn = |n: usize| {
             self.judge_turn
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -150,6 +171,25 @@ impl App {
     /// commands and reports can hold a token (jevgrep drops credential-looking files before anything is sent; here every
     /// use goes through this one place). Any other failure returns `None` (fail-open) and is recorded.
     pub(crate) async fn ask(&self, j: &Judging, use_: &str, ticket: Option<&str>) -> Option<Reply> {
+        let skip = |why: &str| {
+            let mut a = JudgeActivity::now(use_, ticket, 0);
+            a.outcome = format!("skipped: {why}");
+            self.log_activity(a);
+        };
+        if self
+            .judge_paused
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_some_and(|until| std::time::Instant::now() < until)
+        {
+            skip("the judge service failed moments ago");
+            return None;
+        }
+        let size = serde_json::to_string(&j.state).map_or(0, |s| s.len());
+        if size > MAX_STATE_BYTES {
+            skip(&format!("the request is too large ({size} bytes)"));
+            return None;
+        }
         let j = &self.redacted(j);
         let (_, first) = self.judge_with_key(Some(Pick::First)).ok().flatten()?;
         let answerer = first.answerer();
@@ -204,8 +244,11 @@ impl App {
                                 return None;
                             }
                         }
+                        // Not the key's fault: no other key is tried with it, and the judge pauses briefly.
                         _ => {
                             tracing::warn!(error = %e, use_, "judge call failed");
+                            *self.judge_paused.lock().unwrap_or_else(|p| p.into_inner()) =
+                                Some(std::time::Instant::now() + SERVICE_PAUSE);
                             return None;
                         }
                     }

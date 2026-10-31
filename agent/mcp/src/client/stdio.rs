@@ -12,6 +12,25 @@ pub(super) struct Stdio {
     _guard: agenium_sandbox::TreeGuard,
 }
 
+/// The next line of `r`, its invalid UTF-8 replaced, `None` at the end. `lines()` stopped for good at the first byte
+/// that was not UTF-8: on stderr the pipe was no longer read and the server blocked on its next write, and on stdout
+/// a live server was taken for dead (audit M12, 2026-10-31).
+pub(crate) async fn next_line_lossy<R: tokio::io::AsyncBufRead + Unpin>(
+    r: &mut R,
+    buf: &mut Vec<u8>,
+) -> Option<String> {
+    use tokio::io::AsyncBufReadExt;
+    buf.clear();
+    match r.read_until(b'\n', buf).await {
+        Ok(0) | Err(_) => None,
+        Ok(_) => Some(
+            String::from_utf8_lossy(buf)
+                .trim_end_matches(['\r', '\n'])
+                .to_owned(),
+        ),
+    }
+}
+
 pub(super) async fn write_line(
     stdin: &tokio::sync::Mutex<tokio::process::ChildStdin>,
     v: &Value,
@@ -55,8 +74,8 @@ impl Stdio {
 
         let tail = stderr.clone();
         tokio::spawn(async move {
-            let mut lines = BufReader::new(stderr_pipe).lines();
-            while let Ok(Some(l)) = lines.next_line().await {
+            let (mut r, mut buf) = (BufReader::new(stderr_pipe), Vec::new());
+            while let Some(l) = next_line_lossy(&mut r, &mut buf).await {
                 let mut t = tail.lock().unwrap_or_else(|p| p.into_inner());
                 if t.len() >= 20 {
                     t.pop_front();
@@ -72,8 +91,8 @@ impl Stdio {
             stderr.clone(),
         );
         tokio::spawn(async move {
-            let mut lines = BufReader::new(stdout).lines();
-            while let Ok(Some(l)) = lines.next_line().await {
+            let (mut r, mut buf) = (BufReader::new(stdout), Vec::new());
+            while let Some(l) = next_line_lossy(&mut r, &mut buf).await {
                 let Ok(msg) = serde_json::from_str::<Value>(&l) else {
                     tracing::debug!(line = %l.chars().take(200).collect::<String>(), "MCP server wrote a non-JSON line");
                     continue;

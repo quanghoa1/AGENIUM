@@ -47,7 +47,7 @@ export function LeadQueue({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") setEditing(null);
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     if (draft.trim()) done(api.editLeadMessage(project, m.id, draft.trim()));
                   }

@@ -100,6 +100,33 @@ impl App {
                 introduced.join("; ")
             ));
         }
+        // The shape and size gate a new skill passes (`lint_skill`: its sections, `## Proof`, the length cap, not a
+        // copy of another): a revision skipped it and could drop the proof or grow past the cap (audit M4,
+        // 2026-10-31; ADR-147: a revision passes the same gates). Only what the change brings counts, as above.
+        let reg = self.skill_registry();
+        let mut bodies: Vec<(String, String)> = Vec::new();
+        for s in reg
+            .for_agent(&agent.to_string(), &a.role, &a.skills)
+            .skills
+            .iter()
+            .chain(reg.library().skills.iter())
+        {
+            if s.meta.name != name && !bodies.iter().any(|(n, _)| *n == s.meta.name) {
+                bodies.push((s.meta.name.clone(), s.body.clone()));
+            }
+        }
+        let lint = |text: &str| crate::skill_shape::lint_skill(name, &strip(text), &bodies);
+        let had = lint(&current);
+        let brought: Vec<String> = lint(&updated)
+            .into_iter()
+            .filter(|n| !had.contains(n))
+            .collect();
+        if !brought.is_empty() {
+            return refuse(format!(
+                "the revised skill is not ready: {}",
+                brought.join("; ")
+            ));
+        }
         // Write a staging copy, validate it as a skill, then swap it in.
         let staging_root = own.with_file_name(format!(".revise-{}", ulid::Ulid::new()));
         let staging = staging_root.join(name);

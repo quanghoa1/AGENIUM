@@ -123,12 +123,21 @@ impl Tool for Trimmed {
         else {
             return Ok(out);
         };
-        let full = out.full.clone().or_else(|| ctx.save_output(&out.text));
-        let text = match &full {
-            Some(rel) if !cut.contains(rel.as_str()) => format!("{cut}\n[full output: {rel}]"),
-            _ => cut,
+        // The lines left out must stay readable: when the full output cannot be kept, it goes untrimmed (audit L20,
+        // 2026-10-31: the text said they were linked below and they were lost).
+        let Some(full) = out.full.clone().or_else(|| ctx.save_output(&out.text)) else {
+            return Ok(out);
         };
-        Ok(ToolOutput { text, full, ..out })
+        let text = if cut.contains(full.as_str()) {
+            cut
+        } else {
+            format!("{cut}\n[full output: {full}]")
+        };
+        Ok(ToolOutput {
+            text,
+            full: Some(full),
+            ..out
+        })
     }
 }
 

@@ -97,13 +97,38 @@ pub fn promote(user_file: &Path, home_file: &Path, lend: Lend) -> bool {
         Some(left) if left > Duration::from_secs(60) => return false,
         _ => {}
     }
-    {
+    let before = {
         let mut h = holders();
+        let before = h
+            .iter()
+            .find(|(u, _)| u == user_file)
+            .map(|(_, other)| other.clone());
         h.retain(|(u, _)| u != user_file);
         h.push((user_file.to_path_buf(), home_file.to_path_buf()));
+        before
+    };
+    // The run that held the role gives it up: its copy becomes a lent one, following the user's file. It kept the whole
+    // login and took in every refreshed token, so two runs held it and both could refresh at once (audit L10,
+    // 2026-10-31).
+    if let Some(other) = before.filter(|o| o != home_file) {
+        demote(user_file, &other, lend);
     }
     let _ = std::fs::remove_file(mark(home_file));
     copy_login(user_file, home_file).is_ok()
+}
+
+/// Turns the whole login of a run that held the refresh token into a lent one (the user's login without it).
+fn demote(user_file: &Path, home_file: &Path, lend: Lend) {
+    let Ok(raw) = std::fs::read(user_file) else {
+        return;
+    };
+    let Some((lent, _)) = serde_json::from_slice(&raw).ok().and_then(|v| lend(&v)) else {
+        return;
+    };
+    let _ = std::fs::remove_file(original(home_file));
+    if let Err(e) = write_lent(home_file, &lent, &raw) {
+        tracing::warn!(error = %e, "the login of the run that held its refresh token was not lent");
+    }
 }
 
 /// Ends a run's hold on a refresh token (its home is going).
@@ -235,6 +260,16 @@ mod tests {
         assert!(promote(&user, &c, lend));
         assert_eq!(read(&c)["refresh"], "r5");
         assert!(holders().iter().any(|(u, h)| u == &user && h == &c));
+        // Audit L10 (2026-10-31): b gave the role up: its login is lent now, and a refresh by c does not reach it.
+        assert!(
+            read(&b).get("refresh").is_none(),
+            "b holds no refresh token"
+        );
+        std::fs::write(&c, login("x6", "r6", 8 * 3600)).unwrap();
+        sync_lent(&user, &c, lend).unwrap();
+        sync_lent(&user, &b, lend).unwrap();
+        assert_eq!(read(&b)["access"], "x6");
+        assert!(read(&b).get("refresh").is_none());
         release(tmp.path());
     }
 }

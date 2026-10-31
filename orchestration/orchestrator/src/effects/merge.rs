@@ -48,10 +48,26 @@ impl App {
         }
         let manifest = self.manifest(p)?;
         let check = self.checks.for_project(p, &manifest);
-        let outcome = repo.merge_ticket(t.key.as_str(), check.as_ref())?;
-        self.inject("after:merge")?;
-        self.store.commit(None, "system", |w| -> Result<()> {
+        let prepared = repo.prepare_merge(t.key.as_str(), check.as_ref())?;
+        let done = self.store.commit(None, "system", |w| -> Result<Option<MergeOutcome>> {
             let mut t = tickets::get(w.tx, t.id)?;
+            let outcome = match prepared {
+                // The rebase and the check took a while (a test suite): the user may have reopened or cancelled the
+                // ticket meanwhile, and its work must not reach main then (audit H1: it did, and a rework approved
+                // later was never merged and its branch deleted). Read again and fast-forward inside this
+                // transaction, which a reopen or a cancel cannot interleave with.
+                Prepared::Ready { head, main_before } => {
+                    if !(t.status == TicketStatus::Resolved && t.approved && !t.merged) {
+                        let why = format!("{} became {} during the merge's check", t.key, t.status);
+                        complete(w, row, &t, "failed", serde_json::json!({ "obsolete": why }))?;
+                        return Ok(None);
+                    }
+                    let o = repo.fast_forward(&head, &main_before)?;
+                    self.inject("after:merge")?;
+                    o
+                }
+                Prepared::Done(o) => o,
+            };
             match &outcome {
                 MergeOutcome::Merged { sha, .. } | MergeOutcome::AlreadyMerged { sha } => {
                     if !t.merged {
@@ -98,9 +114,9 @@ impl App {
                     complete(w, row, &t, "failed", serde_json::json!({ "check_failed": true, "log": tail(log, MAX_LOG_CHARS) }))?;
                 }
             }
-            Ok(())
+            Ok(Some(outcome))
         })?;
-        if let MergeOutcome::Merged { changed_files, .. } = &outcome {
+        if let Some(MergeOutcome::Merged { changed_files, .. }) = &done.value {
             if let Err(e) = self.nudge_rebase(p, repo, t, changed_files) {
                 tracing::warn!(error = %e, "early rebase nudge failed");
             }

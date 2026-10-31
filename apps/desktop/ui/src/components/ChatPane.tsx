@@ -311,7 +311,8 @@ export function ChatPane({
           onPaste={onPaste}
           onKeyDown={(e) => {
             if (e.key === "Backspace" && dropLabel(e)) return;
-            if (e.key === "Enter" && !e.shiftKey) {
+            // Not while an IME composes (the Vietnamese keyboard): that Enter ends the word, not the message (audit L16).
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               send();
             }

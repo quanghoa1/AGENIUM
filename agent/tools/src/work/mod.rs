@@ -39,6 +39,7 @@ pub use glob::*;
 pub use grep::*;
 pub use list_dir::*;
 pub use read_file::*;
+pub(crate) use real_write::write_new;
 pub use shell::*;
 pub use shell_awaited::ended_message;
 pub use shell_jobs::*;
