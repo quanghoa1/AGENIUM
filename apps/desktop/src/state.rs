@@ -191,10 +191,6 @@ pub struct Desktop {
     pub approvals: Arc<Approvals>,
     /// The project rounds currently running (no second round of the same project in parallel).
     pub busy: Arc<Mutex<std::collections::HashSet<agenium_core::ProjectId>>>,
-    /// Agent CLIs found on this machine and when (detection runs each CLI: cached, refreshed on demand).
-    pub clis: Mutex<Option<(std::time::Instant, Vec<agenium_cli_backend::CliInfo>)>>,
-    /// Models each CLI can run, listed at most every 5 minutes.
-    pub cli_models: Mutex<Option<(std::time::Instant, CliModels)>>,
     /// The embedding model's preparation: the root opens once it is ready (`crate::model`).
     pub model: Mutex<crate::model::ModelPrep>,
 }
@@ -206,8 +202,6 @@ impl Desktop {
             opened: RwLock::new(None),
             approvals: Arc::default(),
             busy: Arc::default(),
-            clis: Mutex::new(None),
-            cli_models: Mutex::new(None),
             model: Mutex::default(),
         }
     }

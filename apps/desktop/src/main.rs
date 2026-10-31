@@ -32,7 +32,7 @@ fn main() {
             let handle = app.handle().clone();
             // The root opens once the embedding model is in place (memory needs it).
             tauri::async_runtime::spawn(model::ensure(handle.clone()));
-            tauri::async_runtime::spawn(api::warm_cli_caches(handle.clone()));
+            tauri::async_runtime::spawn(api::warm_model_caches(handle.clone()));
             spawn_event_forwarder(handle.clone());
             spawn_usage_refresh(handle.clone());
             spawn_maintenance(handle.clone());
@@ -97,6 +97,7 @@ fn main() {
             api::vendor_usage,
             api::refresh_vendor_usage,
             api::read_claude_usage,
+            api::reload_cli_models,
             api::decide_role_proposal,
             api::save_template,
             api::remove_template,

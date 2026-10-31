@@ -408,6 +408,8 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "mcp_servers":
     case "local_servers":
     case "provider_models":
+    case "reload_cli_models":
+      return { value: [], at: new Date().toISOString(), error: null };
     case "agent_bus":
       return [];
     default:

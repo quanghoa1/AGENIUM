@@ -1,20 +1,25 @@
 import { AlertTriangle, CheckCircle2, KeyRound, Laptop, ListTree, Pencil, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { ConfirmModal } from "../../components/motion";
-import { Empty, Mono, PageHeader, Section, cn } from "../../components/ui";
+import { ModelsReload } from "../../components/ModelsReload";
+import { Empty, Mono, PageHeader, Section, ago, cn } from "../../components/ui";
 import { api } from "../../lib/api";
 import type { Key } from "../../lib/i18n";
 import { useApp } from "../../lib/store";
 import type { Capabilities, ModelInfo } from "../../lib/types";
 import { PRESETS, Preset, ProviderDraft, ProviderForm, capsDraft } from "./ProviderForm";
 
-function ModelsList({ id }: { id: string }) {
+/** A provider's models as kept; `at` changes after a reload, and the list is read again. */
+function ModelsList({ id, at }: { id: string; at?: string | null }) {
   const app = useApp();
   const [ms, setMs] = useState<ModelInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api.providerModels(id).then(setMs).catch((e) => setError(String(e)));
-  }, [id]);
+    api
+      .providerModels(id)
+      .then((c) => (setMs(c.value), setError(c.value.length ? null : (c.error ?? null))))
+      .catch((e) => setError(String(e)));
+  }, [id, at]);
   if (error) return <div className="text-[11px] text-rose-600 dark:text-rose-400">{error}</div>;
   if (!ms) return <div className="text-[11px] text-subtle">{app.t("common.loading")}</div>;
   const flag = (b?: boolean | null) => (b === true ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : b === false ? <XCircle className="h-3.5 w-3.5 text-rose-500" /> : <span className="text-subtle">?</span>);
@@ -197,7 +202,12 @@ export function ProvidersView() {
                   <td>{p.has_key ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="text-subtle">–</span>}</td>
                   <td className="font-mono">{p.max_concurrency}</td>
                   <td className="py-1.5">
-                    <div className="flex justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <ModelsReload
+                        at={c.models_at?.[`api:${p.id}`]?.at}
+                        error={c.models_at?.[`api:${p.id}`]?.error}
+                        onReload={() => api.providerModels(p.id, true).then(() => load())}
+                      />
                       <button className="btn" onClick={() => setModels(models === p.id ? null : p.id)}>
                         <ListTree className="h-3.5 w-3.5" /> {app.t("providers.models")}
                       </button>
@@ -235,7 +245,7 @@ export function ProvidersView() {
                 {models === p.id && (
                   <tr key={p.id + "-models"}>
                     <td colSpan={6} className="pb-3">
-                      <ModelsList id={p.id} />
+                      <ModelsList id={p.id} at={c.models_at?.[`api:${p.id}`]?.at} />
                     </td>
                   </tr>
                 )}
@@ -260,7 +270,9 @@ export function ProvidersView() {
           </button>
         }
       >
-        <div className="mb-3 text-[11px] text-subtle">{app.t("providers.cliNote")}</div>
+        <div className="mb-3 text-[11px] text-subtle">
+          {app.t("providers.cliNote")} {c.clis_at && `${app.t("providers.clisFound")} ${ago(c.clis_at)}.`} {app.t("models.weekly")}
+        </div>
         <table className="w-full text-xs">
           <thead>
             <tr className="label border-b border-line text-left">
@@ -268,13 +280,14 @@ export function ProvidersView() {
               <th>{app.t("providers.version")}</th>
               <th>{app.t("providers.login")}</th>
               <th>{app.t("providers.usable")}</th>
+              <th>{app.t("providers.models")}</th>
               <th>{app.t("providers.note")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {c.clis_pending && (
               <tr>
-                <td colSpan={5} className="py-3 text-muted">
+                <td colSpan={6} className="py-3 text-muted">
                   <RefreshCw className="mr-2 inline h-3.5 w-3.5 animate-spin" />
                   {app.t("providers.detecting")}
                 </td>
@@ -297,6 +310,20 @@ export function ProvidersView() {
                     <span title={app.t("providers.loginUnsure")}>
                       <AlertTriangle className="h-4 w-4 text-amber-500" />
                     </span>
+                  )}
+                </td>
+                <td>
+                  {x.compatible ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Mono className="text-muted">{c.cli_models?.[x.kind.toLowerCase()]?.length ?? 0}</Mono>
+                      <ModelsReload
+                        at={c.models_at?.[`cli:${x.kind.toLowerCase()}`]?.at}
+                        error={c.models_at?.[`cli:${x.kind.toLowerCase()}`]?.error}
+                        onReload={() => api.reloadCliModels(x.kind.toLowerCase()).then(() => load())}
+                      />
+                    </span>
+                  ) : (
+                    <span className="text-subtle">–</span>
                   )}
                 </td>
                 <td className="text-[11px] text-subtle">{x.path ? cliNote(x.note, app.t) : app.t("providers.notInstalled")}</td>

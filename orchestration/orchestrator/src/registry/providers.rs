@@ -213,6 +213,8 @@ impl App {
             c.providers.push(pc.clone());
             c.providers.sort_by(|a, b| a.id.cmp(&b.id));
         })?;
+        // Its endpoint, key or named models may have changed: its models are listed again when next shown.
+        self.forget_models(&crate::model_cache::api_key(&pc.id))?;
         Ok(pc)
     }
 
@@ -244,6 +246,7 @@ impl App {
         if !pc.api_key_ref.is_empty() {
             let _ = self.secrets().delete(&pc.api_key_ref);
         }
+        self.forget_models(&crate::model_cache::api_key(id))?;
         Ok(())
     }
 }

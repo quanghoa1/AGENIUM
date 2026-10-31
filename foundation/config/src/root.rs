@@ -121,6 +121,10 @@ impl RootLayout {
     pub fn price_catalogue(&self) -> PathBuf {
         self.root.join("price-catalogue.json")
     }
+    /// The agent CLIs found and the models each source lists, with when (a cache: listed again, never edited).
+    pub fn model_cache(&self) -> PathBuf {
+        self.root.join("model-cache.json")
+    }
     pub fn db(&self) -> PathBuf {
         self.root.join("db")
     }

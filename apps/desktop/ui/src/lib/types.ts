@@ -414,6 +414,10 @@ export interface Capabilities {
   cli_fallback: { provider: string; model: string };
   /** Models a CLI backend can run that Agenium knows of (opencode: OpenCode's free models), with their effort levels. */
   cli_models?: Record<string, ModelInfo[]>;
+  /** When each source's models were last listed and its last failure (`api:<id>`, `cli:<program>`). */
+  models_at?: Record<string, { at?: string | null; error?: string | null }>;
+  /** When the agent CLIs were last found. */
+  clis_at?: string | null;
 }
 
 export interface Fact {

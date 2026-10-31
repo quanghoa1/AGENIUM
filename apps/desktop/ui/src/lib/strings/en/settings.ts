@@ -153,5 +153,11 @@ export const settings = {
   "providers.note.opencodeZen": "OpenCode Zen: pay as you go — each request is paid from your account's credit; a Go subscription is not used here. Its free models answer only inside OpenCode.",
   "model.goPlan": "OpenCode Go subscription",
   "model.zenCredit": "OpenCode Zen credit",
+  "models.reload": "Reload models",
+  "models.listed": "models listed",
+  "models.never": "models not listed yet",
+  "models.lastFailed": "last reload failed",
+  "models.weekly": "Models are kept: listed the first time, again on their own once a week, or now with ↻.",
+  "providers.clisFound": "CLIs found",
   "providers.more": "More vendors…",
 } as const;

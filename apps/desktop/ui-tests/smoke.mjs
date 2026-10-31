@@ -9,16 +9,20 @@ const out = process.argv[2] ?? "ui-smoke";
 const port = process.argv[3] ?? "9222";
 mkdirSync(out, { recursive: true });
 
+// The app's page once it shows the app: it starts with no address, then `about:blank`, before the app's first
+// navigation, and the reload below sent then cancelled that navigation for good (an empty window: "setup opens the
+// app" failed now and then, 2026-10-31).
+const appPage = (ts) => ts.find((x) => x.type === "page" && /^(https?|tauri):/.test(x.url));
 let targets = [];
-for (let i = 0; i < 120 && !targets.some((x) => x.type === "page"); i++) {
+for (let i = 0; i < 120 && !appPage(targets); i++) {
   try {
     targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
   } catch {
     /* the app is starting */
   }
-  if (!targets.some((x) => x.type === "page")) await new Promise((r) => setTimeout(r, 1000));
+  if (!appPage(targets)) await new Promise((r) => setTimeout(r, 1000));
 }
-const page = targets.find((x) => x.type === "page");
+const page = appPage(targets);
 if (!page) {
   console.log("FAIL no app page on the DevTools port");
   process.exit(1);
@@ -77,6 +81,9 @@ const mainText = () => js("document.querySelector('main')?.innerText ?? ''");
 
 await send("Runtime.enable");
 await send("Page.enable");
+// The reload only once the app's page has loaded: one sent while its first navigation was still going cancelled it,
+// and the window stayed blank (`about:blank`).
+await until("document.readyState === 'complete' && !!window.__TAURI_INTERNALS__", 60000);
 await js(`localStorage.setItem('agenium-lang','en')`);
 await send("Page.reload");
 await until("document.body.innerText.length > 20", 30000);
@@ -92,7 +99,15 @@ const setupShown = await until("document.body.innerText.includes('Set up') || do
 await shot("01-setup");
 const started = setupShown && (await js(`(() => { const b = document.querySelector('.btn-primary'); if (!b) return false; b.click(); return true; })()`));
 const shell = await until("!!document.querySelector('main')", 30000);
-check("setup opens the app", started && shell);
+const seen =
+  started && shell
+    ? ""
+    : (await js(`JSON.stringify({ state: document.readyState, root: !!document.querySelector('#root')?.childElementCount, text: document.body.innerText.length, url: location.href })`)) +
+      " targets " +
+      JSON.stringify((await (await fetch(`http://127.0.0.1:${port}/json`)).json()).map((t) => [t.type, t.url, t.id.slice(0, 8)])) +
+      " attached " +
+      page.id.slice(0, 8);
+check("setup opens the app", started && shell, seen);
 
 // 2. A project, created through the form.
 await js(`window.location.hash = '/projects'`);

@@ -155,5 +155,11 @@ export const settings: Record<keyof typeof en, string> = {
   "providers.note.opencodeZen": "OpenCode Zen: trả theo lượt dùng — mỗi request trừ vào credit của tài khoản, không dùng gói Go. Model free của Zen chỉ chạy bên trong OpenCode.",
   "model.goPlan": "gói OpenCode Go",
   "model.zenCredit": "credit OpenCode Zen",
+  "models.reload": "Tải lại model",
+  "models.listed": "model tải",
+  "models.never": "chưa tải model",
+  "models.lastFailed": "lần tải lại gần nhất bị lỗi",
+  "models.weekly": "Danh sách model được lưu lại: tải lần đầu, tự tải lại mỗi tuần một lần, hoặc bấm ↻ để tải ngay.",
+  "providers.clisFound": "Dò CLI",
   "providers.more": "Nhà cung cấp khác…",
 };

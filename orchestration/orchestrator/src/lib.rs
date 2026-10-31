@@ -18,6 +18,7 @@ pub mod maintenance;
 pub mod manifest;
 pub mod mcp;
 pub mod memory_settle;
+pub mod model_cache;
 pub mod model_lists;
 pub mod prices;
 pub mod project_close;

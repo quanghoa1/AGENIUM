@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ModelsReload } from "../../components/ModelsReload";
 import { DeprecatedTag, FreeTag, cn } from "../../components/ui";
 import { api, type ModelArg } from "../../lib/api";
 import { deprecation, isFree, priceLabel, priceOf, usePrices } from "../../lib/prices";
@@ -25,7 +26,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
     let stale = false;
     api
       .providerModels(value.provider)
-      .then((ms) => !stale && ms.length && setModels(ms))
+      .then((c) => !stale && c.value.length && setModels(c.value))
       .catch(() => undefined);
     return () => {
       stale = true;
@@ -85,12 +86,22 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
               </option>
             ))}
       </select>
-      <div className="relative">
-        <input className={cn("input w-full", isFree(price(value.model)) && "pr-14", picked && "pr-28")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
-        {picked ? (
-          <DeprecatedTag instead={picked.instead} className="absolute right-2 top-1/2 -translate-y-1/2" />
-        ) : (
-          isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />
+      <div className="flex items-center gap-1">
+        <div className="relative min-w-0 flex-1">
+          <input className={cn("input w-full", isFree(price(value.model)) && "pr-14", picked && "pr-28")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
+          {picked ? (
+            <DeprecatedTag instead={picked.instead} className="absolute right-2 top-1/2 -translate-y-1/2" />
+          ) : (
+            isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />
+          )}
+        </div>
+        {/* The list as kept; this lists the provider's or the CLI's models again now. */}
+        {value.provider && (
+          <ModelsReload
+            compact
+            at={caps?.models_at?.[`${cli ? "cli" : "api"}:${value.provider}`]?.at}
+            onReload={() => (cli ? api.reloadCliModels(value.provider) : api.providerModels(value.provider, true)).then((c) => setModels(c.value))}
+          />
         )}
       </div>
       <datalist id={listId}>

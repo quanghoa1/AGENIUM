@@ -19,3 +19,9 @@ that CLI can use; the same for every vendor").
 
 - `agy::tests::lists_models`; real app: codex 7, agy 13, Claude 7, opencode 9; OpenCode Go API list 36 models, none
   free.
+
+## Amendment (2026-10-31)
+
+The opencode CLI's list is the user's OpenCode account (ADR-68, amended): only its `-free` models and `big-pickle` are
+tagged FREE, the others say whether the Go subscription or Zen's credit pays. The lists are kept and reloaded as
+ADR-150 says.

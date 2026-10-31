@@ -5,10 +5,10 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The CLIs Agenium detects (decision 3c; `devin` added for the owner's setup). Which ones it drives: `crate::driver`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CliKind {
     Codex,
@@ -91,7 +91,7 @@ impl CliKind {
 /// Arguments of a login-status command and the reader of its output.
 type LoginProbe = (&'static [&'static str], fn(&str) -> Option<bool>);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Login {
     LoggedIn,
@@ -99,7 +99,7 @@ pub enum Login {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CliInfo {
     pub kind: CliKind,
     pub path: Option<PathBuf>,

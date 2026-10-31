@@ -600,8 +600,11 @@ pub struct ProviderForm {
     effort_field: Option<String>,
 }
 
+/// Saves a provider, then lists its models at once (ADR-150): the agent form has them, and a wrong key or address
+/// shows now rather than at the first run. The listing waits at most 20 s; one not done by then is listed when next
+/// shown.
 #[tauri::command]
-pub fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<()> {
+pub async fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<Value> {
     let o = d.opened()?;
     let kind = match form.kind.as_str() {
         "anthropic" => ProviderKind::Anthropic,
@@ -627,8 +630,20 @@ pub fn put_provider(d: State<'_, Desktop>, form: ProviderForm) -> R<()> {
             models: form.models,
         })
         .map_err(err)?;
-    o.rt.forget_provider(form.id.trim());
-    Ok(())
+    let id = form.id.trim().to_owned();
+    o.rt.forget_provider(&id);
+    let listed = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        list_provider_models(&o, &id),
+    )
+    .await;
+    match listed {
+        Ok(got) => Ok(json!(o
+            .app
+            .record_models(&agenium_orchestrator::model_cache::api_key(&id), got)
+            .map_err(err)?)),
+        Err(_) => Ok(Value::Null),
+    }
 }
 
 #[tauri::command]
@@ -639,12 +654,14 @@ pub fn remove_provider(d: State<'_, Desktop>, id: String) -> R<()> {
     Ok(())
 }
 
-/// Models the provider lists, with what Agenium knows about them (tool calling, vision, context window).
-#[tauri::command]
-pub async fn provider_models(d: State<'_, Desktop>, id: String) -> R<Value> {
-    let o = d.opened()?;
-    let p = o.rt.providers.provider(&id).map_err(err)?;
-    let pc = o.app.config().provider(&id).cloned();
+/// The models an API provider lists now, with the ones the user named for it and their settings; only what its API
+/// serves (OpenCode Zen's free models need the opencode CLI, ADR-68).
+pub(crate) async fn list_provider_models(
+    o: &crate::state::Opened,
+    id: &str,
+) -> Result<Vec<agenium_llm::ModelInfo>, String> {
+    let p = o.rt.providers.provider(id).map_err(|e| e.to_string())?;
+    let pc = o.app.config().provider(id).cloned();
     // An endpoint that cannot list its models still has the ones the user named.
     let listed = p.list_models().await;
     let named = pc
@@ -670,13 +687,30 @@ pub async fn provider_models(d: State<'_, Desktop>, id: String) -> R<Value> {
         }
     }
     // Only what the API serves (OpenCode's free models need the opencode CLI backend, ADR-68).
-    models.retain(|m| o.app.api_serves(&id, &m.id));
+    models.retain(|m| o.app.api_serves(id, &m.id));
     if let Some(pc) = &pc {
         for m in &mut models {
             agenium_orchestrator::runtime::apply_caps(pc, m);
         }
     }
-    Ok(json!(models))
+    Ok(models)
+}
+
+/// A provider's models from the model cache (`model_cache`), listed again when `refresh` (the reload button), when it
+/// was never listed, or when its list is a week old: the entry as kept, with when and any error.
+#[tauri::command]
+pub async fn provider_models(d: State<'_, Desktop>, id: String, refresh: Option<bool>) -> R<Value> {
+    use agenium_orchestrator::model_cache;
+    let o = d.opened()?;
+    let key = model_cache::api_key(&id);
+    let cached = o.app.model_cache().models.remove(&key);
+    if refresh != Some(true) && !model_cache::due(cached.as_ref(), chrono::Utc::now()) {
+        if let Some(c) = cached {
+            return Ok(json!(c));
+        }
+    }
+    let got = list_provider_models(&o, &id).await;
+    Ok(json!(o.app.record_models(&key, got).map_err(err)?))
 }
 
 /// Known vendors with their adapter, endpoint and usual key variable (ADR-107).

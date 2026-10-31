@@ -255,7 +255,10 @@ export const api = {
   }) =>
     call<void>("put_provider", { form }),
   removeProvider: (id: string) => call<void>("remove_provider", { id }),
-  providerModels: (id: string) => call<ModelInfo[]>("provider_models", { id }),
+  /** A provider's models as kept (listed again with `refresh`, when new or a week old): with when and any error. */
+  providerModels: (id: string, refresh = false) => call<CachedModels>("provider_models", { id, refresh }),
+  /** Lists one CLI's models again now. */
+  reloadCliModels: (cli: string) => call<CachedModels>("reload_cli_models", { cli }),
   localServers: () => call<LocalServer[]>("local_servers"),
   providerPresets: () =>
     call<{ id: string; name: string; kind: "anthropic" | "gemini" | "openai_compat"; base_url?: string | null; key_env: string; note: string }[]>(
@@ -311,4 +314,11 @@ export async function onUsage(f: () => void): Promise<UnlistenFn> {
 export async function onApproval(f: (a: CommandApproval) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => {};
   return listen<CommandApproval>("agenium://approval", (e) => f(e.payload));
+}
+
+/** A source's models as kept in the model cache. */
+export interface CachedModels {
+  value: ModelInfo[];
+  at?: string | null;
+  error?: string | null;
 }

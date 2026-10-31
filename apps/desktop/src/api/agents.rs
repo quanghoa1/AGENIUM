@@ -1,6 +1,7 @@
 //! Agents, teams, runs and events.
 
 use super::*;
+use agenium_orchestrator::model_cache;
 
 #[tauri::command]
 pub fn agents(d: State<'_, Desktop>) -> R<Vec<Value>> {
@@ -287,23 +288,24 @@ pub fn events(d: State<'_, Desktop>, since: Option<u64>, limit: Option<usize>) -
         .map_err(err)?))
 }
 
-/// The agent CLIs on this machine, detected at most every 5 minutes (or now with `refresh`).
+/// The agent CLIs on this machine, from the model cache: found again when the user asks (`refresh`), the first time,
+/// and once the last search is a week old (`model_cache`). Before the root is open they are found without keeping.
 pub async fn detected_clis(d: &Desktop, refresh: bool) -> R<Vec<agenium_cli_backend::CliInfo>> {
-    let cached = d
-        .clis
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .as_ref()
-        .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(300))
-        .map(|(_, v)| v.clone());
-    if let Some(v) = cached.filter(|_| !refresh) {
-        return Ok(v);
+    let o = d.opened().ok();
+    if let Some(o) = &o {
+        let cached = o.app.model_cache().clis;
+        if !refresh && !model_cache::due(cached.as_ref(), chrono::Utc::now()) {
+            if let Some(c) = cached {
+                return Ok(c.value);
+            }
+        }
     }
     let found = tokio::task::spawn_blocking(agenium_cli_backend::detect::detect_all)
         .await
         .map_err(|e| e.to_string())?;
-    *d.clis.lock().unwrap_or_else(|p| p.into_inner()) =
-        Some((std::time::Instant::now(), found.clone()));
+    if let Some(o) = &o {
+        o.app.record_clis(found.clone()).map_err(err)?;
+    }
     Ok(found)
 }
 
@@ -321,18 +323,36 @@ pub(super) fn signed_in_by_models(
     }
 }
 
-/// Finds the agent CLIs and their models in the background once the root is open, so the first look at the
-/// providers page or the agent form does not wait for them (about 8 s cold, every CLI started twice).
-pub(crate) async fn warm_cli_caches(handle: tauri::AppHandle) {
+/// Once the root is open, lists in the background what is due (`model_cache`): on a new install the agent CLIs and
+/// their models (no provider has a key yet; one is listed when saved), then a source that is a week old, or one whose
+/// listing was missed. A page or the agent form then reads them at once.
+pub(crate) async fn warm_model_caches(handle: tauri::AppHandle) {
     use tauri::Manager;
     for _ in 0..600 {
         let d = handle.state::<Desktop>();
         if let Ok(o) = d.opened() {
             match detected_clis(&d, false).await {
                 Ok(clis) => {
-                    cli_models(&d, &o, &clis, false).await;
+                    cli_models(&o, &clis, None).await;
                 }
                 Err(e) => tracing::warn!(error = %e, "the agent CLIs were not detected in advance"),
+            }
+            let due: Vec<String> = {
+                let cache = o.app.model_cache();
+                let now = chrono::Utc::now();
+                o.app
+                    .config()
+                    .providers
+                    .iter()
+                    .map(|p| p.id.clone())
+                    .filter(|id| model_cache::due(cache.models.get(&model_cache::api_key(id)), now))
+                    .collect()
+            };
+            for id in due {
+                let got = crate::manage::list_provider_models(&o, &id).await;
+                if let Err(e) = o.app.record_models(&model_cache::api_key(&id), got) {
+                    tracing::warn!(provider = id, error = %e, "the provider's models were not kept");
+                }
             }
             return;
         }
@@ -340,27 +360,60 @@ pub(crate) async fn warm_cli_caches(handle: tauri::AppHandle) {
     }
 }
 
-/// Models each driven CLI can run (`model/list`, `agy models`, ...), listed at most every 5 minutes.
+/// Models each driven CLI can run (`model/list`, `agy models`, ...), from the model cache. Listed again: the CLIs due
+/// (new, or a week old), or every one when `reload` is `Some(None)`, or the one named in `Some(Some(program))`.
 pub(super) async fn cli_models(
-    d: &Desktop,
     o: &crate::state::Opened,
     clis: &[agenium_cli_backend::CliInfo],
-    refresh: bool,
+    reload: Option<Option<&str>>,
 ) -> crate::state::CliModels {
-    let cached = d
-        .cli_models
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .as_ref()
-        .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(300))
-        .map(|(_, v)| v.clone());
-    if let Some(v) = cached.filter(|_| !refresh) {
-        return v;
+    let now = chrono::Utc::now();
+    let cache = o.app.model_cache();
+    let todo = clis.iter().filter(|c| {
+        let program = c.kind.program();
+        match reload {
+            Some(None) => true,
+            Some(Some(p)) => p == program,
+            None => model_cache::due(cache.models.get(&model_cache::cli_key(program)), now),
+        }
+    });
+    let listed = agenium_orchestrator::model_lists::cli_models_each(&o.app, todo).await;
+    for (program, got) in listed {
+        if let Some(got) = got {
+            if let Err(e) = o.app.record_models(&model_cache::cli_key(program), got) {
+                tracing::warn!(cli = program, error = %e, "the CLI's models were not kept");
+            }
+        }
     }
-    let found = agenium_orchestrator::model_lists::cli_models(&o.app, clis).await;
-    *d.cli_models.lock().unwrap_or_else(|p| p.into_inner()) =
-        Some((std::time::Instant::now(), found.clone()));
-    found
+    let cache = o.app.model_cache();
+    clis.iter()
+        .filter_map(|c| {
+            let program = c.kind.program();
+            let e = cache.models.get(&model_cache::cli_key(program))?;
+            (!e.value.is_empty()).then(|| (program.to_owned(), e.value.clone()))
+        })
+        .collect()
+}
+
+/// Lists one CLI's models again now (the reload button): the entry as kept, with when and any error.
+#[tauri::command]
+pub async fn reload_cli_models(d: State<'_, Desktop>, cli: String) -> R<Value> {
+    let o = d.opened()?;
+    let clis = detected_clis(&d, false).await?;
+    let c = clis
+        .iter()
+        .find(|c| c.kind.program() == cli)
+        .ok_or_else(|| format!("no CLI named {cli}"))?;
+    let key = model_cache::cli_key(&cli);
+    let e = match agenium_orchestrator::model_lists::cli_models_of(&o.app, c).await {
+        Some(got) => o.app.record_models(&key, got).map_err(err)?,
+        None => {
+            return Err(format!(
+                "{cli} lists no models here: not installed, too old, signed out or not driven"
+            ))
+        }
+    };
+    Ok(json!(e))
 }
 
 /// The judge's state: configured, enabled (not disabled by a failure), and why if disabled (ADR-81).
@@ -597,14 +650,23 @@ pub async fn capabilities(
     let (clis, models) = if pending {
         (vec![], Default::default())
     } else {
-        let mut clis = detected_clis(&d, refresh == Some(true)).await?;
-        let models = cli_models(&d, &o, &clis, refresh == Some(true)).await;
+        // "Find again" finds the CLIs and lists every one's models again.
+        let refresh = refresh == Some(true);
+        let mut clis = detected_clis(&d, refresh).await?;
+        let models = cli_models(&o, &clis, refresh.then_some(None)).await;
         signed_in_by_models(&mut clis, &models);
         (clis, models)
     };
+    // When each source was last listed, and its last failure (`api:<id>`, `cli:<program>`).
+    let cache = o.app.model_cache();
+    let models_at: serde_json::Map<String, Value> = cache
+        .models
+        .iter()
+        .map(|(k, e)| (k.clone(), json!({ "at": e.at, "error": e.error })))
+        .collect();
     Ok(json!({
         "providers": providers, "clis": clis, "clis_pending": pending,
-        "cli_models": models,
+        "cli_models": models, "models_at": models_at, "clis_at": cache.clis.and_then(|c| c.at),
         "templates": o.app.team_templates().map_err(err)?,
         "cli_fallback": { "provider": cfg.cli.fallback_provider, "model": cfg.cli.fallback_model },
     }))

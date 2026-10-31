@@ -68,6 +68,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
 ### Models
+- Model lists are kept (ADR-150): the agent CLIs and their models are listed on a new install, a provider's models
+  when it is saved, then when the user reloads one (a button on each provider and CLI, and in the agent form's model picker) or on
+  their own once a week; each says when it was listed and whether the last reload failed. The app no longer starts
+  every CLI again every five minutes. The OpenCode Go API lists its own free models (`beam-free`).
 - OpenCode Go and OpenCode Zen are two choices when adding a provider, each saying how it bills (the same account key
   works on both; Go uses the subscription, Zen the credit); Zen's "insufficient funds" points to Go. The opencode
   CLI offers the models of the user's OpenCode account (its Go subscription and Zen, each labelled free, Go
