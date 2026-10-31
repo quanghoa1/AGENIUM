@@ -4,3 +4,6 @@ xtask = "run -q -p xtask --"
 [env]
 # mxc-sdk (Windows sandbox backend) needs an rc.exe at build time; see devtools/scripts/rc-windres.cmd.
 RC_PATH = { value = "devtools/scripts/rc-windres.cmd", relative = true }
+# The C++ in the store (usearch, through cxx and link-cplusplus) links libstdc++ statically on the GNU Windows target:
+# a clean Windows has no libstdc++-6.dll, so a build that imported it did not start there (2026-11-01).
+CXXSTDLIB_x86_64_pc_windows_gnu = "static:-bundle=stdc++"

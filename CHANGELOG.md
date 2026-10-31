@@ -144,6 +144,14 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - The team starting and a project done are told (with the way there; a done project also as a desktop notification);
   the Lead's chat leads to the live office, the tickets and the runs, and its ticket keys open the ticket.
 - First start prepares the local embedding model (bundled with the installer) before the app opens.
+- Installers: Windows (NSIS, MSI), Linux (`.deb`, AppImage) and macOS (an ad-hoc signed `.app` in a `.dmg`, not
+  notarized). Found on a clean Windows 11 VM (2026-11-01): the app built since the vector index (ADR-125) did not start
+  there, as it needed the C++ library of the build machine (`libstdc++-6.dll`); it is now linked in, and local CI fails
+  a Windows build that imports a DLL of the build toolchain (`check-dlls.ps1`).
+- A newer version installs over the old one and keeps everything: the data lives in the root (`~/.agenium`), apart
+  from the app's folder, and uninstalling leaves it too. Checked on a clean Windows 11 VM (2026-11-01) through the
+  installers' own windows: 0.1.0 with a project, a team, a provider and its key, then 0.1.1 over it while the app ran
+  (closed and restarted by the installer), then the MSI. The app now shows the installer's version, not the crate's.
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 
 ### Safety

@@ -1,4 +1,5 @@
-# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, vendor check, cargo-deny
+# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, vendor check, the size ratchet,
+# no MSYS2 DLL imported (check-dlls.ps1), cargo-deny
 # (licenses, RustSec advisories, sources; deny.toml; install: cargo install cargo-deny --locked), scripted golden tasks,
 # and with -Ui the desktop app's UI smoke test (ui-smoke.ps1: a throwaway root, no model, no OS keyring entry).
 # Usage: .\devtools\scripts\ci-local.ps1 [-Quick] [-FailFast] [-Ui]     Logs: target\ci-local\<step>.log
@@ -16,6 +17,7 @@ $steps = @(
   @{ name = "schemas"; cmd = "cargo xtask schemas --check" },
   @{ name = "vendor";  cmd = "cargo xtask vendor-check" },
   @{ name = "ratchet"; cmd = "cargo xtask ratchet" },
+  @{ name = "dlls";    cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File devtools\scripts\check-dlls.ps1" },
   @{ name = "deny";    cmd = "(cargo deny check && cargo deny --manifest-path apps\desktop\Cargo.toml check)" }
 )
 if (-not $Quick) { $steps += @{ name = "golden-scripted"; cmd = "cargo run -q -p agenium-eval -- --out target\ci-local\eval" } }

@@ -29,13 +29,14 @@ pub async fn support_bundle(d: State<'_, Desktop>, out: String) -> R<String> {
 }
 
 #[tauri::command]
-pub fn status(d: State<'_, Desktop>) -> Value {
+pub fn status(d: State<'_, Desktop>, handle: AppHandle) -> Value {
     let opened = d.opened().ok();
     let cfg = opened.as_ref().map(|o| o.app.config());
     json!({
         "root": d.root.display().to_string(),
         "ready": opened.is_some(),
-        "version": env!("CARGO_PKG_VERSION"),
+        // The installer's version (tauri.conf.json), the one Windows, the .deb and the .app show; not the crate's.
+        "version": handle.package_info().version.to_string(),
         "ui_language": cfg.as_ref().map(|c| c.app.language.clone()),
         "model": d.model_prep(),
     })
@@ -78,7 +79,7 @@ pub fn set_unsandboxed(d: State<'_, Desktop>, on: bool) -> R<Value> {
 pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R<Value> {
     // A second click (or a second window) while the root is open: one App and one runtime per root.
     if d.opened().is_ok() {
-        return Ok(status(d));
+        return Ok(status(d, handle));
     }
     if d.model_prep().phase != "ready" {
         return Err("the embedding model is not in place yet".into());
@@ -99,7 +100,7 @@ pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R
         std::fs::write(d.root.join(crate::state::TEST_ROOT_MARK), "").map_err(err)?;
     }
     d.open(&handle)?;
-    Ok(status(d))
+    Ok(status(d, handle))
 }
 
 /// How agents reach many MCP tools (ADR-139): found with `tool_search` past the thresholds, the tools used most kept
