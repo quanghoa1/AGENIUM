@@ -4,6 +4,10 @@ Status: Accepted (2026-10-25; owner: "do it, research it carefully — it affect
 create skills carelessly, or the knowledge will drift later"; and "don't let the system depend on Jev — both with and
 without"). Extends skill overlays (ADR-73), the skill shape (ADR-88) and the Jev quality read (ADR-90).
 
+**Amended by [ADR-152](ADR-152-skill-library-documents-helper-sessions.md) (2026-11-01):** a new skill that passes
+these gates is no longer written into the agent's folder; it becomes a proposal the user saves into the library (or
+declines) from Needs you. Skills created before stay the agent's, revised and audited as below.
+
 ## Research
 
 - **hermes-agent (NousResearch)**: the agent creates a skill after complex work and skills improve during use; memory

@@ -63,7 +63,10 @@ export function UsageView() {
   const [refreshing, setRefreshing] = useState(false);
   const prices = usePrices(app.tick);
   useEffect(() => {
-    api.runs(5000).then(setRows);
+    // The helpers' calls (team designer, skill writer) count as runs of their own, with no ticket (ADR-152).
+    Promise.all([api.runs(5000), api.helperCalls(5000).catch(() => [] as RunRow[])]).then(([runs, helpers]) =>
+      setRows([...runs, ...helpers.map((h) => ({ ...h, agent_name: app.t(h.agent === "helper:skill" ? "usage.helper.skill" : "usage.helper.design") }))]),
+    );
     api.agents().then((a) => setAgents(a ?? []));
     api.vendorUsage().then(setVendors, () => undefined);
   }, [app.tick]);
@@ -83,7 +86,7 @@ export function UsageView() {
     const cost = new Map<string, Series>();
     const accounts = new Map<string, Tally & { a: Account }>();
     const models = new Map<string, Tally & { a: Account; model: string }>();
-    // `work`: the runs that can complete (memory runs cannot).
+    // `work`: the runs that can complete (memory runs and helper calls cannot).
     const byAgent = new Map<string, Tally & { ok: number; work: number; tin: number; tout: number; model: string; provider: string }>();
     let tin = 0;
     let tout = 0;
@@ -98,7 +101,7 @@ export function UsageView() {
       tout += r.usage.tokens_out;
       total += c;
       if (r.outcome === "Completed") ok++;
-      if (r.outcome !== "Memory") finished++;
+      if (r.outcome !== "Memory" && r.outcome !== "Helper") finished++;
       const col = colour.get(a.key) ?? OTHER;
       const sk = col === OTHER ? "other" : a.key;
       const i = at.get(per.bucket(new Date(r.started_at)));
@@ -127,7 +130,7 @@ export function UsageView() {
       const ag = byAgent.get(ak) ?? { tokens: 0, cost: 0, runs: 0, ok: 0, work: 0, tin: 0, tout: 0, model: r.model, provider: r.provider };
       ag.runs++;
       if (r.outcome === "Completed") ag.ok++;
-      if (r.outcome !== "Memory") ag.work++;
+      if (r.outcome !== "Memory" && r.outcome !== "Helper") ag.work++;
       ag.tin += r.usage.tokens_in;
       ag.tout += r.usage.tokens_out;
       ag.cost += c;

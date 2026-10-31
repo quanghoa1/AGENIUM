@@ -158,6 +158,8 @@ export const shell = {
   "usage.table": "Table",
   "usage.total": "Total",
   "usage.other": "Other",
+  "usage.helper.design": "Team designer (helper)",
+  "usage.helper.skill": "Skill writer (helper)",
   "usage.none": "No runs in this period.",
   "usage.completed": "completed",
   "usage.pricesFrom": "Prices from",

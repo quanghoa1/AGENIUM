@@ -222,6 +222,10 @@ impl Runtime {
                 if let Err(e) = self.app.audit_created_skills(agent_id) {
                     tracing::warn!(error = %e, "auditing created skills failed");
                 }
+                // ADR-152: a skill proposal waiting for the user is withdrawn once its lesson stops holding.
+                if let Err(e) = self.app.withdraw_doubtful_proposals(agent_id) {
+                    tracing::warn!(error = %e, "checking skill proposals failed");
+                }
                 // ADR-145: once enough was learned since the last pass, facts that say the same are folded and
                 // contradictions put to the user.
                 if let Some(s) = self.app.settle_when_due(&mem).await {

@@ -5,8 +5,10 @@ import { AgentStatusBadge, Avatar, Empty, PageHeader, RoleChip, RuntimeBadge, cn
 import { SearchBox, found } from "../../components/SearchBox";
 import { api, type ModelArg } from "../../lib/api";
 import { friendly } from "../../lib/errors";
-import { inTauri, useApp } from "../../lib/store";
+import { useFileDrop } from "../../lib/drops";
+import { useApp } from "../../lib/store";
 import type { AgentEntry, Capabilities, RoleInfo } from "../../lib/types";
+import { remember, rememberedModel } from "../../lib/remembered";
 import { AgentModel, ModelPicker, emptyModel } from "./ModelPicker";
 import { NEW_ROLE, RoleDraft, RolePicker, draftLint, emptyRole, saveRoleIfNew } from "./roles";
 import { Switches, useLibrary } from "./switches";
@@ -21,6 +23,8 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
   const [role, setRole] = useState("");
   const [draft, setDraft] = useState<RoleDraft>(emptyRole);
   const [model, setModel] = useState<ModelArg>(emptyModel);
+  // The model picked last here, when it is gone (ADR-152): the form says so instead of opening with it.
+  const [gone, setGone] = useState<string | null>(null);
   const [skills, setSkills] = useState<string[]>([]);
   const [mcp, setMcp] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -34,8 +38,12 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
     setMcp([]);
     setModel(emptyModel);
     api.roles().then((r) => setRoles(r ?? []));
-    api.capabilities().then((c) => {
+    Promise.all([api.capabilities(), api.preference("model.agent").catch(() => null)]).then(([c, kept]) => {
       setCaps(c);
+      // The model picked last for an agent (ADR-152), when it can still run here.
+      const r = rememberedModel(kept, c);
+      setGone(r.gone);
+      if (r.model) return setModel(r.model);
       // An API provider with a key first; with none, a CLI this computer can already run.
       const keyed = c?.providers.find((p) => p.has_key);
       const cli = c?.clis.find((x) => x.compatible && x.login === "logged_in") ?? c?.clis.find((x) => x.compatible && x.login !== "not_logged_in");
@@ -51,6 +59,7 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
     try {
       const r = await saveRoleIfNew(role, draft);
       const a = await api.createAgent({ name: name.trim(), role: r, model, skills, mcp });
+      remember("model.agent", model);
       app.notify(`${a.name}: ${app.t("agents.inPool")}`);
       app.refresh();
       onClose();
@@ -78,6 +87,7 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
           <div>
             <div className="label mb-1">{app.t("common.model")}</div>
             <ModelPicker value={model} onChange={setModel} caps={caps} />
+            {gone && <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{app.t("models.keptGone").replace("{m}", gone)}</div>}
           </div>
           <Switches skills={skills} mcp={mcp} lib={lib} servers={servers} onSkills={(s, on) => setSkills((xs) => flip(xs, s, on))} onMcp={(s, on) => setMcp((xs) => flip(xs, s, on))} />
           <div className="text-[11px] text-subtle">{app.t("agents.poolNote")}</div>
@@ -109,24 +119,8 @@ function AgentImport({ open, onClose }: { open: boolean; onClose: () => void }) 
     if (open) setProject((cur) => (free.some((p) => p.id === cur) ? cur : (free[0]?.id ?? "")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, app.projects]);
-  // A file dropped on the window while the dialog is open (the listener lands asynchronously; one that lands after
-  // the dialog closed is removed at once).
-  useEffect(() => {
-    if (!open || !inTauri) return;
-    let un: (() => void) | undefined;
-    let gone = false;
-    import("@tauri-apps/api/webview").then(({ getCurrentWebview }) =>
-      getCurrentWebview()
-        .onDragDropEvent((e) => {
-          if (e.payload.type === "drop" && e.payload.paths[0]) setFile(e.payload.paths[0]);
-        })
-        .then((f) => (gone ? f() : (un = f))),
-    );
-    return () => {
-      gone = true;
-      un?.();
-    };
-  }, [open]);
+  // A file dropped on the window while the dialog is open.
+  useFileDrop((e) => e.type === "drop" && e.paths[0] && setFile(e.paths[0]), open);
   const run = () => {
     setBusy(true);
     api

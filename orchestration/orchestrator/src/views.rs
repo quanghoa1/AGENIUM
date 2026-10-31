@@ -430,6 +430,8 @@ pub enum NeedKind {
     MergeReview,
     /// The Lead proposes a role its team lacks (decision 3l): approve (an agent joins) or decline.
     RoleProposal,
+    /// An agent proposes a new skill (ADR-152): open it in the skill editor and save it into the library, or decline.
+    SkillProposal,
     /// The Lead cancelled a ticket and no ticket carries its work on (ADR-147): waive it, or ask the Lead for it.
     CancelledWork,
 }
@@ -452,6 +454,30 @@ pub struct NeedItem {
     pub proposal: Option<String>,
     pub text: String,
     pub at: String,
+}
+
+/// " Close to library skill X (duplicate)." for a proposal's similar skills (ADR-152), or nothing.
+fn close_to(similar: &serde_json::Value) -> String {
+    let names: Vec<String> = similar
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|s| {
+            Some(format!(
+                "{} ({})",
+                s["name"].as_str()?,
+                s["level"].as_str().unwrap_or("near")
+            ))
+        })
+        .collect();
+    if names.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " Close to library skill {}: merge rather than add?",
+            names.join(", ")
+        )
+    }
 }
 
 impl App {
@@ -634,6 +660,29 @@ impl App {
                 )
             });
         }
+        for p in self.skill_proposals(Some(project))? {
+            let who = self.agent(p.agent).map(|a| a.name).unwrap_or_default();
+            out.push(NeedItem {
+                proposal: Some(p.id.clone()),
+                agent: Some(who.clone()),
+                ..need(
+                    NeedKind::SkillProposal,
+                    None,
+                    format!(
+                        "{who} proposes a new skill {} from a lesson that held in {}: {}. Reason: {}",
+                        p.name,
+                        p.contexts
+                            .iter()
+                            .map(|c| c.rsplit(':').next().unwrap_or(c))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        p.lesson_text.trim().trim_end_matches('.'),
+                        p.reason.trim()
+                    ) + &close_to(&p.similar),
+                    &p.created_at,
+                )
+            });
+        }
         for keys in self.unaccounted_cancels(project)?.into_values() {
             for k in keys {
                 let t = self.ticket(project, &k)?;
@@ -641,7 +690,7 @@ impl App {
                     NeedKind::CancelledWork,
                     Some(&t),
                     format!(
-                        "The Lead cancelled {} ({}) and no ticket carries its work on: waive it if it is not needed, or ask                          the Lead for it",
+                        "The Lead cancelled {} ({}) and no ticket carries its work on: waive it if it is not needed, or ask the Lead for it",
                         t.key, t.title
                     ),
                     &t.updated_at,

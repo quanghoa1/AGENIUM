@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { Markdown } from "../../components/Markdown";
 import { ConfirmModal, Modal } from "../../components/motion";
 import { Empty, Mono, Section, cn } from "../../components/ui";
-import { api, inTauri } from "../../lib/api";
+import { api, type SkillEffect } from "../../lib/api";
+import { useFileDrop } from "../../lib/drops";
+import { EffectBadge } from "./Scorecard";
 import { useApp } from "../../lib/store";
 import type { LibrarySkill } from "../../lib/types";
 import { SkillEditor } from "./SkillEditor";
@@ -40,7 +42,9 @@ export function SkillsPanel() {
   // same size — it does not grow the card).
   const [evaluating, setEvaluating] = useState<string | null>(null);
   const [evalResult, setEvalResult] = useState<{ name: string; shape_notes: string[]; quality: string[] | null } | null>(null);
-  const load = () => api.skillLibrary().then(setLib);
+  // Each skill's effect on the closed tickets it was loaded in (ADR-152, criterion 12): free, from the run log.
+  const [effects, setEffects] = useState<Record<string, SkillEffect>>({});
+  const load = () => (api.skillLibrary().then(setLib), api.skillEffects().then(setEffects, () => undefined));
   const evaluate = (name: string) => {
     setEvaluating(name);
     api
@@ -71,30 +75,15 @@ export function SkillsPanel() {
         load();
       })
       .catch((e) => app.notify(String(e)));
-  // Drop a skill folder or .zip on the window (Tauri gives the paths).
-  useEffect(() => {
-    if (!inTauri) return;
-    // The listener arrives asynchronously: one that lands after cleanup is removed at once (no stacked listeners).
-    let un: (() => void) | undefined;
-    let gone = false;
-    import("@tauri-apps/api/webview").then(({ getCurrentWebview }) =>
-      getCurrentWebview()
-        .onDragDropEvent((e) => {
-          const p = e.payload;
-          if (p.type === "enter" || p.type === "over") setDrop(true);
-          else if (p.type === "leave") setDrop(false);
-          else if (p.type === "drop") {
-            setDrop(false);
-            if (p.paths[0]) doImport(p.paths[0]);
-          }
-        })
-        .then((f) => (gone ? f() : (un = f))),
-    );
-    return () => {
-      gone = true;
-      un?.();
-    };
-  }, [replace]);
+  // Drop a skill folder or .zip on the window (Tauri gives the paths); a chat opened over the page takes drops instead.
+  useFileDrop((e) => {
+    if (e.type === "enter" || e.type === "over") setDrop(true);
+    else if (e.type === "leave") setDrop(false);
+    else {
+      setDrop(false);
+      if (e.paths[0]) doImport(e.paths[0]);
+    }
+  });
   return (
     <div className="space-y-4">
       {/* Two ways in: write a new skill in the app, or bring one in (a folder or a .zip, typed or dropped). */}
@@ -177,6 +166,7 @@ export function SkillsPanel() {
               ) : (
                 <span className="text-[11px] text-subtle">–</span>
               )}
+              <EffectBadge e={effects[s.name]} />
               <Mono className="ml-auto text-subtle">
                 {s.files} {app.t(s.files === 1 ? "library.file" : "library.files")}
               </Mono>

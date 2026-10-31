@@ -27,7 +27,12 @@ pub struct MaintenanceReport {
     pub pruned: Vec<String>,
     /// Runs whose logs were compacted this tick (ADR-76).
     pub logs_compacted: u64,
+    /// Worktree temporary directories removed this tick because their worktree is gone (at most once an hour).
+    pub temp_swept: usize,
 }
+
+/// When the worktrees' temporary directories were last swept (Unix seconds).
+static LAST_TEMP_SWEEP: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 fn age_hours(m: &Manifest, now: DateTime<Utc>) -> f64 {
     DateTime::parse_from_rfc3339(&m.created_at)
@@ -157,12 +162,22 @@ impl App {
                 .value
                 .0
         };
+        // Temporary directories of worktrees that went without Agenium removing them (a root deleted whole, a helper's
+        // scratch folder, a crash); one without a record is given a day.
+        let last = LAST_TEMP_SWEEP.load(std::sync::atomic::Ordering::Relaxed);
+        let temp_swept = if now.timestamp() - last >= 3600 {
+            LAST_TEMP_SWEEP.store(now.timestamp(), std::sync::atomic::Ordering::Relaxed);
+            agenium_sandbox::sweep_run_temp_dirs(std::time::Duration::from_secs(24 * 3600)).len()
+        } else {
+            0
+        };
         Ok(MaintenanceReport {
             wal_bytes,
             agent_stores: stores.len(),
             backup: made.map(|m| m.id),
             pruned,
             logs_compacted,
+            temp_swept,
         })
     }
 }

@@ -18,14 +18,18 @@ use crate::state::{err, Desktop, Opened, R};
 mod actions;
 mod agents;
 mod design;
+mod markitdown;
 mod overview;
+mod skill_quality;
 mod status;
 mod ticket_view;
 
 pub use actions::*;
 pub use agents::*;
 pub use design::*;
+pub use markitdown::*;
 pub use overview::*;
+pub use skill_quality::*;
 pub use status::*;
 pub use ticket_view::*;
 

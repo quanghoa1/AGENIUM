@@ -1,0 +1,25 @@
+[package]
+name = "agenium-documents"
+description = "Documents read as Markdown for the agents (ADR-152): PDF, Word, PowerPoint, Excel, CSV, HTML, EPUB, notebooks and text, built in; markitdown when the user has it, run in the sandbox."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+agenium-sandbox.workspace = true
+pdf-extract = "0.12.1"
+regex.workspace = true
+roxmltree = "0.21"
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+ulid.workspace = true
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }

@@ -177,6 +177,18 @@ pub struct TeamFromTemplate {
     pub agents: Vec<(String, String)>,
     /// Skills the template expects but the role folders do not have yet.
     pub missing_skills: Vec<String>,
+    /// The roles that run on their own model, and those whose model is not usable here.
+    pub model_notes: Vec<String>,
+}
+
+/// The models a team from a template is made with (each with the backend that runs it).
+#[derive(Debug, Clone)]
+pub struct TeamModels {
+    pub model: (BackendKind, ModelBinding),
+    pub lead: Option<(BackendKind, ModelBinding)>,
+    pub planner: Option<(BackendKind, ModelBinding)>,
+    /// Each role on its template's `default_model` when this machine runs it.
+    pub role_models: bool,
 }
 
 impl App {
@@ -316,8 +328,9 @@ impl App {
         Ok(t)
     }
 
-    /// Creates the project's team from a template: one agent per role slot named `[<prefix>-]<role>[-n]`, the role
-    /// folders (ROLE.md and the write scope) when missing, and the project's default report template.
+    /// Creates the project's team from a template on API models: one agent per role slot named
+    /// `[<prefix>-]<role>[-n]`, the role folders (ROLE.md and the write scope) when missing, and the project's default
+    /// report template.
     pub fn create_team_from_template(
         &self,
         project: ProjectId,
@@ -327,7 +340,65 @@ impl App {
         planner_model: Option<&ModelBinding>,
         prefix: &str,
     ) -> Result<TeamFromTemplate> {
+        let api = |b: &ModelBinding| (BackendKind::Api, b.clone());
+        self.create_team_with_models(
+            project,
+            template,
+            &TeamModels {
+                model: api(model),
+                lead: lead_model.map(api),
+                planner: planner_model.map(api),
+                role_models: false,
+            },
+            prefix,
+        )
+    }
+
+    /// A role's `provider/model` (a template's `default_model`) as a backend and binding, when this machine runs it: an
+    /// API provider in the config, or an agent CLI that was found (its models listed).
+    pub fn usable_model(&self, spec: &str) -> Option<(BackendKind, ModelBinding)> {
+        let (source, id) = spec.trim().split_once('/')?;
+        if source.is_empty() || id.is_empty() {
+            return None;
+        }
+        let backend = if self.config().provider(source).is_some() {
+            BackendKind::Api
+        } else if agenium_cli_backend::CliKind::ALL
+            .iter()
+            .any(|k| k.program() == source)
+            && self
+                .model_cache()
+                .models
+                .get(&crate::model_cache::cli_key(source))
+                .is_some_and(|l| !l.value.is_empty())
+        {
+            BackendKind::Cli
+        } else {
+            return None;
+        };
+        Some((
+            backend,
+            ModelBinding {
+                provider: source.to_owned(),
+                model: id.to_owned(),
+                effort: Effort::default(),
+                max_tokens: None,
+            },
+        ))
+    }
+
+    /// Creates the project's team from a template with `models`: the Lead's and the planner's when given, else the
+    /// role's own model when asked for and usable here, else the team's; each agent runs on its model's backend.
+    pub fn create_team_with_models(
+        &self,
+        project: ProjectId,
+        template: &str,
+        models: &TeamModels,
+        prefix: &str,
+    ) -> Result<TeamFromTemplate> {
         let t = self.team_template(template)?;
+        let mut model_notes = Vec::new();
+        let mut cli_agents: HashSet<String> = HashSet::new();
         let prefix = prefix.trim();
         // Names are unique across teams: a name already taken gets the next free number.
         let mut taken: HashSet<String> = self
@@ -359,10 +430,25 @@ impl App {
                     missing_skills.push(format!("{}: {s}", t.role_dir(&r.id)));
                 }
             }
-            let binding = match (r.kind, lead_model, planner_model) {
+            let (backend, binding) = match (r.kind, &models.lead, &models.planner) {
                 (RoleKind::Lead, Some(m), _) => m.clone(),
                 (RoleKind::Worker, _, Some(m)) if r.planner => m.clone(),
-                _ => model.clone(),
+                _ => match r.default_model.as_deref().filter(|_| models.role_models) {
+                    Some(spec) => match self.usable_model(spec) {
+                        Some(m) => {
+                            model_notes.push(format!("{}: {spec}", r.id));
+                            m
+                        }
+                        None => {
+                            model_notes.push(format!(
+                                "{}: {spec} is not usable here, so the team's model",
+                                r.id
+                            ));
+                            models.model.clone()
+                        }
+                    },
+                    None => models.model.clone(),
+                },
             };
             let base = if prefix.is_empty() {
                 r.id.clone()
@@ -382,6 +468,9 @@ impl App {
                 }
                 n += 1;
                 taken.insert(name.to_lowercase());
+                if backend == BackendKind::Cli {
+                    cli_agents.insert(name.clone());
+                }
                 let spec = CreateAgent {
                     name,
                     role: t.role_dir(&r.id),
@@ -405,6 +494,10 @@ impl App {
         m.save(Path::new(&p.path))
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
         let (team, agents) = self.create_team(project, &t.name, &lead, &workers)?;
+        // A model of an agent CLI runs on that CLI.
+        for a in agents.iter().filter(|a| cli_agents.contains(&a.name)) {
+            self.set_agent_backend(a.id, BackendKind::Cli, &a.model)?;
+        }
         for a in &agents {
             for (_, skill) in from_library.iter().filter(|(role, _)| *role == a.role) {
                 self.toggle_agent_skill(a.id, skill, true)?;
@@ -418,6 +511,7 @@ impl App {
             team: team.id,
             agents: agents.into_iter().map(|a| (a.name, a.role)).collect(),
             missing_skills,
+            model_notes,
         })
     }
 

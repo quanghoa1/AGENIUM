@@ -143,6 +143,10 @@ impl RootLayout {
     pub fn logs(&self) -> PathBuf {
         self.root.join("logs")
     }
+    /// Programs Agenium installs for itself on request (`tools/markitdown`, ADR-152); removed with them.
+    pub fn tools(&self) -> PathBuf {
+        self.root.join("tools")
+    }
     pub fn default_projects(&self) -> PathBuf {
         self.root.join("projects")
     }

@@ -132,7 +132,7 @@ pub fn spawn_contained(
         }
         let mut env = crate::clean_env(env);
         if let Some(t) = &policy.temp_dir {
-            std::fs::create_dir_all(t)?;
+            crate::prepare_temp_dir(policy)?;
             env.insert("TMPDIR".into(), t.display().to_string());
         }
         let token = crate::unix::stray_token();

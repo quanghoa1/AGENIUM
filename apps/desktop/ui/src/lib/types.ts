@@ -87,6 +87,7 @@ export type NeedKind =
   | "Question"
   | "MergeReview"
   | "RoleProposal"
+  | "SkillProposal"
   | "CancelledWork";
 
 export interface NeedItem {
@@ -98,7 +99,7 @@ export interface NeedItem {
   agent?: string | null;
   /** The agent to resume (`AgentBlocked`). */
   agent_id?: string;
-  /** The role proposal to decide (`RoleProposal`). */
+  /** The role or skill proposal to decide (`RoleProposal`, `SkillProposal`). */
   proposal?: string | null;
   text: string;
   at: string;

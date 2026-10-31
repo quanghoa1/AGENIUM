@@ -11,6 +11,7 @@ publish.workspace = true
 agenium-backend.workspace = true
 agenium-llm.workspace = true
 agenium-cli-backend.workspace = true
+agenium-documents.workspace = true
 agenium-mcp.workspace = true
 agenium-memory.workspace = true
 agenium-sandbox.workspace = true
@@ -38,6 +39,7 @@ tracing.workspace = true
 zstd.workspace = true
 ulid.workspace = true
 tempfile.workspace = true
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 async-trait.workspace = true

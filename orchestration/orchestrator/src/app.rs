@@ -177,6 +177,8 @@ impl App {
             vendor_usage_lock: Mutex::new(()),
             prices_cache: Mutex::default(),
         };
+        // The tools prefer the markitdown Agenium installed for this root (ADR-152).
+        agenium_documents::markitdown::own::use_dir(app.layout.tools().join("markitdown"));
         let report = app.reconcile()?;
         app.purge_deleted_agents()?;
         // Seed the built-in starter skill library (ADR-88); best-effort, never blocks opening the root.

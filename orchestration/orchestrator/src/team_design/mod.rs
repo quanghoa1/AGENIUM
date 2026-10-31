@@ -167,14 +167,37 @@ impl Runtime {
         backend: BackendKind,
         model: &ModelBinding,
         turns: &[ChatTurn],
+        docs: &[crate::documents::Attached],
+        session: Option<&str>,
     ) -> Result<TeamDesign> {
         let (ctx, catalogue) = self.app.design_ctx()?;
         let system = prompt::system(&catalogue);
-        let mut msgs = messages(turns)?;
+        // The user's documents (a brief, a spec) open their first message, every turn.
+        let mut turns = turns.to_vec();
+        if let Some(first) = turns
+            .iter_mut()
+            .find(|t| t.role == "user")
+            .filter(|_| !docs.is_empty())
+        {
+            first.text = format!(
+                "{}\n\n{}",
+                crate::documents::material(docs, crate::skill_write::DOCS_MAX_CHARS),
+                first.text
+            );
+        }
+        let mut msgs = messages(&turns)?;
         let mut last = String::new();
         for attempt in 0..2 {
             let a = self
-                .side_chat(backend, model, &system, msgs.clone(), MAX_TOKENS)
+                .side_chat(
+                    "design",
+                    session,
+                    backend,
+                    model,
+                    &system,
+                    msgs.clone(),
+                    MAX_TOKENS,
+                )
                 .await?;
             let why = match agenium_memory::pipeline::json_object(&a.text) {
                 None => "it is not a JSON object".to_owned(),

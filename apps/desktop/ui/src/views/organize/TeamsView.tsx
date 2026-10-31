@@ -7,6 +7,7 @@ import { friendly } from "../../lib/errors";
 import type { Key } from "../../lib/i18n";
 import { useApp } from "../../lib/store";
 import type { AgentRecord, Capabilities, LeadSuggestion, RoleInfo, TeamTemplate, TeamsData } from "../../lib/types";
+import { remember, rememberedModel } from "../../lib/remembered";
 import { ModelPicker, emptyModel } from "./ModelPicker";
 
 /** Compose a team from pool agents: pick members, the Lead (the system suggests one, with its reasons), a project. */
@@ -156,14 +157,28 @@ function TemplateQuickStart() {
   const [leadModel, setLeadModel] = useState<ModelArg | null>(null);
   const [plannerModel, setPlannerModel] = useState<ModelArg | null>(null);
   const [project, setProject] = useState(app.projects.find((p) => p.id === app.project && !p.team)?.id ?? "");
+  const [gone, setGone] = useState<string | null>(null);
+  // Each role on the model its template names (ADR-152), where this machine runs it; kept with the models.
+  const [roleModels, setRoleModels] = useState(true);
   useEffect(() => {
     api.templates().then((t) => setTemplates(t ?? []));
-    api.capabilities().then((c) => {
+    Promise.all([api.capabilities(), api.preference("model.team").catch(() => null)]).then(([c, kept]) => {
       setCaps(c);
-      if (c?.providers[0]) setModel((m) => ({ ...m, provider: m.provider || c.providers[0].id }));
+      // The models picked last for a team (ADR-152), each when it can still run here.
+      const k = (kept ?? {}) as { model?: unknown; lead?: unknown; planner?: unknown; roleModels?: boolean };
+      if (typeof k.roleModels === "boolean") setRoleModels(k.roleModels);
+      const m = rememberedModel(k.model, c);
+      setGone(m.gone);
+      if (m.model) setModel(m.model);
+      else if (c?.providers[0]) setModel((x) => ({ ...x, provider: x.provider || c.providers[0].id }));
+      const lead = rememberedModel(k.lead, c).model;
+      if (lead) setLeadModel(lead);
+      const planner = rememberedModel(k.planner, c).model;
+      if (planner) setPlannerModel(planner);
     });
   }, []);
   const t = templates.find((x) => x.id === tpl);
+  const named = (t?.roles ?? []).filter((r) => r.default_model);
   const free = app.projects.filter((p) => !p.team && p.run_state !== "Closed");
   return (
     <div className="space-y-3">
@@ -195,7 +210,17 @@ function TemplateQuickStart() {
       <div>
         <div className="label mb-1">{app.t("teams.modelAll")}</div>
         <ModelPicker value={model} onChange={setModel} caps={caps} />
+        {gone && <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{app.t("models.keptGone").replace("{m}", gone)}</div>}
       </div>
+      {named.length > 0 && (
+        <label className="flex items-start gap-1.5 text-xs">
+          <input type="checkbox" className="mt-0.5" checked={roleModels} onChange={(e) => setRoleModels(e.target.checked)} />
+          <span>
+            {app.t("teams.roleModels")}
+            <span className="block font-mono text-[11px] text-subtle">{named.map((r) => `${r.id}: ${r.default_model}`).join(" · ")}</span>
+          </span>
+        </label>
+      )}
       <div className="flex flex-wrap gap-3 text-xs">
         <label className="flex items-center gap-1.5">
           <input type="checkbox" checked={!!leadModel} onChange={(e) => setLeadModel(e.target.checked ? { ...model } : null)} /> {app.t("teams.leadModel")}
@@ -213,8 +238,13 @@ function TemplateQuickStart() {
         disabled={!model.provider || !project}
         onClick={() =>
           api
-            .createTeam(project, tpl, model, leadModel ?? undefined, plannerModel ?? undefined)
-            .then(() => (app.notify(app.t("common.done")), app.refresh()))
+            .createTeam(project, tpl, model, leadModel ?? undefined, plannerModel ?? undefined, undefined, roleModels && named.length > 0)
+            .then((r) => {
+              remember("model.team", { model, lead: leadModel, planner: plannerModel, roleModels });
+              const gone = (r.model_notes ?? []).filter((n) => n.includes("not usable"));
+              app.notify(gone.length ? `${app.t("common.done")} · ${gone.join("; ")}` : app.t("common.done"));
+              app.refresh();
+            })
             .catch((e) => app.notify(String(e)))
         }
       >

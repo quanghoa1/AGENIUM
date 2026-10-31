@@ -8,12 +8,17 @@
 pub mod agents;
 pub mod comments;
 pub mod events;
+pub mod helper_calls;
+pub mod helper_sessions;
 pub mod ledger;
 pub mod ops;
 pub mod plans;
+pub mod preferences;
 pub mod projects;
 pub mod roles;
 pub mod runs;
+pub mod skill_proposals;
+pub mod skill_use;
 pub mod tickets;
 pub mod workspaces;
 
@@ -50,6 +55,10 @@ pub const CORE_MIGRATIONS: &[Migration] = &[
     Migration {
         version: 5,
         sql: include_str!("../schema/core_005.sql"),
+    },
+    Migration {
+        version: 6,
+        sql: include_str!("../schema/core_006.sql"),
     },
 ];
 

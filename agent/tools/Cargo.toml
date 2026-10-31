@@ -8,6 +8,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+agenium-documents.workspace = true
 agenium-sandbox.workspace = true
 async-trait.workspace = true
 base64 = "0.22"
@@ -30,5 +31,6 @@ libc = "0.2"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
 
 [dev-dependencies]
+zip = { version = "9", default-features = false, features = ["deflate"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }

@@ -17,6 +17,7 @@ tauri-build = { version = "2", features = [] }
 agenium-cli-backend = { path = "../../agent/cli-backend" }
 agenium-config = { path = "../../foundation/config" }
 agenium-core = { path = "../../foundation/core" }
+agenium-documents = { path = "../../agent/documents" }
 agenium-llm = { path = "../../agent/llm" }
 agenium-mcp = { path = "../../agent/mcp" }
 agenium-memory = { path = "../../agent/memory" }

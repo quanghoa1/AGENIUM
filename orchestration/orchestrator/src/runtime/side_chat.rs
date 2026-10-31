@@ -1,6 +1,7 @@
 //! One model answer beside the agents' runs, for the app's own helpers (ADR-151: the team designer, the skill writer):
 //! an API model's single request, or a vendor CLI's chat turn with no tools in an empty scratch folder. The user picks
-//! the model, backend and effort; nothing is stored, the caller keeps the conversation.
+//! the model, backend and effort; the caller keeps the conversation. Each call's tokens and cost are kept
+//! (`helper_call`, ADR-152) for the usage views.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -59,8 +60,11 @@ impl Drop for Scratch {
 impl Runtime {
     /// One answer to `messages` from `model` on `backend`, under `system`. A CLI must be installed, logged in and
     /// usable here (as for an agent's run); it reads and writes nothing (no tools, an empty folder, read-only).
+    #[allow(clippy::too_many_arguments)]
     pub async fn side_chat(
         &self,
+        kind: &str,
+        session: Option<&str>,
         backend: BackendKind,
         model: &ModelBinding,
         system: &str,
@@ -70,9 +74,55 @@ impl Runtime {
         if messages.is_empty() {
             return Err(OrchError::Invalid("nothing to answer".into()));
         }
-        match backend {
+        let started = agenium_core::now_iso();
+        let a = match backend {
             BackendKind::Api => self.side_api(model, system, messages, max_tokens).await,
             BackendKind::Cli => self.side_cli(model, system, messages).await,
+        }?;
+        self.record_helper(kind, session, backend, model, &started, &a);
+        Ok(a)
+    }
+
+    /// Keeps a helper call's tokens and cost (an API model's priced; a CLI's runs on the user's subscription).
+    fn record_helper(
+        &self,
+        kind: &str,
+        session: Option<&str>,
+        backend: BackendKind,
+        model: &ModelBinding,
+        started: &str,
+        a: &SideAnswer,
+    ) {
+        let api = backend == BackendKind::Api;
+        let usage = agenium_core::UsageSummary {
+            tokens_in: a.usage.total_input(),
+            tokens_out: a.usage.output,
+            cache_read: a.usage.cache_read,
+            cache_write: a.usage.cache_write,
+            cache_write_1h: a.usage.cache_write_1h,
+            estimated_cost_usd: if api {
+                self.cost(&model.provider, &model.model, &a.usage)
+            } else {
+                0.0
+            },
+            ..Default::default()
+        };
+        let call = agenium_store::core::helper_calls::HelperCall {
+            id: ulid::Ulid::new().to_string(),
+            kind: kind.to_owned(),
+            provider: model.provider.clone(),
+            model: model.model.clone(),
+            api,
+            session: session.map(str::to_owned),
+            started_at: started.to_owned(),
+            ended_at: agenium_core::now_iso(),
+            usage,
+        };
+        let r = self.app.store().commit(None, "system", |w| {
+            agenium_store::core::helper_calls::insert(w.tx, &call).map_err(crate::OrchError::from)
+        });
+        if let Err(e) = r {
+            tracing::warn!(error = %e, "a helper call's usage was not kept");
         }
     }
 

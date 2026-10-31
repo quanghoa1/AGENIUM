@@ -24,11 +24,7 @@ const FILE_MAX_CHARS: usize = 60_000;
 const MAX_TOKENS: u32 = 16_000;
 
 /// A document the user gave the writer.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SkillDoc {
-    pub name: String,
-    pub text: String,
-}
+pub type SkillDoc = crate::documents::Attached;
 
 /// A file of a drafted skill (`references/…` or `scripts/…`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -51,6 +47,12 @@ pub struct SkillDraft {
     pub exists: bool,
     /// The shape and description advice (ADR-88/141), as Evaluate would show it.
     pub notes: Vec<String>,
+    /// The library skill this draft improves (a merge, ADR-152): saving it edits that skill.
+    pub extends: Option<String>,
+    /// That skill's SKILL.md as it is now, to compare with the draft.
+    pub original: Option<String>,
+    /// Library skills on the same or a near subject (a new draft): merge into one rather than add a second skill.
+    pub similar: Vec<crate::skill_similar::SimilarSkill>,
 }
 
 /// The writer's answer to one turn.
@@ -79,6 +81,7 @@ struct RawSkill {
     tags: Vec<String>,
     body: String,
     files: Vec<SkillFileDraft>,
+    extends: String,
 }
 
 /// What the check needs from the app: the library's names, the shape advice, and the secret test.
@@ -135,7 +138,21 @@ pub fn check_answer(
 }
 
 fn check(s: RawSkill, c: &SkillCheck) -> std::result::Result<SkillDraft, String> {
-    let name = crate::team_design::check::slug(&s.name);
+    let extends = crate::team_design::check::slug(&s.extends);
+    let extends = if extends.is_empty() {
+        None
+    } else if c.library.contains(&extends) {
+        Some(extends)
+    } else {
+        return Err(format!(
+            "\"extends\" names {:?}, which is not a library skill",
+            s.extends
+        ));
+    };
+    let name = match &extends {
+        Some(e) => e.clone(),
+        None => crate::team_design::check::slug(&s.name),
+    };
     if name.is_empty() {
         return Err("the skill has no name".into());
     }
@@ -199,6 +216,9 @@ fn check(s: RawSkill, c: &SkillCheck) -> std::result::Result<SkillDraft, String>
         body,
         files,
         notes,
+        extends,
+        original: None,
+        similar: Vec::new(),
     })
 }
 
@@ -214,20 +234,9 @@ fn with_material(turns: &[ChatTurn], docs: &[SkillDoc], seed: Option<&NewSkill>)
             s.roles.join(", ")
         ));
     }
-    let mut left = DOCS_MAX_CHARS;
-    for d in docs {
-        let n = d.text.chars().count();
-        let text: String = d.text.chars().take(left).collect();
-        let cut = if n > left {
-            "\n[the rest of this document was cut]"
-        } else {
-            ""
-        };
-        left = left.saturating_sub(n);
-        lead.push_str(&format!(
-            "<document name={:?}>\n{text}{cut}\n</document>\n\n",
-            d.name
-        ));
+    if !docs.is_empty() {
+        lead.push_str(&crate::documents::material(docs, DOCS_MAX_CHARS));
+        lead.push_str("\n\n");
     }
     let mut out = turns.to_vec();
     if let Some(first) = out.iter_mut().find(|t| t.role == "user") {
@@ -239,6 +248,7 @@ fn with_material(turns: &[ChatTurn], docs: &[SkillDoc], seed: Option<&NewSkill>)
 impl Runtime {
     /// One turn of the skill writer with the user's chosen model. An answer that is not JSON, or a skill that breaks
     /// the contract, is sent back once with the reason.
+    #[allow(clippy::too_many_arguments)]
     pub async fn write_skill(
         &self,
         backend: BackendKind,
@@ -246,6 +256,8 @@ impl Runtime {
         turns: &[ChatTurn],
         docs: &[SkillDoc],
         seed: Option<&NewSkill>,
+        merge_into: Option<&str>,
+        session: Option<&str>,
     ) -> Result<SkillWrite> {
         let app = self.app.clone();
         let lint = move |n: &str, d: &str, b: &str| app.lint_skill_md(n, d, b);
@@ -264,23 +276,96 @@ impl Runtime {
             lint: &lint,
             secret: &secret,
         };
-        let mut msgs: Vec<Message> = messages(&with_material(turns, docs, seed))?;
+        let library = self.app.skill_registry().library();
+        let mut catalogue = String::from(
+            "\n\n# The library's skills (improve one of these rather than adding a second skill on its job)\n",
+        );
+        for sk in &library.skills {
+            catalogue.push_str(&format!(
+                "- {}: {}\n",
+                sk.meta.name,
+                sk.meta.description.trim()
+            ));
+        }
+        // The skills closest to what is asked, in full, so the writer merges knowingly (ADR-152).
+        let asked = format!(
+            "{} {}",
+            turns
+                .iter()
+                .find(|t| t.role == "user")
+                .map(|t| t.text.as_str())
+                .unwrap_or(""),
+            seed.map(|s| format!("{} {}", s.does, s.when))
+                .unwrap_or_default()
+        );
+        for close in self.app.skills_for_request(&asked, 3) {
+            let dir = self
+                .app
+                .skill_registry()
+                .dir_of(&agenium_skills::Owner::Library)
+                .join(&close.name);
+            if let Ok(text) = std::fs::read_to_string(dir.join(agenium_skills::SKILL_FILE)) {
+                catalogue.push_str(&format!(
+                    "\n<close_skill name={:?} level={:?}>\n{text}\n</close_skill>\n",
+                    close.name, close.level
+                ));
+            }
+        }
+        let system = format!("{}{catalogue}", prompt::RULES);
+        let mut turns = with_material(turns, docs, seed);
+        // The user chose to merge the draft into a library skill: its text goes with the request.
+        if let Some(name) = merge_into {
+            let dir = self
+                .app
+                .skill_registry()
+                .dir_of(&agenium_skills::Owner::Library)
+                .join(name);
+            let text = std::fs::read_to_string(dir.join(agenium_skills::SKILL_FILE))
+                .map_err(|_| OrchError::NotFound(format!("library skill {name}")))?;
+            let mut files: Vec<String> = ["references", "scripts", "assets"]
+                .iter()
+                .flat_map(|sub| {
+                    std::fs::read_dir(dir.join(sub))
+                        .into_iter()
+                        .flatten()
+                        .flatten()
+                        .filter(|e| e.path().is_file())
+                        .map(move |e| format!("{sub}/{}", e.file_name().to_string_lossy()))
+                })
+                .collect();
+            files.sort();
+            if let Some(last) = turns.last_mut() {
+                last.text.push_str(&prompt::merge(name, &text, &files));
+            }
+        }
+        let mut msgs: Vec<Message> = messages(&turns)?;
         let mut last = String::new();
         for attempt in 0..2 {
             let a = self
-                .side_chat(backend, model, prompt::RULES, msgs.clone(), MAX_TOKENS)
+                .side_chat(
+                    "skill",
+                    session,
+                    backend,
+                    model,
+                    &system,
+                    msgs.clone(),
+                    MAX_TOKENS,
+                )
                 .await?;
             let why = match agenium_memory::pipeline::json_object(&a.text) {
                 None => "it is not a JSON object".to_owned(),
                 Some(v) => match check_answer(v, &check) {
-                    Ok((reply, questions, draft)) => {
+                    Ok((reply, questions, mut draft)) => {
+                        if let Some(d) = draft.as_mut() {
+                            self.relate(d, merge_into);
+                        }
                         return Ok(SkillWrite {
                             reply,
                             questions,
                             draft,
                             raw: a.text,
                             model: a.model,
-                        })
+                        });
                     }
                     Err(e) => e,
                 },
@@ -294,6 +379,38 @@ impl Runtime {
         Err(OrchError::Invalid(format!(
             "the skill writer's answer could not be used: {last}"
         )))
+    }
+}
+
+impl Runtime {
+    /// What a draft is to the library: the text of the skill it improves (a merge), or the library skills on the same or
+    /// a near subject for a new one (local embedding model and subject words: no model call).
+    /// `merge_into`: the user asked to merge into that skill, so the draft improves it whatever the model wrote; a draft
+    /// that took a library skill's name improves that skill too (seen with DeepSeek: the name, no `extends`).
+    fn relate(&self, d: &mut SkillDraft, merge_into: Option<&str>) {
+        let into = match merge_into {
+            Some(m) => Some(m.to_owned()),
+            None if d.extends.is_none() && d.exists => Some(d.name.clone()),
+            None => None,
+        };
+        if let Some(name) = into.filter(|n| d.extends.as_deref() != Some(n.as_str())) {
+            d.extends = Some(name.clone());
+            d.name = name;
+            d.exists = true;
+            d.skill_md = skill_md(&d.name, &d.description, &d.tags, &d.body);
+        }
+        if let Some(e) = &d.extends {
+            let dir = self
+                .app
+                .skill_registry()
+                .dir_of(&agenium_skills::Owner::Library)
+                .join(e);
+            d.original = std::fs::read_to_string(dir.join(agenium_skills::SKILL_FILE)).ok();
+            return;
+        }
+        d.similar = self
+            .app
+            .similar_skills(&d.description, &d.body, Some(&d.name), 3);
     }
 }
 
@@ -363,6 +480,23 @@ mod tests {
         assert!(d.is_none());
         let (_, _, d) = run(json!({"skill": {"name": "code-review", "description": "Reviews code. Use when a change is ready.", "body": BODY.replace("1. Read references/checklist.md.\n", "")}})).unwrap();
         assert!(d.unwrap().exists);
+    }
+
+    #[test]
+    fn a_draft_that_improves_a_library_skill_takes_its_name() {
+        let skill = |extends: &str| json!({"skill": {"name": "review-helper", "description": "Reviews code before merge. Use when a change is ready.", "body": BODY.replace("1. Read references/checklist.md.\n", ""), "extends": extends}});
+        let (_, _, d) = run(skill("code-review")).unwrap();
+        let d = d.unwrap();
+        assert_eq!(
+            (d.name.as_str(), d.extends.as_deref(), d.exists),
+            ("code-review", Some("code-review"), true)
+        );
+        assert!(d.skill_md.starts_with("---\nname: code-review\n"));
+        assert!(run(skill("no-such-skill"))
+            .unwrap_err()
+            .contains("not a library skill"));
+        let (_, _, d) = run(skill("")).unwrap();
+        assert_eq!(d.unwrap().extends, None);
     }
 
     #[test]

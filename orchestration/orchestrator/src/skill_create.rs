@@ -32,6 +32,9 @@ use crate::{OrchError, Result};
 /// Most skills one agent may create (overlays of existing skills do not count).
 pub const MAX_CREATED_SKILLS: usize = 12;
 
+/// Skill proposals of one agent that may wait for the user at once (ADR-152).
+pub const MAX_PENDING_PROPOSALS: usize = 5;
+
 /// Below this confidence a lesson no longer supports the skill built on it.
 pub const DOUBTFUL_CONFIDENCE: f64 = 0.3;
 
@@ -159,7 +162,7 @@ impl App {
                 u.lesson
             ));
         }
-        let mut created = load(&mem)?;
+        let created = load(&mem)?;
         // One lesson, one skill, along the lesson's line: a refinement gets a new id and keeps the contexts it held
         // in, and made a second skill of the same lesson before (audit M16, 2026-10-31).
         if let Some((n, _)) = created.iter().find(|(_, c)| {
@@ -173,6 +176,31 @@ impl App {
             ));
         }
 
+        // The same along proposals (ADR-152): a lesson proposed once, pending or saved, is not proposed again.
+        let proposed = self
+            .store()
+            .read(|c| agenium_store::core::skill_proposals::of_agent(c, agent))?;
+        if let Some(p) = proposed.iter().find(|p| {
+            p.lesson == u.lesson || live_end(&mem, p.lesson).is_some_and(|f| f.id == u.lesson)
+        }) {
+            return refuse(format!(
+                "lesson #{} is already in your skill proposal {} (waiting for the user, or saved into the library): improve that skill with propose_skill_update once it is yours",
+                u.lesson, p.name
+            ));
+        }
+        if proposed.iter().any(|p| p.name == name) {
+            return refuse(format!("you already proposed a skill named {name}"));
+        }
+        let pending = proposed
+            .iter()
+            .filter(|p| p.status == agenium_store::core::roles::ProposalStatus::Pending)
+            .count();
+        if pending >= MAX_PENDING_PROPOSALS {
+            return refuse(format!(
+                "{pending} of your skill proposals already wait for the user: wait for their decision"
+            ));
+        }
+
         // No sprawl: not a name the agent has, under the cap.
         let reg = self.skill_registry();
         let mine = reg.for_agent(&agent.to_string(), &a.role, &a.skills);
@@ -183,7 +211,7 @@ impl App {
                 "a skill named {name} already exists for you: improve it with propose_skill_update instead"
             ));
         }
-        if created.len() >= MAX_CREATED_SKILLS {
+        if created.len() + proposed.len() >= MAX_CREATED_SKILLS {
             return refuse(format!(
                 "you already created {MAX_CREATED_SKILLS} skills: improve one of them, or ask the user to remove one"
             ));
@@ -202,25 +230,28 @@ impl App {
             return refuse("the skill carries something that looks like a secret: refused");
         }
 
-        // Well-formed and not a duplicate: the full shape check must come back clean.
-        let mut others: Vec<(String, String)> = mine
+        // Well-formed and not a copy of a skill the agent has: the full shape check must come back clean. A library skill
+        // it does not have is not its to improve: closeness to one is shown to the user with the proposal (ADR-152).
+        let others: Vec<(String, String)> = mine
             .skills
             .iter()
             .map(|s| (s.meta.name.clone(), s.body.clone()))
             .collect();
-        for s in &lib.skills {
-            if !others.iter().any(|(n, _)| *n == s.meta.name) {
-                others.push((s.meta.name.clone(), s.body.clone()));
-            }
-        }
         let notes = crate::skill_shape::lint_skill(name, body, &others);
         if !notes.is_empty() {
             return refuse(format!("the new skill is not ready: {}", notes.join("; ")));
         }
 
-        // No contradiction (ADR-92). One subject, one skill: a subject already covered must be improved in place, so
-        // two skills about the same thing can never drift apart. Then no explicit opposite directive against any skill.
-        let known = self.known_skills(Some(&a), name);
+        // No contradiction (ADR-92). One subject, one skill: a subject a skill the agent has already covers must be
+        // improved in place (its own copy), so two skills about the same thing never drift apart; an explicit opposite
+        // directive against such a skill is refused. Against a library skill the agent does not have, neither is the
+        // agent's to settle: the proposal carries it for the user (or the skill writer) to merge or reconcile.
+        let has: std::collections::HashSet<String> =
+            mine.skills.iter().map(|s| s.meta.name.clone()).collect();
+        let (known, elsewhere): (Vec<_>, Vec<_>) = self
+            .known_skills(Some(&a), name)
+            .into_iter()
+            .partition(|k| has.contains(&k.name));
         let subjects: Vec<(String, String)> = known
             .iter()
             .map(|k| (k.name.clone(), k.subject.clone()))
@@ -230,59 +261,76 @@ impl App {
             crate::skill_conflict::same_subject(&me, &subjects, Some(self.embedder().as_ref()))
         {
             return refuse(format!(
-                "skill {other} already covers this subject (same {how}, {:.0}%): improve it with propose_skill_update \
-                 instead of adding a second skill about the same thing",
+                "skill {other} already covers this subject (same {how}, {:.0}%): improve it with propose_skill_update instead of adding a second skill about the same thing",
                 score * 100.0
             ));
         }
-        let guidance: Vec<(String, String)> = known
-            .iter()
-            .map(|k| (k.name.clone(), k.guidance.clone()))
-            .collect();
-        let conflicts = crate::skill_conflict::directive_conflicts(name, body, &guidance);
+        let guidance = |ks: &[crate::skill_conflict::Known]| -> Vec<(String, String)> {
+            ks.iter()
+                .map(|k| (k.name.clone(), k.guidance.clone()))
+                .collect()
+        };
+        let conflicts = crate::skill_conflict::directive_conflicts(name, body, &guidance(&known));
         if !conflicts.is_empty() {
             return refuse(format!(
                 "the new skill {}; reconcile it with that skill (or improve that skill) first",
                 conflicts.join("; ")
             ));
         }
+        let similar: Vec<crate::skill_similar::SimilarSkill> = self
+            .similar_skills(description, body, Some(name), 3)
+            .into_iter()
+            .filter(|x| !has.contains(&x.name))
+            .collect();
+        let proposal_notes =
+            crate::skill_conflict::directive_conflicts(name, body, &guidance(&elsewhere));
 
-        // Write a staging copy, validate it as a skill, then swap it in.
-        std::fs::create_dir_all(&own_dir)?;
-        let staging_root = own_dir.join(format!(".new-{}", ulid::Ulid::new()));
+        // Valid as a skill (checked in a staging folder that is removed), then proposed to the user (ADR-152): the
+        // library is the one place skills live; the agent never adds one on its own.
+        let staging_root =
+            std::env::temp_dir().join(format!("agenium-skill-proposal-{}", ulid::Ulid::new()));
         let staging = staging_root.join(name);
         std::fs::create_dir_all(&staging)?;
         std::fs::write(staging.join(agenium_skills::SKILL_FILE), &text)?;
-        if let Err(e) = agenium_skills::validate(&staging, Origin::Agent) {
-            let _ = std::fs::remove_dir_all(&staging_root);
+        let valid = agenium_skills::validate(&staging, Origin::Agent);
+        let _ = std::fs::remove_dir_all(&staging_root);
+        if let Err(e) = valid {
             return refuse(format!("the new skill is not valid: {e}"));
         }
-        std::fs::rename(&staging, own_dir.join(name))?;
-        let _ = std::fs::remove_dir_all(&staging_root);
-
-        created.insert(
-            name.to_owned(),
-            CreatedSkill {
-                lesson: u.lesson,
-                lesson_text: lesson.text.clone(),
-                reason: u.reason.trim().to_owned(),
-                at: now_iso(),
-                flagged: None,
-                revisions: Vec::new(),
-            },
-        );
-        save(&mem, &created)?;
+        let project = match a.team {
+            Some(t) => self.team(t)?.0.project,
+            None => None,
+        };
+        let proposal = agenium_store::core::skill_proposals::SkillProposal {
+            id: ulid::Ulid::new().to_string(),
+            project,
+            agent,
+            name: name.to_owned(),
+            text,
+            lesson: u.lesson,
+            lesson_text: lesson.text.clone(),
+            contexts: self.evidenced_contexts(&lesson),
+            similar: serde_json::to_value(&similar).unwrap_or_default(),
+            notes: proposal_notes,
+            reason: u.reason.trim().to_owned(),
+            status: agenium_store::core::roles::ProposalStatus::Pending,
+            skill: None,
+            note: None,
+            created_at: now_iso(),
+            decided_at: None,
+        };
         self.store().commit(None, &format!("agent:{agent}"), |w| {
-            w.emit(DomainEvent::AgentUpdated {
-                agent,
-                field: format!("skill_created:{name}"),
+            agenium_store::core::skill_proposals::insert(w.tx, &proposal)?;
+            w.emit(DomainEvent::NeedsUser {
+                ticket: None,
+                reason: format!("{} proposes a new skill {name}: {description}", a.name),
             })
             .map_err(OrchError::from)
         })?;
         Ok(serde_json::json!({
-            "status": "created",
+            "status": "proposed",
             "skill": name,
-            "note": "your own new skill (other agents do not get it). It is in your skills index from your next run; the user can review or delete it, and it is flagged if its lesson stops holding",
+            "note": "proposed to the user: if they save it, it goes into the skill library (every agent may enable it) and is switched on for you; until then you do not have it",
         }))
     }
 

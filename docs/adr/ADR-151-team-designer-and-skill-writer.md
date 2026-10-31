@@ -53,6 +53,9 @@ editor (ADR-124) or imported. Two references were read, their rules taken in our
 
 ## Not done
 
+Since done by [ADR-152](ADR-152-skill-library-documents-helper-sessions.md): documents of any common format (read as
+Markdown), the helpers' calls in the usage page, a team made on each role's model, the chats kept as sessions.
+
 - No test-and-grade loop for a written skill (skill-creator's with/without runs): it spends a model run per test.
 - The helpers' calls are not counted in the usage views (no agent owns them); they are small (one answer, a repair at
   most).

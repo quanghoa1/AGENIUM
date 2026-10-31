@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine, QueuedMessage } from "../lib/types";
+import { AttachmentBar, DocChip, material, splitMaterial, useAttachments } from "./Attachments";
 import { LeadQueue } from "./LeadQueue";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
@@ -20,6 +21,23 @@ const size = (t: string) => {
   const b = new Blob([t]).size;
   return b < 1024 ? `${b} B` : `${(b / 1024).toFixed(1)} KB`;
 };
+
+/** A message of the user's: its text (folded when long) and the documents attached to it as chips (ADR-152). */
+function UserText({ text }: { text: string }) {
+  const m = splitMaterial(text);
+  return (
+    <>
+      {m.text && <Folded text={m.text} />}
+      {m.docs.length > 0 && (
+        <span className="mt-1.5 flex flex-wrap gap-1">
+          {m.docs.map((d) => (
+            <DocChip key={d.name} name={d.name} size={d.size} className="border-white/40 text-white/90" />
+          ))}
+        </span>
+      )}
+    </>
+  );
+}
 
 /** A long message of the user's, folded to its first lines until asked for. */
 function Folded({ text }: { text: string }) {
@@ -114,6 +132,7 @@ export function ChatPane({
   const live = useLive();
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [text, setText] = useState("");
+  const att = useAttachments();
   const [note, setNote] = useState<string | null>(null);
   // This pane's own turns in flight (a message sent while one runs waits in the Lead's queue: ADR-149).
   const [turns, setTurns] = useState(0);
@@ -207,6 +226,9 @@ export function ChatPane({
   }, []);
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    // Files, or a file's path, are attached (read as Markdown) instead of typed.
+    att.onPaste(e);
+    if (e.defaultPrevented) return;
     const pasted = e.clipboardData.getData("text");
     if (pasted.length <= PASTE_CHARS && lineCount(pasted) <= PASTE_LINES) return;
     e.preventDefault();
@@ -235,8 +257,11 @@ export function ChatPane({
 
   const send = () => {
     if (!text.trim() || !enabled) return;
-    const msg = text.trim().replace(PASTE_TOKEN, (label, id) => pastes.current.get(Number(id)) ?? label);
+    const typed = text.trim().replace(PASTE_TOKEN, (label, id) => pastes.current.get(Number(id)) ?? label);
+    // The attached documents go with the message, in the block the helpers use: material to read, not instructions.
+    const msg = att.docs.length ? `${typed}\n\n${material(att.docs)}` : typed;
     pastes.current.clear();
+    att.clear();
     setText("");
     setNote(null);
     // While the Lead works, the message joins its queue; otherwise it opens a turn now. The app decides; the pane
@@ -281,7 +306,7 @@ export function ChatPane({
                 l.role === "user" ? "bg-accent text-white" : l.role === "system" ? "border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300" : "border border-line bg-elevated",
               )}
             >
-              {l.role === "assistant" ? <Markdown text={l.text} /> : l.role === "user" ? <Folded text={l.text} /> : l.text}
+              {l.role === "assistant" ? <Markdown text={l.text} /> : l.role === "user" ? <UserText text={l.text} /> : l.text}
             </div>
           </ListItem>
         ))}
@@ -299,7 +324,10 @@ export function ChatPane({
           </button>
         </div>
       )}
-      <div className="flex gap-2 border-t border-line p-3">
+      <div className="border-t border-line px-3 pt-2">
+        <AttachmentBar a={att} disabled={!enabled} />
+      </div>
+      <div className="flex gap-2 p-3 pt-2">
         <textarea
           ref={input}
           className="input input-lg min-h-[48px] resize-none"
@@ -318,7 +346,7 @@ export function ChatPane({
             }
           }}
         />
-        <button className="btn-primary btn-lg self-end" disabled={!text.trim() || !enabled} onClick={send}>
+        <button className="btn-primary btn-lg self-end" disabled={!text.trim() || !enabled || att.reading} onClick={send}>
           <Send className="h-3.5 w-3.5" /> {app.t("common.send")}
         </button>
       </div>

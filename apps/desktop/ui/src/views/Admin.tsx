@@ -9,6 +9,7 @@ import type { Key } from "../lib/i18n";
 import type { AuditEntry } from "../lib/types";
 import { CommandPolicySection } from "./CommandSettings";
 import { JudgeSection } from "./JudgeSettings";
+import { MarkitdownSection } from "./MarkitdownSettings";
 
 /** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
 export function actionLabel(action: string, t: (k: Key) => string): string {
@@ -113,6 +114,7 @@ export function SettingsView() {
       <div className="grid gap-4 md:grid-cols-2">
         <CommandPolicySection />
         <JudgeSection />
+        <MarkitdownSection />
         <Section title={app.t("settings.support")}>
           <div className="text-[11px] text-subtle">{app.t("settings.supportNote")}</div>
           <button

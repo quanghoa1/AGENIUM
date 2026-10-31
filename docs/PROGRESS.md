@@ -114,6 +114,13 @@ root:
   pick (API or CLI) and gets roles, counts, library skills, scopes and models with why, opened in the template editor;
   a skill the library lacks is written by an agent from a request and documents, to Agenium's skill rules, and opened
   in the skill editor. Both checked on seven models (API and four CLIs, OpenCode Go's free models among them): 15/15.
+- **One skill library, documents, helper sessions** (2026-11-01, ADR-152): agents propose new skills (Needs you: by
+  hand, discussed with the skill writer, or declined) and change only their own copy; the skill writer sees the whole
+  library, finds close skills with the local embedding model and merges with a before/after diff; helper chats are
+  sessions; models picked are remembered; documents (PDF, Office, EPUB…) read as Markdown by agents' `read_file` and
+  as attachments in every chat; markitdown installed, self-tested, updated and removed from Settings; teams on each
+  role's model; helper calls in Usage; skill quality on 12 local criteria with effectiveness from reopened tickets.
+  Checked end to end in the real app on three API and five CLI models ([VERIFICATION](VERIFICATION.md)).
 
 | Release item | Status | Evidence |
 |---|---|---|

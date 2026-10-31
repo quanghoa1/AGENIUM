@@ -151,6 +151,28 @@ fn main() {
             manage::save_skill,
             api::design_team,
             api::write_skill,
+            api::read_document,
+            api::read_document_path,
+            api::document_readers,
+            api::helper_calls,
+            api::skill_scorecard,
+            api::skill_effects,
+            api::markitdown_status,
+            api::install_markitdown,
+            api::update_markitdown,
+            api::check_markitdown_update,
+            api::test_markitdown,
+            api::remove_markitdown,
+            api::skill_proposal,
+            api::decide_skill_proposal,
+            api::preference,
+            api::set_preference,
+            api::new_session,
+            api::save_session,
+            api::sessions,
+            api::session,
+            api::remove_session,
+            api::finish_session,
             manage::evaluate_skill_text,
             manage::skill_file,
             api::tool_search_settings,
@@ -260,6 +282,20 @@ fn spawn_usage_refresh(handle: tauri::AppHandle) {
                 tracing::warn!(error = %e, "vendor usage not refreshed");
             }
             let _ = handle.emit("agenium://usage", ());
+            // markitdown (ADR-152): a newer version is only looked for and shown, never installed on its own.
+            if o.app.markitdown_check_due() {
+                match o.app.check_markitdown_update().await {
+                    Ok(st) => {
+                        if st.update {
+                            let _ = handle.emit(
+                                "agenium://markitdown",
+                                serde_json::json!({ "update": st.latest }),
+                            );
+                        }
+                    }
+                    Err(e) => tracing::warn!(error = %e, "markitdown update not checked"),
+                }
+            }
             if o.app.price_catalogue_stale() {
                 match agenium_orchestrator::prices::refresh_price_catalogue(&o.app).await {
                     Ok(Some(n)) => tracing::info!(priced = n, "price catalogue refreshed"),

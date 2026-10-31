@@ -163,3 +163,90 @@ pub fn remove_run_temp_dir(root: &Path) {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// In a worktree's temporary directory: the worktree it belongs to, so [`sweep_run_temp_dirs`] can tell when it is gone.
+const OWNER_FILE: &str = ".agenium-worktree";
+
+/// Creates the policy's temporary directory and records the worktree it belongs to (the first writable root). A
+/// worktree removed by Agenium takes its directory with it ([`remove_run_temp_dir`]); one that went another way (a
+/// root deleted whole, a test's or a helper's scratch folder, a crash) is found by the sweep from this record.
+pub fn prepare_temp_dir(policy: &SandboxPolicy) -> std::io::Result<()> {
+    let Some(t) = &policy.temp_dir else {
+        return Ok(());
+    };
+    std::fs::create_dir_all(t)?;
+    let owner = t.join(OWNER_FILE);
+    if let (false, Some(root)) = (owner.exists(), policy.writable_roots.first()) {
+        std::fs::write(owner, root.to_string_lossy().as_bytes())?;
+    }
+    Ok(())
+}
+
+/// Removes the worktrees' temporary directories (under the system TEMP) whose worktree is gone, and those without a
+/// record (made before records existed) untouched for `unowned_after`. Only Agenium's own directories (16 hex digits)
+/// are looked at, and only they are removed: the record is never followed. Best effort; returns what it removed.
+pub fn sweep_run_temp_dirs(unowned_after: std::time::Duration) -> Vec<PathBuf> {
+    sweep_in(&std::env::temp_dir().join("agenium"), unowned_after)
+}
+
+fn sweep_in(base: &Path, unowned_after: std::time::Duration) -> Vec<PathBuf> {
+    let mut removed = Vec::new();
+    let Ok(rd) = std::fs::read_dir(base) else {
+        return removed;
+    };
+    for e in rd.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let ours = name.len() == 16 && name.chars().all(|c| c.is_ascii_hexdigit());
+        if !ours || !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let dir = e.path();
+        let gone = match std::fs::read_to_string(dir.join(OWNER_FILE)) {
+            Ok(owner) => !Path::new(owner.trim()).exists(),
+            Err(_) => std::fs::metadata(&dir)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.elapsed().ok())
+                .is_some_and(|age| age >= unowned_after),
+        };
+        if gone && std::fs::remove_dir_all(&dir).is_ok() {
+            removed.push(dir);
+        }
+    }
+    removed
+}
+
+#[cfg(test)]
+mod sweep_tests {
+    use super::*;
+
+    #[test]
+    fn a_temp_dir_whose_worktree_is_gone_is_swept_and_nothing_else() {
+        let base = tempfile::tempdir().unwrap();
+        let wt = tempfile::tempdir().unwrap();
+        let gone = wt.path().join("gone");
+        std::fs::create_dir_all(&gone).unwrap();
+        let at = |n: &str| base.path().join(n);
+        let policy = |root: &Path, t: PathBuf| SandboxPolicy {
+            temp_dir: Some(t),
+            ..SandboxPolicy::workspace(root)
+        };
+        prepare_temp_dir(&policy(wt.path(), at("00000000000000aa"))).unwrap();
+        prepare_temp_dir(&policy(&gone, at("00000000000000bb"))).unwrap();
+        // The record is written once: a later run does not rewrite it.
+        prepare_temp_dir(&policy(wt.path(), at("00000000000000bb"))).unwrap();
+        std::fs::create_dir_all(at("00000000000000cc")).unwrap(); // no record, fresh
+        std::fs::create_dir_all(at("not-ours")).unwrap();
+        std::fs::remove_dir_all(&gone).unwrap();
+        let removed = sweep_in(base.path(), std::time::Duration::from_secs(3600));
+        assert_eq!(removed, vec![at("00000000000000bb")]);
+        assert!(at("00000000000000aa").exists(), "its worktree is there");
+        assert!(at("00000000000000cc").exists(), "no record, but too young");
+        assert!(at("not-ours").exists());
+        // Without a record and old enough (here: any age), it goes.
+        assert_eq!(
+            sweep_in(base.path(), std::time::Duration::ZERO),
+            vec![at("00000000000000cc")]
+        );
+    }
+}

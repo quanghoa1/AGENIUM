@@ -654,3 +654,101 @@ fn vendor_usage_keeps_the_last_good_reading() {
     );
     assert!(rows[0].error.as_deref().unwrap().contains("did not answer"));
 }
+
+/// ADR-152: a team from a template can run each role on its own model (the template's `default_model`) when this
+/// machine runs it (an API provider in the config, an agent CLI found); otherwise the role takes the team's model.
+/// The Lead's model picked on the form wins over its role's.
+#[test]
+fn a_team_from_a_template_runs_each_role_on_its_own_usable_model() {
+    use agenium_orchestrator::team_templates::TeamModels;
+    let f = fixture();
+    f.app
+        .update_config(|c| {
+            c.providers.push(agenium_config::ProviderConfig {
+                body: vec![],
+                effort_field: None,
+                headers: Default::default(),
+                id: "go".into(),
+                kind: agenium_config::ProviderKind::OpenaiCompat,
+                base_url: Some("https://opencode.ai/zen/go/v1".into()),
+                api_key_ref: String::new(),
+                max_concurrency: 1,
+                models: vec![],
+                model_caps: vec![],
+            })
+        })
+        .unwrap();
+    let listed = |id: &str| agenium_llm::ModelInfo {
+        id: id.into(),
+        ..Default::default()
+    };
+    f.app
+        .record_models(
+            &agenium_orchestrator::model_cache::cli_key("claude"),
+            Ok(vec![listed("haiku")]),
+        )
+        .unwrap();
+    let mut tpl = f.app.team_template("coding").unwrap();
+    tpl.id = "per-role".into();
+    let lead = tpl
+        .roles
+        .iter()
+        .position(|r| r.kind == RoleKind::Lead)
+        .unwrap();
+    let workers: Vec<usize> = (0..tpl.roles.len()).filter(|i| *i != lead).collect();
+    tpl.roles[lead].default_model = Some("go/deepseek-v4.1-flash".into());
+    tpl.roles[workers[0]].default_model = Some("go/deepseek-v4.1-flash".into());
+    tpl.roles[workers[1]].default_model = Some("claude/haiku".into());
+    tpl.roles[workers[2]].default_model = Some("codex/gpt-6-luna".into()); // Codex not found here
+    f.app.save_team_template(&tpl).unwrap();
+    assert!(f.app.usable_model("go/deepseek-v4.1-flash").is_some());
+    assert_eq!(
+        f.app.usable_model("claude/haiku").map(|(b, _)| b),
+        Some(BackendKind::Cli)
+    );
+    assert!(f.app.usable_model("codex/gpt-6-luna").is_none());
+    assert!(f.app.usable_model("nonsense").is_none());
+
+    let picked = ModelBinding {
+        provider: "mock".into(),
+        model: "lead-pick".into(),
+        effort: Effort::MEDIUM,
+        max_tokens: None,
+    };
+    let out = f
+        .app
+        .create_team_with_models(
+            f.project.id,
+            "per-role",
+            &TeamModels {
+                model: (BackendKind::Api, model()),
+                lead: Some((BackendKind::Api, picked.clone())),
+                planner: None,
+                role_models: true,
+            },
+            "",
+        )
+        .unwrap();
+    let agents = f.app.agents().unwrap();
+    let of_role = |i: usize| {
+        let role = tpl.role_dir(&tpl.roles[i].id);
+        agents.iter().find(|a| a.role == role).unwrap().clone()
+    };
+    assert_eq!(of_role(lead).model, picked, "the form's Lead model wins");
+    assert_eq!(of_role(workers[0]).model.model, "deepseek-v4.1-flash");
+    assert_eq!(of_role(workers[0]).backend, BackendKind::Api);
+    assert_eq!(of_role(workers[1]).model.provider, "claude");
+    assert_eq!(of_role(workers[1]).backend, BackendKind::Cli);
+    assert_eq!(
+        of_role(workers[2]).model,
+        model(),
+        "not usable here: the team's"
+    );
+    assert!(
+        out.model_notes
+            .iter()
+            .any(|n| n.contains("codex/gpt-6-luna is not usable")),
+        "{:?}",
+        out.model_notes
+    );
+}

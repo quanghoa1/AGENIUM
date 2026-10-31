@@ -387,6 +387,7 @@ impl ModelArg {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn create_team(
     d: State<'_, Desktop>,
     project: String,
@@ -395,42 +396,26 @@ pub fn create_team(
     lead_model: Option<ModelArg>,
     planner_model: Option<ModelArg>,
     prefix: Option<String>,
+    role_models: Option<bool>,
 ) -> R<Value> {
     let o = d.opened()?;
     let p = pid(&project)?;
-    let (model_backend, model_b) = model.binding()?;
-    let lead = lead_model.as_ref().map(ModelArg::binding).transpose()?;
-    let planner = planner_model.as_ref().map(ModelArg::binding).transpose()?;
+    // A model picked from the agent CLIs runs on that CLI: each member gets the backend of the model it was given
+    // (the Lead's, the planner's, its role's own, or the team's).
     let out = o
         .app
-        .create_team_from_template(
+        .create_team_with_models(
             p,
             &template,
-            &model_b,
-            lead.as_ref().map(|(_, b)| b),
-            planner.as_ref().map(|(_, b)| b),
+            &agenium_orchestrator::team_templates::TeamModels {
+                model: model.binding()?,
+                lead: lead_model.as_ref().map(ModelArg::binding).transpose()?,
+                planner: planner_model.as_ref().map(ModelArg::binding).transpose()?,
+                role_models: role_models.unwrap_or(false),
+            },
             prefix.as_deref().unwrap_or(""),
         )
         .map_err(err)?;
-    // A model picked from the agent CLIs runs on that CLI: each member gets the backend of the model it was given
-    // (the Lead's, the planner's, or the team's).
-    let members = o
-        .app
-        .store()
-        .read(|c| agenium_store::core::agents::agents_of_team(c, out.team))
-        .map_err(err)?;
-    for a in members {
-        let backend = match (&lead, &planner) {
-            (Some((k, b)), _) if a.role_kind == RoleKind::Lead && a.model == *b => *k,
-            (_, Some((k, b))) if a.role_kind == RoleKind::Worker && a.model == *b => *k,
-            _ => model_backend,
-        };
-        if backend == BackendKind::Cli {
-            o.app
-                .set_agent_backend(a.id, BackendKind::Cli, &a.model)
-                .map_err(err)?;
-        }
-    }
     Ok(json!(out))
 }
 

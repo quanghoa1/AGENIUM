@@ -1,15 +1,17 @@
 // The skill editor (author a new skill or edit one): its name, description and tags as fields, the SKILL.md
 // instructions in Monaco, and its files grouped as references, scripts and assets — added, uploaded, edited or removed
 // in place. Save writes everything in one step, validated together (a SKILL.md may name a reference added with it).
-import { AlertTriangle, CheckCircle2, FileCode2, FileImage, FileText, FileUp, Loader2, Pencil, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileCode2, FileImage, FileText, FileUp, GitCompare, Loader2, Pencil, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import { Suspense, lazy, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Overlay } from "../../components/motion";
 import { Mono, cn } from "../../components/ui";
-import { api } from "../../lib/api";
+import { api, type Scorecard } from "../../lib/api";
 import { friendly } from "../../lib/errors";
 import { useApp } from "../../lib/store";
+import { ScorecardView } from "./Scorecard";
 
 const MonacoEditor = lazy(() => import("../../components/MonacoEditor"));
+const MonacoDiff = lazy(() => import("../../components/MonacoDiff"));
 
 const SKILL = "SKILL.md";
 const DIRS = ["references", "scripts", "assets"] as const;
@@ -81,6 +83,8 @@ export function SkillEditor({
   name0,
   files0,
   newFiles0 = [],
+  origin = "user",
+  original,
   onClose,
   onSaved,
 }: {
@@ -90,6 +94,10 @@ export function SkillEditor({
   files0: string[];
   /** Files not saved yet that the skill comes with (a skill the skill writer drafted, ADR-151). */
   newFiles0?: { path: string; text: string }[];
+  /** Where the skill comes from, for its scorecard (ADR-152): `user`, `writer`, `writer-docs`, `proposal:<n>`. */
+  origin?: string;
+  /** The library skill's SKILL.md before this change (a merge drafted by the skill writer): compared side by side. */
+  original?: string;
   onClose: () => void;
   onSaved: (name?: string) => void;
 }) {
@@ -102,8 +110,14 @@ export function SkillEditor({
   const [tags, setTags] = useState(field("tags"));
   const extra = parsed.fields.filter(([k]) => !["name", "description", "tags"].includes(k));
   const [body, setBody] = useState(parsed.body);
-  const [saved, setSaved] = useState(initial);
-  const [files, setFiles] = useState<SkillFile[]>([...files0.map((path) => ({ path, status: "saved" as const })), ...newFiles0.map((f) => ({ path: f.path, status: "new" as const }))]);
+  const [saved, setSaved] = useState(original ?? initial);
+  const [card, setCard] = useState<Scorecard | null | undefined>(undefined);
+  const [compare, setCompare] = useState(!!original);
+  // A drafted file the skill already has (a merge) replaces it: listed once, as changed.
+  const [files, setFiles] = useState<SkillFile[]>([
+    ...files0.map((path) => ({ path, status: newFiles0.some((f) => f.path === path) ? ("changed" as const) : ("saved" as const) })),
+    ...newFiles0.filter((f) => !files0.includes(f.path)).map((f) => ({ path: f.path, status: "new" as const })),
+  ]);
   const [removed, setRemoved] = useState<string[]>([]);
   // Text of the files opened or added (a saved file is loaded on first open).
   const [texts, setTexts] = useState<Record<string, string>>(() => Object.fromEntries(newFiles0.map((f) => [f.path, f.text])));
@@ -178,6 +192,10 @@ export function SkillEditor({
   };
   const evaluate = () => {
     setBusy(true);
+    setCard(null);
+    api
+      .skillScorecard(name, description, body, origin, create ? null : name)
+      .then(setCard, () => setCard(undefined));
     api
       .evaluateSkillText(content)
       .then(setResult)
@@ -222,7 +240,12 @@ export function SkillEditor({
           <Pencil className="h-4 w-4 text-accent" />
           <span className="text-sm font-semibold">{create ? app.t("library.newSkill") : `${app.t("library.edit")}: ${name}`}</span>
           <span className="ml-2 text-[11px] text-subtle">{app.t("library.editHint")}</span>
-          <button className="btn ml-auto px-2" onClick={close} title={app.t("common.cancel")}>
+          {original !== undefined && (
+            <button className={cn("btn ml-auto h-7 px-2 text-[11px]", compare && "border-accent text-accent")} onClick={() => (setCompare((c) => !c), setActive(SKILL))}>
+              <GitCompare className="h-3.5 w-3.5" /> {app.t("library.compare")}
+            </button>
+          )}
+          <button className={cn("btn px-2", original === undefined && "ml-auto")} onClick={close} title={app.t("common.cancel")}>
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -342,10 +365,21 @@ export function SkillEditor({
               <div className="flex flex-1 items-center justify-center rounded-lg border border-line">
                 <Loader2 className="h-5 w-5 animate-spin text-subtle" />
               </div>
+            ) : compare && original !== undefined && active === SKILL ? (
+              <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-subtle" /></div>}>
+                <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-line">
+                  <MonacoDiff path="SKILL.md" original={original} modified={content} />
+                </div>
+              </Suspense>
             ) : (
               <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-subtle" /></div>}>
                 <MonacoEditor key={active} value={editorText} language={active === SKILL ? "markdown" : language(active)} onChange={edit} className="min-h-0 flex-1" />
               </Suspense>
+            )}
+            {card !== undefined && (
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-line bg-elevated/40 p-2.5">
+                <ScorecardView card={card} />
+              </div>
             )}
             {result && (
               <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-line bg-elevated/40 p-2.5 text-[11px]">

@@ -1,6 +1,7 @@
-// "Propose a team" (ADR-151): the user describes the team they want; a model of their choosing proposes the roles, how
-// many of each, their library skills, write scopes and models, with why. The draft opens in the template editor to be
-// changed and saved; a skill the library lacks has a button that writes it with the skill writer.
+// "Propose a team" (ADR-151): the user describes the team they want, with documents if they have them (ADR-152); a
+// model of their choosing proposes the roles, how many of each, their library skills, write scopes and models, with
+// why. The draft opens in the template editor to be changed and saved; a skill the library lacks has a button that
+// writes it with the skill writer. The chat is a session, listed under History.
 import { AlertTriangle, ArrowRight, Sparkles, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { HelperChat } from "../components/HelperChat";
@@ -18,6 +19,7 @@ export function TeamDesigner({ onClose, onDraft }: { onClose: () => void; onDraf
   const [writing, setWriting] = useState<NewSkill | null>(null);
   // Skills written from this draft: they are in the library now, so the role can have them.
   const [written, setWritten] = useState<Record<string, string>>({});
+  const [session, setSession] = useState<string | null>(null);
   const d = design?.draft;
   const template = (): TeamTemplate => {
     const t = structuredClone(d!.template);
@@ -31,11 +33,15 @@ export function TeamDesigner({ onClose, onDraft }: { onClose: () => void; onDraf
   return (
     <>
       <HelperChat<TeamDesign>
+        kind="design"
+        prefKey="model.designer"
         title={app.t("design.title")}
         intro={app.t("design.intro")}
         placeholder={app.t("design.placeholder")}
-        ask={(m, turns) => api.designTeam(m, turns)}
+        ask={(m, turns, docs, s) => api.designTeam(m, turns, docs, s)}
         onAnswer={(a) => a.draft && setDesign(a)}
+        onSession={setSession}
+        onRestore={(draft) => setDesign(draft ? { reply: "", questions: [], raw: "", model: "", draft: draft as TeamDesign["draft"] } : null)}
         onClose={onClose}
       >
         {!d ? (
@@ -54,7 +60,13 @@ export function TeamDesigner({ onClose, onDraft }: { onClose: () => void; onDraf
                 </div>
                 {d.template.description && <div className="mt-1 text-xs text-muted">{d.template.description}</div>}
               </div>
-              <button className="btn-primary shrink-0" onClick={() => onDraft(template())}>
+              <button
+                className="btn-primary shrink-0"
+                onClick={() => {
+                  if (session) api.finishSession(session, d.template.id).catch(() => undefined);
+                  onDraft(template());
+                }}
+              >
                 {app.t("design.open")} <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>

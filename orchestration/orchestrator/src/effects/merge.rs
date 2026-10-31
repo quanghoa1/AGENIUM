@@ -174,7 +174,7 @@ impl App {
                 continue;
             }
             let text = format!(
-                "{} was merged into {} and changed files you are changing too: {}. Rebase your branch on {} now (commit or                  stash first, then `git rebase {}`) and resolve any conflict while the change is small.",
+                "{} was merged into {} and changed files you are changing too: {}. Rebase your branch on {} now (commit or stash first, then `git rebase {}`) and resolve any conflict while the change is small.",
                 merged.key,
                 p.main_branch,
                 both.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "),

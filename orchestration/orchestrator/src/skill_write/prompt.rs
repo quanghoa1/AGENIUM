@@ -17,6 +17,7 @@ pub(super) const RULES: &str = r###"You write a skill for Agenium's skill librar
 - Long detail (checklists, tables, a standard's rules, examples) goes in reference files "references/<name>.md" that a step names ("read references/checklist.md"). Add a script "scripts/<name>" only when the user asks for one; a step must name it too. Every file you add is named in the body.
 - Say briefly why a step matters, so an agent can judge a case the steps did not foresee; avoid all-caps MUST and NEVER. Write for every request of this kind, not only the user's example.
 - One job per skill. If the request holds several jobs, write the main one and say in your reply which others deserve their own skill.
+- One skill per job in the library: when a library skill below already does this job, do not write a second one. Improve that skill instead: set "extends" to its name and give the whole improved skill under that name, keeping what it has that still holds and adding what is new. Say so in your reply.
 - Write the method in your own words. Do not copy documents wholesale, and never put a secret, a key, a password or a personal address in the skill.
 
 # The user's documents
@@ -27,9 +28,29 @@ Answer with one JSON object only, no prose around it:
 {"reply": "your message to the user, in the user's language: what you wrote and what to check, or why you ask",
  "questions": ["only when you must ask before writing (at most three, and only once: after the user answers or tells you to go ahead, write the skill and say what you assumed)"],
  "skill": {"name": "...", "description": "...", "tags": ["..."], "body": "## Job\n...",
-           "files": [{"path": "references/checklist.md", "text": "..."}]}}
+           "files": [{"path": "references/checklist.md", "text": "..."}],
+           "extends": "the library skill this improves, or empty for a new skill"}}
 Omit "skill" when you only ask questions. When the user asks for changes, answer with the whole changed skill.
 "###;
+
+/// The user chose to merge the draft into the library skill `name` (its SKILL.md is `text`, its other files `files`:
+/// they stay unless the user removes them, so the merged body keeps naming those it still uses).
+pub(super) fn merge(name: &str, text: &str, files: &[String]) -> String {
+    let kept = if files.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\nIts files stay with it: {}. Keep naming in a step each one the merged skill still uses (a file no step \
+             names is never read); send a file in \"files\" only to change it.",
+            files.join(", ")
+        )
+    };
+    format!(
+        "\n\nMerge your draft into the library skill {name} instead of adding a new skill: answer with \"extends\": \
+         \"{name}\" and the whole merged skill under that name, keeping what it has that still holds and adding what \
+         your draft brings.{kept}\n<existing_skill name=\"{name}\">\n{text}\n</existing_skill>"
+    )
+}
 
 /// Sent back when an answer could not be used, with why.
 pub(super) fn repair(why: &str) -> String {

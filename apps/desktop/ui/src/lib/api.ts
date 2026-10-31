@@ -114,6 +114,8 @@ export const api = {
     call<AuditEntry[] | string>("audit", { project, key, format }),
   agents: () => call<AgentEntry[]>("agents"),
   runs: (limit?: number) => call<RunRow[]>("runs", { limit }),
+  /** The helpers' model calls (team designer, skill writer) as runs with no ticket (ADR-152). */
+  helperCalls: (limit?: number) => call<RunRow[]>("helper_calls", { limit }),
   runDetail: (run: string) => call<RunDetail>("run_detail", { run }),
   events: (since?: number, limit?: number) => call<EventRecord[]>("events", { since, limit }),
   /** `clis: false`: without the agent CLIs (finding them takes seconds the first time). */
@@ -157,14 +159,16 @@ export const api = {
     call<{ id: string; name: string }>("create_project", { name, source, keyPrefix }),
   /** A free ticket prefix made from a project name. */
   suggestKeyPrefix: (name: string) => call<string>("suggest_key_prefix", { name }),
-  createTeam: (project: string, template: string, model: ModelArg, leadModel?: ModelArg, plannerModel?: ModelArg, prefix?: string) =>
-    call<{ agents: [string, string][]; missing_skills: string[] }>("create_team", {
+  /** `roleModels`: each role on its template's own model where this machine runs it (ADR-152). */
+  createTeam: (project: string, template: string, model: ModelArg, leadModel?: ModelArg, plannerModel?: ModelArg, prefix?: string, roleModels?: boolean) =>
+    call<{ agents: [string, string][]; missing_skills: string[]; model_notes: string[] }>("create_team", {
       project,
       template,
       model,
       leadModel,
       plannerModel,
       prefix,
+      roleModels,
     }),
   createSolo: (project: string, name: string, model: ModelArg) =>
     call<unknown>("create_solo", { project, name, model }),
@@ -258,10 +262,41 @@ export const api = {
   /** A provider's models as kept (listed again with `refresh`, when new or a week old): with when and any error. */
   providerModels: (id: string, refresh = false) => call<CachedModels>("provider_models", { id, refresh }),
   /** One turn of the team designer (ADR-151) with the user's chosen model; the draft opens in the template editor. */
-  designTeam: (model: ModelArg, turns: ChatTurn[]) => call<TeamDesign>("design_team", { model, turns }),
-  /** One turn of the skill writer (ADR-151): the request, the user's documents, the designer's proposal if any. */
-  writeSkill: (model: ModelArg, turns: ChatTurn[], documents: SkillDoc[], seed: NewSkill | null) =>
-    call<SkillWrite>("write_skill", { model, turns, documents, seed }),
+  designTeam: (model: ModelArg, turns: ChatTurn[], documents: SkillDoc[] = [], session?: string) =>
+    call<TeamDesign>("design_team", { model, turns, documents, session }),
+  /** One turn of the skill writer (ADR-151): the request, the user's documents, the designer's proposal if any;
+   * `mergeInto` asks for the draft to improve that library skill instead (ADR-152). */
+  writeSkill: (model: ModelArg, turns: ChatTurn[], documents: SkillDoc[], seed: NewSkill | null, mergeInto?: string | null, session?: string) =>
+    call<SkillWrite>("write_skill", { model, turns, documents, seed, mergeInto: mergeInto ?? null, session }),
+  /** A document read as Markdown by the backend (ADR-152): its bytes in base64, or its path on this machine. */
+  readDocument: (name: string, base64: string) => call<ReadDoc>("read_document", { name, base64 }),
+  readDocumentPath: (path: string) => call<ReadDoc>("read_document_path", { path }),
+  /** A helper chat kept in the root (ADR-152): made on the first message, saved after each answer, reopened later. */
+  newSession: (kind: "design" | "skill", source: unknown, model: ModelArg) => call<HelperSession>("new_session", { kind, source, model }),
+  saveSession: (id: string, s: { model: ModelArg; turns: ChatTurn[]; transcript: unknown; attachments: SkillDoc[]; draft?: unknown; result?: string | null }) =>
+    call<HelperSession>("save_session", { id, model: s.model, turns: s.turns, transcript: s.transcript, attachments: s.attachments, draft: s.draft ?? null, result: s.result ?? null }),
+  sessions: (kind: "design" | "skill") => call<HelperSession[]>("sessions", { kind }),
+  session: (id: string) => call<HelperSession>("session", { id }),
+  removeSession: (id: string) => call<void>("remove_session", { id }),
+  finishSession: (id: string, result: string) => call<HelperSession>("finish_session", { id, result }),
+  /** An agent's skill proposal (ADR-152) and the user's decision on it. */
+  skillProposal: (id: string) => call<SkillProposal>("skill_proposal", { id }),
+  decideSkillProposal: (id: string, approve: boolean, savedAs?: string | null, note?: string | null) =>
+    call<SkillProposal>("decide_skill_proposal", { id, approve, savedAs: savedAs ?? null, note: note ?? null }),
+  /** markitdown in Settings (ADR-152): Agenium's own copy installed, self-tested, updated, removed. */
+  markitdownStatus: () => call<MarkitdownStatus>("markitdown_status"),
+  installMarkitdown: (method?: "uv" | "python" | "uv-standalone") => call<MarkitdownStatus>("install_markitdown", { method: method ?? null }),
+  updateMarkitdown: () => call<MarkitdownStatus>("update_markitdown"),
+  checkMarkitdownUpdate: () => call<MarkitdownStatus>("check_markitdown_update"),
+  testMarkitdown: () => call<[string, string][]>("test_markitdown"),
+  removeMarkitdown: () => call<MarkitdownStatus>("remove_markitdown"),
+  /** A skill on the 12 criteria (ADR-152), checked locally; `skip` is the library skill being scored. */
+  skillScorecard: (name: string, description: string, body: string, origin: string, skip?: string | null) =>
+    call<Scorecard>("skill_scorecard", { name, description, body, origin, skip: skip ?? null }),
+  skillEffects: () => call<Record<string, SkillEffect>>("skill_effects"),
+  /** The user's last choice under `key` (ADR-152), kept in the root; null when none. */
+  preference: (key: PrefKey) => call<unknown>("preference", { key }),
+  setPreference: (key: PrefKey, value: unknown) => call<void>("set_preference", { key, value }),
   /** Lists one CLI's models again now. */
   reloadCliModels: (cli: string) => call<CachedModels>("reload_cli_models", { cli }),
   localServers: () => call<LocalServer[]>("local_servers"),
@@ -310,6 +345,12 @@ export async function onModel(f: () => void): Promise<UnlistenFn> {
   return listen("agenium://model", () => f());
 }
 
+/** A step of a markitdown install, or a newer version found (`agenium://markitdown`, ADR-152). */
+export async function onMarkitdown(f: (e: { step?: string; update?: string }) => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => {};
+  return listen<{ step?: string; update?: string }>("agenium://markitdown", (e) => f(e.payload));
+}
+
 /** The vendors' usage was read again (`agenium://usage`). */
 export async function onUsage(f: () => void): Promise<UnlistenFn> {
   if (!inTauri) return () => {};
@@ -355,10 +396,111 @@ export interface SkillDoc {
   text: string;
 }
 
+export interface SimilarSkill {
+  name: string;
+  words: number;
+  meaning?: number | null;
+  level: "duplicate" | "near";
+}
+
 export interface SkillWrite {
   reply: string;
   questions: string[];
-  draft: { name: string; description: string; tags: string[]; body: string; files: { path: string; text: string }[]; skill_md: string; exists: boolean; notes: string[] } | null;
+  draft: {
+    name: string;
+    description: string;
+    tags: string[];
+    body: string;
+    files: { path: string; text: string }[];
+    skill_md: string;
+    exists: boolean;
+    notes: string[];
+    /** The library skill this draft improves (a merge): saving it edits that skill. */
+    extends?: string | null;
+    /** That skill's SKILL.md as it is now. */
+    original?: string | null;
+    similar: SimilarSkill[];
+  } | null;
   raw: string;
   model: string;
 }
+
+/** A document read as Markdown (ADR-152). */
+export interface ReadDoc {
+  name: string;
+  text: string;
+  format: string;
+  notes: string[];
+}
+
+export interface HelperSession {
+  id: string;
+  kind: "design" | "skill";
+  title: string;
+  model: ModelArg | null;
+  turns: ChatTurn[];
+  transcript: { user: boolean; text: string; questions?: string[]; model?: string }[];
+  attachments: SkillDoc[];
+  draft?: unknown;
+  source?: { proposal?: string; seed?: NewSkill } | null;
+  status: "open" | "saved" | "closed";
+  result?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SkillProposal {
+  id: string;
+  agent: string;
+  agent_name?: string;
+  name: string;
+  text: string;
+  lesson_text: string;
+  contexts: string[];
+  similar: SimilarSkill[];
+  notes: string[];
+  reason: string;
+  status: string;
+  skill?: string | null;
+}
+
+export interface MarkitdownStatus {
+  source: "agenium" | "path" | "none";
+  program?: string | null;
+  version?: string | null;
+  method?: string | null;
+  installed_at?: string | null;
+  pinned: string;
+  latest?: string | null;
+  update: boolean;
+  checked_at?: string | null;
+  tested_at?: string | null;
+  tests: [string, string][];
+  busy: boolean;
+  size_mb: number;
+  blocked: boolean;
+}
+
+export interface Criterion {
+  id: string;
+  status: "ok" | "warn" | "info";
+  note: string;
+}
+
+export interface Scorecard {
+  criteria: Criterion[];
+  ok: number;
+  warn: number;
+}
+
+export interface SkillEffect {
+  tickets: number;
+  reopened: number;
+  others: number;
+  others_reopened: number;
+  enough: boolean;
+  worse: boolean;
+}
+
+/** Where a model is picked and remembered (ADR-152). */
+export type PrefKey = "model.agent" | "model.team" | "model.skill_writer" | "model.designer";

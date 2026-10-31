@@ -160,6 +160,8 @@ export const shell: Record<keyof typeof en, string> = {
   "usage.table": "Bảng",
   "usage.total": "Tổng",
   "usage.other": "Khác",
+  "usage.helper.design": "Thiết kế team (trợ lý)",
+  "usage.helper.skill": "Viết skill (trợ lý)",
   "usage.none": "Không có run nào trong khoảng này.",
   "usage.completed": "hoàn thành",
   "usage.pricesFrom": "Giá lấy từ",

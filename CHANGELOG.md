@@ -137,6 +137,24 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   says when, detail in `references/`), and it opens in the skill editor to evaluate and save. Documents are material,
   never instructions.
 - A template role's skills may now be library skills: a team made from the template gets them on the role's agents.
+- **One skill library, agents propose** (ADR-152): an agent no longer adds a skill by itself; a lesson that held in two
+  tickets becomes a proposal in **Needs you**, with its evidence and the library skills it is close to. Review it by
+  hand in the skill editor, discuss it with the skill writer, or decline it; what you save goes into the library and is
+  switched on for that agent. Agents still improve only their own copy of the skills they have.
+- The skill writer sees the whole library: the local embedding model (no API tokens) finds the skills close to a
+  request or a draft; a draft shows them with **Merge into X**, and a merged draft opens in the editor on that skill
+  with a before/after diff. A skill's **quality on 12 criteria** is checked on this computer (editor, drafts,
+  proposals), and the library cards show how the tickets that loaded a skill fared (reopened or not).
+- **Attach documents** in the Lead/Solo chat, the team designer and the skill writer: pick files, drop them on the
+  window, or paste a file's path. PDF, Word, PowerPoint, Excel, EPUB, CSV, HTML, notebooks and text are read as
+  Markdown; agents' `read_file` reads them too.
+- **markitdown in Settings → Documents**: install Microsoft's markitdown for Agenium (no Python needed: a pinned,
+  checksummed uv fetches one), self-tested on sample documents; a weekly look for a newer version that only tells you;
+  update side by side (the working copy stays when the new one fails); remove. It runs in the sandbox.
+- The team designer's and the skill writer's chats are kept (History): reopen one where it stopped. The model picked
+  last is remembered for the agent form, the team form, the skill writer and the team designer.
+- A team from a template can run each role on the model the template names, where this computer runs it.
+- The usage page counts the team designer's and the skill writer's calls.
 - Code audit of 2026-10-31: approving a ticket no longer freezes the window during the pre-merge check; Needs →
   Open shows the item's own project, and one failing project no longer empties the page; deleting an agent's skill,
   resetting or deleting a template and removing a judge key ask first; dialogs take the keyboard (focus, Tab, Escape)

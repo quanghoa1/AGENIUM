@@ -237,7 +237,7 @@ impl Executor {
     async fn run_unix(spec: &CommandSpec, policy: &SandboxPolicy) -> Result<ExecOutput, ExecError> {
         let mut env = clean_env(&spec.env);
         if let Some(t) = &policy.temp_dir {
-            std::fs::create_dir_all(t)?;
+            prepare_temp_dir(policy)?;
             env.insert("TMPDIR".into(), t.display().to_string());
             // HOME stays the user's, and their ~/.gitconfig is outside the sandbox: Seatbelt answers EPERM (not
             // ENOENT as on Linux, where it is not mounted) and git stops with "unable to access", exit 128 (likely
@@ -402,7 +402,7 @@ pub(crate) fn mxc_env(
         }
     }
     if let Some(t) = &policy.temp_dir {
-        std::fs::create_dir_all(t)?;
+        prepare_temp_dir(policy)?;
         let gc = agent_gitconfig(
             t,
             "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n[core]\n\tlongpaths = true\n",
