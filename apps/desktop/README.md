@@ -23,6 +23,7 @@ the UI answers from demo data (`ui/src/lib/demo.ts`).
 cd apps/desktop
 ./ui/node_modules/.bin/tauri build --config tauri.bundle.json --bundles nsis,msi        # Windows
 ./ui/node_modules/.bin/tauri build --config tauri.bundle.json --bundles deb,appimage    # Linux (Ubuntu)
+CI=true ./ui/node_modules/.bin/tauri build --config tauri.bundle.json --bundles app,dmg # macOS (ad-hoc signed)
 ```
 
 `tauri.bundle.json` turns bundling on and ships the embedding model: its before-build step builds the UI and downloads

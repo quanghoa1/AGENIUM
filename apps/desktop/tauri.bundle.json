@@ -5,7 +5,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "deb", "appimage"],
+    "targets": ["nsis", "msi", "deb", "appimage", "app", "dmg"],
     "publisher": "The Agenium authors",
     "copyright": "Copyright 2026 The Agenium authors",
     "category": "DeveloperTool",
@@ -20,6 +20,9 @@
         "installMode": "currentUser",
         "languages": ["English", "Vietnamese"]
       }
+    },
+    "macOS": {
+      "signingIdentity": "-"
     },
     "linux": {
       "deb": {
