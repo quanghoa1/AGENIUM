@@ -16,6 +16,7 @@ mod lead_runs;
 pub mod learn;
 mod mcp_gate;
 mod models;
+mod pool;
 mod quota_back;
 mod reflect;
 mod scheduling;

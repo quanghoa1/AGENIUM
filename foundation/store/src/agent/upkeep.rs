@@ -61,6 +61,33 @@ impl AgentStore {
         })
     }
 
+    /// Records that a fact misled the work in `context` (`<project>/ticket:<key>`); returns in how many distinct
+    /// contexts it has. Kept in `agent_meta` (`misled:<fact>`), read and written in one transaction. The shared pool
+    /// (ADR-87) weighs its copies by it: a copy that misled other agents' work in two contexts leaves the pool (audit
+    /// M3, 2026-10-31).
+    pub fn misled_in(&self, fact: i64, context: &str) -> Result<usize, StoreError> {
+        let key = format!("misled:{fact}");
+        self.db.write(|tx| {
+            let raw: Option<String> = tx
+                .query_row("SELECT value FROM agent_meta WHERE key = ?1", [&key], |r| {
+                    r.get(0)
+                })
+                .optional()?;
+            let mut v: Vec<String> = raw
+                .and_then(|r| serde_json::from_str(&r).ok())
+                .unwrap_or_default();
+            if !v.iter().any(|c| c == context) {
+                v.push(context.to_owned());
+                tx.execute(
+                    "INSERT INTO agent_meta(key, value) VALUES (?1, ?2)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    params![key, serde_json::to_string(&v)?],
+                )?;
+            }
+            Ok(v.len())
+        })
+    }
+
     /// Forgetting (decision 35): the weight of every live fact halves for each `half_life_days` it went unused (since
     /// it was last used, else since it was made); below [`HIDE_BELOW_WEIGHT`] it is no longer retrieved but kept.
     /// Returns how many weights changed.

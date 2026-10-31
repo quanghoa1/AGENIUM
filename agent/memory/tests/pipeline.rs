@@ -141,13 +141,25 @@ async fn add_update_delete_noop_with_guards() {
     assert!(store.get(pref.id).is_ok(), "retired, still readable");
     assert!(!store.live(100).unwrap().iter().any(|f| f.id == pref.id));
 
-    // A model answer that is not JSON is an error (nothing is written).
+    // A model answer that is not JSON, twice, is an error (nothing is written); it was asked twice.
     p.push_text("I could not find anything.");
+    p.push_text("");
     let before = store.live(100).unwrap().len();
+    let asked = p.requests().len();
     assert!(learn(&p, &model(), &store, &e, &episode("chat"), &clean)
         .await
         .is_err());
     assert_eq!(store.live(100).unwrap().len(), before);
+    assert_eq!(p.requests().len(), asked + 2);
+
+    // An empty answer is asked for again once (a cheap model sometimes answers nothing; the shared-pool eval).
+    p.push_text("");
+    p.push_text("{\"facts\": []}");
+    let r = learn(&p, &model(), &store, &e, &episode("chat"), &clean)
+        .await
+        .unwrap();
+    assert_eq!((r.extracted, r.failed), (0, None));
+    assert_eq!(p.remaining(), 0);
 }
 
 /// A clean episode that refines a lesson yields only a fact; its UPDATE keeps the lesson a lesson, with its cue, its

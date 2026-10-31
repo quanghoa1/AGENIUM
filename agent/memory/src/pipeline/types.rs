@@ -20,6 +20,10 @@ pub struct Episode {
     pub run: Option<String>,
     /// Memories shown to that run: (fact id, text).
     pub used: Vec<(i64, String)>,
+    /// Lessons of the shared pool (ADR-87) shown to that run: (pool fact id, text). The pipeline never changes them:
+    /// those a reopened run names as misleading are reported (`LearnReport::misleading_shared`) for the pool to weigh
+    /// (audit M3, 2026-10-31).
+    pub shared_used: Vec<(i64, String)>,
     /// What makes the episode worth a lesson (decision 35): a reopen, a failed merge, the Lead's correction or
     /// praise, the user's feedback. Without one only facts and preferences are kept.
     pub signals: Vec<String>,
@@ -57,6 +61,8 @@ pub struct LearnReport {
     pub edges: usize,
     pub helped: usize,
     pub misleading: Vec<i64>,
+    /// Pool fact ids of the shared lessons named as misleading (`Episode::shared_used`): never this agent's facts.
+    pub misleading_shared: Vec<i64>,
     /// Lessons shown to the run that held again, in a new context.
     pub validated: usize,
     /// Forgetting and consolidation after the episode.
@@ -64,6 +70,9 @@ pub struct LearnReport {
     pub consolidated: u64,
     /// Facts, operations, mentions or relations refused by the guards.
     pub rejected: Vec<String>,
+    /// A step that failed after the episode's reuse signals were recorded: what it lost (the new facts).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed: Option<String>,
     /// What the counts above changed, in words (the run log shows it).
     pub changes: Vec<Change>,
     pub tokens_in: u64,

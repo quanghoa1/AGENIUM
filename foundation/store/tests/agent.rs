@@ -179,6 +179,21 @@ fn validation_decay_and_consolidation() {
     );
     assert_eq!(s.validate_in(a, "project:p2").unwrap(), 2);
     assert_eq!(s.get(a).unwrap().validated, ["project:p1", "project:p2"]);
+    // Audit M3: the contexts a fact misled the work in are counted apart from those it held in, per fact.
+    let b = add(&s, "Pin exact crate versions in examples");
+    assert_eq!(s.misled_in(a, "p1/ticket:A-1").unwrap(), 1);
+    assert_eq!(
+        s.misled_in(a, "p1/ticket:A-1").unwrap(),
+        1,
+        "same context once"
+    );
+    assert_eq!(s.misled_in(b, "p1/ticket:A-1").unwrap(), 1, "per fact");
+    assert_eq!(s.misled_in(a, "p2/ticket:A-1").unwrap(), 2);
+    assert_eq!(
+        s.get(a).unwrap().validated.len(),
+        2,
+        "held-in contexts unchanged"
+    );
 
     let now = chrono::Utc::now();
     assert!(s.decay(now, 90.0).unwrap() <= 1);

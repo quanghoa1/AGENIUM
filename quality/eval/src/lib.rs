@@ -24,6 +24,7 @@ pub mod mcp_keys;
 pub mod memory_reuse;
 pub mod quota;
 pub mod record;
+pub mod shared_pool;
 pub mod stats;
 pub mod task_mcp;
 pub mod task_skills;

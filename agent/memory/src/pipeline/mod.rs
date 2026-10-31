@@ -97,35 +97,49 @@ async fn ask(
         long_cache: false,
         tools_off: false,
     };
-    let resp = m
-        .retry
-        .run(
-            |_| provider.chat(&req, &|_| {}),
-            tokio::time::sleep,
-            |_, _, _| {},
-        )
-        .await
-        .map_err(|e| MemoryError::Model(e.to_string()))?;
-    report.tokens_in += resp.usage.total_input();
-    report.tokens_out += resp.usage.output;
-    report.usage.add(&resp.usage);
-    let text = resp.message.text();
-    if let Some(v) = json_object(&text) {
-        return Ok(v);
-    }
-    // An extraction cut off by the token budget still holds every fact it finished: keep those rather than lose the
-    // whole episode (2026-10-25: DeepSeek's answer for a ticket stopped mid-fact and the ticket taught nothing).
-    if let Some(facts) = complete_items(&text, "facts") {
-        report.rejected.push(format!(
-            "the extraction answer was cut off; kept its {} complete fact(s)",
-            facts.len()
-        ));
-        return Ok(serde_json::json!({ "facts": facts }));
+    // An answer that is empty or not JSON is asked for once more: a cheap model sometimes answers nothing at all
+    // (DeepSeek, the shared-pool eval of 2026-10-31), and the whole episode was lost to it.
+    let mut text = String::new();
+    for _ in 0..2 {
+        let resp = m
+            .retry
+            .run(
+                |_| provider.chat(&req, &|_| {}),
+                tokio::time::sleep,
+                |_, _, _| {},
+            )
+            .await
+            .map_err(|e| MemoryError::Model(e.to_string()))?;
+        report.tokens_in += resp.usage.total_input();
+        report.tokens_out += resp.usage.output;
+        report.usage.add(&resp.usage);
+        text = resp.message.text();
+        if let Some(v) = json_object(&text) {
+            return Ok(v);
+        }
+        // An extraction cut off by the token budget still holds every fact it finished: keep those rather than lose
+        // the whole episode (2026-10-25: DeepSeek's answer for a ticket stopped mid-fact and the ticket taught nothing).
+        if let Some(facts) = complete_items(&text, "facts") {
+            report.rejected.push(format!(
+                "the extraction answer was cut off; kept its {} complete fact(s)",
+                facts.len()
+            ));
+            return Ok(serde_json::json!({ "facts": facts }));
+        }
     }
     Err(MemoryError::Model(format!(
         "the answer is not JSON: {}",
         text.chars().take(200).collect::<String>()
     )))
+}
+
+/// A memory id the model named: a number, or the same written as text (`"2"`, `"id=2"`). Gemini Flash answered
+/// `["2"]` for the shared lesson that misled the work, and the blame was lost (the shared-pool eval, 2026-10-31).
+fn memory_id(x: &Value) -> Option<i64> {
+    x.as_i64().or_else(|| {
+        let s = x.as_str()?.trim();
+        s.strip_prefix("id=").unwrap_or(s).trim().parse().ok()
+    })
 }
 
 /// Forgetting and consolidation after each episode (decision 35): weights decay while facts go unused, and copies of
@@ -161,10 +175,29 @@ pub async fn learn(
             ep.signals.join("; ")
         }
     );
-    if !ep.used.is_empty() {
+    // The pool's lessons are named past every id of the agent's own shown (a pool id may equal one of them): an id the
+    // model names is then one memory, and a pooled lesson's blame never lands on the agent's own (audit M3).
+    let first_shared = ep.used.iter().map(|(id, _)| *id).max().unwrap_or(0).max(0) + 1;
+    if !ep.used.is_empty() || !ep.shared_used.is_empty() {
         prompt.push_str("\n\n## MEMORIES SHOWN to this run\n");
         for (id, t) in &ep.used {
             prompt.push_str(&format!("id={id}: {t}\n"));
+        }
+        for (i, (_, t)) in ep.shared_used.iter().enumerate() {
+            prompt.push_str(&format!(
+                "id={}: (a shared lesson from another agent) {t}\n",
+                first_shared + i as i64
+            ));
+        }
+        // Next to the list it is about: at the end of the long rules, a cheap model missed most culprits and named
+        // memories the work never acted on (the shared-pool eval, 2026-10-31).
+        if ep.reopened {
+            prompt.push_str(
+                "The review reopened this work. In \"misleading\", list the id of each memory above that the \
+                 rejected work followed where the review says it was wrong, whether the work quoted it or not. \
+                 Leave out a memory the work did not act on, even one that is wrong here. If none led to the \
+                 rejection, \"misleading\" is [].\n",
+            );
         }
     }
     let v = ask(provider, model, EXTRACT_RULES, prompt, &mut report).await?;
@@ -173,7 +206,7 @@ pub async fn learn(
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|x| x.as_i64())
+        .filter_map(memory_id)
         .collect();
     let mut facts: Vec<Extracted> = Vec::new();
     for mut f in raw.into_iter().take(MAX_FACTS) {
@@ -232,6 +265,14 @@ pub async fn learn(
                 store.signal_usage(run, Some(*id), "reopened", Some("hurt"))?;
                 report.misleading.push(*id);
             }
+            // The shared lessons named are only reported: the pool weighs them, this agent's memory is not theirs.
+            let named: BTreeSet<i64> = misleading.iter().copied().collect();
+            report.misleading_shared = named
+                .iter()
+                .filter_map(|id| id.checked_sub(first_shared))
+                .filter_map(|i| usize::try_from(i).ok())
+                .filter_map(|i| ep.shared_used.get(i).map(|(pool_id, _)| *pool_id))
+                .collect();
         } else if !shown.is_empty() {
             // A lesson that held again counts the context (decision 35: two make it a skill-update candidate). Only
             // one that was in play does (ADR-118): shown as a rule of this context and found by the work's own words.
@@ -287,7 +328,17 @@ pub async fn learn(
             })
             .collect()
     } else {
-        let v = ask(provider, model, DECIDE_RULES, prompt, &mut report).await?;
+        let v = match ask(provider, model, DECIDE_RULES, prompt, &mut report).await {
+            Ok(v) => v,
+            // The episode's reuse signals are recorded by now (a misleading memory of the agent's lost confidence):
+            // failing the whole episode here lost the shared lessons' blame, and a retry would count the agent's
+            // twice. The new facts are what is lost, said in the report.
+            Err(e) => {
+                report.failed = Some(format!("the new facts were not stored: {e}"));
+                maintain(store, &mut report)?;
+                return Ok(report);
+            }
+        };
         v["ops"]
             .as_array()
             .into_iter()
@@ -606,6 +657,24 @@ pub async fn learn(
 
 #[cfg(test)]
 mod tests {
+    /// A memory id the model writes as text still names the memory; anything else names none.
+    #[test]
+    fn a_memory_id_written_as_text_is_read() {
+        use serde_json::json;
+        let ids: Vec<Option<i64>> = [
+            json!(2),
+            json!("2"),
+            json!(" id=7 "),
+            json!("two"),
+            json!(2.5),
+            json!(null),
+        ]
+        .iter()
+        .map(super::memory_id)
+        .collect();
+        assert_eq!(ids, vec![Some(2), Some(2), Some(7), None, None, None]);
+    }
+
     /// An extraction answer cut off mid-fact keeps the facts it finished (braces and escapes inside strings do not
     /// confuse it); an answer without a single finished fact keeps nothing.
     #[test]

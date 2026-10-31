@@ -19,6 +19,7 @@ mod mcp;
 mod mcp_search;
 mod memory;
 mod messages;
+mod pool;
 mod solo;
 mod team;
 mod verify;

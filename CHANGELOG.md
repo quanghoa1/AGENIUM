@@ -166,6 +166,13 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   microsoft/mxc#1568). The containment harness counts a payload that printed nothing as broken, not as 0 escapes.
 
 ### Memory, skills, tools
+- Shared lessons answer for the work they mislead (audit M3, ADR-87 amended): the pool lessons a run is shown are
+  logged in the pool, a reopened run's learning can name one as misleading (never confused with the agent's own),
+  and a lesson that misled two tickets leaves the pool for good; the lesson it came from is untouched. The run page
+  shows both. The memory extraction finds the memory that misled a reopened run far more often (DeepSeek flash:
+  21/40 → 40/40 on the same cases), asks again once after an empty answer, keeps an episode's blame when a later
+  step fails, and reads an id written as text. The run page also shows a settling pass and the lessons reflected on
+  (they showed as a failed extraction with raw JSON).
 - Code audit of 2026-10-31: the shared lesson pool follows the lessons it copied (retired, refined or less sure:
   the copy goes); a revised agent skill passes the same shape and size gate as a new one, and "one lesson, one skill"
   follows a lesson's refinements; a refused reflection is asked again (up to 3 times); recall runs off the async

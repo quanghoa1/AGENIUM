@@ -14,6 +14,7 @@ agenium-llm.workspace = true
 agenium-mcp.workspace = true
 agenium-memory.workspace = true
 agenium-orchestrator.workspace = true
+agenium-sandbox.workspace = true
 agenium-secrets.workspace = true
 agenium-skills.workspace = true
 agenium-store.workspace = true
@@ -30,6 +31,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [dev-dependencies]
 agenium-backend.workspace = true
 agenium-cli-backend.workspace = true
-agenium-sandbox.workspace = true
 agenium-tools.workspace = true
 futures.workspace = true

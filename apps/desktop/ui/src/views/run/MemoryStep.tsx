@@ -5,6 +5,7 @@ import { useApp } from "../../lib/store";
 import type { LogEntry } from "../../lib/types";
 
 const KIND: Record<string, Key> = { fact: "runmem.kind.fact", preference: "runmem.kind.preference", lesson: "runmem.kind.lesson" };
+const REFLECT: Record<string, Key> = { update: "runmem.reflect.update", new: "runmem.reflect.new", none: "runmem.reflect.none" };
 const OP: Record<string, [Key, string]> = {
   add: ["runmem.op.add", "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"],
   update: ["runmem.op.update", "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300"],
@@ -23,8 +24,9 @@ export function memorySource(data: any): { ticket?: string; chat: boolean } {
 }
 
 /** A memory line of a run's log, in words: the memories the agent was reminded of when it started (`recalled`), what
- *  a memory extraction learned from an episode and changed in the memory (its report), or why it did not run. The
- *  memory run's first line (`kind: memory`) names what it learned from. */
+ *  a memory extraction learned from an episode and changed in the memory (its report), shared lessons that left the
+ *  pool (`pool_dropped`), a settling pass (`settled`), the proven lessons reflected on (`reflected`), or why it did
+ *  not run. The memory run's first line (`kind: memory`) names what it learned from. */
 export function MemoryStep({ e }: { e: LogEntry }) {
   const app = useApp();
   const d = e.data ?? {};
@@ -61,7 +63,8 @@ export function MemoryStep({ e }: { e: LogEntry }) {
       ) : (
         <ul className="mt-1.5 space-y-1">
           {d.recalled.map((r: any) => (
-            <li key={r.id} className="flex items-start gap-2 text-xs">
+            // A shared lesson's id is the pool's: it may be the same number as one of the agent's own.
+            <li key={`${r.shared ? "pool" : "own"}-${r.id}`} className="flex items-start gap-2 text-xs">
               <KindChip kind={r.kind} />
               {r.shared && <span className="chip shrink-0 border-line-strong bg-elevated text-muted">{app.t("runmem.shared")}</span>}
               <span className="min-w-0">{r.text}</span>
@@ -78,6 +81,8 @@ export function MemoryStep({ e }: { e: LogEntry }) {
         {(d.helped > 0 || d.misleading?.length > 0 || d.validated > 0) && (
           <div className="text-muted">{fill("runmem.reuse", { h: d.helped, m: d.misleading?.length ?? 0, v: d.validated })}</div>
         )}
+        {d.misleading_shared?.length > 0 && <div className="text-muted">{fill("runmem.sharedMisled", { n: d.misleading_shared.length })}</div>}
+        {d.failed && <div className="text-rose-600 dark:text-rose-400">{String(d.failed)}</div>}
         {changes.length === 0 ? (
           <div className="text-subtle">{app.t("runmem.nothing")}</div>
         ) : (
@@ -111,6 +116,50 @@ export function MemoryStep({ e }: { e: LogEntry }) {
           </details>
         )}
       </div>
+    );
+  } else if (Array.isArray(d.pool_dropped)) {
+    // Shared lessons that misled work in two contexts (audit M3): out of the pool, never shown to an agent again.
+    title = `${app.t("runmem.poolDropped")} · ${d.pool_dropped.length}`;
+    body = (
+      <div className="mt-1 space-y-1.5 text-xs">
+        <div className="text-muted">{app.t("runmem.poolDroppedNote")}</div>
+        <ul className="space-y-1">
+          {d.pool_dropped.map((t: string, i: number) => (
+            <li key={i} className="text-subtle line-through">
+              {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  } else if (d.settled) {
+    // ADR-145: a settling pass over the agent's memory.
+    const s = d.settled;
+    title = app.t("runmem.settled");
+    body = <div className="mt-1 text-xs text-muted">{fill("runmem.settledCounts", { f: s.facts, o: s.folded, c: s.conflicts })}</div>;
+  } else if (Array.isArray(d.reflected)) {
+    // ADR-146: lessons proven in two contexts, each reflected on once.
+    title = `${app.t("runmem.reflected")} · ${d.reflected.length}`;
+    body = (
+      <ul className="mt-1.5 space-y-1 text-xs">
+        {d.reflected.map((r: any, i: number) => (
+          <li key={i} className="flex items-start gap-2">
+            <span className="chip shrink-0 border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+              {r.error ? app.t("runmem.reflect.error") : app.t(REFLECT[r.action] ?? "runmem.reflect.none")}
+              {r.skill ? ` · ${r.skill}` : ""}
+            </span>
+            <span className={cn("min-w-0", r.error || r.result?.refused ? "text-rose-600 dark:text-rose-400" : "text-muted")}>
+              {r.error
+                ? String(r.error)
+                : r.result?.refused
+                  ? `${app.t("runmem.reflect.refused")}: ${r.result.refused}`
+                  : r.result?.accepted
+                    ? app.t("runmem.reflect.accepted")
+                    : (r.reason ?? "")}
+            </span>
+          </li>
+        ))}
+      </ul>
     );
   } else if (d.skipped) {
     title = app.t("runmem.skipped");

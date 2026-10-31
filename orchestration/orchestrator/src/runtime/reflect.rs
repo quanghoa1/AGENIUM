@@ -282,7 +282,6 @@ impl Runtime {
     }
 }
 
-/// What the gates said of a proposal, for the log.
 /// Times a lesson whose proposal a gate refused is reflected on again.
 const REFUSED_TRIES: u64 = 3;
 
@@ -291,6 +290,7 @@ fn again(done: &Value) -> bool {
     done["tries"].as_u64().is_some_and(|n| n < REFUSED_TRIES)
 }
 
+/// What the gates said of a proposal, for the log.
 fn gate(r: Result<Value, agenium_tools::ToolError>) -> Value {
     match r {
         Ok(v) => json!({ "accepted": v }),

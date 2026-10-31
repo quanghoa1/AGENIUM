@@ -243,6 +243,91 @@ async fn gm4_correction_supersedes_and_gm5_reopen_lowers_confidence() {
     );
 }
 
+/// Audit M3 (2026-10-31): a shared-pool lesson shown to a reopened run can be named as misleading. It is shown under an
+/// id of its own past the agent's ids (here the pool's id is the same number as the agent's lesson), so the blame goes
+/// to the right one: the pool's is only reported, the agent's own memory is untouched by it. A close blames nothing.
+#[tokio::test]
+async fn a_shared_lesson_is_blamed_apart_from_the_agent_s_own() {
+    let w = World::new();
+    first_ticket(&w).await;
+    let own = w
+        .store
+        .live(10)
+        .unwrap()
+        .into_iter()
+        .find(|f| f.text.contains("pinning"))
+        .unwrap();
+    let pooled = "Pin exact crate versions in examples.";
+    let shown = |reopened: bool, run: &str| Episode {
+        outcome: "Reopened: the versions were the problem".into(),
+        reopened,
+        run: Some(run.into()),
+        used: vec![(own.id, own.text.clone())],
+        // The pool's fact id collides with the agent's on purpose.
+        shared_used: vec![(own.id, pooled.into())],
+        ..episode("ticket:NET-2")
+    };
+    let shared_id = own.id + 1;
+
+    // The model names the shared lesson: only it is reported, the agent's lesson keeps its confidence.
+    w.p.push_text(&json!({"facts": [], "misleading": [shared_id]}).to_string());
+    let r = w.learn(shown(true, "run-2")).await;
+    assert_eq!(r.misleading, Vec::<i64>::new());
+    assert_eq!(
+        r.misleading_shared,
+        vec![own.id],
+        "the pool's id, not the prompt's"
+    );
+    assert!((w.store.get(own.id).unwrap().confidence - own.confidence).abs() < 1e-9);
+    let prompt = w.p.requests().last().unwrap().messages[0].text();
+    assert!(
+        prompt.contains(&format!("id={}: {}", own.id, own.text))
+            && prompt.contains(&format!(
+                "id={shared_id}: (a shared lesson from another agent) {pooled}"
+            )),
+        "{prompt}"
+    );
+
+    // The model names the agent's own: the shared one is not reported.
+    w.p.push_text(&json!({"facts": [], "misleading": [own.id, shared_id + 5, -3]}).to_string());
+    let r = w.learn(shown(true, "run-3")).await;
+    assert_eq!(r.misleading, vec![own.id]);
+    assert_eq!(
+        r.misleading_shared,
+        Vec::<i64>::new(),
+        "ids past the list name nothing"
+    );
+
+    // A close blames no shared lesson, whatever the model says.
+    w.p.push_text(&json!({"facts": [], "misleading": [shared_id]}).to_string());
+    let r = w.learn(shown(false, "run-4")).await;
+    assert_eq!(r.misleading_shared, Vec::<i64>::new());
+
+    // The decision on the new facts fails (an empty answer, twice): the episode's blame is kept, the agent's lesson
+    // loses confidence once, and the report says what was lost (found on DeepSeek: the whole episode was lost).
+    let before = w.store.get(own.id).unwrap().confidence;
+    w.p.push_text(
+        &json!({"facts": [{"text": "The Archer C7 router keeps losing DHCP leases on firmware 1.2.", "kind": "fact"}],
+                "misleading": [own.id, shared_id]})
+        .to_string(),
+    );
+    w.p.push_text("");
+    w.p.push_text("");
+    let r = w.learn(shown(true, "run-5")).await;
+    assert_eq!(
+        (r.misleading.clone(), r.misleading_shared.clone()),
+        (vec![own.id], vec![own.id])
+    );
+    assert!(
+        r.failed
+            .as_deref()
+            .is_some_and(|f| f.contains("not stored")),
+        "{r:?}"
+    );
+    assert!((w.store.get(own.id).unwrap().confidence - (before - 0.15)).abs() < 1e-9);
+    assert_eq!(w.p.remaining(), 0);
+}
+
 #[tokio::test]
 async fn gm7_injection_from_external_content() {
     let w = World::new();

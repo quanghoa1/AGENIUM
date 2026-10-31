@@ -9,12 +9,37 @@
 //! `--memory-reuse on|off` (memory
 //! on or off for ticket 2; a CLI agent extracts memories with `--extract <provider> --extract-model <model>` and `--root`;
 //! `--models <dir>` gives the agent the local embedding model from `<dir>`, else memory uses the hashing embedder).
+//! `--shared-pool attribution [--cases N] [--seed S]` (random cases of a shared lesson blamed or not, on the
+//! extraction model) and `--shared-pool loop [--keep <new dir>]` (two tickets through the app; audit M3).
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use agenium_eval::{run_task, table, tasks, Mode};
 use anyhow::{anyhow, Result};
+
+/// `--extract <provider> --extract-model <model>` with `--root`: the API model a CLI agent extracts memories with,
+/// from that root's configured providers (key in its vault).
+fn extract_provider(args: &[String]) -> Result<Option<(Arc<dyn agenium_llm::Provider>, String)>> {
+    let Some(id) = arg(args, "--extract") else {
+        return Ok(None);
+    };
+    let root = PathBuf::from(
+        arg(args, "--root").ok_or_else(|| anyhow!("--root is required with --extract"))?,
+    );
+    let (app, _) = agenium_orchestrator::App::open(
+        &root,
+        agenium_orchestrator::AppOptions {
+            keyring: Arc::new(agenium_secrets::OsKeyring::default()),
+            checks: Arc::new(agenium_orchestrator::NoCheckFactory),
+        },
+    )?;
+    let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
+    let p = agenium_orchestrator::runtime::ProviderSource::provider(&source, &id)?;
+    let model = arg(args, "--extract-model")
+        .ok_or_else(|| anyhow!("--extract-model is required with --extract"))?;
+    Ok(Some((p, model)))
+}
 
 fn arg(args: &[String], name: &str) -> Option<String> {
     args.iter()
@@ -144,30 +169,54 @@ async fn main() -> Result<()> {
         eprintln!("running {} ...", agenium_eval::learning::ID);
         results.push(agenium_eval::learning::run(&mode).await?);
     }
+    // `--shared-pool attribution|loop`: a shared lesson that misleads the work is named and weighed (shared_pool.rs).
+    let shared_pool = arg(&args, "--shared-pool");
+    if let Some(which) = &shared_pool {
+        let extract = extract_provider(&args)?;
+        let models = arg(&args, "--models").map(PathBuf::from);
+        eprintln!("running {}-{which} ...", agenium_eval::shared_pool::ID);
+        results.push(match which.as_str() {
+            "attribution" => {
+                // The extraction model: the run's own, or for a CLI run the `--extract` one.
+                let (p, m) = match (&mode, extract) {
+                    (
+                        Mode::Model {
+                            provider, model, ..
+                        },
+                        _,
+                    ) => (provider.clone(), model.clone()),
+                    (_, Some(e)) => e,
+                    _ => anyhow::bail!(
+                        "--shared-pool attribution needs --provider, or --extract with --cli"
+                    ),
+                };
+                let cases = arg(&args, "--cases")
+                    .map(|c| c.parse())
+                    .transpose()?
+                    .unwrap_or(40);
+                let seed = arg(&args, "--seed")
+                    .map(|c| c.parse())
+                    .transpose()?
+                    .unwrap_or(1);
+                agenium_eval::shared_pool::attribution(p, m, cases, seed).await?
+            }
+            "loop" => {
+                let keep = arg(&args, "--keep").map(PathBuf::from);
+                agenium_eval::shared_pool::full_loop(
+                    &mode,
+                    extract,
+                    models.as_deref(),
+                    keep.as_deref(),
+                )
+                .await?
+            }
+            other => anyhow::bail!("--shared-pool takes attribution or loop, not {other}"),
+        });
+    }
     // `--memory-reuse on|off`: does memory make ticket 2 better (memory_reuse.rs).
     let reuse = arg(&args, "--memory-reuse");
     if let Some(on) = &reuse {
-        let extract = match arg(&args, "--extract") {
-            Some(id) => {
-                let root = PathBuf::from(
-                    arg(&args, "--root")
-                        .ok_or_else(|| anyhow!("--root is required with --extract"))?,
-                );
-                let (app, _) = agenium_orchestrator::App::open(
-                    &root,
-                    agenium_orchestrator::AppOptions {
-                        keyring: Arc::new(agenium_secrets::OsKeyring::default()),
-                        checks: Arc::new(agenium_orchestrator::NoCheckFactory),
-                    },
-                )?;
-                let source = agenium_orchestrator::runtime::ConfiguredProviders::new(Arc::new(app));
-                let p = agenium_orchestrator::runtime::ProviderSource::provider(&source, &id)?;
-                let model = arg(&args, "--extract-model")
-                    .ok_or_else(|| anyhow!("--extract-model is required with --extract"))?;
-                Some((p, model))
-            }
-            None => None,
-        };
+        let extract = extract_provider(&args)?;
         eprintln!("running {}-{on} ...", agenium_eval::memory_reuse::ID);
         let models = arg(&args, "--models").map(PathBuf::from);
         results.push(
@@ -194,6 +243,7 @@ async fn main() -> Result<()> {
                 .iter()
                 .any(|a| a == "--team" || a == "--learning" || a == "--mcp-keys" || a == "--quota")
                 && reuse.is_none()
+                && shared_pool.is_none()
         })
         .filter(|t| match only.as_deref() {
             Some(o) => o == t.id,

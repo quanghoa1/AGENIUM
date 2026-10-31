@@ -299,7 +299,21 @@ impl MemoryRetriever {
                 (r.id, i as u32 + 1, r.via, as_rule)
             })
             .collect();
-        Ok(self.store.record_shown(run, ticket, &rows)?)
+        self.store.record_shown(run, ticket, &rows)?;
+        // They are logged in the pool's own usage instead: the run's learning can then name one that misled the work
+        // (audit M3, 2026-10-31). Never as a rule (a shared lesson is a hint to verify).
+        if let Some(pool) = &self.pool {
+            let shared: Vec<(i64, u32, Via, bool)> = used
+                .iter()
+                .filter(|r| r.shared)
+                .enumerate()
+                .map(|(i, r)| (r.id, i as u32 + 1, r.via, false))
+                .collect();
+            if !shared.is_empty() {
+                pool.record_shown(run, ticket, &shared)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn store(&self) -> &Arc<AgentStore> {
@@ -395,6 +409,7 @@ mod tests {
         };
         let own = open("own.db");
         let pool = open("pool.db");
+        let pool_store = pool.clone();
         let add = |s: &Arc<AgentStore>, t: &str| {
             let v = e.embed(&[t.to_owned()]).unwrap().pop().unwrap();
             s.add(
@@ -438,5 +453,17 @@ mod tests {
             logged < got.len(),
             "at least one shared hit was excluded from usage"
         );
+        // Audit M3: the shared ones are logged in the pool's usage, by their pool ids, never as rules.
+        let mut in_pool: Vec<i64> = pool_store
+            .usage_for_run("run-1")
+            .unwrap()
+            .into_iter()
+            .map(|(f, _, _)| f)
+            .collect();
+        in_pool.sort();
+        let mut shared_ids: Vec<i64> = shared.iter().map(|g| g.id).collect();
+        shared_ids.sort();
+        assert_eq!(in_pool, shared_ids);
+        assert!(pool_store.lessons_in_play("run-1").unwrap().is_empty());
     }
 }
