@@ -37,7 +37,21 @@ pub(super) fn real_path(f: &std::fs::File) -> Option<PathBuf> {
     std::fs::read_link(format!("/proc/self/fd/{}", f.as_raw_fd())).ok()
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
+/// macOS run 6 (2026-10-30): without this the checks after the open were skipped there.
+#[cfg(target_os = "macos")]
+pub(super) fn real_path(f: &std::fs::File) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::io::AsRawFd;
+    let mut buf = [0u8; libc::MAXPATHLEN as usize];
+    // SAFETY: F_GETPATH writes a NUL-terminated path of at most MAXPATHLEN bytes into the buffer.
+    if unsafe { libc::fcntl(f.as_raw_fd(), libc::F_GETPATH, buf.as_mut_ptr()) } == -1 {
+        return None;
+    }
+    let n = buf.iter().position(|&b| b == 0)?;
+    Some(PathBuf::from(std::ffi::OsStr::from_bytes(&buf[..n])))
+}
+
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 pub(super) fn real_path(_: &std::fs::File) -> Option<PathBuf> {
     None
 }

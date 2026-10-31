@@ -1,0 +1,12 @@
+date: 2026-10-30T15:29:29Z
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+Darwin ip-172-16-4-2.us-west-2.compute.internal 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+cpu: Apple M4 Pro (Virtual)  cores: 12
+memory_bytes: 17179869184
+rustc 1.99.0 (b940084d7 2026-09-28)
+cargo 1.99.0 (5f94df478 2026-08-27)
+git version 2.50.1 (Apple Git-155)
+Python 3.9.6
+node: v24.21.0  npm: 10.8.3

@@ -58,6 +58,9 @@ debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 2
+# No debug info for dependencies: each test and example binary carries all of them, and with it target/ held
+# 140 GB of binaries (2026-10-31). Backtraces keep their line numbers in our own code.
+debug = false
 
 [profile.release]
 opt-level = 3

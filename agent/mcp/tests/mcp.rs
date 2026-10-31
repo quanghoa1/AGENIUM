@@ -9,6 +9,31 @@ use agenium_tools::{AllowAll, Tool, ToolCtx};
 use serde_json::{json, Value};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+/// The test's folder, removed once the stdio servers that ran in it have let go of it. On Windows a killed server
+/// releases its working folder a moment after the kill, and `TempDir` left the folders behind (2026-10-31).
+struct Scratch(tempfile::TempDir);
+
+impl Scratch {
+    fn path(&self) -> &std::path::Path {
+        self.0.path()
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        for _ in 0..50 {
+            if std::fs::remove_dir_all(self.0.path()).is_ok() || !self.0.path().exists() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+}
+
+fn scratch() -> Scratch {
+    Scratch(tempfile::tempdir().unwrap())
+}
+
 /// The content inside an output's untrusted-content fence (ADR-142).
 fn inner(text: &str) -> &str {
     let start = text.find('\n').map_or(0, |i| i + 1);
@@ -61,7 +86,7 @@ fn tool<'a>(t: &'a AgentTools, name: &str) -> &'a Arc<McpTool> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn stdio_server_per_agent_credentials_and_restarts() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = scratch();
     let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
     let servers = vec![stdio_cfg()];
     let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
@@ -311,7 +336,7 @@ async fn http_server() -> (
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn streamable_http_server() {
     let (url, seen) = http_server().await;
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = scratch();
     let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
     let cfg = McpServerConfig {
         id: "docs".into(),
@@ -381,7 +406,7 @@ async fn streamable_http_server() {
 /// A server that declares resources and prompts offers them as read-only tools.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn resources_and_prompts_are_read_only_tools() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = scratch();
     let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
     let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
     let t = hub
@@ -439,7 +464,7 @@ async fn resources_and_prompts_are_read_only_tools() {
 /// starts with them, and a tool the server dropped is gone.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_catalogue_follows_a_server_that_changes_its_tools() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = scratch();
     let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
     let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
     let cfg = McpServerConfig {
@@ -507,7 +532,7 @@ async fn a_catalogue_follows_a_server_that_changes_its_tools() {
 /// notice: a call to one of the 123 fails, the server is listed again at once, and the error says what changed.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_server_whose_own_search_comes_back_is_followed() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = scratch();
     let ctx = ToolCtx::new(tmp.path(), "run-1", Arc::new(AllowAll));
     let hub = McpHub::new(secrets(), tmp.path().join("mcp"));
     let cfg = McpServerConfig {

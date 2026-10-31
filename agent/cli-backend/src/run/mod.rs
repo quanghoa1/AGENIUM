@@ -430,6 +430,11 @@ impl CliRun<'_> {
         if let Err(e) = self.driver.finish(&setup) {
             tracing::warn!(error = %e, "CLI run cleanup failed");
         }
+        if let Some(id) = st.session.as_deref() {
+            for dir in self.driver.session_leftovers(&self.cwd, id) {
+                let _ = std::fs::remove_dir(dir);
+            }
+        }
         // Kept for the ticket's next run, which resumes the session (ADR-134).
         if let Some(s) = &self.session {
             let total = order.messages.len() + st.messages.len();

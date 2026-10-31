@@ -150,6 +150,23 @@ def unix_socket():
 
 run("net.unix_host_socket", unix_socket)
 
+
+def resolver_socket():
+    """systemd-resolved's varlink socket: mxc-sdk 1.0.1 binds its folder into every sandbox for the resolver file
+    (microsoft/mxc#1568), and through it the host looks a name up whatever the sandbox's network."""
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(3)
+    s.connect(T["resolver_socket"])
+    call = {"method": "io.systemd.Resolve.ResolveHostname", "parameters": {"name": "example.com"}}
+    s.sendall(json.dumps(call).encode() + b"\0")
+    reply = s.recv(4096)
+    s.close()
+    return reply[:120].decode(errors="replace")
+
+
+if T.get("resolver_socket"):
+    run("net.resolver_socket", resolver_socket)
+
 # ---- what must keep working
 
 

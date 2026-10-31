@@ -596,3 +596,19 @@ fn a_worktree_left_mid_rebase_is_recovered_not_deleted() {
         "ticket\n"
     );
 }
+
+/// macOS run 6 (2026-10-30): the temp folder is reached through a link (`/var` is `/private/var`) and git records a
+/// worktree's path with the links resolved. Once the directory was gone, its path no longer matched git's record and
+/// the worktree could not be added again ("missing but already registered worktree").
+#[cfg(unix)]
+#[test]
+fn a_gone_worktree_reached_through_a_link_is_added_again() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir(tmp.path().join("real")).unwrap();
+    std::os::unix::fs::symlink(tmp.path().join("real"), tmp.path().join("link")).unwrap();
+    let r = repo(&tmp.path().join("link"));
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    std::fs::remove_dir_all(&w.path).unwrap();
+    let back = r.add_worktree("AGN-1", "main").unwrap();
+    assert!(back.path.join(".git").exists());
+}

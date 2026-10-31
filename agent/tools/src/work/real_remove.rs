@@ -2,10 +2,11 @@
 //! and moves files, and undoes its own writes when one fails. Deleting by the checked path let a command in the sandbox
 //! swap a folder of the worktree for a link between the check and the delete, and Agenium (outside the sandbox) deleted
 //! a file out there. The delete goes through what was opened and checked: on Windows the file's own handle, on Linux
-//! the folder's (`unlinkat` of one name in it).
+//! and macOS the folder's (`unlinkat` of one name in it).
 
 use std::path::Path;
 
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 use super::handle::real_path;
 use super::*;
 use crate::paths;
@@ -59,7 +60,7 @@ pub(super) fn remove_file(root: &Path, p: &Path, rel: &str) -> Result<(), ToolEr
 }
 
 /// Deletes the file `p` (a path already checked against `root`) only where it really is inside `root`.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(super) fn remove_file(root: &Path, p: &Path, rel: &str) -> Result<(), ToolError> {
     use std::os::unix::ffi::OsStrExt;
     use std::os::unix::io::AsRawFd;
@@ -82,7 +83,7 @@ pub(super) fn remove_file(root: &Path, p: &Path, rel: &str) -> Result<(), ToolEr
 
 /// Deletes the file `p` (a path already checked against `root`): its folder is checked, then the name deleted (no
 /// open-handle path here, as for writes).
-#[cfg(not(any(windows, target_os = "linux")))]
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 pub(super) fn remove_file(root: &Path, p: &Path, rel: &str) -> Result<(), ToolError> {
     let dir = p.parent().and_then(|d| std::fs::canonicalize(d).ok());
     if !dir.is_some_and(|d| inside(root, &d)) {

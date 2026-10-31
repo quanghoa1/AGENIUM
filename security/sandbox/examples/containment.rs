@@ -37,6 +37,8 @@ mod posix {
     const PAYLOAD: &str = include_str!("containment_payload.py");
     const CANARY: &str = "AGENIUM_CANARY_SECRET";
     const SECRET: &[u8] = b"-----BEGIN AGENIUM CANARY KEY-----";
+    /// systemd-resolved's varlink socket; the row is left out on a host without it.
+    const RESOLVER_SOCKET: &str = "/run/systemd/resolve/io.systemd.Resolve";
 
     struct Scenario {
         _tmp: tempfile::TempDir,
@@ -163,6 +165,7 @@ mod posix {
             "real_home": real_home, "real_ssh": if real_ssh.is_dir() { Value::from(real_ssh.display().to_string()) } else { Value::Null },
             "tcp_port": s.tcp_port, "unix_sock": s.outside.join("daemon.sock"),
             "host_pid": std::process::id(), "canary_name": CANARY,
+            "resolver_socket": Path::new(RESOLVER_SOCKET).exists().then_some(RESOLVER_SOCKET),
         })
         .to_string()
     }
@@ -405,6 +408,13 @@ mod posix {
             "net.unix_host_socket".into(),
             verdict(s.root.join("markers").join("unix").exists()),
         );
+        // Reaching the host's resolver is a host service whatever the network mode (answered only from inside).
+        if inside.contains_key("net.resolver_socket") {
+            v.insert(
+                "net.resolver_socket".into(),
+                verdict(did("net.resolver_socket")),
+            );
+        }
         for (n, (ok, d)) in inside.iter().filter(|(n, _)| n.starts_with("ok.")) {
             v.insert(
                 n.clone(),
@@ -540,9 +550,14 @@ mod posix {
             if m.name.starts_with("no sandbox") {
                 continue;
             }
+            // A payload that printed nothing proves nothing: its rows count as broken, not as blocked.
             bad += r
                 .values()
-                .filter(|x| x.starts_with("ESCAPED") || x.starts_with("FAIL"))
+                .filter(|x| {
+                    ["ESCAPED", "FAIL", "no result", "not started"]
+                        .iter()
+                        .any(|p| x.starts_with(p))
+                })
                 .count();
         }
         println!();

@@ -77,7 +77,9 @@ impl CliKind {
             }
         }
         /// `opencode auth list` lists the stored credentials. None stored is not "logged out": OpenCode's free
-        /// models need no login, so the state stays unknown then.
+        /// models need no login, so the state stays unknown then. `--standalone`: without it opencode 2.1.2 starts
+        /// its background service (`opencode serve --service`, with the user's MCP servers) and leaves it running
+        /// after every check (found 2026-10-30, it held the local CI's test log open).
         fn opencode(out: &str) -> Option<bool> {
             let o = out.to_ascii_lowercase();
             (o.contains(" stored") || o.contains(" oauth") || o.contains(" api")).then_some(true)
@@ -86,7 +88,7 @@ impl CliKind {
             CliKind::Codex => Some((&["login", "status"], codex)),
             CliKind::Devin => Some((&["auth", "status"], codex)),
             CliKind::Claude => Some((&["auth", "status"], claude)),
-            CliKind::Opencode => Some((&["auth", "list"], opencode)),
+            CliKind::Opencode => Some((&["auth", "list", "--standalone"], opencode)),
             // No status command: a model list read from their servers says they are signed in (the app's model
             // listing upgrades the state then).
             CliKind::Agy | CliKind::Grok => None,

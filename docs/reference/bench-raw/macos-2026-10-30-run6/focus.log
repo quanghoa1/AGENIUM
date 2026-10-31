@@ -1,0 +1,150 @@
+   Compiling log v0.4.34
+   Compiling getrandom v0.4.3
+   Compiling fnv v1.0.7
+   Compiling strsim v0.11.1
+   Compiling tracing-core v0.1.36
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling globset v0.4.20
+   Compiling keyring-core v1.0.1
+   Compiling zopfli v0.8.4
+   Compiling tempfile v3.27.0
+   Compiling uuid v1.29.0
+   Compiling darling_core v0.20.11
+   Compiling tracing v0.1.44
+   Compiling apple-native-keyring-store v1.0.2
+   Compiling hyper-util v0.1.21
+   Compiling ignore v0.4.33
+   Compiling mxc-sdk v1.0.1
+   Compiling safetensors v0.8.0
+   Compiling keyring v4.2.0
+   Compiling agenium-secrets v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/security/secrets)
+   Compiling zip v9.1.1
+   Compiling agenium-vcs v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/foundation/vcs)
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling agenium-skills v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/skills)
+   Compiling agenium-llm v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/llm)
+   Compiling darling_macro v0.20.11
+   Compiling darling v0.20.11
+   Compiling derive_builder_core v0.20.2
+   Compiling derive_builder_macro v0.20.2
+   Compiling derive_builder v0.20.2
+   Compiling tokenizers v0.22.2
+   Compiling tokenizers v0.23.2
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/security/sandbox)
+   Compiling candle-core v0.11.0
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/tools)
+warning: unused import: `super::handle::real_path`
+ --> agent/tools/src/work/real_remove.rs:9:5
+  |
+9 | use super::handle::real_path;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling candle-nn v0.11.0
+   Compiling agenium-backend v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/loop)
+   Compiling agenium-mcp v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/mcp)
+warning: `agenium-tools` (lib) generated 1 warning (run `cargo fix --lib -p agenium-tools` to apply 1 suggestion)
+   Compiling candle-transformers v0.11.0
+   Compiling agenium-cli-backend v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/cli-backend)
+   Compiling agenium-memory v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/agent/memory)
+   Compiling agenium-orchestrator v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/orchestration/orchestrator)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 41s
+     Running tests/runtime/main.rs (target/debug/deps/runtime-767ec60a89daf74f)
+
+running 11 tests
+test messages::queued_messages_are_answered_kept_or_taken_back ... ok
+test messages::a_chat_turn_stores_only_its_own_messages ... ok
+test messages::overlapping_lead_runs_keep_the_users_messages ... ok
+test messages::a_message_to_the_lead_survives_a_stop_before_its_turn ... ok
+test messages::the_reviewer_is_told_when_the_diff_cannot_be_read ... ok
+test team::the_user_messages_a_running_lead_and_never_a_worker ... ok
+test messages::a_continuation_sees_comments_posted_during_the_last_run ... ok
+test messages::background_shell_tools_come_only_with_shell ... ok
+test verify::a_file_changed_by_a_shell_command_after_the_check_makes_it_stale ... ok
+test messages::view_image_is_offered_to_a_model_that_takes_images_only ... ok
+test messages::a_ticket_cancelled_under_its_run_stops_it ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 4.27s
+
+warning: unused import: `super::handle::real_path`
+ --> agent/tools/src/work/real_remove.rs:9:5
+  |
+9 | use super::handle::real_path;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agenium-tools` (lib) generated 1 warning (run `cargo fix --lib -p agenium-tools` to apply 1 suggestion)
+   Compiling agenium-orchestrator v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/orchestration/orchestrator)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.66s
+     Running tests/lifecycle/main.rs (target/debug/deps/lifecycle-83dc048bdd29588e)
+
+running 6 tests
+test coverage::a_plan_must_cover_every_requirement ... ok
+test coverage::a_new_ticket_of_the_item_carries_its_cancelled_work_on ... ok
+test coverage::the_handover_report_is_complete_and_outlives_the_team ... ok
+test coverage::cancelled_work_waits_for_the_user_not_the_lead ... ok
+test coverage::the_users_cancel_or_waiver_accounts_for_the_work ... ok
+test coverage::a_lead_cancel_waits_for_a_replacement_that_closes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.68s
+
+   Compiling proc-macro2 v1.0.107
+   Compiling stable_deref_trait v1.2.1
+   Compiling libc v0.2.191
+   Compiling smallvec v1.16.3
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling memchr v2.8.3
+   Compiling num-traits v0.2.19
+   Compiling percent-encoding v2.3.2
+   Compiling once_cell v1.21.4
+   Compiling getrandom v0.2.17
+   Compiling form_urlencoded v1.2.2
+   Compiling tempfile v3.27.0
+   Compiling parking_lot_core v0.9.12
+   Compiling parking_lot v0.12.5
+   Compiling chrono v0.4.45
+   Compiling quote v1.0.47
+   Compiling syn v3.0.9
+   Compiling cpufeatures v0.3.1
+   Compiling getrandom v0.4.3
+   Compiling sha2 v0.11.1
+   Compiling uuid v1.29.0
+   Compiling synstructure v0.14.0
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.7
+   Compiling displaydoc v0.2.7
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling thiserror-impl v2.0.21
+   Compiling tokio v1.54.1
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling thiserror v2.0.21
+   Compiling tinystr v0.8.5
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.4.0
+   Compiling icu_locale_core v2.4.0
+   Compiling icu_provider v2.4.0
+   Compiling mxc-sdk v1.0.1
+   Compiling icu_normalizer v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/agenium-1671988/security/sandbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.23s
+     Running unittests src/lib.rs (target/debug/deps/agenium_sandbox-71337bac6d7de71f)
+
+running 1 test
+test unix::tests::a_daemon_left_running_is_found_by_its_token_and_killed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.16s
+
+exit=0 seconds=149

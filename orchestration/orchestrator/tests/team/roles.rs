@@ -447,7 +447,7 @@ fn a_template_sets_the_projects_pre_merge_check() {
     assert!(
         !SandboxCheckFactory
             .for_project(&p, &m)
-            .run(std::path::Path::new("."))
+            .run(f._tmp.path())
             .ok
             || agenium_sandbox::detect().backend.is_some()
     );
@@ -457,7 +457,7 @@ fn a_template_sets_the_projects_pre_merge_check() {
     assert!(
         SandboxCheckFactory
             .for_project(&p, &empty)
-            .run(std::path::Path::new("."))
+            .run(f._tmp.path())
             .ok
     );
 }

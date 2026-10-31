@@ -1,0 +1,25 @@
+commit: 1671988
+tests: passed 588, failed 3, ignored 3
+failing tests:
+test scripted_golden_tasks_pass ... FAILED
+test work::real_remove::tests::a_folder_swapped_for_a_link_keeps_deletes_and_writes_inside ... FAILED
+test a_worktree_left_mid_rebase_is_recovered_not_deleted ... FAILED
+focus tests:
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 4.27s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.68s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.16s
+golden: score: 5/5 passed; prompt cache 0.0% of 2300 input tokens (exit=0 seconds=35)
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+sandbox network: private network (outbound only; no inbound, no host loopback)
+sandboxed modes: 0 escape(s) or broken must-work item(s)
+desktop:
+  desktop-npm.log: exit=0 seconds=7
+  desktop-build.log: exit=0 seconds=120
+  desktop-test.log: exit=0 seconds=131
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  app: apps/desktop/target/release/bundle/macos/Agenium.app
+  app: apps/desktop/target/release/bundle/macos/Agenium.app
+  binary: apps/desktop/target/release/bundle/macos/Agenium.app/Contents/MacOS/agenium-desktop
+   51M	apps/desktop/target/release/bundle/macos/Agenium.app
+  still running after 30 s: yes
+  root created: yes

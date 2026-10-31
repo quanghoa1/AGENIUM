@@ -34,6 +34,14 @@ networked sandbox its own network namespace reached through slirp4netns. On the 
   the private network worked but resolv.conf named only a loopback stub, commands were told that names would not
   resolve, with a fix. With 1.0.1 names resolve unchanged (VM, stub `127.0.0.53`: `net.dns` allowed, 0 escapes;
   `docs/reference/bench-raw/ubuntu-vm-2026-10-26/containment-mxc-1.0.1.txt`), and the caveat is gone.
+- **The host resolver's socket is masked** (2026-10-30). mxc-sdk 1.0.1 binds `/run/systemd/resolve`,
+  `/run/NetworkManager` and `/run/resolvconf` whole into every sandbox so that `/etc/resolv.conf` (a link into one of
+  them) can be read, and with them systemd-resolved's varlink socket `io.systemd.Resolve`: with the network **off**, a
+  command could still have the host look names up, a DNS channel out. Agenium adds every socket in those folders to
+  the policy's denied paths, which mxc masks with `/dev/null`; resolv.conf stays readable and DNS with the network on
+  is unchanged. Containment row `net.resolver_socket` (a `ResolveHostname` call on the socket): on WSL Ubuntu 24.04,
+  ESCAPED in both sandboxed modes before (the answer held the addresses), blocked after. Fixed upstream after 1.0.1
+  (microsoft/mxc#1568, merged 2026-10-27, not released yet): the mask goes when the pin moves past it.
 - **Told everywhere**: `agenium doctor` prints a `sandbox network:` line (private network / without network and why); the work order tells the agent "no network on this machine: <why>" instead of "network on".
 - **To enable** on Ubuntu 24.04+: install slirp4netns, allow unprivileged user namespaces (sysctl
   `kernel.apparmor_restrict_unprivileged_userns=0`, or an AppArmor profile for Agenium — to ship with the Linux
@@ -49,7 +57,8 @@ hardlink, rename, delete, truncate), chmod/utime outside, reads (a secret outsid
 /etc/shadow, the host process's environ), the environment canary, network (host TCP listener, internet, DNS, host unix
 socket), a double-forked `setsid` daemon after the run and after a timeout, and 7 things that must keep working.
 `--baseline` runs it unsandboxed to show the payload detects escapes (all attacks escaped there except /etc/shadow and
-the canary, which `clean_env` removes even without a sandbox).
+the canary, which `clean_env` removes even without a sandbox). A payload that printed nothing proves nothing: its rows count as
+broken, not as blocked (a payload that crashed on a syntax error once reported 0 escapes, 2026-10-30).
 
 Ubuntu 25.10, bubblewrap: **0 escapes** with the network off, on (fallback) and on (private network enabled); all
 must-work items pass. Raw: `docs/reference/bench-raw/ubuntu-vm-2026-10-26/`. macOS Seatbelt: to be run (kit).

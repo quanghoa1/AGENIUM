@@ -1,0 +1,42 @@
+warning: unused import: `super::handle::real_path`
+ --> agent/tools/src/work/real_remove.rs:9:5
+  |
+9 | use super::handle::real_path;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+running hello-file ...
+[2m2026-10-30T15:42:54.709240Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+[2m2026-10-30T15:42:54.710416Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+running fix-config-key ...
+[2m2026-10-30T15:42:55.140800Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+[2m2026-10-30T15:42:55.141323Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+running rename-function ...
+[2m2026-10-30T15:42:55.569033Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+[2m2026-10-30T15:42:55.569955Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+running readme-usage ...
+[2m2026-10-30T15:42:56.338741Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+[2m2026-10-30T15:42:56.339747Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+running csv-total ...
+[2m2026-10-30T15:42:56.759902Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+[2m2026-10-30T15:42:56.760511Z[0m [33m WARN[0m [2magenium_orchestrator::runtime::learn[0m[2m:[0m memory pipeline failed [3mticket[0m[2m=[0mAGN-1 [3merror[0m[2m=[0mmemory model: provider not configured: scripted provider has no more responses
+task             result runs steps errors  reopen    tokens cache%    cost$   time_s  detail
+hello-file       PASS      2     4      0       0       480    0.0   0.0000      0.9  ok
+  tools: close_ticket 1, review_ticket 1, submit_report 1, write_file 1
+  record: checks 0 (0 with tree), report lists: not run 0, beyond 0, tests 0; handover [handover-v1.md]; project Completed
+fix-config-key   PASS      2     5      0       0       600    0.0   0.0000      0.4  ok
+  tools: close_ticket 1, edit_file 1, read_file 1, review_ticket 1, submit_report 1
+  record: checks 0 (0 with tree), report lists: not run 0, beyond 0, tests 0; handover [handover-v1.md]; project Completed
+rename-function  PASS      2     4      0       0       480    0.0   0.0000      0.4  ok
+  tools: apply_patch 1, close_ticket 1, review_ticket 1, submit_report 1
+  record: checks 0 (0 with tree), report lists: not run 0, beyond 0, tests 0; handover [handover-v1.md]; project Completed
+readme-usage     PASS      2     5      0       0       600    0.0   0.0000      0.8  ok
+  tools: close_ticket 1, edit_file 1, read_file 1, review_ticket 1, submit_report 1
+  record: checks 0 (0 with tree), report lists: not run 0, beyond 0, tests 0; handover [handover-v1.md]; project Completed
+csv-total        PASS      2     5      0       0       600    0.0   0.0000      0.4  ok
+  tools: close_ticket 1, read_file 1, review_ticket 1, submit_report 1, write_file 1
+  record: checks 0 (0 with tree), report lists: not run 0, beyond 0, tests 0; handover [handover-v1.md]; project Completed
+score: 5/5 passed; prompt cache 0.0% of 2300 input tokens
+results written to /Users/devin/agenium-macos-test-v6/agenium-macos-test-kit-v6/work/eval/20261030T154256Z-scripted.json
+exit=0 seconds=35

@@ -107,10 +107,7 @@ impl Repo {
 
     pub(super) fn same_path(a: &Path, b: &Path) -> bool {
         let norm = |p: &Path| {
-            let s = std::fs::canonicalize(p)
-                .unwrap_or_else(|_| p.to_path_buf())
-                .to_string_lossy()
-                .replace('\\', "/");
+            let s = resolved(p).to_string_lossy().replace('\\', "/");
             let s = s.trim_start_matches("//?/").to_owned();
             if cfg!(windows) {
                 s.to_lowercase()
@@ -347,5 +344,24 @@ impl Repo {
             .filter(|l| !l.is_empty())
             .map(str::to_owned)
             .collect())
+    }
+}
+
+/// `p` with its links resolved as far as it exists, the rest as written: a worktree whose directory is gone still
+/// matches git's record of it, which has the links resolved (`/var` is `/private/var` on macOS).
+fn resolved(p: &Path) -> PathBuf {
+    let mut rest = Vec::new();
+    let mut at = p;
+    loop {
+        if let Ok(real) = std::fs::canonicalize(at) {
+            return rest.iter().rev().fold(real, |acc, name| acc.join(name));
+        }
+        match (at.parent(), at.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name);
+                at = parent;
+            }
+            _ => return p.to_path_buf(),
+        }
     }
 }

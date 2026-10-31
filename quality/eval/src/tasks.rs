@@ -76,6 +76,21 @@ pub const OPT_IN: [&str; 8] = [
     "mcp-fallback",
 ];
 
+/// `fix-failing-test`: `python`, or `python3` where there is no `python` (macOS run 6, 2026-10-30; most Linux).
+fn python() -> &'static str {
+    let runs = |p: &str| {
+        std::process::Command::new(p)
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success())
+    };
+    if runs("python") || !runs("python3") {
+        "python"
+    } else {
+        "python3"
+    }
+}
+
 const DISCOUNT: &str = "def apply_discount(price, percent):
     return price - price * percent
 ";
@@ -222,11 +237,11 @@ pub fn tasks() -> Vec<Task> {
                 if read(r, "tests/test_discount.py")? != DISCOUNT_TEST {
                     return Err("tests/test_discount.py was changed".into());
                 }
-                let out = std::process::Command::new("python")
+                let out = std::process::Command::new(python())
                     .args(["-m", "unittest", "discover", "-s", "tests"])
                     .current_dir(r)
                     .output()
-                    .map_err(|e| format!("python: {e}"))?;
+                    .map_err(|e| format!("{}: {e}", python()))?;
                 out.status.success().then_some(()).ok_or_else(|| {
                     format!("the tests fail: {}", String::from_utf8_lossy(&out.stderr).chars().take(300).collect::<String>())
                 })
@@ -235,7 +250,7 @@ pub fn tasks() -> Vec<Task> {
                 vec![
                     ("read_file", json!({"path": "src/discount.py"})),
                     ("edit_file", json!({"path": "src/discount.py", "old_string": "price * percent", "new_string": "price * percent / 100"})),
-                    ("shell", json!({"command": "python -m unittest discover -s tests"})),
+                    ("shell", json!({"command": format!("{} -m unittest discover -s tests", python())})),
                 ]
             },
         },

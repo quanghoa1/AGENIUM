@@ -14,7 +14,7 @@
 //!   writes `deny` and exits 2: it fails closed.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use agenium_core::Effort;
 use serde_json::Value;
@@ -280,6 +280,17 @@ impl Driver for Grok {
             (HOOK_TOKEN_ENV.to_owned(), token.to_owned()),
         ]
         .into())
+    }
+
+    /// Grok makes an empty `/tmp/sessions/<id>` for every session; on Windows `/tmp` is on the worktree's drive, so
+    /// runs left `D:\tmp\sessions` with 104 of them (2026-10-30).
+    fn session_leftovers(&self, worktree: &Path, id: &str) -> Vec<PathBuf> {
+        let root: PathBuf = worktree
+            .components()
+            .take_while(|c| matches!(c, Component::Prefix(_) | Component::RootDir))
+            .collect();
+        let sessions = root.join("tmp").join("sessions");
+        vec![sessions.join(id), sessions]
     }
 
     fn resumes_across_runs(&self) -> bool {
@@ -620,6 +631,19 @@ mod tests {
         assert_eq!(
             parse_models(out),
             ["grok-4.7", "grok-4.7-build-fast", "grok-4.6"]
+        );
+    }
+
+    #[test]
+    fn the_session_folder_at_the_drive_root_is_named() {
+        #[cfg(windows)]
+        let (wt, root) = (r"D:\Work\proj\.agenium\wt\t1", r"D:\");
+        #[cfg(not(windows))]
+        let (wt, root) = ("/home/u/proj/.agenium/wt/t1", "/");
+        let sessions = Path::new(root).join("tmp").join("sessions");
+        assert_eq!(
+            Grok.session_leftovers(Path::new(wt), "01a1-s"),
+            [sessions.join("01a1-s"), sessions]
         );
     }
 }

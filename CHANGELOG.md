@@ -7,6 +7,11 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- macOS run 6 (2026-10-30): the desktop app builds and starts on macOS. Fixed from the run: Agenium's file tools now
+  ask macOS where an opened file really is (`F_GETPATH`), as they already did on Windows and Linux, so a folder swapped
+  for a link after the path's check is not written through, and deletes go through the folder's handle; a worktree
+  whose directory is gone is added again also when the root is reached through a link; the `fix-failing-test` golden
+  task uses `python3` where there is no `python`.
 - Messages to a busy Lead wait in a queue (ADR-149): shown above the chat input, each can be changed or taken back
   until the Lead's next chat turn reads them all; they then show in the conversation with the answer (a message once
   steered into a review or inbox run was acted on but never shown). Answers routed to the Lead go the same way.
@@ -102,6 +107,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   its run offers.
 - Effort levels per model by the vendor's own names, prompt caching across vendors, context clearing and compaction,
   retries with back-off, quota and offline states.
+- Vendor CLIs leave nothing behind: Agenium's check of the opencode login no longer starts opencode's background
+  service, which stayed running with the user's MCP servers (opencode 2.1.2, `auth list --standalone`); the empty
+  `\tmp\sessions\<id>` folder Grok makes at the root of the worktree's drive for every session is removed after the
+  run (104 had gathered on one drive).
 
 ### Desktop app
 - Overview, chat with the Lead, Kanban board, tickets in a popup over any view with Monaco side-by-side diffs, live
@@ -135,7 +144,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Tool caches and installed packages are kept out of commits (ADR-116).
 - Vendor CLIs work only through Agenium's tools (ADR-129): their own shells are off, their own file and search
   tools reach only their scratch folder, so every vendor works under the same sandbox, command gate and write scope
-  as an API agent. The vendored Codex sandbox follows upstream f021168.
+  as an API agent. The vendored Codex sandbox follows upstream b0f977c.
+- On Linux a sandboxed command can no longer have the host resolve names with the network off: mxc-sdk 1.0.1 brings
+  the host resolver's folders into the sandbox whole, with systemd-resolved's socket in them; Agenium masks every
+  socket there, `/etc/resolv.conf` stays readable (containment row `net.resolver_socket`; fixed upstream after 1.0.1,
+  microsoft/mxc#1568). The containment harness counts a payload that printed nothing as broken, not as 0 escapes.
 
 ### Memory, skills, tools
 - Learning is credited to what the agent was shown (a continuation recalls nothing), and owed by every close or reopen,

@@ -18,7 +18,40 @@ pub struct Fixture {
     pub keyring: Arc<MemoryKeyring>,
     pub app: App,
     pub project: projects::Project,
-    pub _tmp: tempfile::TempDir,
+    pub _tmp: Scratch,
+}
+
+/// The test's folder. The commands of a worktree keep their TEMP outside it, under the system TEMP (`run_temp_dir`);
+/// only a ticket that closes removes its own, and the test's other worktrees left theirs (2026-10-31). Before the
+/// folder goes, every folder of its tree has its TEMP removed, under the path as written and as resolved (the user's
+/// TEMP can be spelled with a Windows short name).
+pub struct Scratch(tempfile::TempDir);
+
+impl Scratch {
+    pub fn path(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let tmp = self.0.path();
+        let mut dirs: Vec<PathBuf> = [Some(tmp.to_path_buf()), std::fs::canonicalize(tmp).ok()]
+            .into_iter()
+            .flatten()
+            .collect();
+        while let Some(d) = dirs.pop() {
+            agenium_sandbox::remove_run_temp_dir(&d);
+            if let Ok(entries) = std::fs::read_dir(&d) {
+                dirs.extend(
+                    entries
+                        .flatten()
+                        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+                        .map(|e| e.path()),
+                );
+            }
+        }
+    }
 }
 
 pub struct Checks(pub Option<(bool, String)>);
@@ -67,7 +100,7 @@ pub fn fixture_with(check: Option<(bool, String)>) -> Fixture {
         })
         .unwrap();
     Fixture {
-        _tmp: tmp,
+        _tmp: Scratch(tmp),
         root,
         keyring,
         app,

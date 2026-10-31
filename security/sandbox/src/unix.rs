@@ -201,6 +201,32 @@ fn paths(v: impl IntoIterator<Item = PathBuf>) -> Vec<String> {
     out
 }
 
+/// The host resolver's sockets, masked in every sandbox. mxc-sdk 1.0.1 binds the resolver folders whole so that
+/// `/etc/resolv.conf` can be read, and with them systemd-resolved's varlink socket: through it a command had names
+/// looked up by the host with the network off (containment `net.resolver_socket`, 2026-10-30). Fixed upstream after
+/// 1.0.1 (microsoft/mxc#1568); drop this once the pin moves past it. A denied socket is masked with `/dev/null`.
+#[cfg(target_os = "linux")]
+fn resolver_sockets() -> Vec<String> {
+    use std::os::unix::fs::FileTypeExt;
+    [
+        "/run/systemd/resolve",
+        "/run/NetworkManager",
+        "/run/resolvconf",
+    ]
+    .iter()
+    .filter_map(|d| std::fs::read_dir(d).ok())
+    .flatten()
+    .flatten()
+    .filter(|e| e.file_type().is_ok_and(|t| t.is_socket()))
+    .map(|e| e.path().display().to_string())
+    .collect()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn resolver_sockets() -> Vec<String> {
+    Vec::new()
+}
+
 /// `bash -c '<command>'` inside the sandbox's `sh -c` (bash features keep working).
 fn bash_line(command: &str) -> String {
     format!("exec bash -c '{}'", command.replace('\'', r"'\''"))
@@ -241,6 +267,7 @@ pub fn request(
         filesystem: Some(FilesystemPolicy {
             readwrite_paths: write,
             readonly_paths: read,
+            denied_paths: resolver_sockets(),
             ..Default::default()
         }),
         network: Some(NetworkPolicy {
@@ -462,6 +489,29 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every socket of the host resolver is masked in the request, its other files are not (the containment row
+    /// `net.resolver_socket` shows the effect).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_host_resolver_sockets_are_masked() {
+        let t = tempfile::tempdir().unwrap();
+        let policy = SandboxPolicy::workspace(t.path());
+        let denied = request("true", t.path(), &[], &policy)
+            .filesystem
+            .unwrap()
+            .denied_paths;
+        let socket = "/run/systemd/resolve/io.systemd.Resolve";
+        assert_eq!(
+            denied.iter().any(|d| d == socket),
+            Path::new(socket).exists(),
+            "{denied:?}"
+        );
+        assert!(
+            !denied.iter().any(|d| d.ends_with("resolv.conf")),
+            "{denied:?}"
+        );
+    }
 
     fn alive(pid: i32) -> bool {
         // SAFETY: signal 0 only checks that the process exists.

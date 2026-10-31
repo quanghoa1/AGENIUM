@@ -214,12 +214,27 @@ fn slow_command() -> &'static str {
     }
 }
 
+/// The worktree's parent. Its commands' TEMP lies outside it, under the system TEMP, and goes with it.
+struct Parent(tempfile::TempDir);
+
+impl Parent {
+    fn path(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+impl Drop for Parent {
+    fn drop(&mut self) {
+        agenium_sandbox::remove_run_temp_dir(&self.0.path().join("wt"));
+    }
+}
+
 /// The worktree sits in its own parent so "outside the worktree" stays inside the test's temp dir.
-fn worktree() -> (tempfile::TempDir, PathBuf) {
+fn worktree() -> (Parent, PathBuf) {
     let parent = tempfile::tempdir().unwrap();
     let wt = parent.path().join("wt");
     std::fs::create_dir(&wt).unwrap();
-    (parent, wt)
+    (Parent(parent), wt)
 }
 
 #[tokio::test(flavor = "multi_thread")]

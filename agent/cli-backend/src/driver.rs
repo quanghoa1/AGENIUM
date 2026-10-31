@@ -383,6 +383,11 @@ pub trait Driver: Send + Sync {
     fn finish(&self, _setup: &Setup) -> std::io::Result<()> {
         Ok(())
     }
+    /// Folders the CLI makes outside its home for the session `id` it ran in `worktree`, innermost first: removed after
+    /// the run when they are empty.
+    fn session_leftovers(&self, _worktree: &Path, _id: &str) -> Vec<PathBuf> {
+        vec![]
+    }
     /// The CLI resumes a session of an earlier run from its id (`args(.., resume, ..)`) once that run's home is back
     /// (ADR-134): the same ticket goes on in the CLI's own session, not in a new one shown the conversation so far.
     fn resumes_across_runs(&self) -> bool {

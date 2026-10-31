@@ -1,0 +1,21 @@
+== machine  (15:29:29)
+== build (cargo build --workspace --all-targets)  (15:29:59)
+   exit=0 seconds=532
+== tests (cargo test --workspace --no-fail-fast)  (15:38:51)
+   exit=101 seconds=61
+== the tests this run checks, alone (new since run 5: the Lead's message queue, checks tied to the worktree tree, cancelled work)  (15:39:52)
+   exit=0 seconds=149
+== golden tasks with the scripted model (no model API)  (15:42:21)
+   exit=0 seconds=35
+== doctor  (15:42:56)
+   exit=0 seconds=39
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (15:43:35)
+   exit=0 seconds=33
+== desktop: UI dependencies (npm ci)  (15:44:08)
+   exit=0 seconds=7
+== desktop: build the .app (tauri build --bundles app, unsigned)  (15:44:15)
+   exit=0 seconds=120
+== desktop: its own tests (cargo test in apps/desktop)  (15:46:15)
+   exit=0 seconds=131
+== desktop: start the app for 30 s on an empty root (it should show the setup screen)  (15:48:26)
+== summary  (15:48:58)

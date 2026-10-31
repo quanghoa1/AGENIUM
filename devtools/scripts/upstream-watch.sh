@@ -14,7 +14,7 @@ UA="User-Agent: agenium-upstream-watch"
 WATCH=(
   "1277:Seatbelt: scope Unix sockets (ADR-55: a host unix socket is reachable with network on)"
   "1278:PR deniedUnixSocketPaths for Seatbelt (closed unmerged 2026-10-24)"
-  "1568:Bubblewrap: keep host resolver sockets out of sandboxes (the 1.0.1 DNS forwarder, ADR-95)"
+  "1568:Bubblewrap: keep host resolver sockets out of sandboxes (merged 2026-10-27; until a release has it, unix.rs masks them, ADR-95)"
   "1443:Bubblewrap: seccomp default-deny profile"
 )
 status=0

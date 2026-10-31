@@ -1,0 +1,6 @@
+test scripted_golden_tasks_pass ... FAILED
+---- scripted_golden_tasks_pass stdout ----
+test work::real_remove::tests::a_folder_swapped_for_a_link_keeps_deletes_and_writes_inside ... FAILED
+---- work::real_remove::tests::a_folder_swapped_for_a_link_keeps_deletes_and_writes_inside stdout ----
+test a_worktree_left_mid_rebase_is_recovered_not_deleted ... FAILED
+---- a_worktree_left_mid_rebase_is_recovered_not_deleted stdout ----

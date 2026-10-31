@@ -1,0 +1,5 @@
+app: apps/desktop/target/release/bundle/macos/Agenium.app
+binary: apps/desktop/target/release/bundle/macos/Agenium.app/Contents/MacOS/agenium-desktop
+ 51M	apps/desktop/target/release/bundle/macos/Agenium.app
+still running after 30 s: yes
+root created: yes
