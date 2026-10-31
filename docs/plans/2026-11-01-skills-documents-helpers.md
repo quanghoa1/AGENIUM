@@ -50,7 +50,7 @@ CLI, free to cheap. Status: `[ ]` to do, `[x]` done.
     effectiveness from tickets (loads of the skill, reopens, against the agent's other tickets), on the library card,
     flagged when clearly worse with enough tickets.
 13. [x] **Docs** — ADR-152 (amends ADR-91, ADR-151), CHANGELOG, VERIFICATION, PROGRESS, this plan ticked.
-14. [ ] **Verify** — unit and integration tests per step; local CI in full (fmt, clippy, tests, schemas, vendor,
+14. [x] **Verify** — unit and integration tests per step; local CI in full (fmt, clippy, tests, schemas, vendor,
     ratchet, dlls, deny, golden, UI smoke); the Linux build of the sandbox change (VM); end to end in the real app:
     - designer and skill writer with attachments (PDF, DOCX, XLSX) and merges, on API DeepSeek V4.1 Flash, Go's free
       `beam-free` and `iceman-contributor-free`, and the CLIs Claude Haiku, Codex gpt-6-luna, agy Gemini Flash,

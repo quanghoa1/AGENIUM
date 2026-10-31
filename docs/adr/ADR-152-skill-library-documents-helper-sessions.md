@@ -106,6 +106,9 @@ files and the chats took no attachment.
   and read all four samples through the sandbox, `read_document` used it, removed cleanly; with the downloaded uv
   (checksum matched), 0.1.8 installed, the weekly check found 0.1.9, the update ran side by side and the old
   environment was removed, an uninstallable 0.0.0 left 0.1.9 in use, removed cleanly.
+- Ubuntu VM (bubblewrap): the crates' lint and tests, and both real installs (the second through the whole fallback:
+  no uv, a system Python without `ensurepip`, then the downloaded uv). A link between uv's venv and its Python is not
+  mounted by the sandbox, so the folder holding it is read whole.
 - End to end in the real app on three API models (DeepSeek V4.1 Flash, `beam-free`, `iceman`) and five CLIs (Claude
   Haiku, Codex gpt-6-luna, agy Gemini Flash, opencode on two free models): helpers with attachments, sessions and
   merges; a proposal discussed, saved and switched on; `read_file` on PDF/DOCX in real runs; markitdown installed and
