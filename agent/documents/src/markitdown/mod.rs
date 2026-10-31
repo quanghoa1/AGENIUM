@@ -100,6 +100,31 @@ fn install_roots(program: &Path) -> Vec<PathBuf> {
     {
         add_venv(&t, &mut out);
     }
+    // A link is followed inside the sandbox only when its target is readable too. uv's `home` is a link to the Python
+    // of the minor version (`cpython-3.12-linux-x86_64-gnu` -> `cpython-3.12.15-…`), and a venv's `bin/python` links
+    // there: without the real folders the program's interpreter was not found ("cannot execute: required file not
+    // found", Ubuntu, 2026-11-01).
+    #[cfg(unix)]
+    {
+        let venvs: Vec<PathBuf> = out
+            .iter()
+            .filter(|r| r.join("pyvenv.cfg").is_file())
+            .cloned()
+            .collect();
+        for v in venvs {
+            if let Some(install) = std::fs::canonicalize(v.join("bin").join("python"))
+                .ok()
+                .and_then(|p| p.parent()?.parent().map(Path::to_path_buf))
+            {
+                out.push(install);
+            }
+        }
+        let real: Vec<PathBuf> = out
+            .iter()
+            .filter_map(|r| std::fs::canonicalize(r).ok())
+            .collect();
+        out.extend(real);
+    }
     out.sort();
     out.dedup();
     out
@@ -262,5 +287,42 @@ mod tests {
         let canon = |p: &Path| std::fs::canonicalize(p).unwrap();
         assert!(roots.iter().any(|r| canon(r) == canon(&venv)), "{roots:?}");
         assert!(roots.iter().any(|r| canon(r) == canon(&py)), "{roots:?}");
+    }
+
+    /// uv's layout on Linux: `home` names a link to the minor version's Python, and `bin/python` goes through it; the
+    /// real folder must be readable for the link to resolve inside the sandbox.
+    #[cfg(unix)]
+    #[test]
+    fn the_real_python_behind_uvs_version_link_is_readable() {
+        let t = tempfile::tempdir().unwrap();
+        let real = t
+            .path()
+            .join("python")
+            .join("cpython-3.12.15-linux-x86_64-gnu");
+        std::fs::create_dir_all(real.join("bin")).unwrap();
+        std::fs::write(real.join("bin").join("python3.12"), "").unwrap();
+        let link = t
+            .path()
+            .join("python")
+            .join("cpython-3.12-linux-x86_64-gnu");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let venv = t.path().join("env");
+        std::fs::create_dir_all(venv.join("bin")).unwrap();
+        std::fs::write(
+            venv.join("pyvenv.cfg"),
+            format!("home = {}\n", link.join("bin").display()),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            link.join("bin").join("python3.12"),
+            venv.join("bin").join("python"),
+        )
+        .unwrap();
+        let exe = venv.join("bin").join("markitdown");
+        std::fs::write(&exe, "").unwrap();
+        let roots = install_roots(&exe);
+        let real = std::fs::canonicalize(&real).unwrap();
+        assert!(roots.contains(&real), "{roots:?}");
+        assert!(roots.contains(&link), "{roots:?}");
     }
 }
