@@ -1,0 +1,82 @@
+
+userns restriction during run: 0
+== machine
+Linux 6.17.0-41-generic x86_64
+Ubuntu 25.10
+bubblewrap 0.11.0
+slirp4netns version 1.2.1
+== containment
+platform: linux | backend: Some(Bubblewrap) | shell: bash (/usr/bin/bash)
+network = true gives: private network (outbound only; no inbound, no host loopback)
+[no sandbox (baseline)] done in 9.2 s
+[no sandbox (baseline)] meta.chmod_outside: ESCAPED — inside: None
+[no sandbox (baseline)] meta.utime_outside: ESCAPED — inside: None
+[no sandbox (baseline)] net.dns: allowed (network on) — inside: ('172.66.147.243', 443)
+[no sandbox (baseline)] net.resolver_socket: ESCAPED — inside: {"parameters":{"addresses":[{"ifindex":2,"family":2,"address":[172,66,147,243]},{"ifindex":2,"family":2,"address":[104,2
+[no sandbox (baseline)] net.tcp_host_listener: allowed (network on) — inside: connected
+[no sandbox (baseline)] net.tcp_internet: allowed (network on) — inside: connected
+[no sandbox (baseline)] net.unix_host_socket: ESCAPED — inside: connected
+[no sandbox (baseline)] ok.tmpdir: FAIL (KeyError: 'TMPDIR') — inside: KeyError: 'TMPDIR'
+[no sandbox (baseline)] read.host_process_environ: ESCAPED — inside: 1836 434152474f3d2f686f6d652f
+[no sandbox (baseline)] read.real_home_listing: ESCAPED — inside: ['.bash_history', '.bash_logout', '.bashrc', '.cache', '.cargo']
+[no sandbox (baseline)] read.real_ssh_dir: ESCAPED — inside: ['authorized_keys']
+[no sandbox (baseline)] read.secret_outside: ESCAPED — inside: 34 2d2d2d2d2d424547494e2041
+[no sandbox (baseline)] write.delete_outside: ESCAPED — inside: None
+[no sandbox (baseline)] write.dotdot: ESCAPED — inside: /tmp/.tmpyVltn2/project/.agenium/worktrees/T1/../../../../agenium-containment-3444-no sandbox (baseline)-1793418122447-dotdot.txt
+[no sandbox (baseline)] write.home: ESCAPED — inside: /tmp/.tmpyVltn2/home/new.txt
+[no sandbox (baseline)] write.main_git_config: ESCAPED — inside: appended
+[no sandbox (baseline)] write.main_git_hook: ESCAPED — inside: /tmp/.tmpyVltn2/project/.git/hooks/pre-commit
+[no sandbox (baseline)] write.outside_dir: ESCAPED — inside: /tmp/.tmpyVltn2/outside/new.txt
+[no sandbox (baseline)] write.rename_out: ESCAPED — inside: moved
+[no sandbox (baseline)] write.tmp: ESCAPED — inside: /tmp/agenium-containment-3444-no sandbox (baseline)-1793418122447-tmp.txt
+[no sandbox (baseline)] write.truncate_outside: ESCAPED — inside: None
+[no sandbox (baseline)] write.via_hardlink: ESCAPED — inside: /tmp/.tmpyVltn2/project/.agenium/worktrees/T1/esc_hard
+[no sandbox (baseline)] write.via_symlink: ESCAPED — inside: /tmp/.tmpyVltn2/project/.agenium/worktrees/T1/esc_link/via_symlink.txt
+[sandbox, network off] done in 9.1 s
+[sandbox, network on] done in 9.3 s
+[sandbox, network on] net.dns: allowed (network on) — inside: ('172.66.147.243', 443)
+[sandbox, network on] net.tcp_internet: allowed (network on) — inside: connected
+
+| test | no sandbox (baseline) | sandbox, network off | sandbox, network on |
+|---|---|---|---|
+| daemon.outlives_a_timeout | ESCAPED | blocked | blocked |
+| daemon.outlives_the_run | ESCAPED | blocked | blocked |
+| env.canary | blocked | blocked | blocked |
+| meta.chmod_outside | ESCAPED | blocked | blocked |
+| meta.utime_outside | ESCAPED | blocked | blocked |
+| net.dns | allowed (network on) | blocked | allowed (network on) |
+| net.resolver_socket | ESCAPED | blocked | blocked |
+| net.tcp_host_listener | allowed (network on) | blocked | blocked |
+| net.tcp_internet | allowed (network on) | blocked | allowed (network on) |
+| net.unix_host_socket | ESCAPED | blocked | blocked |
+| ok.dev_null | ok | ok | ok |
+| ok.git_status | ok | ok | ok |
+| ok.mkdir_and_rename | ok | ok | ok |
+| ok.read_own_interpreter | ok | ok | ok |
+| ok.subprocess | ok | ok | ok |
+| ok.tmpdir | FAIL (KeyError: 'TMPDIR') | ok | ok |
+| ok.write_in_worktree | ok | ok | ok |
+| read.etc_shadow | blocked | blocked | blocked |
+| read.host_process_environ | ESCAPED | blocked | blocked |
+| read.real_home_listing | ESCAPED | blocked (sees only the toolchain mounts ['.cargo', '.rustup']) | blocked (sees only the toolchain mounts ['.cargo', '.rustup']) |
+| read.real_ssh_dir | ESCAPED | blocked | blocked |
+| read.secret_outside | ESCAPED | blocked | blocked |
+| write.delete_outside | ESCAPED | blocked | blocked |
+| write.dotdot | ESCAPED | blocked | blocked |
+| write.home | ESCAPED | blocked | blocked |
+| write.main_git_config | ESCAPED | blocked | blocked |
+| write.main_git_hook | ESCAPED | blocked | blocked |
+| write.outside_dir | ESCAPED | blocked | blocked |
+| write.rename_out | ESCAPED | blocked | blocked |
+| write.tmp | ESCAPED | blocked | blocked |
+| write.truncate_outside | ESCAPED | blocked | blocked |
+| write.via_hardlink | ESCAPED | blocked | blocked |
+| write.via_symlink | ESCAPED | blocked | blocked |
+
+sandboxed modes: 0 escape(s) or broken must-work item(s)
+containment exit=0
+== tests
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+restored: 1

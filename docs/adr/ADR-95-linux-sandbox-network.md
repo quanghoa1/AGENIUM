@@ -40,7 +40,10 @@ networked sandbox its own network namespace reached through slirp4netns. On the 
   command could still have the host look names up, a DNS channel out. Agenium adds every socket in those folders to
   the policy's denied paths, which mxc masks with `/dev/null`; resolv.conf stays readable and DNS with the network on
   is unchanged. Containment row `net.resolver_socket` (a `ResolveHostname` call on the socket): on WSL Ubuntu 24.04,
-  ESCAPED in both sandboxed modes before (the answer held the addresses), blocked after. Fixed upstream after 1.0.1
+  ESCAPED in both sandboxed modes before (the answer held the addresses), blocked after; the same on the real
+  Ubuntu 25.10 VM (2026-10-31, AppArmor userns restriction lifted for the run): with the mask off ESCAPED in both
+  sandboxed modes, with it blocked in both, 0 escapes, DNS with the network on unchanged
+  (`docs/reference/bench-raw/ubuntu-vm-2026-10-31/`). Fixed upstream after 1.0.1
   (microsoft/mxc#1568, merged 2026-10-27, not released yet): the mask goes when the pin moves past it.
 - **Told everywhere**: `agenium doctor` prints a `sandbox network:` line (private network / without network and why); the work order tells the agent "no network on this machine: <why>" instead of "network on".
 - **To enable** on Ubuntu 24.04+: install slirp4netns, allow unprivileged user namespaces (sysctl

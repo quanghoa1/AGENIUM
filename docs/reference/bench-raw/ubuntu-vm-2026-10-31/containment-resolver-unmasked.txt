@@ -1,0 +1,12 @@
+# Ubuntu 25.10 VM, 2026-10-31: the same containment run with resolver_sockets() replaced by an empty list (the mask off),
+# to show the hole the mask closes. Source restored afterwards (unix.rs sha256 0df18b3c99e6c06b = HEAD).
+
+warning: function `resolver_sockets` is never used
+209 | fn resolver_sockets() -> Vec<String> {
+[sandbox, network off] net.resolver_socket: ESCAPED — inside: {"parameters":{"addresses":[{"ifindex":2,"family":2,"address":[104,20,23,154]},{"ifindex":2,"family":2,"address":[172,66
+[sandbox, network on] net.dns: allowed (network on) — inside: ('104.20.23.154', 443)
+[sandbox, network on] net.resolver_socket: ESCAPED — inside: {"parameters":{"addresses":[{"ifindex":2,"family":2,"address":[172,66,147,243]},{"ifindex":2,"family":2,"address":[104,2
+| net.dns | blocked | allowed (network on) |
+| net.resolver_socket | ESCAPED | ESCAPED |
+sandboxed modes: 2 escape(s) or broken must-work item(s)
+restored: userns=1 unix.rs=0df18b3c99e6c06b
