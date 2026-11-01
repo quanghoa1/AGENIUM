@@ -254,8 +254,8 @@ async fn a_helper_chat_is_a_session_that_can_be_reopened() {
     let saved = app
         .save_session(
             &s.id,
-            model_json,
-            all_turns,
+            model_json.clone(),
+            all_turns.clone(),
             json!([]),
             json!([]),
             Some(json!({"name": "seo-audit"})),
@@ -266,6 +266,68 @@ async fn a_helper_chat_is_a_session_that_can_be_reopened() {
         (saved.status.as_str(), saved.result.as_deref()),
         ("saved", Some("seo-audit"))
     );
+    // Once it has a draft, the session is called by it; a turn that only asks keeps that draft.
+    assert_eq!(saved.title, "seo-audit");
+    let asked = app
+        .save_session(
+            &s.id,
+            model_json.clone(),
+            all_turns.clone(),
+            json!([]),
+            json!([]),
+            None,
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        (asked.title.as_str(), asked.draft.is_some()),
+        ("seo-audit", true)
+    );
+    // A name the user gives stays through later turns; an empty one gives the session its own title back.
+    let named = app
+        .rename_session(&s.id, "  Kiểm tra   SEO trước release ")
+        .unwrap();
+    assert_eq!(
+        (named.title.as_str(), named.named),
+        ("Kiểm tra SEO trước release", true)
+    );
+    let later = app
+        .save_session(
+            &s.id,
+            model_json,
+            all_turns,
+            json!([]),
+            json!([]),
+            Some(json!({"name": "seo-release-check"})),
+            None,
+        )
+        .unwrap();
+    assert_eq!(later.title, "Kiểm tra SEO trước release");
+    assert_eq!(
+        app.session(&s.id).unwrap().title,
+        "Kiểm tra SEO trước release"
+    );
+    let back = app.rename_session(&s.id, "").unwrap();
+    assert_eq!(
+        (back.title.as_str(), back.named),
+        ("seo-release-check", false)
+    );
+    assert!(app.rename_session(&s.id, &"x".repeat(121)).is_err());
+    // A team design's session is called by its team.
+    let d = app.new_session("design", None, json!({})).unwrap();
+    let d = app
+        .save_session(
+            &d.id,
+            json!({}),
+            json!([{"role": "user", "text": "a web shop team"}]),
+            json!([]),
+            json!([]),
+            Some(json!({"template": {"name": "Web shop team"}})),
+            None,
+        )
+        .unwrap();
+    assert_eq!(d.title, "Web shop team");
+    app.remove_session(&d.id).unwrap();
     assert_eq!(app.sessions("skill").unwrap().len(), 1);
     assert!(app.sessions("design").unwrap().is_empty());
     // The call is counted, under its session.

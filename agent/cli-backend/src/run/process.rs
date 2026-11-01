@@ -19,6 +19,8 @@ pub(super) struct Proc {
 }
 
 pub(crate) fn keep_tail(tail: &Mutex<Vec<u8>>, bytes: &[u8]) {
+    // What the CLI says besides its events (warnings about its model, its login…), for diagnostics.
+    tracing::debug!(target: "agenium_cli_backend::stderr", "{}", String::from_utf8_lossy(bytes).trim_end());
     let mut t = tail.lock().unwrap();
     t.extend_from_slice(bytes);
     let excess = t.len().saturating_sub(STDERR_TAIL);

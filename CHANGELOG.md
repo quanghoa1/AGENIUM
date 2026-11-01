@@ -72,6 +72,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   fetch the list itself, and a prompt sent before that fetch landed got "Model unavailable" (about half the runs on
   OpenCode Go's `iceman-contributor-free`). The weekly price refresh now keeps the models.dev catalogue whole in the
   root, and each opencode run reads its copy.
+- An opencode turn that ended with no text event (about one in ten on `iceman`) no longer completes empty: its answer is
+  read back from the session; when the model gave none, it is asked once more, and the turn fails if it still gives
+  none.
 - Model lists are kept (ADR-150): the agent CLIs and their models are listed on a new install, a provider's models
   when it is saved, then when the user reloads one (a button on each provider and CLI, and in the agent form's model picker) or on
   their own once a week; each says when it was listed and whether the last reload failed. The app no longer starts
@@ -159,6 +162,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   last is remembered for the agent form, the team form, the skill writer and the team designer.
 - A team from a template can run each role on the model the template names, where this computer runs it.
 - The usage page counts the team designer's and the skill writer's calls.
+- A helper chat is called by its draft (the skill's or the team's name) once it has one; name it yourself in History or
+  in the chat's header, and the name stays.
+- **Update an agent CLI from Providers & CLIs** (ADR-153): each CLI shows the version it has, the newest one and the
+  one Agenium verified; Update runs the CLI's own updater (asked first, never while one of its runs is going), then
+  asks it one short question; if that fails, go back to the version you had (Claude, opencode, Grok).
 - Code audit of 2026-10-31: approving a ticket no longer freezes the window during the pre-merge check; Needs →
   Open shows the item's own project, and one failing project no longer empties the page; deleting an agent's skill,
   resetting or deleting a template and removing a judge key ask first; dialogs take the keyboard (focus, Tab, Escape)

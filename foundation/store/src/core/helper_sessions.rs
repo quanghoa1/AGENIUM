@@ -12,6 +12,9 @@ pub struct HelperSession {
     /// `design` or `skill`.
     pub kind: String,
     pub title: String,
+    /// The user named it: its title no longer follows its draft.
+    #[serde(default)]
+    pub named: bool,
     /// The model it runs on (provider, model, effort, backend).
     pub model: Value,
     /// What the model is sent back: the user's messages and the helper's whole answers.
@@ -33,7 +36,8 @@ pub struct HelperSession {
 }
 
 const COLS: &str =
-    "id, kind, title, model, turns, transcript, attachments, draft, source, status, result, created_at, updated_at";
+    "id, kind, title, model, turns, transcript, attachments, draft, source, status, result, \
+     created_at, updated_at, named";
 
 fn json(s: String) -> Value {
     serde_json::from_str(&s).unwrap_or(Value::Null)
@@ -54,6 +58,7 @@ fn map(r: &rusqlite::Row) -> rusqlite::Result<HelperSession> {
         result: r.get(10)?,
         created_at: r.get(11)?,
         updated_at: r.get(12)?,
+        named: r.get::<_, i64>(13)? != 0,
     })
 }
 
@@ -61,8 +66,9 @@ fn map(r: &rusqlite::Row) -> rusqlite::Result<HelperSession> {
 pub fn put(c: &Connection, s: &HelperSession) -> Result<(), StoreError> {
     c.execute(
         &format!(
-            "INSERT INTO helper_session ({COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-             ON CONFLICT(id) DO UPDATE SET title = excluded.title, model = excluded.model, turns = excluded.turns,
+            "INSERT INTO helper_session ({COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+             ON CONFLICT(id) DO UPDATE SET title = excluded.title, named = excluded.named, model = excluded.model,
+               turns = excluded.turns,
                transcript = excluded.transcript, attachments = excluded.attachments, draft = excluded.draft,
                source = excluded.source, status = excluded.status, result = excluded.result,
                updated_at = excluded.updated_at"
@@ -80,7 +86,8 @@ pub fn put(c: &Connection, s: &HelperSession) -> Result<(), StoreError> {
             s.status,
             s.result,
             s.created_at,
-            s.updated_at
+            s.updated_at,
+            s.named as i64
         ],
     )?;
     Ok(())

@@ -121,6 +121,9 @@ root:
   as attachments in every chat; markitdown installed, self-tested, updated and removed from Settings; teams on each
   role's model; helper calls in Usage; skill quality on 12 local criteria with effectiveness from reopened tickets.
   Checked end to end in the real app on three API and five CLI models ([VERIFICATION](VERIFICATION.md)).
+- **Agent CLIs updated from the app; opencode made reliable** (2026-11-01, ADR-153): each CLI's version, the newest and
+  the verified one, the CLI's own updater with a check after and the old version offered back; opencode runs get the
+  model catalogue and no longer complete with an empty answer; every other CLI checked under load in fresh homes.
 
 | Release item | Status | Evidence |
 |---|---|---|

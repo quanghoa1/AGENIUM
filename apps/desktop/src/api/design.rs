@@ -197,6 +197,13 @@ pub fn remove_session(d: State<'_, Desktop>, id: String) -> R<()> {
     o.app.remove_session(&id).map_err(err)
 }
 
+/// Names a session (it keeps that name); an empty name gives it back its own title.
+#[tauri::command]
+pub fn rename_session(d: State<'_, Desktop>, id: String, title: String) -> R<Value> {
+    let o = d.opened()?;
+    serde_json::to_value(o.app.rename_session(&id, &title).map_err(err)?).map_err(|e| e.to_string())
+}
+
 /// Records what was saved from a session (a skill name, a template id).
 #[tauri::command]
 pub fn finish_session(d: State<'_, Desktop>, id: String, result: String) -> R<Value> {

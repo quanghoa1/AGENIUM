@@ -17,6 +17,7 @@ use crate::state::{err, Desktop, Opened, R};
 
 mod actions;
 mod agents;
+mod cli_updates;
 mod design;
 mod markitdown;
 mod overview;
@@ -26,6 +27,7 @@ mod ticket_view;
 
 pub use actions::*;
 pub use agents::*;
+pub use cli_updates::*;
 pub use design::*;
 pub use markitdown::*;
 pub use overview::*;

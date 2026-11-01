@@ -60,6 +60,10 @@ pub const CORE_MIGRATIONS: &[Migration] = &[
         version: 6,
         sql: include_str!("../schema/core_006.sql"),
     },
+    Migration {
+        version: 7,
+        sql: include_str!("../schema/core_007.sql"),
+    },
 ];
 
 /// Write context handed to [`CoreStore::commit`] closures.

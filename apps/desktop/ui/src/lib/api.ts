@@ -278,11 +278,16 @@ export const api = {
   sessions: (kind: "design" | "skill") => call<HelperSession[]>("sessions", { kind }),
   session: (id: string) => call<HelperSession>("session", { id }),
   removeSession: (id: string) => call<void>("remove_session", { id }),
+  /** Names a session (kept through later turns); an empty name gives it back its own title (its draft's name). */
+  renameSession: (id: string, title: string) => call<HelperSession>("rename_session", { id, title }),
   finishSession: (id: string, result: string) => call<HelperSession>("finish_session", { id, result }),
   /** An agent's skill proposal (ADR-152) and the user's decision on it. */
   skillProposal: (id: string) => call<SkillProposal>("skill_proposal", { id }),
   decideSkillProposal: (id: string, approve: boolean, savedAs?: string | null, note?: string | null) =>
     call<SkillProposal>("decide_skill_proposal", { id, approve, savedAs: savedAs ?? null, note: note ?? null }),
+  /** Agent CLIs updated on request (ADR-153): versions, and the CLI's own updater with a check after. */
+  cliUpdates: () => call<CliUpdateInfo[]>("cli_updates"),
+  updateCli: (cli: string, version?: string | null) => call<CliUpdated>("update_cli", { cli, version: version ?? null }),
   /** markitdown in Settings (ADR-152): Agenium's own copy installed, self-tested, updated, removed. */
   markitdownStatus: () => call<MarkitdownStatus>("markitdown_status"),
   installMarkitdown: (method?: "uv" | "python" | "uv-standalone") => call<MarkitdownStatus>("install_markitdown", { method: method ?? null }),
@@ -437,6 +442,8 @@ export interface HelperSession {
   id: string;
   kind: "design" | "skill";
   title: string;
+  /** The user named it: the title no longer follows the draft. */
+  named?: boolean;
   model: ModelArg | null;
   turns: ChatTurn[];
   transcript: { user: boolean; text: string; questions?: string[]; model?: string }[];
@@ -479,6 +486,29 @@ export interface MarkitdownStatus {
   busy: boolean;
   size_mb: number;
   blocked: boolean;
+}
+
+export interface CliUpdateInfo {
+  kind: string;
+  program: string;
+  installed?: string | null;
+  latest?: string | null;
+  latest_error?: string | null;
+  verified?: string | null;
+  update: boolean;
+  beyond_verified: boolean;
+  can_pin: boolean;
+  busy: number;
+}
+
+export interface CliUpdated {
+  kind: string;
+  before?: string | null;
+  after?: string | null;
+  output: string;
+  check_ok: boolean;
+  check: string;
+  rollback?: string | null;
 }
 
 export interface Criterion {

@@ -418,6 +418,7 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
       return { reply: "", questions: [], draft: null, raw: "", model: "demo" };
     case "agent_bus":
     case "helper_calls":
+    case "cli_updates":
       return [];
     default:
       return null;

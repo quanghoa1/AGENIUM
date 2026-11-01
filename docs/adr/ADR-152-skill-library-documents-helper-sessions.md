@@ -49,7 +49,10 @@ files and the chats took no attachment.
 4. **Helper sessions.** Every chat of the team designer and the skill writer is a session (`helper_session`): model,
    turns, transcript, attachments, last draft, source (`{seed}`, `{proposal}`), status and what was saved from it.
    It is made on the first message, saved after each answer, listed under History (with its cost from
-   `helper_call.session`) and reopened where it stopped.
+   `helper_call.session`) and reopened where it stopped. It is called by its draft (the skill's or the team's name)
+   once it has one, else by its first message; the user can name it (History, or the chat's header), and that name
+   stays through later turns (`core_007`: `named`); an empty name gives it its own title back. A turn that only asks
+   keeps the session's draft.
 5. **Remembered models.** The last model picked is kept in the root (`preference`): the agent form, the team form
    (with the Lead's and planner's models and the per-role option), the skill writer and the team designer, each
    apart. One that cannot run here any more leaves the picker empty with a note; it is never swapped silently.

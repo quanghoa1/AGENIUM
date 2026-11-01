@@ -7,6 +7,7 @@ import { api } from "../../lib/api";
 import type { Key } from "../../lib/i18n";
 import { useApp } from "../../lib/store";
 import type { Capabilities, ModelInfo } from "../../lib/types";
+import { CliVersionCell, useCliUpdates } from "./CliUpdates";
 import { PRESETS, Preset, ProviderDraft, ProviderForm, capsDraft } from "./ProviderForm";
 
 /** A provider's models as kept; `at` changes after a reload, and the list is read again. */
@@ -88,6 +89,7 @@ export function ProvidersView() {
   const [models, setModels] = useState<string | null>(null);
   const [del, setDel] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const updates = useCliUpdates(app.tick);
   const [vendors, setVendors] = useState<Preset[]>([]);
   const load = (refresh = false) => api.capabilities(refresh).then(setC);
   useEffect(() => {
@@ -296,7 +298,9 @@ export function ProvidersView() {
             {c.clis.map((x) => (
               <tr key={x.kind}>
                 <td className="py-2 font-medium">{x.kind.toLowerCase()}</td>
-                <td className="font-mono">{x.version ?? "–"}</td>
+                <td>
+                  <CliVersionCell version={x.version} info={updates.list[x.kind.toLowerCase()]} onDone={() => (updates.reload(), load(true))} />
+                </td>
                 <td>
                   <LoginState login={x.login} installed={!!x.path} />
                 </td>

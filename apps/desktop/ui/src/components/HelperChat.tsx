@@ -12,7 +12,7 @@ import { useApp } from "../lib/store";
 import type { Capabilities } from "../lib/types";
 import { ModelPicker, emptyModel } from "../views/organize/ModelPicker";
 import { AttachmentBar, DocChip, useAttachments } from "./Attachments";
-import { HelperHistory } from "./HelperHistory";
+import { HelperHistory, RenameInline } from "./HelperHistory";
 import { Markdown } from "./Markdown";
 import { Overlay } from "./motion";
 import { cn } from "./ui";
@@ -82,6 +82,8 @@ export function HelperChat<A extends HelperAnswer>({
   const [text, setText] = useState(first ?? "");
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<string | null>(null);
+  // The session's name: its draft's name once it has one, else the first message; the user may name it.
+  const [sessionTitle, setSessionTitle] = useState("");
   const [history, setHistory] = useState(false);
   const att = useAttachments();
   useEffect(() => {
@@ -111,6 +113,7 @@ export function HelperChat<A extends HelperAnswer>({
 
   const restore = (s: HelperSession) => {
     setSession(s.id);
+    setSessionTitle(s.title);
     onSession?.(s.id);
     setTurns(s.turns ?? []);
     setShown(s.transcript ?? []);
@@ -124,6 +127,7 @@ export function HelperChat<A extends HelperAnswer>({
   };
   const fresh = () => {
     setSession(null);
+    setSessionTitle("");
     setTurns([]);
     setShown([]);
     att.setDocs(initialDocs ?? []);
@@ -160,6 +164,7 @@ export function HelperChat<A extends HelperAnswer>({
       onAnswer(a);
       api
         .saveSession(id, { model, turns: turnsAfter, transcript: shownAfter, attachments: docs, draft: a.draft ?? undefined })
+        .then((r) => setSessionTitle(r.title))
         .catch((e) => app.notify(friendly(e, app.t)));
     } catch (e) {
       // The message stays in the box to send again (another model, after a login...).
@@ -179,7 +184,17 @@ export function HelperChat<A extends HelperAnswer>({
       <div role="dialog" aria-modal="true" aria-label={title} className="card flex h-[92vh] w-[min(1500px,96vw)] flex-col gap-3 p-4" onKeyDown={(e) => e.key === "Escape" && !busy && onClose()}>
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-accent" />
-          <span className="text-sm font-semibold">{title}</span>
+          <span className="shrink-0 text-sm font-semibold">{title}</span>
+          {session && (
+            <>
+              <span className="text-subtle">·</span>
+              <RenameInline
+                value={sessionTitle}
+                className="max-w-[40%] text-xs text-muted"
+                onSave={(t) => api.renameSession(session, t).then((r) => setSessionTitle(r.title))}
+              />
+            </>
+          )}
           <button className={cn("btn ml-auto h-7 px-2 text-[11px]", history && "border-accent text-accent")} disabled={busy} onClick={() => setHistory((h) => !h)}>
             <History className="h-3.5 w-3.5" /> {app.t("helper.history")}
           </button>
@@ -199,7 +214,7 @@ export function HelperChat<A extends HelperAnswer>({
             </div>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-lg border border-line p-3">
               {history ? (
-                <HelperHistory kind={kind} current={session} onOpen={restore} />
+                <HelperHistory kind={kind} current={session} onOpen={restore} onRenamed={(r) => setSessionTitle(r.title)} />
               ) : (
                 <>
                   {shown.length === 0 && <div className="text-xs leading-relaxed text-subtle">{intro}</div>}

@@ -5,6 +5,7 @@ pub mod agent_io;
 mod agent_settings;
 pub mod app;
 pub mod check;
+pub mod cli_updates;
 pub mod coverage;
 pub mod documents;
 pub mod effects;

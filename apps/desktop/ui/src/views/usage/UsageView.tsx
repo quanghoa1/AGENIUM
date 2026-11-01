@@ -65,7 +65,7 @@ export function UsageView() {
   useEffect(() => {
     // The helpers' calls (team designer, skill writer) count as runs of their own, with no ticket (ADR-152).
     Promise.all([api.runs(5000), api.helperCalls(5000).catch(() => [] as RunRow[])]).then(([runs, helpers]) =>
-      setRows([...runs, ...helpers.map((h) => ({ ...h, agent_name: app.t(h.agent === "helper:skill" ? "usage.helper.skill" : "usage.helper.design") }))]),
+      setRows([...runs, ...helpers.map((h) => ({ ...h, agent_name: app.t(h.agent === "helper:skill" ? "usage.helper.skill" : h.agent === "helper:cli-check" ? "usage.helper.check" : "usage.helper.design") }))]),
     );
     api.agents().then((a) => setAgents(a ?? []));
     api.vendorUsage().then(setVendors, () => undefined);

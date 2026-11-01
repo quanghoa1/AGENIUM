@@ -21,7 +21,25 @@ fn kind_ok(kind: &str) -> Result<()> {
     }
 }
 
-/// The session's title: the first thing the user wrote, on one line.
+/// A title the user gives a session, at most this long.
+const TITLE_MAX_CHARS: usize = 120;
+
+/// The session's title when the user has not named it: its draft's name once it has a draft (the skill's name, the
+/// team's name), else the first thing the user wrote, on one line.
+fn title_for(turns: &Value, draft: Option<&Value>) -> String {
+    let drafted = draft.and_then(|d| {
+        d["template"]["name"]
+            .as_str()
+            .or_else(|| d["extends"].as_str())
+            .or_else(|| d["name"].as_str())
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .map(str::to_owned)
+    });
+    drafted.unwrap_or_else(|| title_of(turns))
+}
+
+/// The first thing the user wrote, on one line.
 fn title_of(turns: &Value) -> String {
     let first = turns
         .as_array()
@@ -51,6 +69,7 @@ impl App {
             id: ulid::Ulid::new().to_string(),
             kind: kind.to_owned(),
             title: String::new(),
+            named: false,
             model,
             turns: Value::Array(Vec::new()),
             transcript: Value::Array(Vec::new()),
@@ -104,12 +123,17 @@ impl App {
                 "the session is too large to keep".into(),
             ));
         }
-        s.title = title_of(&turns);
+        // A turn that only asks keeps the draft the session has.
+        if draft.is_some() {
+            s.draft = draft;
+        }
+        if !s.named {
+            s.title = title_for(&turns, s.draft.as_ref());
+        }
         s.model = model;
         s.turns = turns;
         s.transcript = transcript;
         s.attachments = attachments;
-        s.draft = draft;
         if let Some(r) = result {
             s.result = Some(r);
             s.status = "saved".into();
@@ -126,6 +150,30 @@ impl App {
         let mut s = self.session(id)?;
         s.result = Some(result.to_owned());
         s.status = "saved".into();
+        s.updated_at = agenium_core::now_iso();
+        self.store().commit(None, "user", |w| {
+            helper_sessions::put(w.tx, &s).map_err(OrchError::from)
+        })?;
+        Ok(s)
+    }
+
+    /// Names the session (it keeps that name); an empty name gives it back its own title (its draft's name, else its
+    /// first message).
+    pub fn rename_session(&self, id: &str, title: &str) -> Result<HelperSession> {
+        let mut s = self.session(id)?;
+        let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+        if title.chars().count() > TITLE_MAX_CHARS {
+            return Err(OrchError::Invalid(format!(
+                "a session name is at most {TITLE_MAX_CHARS} characters"
+            )));
+        }
+        if title.is_empty() {
+            s.named = false;
+            s.title = title_for(&s.turns, s.draft.as_ref());
+        } else {
+            s.named = true;
+            s.title = title;
+        }
         s.updated_at = agenium_core::now_iso();
         self.store().commit(None, "user", |w| {
             helper_sessions::put(w.tx, &s).map_err(OrchError::from)
