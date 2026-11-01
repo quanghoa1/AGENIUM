@@ -126,10 +126,26 @@ impl Runtime {
         *opened = Some(run);
         let state = self.project_state_text(project)?;
         // What the Lead remembers about what the user asks (ADR-155): the preferences and facts it learned from the
-        // chat (ADR-98) among them. In the turn's own system block, never stored in the chat's history.
+        // chat (ADR-98) among them. It goes in the turn's message, stored and replayed as sent like the project state:
+        // a varying system block would make the whole chat history a cache miss at every turn. A memory the history
+        // already carries is not repeated.
         let memory = self
             .recall_text(lead.id, project, run, None, user_text.to_owned())
             .await?;
+        let seen: String = history.iter().map(|m| m.text()).collect();
+        let fresh: Vec<&str> = memory
+            .lines()
+            .filter(|l| l.starts_with("- ") && !seen.contains(*l))
+            .collect();
+        let memory = if fresh.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "{}\n{}\n\n",
+                memory.lines().next().unwrap_or_default(),
+                fresh.join("\n")
+            )
+        };
         let soul = self.soul_and_role(lead);
         let solo = team.solo;
         let started = Instant::now();
@@ -154,7 +170,7 @@ impl Runtime {
             run_context.push_str(&format!("\n- Team: {t}"));
         }
         let msg = Message::user_text(format!(
-            "{run_context}\n\n{user_text}\n\n<project_state>\n{state}\n</project_state>"
+            "{run_context}\n\n{memory}{user_text}\n\n<project_state>\n{state}\n</project_state>"
         ));
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let (manifest, _) = self.manifest(lead, solo, ctx, specs, None, &ctx.fetch_allow);
@@ -163,13 +179,6 @@ impl Runtime {
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
                 SystemBlock { text: manifest, cache: false },
             ];
-            let mut system = system;
-            if !memory.is_empty() {
-                system.push(SystemBlock {
-                    text: memory.clone(),
-                    cache: false,
-                });
-            }
             let mut messages = history.clone();
             messages.push(msg.clone());
             Ok(WorkOrder { system, messages })

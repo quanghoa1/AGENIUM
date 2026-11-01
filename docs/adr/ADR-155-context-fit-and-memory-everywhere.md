@@ -70,7 +70,9 @@ folding piece by piece.
    - The run page, the Live dock and the chat page show "used / window · %" (amber from 60 %, red from 85 %).
    - The run page reads compaction, folding and the other controls as sentences.
 6. **Memory in every run.**
-   - A chat turn recalls by the user's message, in the turn's own system block (never stored in the chat).
+   - A chat turn recalls by the user's message. The memories go in the turn's message, stored and replayed as sent
+     like the project state; a memory the history already carries is not repeated. A system block that changed every
+     turn would make the whole chat history a cache miss at every turn.
    - The inbox recalls by its items, a review by its ticket, the planner by the spec. Each is logged and credited.
    - A fresh work run also gets the plan's outline, with each item's tickets and the worker's own item marked.
 7. **A checkpoint with next to no note** (under 40 characters) resumes the conversation instead.
