@@ -58,19 +58,61 @@ pub async fn write_skill(
 
 /// A document the user attached (its bytes, base64), read as Markdown (ADR-152).
 #[tauri::command]
-pub async fn read_document(d: State<'_, Desktop>, name: String, base64: String) -> R<Value> {
+pub async fn read_document(
+    d: State<'_, Desktop>,
+    name: String,
+    base64: String,
+    project: Option<String>,
+) -> R<Value> {
     use base64::Engine as _;
     let o = d.opened()?;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(base64.as_bytes())
         .map_err(|e| e.to_string())?;
     let c = o.app.read_document(&name, &bytes).await.map_err(err)?;
-    Ok(json!({ "name": name, "text": c.text, "format": c.format, "notes": c.notes }))
+    let file = keep_attachment(&o, project.as_deref(), &name, &bytes)?;
+    Ok(json!({ "name": name, "text": c.text, "format": c.format, "notes": c.notes, "file": file }))
+}
+
+/// The attached file kept where the project's runs can read it again (`<project>/.agenium/attachments`, outside git:
+/// the agent may open the original to check it). Its path; `None` when no project is named.
+fn keep_attachment(
+    o: &crate::state::Opened,
+    project: Option<&str>,
+    name: &str,
+    bytes: &[u8],
+) -> R<Option<String>> {
+    let Some(project) = project else {
+        return Ok(None);
+    };
+    let p = o.app.project(pid(project)?).map_err(err)?;
+    let dir = std::path::Path::new(&p.path)
+        .join(".agenium")
+        .join("attachments");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let safe: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || "._- ()".contains(c) {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let safe = safe.trim_start_matches('.').trim();
+    let file = dir.join(if safe.is_empty() { "document" } else { safe });
+    std::fs::write(&file, bytes).map_err(|e| e.to_string())?;
+    Ok(Some(file.display().to_string()))
 }
 
 /// A document dropped on the window or pasted as a path, read from disk as Markdown (ADR-152).
 #[tauri::command]
-pub async fn read_document_path(d: State<'_, Desktop>, path: String) -> R<Value> {
+pub async fn read_document_path(
+    d: State<'_, Desktop>,
+    path: String,
+    project: Option<String>,
+) -> R<Value> {
     let o = d.opened()?;
     let p = std::path::PathBuf::from(path.trim().trim_matches('"'));
     let meta = std::fs::metadata(&p).map_err(|e| format!("{}: {e}", p.display()))?;
@@ -90,7 +132,8 @@ pub async fn read_document_path(d: State<'_, Desktop>, path: String) -> R<Value>
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "document".into());
     let c = o.app.read_document(&name, &bytes).await.map_err(err)?;
-    Ok(json!({ "name": name, "text": c.text, "format": c.format, "notes": c.notes }))
+    let file = keep_attachment(&o, project.as_deref(), &name, &bytes)?;
+    Ok(json!({ "name": name, "text": c.text, "format": c.format, "notes": c.notes, "file": file }))
 }
 
 /// What reads documents here: markitdown when it is installed, and the formats Agenium reads itself.

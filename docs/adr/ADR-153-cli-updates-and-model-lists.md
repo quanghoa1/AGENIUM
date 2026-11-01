@@ -65,3 +65,21 @@ or the server API Agenium drives; the user had no way to see versions or update 
 - `orchestration/orchestrator/src/cli_updates.rs` (new), `prices.rs` (keeps the catalogue), `app.rs`.
 - Desktop: `api/cli_updates.rs` (`cli_updates`, `update_cli`), the price loop refreshes a root without the catalogue.
 - UI: `views/capabilities/CliUpdates.tsx`, `ProvidersView.tsx`; strings `cli.*`, `usage.helper.check`.
+
+## Amendment (2026-11-02, what the page says)
+
+From the owner's look at the page: Claude at its newest still offered "Update"; Antigravity, whose newest is unknown,
+showed "Update" again after an update that left 1.4.12 as it was; opencode 2.2.5 read "newer than 2.1.2 (verified)"
+after its update had answered the check; grok said only "newest unknown".
+
+- At the newest (the source says so, or the CLI's own updater left the version as it was), no button. Where the
+  newest is unknown the button reads "Run its updater"; an update that changed nothing reads "already the newest".
+- A version that answered the check after an update here is kept (`<root>/cli-checks.json`, `App::record_cli_check`)
+  and shown as "checked on this machine", not as beyond the verified version; the amber note now reads "Agenium
+  verified up to {v}".
+- A failed newest-version check is said in the row. grok 1.0.41 on this machine: `grok update --check --json` answers
+  `"installer":"npm","error":"program not found"`, its own updater not finding npm. Agenium reports it; it is grok's.
+- A CLI's tool call reaches the live view with its arguments (`run/turns.rs` emits the call after its start). Codex
+  (`mcp_tool_call`) and Antigravity (`call_mcp_tool`) wrap every MCP call in one tool; the UI names it by the server
+  and tool inside (`views/live/calls.tsx` `classify`), Agenium's own protocol tools as the team's moves. Verified in the
+  app with codex gpt-6-luna: `agenium :: read_file: .agenium/attachments/seo-checklist.docx`.

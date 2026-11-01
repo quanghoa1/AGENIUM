@@ -279,8 +279,9 @@ export const api = {
   writeSkill: (model: ModelArg, turns: ChatTurn[], documents: SkillDoc[], seed: NewSkill | null, mergeInto?: string | null, session?: string) =>
     call<SkillWrite>("write_skill", { model, turns, documents, seed, mergeInto: mergeInto ?? null, session }),
   /** A document read as Markdown by the backend (ADR-152): its bytes in base64, or its path on this machine. */
-  readDocument: (name: string, base64: string) => call<ReadDoc>("read_document", { name, base64 }),
-  readDocumentPath: (path: string) => call<ReadDoc>("read_document_path", { path }),
+  /** With `project`, the file is also kept where that project's runs can open it again (`file`). */
+  readDocument: (name: string, base64: string, project?: string) => call<ReadDoc>("read_document", { name, base64, project: project ?? null }),
+  readDocumentPath: (path: string, project?: string) => call<ReadDoc>("read_document_path", { path, project: project ?? null }),
   /** A helper chat kept in the root (ADR-152): made on the first message, saved after each answer, reopened later. */
   newSession: (kind: "design" | "skill", source: unknown, model: ModelArg) => call<HelperSession>("new_session", { kind, source, model }),
   saveSession: (id: string, s: { model: ModelArg; turns: ChatTurn[]; transcript: unknown; attachments: SkillDoc[]; draft?: unknown; result?: string | null }) =>
@@ -409,6 +410,8 @@ export interface TeamDesign {
 export interface SkillDoc {
   name: string;
   text: string;
+  /** Where the original is kept for the project's runs (chat attachments). */
+  file?: string | null;
 }
 
 export interface SimilarSkill {
@@ -446,6 +449,7 @@ export interface ReadDoc {
   text: string;
   format: string;
   notes: string[];
+  file?: string | null;
 }
 
 export interface HelperSession {
@@ -509,6 +513,8 @@ export interface CliUpdateInfo {
   beyond_verified: boolean;
   can_pin: boolean;
   busy: number;
+  /** The installed version answered Agenium's check after an update on this machine. */
+  checked?: { version: string; at: string; updater_had_none: boolean } | null;
 }
 
 export interface CliUpdated {

@@ -62,13 +62,20 @@ export function CliVersionCell({ version, info, onDone }: { version?: string | n
   // Said beside the version it is about: the one installed, or the one offered.
   const installedBeyond = newerThan(info.installed, info.verified);
   const latestBeyond = info.update && newerThan(info.latest, info.verified);
+  // At its newest: its source says so, or its own updater found nothing newer when it last ran here.
+  const newest = !info.update && (!!info.latest || !!info.checked?.updater_had_none);
   return (
     <div className="space-y-0.5">
       <div className="flex flex-wrap items-center gap-1.5">
         <Mono>{info.installed ?? version ?? "–"}</Mono>
-        {installedBeyond && info.verified && (
+        {installedBeyond && info.verified && !info.checked && (
           <span className="chip border-amber-500/40 text-amber-600 dark:text-amber-400" title={app.t("cli.beyondVerifiedHint")}>
             <AlertTriangle className="h-3 w-3" /> {app.t("cli.verified").replace("{v}", info.verified)}
+          </span>
+        )}
+        {installedBeyond && info.checked && (
+          <span className="chip border-emerald-500/40 text-emerald-600 dark:text-emerald-400" title={app.t("cli.checkedHereHint").replace("{v}", info.verified ?? "?")}>
+            <CheckCircle2 className="h-3 w-3" /> {app.t("cli.checkedHere")}
           </span>
         )}
       </div>
@@ -84,24 +91,36 @@ export function CliVersionCell({ version, info, onDone }: { version?: string | n
           </span>
         ) : info.latest ? (
           <span className="text-subtle">{app.t("cli.upToDate")}</span>
+        ) : info.checked?.updater_had_none ? (
+          <span className="text-subtle" title={app.t("cli.newestByUpdaterHint")}>
+            {app.t("cli.newestByUpdater").replace("{at}", new Date(info.checked.at).toLocaleDateString())}
+          </span>
+        ) : info.latest_error ? (
+          <span className="text-amber-600 dark:text-amber-400" title={info.latest_error}>
+            {app.t("cli.checkError").replace("{e}", info.latest_error.replace(/^[\w ]+--check: /, "").slice(0, 80))}
+          </span>
         ) : (
-          <span className="text-subtle" title={info.latest_error ?? ""}>
+          <span className="text-subtle" title={app.t("cli.cantCheckHint")}>
             {app.t("cli.cantCheck")}
           </span>
         )}
-        <button
-          className={cn("btn h-6 px-1.5 text-[11px]", info.update && "border-amber-500/50")}
-          disabled={busy || info.busy > 0}
-          title={info.busy > 0 ? app.t("cli.busy").replace("{n}", String(info.busy)) : app.t("cli.updateHint")}
-          onClick={() => setAsking(null)}
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />} {app.t("cli.update")}
-        </button>
+        {/* Nothing to offer at the newest; when the newest is unknown, the CLI's own updater is what can tell. */}
+        {!newest && (
+          <button
+            className={cn("btn h-6 px-1.5 text-[11px]", info.update && "border-amber-500/50")}
+            disabled={busy || info.busy > 0}
+            title={info.busy > 0 ? app.t("cli.busy").replace("{n}", String(info.busy)) : app.t("cli.updateHint")}
+            onClick={() => setAsking(null)}
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />} {app.t(info.update ? "cli.update" : "cli.runUpdater")}
+          </button>
+        )}
       </div>
       {result && (
         <div className={cn("text-[11px]", result.check_ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")} title={[result.check, result.output].filter(Boolean).join(" | ")}>
           {result.check_ok ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <XCircle className="mr-1 inline h-3 w-3" />}
-          {result.before ?? "?"} → {result.after ?? "?"} · {result.check_ok ? app.t("cli.checkOk") : `${app.t("cli.checkBad")}: ${result.check}`}
+          {result.before && result.before === result.after ? app.t("cli.unchanged").replace("{v}", result.after) : `${result.before ?? "?"} → ${result.after ?? "?"}`} ·{" "}
+          {result.check_ok ? app.t("cli.checkOk") : `${app.t("cli.checkBad")}: ${result.check}`}
           {result.rollback && (
             <button className="btn ml-1.5 h-6 px-1.5 text-[11px]" disabled={busy} onClick={() => setAsking(result.rollback!)}>
               <RotateCcw className="h-3 w-3" /> {app.t("cli.rollback").replace("{v}", result.rollback)}

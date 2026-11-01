@@ -102,6 +102,13 @@ impl Runtime {
         if picks.is_dir() {
             ctx.read_roots.push(picks.clone());
         }
+        // Documents the user attached in the chat (ADR-152): kept whole, so an agent can open the original again.
+        let attached = std::path::Path::new(&p.path)
+            .join(".agenium")
+            .join("attachments");
+        if attached.is_dir() {
+            ctx.read_roots.push(attached.clone());
+        }
         if let (RunKind::Work, Some(t)) = (kind, ticket) {
             let (all_of, granted) = self.app.write_scope(t, &agent.role)?;
             ctx.write_scope = agenium_tools::paths::WriteScope::new(all_of, granted)
@@ -118,6 +125,9 @@ impl Runtime {
         ctx.policy.read_roots.extend(skills.dirs());
         if picks.is_dir() {
             ctx.policy.read_roots.push(picks);
+        }
+        if attached.is_dir() {
+            ctx.policy.read_roots.push(attached);
         }
         // ADR-84: whether a sandboxed shell command may reach the network. The sandbox (worktree-only writes, no host
         // home, cleared environment) is the boundary, not the network switch; default on so agents can install

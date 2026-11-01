@@ -51,12 +51,24 @@ export interface Call {
   name: string;
 }
 
+/** Codex (`mcp_tool_call`) and Antigravity (`call_mcp_tool`) report every MCP call as one tool, the server and the
+ * tool in its arguments: named `mcp__<server>__<tool>` here, with the tool's own arguments. */
+function unwrap(name: string, args: any): [string, any] {
+  if (name === "mcp_tool_call" && args?.server && args?.tool) return [`mcp__${args.server}__${args.tool}`, args.arguments];
+  if (name === "call_mcp_tool" && args?.ServerName && args?.ToolName) return [`mcp__${args.ServerName}__${args.ToolName}`, args.Arguments];
+  return [name, args];
+}
+
 /** Sorts a call into MCP (`mcp__<server>__<tool>`), Skill (`load_skill`), Agenium (protocol) or Tool. */
-export function classify(tool: string, args: any): Call {
-  const name = tool.replace(/^cli:/, "");
+export function classify(tool: string, raw: any): Call {
+  const [name, args] = unwrap(tool.replace(/^cli:/, ""), raw);
   if (name.startsWith("mcp__")) {
     const [, server, ...rest] = name.split("__");
-    return { kind: "mcp", label: `${server} :: ${rest.join("__")}`, name };
+    const t = rest.join("__");
+    // Agenium's own server: the team's protocol move, as an API agent's call of it reads.
+    if (server === "agenium" && PROTOCOL.has(t)) return { kind: "agenium", label: `${t}${args?.ticket_id ? ` ${args.ticket_id}` : ""}`, name };
+    const preview = argPreview(args);
+    return { kind: "mcp", label: `${server} :: ${t}${preview ? `: ${preview}` : ""}`, name };
   }
   if (name === "load_skill" || name === "Skill") return { kind: "skill", label: String(args?.name ?? args?.skill ?? args?.command ?? "skill"), name };
   if (PROTOCOL.has(name)) return { kind: "agenium", label: `${name}${args?.ticket_id ? ` ${args.ticket_id}` : ""}`, name };

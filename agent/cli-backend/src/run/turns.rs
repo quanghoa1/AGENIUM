@@ -404,6 +404,14 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                     id: id.clone(),
                     name: name.clone(),
                 });
+                // The CLI reports the call whole at once: its arguments for the live view (a Codex or Antigravity
+                // MCP call names its server and tool only there).
+                self.observer
+                    .event(&ChatEvent::ToolCall(agenium_llm::ToolCall {
+                        id: id.clone(),
+                        name: name.clone(),
+                        args: input.clone(),
+                    }));
                 // ADR-129: the step of a subagent carries its label; a call of an Agenium tool waits for its MCP
                 // request, which carries no trace of the subagent.
                 let label = st.parent.as_ref().map(|p| {

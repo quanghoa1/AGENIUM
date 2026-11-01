@@ -146,3 +146,12 @@ conversation's documents (attached to the message being written, and sent earlie
 history under their names); the letters after `@` narrow the list, ↑/↓ move, Enter or Tab puts `@name` in (quoted
 when the name has spaces), Esc closes. `components/Mentions.tsx`. Verified in the app: three files attached, `@se`
 narrowed to `seo-checklist.docx`; the Lead answered `@pages.xlsx …` from that file.
+
+## Amendment (2026-11-02, the original kept)
+
+An attached document reached the agent only as its Markdown in the message: asked to open the original and check, the
+Lead found no such file in the project. A document attached in the Lead's chat is now also kept whole in
+`<project>/.agenium/attachments/<name>` (`.agenium/` is excluded from git); the message names it (`<document name=…
+file=…>`, the block's note says `read_file` opens it again); every run of the project has that folder among its read
+roots (like the picks of ADR-121). Desktop `read_document`/`read_document_path` take the project. Verified with codex:
+asked to copy item 5 from the original, it called `read_file` on `.agenium/attachments/seo-checklist.docx`.

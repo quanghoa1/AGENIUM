@@ -12,6 +12,7 @@ import { useMentions } from "./Mentions";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
+import { classify } from "../views/live/calls";
 
 // A long paste shows as one label in the input ("[Pasted #1 · 120 lines · 8.4 KB]") and is put back on send.
 const PASTE_CHARS = 1000;
@@ -97,7 +98,7 @@ export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
         )}
         {stream?.phase === "tool" && stream.tool && (
           <div className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1 font-mono text-[11.5px] text-purple-600 dark:text-purple-300">
-            <Wrench className="h-3 w-3" /> {stream.tool.replace(/^cli:/, "")}
+            <Wrench className="h-3 w-3" /> {classify(stream.tool, stream.toolArgs).label}
           </div>
         )}
         {writing && (
@@ -133,7 +134,7 @@ export function ChatPane({
   const live = useLive();
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [text, setText] = useState("");
-  const att = useAttachments();
+  const att = useAttachments(project);
   const [note, setNote] = useState<string | null>(null);
   // This pane's own turns in flight (a message sent while one runs waits in the Lead's queue: ADR-149).
   const [turns, setTurns] = useState(0);

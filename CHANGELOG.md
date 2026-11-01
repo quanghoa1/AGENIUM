@@ -157,6 +157,15 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   only (its `haiku`/`sonnet`/`opus` aliases change meaning with each release; an agent set to one still runs).
 - **`@` names a file in the chat** (ADR-152): typing `@` lists the conversation's documents (attached now or sent
   earlier), narrowed as you type; Enter or Tab puts `@name` in, so ten attached files need no retyping.
+- **An attached file can be opened again** (ADR-152): a document attached in the Lead's chat is also kept whole in
+  the project's `.agenium/attachments` (outside git), every run of the project may read it, and the message names
+  where; asked to check the original, the Lead opens it with `read_file` instead of saying it is not there.
+- **A CLI's tool calls are named** (ADR-153): a Codex or Antigravity MCP call reads `server :: tool: argument` in the
+  chat and the Live view (it read `mcp_tool_call`); the CLI's call reaches the live view with its arguments.
+- **CLI updates say what they know** (ADR-153): no Update button on a CLI at its newest; "Run its updater" where the
+  newest is unknown; a CLI whose own check fails says why (grok: "program not found"); an update that changed nothing
+  says it is already the newest, and the CLI is shown at its newest after; a version that answered Agenium's check
+  after an update here is no longer flagged as beyond the verified one ("checked on this machine").
 - **A held message says why** (ADR-149): messages put back after a failed turn no longer read as "busy": the queue
   says the last turn failed and offers "Send again"; the waiting messages show their documents as chips, and editing
   one changes only its text.

@@ -117,6 +117,10 @@ impl RootLayout {
     pub fn vendor_usage(&self) -> PathBuf {
         self.root.join("vendor-usage.json")
     }
+    /// The CLI versions that answered Agenium's check after an update on this machine (ADR-153).
+    pub fn cli_checks(&self) -> PathBuf {
+        self.root.join("cli-checks.json")
+    }
     /// Prices downloaded from the public model catalogue (a cache: refreshed, never edited).
     pub fn price_catalogue(&self) -> PathBuf {
         self.root.join("price-catalogue.json")

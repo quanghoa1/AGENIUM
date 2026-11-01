@@ -62,6 +62,8 @@ export interface LiveRun {
   /** What the model is doing now: reasoning, writing text, or calling a tool (`tool` names it). */
   phase: "thinking" | "text" | "tool" | "idle";
   tool?: string;
+  /** The current tool's arguments, once the call is known whole. */
+  toolArgs?: unknown;
   done: boolean;
   /** Last event (ms since epoch). */
   at: number;
@@ -130,10 +132,12 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
   } else if (ev.type === "tool_start") {
     next.phase = "tool";
     next.tool = ev.name;
+    next.toolArgs = undefined;
   } else if (ev.type === "tool") {
     next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
     next.phase = "tool";
     next.tool = ev.name;
+    next.toolArgs = ev.args;
   } else if (ev.type === "usage") {
     // A step ended: the next one starts by thinking.
     next.phase = "thinking";
