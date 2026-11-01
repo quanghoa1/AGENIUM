@@ -121,6 +121,11 @@ impl RootLayout {
     pub fn price_catalogue(&self) -> PathBuf {
         self.root.join("price-catalogue.json")
     }
+    /// The model catalogue as downloaded (models.dev format; a cache refreshed with the prices): the opencode CLI's
+    /// model list in each run, so a model newer than its built-in list is known at once.
+    pub fn models_dev(&self) -> PathBuf {
+        self.root.join("models-dev.json")
+    }
     /// The agent CLIs found and the models each source lists, with when (a cache: listed again, never edited).
     pub fn model_cache(&self) -> PathBuf {
         self.root.join("model-cache.json")

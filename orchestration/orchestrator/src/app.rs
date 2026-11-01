@@ -179,6 +179,8 @@ impl App {
         };
         // The tools prefer the markitdown Agenium installed for this root (ADR-152).
         agenium_documents::markitdown::own::use_dir(app.layout.tools().join("markitdown"));
+        // The opencode CLI's runs read their model list from the root's catalogue (refreshed with the prices).
+        agenium_cli_backend::opencode::use_models_catalogue(app.layout.models_dev());
         let report = app.reconcile()?;
         app.purge_deleted_agents()?;
         // Seed the built-in starter skill library (ADR-88); best-effort, never blocks opening the root.

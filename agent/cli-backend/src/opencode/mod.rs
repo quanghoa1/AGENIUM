@@ -64,6 +64,17 @@ pub use account::account_models;
 use account::user_login;
 pub(crate) use account::user_signed_in;
 
+/// The model catalogue opencode is given (models.dev format), named by the open root.
+static MODELS: std::sync::RwLock<Option<PathBuf>> = std::sync::RwLock::new(None);
+
+/// Names the catalogue each run's opencode reads its model list from (the root's copy of models.dev). Without it a run
+/// starts with an empty cache and fetches the list itself: a prompt sent before that fetch landed found only the list
+/// built into opencode, and a model newer than it (`opencode-go/iceman-contributor-free`) answered "Model unavailable"
+/// to about half the runs (2026-11-01).
+pub fn use_models_catalogue(path: PathBuf) {
+    *MODELS.write().unwrap_or_else(|p| p.into_inner()) = Some(path);
+}
+
 /// opencode model ids are `provider/model`; a bare id means OpenCode's own provider.
 fn model_ref(model: &str) -> Value {
     let (provider, id) = model.split_once('/').unwrap_or(("opencode", model));
@@ -201,6 +212,17 @@ impl Driver for Opencode {
             ("OPENCODE_DISABLE_FILEWATCHER", "1"),
         ] {
             env.insert(k.to_owned(), v.to_owned());
+        }
+        // The model list, copied into the run's own home (readable wherever opencode runs, never changed under it).
+        let catalogue = MODELS.read().unwrap_or_else(|p| p.into_inner()).clone();
+        if let Some(src) = catalogue.filter(|p| p.is_file()) {
+            let copy = dirs[3].join("models.json");
+            if std::fs::copy(&src, &copy).is_ok() {
+                env.insert(
+                    "OPENCODE_MODELS_PATH".to_owned(),
+                    copy.display().to_string(),
+                );
+            }
         }
         Ok(env)
     }
@@ -641,6 +663,14 @@ mod tests {
     fn the_home_isolates_opencode() {
         let home = std::env::temp_dir().join(format!("agenium-oc-{}", std::process::id()));
         std::fs::create_dir_all(&home).unwrap();
+        // The root's model catalogue reaches the run as its own copy.
+        let catalogue = home.join("models-dev.json");
+        std::fs::write(
+            &catalogue,
+            r#"{"opencode-go":{"models":{"iceman-contributor-free":{}}}}"#,
+        )
+        .unwrap();
+        use_models_catalogue(catalogue);
         let env = Opencode
             .prepare(&Setup {
                 home: &home,
@@ -664,6 +694,15 @@ mod tests {
             assert!(env[k].starts_with(&home.display().to_string()), "{k}");
         }
         assert_eq!(env["OPENCODE_DISABLE_CLAUDE_CODE"], "1");
+        let models = std::path::Path::new(&env["OPENCODE_MODELS_PATH"]);
+        assert!(
+            models.starts_with(&home) && models.ends_with("cache/models.json"),
+            "{}",
+            models.display()
+        );
+        assert!(std::fs::read_to_string(models)
+            .unwrap()
+            .contains("iceman-contributor-free"));
         assert_eq!(env["OPENCODE_DISABLE_PROJECT_CONFIG"], "1");
         assert_eq!(env[TOKEN_ENV], "t0k");
         assert!(!env[PASSWORD_ENV].is_empty());

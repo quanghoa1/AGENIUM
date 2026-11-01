@@ -68,6 +68,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   to 10 minutes); an approval request a stopped run gave up leaves Needs you (ADR-131).
 
 ### Models
+- The opencode CLI knows a model newer than its built-in list at once: each run used to start with an empty cache and
+  fetch the list itself, and a prompt sent before that fetch landed got "Model unavailable" (about half the runs on
+  OpenCode Go's `iceman-contributor-free`). The weekly price refresh now keeps the models.dev catalogue whole in the
+  root, and each opencode run reads its copy.
 - Model lists are kept (ADR-150): the agent CLIs and their models are listed on a new install, a provider's models
   when it is saved, then when the user reloads one (a button on each provider and CLI, and in the agent form's model picker) or on
   their own once a week; each says when it was listed and whether the last reload failed. The app no longer starts

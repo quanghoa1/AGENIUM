@@ -296,7 +296,7 @@ fn spawn_usage_refresh(handle: tauri::AppHandle) {
                     Err(e) => tracing::warn!(error = %e, "markitdown update not checked"),
                 }
             }
-            if o.app.price_catalogue_stale() {
+            if o.app.price_catalogue_stale() || o.app.models_catalogue_missing() {
                 match agenium_orchestrator::prices::refresh_price_catalogue(&o.app).await {
                     Ok(Some(n)) => tracing::info!(priced = n, "price catalogue refreshed"),
                     Ok(None) => {}

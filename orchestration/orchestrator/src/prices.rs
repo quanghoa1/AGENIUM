@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use agenium_llm::pricing::{fetch_catalogue, Catalogue, Price, PriceTable, Prices};
+use agenium_llm::pricing::{fetch_models_dev, Catalogue, Price, PriceTable, Prices};
 use agenium_llm::Usage;
 use agenium_store::core::runs;
 use serde::Serialize;
@@ -178,6 +178,12 @@ impl App {
         })
     }
 
+    /// Whether the catalogue is not kept whole for the opencode CLI yet (a root from before it was): refreshed then.
+    pub fn models_catalogue_missing(&self) -> bool {
+        !self.config().usage.price_catalogue_url.trim().is_empty()
+            && !self.layout().models_dev().is_file()
+    }
+
     /// Stores a downloaded catalogue and prices the runs that cost 0 for want of a price. Returns how many runs
     /// were priced.
     pub fn save_price_catalogue(&self, c: &Catalogue) -> Result<usize> {
@@ -222,8 +228,18 @@ pub async fn refresh_price_catalogue(app: &App) -> Result<Option<usize>> {
     if url.trim().is_empty() {
         return Ok(None);
     }
-    let c = fetch_catalogue(&url, &agenium_core::now_iso())
+    let v = fetch_models_dev(&url)
         .await
         .map_err(|e| OrchError::Invalid(format!("price catalogue {url}: {e}")))?;
+    // Kept whole for the opencode CLI's runs (their model list); a catalogue that is not in models.dev's shape (an
+    // object of providers with models) is not.
+    if v.as_object()
+        .is_some_and(|o| o.values().any(|p| p["models"].is_object()))
+    {
+        if let Ok(bytes) = serde_json::to_vec(&v) {
+            agenium_config::write_atomic(&app.layout().models_dev(), &bytes)?;
+        }
+    }
+    let c = Catalogue::from_models_dev(&v, &url, &agenium_core::now_iso());
     app.save_price_catalogue(&c).map(Some)
 }

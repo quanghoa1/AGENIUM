@@ -263,16 +263,22 @@ impl Catalogue {
 
 /// Downloads the catalogue at `url` (models.dev format).
 pub async fn fetch_catalogue(url: &str, fetched_at: &str) -> Result<Catalogue, crate::LlmError> {
+    let v = fetch_models_dev(url).await?;
+    Ok(Catalogue::from_models_dev(&v, url, fetched_at))
+}
+
+/// The catalogue at `url` as it is (models.dev format): the prices are read from it, and the opencode CLI is given it
+/// whole as its model list.
+pub async fn fetch_models_dev(url: &str) -> Result<serde_json::Value, crate::LlmError> {
     fn map_err(status: u16, _: &reqwest::header::HeaderMap, body: &str) -> crate::LlmError {
         crate::LlmError::Network(format!(
             "HTTP {status}: {}",
             body.chars().take(200).collect::<String>()
         ))
     }
-    let v = crate::http::Http::default_client()?
+    crate::http::Http::default_client()?
         .get_json(url, &[], map_err)
-        .await?;
-    Ok(Catalogue::from_models_dev(&v, url, fetched_at))
+        .await
 }
 
 /// Host and the meaningful path segments of a URL (version and wire names left out).

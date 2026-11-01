@@ -114,7 +114,9 @@ files and the chats took no attachment.
   merges; a proposal discussed, saved and switched on; `read_file` on PDF/DOCX in real runs; markitdown installed and
   used; a team on its roles' models; the UI in Vietnamese and English; remembered choices after a restart. Four
   defects it found are fixed (see `docs/VERIFICATION.md`, 2026-11-01). The opencode CLI on `iceman` answered "Model
-  unavailable" to about half its calls (not this change; the model answers through the API and opencode itself).
+  unavailable" to about half its calls: each run's opencode started with an empty cache and its built-in model list
+  lacks that model. The root now keeps models.dev's catalogue whole and each opencode run reads its copy
+  (`OPENCODE_MODELS_PATH`): 8/8 after.
 
 ## Consequences
 
