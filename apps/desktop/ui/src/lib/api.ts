@@ -93,7 +93,9 @@ export const api = {
   browserCapture: (tab: string, x: number, y: number, w: number, h: number, dpr: number) => call<string>("browser_capture", { tab, x, y, w, h, dpr }),
   /** Saves a pick's picture into the project (where its agents can view it); returns the file path. */
   browserSavePick: (project: string, png: string) => call<string>("browser_save_pick", { project, png }),
-  setup: (uiLanguage: string) => call<Status>("setup", { uiLanguage }),
+  /** Linux and macOS first start: a folder from the system's dialog (an "Agenium" folder inside it unless it is one). */
+  pickWorkFolder: () => call<string | null>("pick_work_folder"),
+  chooseWorkFolder: (folder: string) => call<Status>("choose_work_folder", { folder }),
   projects: () => call<ProjectSummary[]>("projects"),
   /** The latest handover report of a project (ADR-147); null before the project first completes. */
   handover: (project: string) =>

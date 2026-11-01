@@ -146,7 +146,13 @@ export function ModelPrepView() {
           <div className="text-base font-semibold">{app.t("model.title")}</div>
         </div>
         <div className="text-xs text-muted">{app.t("model.why").replace("{mb}", String(m.mb))}</div>
-        {m.phase === "error" ? (
+        {m.phase === "ready" ? (
+          // The model is in place; the work folder is set up and opened (ADR-154).
+          <div className="mt-3 flex items-center gap-2 text-[11px] text-subtle">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Mono>{app.t("setup.opening")}</Mono>
+          </div>
+        ) : m.phase === "error" ? (
           <>
             <div className="mt-3 rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-[11px] text-rose-600 dark:text-rose-300">{m.error}</div>
             <button className="btn-primary mt-4 w-full justify-center" onClick={() => api.retryEmbeddingModel().then(app.reloadStatus)}>
@@ -159,32 +165,6 @@ export function ModelPrepView() {
             <Mono>{m.step || app.t(m.phase === "checking" ? "model.checking" : "model.installing")}</Mono>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-export function SetupView() {
-  const app = useApp();
-  const [ui, setUi] = useState(app.lang);
-  return (
-    <div className="flex h-full items-center justify-center bg-background p-6">
-      <div className="card w-[460px] p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <Logo className="h-10 w-10 shrink-0 rounded-lg shadow-sm" />
-          <div className="text-base font-semibold">{app.t("setup.title")}</div>
-        </div>
-        <label className="block text-xs">
-          <span className="label">{app.t("setup.ui")}</span>
-          <select className="input mt-1" value={ui} onChange={(e) => (setUi(e.target.value as "vi" | "en"), app.setLang(e.target.value as "vi" | "en"))}>
-            <option value="vi">Tiếng Việt</option>
-            <option value="en">English</option>
-          </select>
-        </label>
-        <div className="mt-2 text-[11px] text-subtle">{app.t("settings.languageNote")}</div>
-        <button className="btn-primary mt-4 w-full justify-center" onClick={() => api.setup(ui).then(app.reloadStatus).catch((e) => app.notify(String(e)))}>
-          {app.t("setup.go")}
-        </button>
       </div>
     </div>
   );

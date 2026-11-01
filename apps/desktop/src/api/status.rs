@@ -1,4 +1,4 @@
-//! Setup and status: the root, the command policy, the sandbox, model downloads, how MCP tools are found.
+//! Status: the root, the command policy, the sandbox, model downloads, how MCP tools are found.
 
 use super::*;
 
@@ -33,7 +33,9 @@ pub fn status(d: State<'_, Desktop>, handle: AppHandle) -> Value {
     let opened = d.opened().ok();
     let cfg = opened.as_ref().map(|o| o.app.config());
     json!({
-        "root": d.root.display().to_string(),
+        "root": d.root().display().to_string(),
+        // Linux and macOS, first start: the folder to work in is asked before anything is written (ADR-154).
+        "choose_root": d.asking_root().then(|| d.root().display().to_string()),
         "ready": opened.is_some(),
         // The installer's version (tauri.conf.json), the one Windows, the .deb and the .app show; not the crate's.
         "version": handle.package_info().version.to_string(),
@@ -73,34 +75,6 @@ pub fn set_unsandboxed(d: State<'_, Desktop>, on: bool) -> R<Value> {
         .update_config(|c| c.sandbox.unsandboxed = on)
         .map_err(err)?;
     command_policy(d)
-}
-
-#[tauri::command]
-pub fn setup(d: State<'_, Desktop>, handle: AppHandle, ui_language: String) -> R<Value> {
-    // A second click (or a second window) while the root is open: one App and one runtime per root.
-    if d.opened().is_ok() {
-        return Ok(status(d, handle));
-    }
-    if d.model_prep().phase != "ready" {
-        return Err("the embedding model is not in place yet".into());
-    }
-    let input = agenium_config::setup::SetupInput {
-        root: Some(d.root.clone()),
-        ui_language,
-    };
-    let home = dirs::home_dir().unwrap_or_default().join(".agenium");
-    // A root given by AGENIUM_HOME is this process's override: nothing is remembered machine-wide.
-    let by_env = std::env::var_os(agenium_config::root::ENV_HOME).is_some_and(|v| !v.is_empty());
-    let bootstrap = agenium_config::Bootstrap::default_path().filter(|_| !by_env);
-    let fresh = agenium_config::setup::needs_setup(&d.root);
-    agenium_config::setup::complete_setup(&input, &home, bootstrap.as_deref()).map_err(err)?;
-    // A root set up for a UI test (a throwaway one, under AGENIUM_HOME) is marked as such: it alone opens with the
-    // in-memory vault key in a release build.
-    if fresh && by_env && crate::state::memory_keyring_asked() {
-        std::fs::write(d.root.join(crate::state::TEST_ROOT_MARK), "").map_err(err)?;
-    }
-    d.open(&handle)?;
-    Ok(status(d, handle))
 }
 
 /// How agents reach many MCP tools (ADR-139): found with `tool_search` past the thresholds, the tools used most kept

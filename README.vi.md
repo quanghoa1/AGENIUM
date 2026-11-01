@@ -82,9 +82,11 @@ các nhà cung cấp khác dùng cùng bộ tool với một bộ đọc dễ d�
 
 ### Ứng dụng desktop
 
-Tải bộ cài cho hệ điều hành của bạn từ trang releases — `Agenium_0.1.0_x64-setup.exe` (hoặc `.msi`) cho Windows 10/11,
+Tải bộ cài cho hệ điều hành của bạn từ trang releases — `Agenium_0.1.0_x64-setup.exe` cho Windows 10/11,
 `Agenium_0.1.0_amd64.deb` hoặc AppImage cho Linux. Agenium cần **Git**. Model embedding chạy trên máy đi kèm bộ cài.
-Lần đầu mở, một bước thiết lập ngắn hỏi ngôn ngữ và nơi Agenium lưu dữ liệu; sau đó thêm nhà cung cấp model (key đi
+Bộ cài Windows hỏi nơi Agenium lưu công việc của bạn (skill, MCP server, agent, dự án, memory), ví dụ một thư mục ở ổ
+D:; trên Linux và macOS, app hỏi một lần khi mở lần đầu. Cập nhật không bao giờ đụng tới thư mục đó. Sau đó app mở
+thẳng vào màn hình chính, theo ngôn ngữ của hệ điều hành (đổi bằng VI/EN ở trên cùng); thêm nhà cung cấp model (key đi
 thẳng vào kho mã hoá) hoặc chọn một CLI lập trình bạn đã đăng nhập, tạo dự án, chọn nhóm và bắt đầu trò chuyện với Lead.
 
 ### Từ mã nguồn

@@ -81,9 +81,11 @@ always parses; other providers get the same tools with a lenient reader.
 
 ### Desktop app
 
-Download the installer for your system from the releases page — `Agenium_0.1.0_x64-setup.exe` (or the `.msi`) on
-Windows 10/11, `Agenium_0.1.0_amd64.deb` or the AppImage on Linux. Agenium needs **Git**. The local embedding model
-ships with the installer. On first start a short setup asks for your language and where Agenium keeps its data; then
+Download the installer for your system from the releases page — `Agenium_0.1.0_x64-setup.exe` on Windows 10/11,
+`Agenium_0.1.0_amd64.deb` or the AppImage on Linux. Agenium needs **Git**. The local embedding model ships with the
+installer. The Windows installer asks where Agenium keeps your work (skills, MCP servers, agents, projects, memory),
+for example a folder on drive D:; on Linux and macOS the app asks once at its first start. Updates never touch that
+folder. The app then opens straight on its main screen, in your system's language (switch with VI/EN at the top);
 add a model provider (the key goes straight to the encrypted vault) or pick a coding CLI you are logged in to, create
 a project, choose a team and start chatting with the Lead.
 

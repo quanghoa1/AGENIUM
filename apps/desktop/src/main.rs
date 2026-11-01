@@ -21,17 +21,27 @@ fn main() {
                 .unwrap_or_else(|_| "warn".into()),
         )
         .init();
-    let root = agenium_config::resolve_root()
-        .map(|(r, _)| r)
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".agenium"));
+    let (root, source) = agenium_config::resolve_root().unwrap_or_else(|_| {
+        (
+            dirs::home_dir().unwrap_or_default().join(".agenium"),
+            agenium_config::root::RootSource::Default,
+        )
+    });
+    // Windows asks in its installer; Linux and macOS ask once at a first start that has nothing set (ADR-154).
+    let ask_root = !cfg!(windows)
+        && source == agenium_config::root::RootSource::Default
+        && agenium_config::setup::needs_setup(&root);
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(nav_guard())
-        .manage(Desktop::new(root))
-        .setup(|app| {
+        .manage(Desktop::new(root, ask_root))
+        .setup(move |app| {
             let handle = app.handle().clone();
             // The root opens once the embedding model is in place (memory needs it).
-            tauri::async_runtime::spawn(model::ensure(handle.clone()));
+            if !ask_root {
+                tauri::async_runtime::spawn(model::ensure(handle.clone()));
+            }
             tauri::async_runtime::spawn(api::warm_model_caches(handle.clone()));
             spawn_event_forwarder(handle.clone());
             spawn_usage_refresh(handle.clone());
@@ -54,7 +64,8 @@ fn main() {
             browser::browser_close_all,
             browser::browser_capture,
             browser::browser_save_pick,
-            api::setup,
+            api::pick_work_folder,
+            api::choose_work_folder,
             api::projects,
             api::handover,
             api::lead_queue,

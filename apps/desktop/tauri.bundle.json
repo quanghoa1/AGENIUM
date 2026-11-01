@@ -5,7 +5,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "deb", "appimage", "app", "dmg"],
+    "targets": ["nsis", "deb", "appimage", "app", "dmg"],
     "publisher": "The Agenium authors",
     "copyright": "Copyright 2026 The Agenium authors",
     "category": "DeveloperTool",
@@ -18,7 +18,9 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "Vietnamese"]
+        "languages": ["English", "Vietnamese"],
+        "template": "installer/windows/installer.nsi",
+        "installerHooks": "installer/windows/hooks.nsh"
       }
     },
     "macOS": {

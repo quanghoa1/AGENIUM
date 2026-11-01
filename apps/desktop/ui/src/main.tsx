@@ -10,7 +10,8 @@ import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 import { AppProvider, useApp } from "./lib/store";
 import { AgentView, AgentsView, ProjectsView, TeamsView } from "./views/Organize";
-import { AuditView, ModelPrepView, SettingsView, SetupView } from "./views/Admin";
+import { AuditView, ModelPrepView, SettingsView } from "./views/Admin";
+import { WorkFolderView } from "./views/WorkFolder";
 import { UsageView } from "./views/usage/UsageView";
 import { MemoryView } from "./views/Memory";
 import { TemplatesView } from "./views/Templates";
@@ -27,8 +28,10 @@ import { TicketsView } from "./views/Tickets";
 function Router() {
   const app = useApp();
   if (!app.status) return <div className="p-6 text-xs text-subtle">…</div>;
-  if (app.status.model && app.status.model.phase !== "ready") return <ModelPrepView />;
-  if (!app.status.ready) return <SetupView />;
+  // No setup screen (ADR-154): Linux and macOS ask once for the work folder; then the model, then the app.
+  if (app.status.choose_root) return <WorkFolderView />;
+  if (app.status.model && (app.status.model.phase !== "ready" || !app.status.ready)) return <ModelPrepView />;
+  if (!app.status.ready) return <div className="p-6 text-xs text-subtle">…</div>;
   const { view, id } = app.route;
   const page = (() => {
     switch (view) {

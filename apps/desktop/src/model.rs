@@ -45,15 +45,18 @@ fn set(handle: &AppHandle, phase: &'static str, step: &str, error: Option<String
 /// Puts the model in place, then opens the root when it is set up. Run at start and on the user's retry.
 pub async fn ensure(handle: AppHandle) {
     let d = handle.state::<Desktop>();
-    let models = agenium_config::RootLayout::new(&d.root).models();
+    let models = agenium_config::RootLayout::new(d.root()).models();
     set(&handle, "checking", "", None);
     match prepare(&handle, &models).await {
         Ok(()) => {
             set(&handle, "ready", "", None);
-            if !agenium_config::setup::needs_setup(&d.root) && d.opened().is_err() {
+            // No setup screen (ADR-154): a new root is set up here, in the system's language, then opened.
+            if d.opened().is_err() {
                 let h = handle.clone();
                 let opened = tauri::async_runtime::spawn_blocking(move || {
-                    h.state::<Desktop>().open(&h).map(|_| ())
+                    let d = h.state::<Desktop>();
+                    crate::api::set_up_root(&d)?;
+                    d.open(&h).map(|_| ())
                 })
                 .await
                 .map_err(|e| e.to_string())

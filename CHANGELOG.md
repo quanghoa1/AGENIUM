@@ -134,6 +134,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- **The work folder is chosen at install** (ADR-154): the Windows installer has a page for where Agenium keeps your
+  skills, MCP servers, agents, projects and memory (for example `D:\Agenium`; `/DATA=` for a silent install); on Linux
+  and macOS the app asks once at its first start. No setup screen: the app opens on its main screen in the system's
+  language. The MSI is no longer built.
 - **Agenium ships no skills and no MCP server** (ADR-88 amended): a new root's library starts empty and says how to
   add one; it holds what you add and what you accept from your agents' lessons. An upgrade replaces the program only:
   your skills, MCP servers, agents' copies and data stay as they are. Roots seeded with the old starter skills keep

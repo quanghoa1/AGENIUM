@@ -186,7 +186,10 @@ pub fn memory_keyring_asked() -> bool {
 }
 
 pub struct Desktop {
-    pub root: PathBuf,
+    /// The Agenium root; set once more when a Linux or macOS first start picks another folder (ADR-154).
+    root: RwLock<PathBuf>,
+    /// A Linux or macOS first start waits for the user to say which folder to work in.
+    asking_root: std::sync::atomic::AtomicBool,
     pub opened: RwLock<Option<Arc<Opened>>>,
     pub approvals: Arc<Approvals>,
     /// The project rounds currently running (no second round of the same project in parallel).
@@ -196,14 +199,29 @@ pub struct Desktop {
 }
 
 impl Desktop {
-    pub fn new(root: PathBuf) -> Self {
+    pub fn new(root: PathBuf, ask_root: bool) -> Self {
         Self {
-            root,
+            root: RwLock::new(root),
+            asking_root: std::sync::atomic::AtomicBool::new(ask_root),
             opened: RwLock::new(None),
             approvals: Arc::default(),
             busy: Arc::default(),
             model: Mutex::default(),
         }
+    }
+
+    pub fn root(&self) -> PathBuf {
+        self.root.read().unwrap_or_else(|p| p.into_inner()).clone()
+    }
+
+    pub fn asking_root(&self) -> bool {
+        self.asking_root.load(Ordering::SeqCst)
+    }
+
+    /// The folder the first start was told to work in; nothing is asked after.
+    pub fn set_root(&self, root: PathBuf) {
+        *self.root.write().unwrap_or_else(|p| p.into_inner()) = root;
+        self.asking_root.store(false, Ordering::SeqCst);
     }
 
     pub fn model_prep(&self) -> crate::model::ModelPrep {
@@ -223,14 +241,14 @@ impl Desktop {
         // UI tests: a vault key kept in memory, so a throwaway root leaves nothing in the OS keyring. A release build
         // does so only for a root set up that way (`TEST_ROOT_MARK`); any other root uses the OS keyring.
         let keyring: Arc<dyn agenium_secrets::KeyringBackend> = if memory_keyring_asked()
-            && (cfg!(debug_assertions) || self.root.join(TEST_ROOT_MARK).exists())
+            && (cfg!(debug_assertions) || self.root().join(TEST_ROOT_MARK).exists())
         {
             Arc::new(agenium_secrets::MemoryKeyring::default())
         } else {
             Arc::new(agenium_secrets::OsKeyring::default())
         };
         let (app, report) = App::open(
-            &self.root,
+            &self.root(),
             AppOptions {
                 keyring,
                 // Pre-merge checks need an approval UI of their own: not run from the desktop app yet.

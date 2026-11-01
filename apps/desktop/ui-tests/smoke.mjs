@@ -89,16 +89,18 @@ await send("Page.reload");
 await until("document.body.innerText.length > 20", 30000);
 
 // 1. First start: the embedding model is put in place (the script seeds the root with it, so this is quick), then the
-// setup screen, then the app.
+// app opens at once on a root set up on its own (no setup screen, ADR-154); the test then speaks English.
 const modelReady = await until(
   "window.__TAURI_INTERNALS__.invoke('status').then((s) => s.model?.phase === 'ready')",
   180000,
 );
 check("the embedding model is in place before the app opens", modelReady);
-const setupShown = await until("document.body.innerText.includes('Set up') || document.body.innerText.includes('Start')", 15000);
-await shot("01-setup");
-const started = setupShown && (await js(`(() => { const b = document.querySelector('.btn-primary'); if (!b) return false; b.click(); return true; })()`));
-const shell = await until("!!document.querySelector('main')", 30000);
+const started = await until("window.__TAURI_INTERNALS__.invoke('status').then((s) => s.ready && !s.choose_root)", 60000);
+await js(`window.__TAURI_INTERNALS__.invoke('set_ui_language', { language: 'en' }).then(() => localStorage.setItem('agenium-lang', 'en'))`);
+await send("Page.reload");
+await until("document.readyState === 'complete' && !!window.__TAURI_INTERNALS__", 30000);
+await shot("01-opened");
+const shell = await until("!!document.querySelector('main') && document.body.innerText.includes('Overview')", 30000);
 const seen =
   started && shell
     ? ""
@@ -107,7 +109,7 @@ const seen =
       JSON.stringify((await (await fetch(`http://127.0.0.1:${port}/json`)).json()).map((t) => [t.type, t.url, t.id.slice(0, 8)])) +
       " attached " +
       page.id.slice(0, 8);
-check("setup opens the app", started && shell, seen);
+check("the app opens on its own, without a setup screen", started && shell, seen);
 
 // 2. A project, created through the form.
 await js(`window.location.hash = '/projects'`);
