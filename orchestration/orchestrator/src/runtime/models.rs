@@ -82,8 +82,13 @@ impl Runtime {
     /// models.dev catalogue, else 200 000 for an API model; a CLI's model from the catalogue, else 0 (not known: the
     /// CLI keeps its own context).
     pub async fn window_of(&self, agent: &agenium_store::core::agents::Agent) -> u64 {
-        let (provider, model) = (&agent.model.provider, &agent.model.model);
-        if agent.backend == BackendKind::Cli {
+        self.window_for(agent.backend, &agent.model.provider, &agent.model.model)
+            .await
+    }
+
+    /// The context window of `model` of `provider` on `backend`, as [`Runtime::window_of`] finds it.
+    pub async fn window_for(&self, backend: BackendKind, provider: &str, model: &str) -> u64 {
+        if backend == BackendKind::Cli {
             return self.app.catalogue_window(provider, model).unwrap_or(0);
         }
         let listed = match self.providers.provider(provider) {

@@ -76,7 +76,12 @@ folding piece by piece.
      turn would make the whole chat history a cache miss at every turn.
    - The inbox recalls by its items, a review by its ticket, the planner by the spec. Each is logged and credited.
    - A fresh work run also gets the plan's outline, with each item's tickets and the worker's own item marked.
-7. **A checkpoint with next to no note** (under 40 characters) resumes the conversation instead.
+7. **Said before a model change.** When the agent's context, the last request of its latest run that measured one
+   (`App::context_now`), is over 85 % of the new model's window (`Runtime::window_for`, desktop `context_check`), the
+   agent page says so under the model picker and asks before saving. For example: about 550K tokens against a 262K
+   window means the next run clears and folds the conversation first, at one more read of the history, with older
+   detail kept only as a summary.
+8. **A checkpoint with next to no note** (under 40 characters) resumes the conversation instead.
 
 ## Verified
 

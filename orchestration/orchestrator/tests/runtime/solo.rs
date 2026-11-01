@@ -567,3 +567,62 @@ async fn denied_command_question_and_continuation() {
     let s = rt.run_ticket(project, &key("AGN-2")).await.unwrap();
     assert_eq!(s.outcome, "Completed");
 }
+
+/// ADR-155: before a model change the user is told when the agent's context outgrows the new model's window. The
+/// context is the latest run's (the last request it read), the window the catalogue's.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_smaller_window_than_the_context_is_found_before_the_change() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p, Arc::new(AutoApprove));
+    let (_, agent) = solo(&app);
+    assert_eq!(
+        app.context_now(agent).unwrap(),
+        None,
+        "no run measured one yet"
+    );
+    std::fs::write(
+        app.layout().models_dev(),
+        serde_json::json!({"opencode-go": {"models": {
+            "beam-free": {"limit": {"context": 1048576}},
+            "iceman-contributor-free": {"limit": {"context": 262144}}}}})
+        .to_string(),
+    )
+    .unwrap();
+    let run = agenium_core::RunId::new();
+    app.store()
+        .commit(None, "system", |w| -> agenium_orchestrator::Result<()> {
+            runs::insert(
+                w.tx,
+                &runs::Run {
+                    id: run,
+                    ticket: None,
+                    agent,
+                    provider: "opencode-go".into(),
+                    model: "beam-free".into(),
+                    started_at: agenium_core::now_iso(),
+                    ended_at: Some(agenium_core::now_iso()),
+                    outcome: Some("Completed".into()),
+                    steps: 9,
+                    usage: agenium_core::UsageSummary {
+                        context_used: 550_000,
+                        context_window: 1_048_576,
+                        ..Default::default()
+                    },
+                    heartbeat: None,
+                },
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(app.context_now(agent).unwrap(), Some((550_000, 1_048_576)));
+    let small = rt
+        .window_for(BackendKind::Cli, "opencode-go", "iceman-contributor-free")
+        .await;
+    assert_eq!(small, 262_144);
+    assert!(550_000 > small * 85 / 100, "the change is warned about");
+    let big = rt
+        .window_for(BackendKind::Cli, "opencode-go", "beam-free")
+        .await;
+    assert!(550_000 <= big * 85 / 100, "a larger window is not");
+}

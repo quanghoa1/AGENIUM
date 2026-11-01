@@ -175,6 +175,8 @@ export const organize: Record<keyof typeof en, string> = {
   "templates.preMergeNote": "Lệnh chạy trong worktree của ticket trước khi merge queue fast-forward; thoát khác 0 thì ticket bị mở lại. Chạy trong sandbox.",
   "agents.all": "Tất cả",
   "agents.inTeam": "Trong team",
+  "agents.contextWarn": "Context hiện tại của agent khoảng {used} token, lớn hơn cửa sổ {window} của model mới. Ở lần chạy tới, Agenium sẽ dọn và nén lịch sử thành ghi chú trước khi làm tiếp: tốn thêm một lần đọc lịch sử, và chi tiết cũ chỉ còn ở dạng tóm tắt.",
+  "agents.contextWarnTitle": "Cửa sổ của model mới nhỏ hơn context hiện tại của agent",
   "agents.pool": "trong pool",
   "agents.create": "Tạo agent",
   "agents.inPool": "đã tạo trong pool; ghép vào team để làm việc",

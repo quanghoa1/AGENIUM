@@ -99,6 +99,7 @@ fn main() {
             api::create_team,
             api::create_solo,
             api::set_agent_model,
+            api::context_check,
             api::rename_agent,
             api::prices,
             api::refresh_prices,

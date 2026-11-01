@@ -1,6 +1,8 @@
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ConfirmModal } from "../../components/motion";
 import { ModelsReload } from "../../components/ModelsReload";
-import { DeprecatedTag, FreeTag, cn } from "../../components/ui";
+import { DeprecatedTag, FreeTag, cn, tokens } from "../../components/ui";
 import { api, type ModelArg } from "../../lib/api";
 import { deprecation, isFree, priceLabel, priceOf, usePrices } from "../../lib/prices";
 import { useApp } from "../../lib/store";
@@ -147,25 +149,55 @@ export function AgentModel({ id, backend, model, onSaved }: { id: string; backen
   const app = useApp();
   const [caps, setCaps] = useState<Capabilities | null>(null);
   const [m, setM] = useState<ModelArg>({ provider: model.provider, model: model.model, effort: model.effort, backend: backend === "Cli" ? "cli" : "api" });
+  // ADR-155: a model whose window the agent's context outgrows is said before the change, and asked about.
+  const [fit, setFit] = useState<{ used: number; window: number; over: boolean } | null>(null);
+  const [asking, setAsking] = useState(false);
   useEffect(() => {
     api.capabilities().then(setCaps);
   }, []);
+  const same = m.provider === model.provider && m.model === model.model && m.backend === (backend === "Cli" ? "cli" : "api");
+  useEffect(() => {
+    setFit(null);
+    if (!m.provider || !m.model || same) return;
+    const t = window.setTimeout(() => api.contextCheck(id, m).then(setFit).catch(() => undefined), 300);
+    return () => window.clearTimeout(t);
+  }, [id, m.provider, m.model, m.backend, same]);
+  const save = () =>
+    api
+      .setAgentModel(id, m)
+      .then(() => (onSaved(), app.refresh(), app.notify(app.t("common.done"))))
+      .catch((e) => app.notify(String(e)));
+  const warning = fit?.over
+    ? app.t("agents.contextWarn").replace("{used}", tokens(fit.used)).replace("{window}", tokens(fit.window))
+    : null;
   return (
     <div className="space-y-2">
       <ModelPicker value={m} onChange={setM} caps={caps} />
       <div className="text-[11px] text-subtle">{app.t("agents.keep")}</div>
+      {warning && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{warning}</span>
+        </div>
+      )}
       <button
         className="btn-primary"
-        disabled={!m.provider || (m.provider === model.provider && m.model === model.model && m.effort === model.effort && m.backend === (backend === "Cli" ? "cli" : "api"))}
-        onClick={() =>
-          api
-            .setAgentModel(id, m)
-            .then(() => (onSaved(), app.refresh(), app.notify(app.t("common.done"))))
-            .catch((e) => app.notify(String(e)))
-        }
+        disabled={!m.provider || (same && m.effort === model.effort)}
+        onClick={() => (warning ? setAsking(true) : save())}
       >
         {app.t("agents.saveModel")}
       </button>
+      <ConfirmModal
+        open={asking}
+        title={app.t("agents.contextWarnTitle")}
+        note={warning ?? ""}
+        confirm={app.t("agents.saveModel")}
+        onClose={() => setAsking(false)}
+        onConfirm={() => {
+          setAsking(false);
+          save();
+        }}
+      />
     </div>
   );
 }

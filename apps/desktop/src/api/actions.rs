@@ -457,6 +457,24 @@ pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) ->
     o.app.set_agent_backend(id, backend, &b).map_err(err)
 }
 
+/// What a model change does to the agent's context (ADR-155): the context it is at, and the new model's window. Over
+/// 85 % of it, the next run clears and folds the conversation to fit first; the UI says so before the change.
+#[tauri::command]
+pub async fn context_check(d: State<'_, Desktop>, agent: String, model: ModelArg) -> R<Value> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let (backend, b) = model.binding()?;
+    let now = o.app.context_now(id).map_err(err)?;
+    let window = o.rt.window_for(backend, &b.provider, &b.model).await;
+    let (used, was) = now.unwrap_or((0, 0));
+    Ok(json!({
+        "used": used,
+        "was": was,
+        "window": window,
+        "over": window > 0 && used > window * 85 / 100,
+    }))
+}
+
 /// The user approves (an agent with the role joins the Lead's team, with the Lead's model) or declines a role the
 /// Lead proposed (decision 3l).
 #[tauri::command]

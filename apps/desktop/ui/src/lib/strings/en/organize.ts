@@ -173,6 +173,8 @@ export const organize = {
   "templates.preMergeNote": "Command run in the ticket worktree before the merge queue fast-forwards; a non-zero exit reopens the ticket. Runs in the sandbox.",
   "agents.all": "All",
   "agents.inTeam": "In a team",
+  "agents.contextWarn": "This agent's context is about {used} tokens now, more than the new model's {window} window. At its next run Agenium clears and folds the conversation into notes before going on: one more read of the history, and older detail kept only as a summary.",
+  "agents.contextWarnTitle": "The new model's window is smaller than the agent's context",
   "agents.pool": "in the pool",
   "agents.create": "Create agent",
   "agents.inPool": "created in the pool; add it to a team",

@@ -415,6 +415,8 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "preference":
     case "set_preference":
       return null;
+    case "context_check":
+      return { used: 550_000, was: 1_048_576, window: 262_144, over: String((args?.model as { model?: string })?.model ?? "").includes("iceman") };
     case "design_team":
     case "write_skill":
       return { reply: "", questions: [], draft: null, raw: "", model: "demo" };

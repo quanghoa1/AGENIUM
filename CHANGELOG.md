@@ -147,6 +147,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- **Warned before a smaller model** (ADR-155): changing an agent to a model whose window its context outgrows (say
+  550K tokens of context, a 262K window) says so under the model picker and asks first: the next run folds the
+  conversation to fit.
 - **Context gauge** (ADR-155): the run page, the Live dock and the chat show how full the model's context is (tokens
   read at the last request / its window, amber from 60 %, red from 85 %); compaction, folding and the other steps
   Agenium takes on a run read as sentences on the run's page.

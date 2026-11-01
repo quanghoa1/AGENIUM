@@ -175,6 +175,9 @@ export const api = {
   createSolo: (project: string, name: string, model: ModelArg) =>
     call<unknown>("create_solo", { project, name, model }),
   setAgentModel: (agent: string, model: ModelArg) => call<void>("set_agent_model", { agent, model }),
+  /** The agent's context now and the window of `model` (ADR-155): `over` when the next run will fold to fit. */
+  contextCheck: (agent: string, model: ModelArg) =>
+    call<{ used: number; was: number; window: number; over: boolean }>("context_check", { agent, model }),
   renameAgent: (agent: string, name: string) => call<void>("rename_agent", { agent, name }),
   setAgentIdle: (agent: string) => call<void>("set_agent_status", { agent, status: "Idle" }),
   /** The user closes a done project (ADR-130): the freed team, and the project waiting for it that took it. */

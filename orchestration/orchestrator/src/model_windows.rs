@@ -108,6 +108,18 @@ fn windows_at(path: &Path) -> Arc<Windows> {
 }
 
 impl App {
+    /// The context `agent` is at (ADR-155): what its latest run that measured one read at its last request, and that
+    /// model's window; `None` before any such run. A model change compares it with the new model's window.
+    pub fn context_now(&self, agent: agenium_core::AgentId) -> crate::Result<Option<(u64, u64)>> {
+        let runs = self
+            .store()
+            .read(|c| agenium_store::core::runs::for_agent(c, agent, 20))?;
+        Ok(runs
+            .iter()
+            .find(|r| r.usage.context_used > 0)
+            .map(|r| (r.usage.context_used, r.usage.context_window)))
+    }
+
     /// The context window the models.dev catalogue lists for `model` of `provider` (a provider id or a CLI's name).
     pub fn catalogue_window(&self, provider: &str, model: &str) -> Option<u64> {
         windows_at(&self.layout().models_dev()).get(provider, model)
