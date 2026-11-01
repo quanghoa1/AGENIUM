@@ -6,7 +6,7 @@ export const helpers: Record<keyof typeof en, string> = {
   "attach.add": "Đính kèm",
   "attach.hint": "Chọn file, kéo-thả vào cửa sổ, hoặc dán đường dẫn của file",
   "attach.drop": "Thả để đính kèm",
-  "attach.note": "PDF, Word, Excel, PowerPoint, văn bản… được đọc thành Markdown",
+  "attach.note": "PDF, Word, Excel, PowerPoint, văn bản… được đọc thành Markdown; gõ @ để nhắc tới một file",
   "attach.tooLarge": "lớn hơn 30 MB",
   "helper.history": "Lịch sử",
   "helper.new": "Cuộc chat mới",

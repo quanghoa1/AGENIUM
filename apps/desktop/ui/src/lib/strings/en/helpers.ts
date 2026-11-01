@@ -4,7 +4,7 @@ export const helpers = {
   "attach.add": "Attach",
   "attach.hint": "Pick files, drop them on the window, or paste a file's path",
   "attach.drop": "Drop to attach",
-  "attach.note": "PDF, Word, Excel, PowerPoint, text… read as Markdown",
+  "attach.note": "PDF, Word, Excel, PowerPoint, text… read as Markdown; type @ to name a file",
   "attach.tooLarge": "larger than 30 MB",
   "helper.history": "History",
   "helper.new": "New chat",

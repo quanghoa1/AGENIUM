@@ -138,3 +138,11 @@ files and the chats took no attachment.
 - UI: `components/{Attachments, HelperChat, HelperHistory}.tsx`, `lib/drops.ts`, `views/{SkillProposalActions,
   MarkitdownSettings}.tsx`, `views/capabilities/{Scorecard, SkillWriter, SkillEditor}.tsx`, `ChatPane.tsx`,
   `Needs.tsx`, `TeamsView.tsx`, `UsageView.tsx`, `skills.tsx`; strings `strings/*/helpers.ts`.
+
+## Amendment (2026-11-02, `@` mentions)
+
+With many documents in a chat, naming one meant typing its name again. Typing `@` in the Lead's chat lists the
+conversation's documents (attached to the message being written, and sent earlier in it, which the agent reads in its
+history under their names); the letters after `@` narrow the list, ↑/↓ move, Enter or Tab puts `@name` in (quoted
+when the name has spaces), Esc closes. `components/Mentions.tsx`. Verified in the app: three files attached, `@se`
+narrowed to `seo-checklist.docx`; the Lead answered `@pages.xlsx …` from that file.

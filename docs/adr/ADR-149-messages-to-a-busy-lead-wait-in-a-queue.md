@@ -53,3 +53,12 @@ A turn's taken messages are marked taken, not delivered, and delivered when the 
 them back on a failed turn, but a process that died in the turn left them read and lost. At start, messages still
 taken go back to the queue (`ledger::return_taken`, called from reconcile); test
 `a_message_taken_by_a_turn_the_process_died_in_is_queued_again`.
+
+## Amendment (2026-11-02, held after a failed turn)
+
+Messages also wait when the Lead is not working: a turn that failed before its model call (an unreadable vault, a
+missing key) put them back, and after `MAX_FAILED_RUNS` such turns they wait for the next message. The queue said
+"is working" then. Now it says the last turn failed and offers "Send again" (desktop `deliver_lead_queue`, which runs
+`Runtime::deliver_queued`). A waiting message shows its attached documents as chips, not as the raw block, and an
+edit changes only the typed text (the documents stay). Verified in the app: a restart with the vault's key gone held
+the message with that banner; the key put back, "Send again" answered it.

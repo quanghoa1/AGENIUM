@@ -147,6 +147,19 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- **The chat shows its model and changes it** (ADR-155): the Lead's chat names the vendor, model and effort it answers
+  with, and "Change model" picks another there (the same warning when the context outgrows it); the conversation goes
+  on, on the new model. The chat's gauge measures against the model now chosen, so a smaller model shows how far over
+  it is ("folded to fit at the next run") before the next turn; a run's gauge keeps the model that run had.
+- **A model is picked from a list** (ADR-155): the model field opens the provider's or CLI's models under it, whole
+  names with their price, free tag and window, filtered as you type (a name not listed can still be typed). A model
+  that reports no effort levels says so, with a link to set them per model. Claude Code is offered by full model ids
+  only (its `haiku`/`sonnet`/`opus` aliases change meaning with each release; an agent set to one still runs).
+- **`@` names a file in the chat** (ADR-152): typing `@` lists the conversation's documents (attached now or sent
+  earlier), narrowed as you type; Enter or Tab puts `@name` in, so ten attached files need no retyping.
+- **A held message says why** (ADR-149): messages put back after a failed turn no longer read as "busy": the queue
+  says the last turn failed and offers "Send again"; the waiting messages show their documents as chips, and editing
+  one changes only its text.
 - **Warned before a smaller model** (ADR-155): changing an agent to a model whose window its context outgrows (say
   550K tokens of context, a 262K window) says so under the model picker and asks first: the next run folds the
   conversation to fit.

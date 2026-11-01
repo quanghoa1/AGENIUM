@@ -139,6 +139,9 @@ export const api = {
   leadQueue: (project: string) => call<QueuedMessage[]>("lead_queue", { project }),
   editLeadMessage: (project: string, id: number, text: string) => call<void>("edit_lead_message", { project, id, text }),
   dropLeadMessage: (project: string, id: number) => call<void>("drop_lead_message", { project, id }),
+  /** The waiting messages answered now (after turns that failed, they wait for this or the next message). */
+  deliverLeadQueue: (project: string) =>
+    call<{ run: string; kind: string; outcome: string; text: string }>("deliver_lead_queue", { project }),
   chatHistory: (project: string) => call<ChatLine[]>("chat_history", { project }),
   approve: (project: string, what: "spec" | "plan" | "merge", target: string) =>
     call<void>("approve", { project, what, target }),
@@ -175,6 +178,8 @@ export const api = {
   createSolo: (project: string, name: string, model: ModelArg) =>
     call<unknown>("create_solo", { project, name, model }),
   setAgentModel: (agent: string, model: ModelArg) => call<void>("set_agent_model", { agent, model }),
+  /** The agent's context against the window of the model it has now (ADR-155). */
+  agentContext: (agent: string) => call<{ used: number; was: number; window: number; over: boolean }>("agent_context", { agent }),
   /** The agent's context now and the window of `model` (ADR-155): `over` when the next run will fold to fit. */
   contextCheck: (agent: string, model: ModelArg) =>
     call<{ used: number; was: number; window: number; over: boolean }>("context_check", { agent, model }),

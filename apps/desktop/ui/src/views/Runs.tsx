@@ -222,7 +222,9 @@ export function RunView({ id }: { id: string }) {
             </div>
           )}
           <div className="mt-1">
-            <ContextGauge usage={r.usage} />
+            <span title={app.t("context.ofRun").replace("{model}", r.model)}>
+              <ContextGauge usage={r.usage} />
+            </span>
           </div>
         </div>
         <div>

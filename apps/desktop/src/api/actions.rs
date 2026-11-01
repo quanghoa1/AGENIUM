@@ -46,6 +46,17 @@ pub fn drop_lead_message(d: State<'_, Desktop>, project: String, id: i64) -> R<(
     o.app.drop_lead_message(pid(&project)?, id).map_err(err)
 }
 
+/// The waiting messages answered now (ADR-149). After turns that failed they wait for the user's next message, or
+/// for this.
+#[tauri::command]
+pub async fn deliver_lead_queue(d: State<'_, Desktop>, project: String) -> R<Value> {
+    let o = d.opened()?;
+    let s = o.rt.deliver_queued(pid(&project)?).await.map_err(err)?;
+    Ok(
+        json!({ "run": s.run, "kind": s.kind, "outcome": s.outcome, "text": s.text, "steps": s.steps, "usage": s.usage }),
+    )
+}
+
 #[tauri::command]
 pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
     let o = d.opened()?;
@@ -455,6 +466,23 @@ pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) ->
     let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
     let (backend, b) = model.binding()?;
     o.app.set_agent_backend(id, backend, &b).map_err(err)
+}
+
+/// The agent's context against the window of the model it has now (ADR-155): after a change to a smaller model the
+/// context of its last run is shown against the new window, over it until the next run folds the conversation.
+#[tauri::command]
+pub async fn agent_context(d: State<'_, Desktop>, agent: String) -> R<Value> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let a = o.app.agent(id).map_err(err)?;
+    let (used, was) = o.app.context_now(id).map_err(err)?.unwrap_or((0, 0));
+    let window = o.rt.window_of(&a).await;
+    Ok(json!({
+        "used": used,
+        "was": was,
+        "window": window,
+        "over": window > 0 && used > window * 85 / 100,
+    }))
 }
 
 /// What a model change does to the agent's context (ADR-155): the context it is at, and the new model's window. Over

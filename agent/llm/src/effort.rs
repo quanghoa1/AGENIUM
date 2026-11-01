@@ -39,6 +39,16 @@ fn is(m: &str, p: &str) -> bool {
             .is_some_and(|r| r.starts_with(|c: char| c.is_ascii_digit()))
 }
 
+/// The model a Claude Code alias names now (`haiku`, `sonnet`, `opus`: the newest of each family).
+pub fn alias_of(model: &str) -> Option<&'static str> {
+    match model {
+        "haiku" => Some("claude-haiku-5-5"),
+        "sonnet" => Some("claude-sonnet-5-5"),
+        "opus" => Some("claude-opus-5-5"),
+        _ => None,
+    }
+}
+
 /// The levels of `model` when this table knows it (`model` may carry a router's vendor prefix).
 pub fn known(model: &str) -> Option<Levels> {
     let m = model
@@ -47,12 +57,7 @@ pub fn known(model: &str) -> Option<Levels> {
         .unwrap_or(model)
         .to_ascii_lowercase();
     // Claude Code's aliases name the current models.
-    let m = match m.as_str() {
-        "haiku" => "claude-haiku-5-5".to_owned(),
-        "sonnet" => "claude-sonnet-5-5".to_owned(),
-        "opus" => "claude-opus-5-5".to_owned(),
-        _ => m,
-    };
+    let m = alias_of(&m).map_or(m, str::to_owned);
     if m.starts_with("claude-") {
         return Some(claude(&m.replace('.', "-")));
     }

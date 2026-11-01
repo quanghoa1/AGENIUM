@@ -401,12 +401,10 @@ impl Driver for Claude {
     }
 }
 
-/// Models Claude Code accepts with `--model`: its aliases (the newest of each family) and full model ids. The CLI
+/// The models offered for Claude Code's `--model`, by their full ids: its aliases (`haiku`, `sonnet`, `opus`) are left
+/// out, since what they name changes with each release (an agent set to one still runs: `effort::alias_of`). The CLI
 /// has no command that lists them.
-pub const MODELS: [&str; 7] = [
-    "haiku",
-    "sonnet",
-    "opus",
+pub const MODELS: [&str; 4] = [
     "claude-haiku-5-5",
     "claude-sonnet-5-5",
     "claude-opus-5-5",

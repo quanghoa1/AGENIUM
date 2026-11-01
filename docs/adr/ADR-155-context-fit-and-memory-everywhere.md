@@ -82,6 +82,14 @@ folding piece by piece.
    window means the next run clears and folds the conversation first, at one more read of the history, with older
    detail kept only as a summary.
 8. **A checkpoint with next to no note** (under 40 characters) resumes the conversation instead.
+9. **The chat shows and changes its model.** The Lead's chat names its vendor, model and effort and has "Change
+   model" (the agent's model picker, with point 7's warning). Its gauge reads the agent's context now against the
+   window of the model now chosen (`agent_context`): over it, it says the next run folds the conversation. A run's
+   gauge keeps the model that run had (its tooltip says so). The picker lists the models with whole names, prices and
+   windows; a model with no known effort levels says no effort is sent and links to the per-model settings. Claude
+   Code is listed by full model ids only: its aliases (`haiku`, `sonnet`, `opus`) name a different model with each
+   release, so an alias beside the ids read as two models; an agent already set to one still runs
+   (`effort::alias_of`).
 
 ## Verified
 

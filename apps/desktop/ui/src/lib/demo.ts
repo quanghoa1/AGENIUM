@@ -44,7 +44,7 @@ const agents: AgentEntry[] = [
   ["shop-lead", ids.lead, "coding-lead", "lead", "Idle", ["planning", "review"], { provider: "opencode-go", model: "deepseek-v4.1-flash", effort: "high" }, "Api"],
   ["shop-planner", ids.planner, "coding-planner", "worker", "Idle", ["planning"], { provider: "opencode-go", model: "deepseek-v4.1-flash", effort: "high" }, "Api"],
   ["shop-backend", ids.backend, "coding-backend", "worker", "Working", ["backend", "api", "db"], { provider: "codex", model: "gpt-6-luna", effort: "medium" }, "Cli"],
-  ["shop-frontend", ids.frontend, "coding-frontend", "worker", "Waiting", ["frontend", "web", "ui"], { provider: "claude", model: "haiku", effort: "medium" }, "Cli"],
+  ["shop-frontend", ids.frontend, "coding-frontend", "worker", "Waiting", ["frontend", "web", "ui"], { provider: "claude", model: "claude-haiku-5-5", effort: "medium" }, "Cli"],
 ].map(([name, id, role, kind, status, tags, model, backend]) => ({
   agent: { id, name, team: "team_01", role, role_kind: kind, tags, status, backend, model, skills: [], created_at: iso(900) } as any,
   project: P,
@@ -259,7 +259,7 @@ const capabilities: Capabilities = {
       { id: "gpt-6.1-sol", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"], default_effort: "low" },
       { id: "gpt-6-luna", efforts: ["low", "medium", "high", "xhigh", "max"], default_effort: "medium" },
     ],
-    claude: ["haiku", "sonnet", "opus"].map((id) => ({ id, efforts: ["low", "medium", "high", "xhigh", "max"], default_effort: id === "sonnet" ? "high" : "medium" })),
+    claude: ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"].map((id) => ({ id, efforts: ["low", "medium", "high", "xhigh", "max"], default_effort: id.includes("sonnet") ? "high" : "medium" })),
     agy: [{ id: "gemini-3.8-flash", efforts: ["low", "medium", "high"] }],
   },
 };

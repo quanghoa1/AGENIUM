@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmModal } from "../../components/motion";
 import { ModelsReload } from "../../components/ModelsReload";
@@ -34,7 +34,6 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
       stale = true;
     };
   }, [value.provider, cli, caps]);
-  const listId = `models-${value.provider || "none"}`;
   // Only the model's own effort levels (ADR-114): reported by its vendor or known per model. [] = the model has no
   // effort setting; unknown = its vendor's default applies.
   const info = models.find((m) => m.id === value.model);
@@ -64,8 +63,33 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
   const price = (id: string) => (cli ? (opencode && ocFree(id) ? { input: 0, output: 0, cache_read: 0, cache_write: 0 } : undefined) : priceOf(prices, value.provider, id));
   const old = (id: string) => deprecation(prices, value.provider, id);
   const picked = old(value.model);
+  // The model list opens under the field (a click on it or its arrow); typing filters it, and a model the list does
+  // not have can still be typed in.
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+  const shown = models.filter((m) => !query || m.id.toLowerCase().includes(query.toLowerCase()));
+  const tags = (m: ModelInfo) => {
+    const p = price(m.id);
+    return [
+      old(m.id) ? app.t("model.deprecatedTag").toUpperCase() : "",
+      isFree(p) ? app.t("model.freeTag").toUpperCase() : p ? app.t("model.perMillion").replace("{p}", priceLabel(p)) : ocBill(m.id),
+      m.context_window ? `${tokens(m.context_window)} ctx` : "",
+      m.supports_tools === false ? app.t("model.noTools") : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_minmax(0,2.2fr)_minmax(0,1fr)] gap-2">
       <select className="input" value={value.backend ?? "api"} onChange={(e) => onChange({ ...value, backend: e.target.value as "api" | "cli", provider: "", model: "" })}>
         <option value="api">API</option>
         <option value="cli">CLI</option>
@@ -89,12 +113,49 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
             ))}
       </select>
       <div className="flex items-center gap-1">
-        <div className="relative min-w-0 flex-1">
-          <input className={cn("input w-full", isFree(price(value.model)) && "pr-14", picked && "pr-28")} list={listId} placeholder="model" value={value.model} onChange={(e) => onChange({ ...value, model: e.target.value })} />
+        <div ref={box} className="relative min-w-0 flex-1">
+          <input
+            className={cn("input w-full pr-8", isFree(price(value.model)) && "pr-24", picked && "pr-36")}
+            placeholder={app.t("model.pick")}
+            title={value.model}
+            value={value.model}
+            onFocus={() => (setQuery(null), setOpen(true))}
+            onChange={(e) => (onChange({ ...value, model: e.target.value }), setQuery(e.target.value), setOpen(true))}
+          />
           {picked ? (
-            <DeprecatedTag instead={picked.instead} className="absolute right-2 top-1/2 -translate-y-1/2" />
+            <DeprecatedTag instead={picked.instead} className="absolute right-8 top-1/2 -translate-y-1/2" />
           ) : (
-            isFree(price(value.model)) && <FreeTag className="absolute right-2 top-1/2 -translate-y-1/2" />
+            isFree(price(value.model)) && <FreeTag className="absolute right-8 top-1/2 -translate-y-1/2" />
+          )}
+          <button
+            type="button"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-subtle hover:text-fg"
+            aria-label={app.t("model.pick")}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => (setQuery(null), setOpen(!open))}
+          >
+            <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+          </button>
+          {open && models.length > 0 && (
+            <div className="absolute left-0 top-full z-50 mt-1 max-h-80 w-[36rem] max-w-[80vw] overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
+              {shown.map((m) => (
+                <button
+                  type="button"
+                  key={m.id}
+                  title={[m.id, tags(m)].filter(Boolean).join(" · ")}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-elevated",
+                    m.id === value.model && "bg-blue-600/10 text-blue-600 dark:text-blue-300",
+                  )}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => (onChange({ ...value, model: m.id }), setQuery(null), setOpen(false))}
+                >
+                  <span className="min-w-0 break-all font-mono">{m.id}</span>
+                  <span className="shrink-0 text-[11px] text-subtle">{tags(m)}</span>
+                </button>
+              ))}
+              {shown.length === 0 && <div className="px-2.5 py-2 text-xs text-subtle">{app.t("model.noMatch")}</div>}
+            </div>
           )}
         </div>
         {/* The list as kept; this lists the provider's or the CLI's models again now. */}
@@ -106,16 +167,6 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           />
         )}
       </div>
-      <datalist id={listId}>
-        {models.map((m) => {
-          const p = price(m.id);
-          return (
-            <option key={m.id} value={m.id}>
-              {[old(m.id) ? app.t("model.deprecatedTag").toUpperCase() : "", isFree(p) ? app.t("model.freeTag").toUpperCase() : p ? app.t("model.perMillion").replace("{p}", priceLabel(p)) : ocBill(m.id), m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
-            </option>
-          );
-        })}
-      </datalist>
       {levels?.length ? (
         <select className="input" value={value.effort} onChange={(e) => onChange({ ...value, effort: e.target.value })}>
           {levels.map((x) => (
@@ -128,6 +179,14 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
         <select className="input" disabled title={levels ? app.t("model.noEffortTitle") : app.t("model.vendorDefaultTitle")}>
           <option>{levels ? app.t("model.noEffort") : app.t("model.vendorDefault")}</option>
         </select>
+      )}
+      {!cli && value.model && levels === null && (
+        <div className="col-span-4 text-[11px] text-subtle">
+          {app.t("model.effortUnknown")}{" "}
+          <button type="button" className="underline underline-offset-2 hover:text-fg" onClick={() => app.go("providers")}>
+            {app.t("model.effortWhere")}
+          </button>
+        </div>
       )}
       {picked && (
         <div className="col-span-4 flex flex-wrap items-center gap-2 text-[11px] text-amber-600 dark:text-amber-300">

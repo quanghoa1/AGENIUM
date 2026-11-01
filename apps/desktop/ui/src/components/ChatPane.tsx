@@ -8,6 +8,7 @@ import { useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine, QueuedMessage } from "../lib/types";
 import { AttachmentBar, DocChip, material, splitMaterial, useAttachments } from "./Attachments";
 import { LeadQueue } from "./LeadQueue";
+import { useMentions } from "./Mentions";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
@@ -141,6 +142,12 @@ export function ChatPane({
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const pastes = useRef(new Map<number, string>());
+  // `@name` for a document of the conversation: attached now or sent earlier in it (the agent has those in the history).
+  const named = [
+    ...att.docs.map((d) => d.name),
+    ...lines.filter((l) => l.role === "user").flatMap((l) => splitMaterial(l.text).docs.map((d) => d.name)),
+  ];
+  const mentions = useMentions(named, text, setText, input);
   // The turn in progress: the agent's run when known, else (chat page) this agent's newest live run while we wait.
   const current =
     stream && !stream.done
@@ -314,7 +321,21 @@ export function ChatPane({
         {lines.length === 0 && !busy && <Empty>{app.t("chat.intro")}</Empty>}
         <div ref={end} />
       </div>
-      <LeadQueue project={project} agentName={agentName} queue={queue} reload={reloadQueue} />
+      <LeadQueue
+        project={project}
+        agentName={agentName}
+        queue={queue}
+        working={leadWorking}
+        reload={reloadQueue}
+        answered={(p) => {
+          setTurns((n) => n + 1);
+          p.then((r) => {
+            if (r.kind !== "queued") api.chatHistory(project).then(setLines);
+          })
+            .catch((e) => setLines((l) => [...l, { role: "system", text: String(e) }]))
+            .finally(() => (setTurns((n) => n - 1), app.refresh()));
+        }}
+      />
       {note && (
         <div className="flex items-start gap-2 border-t border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs text-cyan-700 dark:text-cyan-300">
           <MessageSquarePlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -327,7 +348,8 @@ export function ChatPane({
       <div className="border-t border-line px-3 pt-2">
         <AttachmentBar a={att} disabled={!enabled} />
       </div>
-      <div className="flex gap-2 p-3 pt-2">
+      <div className="relative flex gap-2 p-3 pt-2">
+        {mentions.list}
         <textarea
           ref={input}
           className="input input-lg min-h-[48px] resize-none"
@@ -335,9 +357,11 @@ export function ChatPane({
           placeholder={app.t("chat.placeholder")}
           value={text}
           disabled={!enabled}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => (setText(e.target.value), mentions.track(e.target))}
+          onSelect={(e) => mentions.track(e.currentTarget)}
           onPaste={onPaste}
           onKeyDown={(e) => {
+            if (mentions.onKey(e)) return;
             if (e.key === "Backspace" && dropLabel(e)) return;
             // Not while an IME composes (the Vietnamese keyboard): that Enter ends the word, not the message (audit L16).
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
