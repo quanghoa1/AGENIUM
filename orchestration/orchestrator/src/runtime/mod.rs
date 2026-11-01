@@ -10,6 +10,7 @@
 
 pub mod bridge;
 mod chat_history;
+mod cli_fit;
 mod context;
 mod execute;
 mod lead_runs;
@@ -18,6 +19,7 @@ mod mcp_gate;
 mod models;
 mod pool;
 mod quota_back;
+mod recall;
 mod reflect;
 mod scheduling;
 pub mod side_chat;

@@ -115,24 +115,37 @@ impl Claude {
                 .as_str()
                 .map(|s| vec![Event::Session(s.to_owned())])
                 .unwrap_or_default(),
-            Some("assistant") => v["message"]["content"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|c| match c["type"].as_str() {
-                    Some("text") => c["text"]
-                        .as_str()
-                        .filter(|t| !t.is_empty())
-                        .map(|t| Event::Text(format!("{t}\n"))),
-                    Some("tool_use") => Some(Event::Tool {
-                        id: c["id"].as_str().unwrap_or("").to_owned(),
-                        name: c["name"].as_str().unwrap_or("tool").to_owned(),
-                        input: c["input"].clone(),
-                        done: false,
-                    }),
-                    _ => None,
-                })
-                .collect(),
+            Some("assistant") => {
+                let mut out: Vec<Event> = v["message"]["content"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|c| match c["type"].as_str() {
+                        Some("text") => c["text"]
+                            .as_str()
+                            .filter(|t| !t.is_empty())
+                            .map(|t| Event::Text(format!("{t}\n"))),
+                        Some("tool_use") => Some(Event::Tool {
+                            id: c["id"].as_str().unwrap_or("").to_owned(),
+                            name: c["name"].as_str().unwrap_or("tool").to_owned(),
+                            input: c["input"].clone(),
+                            done: false,
+                        }),
+                        _ => None,
+                    })
+                    .collect();
+                // The request's own usage: what the model read, its context (ADR-155).
+                let u = &v["message"]["usage"];
+                let n = |k: &str| u[k].as_u64().unwrap_or(0);
+                let context = n("input_tokens")
+                    + n("cache_read_input_tokens")
+                    + n("cache_creation_input_tokens")
+                    + n("output_tokens");
+                if context > 0 {
+                    out.push(Event::Context(context));
+                }
+                out
+            }
             Some("user") => v["message"]["content"]
                 .as_array()
                 .into_iter()

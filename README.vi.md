@@ -37,7 +37,7 @@ Claude, worker là Codex, Grok và DeepSeek vẫn là một nhóm.
 ## Cách hoạt động
 
 <p align="center">
-  <img src="docs/brand/agenium-how-it-works.svg" alt="Nguyên lý hoạt động của Agenium: bạn, Lead, spec, kế hoạch và ticket; worker trên mọi model trong worktree riêng; review theo từng tiêu chí và một hàng đợi merge; memory, tự xem lại và skill" width="100%" />
+  <img src="docs/brand/agenium-workflow.gif" alt="Quy trình nhiều agent và kiến trúc dữ liệu của Agenium: khám phá và spec, kế hoạch và điều phối, làm việc trong sandbox, review, merge và bàn giao; giao thức kiểm tra chặt và nhật ký sự kiện bên dưới; vòng tự học gồm memory, tự xem lại và skill" width="100%" />
 </p>
 
 1. **Lập kế hoạch.** Lead biến yêu cầu của bạn thành spec gồm các yêu cầu được đánh số. Khi bạn duyệt, mỗi hạng mục

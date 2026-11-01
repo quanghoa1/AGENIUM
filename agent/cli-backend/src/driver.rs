@@ -253,6 +253,9 @@ pub enum Event {
     Subagent { parent: String, events: Vec<Event> },
     /// Tokens of one model step (CLIs that report usage per step rather than per turn).
     Usage(Usage),
+    /// The tokens in the model's context at one request (ADR-155: the context gauge), from a CLI that reports each
+    /// request's usage beside its turn's total.
+    Context(u64),
     /// The vendor's subscription usage, as the CLI reported it during the run.
     Limits(agenium_llm::vendor_usage::VendorUsage),
     /// The turn ended. `denied` lists the permission kinds the CLI refused itself.

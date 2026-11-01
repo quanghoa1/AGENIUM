@@ -1,4 +1,5 @@
 import { Bot, Crown, Lock, MessageSquareReply, Users } from "lucide-react";
+import { ContextGauge } from "../../components/ContextGauge";
 import { useEffect, useState } from "react";
 import { ChatPane, type Prefill } from "../../components/ChatPane";
 import { Avatar, CacheHit, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, modelLabel, tokens } from "../../components/ui";
@@ -124,6 +125,7 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
                 {trace.run.steps} step · {tokens(trace.run.usage.tokens_in + trace.run.usage.tokens_out)} tok · {ago(trace.run.started_at)}
               </Mono>
               <CacheHit value={trace.run.cache_hit} />
+              <ContextGauge usage={trace.run.usage} />
             </div>
           )}
           {stream?.phase === "tool" && act?.call && (

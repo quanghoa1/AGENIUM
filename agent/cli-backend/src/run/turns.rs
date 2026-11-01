@@ -372,7 +372,13 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
             }
             Event::Usage(u) => {
                 st.usage.add(&u);
+                // A step's usage is what the model read at that step: its context (ADR-155).
+                self.observer.context(u.total_input() + u.output, 0);
                 self.observer.step(st.steps, &st.usage);
+                None
+            }
+            Event::Context(n) => {
+                self.observer.context(n, 0);
                 None
             }
             Event::Limits(u) => {

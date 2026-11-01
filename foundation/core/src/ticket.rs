@@ -135,6 +135,12 @@ pub struct UsageSummary {
     pub estimated_cost_usd: f64,
     #[serde(default)]
     pub elapsed_ms: u64,
+    /// The tokens in the run's context at its last request (ADR-155): what the model is reading now, not a sum.
+    #[serde(default)]
+    pub context_used: u64,
+    /// The model's context window the run worked with (0 = not known).
+    #[serde(default)]
+    pub context_window: u64,
 }
 
 impl UsageSummary {
@@ -146,6 +152,11 @@ impl UsageSummary {
         self.cache_write_1h += o.cache_write_1h;
         self.estimated_cost_usd += o.estimated_cost_usd;
         self.elapsed_ms += o.elapsed_ms;
+        // A context is a level, not an amount: the latest one known.
+        if o.context_window > 0 {
+            self.context_used = o.context_used;
+            self.context_window = o.context_window;
+        }
     }
 }
 

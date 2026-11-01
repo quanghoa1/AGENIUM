@@ -35,7 +35,7 @@ Write them now, without calling tools, under these headings:\n\
 If notes from an earlier compaction are above, update them: keep what still holds, move finished items to Done, add \
 what is new. The files you read and changed are listed for you; do not list them.";
 
-pub(super) const COMPACTED: &str =
+pub const COMPACTED: &str =
     "[Context compacted: the older part of this run's conversation was replaced by your notes below; the most recent \
 steps follow unchanged. Changes you made to files are still there. Continue from the next step.]";
 
@@ -264,7 +264,18 @@ impl Run<'_> {
         };
         let r = match first {
             Some(r) => r,
-            None => self.cut_notes(order, &messages[..split]).await?,
+            None => {
+                // Even cut short, the older part does not fit this window (a conversation resumed from a model with a
+                // larger one): it is folded piece by piece instead (ADR-155).
+                if !self.chat
+                    && self.estimate(order, &cut_for_notes(&messages[..split])) + NOTES_ROOM
+                        > self.cfg.context_window
+                    && self.fit(order, messages, start_len, usage).await?
+                {
+                    return Ok(true);
+                }
+                self.cut_notes(order, &messages[..split]).await?
+            }
         };
         usage.add(&r.usage);
         self.observer.response(&r.usage);
@@ -309,34 +320,7 @@ impl Run<'_> {
         order: &WorkOrder,
         messages: &[Message],
     ) -> Result<agenium_llm::ChatResponse, Outcome> {
-        let mut ask: Vec<Message> = messages
-            .iter()
-            .map(|m| Message {
-                role: m.role,
-                parts: m
-                    .parts
-                    .iter()
-                    .filter(|p| !matches!(p, Part::Thinking { .. }))
-                    .map(|p| match p {
-                        Part::ToolResult {
-                            call_id,
-                            name,
-                            content,
-                            is_error,
-                        } if content.chars().count() > NOTES_RESULT_CHARS => Part::ToolResult {
-                            call_id: call_id.clone(),
-                            name: name.clone(),
-                            content: format!(
-                                "{}…[cut]",
-                                content.chars().take(NOTES_RESULT_CHARS).collect::<String>()
-                            ),
-                            is_error: *is_error,
-                        },
-                        other => other.clone(),
-                    })
-                    .collect(),
-            })
-            .collect();
+        let mut ask = cut_for_notes(messages);
         ask.push(Message::user_text(COMPACT));
         self.turn(&self.notes_request(order, &ask)).await
     }
@@ -367,6 +351,38 @@ impl Run<'_> {
             Err(o) => o,
         }
     }
+}
+
+/// The older part as a notes request sends it when it does not fit whole: no thinking, tool results cut short.
+pub(super) fn cut_for_notes(messages: &[Message]) -> Vec<Message> {
+    messages
+        .iter()
+        .map(|m| Message {
+            role: m.role,
+            parts: m
+                .parts
+                .iter()
+                .filter(|p| !matches!(p, Part::Thinking { .. }))
+                .map(|p| match p {
+                    Part::ToolResult {
+                        call_id,
+                        name,
+                        content,
+                        is_error,
+                    } if content.chars().count() > NOTES_RESULT_CHARS => Part::ToolResult {
+                        call_id: call_id.clone(),
+                        name: name.clone(),
+                        content: format!(
+                            "{}…[cut]",
+                            content.chars().take(NOTES_RESULT_CHARS).collect::<String>()
+                        ),
+                        is_error: *is_error,
+                    },
+                    other => other.clone(),
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 #[cfg(test)]

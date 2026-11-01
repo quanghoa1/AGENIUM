@@ -278,6 +278,17 @@ impl Runtime {
             spec = serde_json::to_string_pretty(&spec.body).unwrap_or_default(),
             roles = roles.join("\n"),
         );
+        // What the planner remembers about plans like this (ADR-155).
+        let memory = self
+            .recall_text(
+                planner.id,
+                project,
+                run,
+                None,
+                serde_json::to_string(&spec.body).unwrap_or_default(),
+            )
+            .await?;
+        let task = format!("{memory}{task}");
         let soul = self.soul_and_role(planner);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {

@@ -22,6 +22,24 @@ impl AgentStore {
         })
     }
 
+    /// Replaces a session's whole conversation (ADR-155: a run's conversation folded to fit its model's window).
+    pub fn replace_messages(
+        &self,
+        session: &str,
+        messages: &[serde_json::Value],
+    ) -> Result<(), StoreError> {
+        self.db.write(|tx| {
+            tx.execute("DELETE FROM conversation WHERE session = ?1", [session])?;
+            for (i, m) in messages.iter().enumerate() {
+                tx.execute(
+                    "INSERT INTO conversation(session, n, message) VALUES (?1, ?2, ?3)",
+                    params![session, (i + 1) as i64, m.to_string()],
+                )?;
+            }
+            Ok(())
+        })
+    }
+
     pub fn load_messages(&self, session: &str) -> Result<Vec<serde_json::Value>, StoreError> {
         self.db.read(|c| {
             let mut st =

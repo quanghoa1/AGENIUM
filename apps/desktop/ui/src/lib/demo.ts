@@ -56,7 +56,7 @@ const agents: AgentEntry[] = [
 }));
 
 const runs: RunRow[] = [
-  { id: "run_05", ticket: "t2", agent: ids.backend, agent_name: "shop-backend", provider: "codex", model: "codex:gpt-6-luna", started_at: iso(3), ended_at: null, outcome: null, steps: 7, usage: usage(48_000, 2_100) },
+  { id: "run_05", ticket: "t2", agent: ids.backend, agent_name: "shop-backend", provider: "codex", model: "codex:gpt-6-luna", started_at: iso(3), ended_at: null, outcome: null, steps: 7, usage: { ...usage(48_000, 2_100), context_used: 61_400, context_window: 272_000 } },
   { id: "run_04", ticket: "t3", agent: ids.frontend, agent_name: "shop-frontend", provider: "claude", model: "claude:haiku", started_at: iso(9), ended_at: iso(6), outcome: "Parked", steps: 4, usage: usage(31_000, 900) },
   { id: "run_03", ticket: "t1", agent: ids.lead, agent_name: "shop-lead", provider: "opencode-go", model: "deepseek-v4.1-flash", started_at: iso(22), ended_at: iso(21), outcome: "Completed", steps: 3, usage: usage(22_000, 600, 0.004) },
   { id: "run_02", ticket: null, agent: ids.lead, agent_name: "shop-lead", provider: "opencode-go", model: "deepseek-v4.1-flash", started_at: iso(40), ended_at: iso(39), outcome: "Completed", steps: 5, usage: usage(19_000, 1_400, 0.003) },
@@ -207,7 +207,7 @@ function ticket(key: string): TicketDetail {
       merged: c.card.merged,
       has_code: true,
       close_reason: null,
-      usage: usage(48_000, 2_100),
+      usage: { ...usage(48_000, 2_100), context_used: 61_400, context_window: 272_000 },
       created_at: iso(38),
       updated_at: iso(3),
     },
@@ -233,6 +233,7 @@ const runDetail = (id: string): RunDetail => ({
     { n: 1, kind: "tool", at: iso(3), data: { tool: "read_file", args: { path: "src/cart/mod.rs" }, ok: true, result: "pub fn total(…)" } },
     { n: 2, kind: "tool", at: iso(2), data: { tool: "edit", args: { path: "src/cart/mod.rs" }, ok: true, result: "1 replacement" } },
     { n: 3, kind: "tool", at: iso(2), data: { tool: "shell", args: { command: "npm test -- cart" }, ok: false, result: "command_denied: waiting for approval" } },
+    { n: 4, kind: "control", at: iso(1), data: { what: "fit", text: "38 earlier messages folded into 2140 characters of notes in 3 piece(s), to fit a 272000-token window" } },
   ],
 });
 

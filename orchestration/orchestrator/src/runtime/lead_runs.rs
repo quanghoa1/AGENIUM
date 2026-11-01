@@ -125,6 +125,11 @@ impl Runtime {
             .value;
         *opened = Some(run);
         let state = self.project_state_text(project)?;
+        // What the Lead remembers about what the user asks (ADR-155): the preferences and facts it learned from the
+        // chat (ADR-98) among them. In the turn's own system block, never stored in the chat's history.
+        let memory = self
+            .recall_text(lead.id, project, run, None, user_text.to_owned())
+            .await?;
         let soul = self.soul_and_role(lead);
         let solo = team.solo;
         let started = Instant::now();
@@ -158,6 +163,13 @@ impl Runtime {
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
                 SystemBlock { text: manifest, cache: false },
             ];
+            let mut system = system;
+            if !memory.is_empty() {
+                system.push(SystemBlock {
+                    text: memory.clone(),
+                    cache: false,
+                });
+            }
             let mut messages = history.clone();
             messages.push(msg.clone());
             Ok(WorkOrder { system, messages })
@@ -317,6 +329,21 @@ impl Runtime {
             self.project_state_text(project)?,
             tickets_text
         );
+        // What the Lead remembers about these items (ADR-155).
+        let memory = self
+            .recall_text(
+                lead.id,
+                project,
+                run,
+                None,
+                items
+                    .iter()
+                    .map(|it| it.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            )
+            .await?;
+        let task = format!("{memory}{task}");
         let soul = self.soul_and_role(&lead);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {

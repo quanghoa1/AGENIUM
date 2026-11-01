@@ -1,3 +1,4 @@
+import type { Key } from "../../lib/i18n";
 import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Segmented } from "../../components/motion";
@@ -52,6 +53,14 @@ interface Tally {
 }
 
 /** Token use and cost over time, by vendor account and by model, with the vendors' prices and each agent's share. */
+/** The helper calls' rows in Usage, by kind (ADR-151, ADR-153, ADR-155). */
+const HELPER_LABEL: Record<string, Key> = {
+  "helper:skill": "usage.helper.skill",
+  "helper:cli-check": "usage.helper.check",
+  "helper:chat-summary": "usage.helper.chatSummary",
+  "helper:fold": "usage.helper.fold",
+};
+
 export function UsageView() {
   const app = useApp();
   const [rows, setRows] = useState<RunRow[]>([]);
@@ -65,7 +74,7 @@ export function UsageView() {
   useEffect(() => {
     // The helpers' calls (team designer, skill writer) count as runs of their own, with no ticket (ADR-152).
     Promise.all([api.runs(5000), api.helperCalls(5000).catch(() => [] as RunRow[])]).then(([runs, helpers]) =>
-      setRows([...runs, ...helpers.map((h) => ({ ...h, agent_name: app.t(h.agent === "helper:skill" ? "usage.helper.skill" : h.agent === "helper:cli-check" ? "usage.helper.check" : "usage.helper.design") }))]),
+      setRows([...runs, ...helpers.map((h) => ({ ...h, agent_name: app.t(HELPER_LABEL[h.agent] ?? "usage.helper.design") }))]),
     );
     api.agents().then((a) => setAgents(a ?? []));
     api.vendorUsage().then(setVendors, () => undefined);

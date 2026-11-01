@@ -480,6 +480,23 @@ pub struct RunObserver {
     pub cost: Mutex<f64>,
     /// The run's ticket: each check it runs is logged with the tree its worktree held then (ADR-148).
     pub ticket: Option<TicketId>,
+    /// The context at the last request and the model's window (ADR-155); the window known here stands in for a
+    /// backend that does not know it (a CLI).
+    pub context: Mutex<(u64, u64)>,
+    pub window: u64,
+    /// A conversation folded to fit replaces the stored one (not a chat turn: the chat keeps its own history).
+    pub keep_folded: bool,
+}
+
+impl RunObserver {
+    fn with_context(&self, mut s: UsageSummary) -> UsageSummary {
+        let (used, window) = *self.context.lock().unwrap_or_else(|p| p.into_inner());
+        if used > 0 {
+            s.context_used = used;
+            s.context_window = if window > 0 { window } else { self.window };
+        }
+        s
+    }
 }
 
 impl Observer for RunObserver {
@@ -537,7 +554,33 @@ impl Observer for RunObserver {
         *self.steps.lock().unwrap_or_else(|p| p.into_inner()) = step;
         let _ = self
             .app
-            .run_progress(self.run, step, &summary(usage, 0.0, 0));
+            .run_progress(self.run, step, &self.with_context(summary(usage, 0.0, 0)));
+    }
+
+    fn context(&self, used: u64, window: u64) {
+        *self.context.lock().unwrap_or_else(|p| p.into_inner()) = (used, window);
+        let steps = *self.steps.lock().unwrap_or_else(|p| p.into_inner());
+        // Before the first request too, so the gauge shows what the run starts with.
+        if steps == 0 {
+            let _ = self
+                .app
+                .run_progress(self.run, 0, &self.with_context(UsageSummary::default()));
+        }
+    }
+
+    fn replaced(&self, messages: &[Message]) {
+        if !self.keep_folded {
+            return;
+        }
+        if let Some(s) = &self.memory {
+            let values: Vec<serde_json::Value> = messages
+                .iter()
+                .filter_map(|m| serde_json::to_value(m).ok())
+                .collect();
+            if let Err(e) = s.replace_messages(&self.run.to_string(), &values) {
+                tracing::warn!(error = %e, "could not keep the folded conversation");
+            }
+        }
     }
 
     fn retry(&self, attempt: u32, delay_ms: u64, error: &str) {
@@ -566,6 +609,7 @@ pub fn summary(u: &Usage, cost: f64, elapsed_ms: u64) -> UsageSummary {
         cache_write_1h: u.cache_write_1h,
         estimated_cost_usd: cost,
         elapsed_ms,
+        ..Default::default()
     }
 }
 

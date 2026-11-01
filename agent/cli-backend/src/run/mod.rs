@@ -382,7 +382,9 @@ impl CliRun<'_> {
         // A refresh token this run comes to hold is free for another run once it ends (ADR-137).
         let _released = crate::login_access::Released(home.path().to_path_buf());
         // The ticket's CLI session of an earlier run comes back first; the run's own files are written over it.
-        let cli = self.label.split(':').next().unwrap_or_default().to_owned();
+        // The CLI and its model (`claude:haiku`): another model starts a new session, shown the conversation so far
+        // fitted to its window, rather than resuming one written for another model's window (ADR-155).
+        let cli = self.label.clone();
         if let Some(id) = self
             .session
             .as_ref()

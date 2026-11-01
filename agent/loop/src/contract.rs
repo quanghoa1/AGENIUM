@@ -37,6 +37,12 @@ pub trait Observer: Send + Sync {
     /// Agenium steered the run: `nudge` (a text-only answer), `steer` (the user's message delivered), `compact`
     /// (the context replaced by notes), `refused` (a CLI tool call Agenium refused). Kept in the run's log.
     fn control(&self, _kind: &str, _text: &str) {}
+    /// How full the context is (ADR-155): the tokens of the last request (or of the next one, estimated before it is
+    /// sent) and the model's window, 0 when the backend does not know it.
+    fn context(&self, _used: u64, _window: u64) {}
+    /// The run's conversation was rewritten to fit the window (ADR-155): the whole of it, to keep in place of the
+    /// stored one so the next run resumes it as it is now.
+    fn replaced(&self, _messages: &[Message]) {}
 }
 
 pub struct NoopObserver;

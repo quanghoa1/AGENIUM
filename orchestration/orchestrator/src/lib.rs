@@ -24,6 +24,7 @@ pub mod mcp;
 pub mod memory_settle;
 pub mod model_cache;
 pub mod model_lists;
+pub mod model_windows;
 pub mod needs;
 pub mod preferences;
 pub mod prices;

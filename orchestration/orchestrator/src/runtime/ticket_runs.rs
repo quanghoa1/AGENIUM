@@ -213,10 +213,11 @@ impl Runtime {
                     .map(agenium_memory::retrieve::label)
                     .collect();
                 let mut first = format!(
-                    "{}{}{}\n",
+                    "{}{}{}\n{}",
                     prompt::memory_text(&facts),
                     prompt::ticket_text(&t, None),
-                    requirements
+                    requirements,
+                    self.plan_outline(project, &t.plan_item)?
                 );
                 first.push_str(&prompt::comments_text(&all_comments));
                 first.push_str(&self.user_decisions(project, &t.key)?);
@@ -396,6 +397,25 @@ impl Runtime {
         // The reviewer judges against what the user decided, also on other tickets (ADR-120): a reviewer that
         // did not know "no Python here, use PowerShell" doubted the substitute and wanted to ask again.
         let decisions = self.user_decisions(project, &t.key)?;
+        // What the Lead remembers about work like this (ADR-155).
+        let memory = self
+            .recall_text(
+                lead.id,
+                project,
+                run,
+                Some(t.key.as_str()),
+                format!(
+                    "{}\n{}\n{}",
+                    t.title,
+                    t.description,
+                    t.acceptance
+                        .iter()
+                        .map(|a| a.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                ),
+            )
+            .await?;
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let (manifest, run_context) =
                 self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow);
@@ -427,7 +447,8 @@ impl Runtime {
                 "Review task for {key}. Compare the work with every acceptance criterion using the report, the diff and, if needed, the read-only tools on the worktree. \
                  Treat the report as a claim: check each criterion's evidence yourself (the test, the changed lines, the file) before you count it as met.\n\
                  Then call review_ticket: Approve if every criterion is met (one the report left Partial or NotMet, or whose cited check the record below does not back, needs ac_feedback saying how you verified it), otherwise Reopen with feedback per unmet criterion (what is missing and how you will check it). \
-                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
+                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
+                memory,
                 prompt::ticket_text(&t, None),
                 requirements,
                 evidence,

@@ -1,4 +1,5 @@
 import { CheckCheck, KanbanSquare, Radio, Terminal, Users } from "lucide-react";
+import { AgentContext } from "../components/ContextGauge";
 import { CloseProject } from "../components/CloseProject";
 import { ReopenProject } from "../components/ReopenProject";
 import { ProjectPicker } from "../components/ProjectPicker";
@@ -47,6 +48,7 @@ export function ChatView() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader title={app.t("chat.title")} sub={p.team ? `${p.name} · ${p.team.name} (${lead})` : p.name}>
+        <AgentContext agent={p.team?.lead} />
         <ProjectPicker />
       </PageHeader>
       {!p.team && (

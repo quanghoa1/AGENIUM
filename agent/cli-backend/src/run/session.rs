@@ -24,6 +24,7 @@ const STALE: Duration = Duration::from_secs(14 * 24 * 3600);
 /// What a kept session is.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Kept {
+    /// The CLI and its model (`claude:haiku`, ADR-155): a session resumes only on the model that wrote it.
     cli: String,
     id: String,
     /// Messages of the ticket's conversation it holds: the next run's earlier messages must be these, or another run
@@ -47,6 +48,18 @@ impl SessionStore {
         }
         copy_tree(&self.dir.join(HOME), home, &[]).ok()?;
         Some(kept.id)
+    }
+
+    /// Whether the run would resume the kept session (the same CLI and model, holding the run's earlier messages):
+    /// otherwise the CLI is shown the whole conversation as text, which must fit its model's window (ADR-155).
+    pub fn would_resume(&self, driver: &dyn Driver, cli: &str) -> bool {
+        if self.held == 0 || !driver.resumes_across_runs() {
+            return false;
+        }
+        std::fs::read(self.dir.join(KEPT))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Kept>(&b).ok())
+            .is_some_and(|k| k.cli == cli && !k.id.is_empty() && k.total == self.held)
     }
 
     /// Keeps the run's home (without the login copy), the CLI's session id and how many messages of the ticket's

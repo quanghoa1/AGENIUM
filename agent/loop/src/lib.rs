@@ -22,9 +22,12 @@ use serde::{Deserialize, Serialize};
 
 mod context;
 mod contract;
+mod fit;
 
+pub use context::COMPACTED;
 use context::*;
 pub use contract::*;
+pub use fit::{estimate_tokens, pieces, transcript, FOLD};
 
 const NUDGE: &str = "Text alone is not an action. Continue with a tool call: use the work tools, then submit_report \
 with one result per acceptance criterion when you are done, or ask_question if you are blocked.";
@@ -160,7 +163,15 @@ impl Run<'_> {
         // A command or an approval a tool waits on ends at the stop, not at the next step.
         let _stop = self.cancel.forward(&self.ctx.stop);
         let mut messages = order.messages.clone();
-        let start_len = messages.len();
+        let mut start_len = messages.len();
+        // What compaction may fold (ADR-155): a chat turn only its own messages (the chat history is kept and
+        // summarised by the chat itself); any other run everything after its first message (the work order), the
+        // conversation it resumes included.
+        let head = if self.chat {
+            start_len
+        } else {
+            1.min(start_len)
+        };
         let mut usage = Usage::default();
         let mut model = self.cfg.model.clone();
         // The last `same_call_limit` calls only (a call's arguments can be a whole file).
@@ -176,7 +187,29 @@ impl Run<'_> {
             self.observer.message(&m);
             messages.push(m);
         };
+        let window = self.cfg.context_window;
+        // Before anything is sent (ADR-155): a resumed conversation written for a larger window, or grown past this
+        // one, is folded to fit, and the run's stored conversation becomes the folded one.
+        let before = self.estimate(order, &messages);
+        self.observer.context(before, window);
+        let mut preflight: Option<Outcome> = None;
+        if !self.chat && before > window * COMPACT_AT_PERCENT / 100 {
+            match self.fit(order, &mut messages, head, &mut usage).await {
+                Ok(true) => {
+                    compactions += 1;
+                    start_len = messages.len();
+                    self.observer.replaced(&messages);
+                    self.observer
+                        .context(self.estimate(order, &messages), window);
+                }
+                Ok(false) => {}
+                Err(o) => preflight = Some(o),
+            }
+        }
         let outcome = loop {
+            if let Some(o) = preflight.take() {
+                break o;
+            }
             if self.cancel.is_cancelled() {
                 break Outcome::Cancelled;
             }
@@ -226,12 +259,16 @@ impl Run<'_> {
                     if compactions < self.cfg.max_compactions {
                         compactions += 1;
                         match self
-                            .compact(order, &mut messages, start_len, &mut usage, true)
+                            .compact(order, &mut messages, head, &mut usage, true)
                             .await
                         {
                             Ok(true) => {
                                 // The prefix was replaced on purpose: not a cache miss to report.
                                 prev_prompt = 0;
+                                if !self.chat {
+                                    start_len = start_len.min(messages.len());
+                                    self.observer.replaced(&messages);
+                                }
                                 continue;
                             }
                             Ok(false) => {}
@@ -249,6 +286,7 @@ impl Run<'_> {
             }
             usage.add(&resp.usage);
             self.observer.response(&resp.usage);
+            self.observer.context(usage_window(&resp.usage), window);
             self.observer.step(step, &usage);
             if resp.dropped_thinking > 0 {
                 self.observer.control(
@@ -494,20 +532,19 @@ impl Run<'_> {
             if used > self.cfg.context_window * COMPACT_AT_PERCENT / 100 {
                 if compactions < self.cfg.max_compactions {
                     compactions += 1;
+                    // The whole prefix plus room for the notes must fit, else the smaller request at once.
+                    let tight = used + NOTES_ROOM > self.cfg.context_window;
                     match self
-                        .compact(
-                            order,
-                            &mut messages,
-                            start_len,
-                            &mut usage,
-                            // The whole prefix plus room for the notes must fit, else the smaller request at once.
-                            used + NOTES_ROOM > self.cfg.context_window,
-                        )
+                        .compact(order, &mut messages, head, &mut usage, tight)
                         .await
                     {
                         Ok(true) => {
                             // The prefix was replaced on purpose: not a cache miss to report.
                             prev_prompt = 0;
+                            if !self.chat {
+                                start_len = start_len.min(messages.len());
+                                self.observer.replaced(&messages);
+                            }
                             continue;
                         }
                         Ok(false) => {}

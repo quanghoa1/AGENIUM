@@ -92,4 +92,6 @@ export const helpers = {
   "cli.checkOk": "answered its check",
   "cli.checkBad": "check failed",
   "usage.helper.check": "CLI check (helper)",
+  "usage.helper.chatSummary": "Chat summary (helper)",
+  "usage.helper.fold": "Conversation folded to fit (helper)",
 } as const;

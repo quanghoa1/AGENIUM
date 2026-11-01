@@ -24,6 +24,10 @@ export interface Usage {
   cache_write: number;
   estimated_cost_usd: number;
   elapsed_ms: number;
+  /** Tokens the model read at the run's last request (ADR-155). */
+  context_used?: number;
+  /** The model's context window the run worked with (0 = not known). */
+  context_window?: number;
 }
 
 export interface ModelBinding {

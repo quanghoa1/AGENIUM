@@ -93,5 +93,7 @@ export const helpers: Record<keyof typeof en, string> = {
   "cli.rollback": "Quay về {v}",
   "cli.checkOk": "đã trả lời câu kiểm tra",
   "cli.checkBad": "kiểm tra không đạt",
+  "usage.helper.chatSummary": "Tóm tắt chat (helper)",
+  "usage.helper.fold": "Nén hội thoại cho vừa model (helper)",
   "usage.helper.check": "Kiểm tra CLI (trợ lý)",
 };

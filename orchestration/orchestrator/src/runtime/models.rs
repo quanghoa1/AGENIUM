@@ -20,6 +20,9 @@ pub fn apply_caps(cfg: &agenium_config::ProviderConfig, info: &mut agenium_llm::
     }
 }
 
+/// The context window assumed for an API model nothing describes.
+pub(super) const DEFAULT_WINDOW: u64 = 200_000;
+
 impl Runtime {
     /// Capabilities of `model` (endpoint report + hand-set flags), looked up once per runtime; `None` when the
     /// provider does not list it (the run goes ahead with defaults).
@@ -73,6 +76,26 @@ impl Runtime {
                 .insert(key, info.clone());
         }
         info
+    }
+
+    /// The context window `agent`'s model works in (ADR-155): what its provider lists or the user set, else the
+    /// models.dev catalogue, else 200 000 for an API model; a CLI's model from the catalogue, else 0 (not known: the
+    /// CLI keeps its own context).
+    pub async fn window_of(&self, agent: &agenium_store::core::agents::Agent) -> u64 {
+        let (provider, model) = (&agent.model.provider, &agent.model.model);
+        if agent.backend == BackendKind::Cli {
+            return self.app.catalogue_window(provider, model).unwrap_or(0);
+        }
+        let listed = match self.providers.provider(provider) {
+            Ok(p) => self
+                .model_info(provider, model, p.as_ref())
+                .await
+                .and_then(|i| i.context_window),
+            Err(_) => None,
+        };
+        listed
+            .or_else(|| self.app.catalogue_window(provider, model))
+            .unwrap_or(DEFAULT_WINDOW)
     }
 
     /// Whether `agent`'s API model takes images (unknown counts as no: an image sent to a text model fails the call).

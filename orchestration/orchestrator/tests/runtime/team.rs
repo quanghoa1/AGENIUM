@@ -650,9 +650,19 @@ async fn a_long_chat_is_summarised_once_and_kept() {
         Ok(calls_response("ok", vec![]))
     }));
     let first = rt.chat(project, "next").await.unwrap();
-    assert_eq!(
-        first.usage.tokens_in, 200,
-        "the summary's model call is part of the turn's usage"
+    // The summary's model call is a helper call of its own (ADR-155: written by the Lead's own model, API or CLI),
+    // counted once in Usage, not again in the turn's.
+    assert_eq!(first.usage.tokens_in, 100);
+    let calls = app
+        .store()
+        .read(|c| agenium_store::core::helper_calls::recent(c, 10))
+        .unwrap();
+    assert!(
+        calls
+            .iter()
+            .any(|c| c.kind == "chat-summary" && c.usage.tokens_in == 100),
+        "{:?}",
+        calls.iter().map(|c| &c.kind).collect::<Vec<_>>()
     );
     // The next turn reuses the summary: no new summary call.
     p.push(Box::new(|req| {

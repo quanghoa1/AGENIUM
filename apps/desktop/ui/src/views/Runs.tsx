@@ -1,10 +1,12 @@
 import { ArrowLeft, CheckCircle2, SquareTerminal, XCircle } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
+import { ContextGauge } from "../components/ContextGauge";
 import { Markdown } from "../components/Markdown";
 import { SearchBox, found } from "../components/SearchBox";
 import { CacheHit, Empty, Mono, OutcomeBadge, PageHeader, Section, ago, cn, tokens } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp, useLive } from "../lib/store";
+import type { Key } from "../lib/i18n";
 import type { LogEntry, RunDetail, RunRow } from "../lib/types";
 import { plainArgs, startsSubagent, subagentOf } from "../lib/subagents";
 import { MemoryStep, memorySource } from "./run/MemoryStep";
@@ -95,8 +97,28 @@ function session(log: LogEntry[]): string {
   return out.join("");
 }
 
+/** What Agenium did to the run (ADR-155): compacted it, delivered a message, resumed a session…, said in words. */
+function ControlStep({ e }: { e: LogEntry }) {
+  const app = useApp();
+  const what = String(e.data?.what ?? "");
+  const key = `control.${what}` as Key;
+  const label = app.t(key) === key ? what : app.t(key);
+  const strong = what === "compact" || what === "fit";
+  return (
+    <div className={cn("flex gap-3 rounded-lg border p-2.5", strong ? "border-violet-500/40 bg-violet-500/5" : "border-line")}>
+      <Mono className="w-6 text-subtle">{e.n}</Mono>
+      <div className="min-w-0 flex-1">
+        <div className={cn("label", strong && "text-violet-600 dark:text-violet-300")}>{label}</div>
+        {e.data?.text && <div className="mt-1 whitespace-pre-wrap text-xs text-muted">{String(e.data.text)}</div>}
+      </div>
+      <Mono className="text-subtle">{ago(e.at)}</Mono>
+    </div>
+  );
+}
+
 function Step({ e }: { e: LogEntry }) {
   if (e.kind === "memory" || (e.kind === "run" && e.data?.kind === "memory")) return <MemoryStep e={e} />;
+  if (e.kind === "control") return <ControlStep e={e} />;
   if (e.kind !== "tool") {
     return (
       <div className="flex gap-3 rounded-lg border border-line p-2.5">
@@ -199,6 +221,9 @@ export function RunView({ id }: { id: string }) {
               <CacheHit value={r.cache_hit} />
             </div>
           )}
+          <div className="mt-1">
+            <ContextGauge usage={r.usage} />
+          </div>
         </div>
         <div>
           <div className="label">{app.t("runs.outcome")}</div>

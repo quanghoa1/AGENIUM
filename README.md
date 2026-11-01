@@ -37,7 +37,7 @@ Grok and DeepSeek workers is one team.
 ## How it works
 
 <p align="center">
-  <img src="docs/brand/agenium-how-it-works.svg" alt="How Agenium works: you, the Lead, the spec, the plan and tickets; workers on any model in their own worktrees; review per criterion and one merge queue; memory, reflection and skills" width="100%" />
+  <img src="docs/brand/agenium-workflow.gif" alt="Agenium's multi-agent workflow and data architecture: discovery and spec, plan and scheduling, sandboxed execution, review, merge and handover; the validated protocol and event log beneath them; the self-learning loop of memory, reflection and skills" width="100%" />
 </p>
 
 1. **Plan.** The Lead turns your request into a spec of numbered requirements. Once you approve it, every plan item

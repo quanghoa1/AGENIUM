@@ -208,6 +208,13 @@ impl App {
                 if r.ended_at.is_some() {
                     return Ok(None);
                 }
+                // The context the run reached stays on it (ADR-155): the final usage does not carry it.
+                let mut usage = *usage;
+                if usage.context_window == 0 && r.usage.context_window > 0 {
+                    usage.context_used = r.usage.context_used;
+                    usage.context_window = r.usage.context_window;
+                }
+                let usage = &usage;
                 runs::update_progress(w.tx, run, steps, usage, &now_iso())?;
                 runs::finish(w.tx, run, &now_iso(), outcome)?;
                 if let Some(tid) = r.ticket {

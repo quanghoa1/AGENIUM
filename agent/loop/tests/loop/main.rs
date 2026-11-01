@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use serde_json::json;
 
 mod context;
+mod fit;
 mod messages;
 mod steps;
 

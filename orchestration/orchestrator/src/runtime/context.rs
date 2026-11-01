@@ -217,7 +217,7 @@ impl Runtime {
             retry: self.retry,
             cache_key: Some(cache_key),
             long_cache: true,
-            context_window: 200_000,
+            context_window: super::models::DEFAULT_WINDOW,
             max_compactions: 2,
             vision: false,
         }
@@ -257,6 +257,9 @@ impl Runtime {
         (specs, tools.iter().map(|t| t.name().to_owned()).collect())
     }
 
+    /// Characters a checkpoint note needs to stand for the run's conversation.
+    const MIN_NOTE: usize = 40;
+
     /// Previous conversation of the ticket for continuation: the last finished run's messages, unless it ended with a
     /// checkpoint (then a fresh start with the note), and when that run started.
     pub(super) fn previous(
@@ -269,7 +272,7 @@ impl Runtime {
         let Some(last) = rs
             .iter()
             .rev()
-            .find(|r| r.agent == agent && r.ended_at.is_some() && !r.id.to_string().is_empty())
+            .find(|r| r.agent == agent && r.ended_at.is_some())
         else {
             return Ok((vec![], None, None));
         };
@@ -283,7 +286,15 @@ impl Runtime {
                 .rev()
                 .find(|e| e.kind == "checkpoint")
                 .and_then(|e| e.data["summary"].as_str().map(str::to_owned));
-            return Ok((vec![], note, Some(last.started_at.clone())));
+            // A checkpoint with next to no note (a CLI cut off by its time limit says nothing) would leave the next
+            // run with nothing of its work: its conversation is resumed instead, folded to fit if it must be
+            // (ADR-155).
+            if note
+                .as_deref()
+                .is_some_and(|n| n.trim().len() >= Self::MIN_NOTE)
+            {
+                return Ok((vec![], note, Some(last.started_at.clone())));
+            }
         }
         let msgs: Vec<Message> = mem
             .load_messages(&last.id.to_string())?

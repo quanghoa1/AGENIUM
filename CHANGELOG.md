@@ -7,6 +7,15 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- **A smaller model keeps the work going** (ADR-155): an agent moved from a 1M-token model to a 256K one (or any
+  smaller window) has the conversation it resumes folded into notes, piece by piece by the new model itself, before
+  its first request, the work order and the recent steps kept as they are; the stored conversation becomes the folded
+  one. Before, the resumed ticket failed on the provider's refusal at every nudge. Windows come from the models.dev
+  catalogue when the provider does not say; a CLI session resumes only on its own model; the Lead's chat history
+  budget follows its model's window and is summarised by the Lead's own model, CLI included.
+- **Memory in every run** (ADR-155): a chat turn, the Lead's inbox, a review and the planner's draft recall what the
+  agent learned (the preferences the Lead learned from the chat among them), shown on the run's page; a worker sees
+  the plan's outline beside its ticket. A checkpoint that left no real note resumes the conversation instead.
 - Code audit of 2026-10-31 ([docs/AUDIT-2026-10-31.md](docs/AUDIT-2026-10-31.md)): a ticket reopened or cancelled
   while its merge ran its checks is no longer merged (main moves only in the transaction that reads the ticket again);
   a rebase interrupted by a crash no longer blocks the merge queue; one git failure at start-up no longer keeps the app
@@ -134,6 +143,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- **Context gauge** (ADR-155): the run page, the Live dock and the chat show how full the model's context is (tokens
+  read at the last request / its window, amber from 60 %, red from 85 %); compaction, folding and the other steps
+  Agenium takes on a run read as sentences on the run's page.
 - **The work folder is chosen at install** (ADR-154): the Windows installer has a page for where Agenium keeps your
   skills, MCP servers, agents, projects and memory (for example `D:\Agenium`; `/DATA=` for a silent install); on Linux
   and macOS the app asks once at its first start. No setup screen: the app opens on its main screen in the system's

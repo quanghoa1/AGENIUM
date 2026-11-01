@@ -223,6 +223,20 @@ impl Runtime {
         specs.extend(pspecs.clone());
         let specs = sorted_specs(specs);
         let order = order_builder(&ctx, &specs)?;
+        let window = self.window_of(agent).await;
+        // A CLI shown its conversation again as text gets it fitted to its model's window (ADR-155).
+        let order = match (&cli_ready, kind, ticket) {
+            (Some((driver, _)), RunKind::Work, Some(t)) => {
+                let kept = agenium_cli_backend::run::SessionStore {
+                    dir: self.app.cli_sessions(agent.id).join(t.key.to_string()),
+                    held: order.messages.len().saturating_sub(1),
+                };
+                self.fit_cli_order(agent, Some((*driver, &kept)), order, window)
+                    .await
+            }
+            (Some(_), _, _) => self.fit_cli_order(agent, None, order, window).await,
+            _ => order,
+        };
         let mem = self.agent_memory(agent.id)?;
         let live = self.live.clone().map(|l| {
             let r = run;
@@ -242,6 +256,9 @@ impl Runtime {
             ),
             cost: Mutex::new(0.0),
             ticket: ticket.map(|t| t.id),
+            context: Mutex::new((0, 0)),
+            window,
+            keep_folded: kind != RunKind::Chat,
         };
         // Persist the work order's messages so a continuation sees the whole conversation. A chat turn replays the
         // chat, which lives in the chat session: its run keeps only the turn's new message (never read back to resume).
@@ -301,9 +318,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             )));
         }
         let mut cfg = self.loop_cfg(agent, cache_key);
-        if let Some(c) = info.as_ref().and_then(|i| i.context_window) {
-            cfg.context_window = c;
-        }
+        cfg.context_window = window.max(1);
         // Without the agent's own limit, the model's output limit as its vendor reports it, up to 64k: a long agentic
         // turn of a large model needs more than 32k with its thinking, and a small model's limit is not overrun.
         if agent.model.max_tokens.is_none() {
