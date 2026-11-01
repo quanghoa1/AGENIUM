@@ -57,6 +57,8 @@ impl App {
         self.skill_registry()
             .remove(&agenium_skills::Owner::Library, name)
             .map_err(io)?;
+        // A starter skill the user removed is not seeded again at the next start or upgrade.
+        self.note_builtin_removed(name)?;
         for a in users {
             let rest: Vec<String> = a.skills.into_iter().filter(|s| s != name).collect();
             self.set_agent_skills(a.id, &rest)?;

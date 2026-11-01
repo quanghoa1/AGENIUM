@@ -134,6 +134,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- A starter skill removed from the library no longer comes back at the next start or upgrade (ADR-88 amended); the
+  user's own skills, MCP servers and data live in the root, which installs and upgrades leave as they are.
 - UI review of 2026-11-01: the status badges (agents, tickets and the board's columns, run outcomes, criteria),
   the ticket chips (approved, merged, reopened, escalated), the pool and the model tags (free, deprecated, price) are
   in the interface's language; **Needs you** words each item in it too (the item carries its sentence as a template

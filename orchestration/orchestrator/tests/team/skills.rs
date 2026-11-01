@@ -47,6 +47,37 @@ fn the_starter_skill_library_is_seeded_and_valid() {
     );
     // Seeding again writes nothing (idempotent).
     assert_eq!(f.app.seed_skill_library().unwrap(), 0);
+    // A starter skill the user removed stays removed when the app starts again (or a new version seeds), and one the
+    // user changed keeps the change.
+    let lib = f
+        .app
+        .skill_registry()
+        .dir_of(&agenium_skills::Owner::Library);
+    f.app.remove_library_skill("perf-audit", true).unwrap();
+    std::fs::write(
+        lib.join("code-review").join("SKILL.md"),
+        "---\nname: code-review\ndescription: mine\n---\nMy own review steps.\n",
+    )
+    .unwrap();
+    assert_eq!(f.app.seed_skill_library().unwrap(), 0);
+    assert!(
+        !lib.join("perf-audit").exists(),
+        "a removed starter skill is not seeded again"
+    );
+    assert!(
+        std::fs::read_to_string(lib.join("code-review").join("SKILL.md"))
+            .unwrap()
+            .contains("My own review steps.")
+    );
+    assert!(
+        !f.app
+            .skill_registry()
+            .library()
+            .skills
+            .iter()
+            .any(|s| s.meta.name.starts_with('.')),
+        "the list of removed starter skills is not a skill"
+    );
 }
 
 /// ADR-90: the judge's skill-quality read is fail-open (off by default returns None) and, when on, turns each Noul

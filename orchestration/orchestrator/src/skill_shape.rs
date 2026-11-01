@@ -282,17 +282,22 @@ impl App {
             .collect()
     }
 
-    /// Seeds the built-in starter skill library into `<root>/skills` (ADR-88). Idempotent: writes only a skill whose
-    /// folder is absent, so a user's edits and removals are never overwritten. Returns how many were written.
+    /// Seeds the built-in starter skill library into `<root>/skills` (ADR-88), at every start (a new version's new
+    /// starter skills arrive so). Writes only a skill whose folder is absent and that the user has not removed, so a
+    /// user's edits and removals survive restarts and upgrades. Returns how many were written.
     pub fn seed_skill_library(&self) -> Result<usize> {
         let dir = self
             .skill_registry()
             .dir_of(&agenium_skills::Owner::Library);
         std::fs::create_dir_all(&dir)?;
+        let removed = removed_builtins(&dir);
         let mut n = 0;
         for s in LIBRARY {
             let folder = dir.join(s.name);
-            if folder.join(agenium_skills::SKILL_FILE).exists() || folder.exists() {
+            if folder.join(agenium_skills::SKILL_FILE).exists()
+                || folder.exists()
+                || removed.iter().any(|r| r == s.name)
+            {
                 continue;
             }
             std::fs::create_dir_all(&folder)?;
@@ -308,6 +313,36 @@ impl App {
         }
         Ok(n)
     }
+
+    /// Remembers that the user removed `name` from the library when it is a starter skill, so seeding leaves it out.
+    pub(crate) fn note_builtin_removed(&self, name: &str) -> Result<()> {
+        if !LIBRARY.iter().any(|b| b.name == name) {
+            return Ok(());
+        }
+        let dir = self
+            .skill_registry()
+            .dir_of(&agenium_skills::Owner::Library);
+        let mut names = removed_builtins(&dir);
+        if !names.iter().any(|n| n == name) {
+            names.push(name.to_owned());
+            std::fs::write(dir.join(REMOVED_BUILTINS), names.join("\n") + "\n")?;
+        }
+        Ok(())
+    }
+}
+
+/// The file in the library folder listing the starter skills the user removed (one name a line; the library's scan
+/// skips dot files).
+const REMOVED_BUILTINS: &str = ".removed-builtins";
+
+fn removed_builtins(library: &std::path::Path) -> Vec<String> {
+    std::fs::read_to_string(library.join(REMOVED_BUILTINS))
+        .unwrap_or_default()
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_owned)
+        .collect()
 }
 
 #[cfg(test)]

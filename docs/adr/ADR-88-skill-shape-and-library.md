@@ -32,6 +32,10 @@ a skill an agent upgrades follow one shape.
    `App::seed_skill_library` writes a skill and all its files into `<root>/skills` on open, **idempotently**: it writes
    only a skill whose folder is absent, so a user's edits and removals are never overwritten. The body references each
    aux file, so skill validation confirms they exist.
+   *Amended 2026-11-01:* a removed starter skill came back at the next start (its folder was absent again). Removing a
+   starter skill from the library now lists its name in `<root>/skills/.removed-builtins`, and seeding leaves listed
+   names out; a user's skills, their edits and removals survive restarts and upgrades. A new version's new starter
+   skills are still seeded; a changed one does not replace the copy the user has.
 
 ## Consequences
 
