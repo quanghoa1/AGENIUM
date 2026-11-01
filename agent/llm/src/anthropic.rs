@@ -529,6 +529,23 @@ pub fn parse_args(json: &str) -> Value {
     serde_json::from_str(json).unwrap_or_else(|_| json!({ crate::INVALID_JSON_KEY: json }))
 }
 
+/// One call's streamed arguments, or several calls' when a model or gateway ran them together: `{"path": "a"}{"path":
+/// "b"}` came from a model on OpenCode Go reading two files in one call (2026-11-02, ADR-155). Answered as invalid JSON,
+/// it sent the same call again until the run stopped on the repeat; each object is now a call of its own.
+pub fn split_args(json: &str) -> Vec<Value> {
+    if serde_json::from_str::<Value>(json).is_err() {
+        let objects: Result<Vec<Value>, _> = serde_json::Deserializer::from_str(json)
+            .into_iter::<Value>()
+            .collect();
+        if let Ok(objects) = objects {
+            if objects.len() > 1 && objects.iter().all(Value::is_object) {
+                return objects;
+            }
+        }
+    }
+    vec![parse_args(json)]
+}
+
 /// The effort levels a model takes, as the Models API reports them (`capabilities.effort`), lowest first; `None` when
 /// it does not say, empty when the model has no effort control.
 fn efforts(caps: &Value) -> Option<Vec<Effort>> {

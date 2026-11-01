@@ -88,3 +88,67 @@ async fn a_conversation_too_big_for_the_new_model_is_folded_to_fit() {
     assert!(ctx[0].0 > window && ctx[0].1 == window, "{ctx:?}");
     assert!(ctx[1].0 < window * 85 / 100, "{ctx:?}");
 }
+
+/// ADR-155: a resumed conversation made big by old tool results is brought under the window by clearing them, with
+/// no model call: the agent's own words about them stay, and no fold is asked for.
+#[tokio::test]
+async fn old_tool_results_are_cleared_before_any_fold() {
+    let (_t, ctx, tools, proto) = harness();
+    let mut order = order();
+    for i in 0..8 {
+        let id = format!("c{i}");
+        order.messages.push(Message {
+            role: Role::Assistant,
+            parts: vec![
+                Part::Text {
+                    text: format!("Reading log {i}."),
+                },
+                Part::ToolCall {
+                    id: id.clone(),
+                    name: "read_file".into(),
+                    args: json!({"path": format!("logs/{i}.log")}),
+                    signature: None,
+                },
+            ],
+        });
+        order.messages.push(Message {
+            role: Role::User,
+            parts: vec![Part::ToolResult {
+                call_id: id,
+                name: "read_file".into(),
+                content: "line of the log ".repeat(2_500),
+                is_error: false,
+            }],
+        });
+    }
+    order.messages.push(Message::user_text("Your run resumes."));
+    let window = 60_000u64;
+    let p = ScriptedProvider::new("m");
+    p.push(Box::new(move |req: &ChatRequest| {
+        assert!(
+            estimate_tokens(req) <= window * 85 / 100,
+            "{}",
+            estimate_tokens(req)
+        );
+        let last = req.messages.last().unwrap().text();
+        assert!(!last.contains("<conversation piece"), "no fold");
+        let all: String = req.messages.iter().map(|m| m.text()).collect();
+        assert!(all.contains("Reading log 0.") && all.contains("Reading log 7."));
+        Ok(agenium_llm::mock::calls_response(
+            "",
+            vec![("submit_report", json!({"ticket_id": "AGN-1"}))],
+        ))
+    }));
+    let rec = Rec::default();
+    let mut c = cfg();
+    c.context_window = window;
+    let mut r = run(&p, &ctx, &tools, &proto, c);
+    r.observer = &rec;
+    let report = r.run(&order).await;
+    assert_eq!(report.outcome, Outcome::Completed, "{:?}", report.outcome);
+    assert_eq!(p.remaining(), 0, "one request: the work, no notes");
+    assert!(
+        rec.replaced.lock().unwrap().is_some(),
+        "the cleared conversation is kept"
+    );
+}

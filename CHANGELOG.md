@@ -10,7 +10,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **A smaller model keeps the work going** (ADR-155): an agent moved from a 1M-token model to a 256K one (or any
   smaller window) has the conversation it resumes folded into notes, piece by piece by the new model itself, before
   its first request, the work order and the recent steps kept as they are; the stored conversation becomes the folded
-  one. Before, the resumed ticket failed on the provider's refusal at every nudge. Windows come from the models.dev
+  one. Before, a resumed history of long writing failed on the provider's refusal at every nudge (a history of tool
+  results recovered by clearing them, as it still does first, at no model call). Measured with OpenCode Go's free
+  models (beam-free 1M to iceman 262K): the writing-heavy ticket went from failed to done (100/100 codes, twice); the
+  tool-heavy one stayed done with 11 % less uncached input. A model's calls run together into one
+  (`{..}{..}`) are taken apart instead of failing as invalid JSON. Windows come from the models.dev
   catalogue when the provider does not say; a CLI session resumes only on its own model; the Lead's chat history
   budget follows its model's window and is summarised by the Lead's own model, CLI included.
 - **Memory in every run** (ADR-155): a chat turn, the Lead's inbox, a review and the planner's draft recall what the

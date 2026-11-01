@@ -323,3 +323,25 @@ async fn anthropic_refusal_details_and_a_full_context_window() {
     assert_eq!(r.stop, StopReason::MaxTokens);
     assert!(r.refusal.is_none());
 }
+
+/// ADR-155: a model on OpenCode Go read two files in one call, its arguments run together
+/// (`{"path": "a"}{"path": "b"}`); each object is now a call of its own instead of an invalid-JSON error the model
+/// repeated until the run stopped.
+#[test]
+fn calls_run_together_are_taken_apart() {
+    use agenium_llm::anthropic::split_args;
+    let two = split_args(r#"{"path": "logs/svc-49.log"}{"path": "logs/svc-50.log"}"#);
+    assert_eq!(
+        two,
+        vec![
+            json!({"path": "logs/svc-49.log"}),
+            json!({"path": "logs/svc-50.log"})
+        ]
+    );
+    assert_eq!(split_args(r#"{"path": "a"}"#), vec![json!({"path": "a"})]);
+    // Truncated or broken JSON stays one call, marked invalid.
+    let bad = split_args(r#"{"path": "a"}{"pa"#);
+    assert_eq!(bad.len(), 1);
+    assert!(bad[0].get(INVALID_JSON_KEY).is_some());
+    assert_eq!(split_args(""), vec![json!({})]);
+}

@@ -1,0 +1,40 @@
+{
+  "codes_found": "0/100",
+  "codes_from_resumed_history": "0/96",
+  "codes_not_in_logs": 0,
+  "elapsed_s": 12,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "outcomes": [
+    "work Error:HTTP 400 (invalid_request_error): Upstream request failed: [invalid_request_error] Input token count (419414) exceeds the model's maximum context length of (262139), no tokens left for generation",
+    "work Error:HTTP 400 (invalid_request_error): Upstream request failed: [invalid_request_error] Input token count (419497) exceeds the model's maximum context length of (262139), no tokens left for generation"
+  ],
+  "resumed_conversation_chars": 1104488,
+  "resumed_conversation_tokens_est": 276122,
+  "run_cached": 0,
+  "run_tokens_in": 0,
+  "run_tokens_out": 0,
+  "runs": [
+    {
+      "cached": 0,
+      "model": "iceman-contributor-free",
+      "outcome": "Error:HTTP 400 (invalid_request_error): Upstream request failed: [invalid_request_error] Input token count (419414) exceeds the model's maximum context length of (262139), no tokens left for generation",
+      "steps": 1,
+      "tokens_in": 0,
+      "tokens_out": 0
+    },
+    {
+      "cached": 0,
+      "model": "iceman-contributor-free",
+      "outcome": "Error:HTTP 400 (invalid_request_error): Upstream request failed: [invalid_request_error] Input token count (419497) exceeds the model's maximum context length of (262139), no tokens left for generation",
+      "steps": 1,
+      "tokens_in": 0,
+      "tokens_out": 0
+    }
+  ],
+  "scenario": "work/text",
+  "ticket_status": "InProgress",
+  "total_tokens": 0,
+  "total_uncached_in": 0
+}

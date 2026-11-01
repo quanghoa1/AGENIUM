@@ -1,0 +1,81 @@
+{
+  "first_answer_uses_preference": false,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "last_answer_uses_preference": false,
+  "run_cached": 14592,
+  "run_tokens_in": 20660,
+  "run_tokens_out": 742,
+  "runs": [
+    {
+      "cached": 5248,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5538,
+      "tokens_out": 41
+    },
+    {
+      "cached": 0,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5304,
+      "tokens_out": 65
+    },
+    {
+      "cached": 4736,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5045,
+      "tokens_out": 106
+    },
+    {
+      "cached": 4608,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 4773,
+      "tokens_out": 530
+    }
+  ],
+  "scenario": "chat",
+  "total_tokens": 21402,
+  "total_uncached_in": 6068,
+  "turns": [
+    {
+      "answer": "Database: PostgreSQL — ACID transactions and a relational model fit inventory stock levels, warehouses, and reservations well.\nHosting: a managed container platform (e.g. AWS ECS Fargate or Render) backed by a managed Postgres (RDS/Supabase) — simple ops, scales with you.\nNote: if you later need massive write throughput or global edge reads, revisit with DynamoDB/Redis; otherwise start simple.",
+      "ask": "We are starting a new inventory service. Which database and which hosting would you pick for it? Answer in three lines, no tickets yet.",
+      "cached": 4608,
+      "outcome": "Completed",
+      "tokens_in": 4773,
+      "tokens_out": 530
+    },
+    {
+      "answer": "1. Overselling: concurrent stock deductions can race and sell more than available if reservations/locking aren't designed up front.\n2. Stale data: inventory spread across warehouses/channels drifts unless sync and event ordering are handled.\n3. Scope creep: inventory touches orders, fulfillment, and accounting, so boundaries blur and the service becomes a monolith.",
+      "ask": "List three risks of building it, one line each. No tickets.",
+      "cached": 4736,
+      "outcome": "Completed",
+      "tokens_in": 5045,
+      "tokens_out": 106
+    },
+    {
+      "answer": "Dev A owns the core domain: data model, stock/reservation logic, and transactional consistency (the risky concurrency surface).\nDev B owns the API/integration layer: endpoints, auth, events, and the warehouse/channel sync adapters.",
+      "ask": "How would you split the work between two developers? Two lines, no tickets.",
+      "cached": 0,
+      "outcome": "Completed",
+      "tokens_in": 5304,
+      "tokens_out": 65
+    },
+    {
+      "answer": "PostgreSQL on a managed container platform with managed Postgres (e.g. ECS Fargate + RDS).",
+      "ask": "Sum up the database and hosting you chose, in one line. No tickets.",
+      "cached": 5248,
+      "outcome": "Completed",
+      "tokens_in": 5538,
+      "tokens_out": 41
+    }
+  ]
+}

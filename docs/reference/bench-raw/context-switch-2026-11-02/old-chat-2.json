@@ -1,0 +1,81 @@
+{
+  "first_answer_uses_preference": false,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "last_answer_uses_preference": false,
+  "run_cached": 19456,
+  "run_tokens_in": 20634,
+  "run_tokens_out": 436,
+  "runs": [
+    {
+      "cached": 5248,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5517,
+      "tokens_out": 39
+    },
+    {
+      "cached": 4992,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5296,
+      "tokens_out": 54
+    },
+    {
+      "cached": 4608,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5048,
+      "tokens_out": 100
+    },
+    {
+      "cached": 4608,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 4773,
+      "tokens_out": 243
+    }
+  ],
+  "scenario": "chat",
+  "total_tokens": 21070,
+  "total_uncached_in": 1178,
+  "turns": [
+    {
+      "answer": "Database: PostgreSQL (relational, ACID transactions for stock counts, row-level locking) with Redis for hot inventory caching.\nHosting: a managed container platform (AWS ECS/Fargate, GCP Cloud Run, or Azure Container Apps) fronted by a managed Postgres (RDS/Cloud SQL).\nNote: if throughput/latency demands are extreme, consider DynamoDB/CockroachDB later — but start with Postgres for correctness.",
+      "ask": "We are starting a new inventory service. Which database and which hosting would you pick for it? Answer in three lines, no tickets yet.",
+      "cached": 4608,
+      "outcome": "Completed",
+      "tokens_in": 4773,
+      "tokens_out": 243
+    },
+    {
+      "answer": "1. Concurrency races on stock counts can oversell or double-allocate inventory under load.\n2. Data model drift between catalog, warehouses, and reservations can cause phantom or missing stock.\n3. Operational blind spots — no observability/audit trail makes stock discrepancies hard to root-cause and reconcile.",
+      "ask": "List three risks of building it, one line each. No tickets.",
+      "cached": 4608,
+      "outcome": "Completed",
+      "tokens_in": 5048,
+      "tokens_out": 100
+    },
+    {
+      "answer": "Dev A owns data model, migrations, transactional stock operations, and concurrency correctness.\nDev B owns API endpoints, validation, caching layer, and integration/observability.",
+      "ask": "How would you split the work between two developers? Two lines, no tickets.",
+      "cached": 4992,
+      "outcome": "Completed",
+      "tokens_in": 5296,
+      "tokens_out": 54
+    },
+    {
+      "answer": "PostgreSQL with row-level locking plus Redis caching, hosted on a managed container platform with managed Postgres.",
+      "ask": "Sum up the database and hosting you chose, in one line. No tickets.",
+      "cached": 5248,
+      "outcome": "Completed",
+      "tokens_in": 5517,
+      "tokens_out": 39
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "first_answer_uses_preference": true,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "last_answer_uses_preference": false,
+  "run_cached": 19200,
+  "run_tokens_in": 20665,
+  "run_tokens_out": 435,
+  "runs": [
+    {
+      "cached": 5248,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5545,
+      "tokens_out": 36
+    },
+    {
+      "cached": 4608,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5296,
+      "tokens_out": 89
+    },
+    {
+      "cached": 4736,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5048,
+      "tokens_out": 78
+    },
+    {
+      "cached": 4608,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 4776,
+      "tokens_out": 232
+    }
+  ],
+  "scenario": "chat",
+  "total_tokens": 21100,
+  "total_uncached_in": 1465,
+  "turns": [
+    {
+      "answer": "PostgreSQL: strong transactional consistency, rich querying, and a great fit for inventory's relational, stock-level data.\nManaged hosting (e.g., AWS ECS/Fargate + RDS, or a PaaS like Render/Fly): fewer ops burdens, easy scaling, built-in backups.\nStart with a single-region managed Postgres and a containerized app; add read replicas/caching only when load demands it.",
+      "ask": "We are starting a new inventory service. Which database and which hosting would you pick for it? Answer in three lines, no tickets yet.",
+      "cached": 4608,
+      "outcome": "Completed",
+      "tokens_in": 4776,
+      "tokens_out": 232
+    },
+    {
+      "answer": "- Overselling stock under concurrency if reservations/locking aren't handled transactionally.\n- Data accuracy drift across warehouses/channels without a single source of truth and audit trail.\n- Underestimating operational complexity (backups, migrations, failover) if self-hosting instead of managed services.",
+      "ask": "List three risks of building it, one line each. No tickets.",
+      "cached": 4736,
+      "outcome": "Completed",
+      "tokens_in": 5048,
+      "tokens_out": 78
+    },
+    {
+      "answer": "Dev A owns the core domain: data model, transactional stock operations, and the API; Dev B owns integrations, sync jobs, and the admin/reporting UI.\nSplit by vertical slice with a shared contract (API schema) agreed upfront, so both can work in parallel without blocking.",
+      "ask": "How would you split the work between two developers? Two lines, no tickets.",
+      "cached": 4608,
+      "outcome": "Completed",
+      "tokens_in": 5296,
+      "tokens_out": 89
+    },
+    {
+      "answer": "PostgreSQL on managed hosting (containerized app + managed Postgres, single-region to start).",
+      "ask": "Sum up the database and hosting you chose, in one line. No tickets.",
+      "cached": 5248,
+      "outcome": "Completed",
+      "tokens_in": 5545,
+      "tokens_out": 36
+    }
+  ]
+}

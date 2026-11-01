@@ -567,12 +567,19 @@ impl StreamState {
             } else {
                 id
             };
-            parts.push(Part::ToolCall {
-                id,
-                name,
-                args: crate::anthropic::parse_args(&args),
-                signature: None,
-            });
+            // Calls run together into one are taken apart (`split_args`), each with an id of its own.
+            for (n, args) in crate::anthropic::split_args(&args).into_iter().enumerate() {
+                parts.push(Part::ToolCall {
+                    id: if n == 0 {
+                        id.clone()
+                    } else {
+                        format!("{id}-{}", n + 1)
+                    },
+                    name: name.clone(),
+                    args,
+                    signature: None,
+                });
+            }
         }
         let has_calls = parts.iter().any(|p| matches!(p, Part::ToolCall { .. }));
         let stop = match self.finish.take() {

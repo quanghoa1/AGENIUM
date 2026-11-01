@@ -1,0 +1,40 @@
+{
+  "codes_found": "100/100",
+  "codes_from_resumed_history": "96/96",
+  "codes_not_in_logs": 0,
+  "elapsed_s": 92,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "outcomes": [
+    "work Completed",
+    "review Completed"
+  ],
+  "resumed_conversation_chars": 1100552,
+  "resumed_conversation_tokens_est": 275138,
+  "run_cached": 390945,
+  "run_tokens_in": 429255,
+  "run_tokens_out": 1490,
+  "runs": [
+    {
+      "cached": 353567,
+      "model": "iceman-contributor-free",
+      "outcome": "Completed",
+      "steps": 8,
+      "tokens_in": 378926,
+      "tokens_out": 1045
+    },
+    {
+      "cached": 37378,
+      "model": "iceman-contributor-free",
+      "outcome": "Completed",
+      "steps": 5,
+      "tokens_in": 50329,
+      "tokens_out": 445
+    }
+  ],
+  "scenario": "work/tools",
+  "ticket_status": "Closed",
+  "total_tokens": 430745,
+  "total_uncached_in": 38310
+}

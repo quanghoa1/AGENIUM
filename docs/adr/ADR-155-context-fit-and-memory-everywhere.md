@@ -22,7 +22,8 @@ A review of the code found:
   - Moving to a smaller model broke a resumed ticket:
     - the replayed conversation was sent unchecked;
     - in-run compaction could not shrink it (it folded only the run's own messages);
-    - the provider's refusal ended the run `Failed`, and every stall nudge replayed the same conversation.
+    - after the provider's refusal old tool results were cleared, which saved a history of tool results; a history
+      of long writing still did not fit, the run ended `Failed`, and every stall nudge replayed it.
   - A model nothing described was assumed to have 200 000 tokens.
   - The chat history budget (50k) did not follow the model.
   - A CLI session was resumed on another model.
@@ -78,6 +79,29 @@ folding piece by piece.
 7. **A checkpoint with next to no note** (under 40 characters) resumes the conversation instead.
 
 ## Verified
+
+Measured with real models (`quality/eval/examples/context_switch.rs`, raw results in
+`docs/reference/bench-raw/context-switch-2026-11-02`). An agent's ticket history, built on OpenCode Go's free
+`beam-free` (1M), is resumed on `iceman-contributor-free` (262 144). There are 50 log files with 100 error codes, 96
+of them only in the history.
+
+| Case | Before (c119d77) | After |
+|---|---|---|
+| History of long writing (419 414 tokens by the provider's count) | Refused at every run, the ticket stuck (1 of 1) | Done, 100/100 codes, 96/96 from the history (2 of 2); about 466K uncached input, the history read once to fold it |
+| History of tool results | Done 3/3; mean 310K tokens, 60K uncached; 1 run stopped on a loop | Done 3/3; mean 269K tokens (-13 %), 54K uncached (-11 %); no run stopped |
+| Chat, a preference in memory (4 turns, `beam-free`) | Used in the first answer in 1 of 3, in the last in 0 of 3 | Used in the first and the last answer in 4 of 4; about 21K tokens a chat either way |
+
+Found by measuring and fixed before these numbers:
+
+- Keeping four tool results in the preflight cost a third more uncached input than the two the refusal path keeps.
+- The token estimate counts log-like text at two thirds of the provider's count, so after a refusal the fold goes
+  first.
+- The free model ran two `read_file` calls together (`{"path": "a"}{"path": "b"}`). Answered as invalid JSON, it
+  repeated the call until the run stopped on the repeat. Such calls are now taken apart (`anthropic::split_args`,
+  used by the OpenAI-compatible adapter).
+- The chat memory had been a per-turn system block, which made the history a cache miss at every turn.
+
+Unit tests:
 
 - Unit tests:
   - a conversation of about 60 000 tokens resumed on a 20 000-token window is folded in at least 3 pieces;

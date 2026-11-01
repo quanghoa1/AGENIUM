@@ -1,0 +1,81 @@
+{
+  "first_answer_uses_preference": true,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "last_answer_uses_preference": true,
+  "run_cached": 9792,
+  "run_tokens_in": 20582,
+  "run_tokens_out": 378,
+  "runs": [
+    {
+      "cached": 0,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5488,
+      "tokens_out": 27
+    },
+    {
+      "cached": 4992,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5262,
+      "tokens_out": 155
+    },
+    {
+      "cached": 4800,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5020,
+      "tokens_out": 81
+    },
+    {
+      "cached": 0,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 4812,
+      "tokens_out": 115
+    }
+  ],
+  "scenario": "chat",
+  "total_tokens": 20960,
+  "total_uncached_in": 10790,
+  "turns": [
+    {
+      "answer": "PostgreSQL 17 for the database.\nFly.io for hosting.\nThese match your standing standard for every new service.",
+      "ask": "We are starting a new inventory service. Which database and which hosting would you pick for it? Answer in three lines, no tickets yet.",
+      "cached": 0,
+      "outcome": "Completed",
+      "tokens_in": 4812,
+      "tokens_out": 115
+    },
+    {
+      "answer": "1. Inventory data goes stale or drifts between systems if sync is not near-real-time.\n2. Concurrency on shared stock can produce oversells without careful locking or reservations.\n3. Scope creep from variants, locations, suppliers and audit history can delay the first usable release.",
+      "ask": "List three risks of building it, one line each. No tickets.",
+      "cached": 4800,
+      "outcome": "Completed",
+      "tokens_in": 5020,
+      "tokens_out": 81
+    },
+    {
+      "answer": "Developer A owns the data model and inventory correctness: stock levels, reservations, concurrency, and PostgreSQL migrations.\nDeveloper B owns the API surface, validation, auth, and Fly.io deployment/observability.",
+      "ask": "How would you split the work between two developers? Two lines, no tickets.",
+      "cached": 4992,
+      "outcome": "Completed",
+      "tokens_in": 5262,
+      "tokens_out": 155
+    },
+    {
+      "answer": "PostgreSQL 17 on Fly.io.",
+      "ask": "Sum up the database and hosting you chose, in one line. No tickets.",
+      "cached": 0,
+      "outcome": "Completed",
+      "tokens_in": 5488,
+      "tokens_out": 27
+    }
+  ]
+}

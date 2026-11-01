@@ -1,0 +1,81 @@
+{
+  "first_answer_uses_preference": true,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "last_answer_uses_preference": true,
+  "run_cached": 19648,
+  "run_tokens_in": 20719,
+  "run_tokens_out": 433,
+  "runs": [
+    {
+      "cached": 5248,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5549,
+      "tokens_out": 27
+    },
+    {
+      "cached": 4992,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5311,
+      "tokens_out": 143
+    },
+    {
+      "cached": 4800,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5045,
+      "tokens_out": 119
+    },
+    {
+      "cached": 4608,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 4814,
+      "tokens_out": 144
+    }
+  ],
+  "scenario": "chat",
+  "total_tokens": 21152,
+  "total_uncached_in": 1071,
+  "turns": [
+    {
+      "answer": "PostgreSQL 17 — it's your standing standard for every new service.\nFly.io — it's your standing standard for every new service.\nNo tickets yet; say the word and I'll draft the spec and plan.",
+      "ask": "We are starting a new inventory service. Which database and which hosting would you pick for it? Answer in three lines, no tickets yet.",
+      "cached": 4608,
+      "outcome": "Completed",
+      "tokens_in": 4814,
+      "tokens_out": 144
+    },
+    {
+      "answer": "1. Inventory counts drift between systems (warehouses, POS, e-commerce) if sync fails, leading to overselling or phantom stock.\n2. Concurrency races on stock decrements can oversell the last unit under load without pessimistic locking or optimistic versioning.\n3. Multi-location/lot/expiry tracking multiplies schema complexity and makes naive single-table designs collapse as variants grow.",
+      "ask": "List three risks of building it, one line each. No tickets.",
+      "cached": 4800,
+      "outcome": "Completed",
+      "tokens_in": 5045,
+      "tokens_out": 119
+    },
+    {
+      "answer": "1. Developer A owns the data core: schema, stock movements, concurrency control, and transactional correctness.\n2. Developer B owns the API surface, multi-location sync, and external integrations (POS, e-commerce), consuming A's core.",
+      "ask": "How would you split the work between two developers? Two lines, no tickets.",
+      "cached": 4992,
+      "outcome": "Completed",
+      "tokens_in": 5311,
+      "tokens_out": 143
+    },
+    {
+      "answer": "PostgreSQL 17 on Fly.io.",
+      "ask": "Sum up the database and hosting you chose, in one line. No tickets.",
+      "cached": 5248,
+      "outcome": "Completed",
+      "tokens_in": 5549,
+      "tokens_out": 27
+    }
+  ]
+}

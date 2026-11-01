@@ -1,0 +1,81 @@
+{
+  "first_answer_uses_preference": true,
+  "helper_calls": [],
+  "helper_tokens_in": 0,
+  "helper_tokens_out": 0,
+  "last_answer_uses_preference": true,
+  "run_cached": 15040,
+  "run_tokens_in": 20623,
+  "run_tokens_out": 754,
+  "runs": [
+    {
+      "cached": 5248,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5506,
+      "tokens_out": 27
+    },
+    {
+      "cached": 4992,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5273,
+      "tokens_out": 143
+    },
+    {
+      "cached": 4800,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 5028,
+      "tokens_out": 125
+    },
+    {
+      "cached": 0,
+      "model": "beam-free",
+      "outcome": "Completed",
+      "steps": 1,
+      "tokens_in": 4816,
+      "tokens_out": 459
+    }
+  ],
+  "scenario": "chat",
+  "total_tokens": 21377,
+  "total_uncached_in": 5583,
+  "turns": [
+    {
+      "answer": "Database: PostgreSQL 17.\nHosting: Fly.io.\nReason: both match your stated standard for every new service.",
+      "ask": "We are starting a new inventory service. Which database and which hosting would you pick for it? Answer in three lines, no tickets yet.",
+      "cached": 0,
+      "outcome": "Completed",
+      "tokens_in": 4816,
+      "tokens_out": 459
+    },
+    {
+      "answer": "- Overselling from race conditions between concurrent orders and stock updates without transactional reservation.\n- Stale or inaccurate stock counts from delayed syncs across warehouses, stores, and channels.\n- Scope creep into procurement, fulfillment, and accounting that bloats the service beyond inventory.",
+      "ask": "List three risks of building it, one line each. No tickets.",
+      "cached": 4800,
+      "outcome": "Completed",
+      "tokens_in": 5028,
+      "tokens_out": 125
+    },
+    {
+      "answer": "Developer A: data model, PostgreSQL schema, migrations, and the transactional inventory core with stock invariants.\nDeveloper B: HTTP API, Fly.io deployment, observability, integration tests, and client-facing docs.",
+      "ask": "How would you split the work between two developers? Two lines, no tickets.",
+      "cached": 4992,
+      "outcome": "Completed",
+      "tokens_in": 5273,
+      "tokens_out": 143
+    },
+    {
+      "answer": "PostgreSQL 17 on Fly.io.",
+      "ask": "Sum up the database and hosting you chose, in one line. No tickets.",
+      "cached": 5248,
+      "outcome": "Completed",
+      "tokens_in": 5506,
+      "tokens_out": 27
+    }
+  ]
+}

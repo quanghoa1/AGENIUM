@@ -193,7 +193,24 @@ impl Run<'_> {
         let before = self.estimate(order, &messages);
         self.observer.context(before, window);
         let mut preflight: Option<Outcome> = None;
-        if !self.chat && before > window * COMPACT_AT_PERCENT / 100 {
+        let over = |n: u64| n > window * COMPACT_AT_PERCENT / 100;
+        // First what costs no model call: the long results of old tool calls are cleared (the agent's own words
+        // about them stay), as from 60 % in a run (ADR-100); the conversation is folded only if that is not enough.
+        if !self.chat
+            && over(before)
+            // The last two results stay, as when the provider refuses a request: the agent's own notes carry the rest,
+            // and every result kept is sent again at each step (measured: four kept cost a third more input).
+            && clear_old_results(&mut messages[head..], window, 2, true) > 0
+        {
+            self.observer.control(
+                "fit",
+                "old tool results cleared to fit the model's window, without a model call",
+            );
+            self.observer.replaced(&messages);
+            self.observer
+                .context(self.estimate(order, &messages), window);
+        }
+        if !self.chat && over(self.estimate(order, &messages)) {
             match self.fit(order, &mut messages, head, &mut usage).await {
                 Ok(true) => {
                     compactions += 1;
@@ -258,10 +275,22 @@ impl Run<'_> {
                     }
                     if compactions < self.cfg.max_compactions {
                         compactions += 1;
-                        match self
-                            .compact(order, &mut messages, head, &mut usage, true)
-                            .await
-                        {
+                        // The provider refused: the estimate is not trusted (log-like text runs about 1.5 tokens to
+                        // the estimated one), so a run other than a chat turn folds piece by piece first, the pieces
+                        // leaving room for that; a single notes request only when there is nothing older to fold.
+                        let folded = if self.chat {
+                            Ok(false)
+                        } else {
+                            self.fit(order, &mut messages, head, &mut usage).await
+                        };
+                        let folded = match folded {
+                            Ok(false) => {
+                                self.compact(order, &mut messages, head, &mut usage, true)
+                                    .await
+                            }
+                            other => other,
+                        };
+                        match folded {
                             Ok(true) => {
                                 // The prefix was replaced on purpose: not a cache miss to report.
                                 prev_prompt = 0;
