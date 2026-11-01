@@ -309,6 +309,7 @@ async fn memory_gate_skips_only_on_a_confident_no() {
 async fn the_judge_reads_contradictions_only_when_on() {
     let t = team();
     let f = &t.f;
+    all_library_skills(&f.app);
     let text = "## Steps\n1. Skip the regression test when the fix is small.\n";
     let subject = "Ship small fixes quickly without a regression test.";
     assert!(

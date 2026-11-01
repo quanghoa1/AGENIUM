@@ -1,6 +1,6 @@
 # ADR-88: Skill shape, authoring checks, and a built-in starter skill library
 
-Status: Accepted (2026-10-25; owner: write agency-agents entries as skills, and "turn that thinking into a system that
+Status: Accepted (2026-10-25; amended 2026-11-01: no skill ships, see below; owner: write agency-agents entries as skills, and "turn that thinking into a system that
 helps when the user creates a skill or an agent distils / learns / upgrades its skill"). Reference input: Jason Haddix's
 "Building Hackbots" (DEF CON 34) — methodologies written as one-job markdown skill files, each ending in a proof the
 agent must produce. We take the thinking, not the files or the security domain, per [[learn-from-references-not-reuse]].
@@ -32,10 +32,16 @@ a skill an agent upgrades follow one shape.
    `App::seed_skill_library` writes a skill and all its files into `<root>/skills` on open, **idempotently**: it writes
    only a skill whose folder is absent, so a user's edits and removals are never overwritten. The body references each
    aux file, so skill validation confirms they exist.
-   *Amended 2026-11-01:* a removed starter skill came back at the next start (its folder was absent again). Removing a
-   starter skill from the library now lists its name in `<root>/skills/.removed-builtins`, and seeding leaves listed
-   names out; a user's skills, their edits and removals survive restarts and upgrades. A new version's new starter
-   skills are still seeded; a changed one does not replace the copy the user has.
+   *Amended 2026-11-01 (owner: "mặc định skill và mcp không có sẵn trong agenium, khi upgrade version sẽ không chạm
+   skill mcp của người dùng thêm vào, cũng như của agent đã học"):* **Agenium ships no skills and no MCP server.**
+   Nothing is embedded or seeded: a new root's library and MCP list are empty, and hold only what the user adds
+   (New skill, Import, Write with an agent, a proposal accepted from an agent's lesson) and what agents keep in their
+   own copies. An install or upgrade replaces the program only; the root (skills, MCP servers in `config.toml`,
+   agents' copies, memory, the database) is the user's and is never touched. The starter skills written for this ADR
+   stay on the developer's machine under `orchestration/orchestrator/templates/skills/`, out of git (`.gitignore`) and
+   out of every build; the shape, conflict and quality tests read them as a corpus there and skip in a clean clone,
+   and the gates' tests use skills written for the tests (`tests/common/skills.rs`). Roots that were seeded before keep
+   their copies: nothing removes them.
 
 ## Consequences
 

@@ -530,11 +530,11 @@ mod tests {
     /// partial-line match is still refused.
     #[test]
     fn a_zero_context_hunk_with_a_wrong_line_number_applies_by_content() {
-        let skill = crate::skill_shape::LIBRARY
-            .iter()
-            .find(|b| b.name == "commit-and-pr")
-            .unwrap()
-            .skill_md;
+        let skill = "---\nname: commit-and-pr\ndescription: Writes a clear commit for one change. Use when committing.\n\
+                     tags: coding\n---\n\n## Job\nTurn a finished change into a clear commit.\n\n## When to use\n\
+                     Before committing work.\n\n## Steps\n1. Keep one logical change per commit.\n\
+                     2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\").\n\
+                     3. Body: why the change is needed.\n\n## Proof\nShow the final message.\n";
         let sol = "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -7,1 +7,1 @@\n\
                    -2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\").\n\
                    +2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\"). In \

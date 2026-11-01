@@ -36,6 +36,7 @@ async fn a_designed_team_becomes_a_template_and_a_team_with_its_library_skills()
         .to_string(),
     );
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    all_library_skills(&app);
     let d = rt
         .design_team(
             BackendKind::Api,
@@ -362,6 +363,7 @@ async fn the_skill_writer_is_shown_close_skills_and_merges_on_request() {
     p.push_text(&review(""));
     p.push_text(&review("code-review"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    all_library_skills(&app);
     let ask = user("Write a skill: review a change for correctness, safety and clarity before it is approved, and report issues with evidence.");
     let w = rt
         .write_skill(BackendKind::Api, &model(), &ask, &[], None, None, None)

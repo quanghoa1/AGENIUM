@@ -278,9 +278,16 @@ const clis = await until(`/claude/i.test(${M}?.innerText ?? '') && /codex/i.test
 await shot("22-providers");
 check("providers show the configured provider at once and the detected CLIs after", provAtOnce && clis && noNewErrors(e0), errs(e0));
 e0 = errors.length;
+// Agenium ships no skills (ADR-88 amended): the library starts empty and says how to add one; a skill is then
+// saved the way the editor saves it, to open in the editor below.
+await go("library");
+const emptyLibrary = /library is empty|Thư viện đang trống/i.test((await main()) ?? "");
+const skillText = ["---", "name: release-notes", "description: Writes release notes from merged work. Use when a version ships.", "---", "", "## Job", "Write the release notes.", ""].join("\n");
+const saved = await js(`window.__TAURI_INTERNALS__.invoke("save_skill", ${JSON.stringify({ name: "release-notes", content: skillText, create: true, files: [], removed: [] })}).then(() => true, () => false)`);
+await go("overview");
 await go("library");
 await shot("23-library");
-check("the skill library lists the built-in skills", ((await main()) ?? "").length > 200);
+check("the skill library starts empty, then lists a skill the user adds", emptyLibrary && saved && /release-notes/.test((await main()) ?? ""));
 const skillOpened = await js(`(() => {
   const b = [...document.querySelectorAll('main button')].find((b) => /^(edit|open|view)/i.test(b.getAttribute('aria-label') ?? b.textContent.trim()));
   if (!b) return false; b.click(); return true; })()`);

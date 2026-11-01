@@ -361,36 +361,43 @@ impl crate::app::App {
 mod tests {
     use super::*;
 
-    /// The library's guidance: each body plus its reference documents.
+    /// Library skills written for these tests (Agenium ships none): name, description, body.
+    const LIBRARY: &[(&str, &str, &str)] = &[
+        (
+            "writing-tests",
+            "Designs tests that catch real regressions in changed behaviour. Use when a ticket adds behaviour that needs tests.",
+            "## Job\nAdd tests that would catch a real regression in the behaviour under change.\n\n## Steps\n1. Test what the code does, not how it does it.\n",
+        ),
+        (
+            "root-cause-debugging",
+            "Fixes the cause of a bug, not its symptom. Use when a test fails or behaviour is wrong.",
+            "## Job\nFix the cause of a bug, not its symptom.\n\n## Steps\n1. Reproduce first.\n2. Fix the cause. Avoid sleeps, broad try/except, or disabling the test: those hide the bug.\n",
+        ),
+        (
+            "secure-coding",
+            "Keeps secrets and untrusted input safe in the code it writes. Use when code handles credentials or input.",
+            "## Job\nKeep secrets out of code and logs.\n\n## Steps\n- Do not log full tokens, passwords, or connection strings.\n",
+        ),
+        (
+            "a11y-audit",
+            "Checks a page for accessibility. Use when a ticket changes what users see.",
+            "## Job\nFind what keeps people from using a page.\n\n## Proof\nList each check as pass or fail. Do not mark a check passed you did not actually test.\n",
+        ),
+    ];
+
+    /// The library's guidance: each body.
     fn library() -> Vec<(String, String)> {
-        crate::skill_shape::LIBRARY
+        LIBRARY
             .iter()
-            .map(|b| {
-                let mut text = crate::skill_shape::strip_frontmatter(b.skill_md);
-                for (path, content) in b.files {
-                    if path.starts_with("references/") {
-                        text.push('\n');
-                        text.push_str(content);
-                    }
-                }
-                (b.name.to_owned(), text)
-            })
+            .map(|(n, _, b)| (n.to_string(), b.to_string()))
             .collect()
     }
 
     #[test]
     fn a_paraphrased_subject_is_the_same_subject_by_words() {
-        let lib: Vec<(String, String)> = crate::skill_shape::LIBRARY
+        let lib: Vec<(String, String)> = LIBRARY
             .iter()
-            .map(|b| {
-                let body = crate::skill_shape::strip_frontmatter(b.skill_md);
-                let desc = b
-                    .skill_md
-                    .lines()
-                    .find_map(|l| l.strip_prefix("description: "))
-                    .unwrap_or("");
-                (b.name.to_owned(), subject(desc, &body))
-            })
+            .map(|(n, d, b)| (n.to_string(), subject(d, b)))
             .collect();
         let same = subject(
             "Write tests that would catch real regressions in the code under change.",
@@ -409,12 +416,28 @@ mod tests {
         assert!(same_subject(&diff, &lib, None).is_none());
     }
 
+    /// Agenium's own skills, where a developer keeps them (each body with its reference documents), and the skills
+    /// above: none contradicts another.
     #[test]
-    fn the_built_in_library_does_not_contradict_itself() {
-        let lib = library();
-        for (name, body) in &lib {
-            let c = directive_conflicts(name, body, &lib);
-            assert!(c.is_empty(), "{name}: {c:?}");
+    fn a_library_does_not_contradict_itself() {
+        let own: Vec<(String, String)> = crate::skill_shape::own_skills()
+            .into_iter()
+            .map(|b| {
+                let mut text = crate::skill_shape::strip_frontmatter(&b.skill_md);
+                for (path, content) in &b.files {
+                    if path.starts_with("references/") {
+                        text.push('\n');
+                        text.push_str(content);
+                    }
+                }
+                (b.name, text)
+            })
+            .collect();
+        for lib in [library(), own] {
+            for (name, body) in &lib {
+                let c = directive_conflicts(name, body, &lib);
+                assert!(c.is_empty(), "{name}: {c:?}");
+            }
         }
     }
 

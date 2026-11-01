@@ -1,4 +1,5 @@
-//! The shape of a SKILL.md and the built-in starter library (ADR-88). Mirrors the role shape (ADR-64) for skills, so
+//! The shape of a SKILL.md (ADR-88). Agenium ships no skills: the library starts empty and holds what the user and the
+//! agents add (ADR-88 amended). Mirrors the role shape (ADR-64) for skills, so
 //! a skill the user writes and a skill an agent distils or upgrades follow the same contract. It embodies the
 //! methodology-as-skill thinking: one job, when to use it, the steps, the tools and how to read their output, and —
 //! the "hard stop" — the proof the agent must produce before it may claim the work is done. The checks are advice
@@ -135,72 +136,7 @@ pub fn lint_description(name: &str, description: &str) -> Vec<String> {
     out
 }
 
-/// A built-in starter skill shipped with Agenium and seeded into `<root>/skills` (ADR-88). The content lives as real
-/// files under `templates/skills/<name>/` (SKILL.md plus any `references/` and `scripts/`), embedded at build time.
-pub struct Builtin {
-    pub name: &'static str,
-    /// The full SKILL.md (frontmatter + body).
-    pub skill_md: &'static str,
-    /// Extra files (relative path -> content): `references/*.md`, `scripts/*`.
-    pub files: &'static [(&'static str, &'static str)],
-}
-
-impl Builtin {
-    pub fn skill_md(&self) -> String {
-        self.skill_md.to_owned()
-    }
-}
-
-/// `include_str!` a skill's SKILL.md and list its extra files, from `templates/skills/<name>/`.
-macro_rules! skill {
-    ($name:literal $(, $file:literal)* $(,)?) => {
-        Builtin {
-            name: $name,
-            skill_md: include_str!(concat!("../templates/skills/", $name, "/SKILL.md")),
-            files: &[ $( ($file, include_str!(concat!("../templates/skills/", $name, "/", $file))) ),* ],
-        }
-    };
-}
-
-/// The starter skill library: engineering methodologies written as one-job skills (our own words, learned from the
-/// agency-agents catalogue's logic, not its files). Each ends with a Proof section — the evidence the agent must
-/// produce before claiming the work is done.
-pub const LIBRARY: &[Builtin] = &[
-    skill!("code-review", "references/checklist.md"),
-    skill!("root-cause-debugging"),
-    skill!("perf-audit"),
-    skill!("a11y-audit", "references/checklist.md"),
-    skill!("api-contract-testing"),
-    skill!("doc-writing"),
-    skill!("writing-tests", "references/patterns.md"),
-    skill!("refactoring", "references/catalog.md"),
-    skill!("commit-and-pr", "scripts/check_commit.py"),
-    skill!("migration-safety", "references/checklist.md"),
-    skill!("secure-coding", "references/checklist.md"),
-    skill!(
-        "release-readiness",
-        "references/checklist.md",
-        "scripts/preflight.py"
-    ),
-    skill!(
-        "app-ui-testing",
-        "references/ui-review.md",
-        "scripts/ui.mjs"
-    ),
-    skill!("bug-report", "references/gotchas.md"),
-    skill!("reverse-engineering", "references/targets.md"),
-    skill!(
-        "binary-exploitation",
-        "references/classes.md",
-        "references/mitigations.md"
-    ),
-    skill!("firmware-analysis"),
-    skill!("web-pentest", "references/classes.md"),
-    skill!("recon-enumeration"),
-];
-
 use crate::app::App;
-use crate::Result;
 
 /// The body of a SKILL.md (everything after the frontmatter block), for linting and near-duplicate checks.
 pub fn strip_frontmatter(text: &str) -> String {
@@ -281,68 +217,52 @@ impl App {
             })
             .collect()
     }
-
-    /// Seeds the built-in starter skill library into `<root>/skills` (ADR-88), at every start (a new version's new
-    /// starter skills arrive so). Writes only a skill whose folder is absent and that the user has not removed, so a
-    /// user's edits and removals survive restarts and upgrades. Returns how many were written.
-    pub fn seed_skill_library(&self) -> Result<usize> {
-        let dir = self
-            .skill_registry()
-            .dir_of(&agenium_skills::Owner::Library);
-        std::fs::create_dir_all(&dir)?;
-        let removed = removed_builtins(&dir);
-        let mut n = 0;
-        for s in LIBRARY {
-            let folder = dir.join(s.name);
-            if folder.join(agenium_skills::SKILL_FILE).exists()
-                || folder.exists()
-                || removed.iter().any(|r| r == s.name)
-            {
-                continue;
-            }
-            std::fs::create_dir_all(&folder)?;
-            std::fs::write(folder.join(agenium_skills::SKILL_FILE), s.skill_md)?;
-            for (rel, content) in s.files {
-                let p = folder.join(rel);
-                if let Some(parent) = p.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                std::fs::write(&p, content)?;
-            }
-            n += 1;
-        }
-        Ok(n)
-    }
-
-    /// Remembers that the user removed `name` from the library when it is a starter skill, so seeding leaves it out.
-    pub(crate) fn note_builtin_removed(&self, name: &str) -> Result<()> {
-        if !LIBRARY.iter().any(|b| b.name == name) {
-            return Ok(());
-        }
-        let dir = self
-            .skill_registry()
-            .dir_of(&agenium_skills::Owner::Library);
-        let mut names = removed_builtins(&dir);
-        if !names.iter().any(|n| n == name) {
-            names.push(name.to_owned());
-            std::fs::write(dir.join(REMOVED_BUILTINS), names.join("\n") + "\n")?;
-        }
-        Ok(())
-    }
 }
 
-/// The file in the library folder listing the starter skills the user removed (one name a line; the library's scan
-/// skips dot files).
-const REMOVED_BUILTINS: &str = ".removed-builtins";
+/// One of Agenium's own skills read from a developer's `templates/skills` folder: a corpus for this crate's tests.
+#[cfg(test)]
+pub(crate) struct OwnSkill {
+    pub name: String,
+    pub skill_md: String,
+    /// `references/*` and `scripts/*`: relative path and content.
+    pub files: Vec<(String, String)>,
+}
 
-fn removed_builtins(library: &std::path::Path) -> Vec<String> {
-    std::fs::read_to_string(library.join(REMOVED_BUILTINS))
-        .unwrap_or_default()
-        .lines()
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .map(str::to_owned)
-        .collect()
+/// Agenium's own skills (ADR-88 amended): kept on a developer's machine, out of git and out of every build; empty in
+/// a clean clone, where the tests that read them skip.
+#[cfg(test)]
+pub(crate) fn own_skills() -> Vec<OwnSkill> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/skills");
+    let Ok(rd) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<OwnSkill> = rd
+        .flatten()
+        .filter_map(|e| {
+            let folder = e.path();
+            let skill_md = std::fs::read_to_string(folder.join(agenium_skills::SKILL_FILE)).ok()?;
+            let mut files = Vec::new();
+            for sub in ["references", "scripts"] {
+                for f in std::fs::read_dir(folder.join(sub))
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                {
+                    if let Ok(text) = std::fs::read_to_string(f.path()) {
+                        files.push((format!("{sub}/{}", f.file_name().to_string_lossy()), text));
+                    }
+                }
+            }
+            files.sort();
+            Some(OwnSkill {
+                name: e.file_name().to_string_lossy().into_owned(),
+                skill_md,
+                files,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
 }
 
 #[cfg(test)]
@@ -384,24 +304,25 @@ mod tests {
         assert_eq!(notes.len(), 3, "{notes:?}");
     }
 
+    /// Agenium's own skills, where a developer keeps them (`templates/skills`, out of git and the build; ADR-88
+    /// amended): each passes the shape checks against the others. Skipped in a clean clone.
     #[test]
-    fn a_built_in_skill_passes_its_own_checks() {
-        // Each skill against every other: no missing section, not too long, and not a near-duplicate of another.
-        let bodies: Vec<(String, String)> = LIBRARY
+    fn agenium_own_skills_pass_their_own_checks() {
+        let own = own_skills();
+        if own.is_empty() {
+            eprintln!("no templates/skills here: skipped");
+            return;
+        }
+        let bodies: Vec<(String, String)> = own
             .iter()
-            .map(|b| (b.name.to_owned(), strip_frontmatter(&b.skill_md())))
+            .map(|b| (b.name.clone(), strip_frontmatter(&b.skill_md)))
             .collect();
-        let mut names = std::collections::HashSet::new();
-        for b in LIBRARY {
-            assert!(names.insert(b.name), "duplicate skill name {}", b.name);
-            let notes = lint_skill(b.name, strip_frontmatter(&b.skill_md()).as_str(), &bodies);
+        for b in &own {
+            let notes = lint_skill(&b.name, strip_frontmatter(&b.skill_md).as_str(), &bodies);
             assert!(notes.is_empty(), "{}: {notes:?}", b.name);
-            let (fm, _) = agenium_skills::parse(&b.skill_md()).unwrap();
-            let notes = lint_description(b.name, fm.get("description").unwrap_or(""));
+            let (fm, _) = agenium_skills::parse(&b.skill_md).unwrap();
+            let notes = lint_description(&b.name, fm.get("description").unwrap_or(""));
             assert!(notes.is_empty(), "{}: {notes:?}", b.name);
-            assert!(b.skill_md().starts_with("---\nname: "));
-            // Every built-in carries at least one domain tag (ADR-123) so an agent's fields are visible.
-            let (fm, _) = agenium_skills::parse(&b.skill_md()).unwrap();
             assert!(
                 !agenium_skills::parse_tags(fm.get("tags").unwrap_or("")).is_empty(),
                 "{} has no tags",

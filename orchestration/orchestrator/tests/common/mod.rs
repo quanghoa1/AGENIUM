@@ -10,6 +10,10 @@ use agenium_orchestrator::*;
 use agenium_secrets::MemoryKeyring;
 use agenium_store::core::{agents, projects};
 
+mod skills;
+#[allow(unused_imports)]
+pub use skills::*;
+
 /// Fields drop in declaration order: the temp dir must come last, after the app has closed its databases. Windows
 /// cannot delete an open file, `TempDir` ignores the failure, and the whole tree stayed behind (5 500 dirs, 8.8 GB on
 /// C: in three days, 2026-10-25).

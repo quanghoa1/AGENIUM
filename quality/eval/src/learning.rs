@@ -48,6 +48,32 @@ const LESSONS: [(&str, &str, &str); 3] = [
     ),
 ];
 
+/// The library skill the `covered` lesson belongs to, written for this scenario.
+const COMMIT_SKILL: &str = "---
+name: commit-and-pr
+description: Writes a clear commit and pull request for one logical change. Use when committing work or opening a pull request.
+tags: coding
+---
+
+## Job
+Turn a finished change into a clear commit (and PR description) a reviewer can follow.
+
+## When to use
+Before committing work or opening a pull request.
+
+## Steps
+1. Keep one logical change per commit; split unrelated changes.
+2. Subject: imperative mood, <= 72 characters, says what the change does (not \"fixed stuff\").
+3. Body: why the change is needed and anything non-obvious.
+4. PR: what and why, how you verified it, and any risk or follow-up.
+
+## Tools
+`shell` to run `git diff --staged`; `read_file` for the diff.
+
+## Proof
+Show the final message. Match the repo's existing commit style.
+";
+
 const SKILL_TOOLS: [&str; 2] = ["propose_new_skill", "propose_skill_update"];
 
 pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
@@ -128,7 +154,8 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
             },
         )?;
     }
-    // The skill the `covered` lesson belongs to.
+    // The skill the `covered` lesson belongs to, in the library (Agenium ships none; ADR-88 amended).
+    app.save_library_skill("commit-and-pr", COMMIT_SKILL, true, &[], &[])?;
     app.toggle_agent_skill(agent.id, "commit-and-pr", true)?;
     // The system's copy of it: an update must be the agent's own copy (overlay), never this file.
     let system_skill = app

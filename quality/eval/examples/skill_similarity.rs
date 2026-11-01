@@ -12,18 +12,33 @@ use agenium_orchestrator::skill_conflict::{
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let lib: Vec<(String, String)> = agenium_orchestrator::skill_shape::LIBRARY
-        .iter()
-        .map(|b| {
-            let desc = b
-                .skill_md
+    // Agenium's own skills, kept on a developer's machine out of git and the build (ADR-88 amended).
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../orchestration/orchestrator/templates/skills");
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        eprintln!(
+            "no skill corpus at {}: this calibration reads Agenium's own skills there",
+            dir.display()
+        );
+        std::process::exit(2);
+    };
+    let mut lib: Vec<(String, String)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let md = std::fs::read_to_string(e.path().join("SKILL.md")).ok()?;
+            let desc = md
                 .lines()
                 .find_map(|l| l.strip_prefix("description: "))
-                .unwrap_or("");
-            let body = b.skill_md.split("\n---\n").nth(1).unwrap_or("");
-            (b.name.to_owned(), subject(desc, body))
+                .unwrap_or("")
+                .to_owned();
+            let body = md.split("\n---\n").nth(1).unwrap_or("").to_owned();
+            Some((
+                e.file_name().to_string_lossy().into_owned(),
+                subject(&desc, &body),
+            ))
         })
         .collect();
+    lib.sort();
     let job = |j: &str| format!("## Job\n{j}\n");
     let cands: &[(&str, &str, &str, &str)] = &[
         (

@@ -528,6 +528,7 @@ async fn a_proven_lesson_is_reflected_on_once_through_the_gates() {
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
     let (project, agent) = solo_with_tickets(&app, &["PI-1", "PI-2"]);
+    library_skills(&app, &["commit-and-pr"]);
     app.toggle_agent_skill(agent, "commit-and-pr", true)
         .unwrap();
     let e = app.embedder();

@@ -288,7 +288,7 @@ export const organize: Record<keyof typeof en, string> = {
   "library.saving": "Đang lưu…",
   "library.saved": "Đã lưu",
   "library.evalHint": "Chạy kiểm tra, không lưu",
-  "library.noSkills": "Thư viện đang trống.",
+  "library.noSkills": "Thư viện đang trống: Agenium không cài sẵn skill nào. Thêm bằng Skill mới, Nhập hoặc Viết bằng agent; skill do agent đề xuất từ những gì chúng học được sẽ vào đây khi bạn chấp nhận.",
   "library.invalid": "Thư mục không phải skill hợp lệ",
   "library.inUse": "Vẫn đang được bật bởi",
   "library.deleteNote": "Thư mục skill sẽ bị xóa.",

@@ -286,7 +286,7 @@ export const organize = {
   "library.saving": "Saving…",
   "library.saved": "Saved",
   "library.evalHint": "Run the checks without saving",
-  "library.noSkills": "The library is empty.",
+  "library.noSkills": "The library is empty: Agenium ships no skills. Add one with New skill, Import or Write with an agent; the skills your agents propose from what they learn come here once you accept them.",
   "library.invalid": "Folders that are not valid skills",
   "library.inUse": "Still enabled by",
   "library.deleteNote": "The skill folder is deleted.",

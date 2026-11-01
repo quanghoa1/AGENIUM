@@ -475,15 +475,15 @@ mod tests {
         );
     }
 
-    /// No false alarm on Agenium's own library: every starter skill passes the shape criteria.
+    /// No false alarm on Agenium's own skills (where a developer keeps them; ADR-88 amended): each passes the shape
+    /// criteria. Skipped in a clean clone.
     #[test]
-    fn the_starter_library_scores_well() {
+    fn agenium_own_skills_score_well() {
         let mut bad = Vec::new();
-        for b in crate::skill_shape::LIBRARY {
-            let text = b.skill_md();
-            let (fm, body) = agenium_skills::parse(&text).unwrap();
+        for b in crate::skill_shape::own_skills() {
+            let (fm, body) = agenium_skills::parse(&b.skill_md).unwrap();
             let s = scorecard(
-                b.name,
+                &b.name,
                 fm.get("description").unwrap_or(""),
                 &body,
                 &ctx(Origin::Builtin),

@@ -11,3 +11,6 @@
 /apps/desktop/resources
 # Real MCP servers' tool definitions, fetched from pinned commits by agent/mcp/data/make_real_tools.py (not ours to keep).
 /agent/mcp/data/real-tools.json
+# Agenium's own skills: kept on a developer's machine, never in git or a build. A new root's library starts empty
+# (ADR-88 amended); tests that read them as a corpus skip where they are absent.
+/orchestration/orchestrator/templates/skills/

@@ -1,83 +1,51 @@
-//! Skills: the starter library, quality, creation through every gate, flags, contradictions.
+//! Skills: an empty library to start, quality, creation through every gate, flags, contradictions.
 
 use super::*;
 
-/// ADR-88: opening a root seeds the built-in starter skill library, and every seeded skill is valid and passes its
-/// own shape checks.
+/// ADR-88 amended: Agenium ships no skills and no MCP server. A new root's library and MCP list are empty; what the
+/// user adds stays when the root is opened again (a restart, or a new version over the old one) and nothing is added.
 #[test]
-fn the_starter_skill_library_is_seeded_and_valid() {
-    let f = fixture();
-    let lib = f.app.skill_registry().library();
-    assert!(
-        lib.problems.is_empty(),
-        "seeded skills are valid: {:?}",
-        lib.problems
-    );
-    let names: Vec<_> = lib.skills.iter().map(|s| s.meta.name.clone()).collect();
-    for want in [
-        "code-review",
-        "root-cause-debugging",
-        "perf-audit",
-        "doc-writing",
-        "app-ui-testing",
-    ] {
-        assert!(
-            names.contains(&want.to_string()),
-            "seeded {want}: have {names:?}"
-        );
+fn a_new_root_has_no_skills_or_mcp_and_keeps_what_the_user_adds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("root");
+    let keyring = std::sync::Arc::new(agenium_secrets::MemoryKeyring::default());
+    {
+        let app = open_app(&root, keyring.clone(), None);
+        let lib = app.skill_registry().library();
+        assert!(lib.skills.is_empty(), "no skill ships: {:?}", lib.skills);
+        assert!(app.config().mcp.is_empty(), "no MCP server ships");
+        app.save_library_skill(
+            "release-notes",
+            "---\nname: release-notes\ndescription: Writes release notes from merged work. Use when a version ships.\n---\n\n## Job\nWrite the notes.\n",
+            true,
+            &[],
+            &[],
+        )
+        .unwrap();
+        app.put_mcp_server(agenium_config::McpServerConfig {
+            id: "docs".into(),
+            command: Some("docs-mcp".into()),
+            args: vec![],
+            env: Default::default(),
+            url: None,
+            headers: Default::default(),
+            timeout_secs: 10,
+            oauth: None,
+            approval: None,
+        })
+        .unwrap();
     }
-    // The shape check the user sees passes on a seeded skill.
-    let text = std::fs::read_to_string(
-        f.app
-            .skill_registry()
-            .dir_of(&agenium_skills::Owner::Library)
-            .join("code-review")
-            .join("SKILL.md"),
-    )
-    .unwrap();
-    // Body = everything after the frontmatter block.
-    let body = text
-        .trim_start()
-        .strip_prefix("---")
-        .and_then(|r| r.find("\n---").map(|i| r[i + 4..].to_string()))
-        .unwrap_or(text);
-    assert!(
-        f.app.lint_skill("code-review", &body).is_empty(),
-        "a seeded skill passes its own shape checks"
-    );
-    // Seeding again writes nothing (idempotent).
-    assert_eq!(f.app.seed_skill_library().unwrap(), 0);
-    // A starter skill the user removed stays removed when the app starts again (or a new version seeds), and one the
-    // user changed keeps the change.
-    let lib = f
-        .app
+    let app = open_app(&root, keyring, None);
+    let names: Vec<String> = app
         .skill_registry()
-        .dir_of(&agenium_skills::Owner::Library);
-    f.app.remove_library_skill("perf-audit", true).unwrap();
-    std::fs::write(
-        lib.join("code-review").join("SKILL.md"),
-        "---\nname: code-review\ndescription: mine\n---\nMy own review steps.\n",
-    )
-    .unwrap();
-    assert_eq!(f.app.seed_skill_library().unwrap(), 0);
-    assert!(
-        !lib.join("perf-audit").exists(),
-        "a removed starter skill is not seeded again"
-    );
-    assert!(
-        std::fs::read_to_string(lib.join("code-review").join("SKILL.md"))
-            .unwrap()
-            .contains("My own review steps.")
-    );
-    assert!(
-        !f.app
-            .skill_registry()
-            .library()
-            .skills
-            .iter()
-            .any(|s| s.meta.name.starts_with('.')),
-        "the list of removed starter skills is not a skill"
-    );
+        .library()
+        .skills
+        .into_iter()
+        .map(|s| s.meta.name)
+        .collect();
+    assert_eq!(names, ["release-notes"], "the user's skill, and only it");
+    let mcp: Vec<String> = app.config().mcp.into_iter().map(|m| m.id).collect();
+    assert_eq!(mcp, ["docs"]);
 }
 
 /// ADR-90: the judge's skill-quality read is fail-open (off by default returns None) and, when on, turns each Noul
@@ -129,6 +97,7 @@ fn an_agent_creates_a_skill_only_through_every_gate() {
     use agenium_core::forms::ProposeNewSkill;
     let t = team();
     let f = &t.f;
+    all_library_skills(&f.app);
     let e = f.app.embedder();
     let mem = f.app.agent_store(t.web, e.dim(), e.model_id()).unwrap();
     let lesson = |text: &str, untrusted: bool| {
@@ -447,6 +416,7 @@ fn skills_cannot_contradict_each_other() {
     use agenium_core::forms::{ProposeNewSkill, ProposeSkillUpdate};
     let t = team();
     let f = &t.f;
+    all_library_skills(&f.app);
     let e = f.app.embedder();
     let mem = f.app.agent_store(t.web, e.dim(), e.model_id()).unwrap();
     let add_lesson = |text: &str, untrusted: bool| {
@@ -644,6 +614,7 @@ fn a_skill_loaded_in_tickets_that_get_reopened_is_flagged() {
     use agenium_store::core::{runs, tickets};
     let t = team();
     let f = &t.f;
+    all_library_skills(&f.app);
     // 12 closed tickets of the web worker: 6 loaded code-review (4 reopened), 6 did not (1 reopened).
     for i in 0..12u32 {
         let loads = i < 6;
