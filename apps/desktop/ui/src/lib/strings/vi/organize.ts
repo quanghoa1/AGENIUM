@@ -175,7 +175,7 @@ export const organize: Record<keyof typeof en, string> = {
   "templates.preMergeNote": "Lệnh chạy trong worktree của ticket trước khi merge queue fast-forward; thoát khác 0 thì ticket bị mở lại. Chạy trong sandbox.",
   "agents.all": "Tất cả",
   "agents.inTeam": "Trong team",
-  "agents.pool": "pool",
+  "agents.pool": "trong pool",
   "agents.create": "Tạo agent",
   "agents.inPool": "đã tạo trong pool; ghép vào team để làm việc",
   "agents.empty": "Chưa có agent nào.",

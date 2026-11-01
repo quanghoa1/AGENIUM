@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { PageEnter } from "./components/motion";
 import { Shell } from "./components/Shell";
 // The UI and code fonts ship with the app (OFL; Latin, Vietnamese and more subsets, loaded on demand).
@@ -73,8 +74,12 @@ function Router() {
   })();
   return (
     <Shell>
-      <PageEnter id={`${view}/${id ?? ""}`}>{page}</PageEnter>
-      <TicketPopup />
+      <PageEnter id={`${view}/${id ?? ""}`}>
+        <ErrorBoundary resetKey={`${view}/${id ?? ""}`}>{page}</ErrorBoundary>
+      </PageEnter>
+      <ErrorBoundary resetKey={app.ticket ? `${app.ticket.project}/${app.ticket.key}` : ""}>
+        <TicketPopup />
+      </ErrorBoundary>
     </Shell>
   );
 }

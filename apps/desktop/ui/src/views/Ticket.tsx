@@ -10,7 +10,7 @@ import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import { askLead } from "./Chat";
 import type { AgentEntry, CommentRow, TicketDetail } from "../lib/types";
-import { CommentCard, acTone } from "./ticket/CommentCard";
+import { CommentCard, acLabel, acTone } from "./ticket/CommentCard";
 
 type Tab = "timeline" | "changes" | "runs" | "audit";
 
@@ -164,22 +164,22 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
           <TicketStatusBadge status={t.status} />
           {t.reopen_count > 0 && (
             <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300">
-              <RotateCcw className="h-3 w-3" /> REOPENED ×{t.reopen_count}
+              <RotateCcw className="h-3 w-3" /> {app.t("ticket.reopenedChip").replace("{n}", String(t.reopen_count)).toUpperCase()}
             </span>
           )}
           {t.approved && (
             <span className="chip border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300">
-              <Check className="h-3 w-3" /> APPROVED
+              <Check className="h-3 w-3" /> {app.t("ticket.approvedChip").toUpperCase()}
             </span>
           )}
           {t.merged && (
             <span className="chip border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
-              MERGED
+              {app.t("ticket.mergedChip").toUpperCase()}
             </span>
           )}
           {t.escalated && (
             <span className="chip border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-300">
-              <AlertTriangle className="h-3 w-3" /> ESCALATED
+              <AlertTriangle className="h-3 w-3" /> {app.t("ticket.escalatedChip").toUpperCase()}
             </span>
           )}
         </div>
@@ -226,7 +226,7 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
                               {a.id}
                             </Mono>
                             <div className="min-w-0 flex-1 leading-relaxed text-fg">{a.text}</div>
-                            {reported && <span className={cn("chip shrink-0", acTone(reported.status))}>{reported.status}</span>}
+                            {reported && <span className={cn("chip shrink-0", acTone(reported.status))}>{acLabel(reported.status, app.t)}</span>}
                           </div>
                           {t.status === "Resolved" && (
                             <div className="mt-2 pl-[68px]">
@@ -525,7 +525,7 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
                 <DetailRow label={app.t("ticket.state")}>
                   {t.merged ? (
                     <span className="chip border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
-                      MERGED
+                      {app.t("ticket.mergedChip").toUpperCase()}
                     </span>
                   ) : t.approved ? (
                     <span className="chip border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300">

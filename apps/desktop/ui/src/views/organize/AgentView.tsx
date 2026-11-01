@@ -190,7 +190,7 @@ export function AgentView({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <AgentName id={a.id} name={a.name} />
-            {entry && (entry.pool ? <span className="chip border-dashed border-line-strong text-subtle">POOL</span> : <RoleChip solo={entry.solo} lead={entry.is_lead} planner={d.planner} />)}
+            {entry && (entry.pool ? <span className="chip border-dashed border-line-strong text-subtle">{app.t("agents.poolChip").toUpperCase()}</span> : <RoleChip solo={entry.solo} lead={entry.is_lead} planner={d.planner} />)}
             <AgentStatusBadge status={a.status} />
           </div>
           <div className="mt-0.5 text-xs text-subtle">

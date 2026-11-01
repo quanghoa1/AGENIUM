@@ -126,7 +126,7 @@ export const work: Record<keyof typeof en, string> = {
   "tickets.board": "Bảng",
   "tickets.plan": "Plan",
   "tickets.inbox": "Inbox của Lead",
-  "tickets.dropHint": "Kéo thẻ sang Assigned để giao việc, hoặc thẻ Resolved sang Closed để đóng; khi đang kéo, cột Cancelled hiện ra để hủy. Các cột khác do team tự chuyển.",
+  "tickets.dropHint": "Kéo thẻ sang cột Đã giao để giao việc, hoặc thẻ Đã xử lý sang Đã đóng để đóng; khi đang kéo, cột Đã hủy hiện ra để hủy. Các cột khác do team tự chuyển.",
   "tickets.dropNo": "Không thả vào đây được: scheduler hoặc agent mới chuyển ticket sang cột này.",
   "tickets.reopenHint": "Mở lại cần phản hồi theo từng tiêu chí: làm trong trang ticket.",
   "tickets.blockedBy": "Đang chờ các ticket này",

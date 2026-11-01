@@ -134,6 +134,13 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   run (104 had gathered on one drive).
 
 ### Desktop app
+- UI review of 2026-11-01: the status badges (agents, tickets and the board's columns, run outcomes, criteria),
+  the ticket chips (approved, merged, reopened, escalated), the pool and the model tags (free, deprecated, price) are
+  in the interface's language; **Needs you** words each item in it too (the item carries its sentence as a template
+  and its values beside the English; what an agent wrote stays as written), and so does a CLI update's check. A page,
+  dialog or ticket popup that fails to render shows what failed with **Try again** in its place, instead of the whole
+  window going blank. The browser demo answers the Lead's queue and the role list (the chat page and the agent page
+  were blank in it).
 - **Propose a team** (ADR-151, Templates and Teams pages): describe the team you want in a short chat; a model you pick
   (an API provider or a CLI, its model and effort) proposes the roles, how many of each, their library skills, write
   scopes and models, with why. Agenium checks the draft (only skills and models you have; a valid template), and it

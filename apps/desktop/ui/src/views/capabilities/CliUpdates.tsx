@@ -99,9 +99,9 @@ export function CliVersionCell({ version, info, onDone }: { version?: string | n
         </button>
       </div>
       {result && (
-        <div className={cn("text-[11px]", result.check_ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")} title={result.output}>
+        <div className={cn("text-[11px]", result.check_ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")} title={[result.check, result.output].filter(Boolean).join(" | ")}>
           {result.check_ok ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <XCircle className="mr-1 inline h-3 w-3" />}
-          {result.before ?? "?"} → {result.after ?? "?"} · {result.check}
+          {result.before ?? "?"} → {result.after ?? "?"} · {result.check_ok ? app.t("cli.checkOk") : `${app.t("cli.checkBad")}: ${result.check}`}
           {result.rollback && (
             <button className="btn ml-1.5 h-6 px-1.5 text-[11px]" disabled={busy} onClick={() => setAsking(result.rollback!)}>
               <RotateCcw className="h-3 w-3" /> {app.t("cli.rollback").replace("{v}", result.rollback)}

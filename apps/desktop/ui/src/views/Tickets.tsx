@@ -161,10 +161,10 @@ function Board({ project, query }: { project: string; query: string }) {
                           <MessageCircleQuestion className="h-3 w-3" /> {k.open_questions}
                         </span>
                       )}
-                      {k.approved && <span className="chip border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300">APPROVED</span>}
-                      {k.merged && <span className="chip border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">MERGED</span>}
-                      {k.reopen_count > 0 && <span className="chip border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300">REOPENED ×{k.reopen_count}</span>}
-                      {k.escalated && <span className="chip border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-300">ESCALATED</span>}
+                      {k.approved && <span className="chip border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300">{app.t("ticket.approvedChip").toUpperCase()}</span>}
+                      {k.merged && <span className="chip border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">{app.t("ticket.mergedChip").toUpperCase()}</span>}
+                      {k.reopen_count > 0 && <span className="chip border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300">{app.t("ticket.reopenedChip").replace("{n}", String(k.reopen_count)).toUpperCase()}</span>}
+                      {k.escalated && <span className="chip border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-300">{app.t("ticket.escalatedChip").toUpperCase()}</span>}
                     </div>
                   )}
                 </div>

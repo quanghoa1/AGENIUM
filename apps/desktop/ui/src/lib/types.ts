@@ -101,7 +101,10 @@ export interface NeedItem {
   agent_id?: string;
   /** The role or skill proposal to decide (`RoleProposal`, `SkillProposal`). */
   proposal?: string | null;
+  /** The item in English. */
   text: string;
+  /** The same sentence as a template id (`need.words.<id>`) and its values, for the interface's language. */
+  words?: { id: string; args: string[] };
   at: string;
 }
 

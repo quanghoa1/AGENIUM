@@ -22,6 +22,20 @@ const icon: Record<NeedKind, ReactNode> = {
   CancelledWork: <Ban className="h-4 w-4 text-amber-500" />,
 };
 
+/** The item in the interface's language: its template filled with its values (once, left to right), or its English. */
+export function needText(n: NeedItem, t: (k: Key) => string): string {
+  const key = `need.words.${n.words?.id}` as Key;
+  const template = n.words ? t(key) : key;
+  if (!n.words || template === key) return n.text;
+  // A permission's kind (Network, Path, Command) is a word of the interface too.
+  const word = (a: string) => {
+    const k = `need.perm.${a}` as Key;
+    return t(k) === k ? a : t(k);
+  };
+  const args = n.words.args.map((a, i) => (n.kind === "Permission" && i === 1 ? word(a) : a));
+  return template.replace(/\{(\d+)\}/g, (whole, i) => args[Number(i)] ?? whole);
+}
+
 /** Stable identity of a "needs you" item across refreshes (for list animations). */
 export function needKey(n: NeedItem): string {
   return [n.project, n.kind, n.ticket ?? "", n.comment ?? "", n.version ?? "", n.agent ?? "", n.proposal ?? ""].join("|");
@@ -48,9 +62,7 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
           {n.at && <Mono className="text-subtle">{ago(n.at)}</Mono>}
         </div>
         <div className="mt-1 text-xs">
-          {n.kind === "SpecApproval" || n.kind === "PlanApproval"
-            ? app.t(n.kind === "SpecApproval" ? "need.specText" : "need.planText").replace("{v}", String(n.version ?? ""))
-            : n.text}
+          {needText(n, app.t)}
         </div>
         {!compact && n.kind === "Question" && n.ticket && n.comment && (
           <div className="mt-2 flex gap-2">

@@ -4,6 +4,7 @@ import { Markdown } from "../../components/Markdown";
 import { Avatar, Mono, ago, cn } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/store";
+import type { Key } from "../../lib/i18n";
 import type { CommentRow } from "../../lib/types";
 
 /* ─── STRUCTURED COMMENT CARDS (Worker Report / Lead Review / Q&A Thread / Compact System Notice) ─── */
@@ -15,6 +16,11 @@ export function acTone(status: string): string {
     : status === "NotMet"
       ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300"
       : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300";
+}
+
+/** A criterion's status in the interface language (Met, Partial, NotMet). */
+export function acLabel(status: string, t: (k: Key) => string): string {
+  return ["Met", "Partial", "NotMet"].includes(status) ? t(`ac.${status}` as Key) : status;
 }
 
 export function CommentCard({
@@ -118,7 +124,7 @@ export function CommentCard({
                           {a.ac_id}
                         </td>
                         <td className="px-3 py-2">
-                          <span className={cn("chip", acTone(a.status))}>{a.status}</span>
+                          <span className={cn("chip", acTone(a.status))}>{acLabel(a.status, app.t)}</span>
                         </td>
                         <td className="px-3 py-2">
                           <Markdown className="text-xs text-muted" text={a.evidence ?? ""} />

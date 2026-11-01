@@ -89,5 +89,7 @@ export const helpers = {
   "cli.updated": "{cli} is at {v}, and it answered",
   "cli.checkFailed": "{cli} updated, but its check failed",
   "cli.rollback": "Go back to {v}",
+  "cli.checkOk": "answered its check",
+  "cli.checkBad": "check failed",
   "usage.helper.check": "CLI check (helper)",
 } as const;

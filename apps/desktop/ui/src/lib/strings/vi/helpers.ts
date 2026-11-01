@@ -91,5 +91,7 @@ export const helpers: Record<keyof typeof en, string> = {
   "cli.updated": "{cli} đã lên {v} và trả lời được",
   "cli.checkFailed": "{cli} đã cập nhật nhưng kiểm tra không đạt",
   "cli.rollback": "Quay về {v}",
+  "cli.checkOk": "đã trả lời câu kiểm tra",
+  "cli.checkBad": "kiểm tra không đạt",
   "usage.helper.check": "Kiểm tra CLI (trợ lý)",
 };

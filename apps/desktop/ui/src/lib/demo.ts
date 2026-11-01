@@ -134,8 +134,8 @@ const projects: ProjectSummary[] = [
 
 const overview: Overview = {
   needs: [
-    { project_name: "shop", item: { kind: "Permission", project: P, ticket: "SHOP-2", comment: "c1", text: "SHOP-2: Network permission requested: npm install express (registry.npmjs.org)", at: iso(4) } },
-    { project_name: "shop", item: { kind: "Question", project: P, ticket: "SHOP-3", comment: "c2", text: "SHOP-3: Should the product list show prices with VAT?", at: iso(6) } },
+    { project_name: "shop", item: { kind: "Permission", project: P, ticket: "SHOP-2", comment: "c1", text: "SHOP-2: Network permission requested: npm install express (registry.npmjs.org)", words: { id: "permission", args: ["SHOP-2", "Network", "npm install express (registry.npmjs.org)"] }, at: iso(4) } },
+    { project_name: "shop", item: { kind: "Question", project: P, ticket: "SHOP-3", comment: "c2", text: "SHOP-3: Should the product list show prices with VAT?", words: { id: "question", args: ["SHOP-3", "Should the product list show prices with VAT?"] }, at: iso(6) } },
   ],
   agents: agents.map((a) => ({
     id: a.agent.id,
@@ -407,6 +407,7 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "roles":
     case "mcp_servers":
     case "local_servers":
+      return [];
     case "provider_models":
     case "reload_cli_models":
       return { value: [], at: new Date().toISOString(), error: null };
@@ -419,6 +420,7 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "agent_bus":
     case "helper_calls":
     case "cli_updates":
+    case "lead_queue":
       return [];
     default:
       return null;

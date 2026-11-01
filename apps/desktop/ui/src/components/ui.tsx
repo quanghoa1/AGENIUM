@@ -26,6 +26,7 @@ import {
 import type { ReactNode } from "react";
 import { deprecation, isFree, priceOf, usePrices } from "../lib/prices";
 import { useApp } from "../lib/store";
+import type { Key } from "../lib/i18n";
 import type { AgentStatus, BackendKind, ModelBinding, TicketStatus } from "../lib/types";
 
 export function cn(...v: (string | false | null | undefined)[]) {
@@ -63,11 +64,12 @@ const agentTone: Record<AgentStatus, [string, ReactNode]> = {
 };
 
 export function AgentStatusBadge({ status }: { status: AgentStatus }) {
+  const app = useApp();
   const [tone, icon] = agentTone[status] ?? agentTone.Offline;
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", tone)}>
       {icon}
-      {status === "QuotaExhausted" ? "Quota exhausted" : status}
+      {agentTone[status] ? app.t(`agentStatus.${status}`) : status}
     </span>
   );
 }
@@ -137,10 +139,11 @@ export function ProjectStateChips({ state, needsYou, cancelled }: { state?: RunS
 }
 
 export function TicketStatusBadge({ status }: { status: TicketStatus }) {
+  const app = useApp();
   return (
     <span className={cn("chip", ticketTone[status])}>
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {status === "InProgress" ? "IN PROGRESS" : status.toUpperCase()}
+      {(ticketTone[status] ? app.t(`ticketStatus.${status}`) : status).toUpperCase()}
     </span>
   );
 }
@@ -157,7 +160,12 @@ export function PriorityBadge({ p }: { p: number }) {
 
 /** A model whose catalogue price is 0 for input and output. */
 export function FreeTag({ className }: { className?: string }) {
-  return <span className={cn("chip border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0 text-[11px] font-bold text-emerald-600 dark:text-emerald-300", className)}>FREE</span>;
+  const app = useApp();
+  return (
+    <span className={cn("chip border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0 text-[11px] font-bold text-emerald-600 dark:text-emerald-300", className)}>
+      {app.t("model.freeTag").toUpperCase()}
+    </span>
+  );
 }
 
 /** A model its provider no longer serves, or soon will not (the price catalogue says so), with one to use instead. */
@@ -168,7 +176,7 @@ export function DeprecatedTag({ instead, className }: { instead: string | null; 
       className={cn("chip border-amber-500/40 bg-amber-500/15 px-1.5 py-0 text-[11px] font-bold text-amber-600 dark:text-amber-300", className)}
       title={`${app.t("model.deprecatedHint")}${instead ? ` ${app.t("model.useInstead")} ${instead}` : ""}`}
     >
-      DEPRECATED
+      {app.t("model.deprecatedTag").toUpperCase()}
     </span>
   );
 }
@@ -188,11 +196,15 @@ export function RuntimeBadge({ backend, model }: { backend: BackendKind; model: 
   );
 }
 
+/** The outcomes a run can end with, by the first part of its label (`Checkpoint:context`, `Error:...`). */
+const OUTCOMES = ["Completed", "Parked", "Checkpoint", "Stopped", "QuotaExhausted", "Offline", "Error", "Cancelled", "Interrupted", "Memory"];
+
 export function OutcomeBadge({ outcome }: { outcome?: string | null }) {
+  const app = useApp();
   if (!outcome)
     return (
       <span className="chip border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300">
-        <Loader2 className="h-3 w-3 animate-spin" /> RUNNING
+        <Loader2 className="h-3 w-3 animate-spin" /> {app.t("outcome.Running").toUpperCase()}
       </span>
     );
   const o = outcome.split(":")[0];
@@ -209,7 +221,7 @@ export function OutcomeBadge({ outcome }: { outcome?: string | null }) {
   return (
     <span className={cn("chip", tone)} title={outcome}>
       {icon}
-      {o.toUpperCase()}
+      {(OUTCOMES.includes(o) ? app.t(`outcome.${o}` as Key) : o).toUpperCase()}
     </span>
   );
 }

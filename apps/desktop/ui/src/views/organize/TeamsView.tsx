@@ -403,7 +403,7 @@ export function TeamsView() {
           </Section>
         );
       })}
-      <Section title={`${app.t("agents.pool")} (${data.pool.length})`}>
+      <Section title={`${app.t("agents.poolChip")} (${data.pool.length})`}>
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           {data.pool.map((a) => (
             <Fragment key={a.id}>

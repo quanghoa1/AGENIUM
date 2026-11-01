@@ -173,7 +173,7 @@ export const organize = {
   "templates.preMergeNote": "Command run in the ticket worktree before the merge queue fast-forwards; a non-zero exit reopens the ticket. Runs in the sandbox.",
   "agents.all": "All",
   "agents.inTeam": "In a team",
-  "agents.pool": "pool",
+  "agents.pool": "in the pool",
   "agents.create": "Create agent",
   "agents.inPool": "created in the pool; add it to a team",
   "agents.empty": "No agents yet.",

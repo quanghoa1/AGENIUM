@@ -188,7 +188,7 @@ export function AgentsView() {
           items={[
             { value: "all", label: app.t("agents.all") },
             { value: "team", label: app.t("agents.inTeam") },
-            { value: "pool", label: app.t("agents.pool") },
+            { value: "pool", label: app.t("agents.poolChip") },
           ]}
         />
         <button className="btn" onClick={() => setImporting(true)}>
@@ -208,7 +208,7 @@ export function AgentsView() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-semibold hover:text-accent">{a.name}</span>
-                    {r.pool ? <span className="chip border-dashed border-line-strong text-subtle">POOL</span> : <RoleChip solo={r.solo} lead={r.is_lead} planner={r.is_planner} />}
+                    {r.pool ? <span className="chip border-dashed border-line-strong text-subtle">{app.t("agents.poolChip").toUpperCase()}</span> : <RoleChip solo={r.solo} lead={r.is_lead} planner={r.is_planner} />}
                   </div>
                   <div className="truncate text-[11px] text-subtle">
                     {a.role}

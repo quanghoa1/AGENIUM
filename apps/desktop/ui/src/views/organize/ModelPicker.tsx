@@ -109,7 +109,7 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           const p = price(m.id);
           return (
             <option key={m.id} value={m.id}>
-              {[old(m.id) ? "DEPRECATED" : "", isFree(p) ? "FREE" : p ? `${priceLabel(p)} per 1M` : ocBill(m.id), m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
+              {[old(m.id) ? app.t("model.deprecatedTag").toUpperCase() : "", isFree(p) ? app.t("model.freeTag").toUpperCase() : p ? app.t("model.perMillion").replace("{p}", priceLabel(p)) : ocBill(m.id), m.supports_tools === false ? app.t("model.noTools") : ""].filter(Boolean).join(" · ")}
             </option>
           );
         })}
