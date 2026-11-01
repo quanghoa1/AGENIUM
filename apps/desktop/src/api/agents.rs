@@ -371,6 +371,11 @@ pub(super) async fn cli_models(
     let cache = o.app.model_cache();
     let todo = clis.iter().filter(|c| {
         let program = c.kind.program();
+        // Claude Code's list is Agenium's own (nothing is started to read it): always the current one, so a list kept
+        // by an older version (with the aliases) is not shown.
+        if c.kind == agenium_cli_backend::CliKind::Claude {
+            return true;
+        }
         match reload {
             Some(None) => true,
             Some(Some(p)) => p == program,
