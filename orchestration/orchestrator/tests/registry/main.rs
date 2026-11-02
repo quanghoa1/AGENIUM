@@ -11,6 +11,7 @@ use agenium_orchestrator::CallCtx;
 use common::*;
 
 mod agents;
+mod cli;
 mod providers;
 
 fn provider(f: &Fixture) {

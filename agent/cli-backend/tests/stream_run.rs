@@ -64,6 +64,8 @@ impl CommandGate for Gate {
 struct Obs {
     tools: Mutex<Vec<(String, bool)>>,
     messages: Mutex<Vec<String>>,
+    /// The calls the live view is told about, with their arguments (`ChatEvent::ToolCall`).
+    calls: Mutex<Vec<(String, Value)>>,
     /// With a steer queue: once the second message reached the CLI, the user sends a third (after its last Agenium
     /// tool of the turn).
     steer: Option<agenium_backend::Steer>,
@@ -83,6 +85,14 @@ impl Observer for Obs {
     }
     fn tool(&self, name: &str, _: &Value, r: &Result<String, ToolError>) {
         self.tools.lock().unwrap().push((name.into(), r.is_ok()));
+    }
+    fn event(&self, e: &agenium_llm::ChatEvent) {
+        if let agenium_llm::ChatEvent::ToolCall(c) = e {
+            self.calls
+                .lock()
+                .unwrap()
+                .push((c.name.clone(), c.args.clone()));
+        }
     }
 }
 
@@ -323,6 +333,24 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
     assert!(
         !tools.iter().any(|t| t.0 == "cli:call_mcp_tool"),
         "Agenium's own MCP calls are logged once: {tools:?}"
+    );
+    // ADR-153: a CLI's call reaches the live view with its arguments. agy wraps a call to Agenium's MCP server in
+    // `call_mcp_tool` (as Codex wraps it in `mcp_tool_call`), the server and tool only in the arguments: the UI names
+    // it by those, and needs them here.
+    let calls = obs.calls.lock().unwrap().clone();
+    let mcp = calls
+        .iter()
+        .find(|(n, a)| n == "call_mcp_tool" && a["ToolName"] == "submit_report")
+        .unwrap_or_else(|| panic!("its MCP call with its arguments: {calls:?}"));
+    assert_eq!(mcp.1["ServerName"], "agenium");
+    assert_eq!(mcp.1["Arguments"], json!({"summary": "done"}));
+    assert!(
+        calls.iter().any(|(n, a)| n == "write_to_file"
+            && a["Content"].as_str() == Some("plan")
+            && a["TargetFile"]
+                .as_str()
+                .is_some_and(|p| p.ends_with("task.md"))),
+        "a tool's own arguments: {calls:?}"
     );
     assert_eq!(
         (

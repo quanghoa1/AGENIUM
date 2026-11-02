@@ -124,6 +124,20 @@ root:
 - **Agent CLIs updated from the app; opencode made reliable** (2026-11-01, ADR-153): each CLI's version, the newest and
   the verified one, the CLI's own updater with a check after and the old version offered back; opencode runs get the
   model catalogue and no longer complete with an empty answer; every other CLI checked under load in fresh homes.
+- **The chat runs on a model it can change; an attachment opens again** (2026-11-02, ADR-149, ADR-152, ADR-153 and
+  ADR-155 amended): the Lead's chat names vendor, model and effort and changes the model in place, warned first when
+  the context outgrows the new window, and its gauge measures against the model now chosen. The model field is a
+  readable list (whole names, price, free tag, window) filtered as typed; Claude Code is listed by full ids only, its
+  aliases still running. `@` lists the conversation's documents; a message put back after a failed turn says why and
+  offers "Send again". A document attached in the chat is kept whole in the project's `.agenium/attachments` (outside
+  git) and named in the message, every run of the project may read it: asked to check the original, Codex called
+  `read_file` on it and copied item 5. A Codex or Antigravity MCP call reads `server :: tool: argument` in the chat
+  and the Live view, its arguments reaching the view (it read `mcp_tool_call`). The CLI page says what it knows: no
+  button at the newest, "Run its updater" where the newest is unknown, an unchanged update says it is already the
+  newest, a version that answered the check here reads "checked on this machine", and a failed newest check is shown
+  with its reason (grok: `program not found`). Verified in the app on the owner's machine (codex gpt-6-luna; opencode
+  2.2.5, agy 1.4.12, grok 1.0.41, claude); tests for the check kept per version, the version that answered it and a
+  call's arguments reaching the view; full local CI and the UI smoke test (35 checks).
 
 | Release item | Status | Evidence |
 |---|---|---|
