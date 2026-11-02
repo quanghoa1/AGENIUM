@@ -169,6 +169,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **A held message says why** (ADR-149): messages put back after a failed turn no longer read as "busy": the queue
   says the last turn failed and offers "Send again"; the waiting messages show their documents as chips, and editing
   one changes only its text.
+- **The chat's model dialog keeps the keyboard** (ADR-149): "Change model" opens a dialog that takes the keyboard and
+  closes with Escape; it stayed open while the chat behind it could still take a message.
 - **Warned before a smaller model** (ADR-155): changing an agent to a model whose window its context outgrows (say
   550K tokens of context, a 262K window) says so under the model picker and asks first: the next run folds the
   conversation to fit.

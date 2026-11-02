@@ -325,7 +325,20 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
  * inside, Escape closes it wherever the focus is — and says it is one to assistive technology. Focus stayed on the
  * button behind it before: Escape did nothing and Tab walked the page underneath (audit L13, 2026-10-31).
  */
-export function Modal({ open, title, onClose, children }: { open: boolean; title: ReactNode; onClose: () => void; children: ReactNode }) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  wide = false,
+  children,
+}: {
+  open: boolean;
+  title: ReactNode;
+  onClose: () => void;
+  /** A dialog that needs the room of a form row (the chat's model), not a confirm's 440 px. */
+  wide?: boolean;
+  children: ReactNode;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const close = useRef(onClose);
@@ -363,7 +376,7 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
   }, [open]);
   return (
     <Overlay open={open} onClose={onClose} kind="dialog">
-      <div ref={box} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="card w-[440px] max-w-[92vw] p-5 shadow-2xl outline-none">
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn("card max-w-[92vw] p-5 shadow-2xl outline-none", wide ? "w-[760px]" : "w-[440px]")}>
         <div id={titleId} className="mb-3 text-sm font-semibold">
           {title}
         </div>

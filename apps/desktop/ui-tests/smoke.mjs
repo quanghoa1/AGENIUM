@@ -278,7 +278,19 @@ if (exported) {
   );
 }
 
-// 10. A CLI's MCP call reads by its server and tool (ADR-153): Codex wraps every one in `mcp_tool_call`, Antigravity in
+// 10. The chat's model dialog is a dialog: the keyboard moves into it and Escape closes it (it was an Overlay with
+// neither, so it stayed open while the chat behind could still take a message).
+await js(`window.location.hash = '/chat'`);
+const chatReady = await until(`[...document.querySelectorAll('main button')].some(b => b.textContent.trim() === 'Change model')`, 20000);
+await clickText("Change model", "document.querySelector('main')");
+const modelOpen = await until(`!!document.querySelector('[role=dialog]')`, 10000);
+const focusIn = await js(`!!document.querySelector('[role=dialog]')?.contains(document.activeElement)`);
+await js(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+const modelClosed = await until(`!document.querySelector('[role=dialog]')`, 10000);
+await shot("chat-model-dialog");
+check("the chat's model dialog takes the keyboard and Escape closes it", chatReady && modelOpen && focusIn && modelClosed);
+
+// 11. A CLI's MCP call reads by its server and tool (ADR-153): Codex wraps every one in `mcp_tool_call`, Antigravity in
 // `call_mcp_tool`, with the server, tool and the tool's own arguments inside. The chat and the Live view name it through
 // the dev server's own module (a production bundle is not loaded here).
 const named = await js(`import('/src/views/live/calls.tsx').then(m => JSON.stringify([

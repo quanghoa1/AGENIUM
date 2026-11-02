@@ -1,9 +1,10 @@
 // The model the chat's agent answers with, on the chat page itself: vendor, model and effort, and a change made
 // there without going to the agent's page. The change asks first when the agent's context outgrows the new model's
-// window (ADR-155), as on the agent's page.
+// window (ADR-155), as on the agent's page. A dialog, not a sheet: Escape closes it and the keyboard stays inside it
+// (it was an Overlay with neither, so it stayed open while the chat behind could still take a message).
 import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Overlay } from "../components/motion";
+import { Modal } from "../components/motion";
 import { RuntimeBadge } from "../components/ui";
 import { api } from "../lib/api";
 import { useApp, useLive } from "../lib/store";
@@ -35,20 +36,17 @@ export function ChatModel({ agent }: { agent?: string | null }) {
           <Pencil className="h-3 w-3" /> {app.t("chat.changeModel")}
         </button>
       </span>
-      <Overlay open={open} onClose={() => setOpen(false)} kind="dialog" top="pt-24">
-        <div className="card w-[760px] max-w-[92vw] p-5">
-          <div className="mb-3 text-sm font-semibold">{app.t("chat.modelTitle").replace("{name}", a.name)}</div>
-          <AgentModel
-            id={a.id}
-            backend={a.backend}
-            model={a.model}
-            onSaved={() => {
-              setOpen(false);
-              setTick((t) => t + 1);
-            }}
-          />
-        </div>
-      </Overlay>
+      <Modal open={open} title={app.t("chat.modelTitle").replace("{name}", a.name)} onClose={() => setOpen(false)} wide>
+        <AgentModel
+          id={a.id}
+          backend={a.backend}
+          model={a.model}
+          onSaved={() => {
+            setOpen(false);
+            setTick((t) => t + 1);
+          }}
+        />
+      </Modal>
     </>
   );
 }
