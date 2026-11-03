@@ -6,7 +6,7 @@ import { Mono, cn } from "../../components/ui";
 import type { LogEntry } from "../../lib/types";
 import { plainArgs, startsSubagent, subagentOf } from "../../lib/subagents";
 
-export const SHELL = new Set(["shell", "Bash", "PowerShell", "run_command"]);
+export const SHELL = new Set(["shell", "Bash", "PowerShell", "run_command", "command_execution"]);
 
 /** Agenium's protocol tools (the team's own moves: tickets, reports, questions, plans). */
 const PROTOCOL = new Set([
@@ -61,12 +61,13 @@ function unwrap(name: string, args: any): [string, any] {
 
 /** Sorts a call into MCP (`mcp__<server>__<tool>`), Skill (`load_skill`), Agenium (protocol) or Tool. */
 export function classify(tool: string, raw: any): Call {
-  const [name, args] = unwrap(tool.replace(/^cli:/, ""), raw);
+  const [wrapped, args] = unwrap(tool.replace(/^cli:/, ""), raw);
+  // A tool of Agenium's own MCP server, however the CLI names it (claude `mcp__agenium__x`, grok `agenium__x`, opencode
+  // `agenium_x`), reads as the same tool does for an API agent: the brain does not change how a call is shown.
+  const name = wrapped.replace(/^(mcp__agenium__|agenium__|agenium_)/, "");
   if (name.startsWith("mcp__")) {
     const [, server, ...rest] = name.split("__");
     const t = rest.join("__");
-    // Agenium's own server: the team's protocol move, as an API agent's call of it reads.
-    if (server === "agenium" && PROTOCOL.has(t)) return { kind: "agenium", label: `${t}${args?.ticket_id ? ` ${args.ticket_id}` : ""}`, name };
     const preview = argPreview(args);
     return { kind: "mcp", label: `${server} :: ${t}${preview ? `: ${preview}` : ""}`, name };
   }

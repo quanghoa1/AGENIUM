@@ -291,19 +291,26 @@ await shot("chat-model-dialog");
 check("the chat's model dialog takes the keyboard and Escape closes it", chatReady && modelOpen && focusIn && modelClosed);
 
 // 11. A CLI's MCP call reads by its server and tool (ADR-153): Codex wraps every one in `mcp_tool_call`, Antigravity in
-// `call_mcp_tool`, with the server, tool and the tool's own arguments inside. The chat and the Live view name it through
-// the dev server's own module (a production bundle is not loaded here).
+// `call_mcp_tool`, with the server, tool and the tool's own arguments inside. A tool of Agenium's own server reads as an
+// API agent's call of it does, whatever the brain; another server's by its name. The chat and the Live view name it
+// through the dev server's own module (a production bundle is not loaded here).
 const named = await js(`import('/src/views/live/calls.tsx').then(m => JSON.stringify([
   m.classify('mcp_tool_call', {server:'agenium', tool:'read_file', arguments:{path:'.agenium/attachments/seo-checklist.docx'}}),
   m.classify('call_mcp_tool', {ServerName:'figma', ToolName:'get_file', Arguments:{node:'1:2'}}),
   m.classify('mcp_tool_call', {server:'agenium', tool:'submit_report', arguments:{ticket_id:'AGN-1'}}),
+  m.classify('read_file', {path:'.agenium/attachments/seo-checklist.docx'}),
+  m.classify('cli:agenium__shell', {command:'git status --porcelain'}),
+  m.classify('command_execution', {command:'git status --porcelain'}),
 ])).catch(e => 'ERR ' + e)`);
 const callReads = typeof named === "string" && named.startsWith("[") ? JSON.parse(named) : [];
 check(
-  "a CLI's MCP call reads by its server and tool, with its argument",
-  callReads.length === 3 &&
-    callReads[0].kind === "mcp" &&
-    callReads[0].label === "agenium :: read_file: .agenium/attachments/seo-checklist.docx" &&
+  "a call reads the same whatever the brain: Agenium's tools by their name, another server's by server and tool",
+  callReads.length === 6 &&
+    callReads[0].kind === "tool" &&
+    callReads[0].label === "read_file: .agenium/attachments/seo-checklist.docx" &&
+    callReads[3].label === callReads[0].label &&
+    callReads[4].label === "bash: git status --porcelain" &&
+    callReads[5].label === callReads[4].label &&
     callReads[1].kind === "mcp" &&
     callReads[1].label === "figma :: get_file: 1:2" &&
     callReads[2].kind === "agenium" &&

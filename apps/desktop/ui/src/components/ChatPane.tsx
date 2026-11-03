@@ -169,12 +169,15 @@ export function ChatPane({
     reloadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
-  // A run of the agent that ends (the turn that read the queue among them) may have added to the conversation.
-  const ended = agentId ? Object.values(live).filter((l) => l.done && l.agent === agentId).length : 0;
+  // A run of the agent that starts or ends may have added to the conversation: a turn started outside this pane (an
+  // answer from Needs you, another window) shows its message at once, the reply when it ends.
+  const runs = agentId ? Object.values(live).filter((l) => l.agent === agentId) : [];
+  const started = runs.length;
+  const ended = runs.filter((l) => l.done).length;
   useEffect(() => {
-    if (ended > 0) api.chatHistory(project).then(setLines);
+    if (started > 0) api.chatHistory(project).then(setLines);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ended]);
+  }, [started, ended]);
   useEffect(() => {
     // While messages wait, the queue is read again; once the Lead's turn takes them, the conversation shows them.
     if (queue.length === 0) return;

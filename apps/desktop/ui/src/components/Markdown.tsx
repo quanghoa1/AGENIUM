@@ -1,6 +1,6 @@
 // A small Markdown renderer for agent text (chat replies, reports, comments). It builds React elements — never HTML
 // strings — so agent output cannot inject markup. Supported: headings, paragraphs, bullet/numbered lists, fenced
-// code, inline code, bold, italic, strikethrough, links (shown, not navigated), horizontal rules.
+// code, inline code, bold, italic, strikethrough, links (shown, not navigated), horizontal rules, tables.
 import { Fragment, createContext, useContext, type ReactNode } from "react";
 import { cn } from "./ui";
 
@@ -58,6 +58,32 @@ function inline(text: string, key = 0): ReactNode[] {
   return out;
 }
 
+/** The cells of a table row: split on `|`, not inside `code` and not when escaped (`\|`). */
+export function cells(row: string): string[] {
+  const t = row.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const out: string[] = [];
+  let cur = "";
+  let code = false;
+  for (let k = 0; k < t.length; k++) {
+    const c = t[k];
+    if (c === "\\" && t[k + 1] === "|") {
+      cur += "|";
+      k++;
+    } else if (c === "`") {
+      code = !code;
+      cur += c;
+    } else if (c === "|" && !code) {
+      out.push(cur.trim());
+      cur = "";
+    } else cur += c;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+/** A table's separator row: `|---|:--:|`. */
+const SEPARATOR = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+
 export function Markdown({ text, className }: { text: string; className?: string }) {
   const lines = (text ?? "").replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
@@ -86,6 +112,39 @@ export function Markdown({ text, className }: { text: string; className?: string
         </div>,
       );
       i++;
+      continue;
+    }
+    if (/^\s*\|/.test(l) && i + 1 < lines.length && SEPARATOR.test(lines[i + 1])) {
+      const head = cells(l);
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(cells(lines[i++]));
+      blocks.push(
+        <div key={n++} className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-[12px]">
+            <thead>
+              <tr>
+                {head.map((c, k) => (
+                  <th key={k} className="border border-line bg-background px-2 py-1 font-semibold">
+                    {inline(c, k)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, k) => (
+                <tr key={k}>
+                  {head.map((_, j) => (
+                    <td key={j} className="border border-line px-2 py-1 align-top">
+                      {inline(r[j] ?? "", j)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
       continue;
     }
     if (/^\s*(?:-\s*){3,}$|^\s*(?:\*\s*){3,}$|^\s*(?:_\s*){3,}$/.test(l)) {
