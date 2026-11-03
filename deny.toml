@@ -6,14 +6,9 @@ all-features = false
 
 [advisories]
 # RustSec advisory database (fetched from GitHub). Unmaintained crates are reported for crates Agenium depends on
-# directly; a vulnerability anywhere in the tree fails the check.
+# directly; a vulnerability anywhere in the tree fails the check. The tree carries one zip 9 (candle 0.11.1, 2026-11-03);
+# the zip 8 advisories that needed ignoring are gone with it.
 unmaintained = "workspace"
-ignore = [
-    { id = "RUSTSEC-2026-0367", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); candle reads .npz/.pth model files and never calls extract(), which these advisories are about; drop when candle moves to zip >= 9" },
-    { id = "RUSTSEC-2026-0368", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); candle reads .npz/.pth model files and never calls extract(), which these advisories are about; drop when candle moves to zip >= 9" },
-    { id = "RUSTSEC-2026-0369", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); candle reads .npz/.pth model files and never calls extract(), which these advisories are about; drop when candle moves to zip >= 9" },
-    { id = "RUSTSEC-2026-0429", reason = "only candle-core's zip 8 is affected (Agenium's own is 9); it is about extract() sizing a symlink target from the declared size, and candle only reads .npz/.pth entries from an archive it was given; drop when candle moves to zip >= 9" },
-]
 
 [licenses]
 # Agenium is Apache-2.0. Permissive licenses only; MPL-2.0 (file-level copyleft, unmodified use) is allowed for
