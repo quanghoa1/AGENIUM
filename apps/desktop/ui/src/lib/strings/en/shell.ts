@@ -63,6 +63,7 @@ export const shell = {
   "common.open": "Open",
   "common.none": "Nothing here yet.",
   "common.approve": "Approve",
+  "common.deny": "Deny",
   "common.loading": "Loading…",
   "common.create": "Create",
   "common.done": "Done.",

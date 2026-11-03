@@ -456,6 +456,8 @@ pub fn create_solo(
         o.app
             .set_agent_backend(a.id, BackendKind::Cli, &b)
             .map_err(err)?;
+        // The agent as it is now (on its CLI), not as it was created.
+        return Ok(json!(o.app.agent(a.id).map_err(err)?));
     }
     Ok(json!(a))
 }

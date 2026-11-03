@@ -88,7 +88,7 @@ export function NeedRow({ n, projectName, compact }: { n: NeedItem; projectName?
         )}
         {n.kind === "Permission" && n.ticket && n.comment && (
           <>
-            <button disabled={busy} className="btn-danger" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, false), app.t("common.done"))}>
+            <button disabled={busy} className="btn-danger" title={app.t("common.deny")} aria-label={app.t("common.deny")} onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, false), app.t("common.done"))}>
               <X className="h-3.5 w-3.5" />
             </button>
             <button disabled={busy} className="btn" onClick={() => act(api.decidePermission(n.project, n.ticket!, n.comment!, true, true), app.t("common.done"))}>

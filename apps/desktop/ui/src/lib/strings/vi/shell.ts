@@ -65,6 +65,7 @@ export const shell: Record<keyof typeof en, string> = {
   "common.open": "Mở",
   "common.none": "Chưa có gì.",
   "common.approve": "Duyệt",
+  "common.deny": "Từ chối",
   "common.loading": "Đang tải…",
   "common.create": "Tạo",
   "common.done": "Xong.",
