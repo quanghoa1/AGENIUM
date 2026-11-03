@@ -246,6 +246,14 @@ pub(crate) fn insert_ticket(
             nt.plan_item, plan.version
         )));
     }
+    // The user approved an item's scope, not just its title: a ticket may not reach past it (a Lead created a
+    // README ticket for a notes-only item, 2026-11-03). A ticket that names no scope takes the item's.
+    let mut nt = nt;
+    if let Some(item) = plan.body.items.iter().find(|i| i.id == nt.plan_item) {
+        if !item.scope_paths.is_empty() {
+            nt.scope_paths = scope_within_item(&item.id, &item.scope_paths, nt.scope_paths)?;
+        }
+    }
     let parent = match &nt.parent {
         Some(k) => Some(ticket_by_key(w, pid, k)?),
         None => None,
@@ -439,6 +447,74 @@ pub(crate) fn effective_scope(
     }
     agenium_core::graph::paths_named(&text)
 }
+/// A ticket's write scope inside its plan item's: every path it names is covered by one of the item's (a file under
+/// the item's area, or its glob); a ticket that names no scope takes the item's, so leaving it out is not a way past
+/// the boundary the user approved.
+fn scope_within_item(item: &str, plan_scope: &[String], scope: Vec<String>) -> Result<Vec<String>> {
+    if scope.is_empty() {
+        return Ok(plan_scope.to_vec());
+    }
+    if let Some(out) = scope
+        .iter()
+        .find(|p| !plan_scope.iter().any(|q| scope_covers(q, p)))
+    {
+        return Err(invalid(format!(
+            "scope_paths \"{out}\" is outside plan item {item}'s scope ({}): revise_plan to widen the item first",
+            plan_scope.join(", ")
+        )));
+    }
+    Ok(scope)
+}
+
+/// Whether an approved item's path (`plan`, a worktree-relative glob) covers a ticket's path: the same path, a path
+/// under an area it names (`notes/**`, `notes/`, `notes`), or a match of its glob.
+fn scope_covers(plan: &str, ticket: &str) -> bool {
+    let p = normalize_scope(plan);
+    let t = normalize_scope(ticket);
+    if p.is_empty() {
+        return true;
+    }
+    if t.is_empty() {
+        return false;
+    }
+    if p == t {
+        return true;
+    }
+    let area = p
+        .strip_suffix("/**")
+        .or_else(|| p.strip_suffix("/*"))
+        .unwrap_or(p.trim_end_matches('/'));
+    if t == area || t.starts_with(&format!("{area}/")) {
+        return true;
+    }
+    glob_matches(&p, &t)
+}
+
+fn normalize_scope(p: &str) -> String {
+    let p = p.trim().replace('\\', "/");
+    let p = p.trim_start_matches("./");
+    p.trim_end_matches('/').to_owned()
+}
+
+/// A worktree-relative glob match: `*` stays in one folder, `**` crosses folders, `?` is one character.
+fn glob_matches(pattern: &str, path: &str) -> bool {
+    let mut re = String::from("^");
+    let mut chars = pattern.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '*' if chars.peek() == Some(&'*') => {
+                chars.next();
+                re.push_str(".*");
+            }
+            '*' => re.push_str("[^/]*"),
+            '?' => re.push_str("[^/]"),
+            c => re.push_str(&regex::escape(&c.to_string())),
+        }
+    }
+    re.push('$');
+    regex::Regex::new(&re).is_ok_and(|r| r.is_match(path))
+}
+
 pub(crate) fn check_trace(spec: &SpecRow, items: &[agenium_core::plan::PlanItem]) -> Result<()> {
     let reqs: HashSet<&str> = spec
         .body

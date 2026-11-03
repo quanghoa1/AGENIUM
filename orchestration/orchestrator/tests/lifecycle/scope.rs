@@ -2,6 +2,43 @@
 
 use super::*;
 
+/// The user approves an item's scope with the plan: a ticket may not reach past it. A Lead on 2026-11-03 created a
+/// README.md ticket for a notes-only item (QS-4) and changed a file the user had excluded; the plan item's scope now
+/// refuses it, and a ticket that names no scope takes the item's rather than the whole tree.
+#[test]
+fn a_ticket_stays_inside_its_plan_items_scope() {
+    let f = fixture();
+    let a = solo_with_scoped_plan(&f, &[("PI-1", &[], &["notes/**"])]);
+    let lead = Actor::Lead(a.id);
+    let create = |deps: &[&str], scope: &[&str]| {
+        f.app.apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket("PI-1", "Document it", deps, scope)),
+        )
+    };
+    let outside = create(&[], &["README.md"]);
+    assert!(
+        matches!(outside, Err(OrchError::Invalid(_))),
+        "README.md is outside notes/**"
+    );
+    assert_eq!(
+        f.app.tickets(f.project.id).unwrap().len(),
+        0,
+        "nothing was created"
+    );
+
+    let ok = create(&[], &["notes/HOWTO.md"]).unwrap();
+    assert_eq!(ok.result["ticket_id"], "AGN-1");
+
+    // No scope named: the item's applies (and the open ticket it overlaps is waited for).
+    let inherited = create(&["AGN-1"], &[]).unwrap();
+    assert_eq!(inherited.result["ticket_id"], "AGN-2");
+    assert_eq!(
+        ticket(&f, "AGN-2").scope_paths,
+        vec!["notes/**".to_string()]
+    );
+}
+
 /// An aggregate links two or more existing tickets, and its ticket commits with its links: an empty list panicked
 /// inside a store read, and a child key that does not exist left an orphan aggregate ticket behind.
 #[test]

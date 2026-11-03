@@ -249,6 +249,41 @@ pub fn solo_with_plan(f: &Fixture, items: &[(&str, &[&str])]) -> agents::Agent {
     a
 }
 
+/// Solo agent + locked spec + approved plan whose items also declare their write scopes.
+pub fn solo_with_scoped_plan(f: &Fixture, items: &[(&str, &[&str], &[&str])]) -> agents::Agent {
+    let (_, a) = f
+        .app
+        .create_solo(
+            f.project.id,
+            &agent_spec("ada", "solo", RoleKind::Lead, &["rust"]),
+        )
+        .unwrap();
+    let lead = Actor::Lead(a.id);
+    f.app
+        .apply(&ctx(f, lead), Intent::ProposeSpec(spec()))
+        .unwrap();
+    let mut p = plan(&[]);
+    p.items = items
+        .iter()
+        .map(|(id, deps, scope)| PlanItem {
+            id: (*id).to_string(),
+            milestone: "M1".into(),
+            title: format!("item {id}"),
+            trace_to: vec!["REQ-1".into()],
+            acceptance: vec![AcceptanceCriterion {
+                id: "AC-1".into(),
+                text: "done".into(),
+            }],
+            role: "worker".into(),
+            depends_on: deps.iter().map(|s| (*s).to_string()).collect(),
+            estimate: Estimate::S,
+            scope_paths: scope.iter().map(|s| (*s).to_string()).collect(),
+        })
+        .collect();
+    f.app.apply(&ctx(f, lead), Intent::CreatePlan(p)).unwrap();
+    a
+}
+
 pub fn key(s: &str) -> TicketKey {
     s.parse().unwrap()
 }
