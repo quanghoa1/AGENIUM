@@ -172,6 +172,16 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   newest is unknown; a CLI whose own check fails says why (grok: "program not found"); an update that changed nothing
   says it is already the newest, and the CLI is shown at its newest after; a version that answered Agenium's check
   after an update here is no longer flagged as beyond the verified one ("checked on this machine").
+- **The Lead sums the work up when it is done** (ADR-147): a project that becomes done gets a short summary from its
+  Lead or Solo agent in the chat (what was delivered, how it was checked, what is open), in the user's language.
+- **No comment box on a ticket** (ADR-122): the user's requests and corrections go to the Lead or Solo agent, who
+  writes to the ticket; the ticket popup and `agenium ticket comment` no longer write there.
+- **The chat follows its turn whatever the brain**: the calls of the turn in progress are listed one per line (an
+  API model's ran too fast to be seen), a message just sent no longer disappears mid-turn (the live store's dropping
+  of old runs reloaded the chat), a run is done when it ends rather than after its first model call, tables in an
+  agent's message are drawn, the recalled memory is no longer shown as the user's words, and the Live page's chat is
+  the same conversation with the same behaviour. A tool of Agenium reads the same whether codex or an API model calls
+  it, and the Live room log keeps the calls made while another page was open.
 - **A held message says why** (ADR-149): messages put back after a failed turn no longer read as "busy": the queue
   says the last turn failed and offers "Send again"; the waiting messages show their documents as chips, and editing
   one changes only its text.

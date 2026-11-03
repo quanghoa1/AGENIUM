@@ -146,7 +146,7 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
         {(k === "lead" || k === "standalone") && a.project ? (
             <>
               {k === "lead" && <Delegations project={a.project} data={data} onWatch={onPick} />}
-              <ChatPane key={a.project} project={a.project} agentName={a.agent.name} prefill={k === "lead" ? prefill : null} stream={stream} className="border-t border-line" />
+              <ChatPane key={a.project} project={a.project} agentName={a.agent.name} agentId={a.agent.id} prefill={k === "lead" ? prefill : null} stream={stream} className="border-t border-line" />
             </>
           ) : k === "worker" ? (
             <>

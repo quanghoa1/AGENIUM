@@ -4,6 +4,66 @@
 use super::*;
 
 impl Runtime {
+    /// When a project is done, its Lead (or Solo agent) tells the user in the chat what was delivered: the handover
+    /// report summed up by the Lead's own model (API or CLI), in the language of the user's last message. A failure
+    /// is only logged: the report and the "done" note are there either way.
+    pub(super) async fn summarize_done(&self, project: ProjectId, report: &std::path::Path) {
+        if let Err(e) = self.try_summarize_done(project, report).await {
+            tracing::warn!(error = %e, "the summary of the done project was not written");
+        }
+    }
+
+    async fn try_summarize_done(&self, project: ProjectId, report: &std::path::Path) -> Result<()> {
+        let (team, _) = self
+            .app
+            .team_of_project(project)?
+            .ok_or_else(|| OrchError::Invalid("the project has no team".into()))?;
+        let lead = self.app.agent(
+            team.lead
+                .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
+        )?;
+        let md: String = std::fs::read_to_string(report)
+            .map_err(|e| OrchError::Invalid(format!("{}: {e}", report.display())))?
+            .chars()
+            .take(40_000)
+            .collect();
+        let mem = self.agent_memory(lead.id)?;
+        let session = learn::chat_session(project);
+        let last_user = mem
+            .load_messages(&session)?
+            .into_iter()
+            .rev()
+            .filter_map(|v| serde_json::from_value::<Message>(v).ok())
+            .find(|m| m.role == agenium_llm::Role::User)
+            .map(|m| m.text())
+            .unwrap_or_default();
+        let ask = format!(
+            "The project is done. Its handover report:\n\n<report>\n{md}\n</report>\n\nWrite the user a short \
+             summary of it (under 200 words, Markdown allowed): what was delivered, how it was checked, anything left \
+             open or risky, and that the full report is in {}. Answer in the language of the user's last message:\n\
+             <last_message>\n{last_user}\n</last_message>",
+            report.display()
+        );
+        let a = self
+            .side_chat(
+                "done-summary",
+                None,
+                lead.backend,
+                &lead.model,
+                "You are the project's Lead, telling the user the work is done. Plain and short; propose no new work.",
+                vec![Message::user_text(ask)],
+                2_000,
+            )
+            .await?;
+        if a.text.trim().is_empty() {
+            return Ok(());
+        }
+        let v = serde_json::to_value(Message::assistant_text(a.text.trim()))
+            .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        mem.append_message(&session, &v)?;
+        Ok(())
+    }
+
     /// Queues `text` for the project's Lead (or Solo agent) when it is running now (ADR-149): its next chat turn takes
     /// it, and until then the user can change or take it back. `false` when the Lead is not running (a chat turn
     /// answers at once instead); the text is not stored then.

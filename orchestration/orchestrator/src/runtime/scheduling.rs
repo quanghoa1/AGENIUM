@@ -504,6 +504,8 @@ impl Runtime {
                 Ok(file) => {
                     self.app
                         .set_project_status_as(project, ProjectStatus::Completed, "system")?;
+                    // The Lead says so in the chat, from the report (once: the project is Completed from now on).
+                    self.summarize_done(project, &file).await;
                     let shown = file.display().to_string();
                     self.app.store().commit(None, "system", |w| {
                         w.emit(DomainEvent::NeedsUser {

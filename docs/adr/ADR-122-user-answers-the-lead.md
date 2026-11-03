@@ -51,3 +51,11 @@ Lead's plan.
 - `security/sandbox/src/mxc.rs` (`enumerate_paths`).
 - UI: `ChatPane.tsx`, `Live.tsx`, `Organize.tsx`, `Overview.tsx`, `Shell.tsx`, `ui.tsx`, `motion.tsx`, `Needs.tsx`,
   `Ticket.tsx`; desktop `teams` returns `past_projects`.
+
+## Amendment (2026-11-04, no comment box on a ticket)
+
+The ticket popup still had a "Comment to steer the work" box, and `agenium ticket comment` the same: the user writing
+on a ticket a worker reads, which is telling the worker directly. Both are gone (desktop `comment`, `api.comment`, the
+CLI subcommand). A new request or a correction goes to the Lead or Solo agent in the chat; it writes to the ticket, in
+English. The user's decisions on a ticket stay (close, reopen with feedback per criterion, waive, cancel), and
+`App::user_comment` stays for the engine's own tests.

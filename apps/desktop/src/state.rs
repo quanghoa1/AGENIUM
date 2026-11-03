@@ -313,6 +313,8 @@ fn live_json(e: &agenium_llm::ChatEvent) -> Option<serde_json::Value> {
         }
         E::Usage(u) => serde_json::json!({ "type": "usage", "input": u.input, "output": u.output }),
         E::Restart => serde_json::json!({ "type": "restart" }),
-        E::Done => serde_json::json!({ "type": "done" }),
+        // One model call ended, not the run (an API run makes one per step; a CLI run none): the run's end reaches the
+        // live views as its `RunEnded` event.
+        E::Done => return None,
     })
 }

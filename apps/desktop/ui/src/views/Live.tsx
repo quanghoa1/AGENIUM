@@ -18,7 +18,7 @@ import { PanelSwap, Segmented } from "../components/motion";
 import { PixelOffice, type CallKind, type OfficeAgent } from "../components/PixelOffice";
 import { Empty, Mono, cn, tokens } from "../components/ui";
 import { api, onEvent, onRun } from "../lib/api";
-import { useApp, useLive } from "../lib/store";
+import { recentCalls, useApp, useLive } from "../lib/store";
 import type { EventRecord, LiveAgent, LiveData } from "../lib/types";
 import { classify } from "./live/calls";
 import { Dot, LogLine, Room, RoomLog, roomsOf, useActivity } from "./live/activity";
@@ -114,14 +114,35 @@ export function LiveView() {
     }
   };
 
-  // The log starts from the recent events, then grows live.
+  // A tool, skill or MCP call as a line of the log, by the agent the event names (a run that started after the last
+  // read of the office is not in it yet).
+  const callLine = (at: number, run: string, agent: string | null, name: string, args: unknown): LogLine | null => {
+    const a = dataRef.current?.agents.find((x) => (agent ? x.agent.id === agent : x.run?.run.id === run));
+    if (!a) return null;
+    const c = classify(name, args);
+    const t = tRef.current;
+    return {
+      at,
+      agent: a.agent.id,
+      icon: c.kind === "mcp" ? <Plug className="h-3 w-3 text-purple-500" /> : c.kind === "skill" ? <BookOpen className="h-3 w-3 text-teal-500" /> : c.kind === "agenium" ? <GitBranch className="h-3 w-3 text-blue-500" /> : <Terminal className="h-3 w-3 text-muted" />,
+      text: (
+        <>
+          <b>{a.agent.name}</b> {c.kind === "skill" ? t("live.loads") : t("live.calls")} [{c.kind === "mcp" ? "MCP" : c.kind === "skill" ? "Skill" : c.kind === "agenium" ? "Agenium" : "Tool"}: {c.label}]
+        </>
+      ),
+    };
+  };
+
+  // The log starts from the recent events and this session's calls (made while another page was open), then grows live.
   useEffect(() => {
     let alive = true;
+    const opened = Date.now();
     const t0 = window.setTimeout(() => {
       api.events(undefined, 150).then((es) => {
         if (!alive || !es) return;
         const lines = [...es].sort((a, b) => a.seq - b.seq).map(lineOf).filter(Boolean) as LogLine[];
-        setLog((cur) => [...lines, ...cur].slice(-300));
+        const calls = recentCalls.filter((c) => c.at < opened).map((c) => callLine(c.at, c.run, c.agent, c.name, c.args)).filter(Boolean) as LogLine[];
+        setLog((cur) => [...[...lines, ...calls].sort((a, b) => a.at - b.at), ...cur].slice(-300));
       });
     }, 300);
     let n = 0;
@@ -140,25 +161,10 @@ export function LiveView() {
       if (to) setFlights((f) => [...f.slice(-10), { id: Date.now() + n++, from, to, kind: String(e.payload?.kind ?? "") }]);
     });
     // Tool, skill and MCP calls as they happen.
-    const unRun = onRun((run, ev) => {
+    const unRun = onRun((run, ev, agent) => {
       if (ev.type !== "tool") return;
-      const a = dataRef.current?.agents.find((x) => x.run?.run.id === run);
-      if (!a) return;
-      const c = classify(ev.name, ev.args);
-      const t = tRef.current;
-      setLog((cur) => [
-        ...cur.slice(-299),
-        {
-          at: Date.now(),
-          agent: a.agent.id,
-          icon: c.kind === "mcp" ? <Plug className="h-3 w-3 text-purple-500" /> : c.kind === "skill" ? <BookOpen className="h-3 w-3 text-teal-500" /> : c.kind === "agenium" ? <GitBranch className="h-3 w-3 text-blue-500" /> : <Terminal className="h-3 w-3 text-muted" />,
-          text: (
-            <>
-              <b>{a.agent.name}</b> {c.kind === "skill" ? t("live.loads") : t("live.calls")} [{c.kind === "mcp" ? "MCP" : c.kind === "skill" ? "Skill" : c.kind === "agenium" ? "Agenium" : "Tool"}: {c.label}]
-            </>
-          ),
-        },
-      ]);
+      const line = callLine(Date.now(), run, agent, ev.name, ev.args);
+      if (line) setLog((cur) => [...cur.slice(-299), line]);
     });
     return () => {
       alive = false;

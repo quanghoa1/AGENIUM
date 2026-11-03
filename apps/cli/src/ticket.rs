@@ -50,19 +50,6 @@ pub(crate) async fn run(cli: &Cli, tc: &TicketCmd) -> Result<()> {
                 );
             }
         }
-        TicketCmd::Comment {
-            project: pname,
-            key,
-            text,
-        } => {
-            let p = project(&app, pname)?;
-            app.user_comment(
-                p.id,
-                &key.parse().map_err(|e: IdParseError| anyhow!(e))?,
-                text,
-            )?;
-            println!("comment added");
-        }
         TicketCmd::Audit {
             project: pname,
             key,

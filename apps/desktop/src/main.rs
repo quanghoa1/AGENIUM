@@ -94,7 +94,6 @@ fn main() {
             api::answer,
             api::decide_permission,
             api::decide_command,
-            api::comment,
             api::ticket_action,
             api::create_project,
             api::create_team,

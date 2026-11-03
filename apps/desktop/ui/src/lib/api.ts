@@ -152,8 +152,6 @@ export const api = {
     call<unknown>("decide_permission", { project, ticket, request, approve, always, note }),
   decideCommand: (id: number, decision: "allow" | "always" | "deny", reason?: string) =>
     call<boolean>("decide_command", { id, decision, reason }),
-  comment: (project: string, ticket: string, text: string) =>
-    call<void>("comment", { project, ticket, text }),
   ticketAction: (
     project: string,
     ticket: string,

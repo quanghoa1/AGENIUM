@@ -96,9 +96,21 @@ export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
             </div>
           )
         )}
-        {stream?.phase === "tool" && stream.tool && (
-          <div className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1 font-mono text-[11.5px] text-purple-600 dark:text-purple-300">
-            <Wrench className="h-3 w-3" /> {classify(stream.tool, stream.toolArgs).label}
+        {/* Every call of the turn, one per line in the order made, the newest last and lit while it runs: an API model's tool runs in milliseconds, so
+            showing only the current one let it flash by. */}
+        {!!stream?.tools.length && (
+          <div className="flex flex-col items-start gap-1">
+            {stream.tools.slice(-8).map((c, k, all) => (
+              <span
+                key={k}
+                className={cn(
+                  "inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border px-2 py-0.5 font-mono text-[11px]",
+                  k === all.length - 1 && stream.phase === "tool" ? "border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-300" : "border-line text-subtle",
+                )}
+              >
+                <Wrench className="h-3 w-3 shrink-0" /> {classify(c.name, c.args).label}
+              </span>
+            ))}
           </div>
         )}
         {writing && (
@@ -169,15 +181,24 @@ export function ChatPane({
     reloadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
-  // A run of the agent that starts or ends may have added to the conversation: a turn started outside this pane (an
-  // answer from Needs you, another window) shows its message at once, the reply when it ends.
-  const runs = agentId ? Object.values(live).filter((l) => l.agent === agentId) : [];
-  const started = runs.length;
-  const ended = runs.filter((l) => l.done).length;
+  // A run of the agent that ends (the turn that read the queue among them) may have added to the conversation, and a
+  // project that becomes done gets its Lead's summary in it. Not when a run starts: the message a turn takes is in
+  // the conversation only once the turn ends, and a reload then would drop the one this pane just showed.
+  // By the newest end, not by how many ended: the live store drops old finished runs, and a count that falls made the
+  // pane reload mid-turn and lose the message it had just shown.
+  const lastEnd = agentId ? Math.max(0, ...Object.values(live).filter((l) => l.done && l.agent === agentId).map((l) => l.at)) : 0;
+  const seenEnd = useRef(0);
   useEffect(() => {
-    if (started > 0) api.chatHistory(project).then(setLines);
+    if (lastEnd <= seenEnd.current) return;
+    seenEnd.current = lastEnd;
+    api.chatHistory(project).then(setLines);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, ended]);
+  }, [lastEnd]);
+  const status = app.projects.find((p) => p.id === project)?.status;
+  useEffect(() => {
+    if (status === "Completed") api.chatHistory(project).then(setLines);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
   useEffect(() => {
     // While messages wait, the queue is read again; once the Lead's turn takes them, the conversation shows them.
     if (queue.length === 0) return;

@@ -168,7 +168,6 @@ export const work: Record<keyof typeof en, string> = {
   "ticket.runs": "Run",
   "ticket.audit": "Kiểm toán",
   "ticket.scope": "Phạm vi ghi",
-  "ticket.comment": "Bình luận để lái công việc…",
   "ticket.assignee": "người làm",
   "ticket.report": "mẫu báo cáo",
   "ticket.dependsOn": "phụ thuộc",

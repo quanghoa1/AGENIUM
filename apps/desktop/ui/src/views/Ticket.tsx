@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, FileCode2, GitBranch, Lock, MessageSquare, MessageSquarePlus, RotateCcw, Send, X } from "lucide-react";
+import { AlertTriangle, Check, FileCode2, GitBranch, Lock, MessageSquare, MessageSquarePlus, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { DiffView } from "../components/DiffView";
@@ -48,8 +48,6 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
   const order: Tab[] = ["timeline", "changes", "runs", "audit"];
   const [diff, setDiff] = useState<{ diff: string; truncated?: boolean; note?: string } | null>(null);
   const [agents, setAgents] = useState<AgentEntry[]>([]);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
   const [reason, setReason] = useState("");
   const [feedback, setFeedback] = useState<Record<string, string>>({});
 
@@ -100,17 +98,6 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
     p.then(() => (app.notify(app.t("common.done")), app.refresh())).catch((e) => app.notify(String(e)));
   const workers = agents.filter((a) => a.project === project && !a.is_planner && (a.solo || !a.is_lead));
   // One comment per send: the box empties at once (text typed meanwhile is kept) and gets the text back on failure.
-  const send = () => {
-    const msg = text.trim();
-    if (!msg || sending) return;
-    setSending(true);
-    setText("");
-    api
-      .comment(project, t.key, msg)
-      .then(() => app.refresh())
-      .catch((e) => (setText((cur) => cur || msg), app.notify(String(e))))
-      .finally(() => setSending(false));
-  };
 
   const tabs: [Tab, string, number | undefined][] = [
     ["timeline", app.t("ticket.timeline"), d.comments.length],
@@ -308,21 +295,7 @@ function TicketView({ id, project, onClose }: { id: string; project: string; onC
 
                   {d.comments.length === 0 && <Empty>{app.t("common.none")}</Empty>}
 
-                  {/* Comment Composer */}
-                  <div className="card flex items-center gap-2 p-3">
-                    <input
-                      className="input"
-                      placeholder={app.t("ticket.comment")}
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.nativeEvent.isComposing) send();
-                      }}
-                    />
-                    <button className="btn-primary shrink-0" disabled={!text.trim() || sending} onClick={send}>
-                      <Send className="h-3.5 w-3.5" /> {app.t("common.send")}
-                    </button>
-                  </div>
+                  {/* No composer: the user talks to the Lead or Solo agent, who writes to the ticket (in English). */}
                 </div>
               )}
 

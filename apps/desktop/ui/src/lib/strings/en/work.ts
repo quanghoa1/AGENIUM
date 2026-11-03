@@ -166,7 +166,6 @@ export const work = {
   "ticket.runs": "Runs",
   "ticket.audit": "Audit",
   "ticket.scope": "Write scope",
-  "ticket.comment": "Comment to steer the work…",
   "ticket.assignee": "assignee",
   "ticket.report": "report",
   "ticket.dependsOn": "depends on",

@@ -109,10 +109,16 @@ export function useApp(): Ctx {
   return c;
 }
 
+/** The tool calls of this session, oldest first, whatever page was open when they were made (the Live page's room
+ * log shows them when it opens; they are not stored). */
+export const recentCalls: { at: number; run: string; agent: string | null; name: string; args: unknown }[] = [];
+
 /** Live output of the runs in progress (and of those finished in the last minutes), by run id. */
 /** One streamed event of a run applied to the live runs. */
 function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agent: string | null): Record<string, LiveRun> {
   let m = prev;
+  // The end of a run that streamed nothing here (a memory or side call): nothing to show, and no reload to cause.
+  if (ev.type === "done" && !m[run]) return prev;
   if (!m[run]) {
     // A new run: forget the ones that finished a while ago.
     const now = Date.now();
@@ -139,8 +145,9 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     next.tool = ev.name;
     next.toolArgs = ev.args;
   } else if (ev.type === "usage") {
-    // A step ended: the next one starts by thinking.
-    next.phase = "thinking";
+    // A step ended: the next one starts by thinking. An API step ends as its tool calls start running: the tool
+    // stays shown until the model reasons or writes again.
+    if (cur.phase !== "tool") next.phase = "thinking";
     next.thinking = "";
   } else if (ev.type === "done") {
     next.done = true;
@@ -277,12 +284,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLive((prev) => batch.reduce((m, [run, ev, agent]) => applyRunEvent(m, run, ev, agent), prev));
     };
     const un = onRun((run, ev, agent) => {
+      if (ev.type === "tool") {
+        recentCalls.push({ at: Date.now(), run, agent, name: ev.name, args: ev.args });
+        if (recentCalls.length > 200) recentCalls.shift();
+      }
       queue.push([run, ev, agent]);
+      if (timer === undefined) timer = window.setTimeout(flush, 50);
+    });
+    // A run is done when it ends (its RunEnded event), not when one of its model calls does.
+    const unEnd = onEvent((e) => {
+      if (e.kind !== "RunEnded" || !e.payload?.run) return;
+      queue.push([String(e.payload.run), { type: "done" }, e.payload.agent ? String(e.payload.agent) : null]);
       if (timer === undefined) timer = window.setTimeout(flush, 50);
     });
     return () => {
       window.clearTimeout(timer);
       un.then((f) => f());
+      unEnd.then((f) => f());
     };
   }, []);
 

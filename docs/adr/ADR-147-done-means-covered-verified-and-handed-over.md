@@ -124,3 +124,11 @@ Tests: `lifecycle::coverage::a_new_ticket_of_the_item_carries_its_cancelled_work
 - A message to the Lead may, after a crash, be read twice; it is never lost.
 - Still not guaranteed: that a learned skill improves the work (no baseline-vs-candidate gate, ADR-118), or that the
   judge reads every change (it is optional and fail-open; now logged).
+
+## Amendment (2026-11-04, the Lead tells the user)
+
+A project that became done said so only in Needs you, with the report's path. Now the Lead (or Solo agent) also tells
+the user in the chat: its own model, API or CLI, sums the handover report up (what was delivered, how it was checked,
+what is open or risky, where the report is) in the language of the user's last message, kept as its message in the
+chat (`Runtime::summarize_done`, once per completion). A failure is only logged. Verified on a Solo review project
+(DeepSeek): after RV-4 closed, the chat held a summary of the four reports with the handover's path.

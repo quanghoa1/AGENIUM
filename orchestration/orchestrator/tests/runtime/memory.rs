@@ -714,7 +714,14 @@ async fn a_ticket_the_user_closes_teaches_the_assignee() {
     );
     assert_eq!(p.remaining(), 0);
     rt.work(project).await.unwrap();
-    assert_eq!(p.requests().len(), 3, "once");
+    // Learned once; the fourth call is the Lead's summary for the user, made once when the project became done.
+    let reqs = p.requests();
+    assert_eq!(reqs.len(), 4, "once");
+    assert!(
+        reqs[3].messages[0].text().contains("The project is done"),
+        "{}",
+        reqs[3].messages[0].text()
+    );
     // ADR-147: done is handed over: the report is written, then the project completes and the user is told where.
     let pr = app.project(project).unwrap();
     assert_eq!(

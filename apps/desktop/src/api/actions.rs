@@ -211,15 +211,6 @@ pub fn decide_command(
     Ok(d.approvals.decide(id, a))
 }
 
-#[tauri::command]
-pub fn comment(d: State<'_, Desktop>, project: String, ticket: String, text: String) -> R<()> {
-    let o = d.opened()?;
-    o.app
-        .user_comment(pid(&project)?, &key(&ticket)?, &text)
-        .map(|_| ())
-        .map_err(err)
-}
-
 #[derive(Deserialize)]
 pub struct Feedback {
     ac_id: String,

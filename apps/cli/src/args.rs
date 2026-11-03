@@ -596,13 +596,6 @@ pub(crate) enum TicketCmd {
         project: String,
         key: String,
     },
-    /// Add a User comment (steer the work).
-    Comment {
-        #[arg(long)]
-        project: String,
-        key: String,
-        text: String,
-    },
     /// Audit trail of a ticket (or of the whole project without KEY): who did what, when, applied or refused.
     Audit {
         #[arg(long)]
