@@ -27,6 +27,7 @@ export const settings = {
   "model.noMatch": "No model of the list matches; the name typed is used as it is.",
   "model.effortUnknown": "This model does not report effort levels, so Agenium sends none and the model uses its own default.",
   "model.effortWhere": "Set its levels in Providers & CLIs, per-model settings.",
+  "model.claudeCliRisk": "Claude Code here runs on your own claude.ai login. Anthropic does not allow third-party apps to offer claude.ai login unless it has approved them, and Agenium is not approved: using it is your choice and your risk, including any action Anthropic takes on your account. For no such risk, use Claude through an Anthropic API key (API provider).",
   "providers.perModel": "Per-model settings",
   "providers.perModelNote": "For a model the endpoint does not describe: whether it calls tools and reads images, its context window, and its effort levels (a chosen level is sent as reasoning_effort). Unset = as the endpoint says.",
   "providers.capTools": "tools",

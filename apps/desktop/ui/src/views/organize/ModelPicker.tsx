@@ -188,6 +188,13 @@ export function ModelPicker({ value, onChange, caps }: { value: ModelArg; onChan
           </button>
         </div>
       )}
+      {/* Anthropic does not allow third-party apps to offer claude.ai login unless approved: the user's own account, at their risk. */}
+      {cli && value.provider === "claude" && (
+        <div className="col-span-4 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-300">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>{app.t("model.claudeCliRisk")}</span>
+        </div>
+      )}
       {picked && (
         <div className="col-span-4 flex flex-wrap items-center gap-2 text-[11px] text-amber-600 dark:text-amber-300">
           <span>{app.t("model.deprecatedPicked")}</span>

@@ -29,6 +29,7 @@ export const settings: Record<keyof typeof en, string> = {
   "model.noMatch": "Không model nào trong danh sách khớp; tên vừa gõ được dùng nguyên như vậy.",
   "model.effortUnknown": "Model này không báo các mức effort, nên Agenium không gửi effort và model dùng mức mặc định của nó.",
   "model.effortWhere": "Khai báo các mức của nó ở Provider & CLI, phần cài đặt theo model.",
+  "model.claudeCliRisk": "Claude Code ở đây chạy bằng tài khoản claude.ai của chính bạn. Anthropic không cho ứng dụng bên thứ ba dùng đăng nhập claude.ai nếu chưa được họ chấp thuận, và Agenium chưa được chấp thuận: dùng hay không là quyết định của bạn, bạn tự chịu rủi ro, kể cả việc Anthropic xử lý tài khoản. Muốn tránh rủi ro này, hãy dùng Claude qua API key của Anthropic (provider API).",
   "providers.perModel": "Cài đặt theo model",
   "providers.perModelNote": "Cho model mà endpoint không mô tả: có gọi tool, đọc ảnh không, context bao nhiêu, và các mức effort (mức được chọn gửi dưới dạng reasoning_effort). Để trống = theo endpoint.",
   "providers.capTools": "tool",

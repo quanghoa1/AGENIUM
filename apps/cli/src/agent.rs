@@ -134,6 +134,13 @@ pub(crate) async fn run(cli: &Cli, ac: &AgentCmd) -> Result<()> {
                 },
             )?;
             println!("{name} now runs through the {cli} CLI");
+            if cli == "claude" {
+                eprintln!(
+                    "warning: Claude Code runs on your own claude.ai login. Anthropic does not allow third-party apps \
+                     to offer claude.ai login unless approved, and Agenium is not: this is your choice and your risk, \
+                     account included. An Anthropic API key (an API provider) carries no such risk."
+                );
+            }
             let driven = agenium_cli_backend::CliKind::ALL
                 .into_iter()
                 .find(|k| k.program() == cli)
