@@ -138,6 +138,16 @@ root:
   with its reason (grok: `program not found`). Verified in the app on the owner's machine (codex gpt-6-luna; opencode
   2.2.5, agy 1.4.12, grok 1.0.41, claude); tests for the check kept per version, the version that answered it and a
   call's arguments reaching the view; full local CI and the UI smoke test (35 checks).
+- **Learning without an API key; a ticket stays inside its item's scope; candle on zip 9** (2026-11-03, ADR-56 and
+  ADR-132 amended): a CLI agent's lessons are drawn by its own CLI, one read-only answer per call kept as the agent's
+  `Memory` run under the CLI's provider and model, unless `[cli] fallback_provider/fallback_model` names an API model
+  (still an optional cheaper extractor); a user working through CLIs now keeps learning with no API key. A ticket may
+  not name a path outside its plan item's `scope_paths`: the item's scope refuses it (a Lead created a README ticket
+  for a notes-only item, QS-4) and a ticket that names no scope takes the item's. candle-core, candle-nn and
+  candle-transformers moved to 0.11.1, which uses zip 9.3.0: the four zip 8 advisories left the tree and `deny.toml`
+  ignores none. Verified: the embedding tests with the model (recall unchanged: EN recall@5 0.967, VI→EN 0.300), the
+  scope rule's lifecycle test, a Codex worker's memory drawn by codex on the QA root (provider `codex`, a new fact from
+  QS-5), and the full local CI.
 
 | Release item | Status | Evidence |
 |---|---|---|
@@ -227,7 +237,7 @@ CLI end-to-end smoke (2026-10-23): `setup -> project create -> provider add (ope
 | Protocol tools through Agenium's MCP server | DONE | `agent/mcp/src/server.rs`, `tests/server.rs` |
 | Limits / mandatory report from the event stream | DONE | `tests/stream_run.rs` |
 | Golden tasks through a CLI | **codex gpt-6-luna 5/5**, **agy gemini-3.8-flash-low 5/5**, **claude haiku 5/5** | `quality/eval/results/20261024T055002Z-cli-codex-gpt-6-luna.json`, `20261024T060626Z-cli-agy-gemini-3.8-flash-low.json` |
-| ~~API fallback when the CLI cannot run~~ | WITHDRAWN (ADR-132): the agent is set aside for the user, who resumes it; `[cli] fallback_provider/fallback_model` only draws CLI agents' lessons | `orchestrator/tests/runtime/team.rs::a_cli_agent_whose_cli_cannot_run_waits_for_the_user` |
+| ~~API fallback when the CLI cannot run~~ | WITHDRAWN (ADR-132): the agent is set aside for the user, who resumes it; `[cli] fallback_provider/fallback_model` is an optional API extractor for a CLI agent's lessons (its own CLI draws them when unset) | `orchestrator/tests/runtime/team.rs::a_cli_agent_whose_cli_cannot_run_waits_for_the_user` |
 | Contract per minimum version | DONE (stream parsing tested on lines captured from codex 0.163.0 / agy 1.4.4; older = not used) | `codex.rs`, `agy.rs` tests |
 | claude driver | DONE (hook control, per-run `CLAUDE_CONFIG_DIR`) | `agent/cli-backend/src/claude.rs`, `quality/eval/results/20261024T065834Z-cli-claude-haiku.json` |
 | opencode driver (OpenCode's free models) | DONE: `opencode serve` driven through its HTTP API, every permission decided by Agenium; **5/5** golden tasks with `deepseek-v4.1-flash-free` | [ADR-68](adr/ADR-68-opencode-cli-free-models.md), `quality/eval/results/20261025T050257Z-cli-opencode-deepseek-v4.1-flash-free.json` |

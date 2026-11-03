@@ -260,27 +260,44 @@ impl Runtime {
         }
     }
 
-    /// The API model for `agent`'s side calls (memory extraction, chat summaries): its own, or for a CLI agent the
-    /// `[cli]` API fallback model (ADR-56). `None` when there is none.
-    pub(crate) fn side_model(
+    /// The model for `agent`'s side calls (memory extraction, chat summaries, reflection): its own; for a CLI agent
+    /// the `[cli]` API model when one is set (cheaper, ADR-56), else the CLI it already works on (2026-11-03: the
+    /// memory is Agenium's and the model is only the brain — a CLI user with no API key still keeps learning). `None`
+    /// when nothing can answer.
+    pub(crate) async fn side_model(
         &self,
         agent: &agenium_store::core::agents::Agent,
     ) -> Option<(std::sync::Arc<dyn agenium_llm::Provider>, String)> {
-        let (provider_id, model_id) = if agent.backend == BackendKind::Cli {
+        if agent.backend == BackendKind::Cli {
             let cfg = self.app.config().cli;
-            if cfg.fallback_provider.is_empty() || cfg.fallback_model.is_empty() {
-                tracing::info!(
-                    agent = %agent.name,
-                    "skipped: a CLI agent needs [cli] fallback_provider/fallback_model for this API call"
-                );
-                return None;
+            if !cfg.fallback_provider.is_empty() && !cfg.fallback_model.is_empty() {
+                return match self.providers.provider(&cfg.fallback_provider) {
+                    Ok(p) => Some((p, cfg.fallback_model)),
+                    Err(e) => {
+                        tracing::warn!(agent = %agent.name, error = %e, "no provider for a side call");
+                        None
+                    }
+                };
             }
-            (cfg.fallback_provider, cfg.fallback_model)
-        } else {
-            (agent.model.provider.clone(), agent.model.model.clone())
-        };
-        match self.providers.provider(&provider_id) {
-            Ok(p) => Some((p, model_id)),
+            let name = agent.model.provider.clone();
+            return match self.cli_ready_named(&name).await {
+                Ok((driver, program)) => Some((
+                    std::sync::Arc::new(super::cli_brain::CliBrain::new(
+                        name,
+                        driver,
+                        program,
+                        self.cancel.child(),
+                    )),
+                    agent.model.model.clone(),
+                )),
+                Err(e) => {
+                    tracing::warn!(agent = %agent.name, error = %e, "no CLI answers its side calls");
+                    None
+                }
+            };
+        }
+        match self.providers.provider(&agent.model.provider) {
+            Ok(p) => Some((p, agent.model.model.clone())),
             Err(e) => {
                 tracing::warn!(agent = %agent.name, error = %e, "no provider for a side call");
                 None
@@ -295,7 +312,7 @@ impl Runtime {
         mem: &AgentStore,
         ep: &Episode,
     ) -> Option<std::result::Result<LearnReport, String>> {
-        let (provider, model_id) = self.side_model(agent)?;
+        let (provider, model_id) = self.side_model(agent).await?;
         let model = PipelineModel {
             model: model_id,
             effort: Effort::LOW,

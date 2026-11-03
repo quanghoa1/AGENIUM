@@ -10,6 +10,7 @@
 
 pub mod bridge;
 mod chat_history;
+mod cli_brain;
 mod cli_fit;
 mod context;
 mod execute;

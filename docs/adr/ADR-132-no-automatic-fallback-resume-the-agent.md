@@ -57,3 +57,9 @@ Tests:
 Real models: `agenium-eval --quota same|team` (DeepSeek through OpenCode Go, and a vendor CLI as the new model with
 `--worker-cli`): the ticket stays with the worker whose quota ran out, the worker goes on with its new model and the
 golden task's check passes after the merge. See [VERIFICATION](../VERIFICATION.md).
+## Amendment (2026-11-03, memory no longer needs an API model)
+
+Point 2 tied a CLI agent's learning to an API model. The memory is the agent's (Agenium's store, per agent); the model
+only distils an episode into it. Left empty, `[cli] fallback_provider/fallback_model` now means the CLI agent's own CLI
+answers its side calls (memory extraction, reflection) — the same path an API agent's own provider takes; set, it stays
+the cheaper extractor. The Providers page says "the agent's own CLI" where none is set.

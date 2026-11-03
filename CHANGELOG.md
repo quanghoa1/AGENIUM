@@ -63,6 +63,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   through one queue. Reopens carry per-criterion feedback; repeated failures go to the user.
 - Ticket dependencies (a ticket waits for what it needs to be merged), write scopes per role, pre-merge checks,
   optional push on close, aging and stall detection, Lead inbox, messaging a running Lead.
+- A ticket stays inside its plan item's write scope: a path the item never included is refused (the error names the
+  item), and a ticket that names no scope takes the item's — a Lead had created a README ticket for a notes-only item.
 - Team templates (coding, research, content, pentest), 27 ready-made roles, agents composed into your own teams.
 - Projects end: only the user closes a done project (never while one of its team's runs is going), and its team goes
   free, whole, for another project; reopening offers the team that worked on it, now or once it is free (ADR-130). A
@@ -111,7 +113,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Custom OpenAI-compatible endpoints: extra headers (secret ones in the vault), per-model settings and effort levels,
   extra request fields and the effort field, under rules checked on save and on every request (ADR-115).
 - Vendor CLIs driven headless with every tool call decided by Agenium: Claude Code, Codex, Gemini (Antigravity),
-  Grok, OpenCode; login and usability detected; an API model of your choice draws CLI agents' lessons.
+  Grok, OpenCode; login and usability detected; their own model draws CLI agents' lessons (an API model you pick can
+  take that over).
+- CLI agents learn with their own brain: lessons and facts are drawn by the agent's CLI, a read-only side call kept as
+  its `Memory` run (the CLI's provider and model), unless an API model is set as the extractor; the memory itself is
+  the agent's and is recalled the same for API and CLI agents.
 - Each vendor CLI resumes its own session of a ticket across the ticket's runs (a question answered, a review
   reopened, a quota used up): it goes on with its own context and is sent only what is new; a new ticket starts a new
   session (ADR-134).

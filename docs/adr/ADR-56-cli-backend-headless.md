@@ -209,3 +209,13 @@ folder); a Codex refresh cut short by a stop could empty the shared login (its l
 a resumed session was dropped on a quota or login error; a holder of a refresh token that did not refresh left the lent
 runs failing, and a failed copy could keep the role forever; the quota backoff was reset by another project's round; grep
 said "no matches" over files it may not read.
+## Amendment (2026-11-03, the CLI draws its own lessons)
+
+- Memory extraction is a model call, and a CLI agent's model is the CLI itself. With `[cli] fallback_provider/fallback_model`
+  empty, its side calls (memory extraction and the reflection on a proven lesson) now run on that CLI: one read-only
+  answer per call, no tools, in an empty folder (`orchestrator/src/runtime/cli_brain.rs`), kept as the agent's `Memory`
+  run under the CLI's provider and model. The API fallback stays as an optional choice (a cheaper extractor). Before
+  this, a CLI agent with no API model learned nothing, though the memory it read back was its own.
+- Verified on the QA root (2026-11-03): a Codex worker (`gpt-6-luna`) on a closed ticket, no `[cli]` fallback set:
+  its `Memory` run read provider `codex` and the next fact (`verify documentation-only changes with git status`)
+  was in its memory.

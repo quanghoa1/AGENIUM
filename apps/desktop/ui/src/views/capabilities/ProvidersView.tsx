@@ -336,7 +336,7 @@ export function ProvidersView() {
           </tbody>
         </table>
         <div className="mt-3 text-[11px] text-subtle">
-          {app.t("providers.fallback")}: {c.cli_fallback.provider ? <Mono>{c.cli_fallback.provider}/{c.cli_fallback.model}</Mono> : app.t("providers.notSet")}
+          {app.t("providers.fallback")}: {c.cli_fallback.provider ? <Mono>{c.cli_fallback.provider}/{c.cli_fallback.model}</Mono> : app.t("providers.cliBrain")}
         </div>
       </Section>
       <ConfirmModal

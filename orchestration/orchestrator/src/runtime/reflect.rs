@@ -73,7 +73,7 @@ impl Runtime {
         if proven.is_empty() {
             return vec![];
         }
-        let Some((provider, model)) = self.side_model(agent) else {
+        let Some((provider, model)) = self.side_model(agent).await else {
             return vec![];
         };
         let mut out = Vec::new();
