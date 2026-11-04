@@ -313,6 +313,7 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                         return Err(format!("the CLI exited before the turn ended ({})", p.stderr_tail()));
                     }
                     Some(v) => {
+                        capture(&v);
                         for ev in self.driver.parse(&v) {
                             if let Some(end) = self.on_event(ev, st) {
                                 return Ok(end);
@@ -553,5 +554,22 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 Some((denied, error))
             }
         }
+    }
+}
+
+/// Diagnostics: with `AGENIUM_CLI_STREAM_DIR` set, each line of a CLI's stream is appended to `stream.jsonl` there (to
+/// learn a CLI's event shapes from a real run; it can hold file contents and tool output, so it is off by default).
+fn capture(v: &serde_json::Value) {
+    let Some(dir) = std::env::var_os("AGENIUM_CLI_STREAM_DIR") else {
+        return;
+    };
+    let path = std::path::Path::new(&dir).join("stream.jsonl");
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        use std::io::Write;
+        let _ = writeln!(f, "{v}");
     }
 }

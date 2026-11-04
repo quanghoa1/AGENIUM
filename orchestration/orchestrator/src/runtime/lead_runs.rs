@@ -409,12 +409,31 @@ impl Runtime {
                 ));
             }
         }
+        // What the user said to the Lead lately: an inbox run works without the chat otherwise, and assigned the
+        // tickets of a user who had just said not to start yet (2026-11-05).
+        let said = learn::recent_user_words(
+            &self
+                .agent_memory(lead.id)?
+                .load_messages(&learn::chat_session(project))?
+                .into_iter()
+                .filter_map(|m| serde_json::from_value::<agenium_llm::Message>(m).ok())
+                .collect::<Vec<_>>(),
+        );
+        let said = if said.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "\n\nThe user's latest messages to you, newest last. They decide: when they said to wait, not to \
+                 start, or to change something, follow that before these items (leave a ticket unassigned rather than \
+                 start work they asked to hold).\n<user_said>\n{said}\n</user_said>"
+            )
+        };
         let task = format!(
             "Lead inbox, {} item(s), most urgent first:\n{}\n\nHandle every item with your tools: answer_question \
              (or escalate = true when only the user can decide: scope, acceptance criteria, facts you do not have), \
              approve_permission, create_ticket for plan items (one ticket per item unless it is too large; keep \
              depends_on in line with the plan) and assign_ticket to a team member whose role and tags match (see \
-             get_team; list_tickets shows the tickets you already created and read_ticket one of them whole). The run ends by itself once the inbox is empty.\n\n<project_state>\n{}\n</project_state>\n\n{}",
+             get_team; list_tickets shows the tickets you already created and read_ticket one of them whole). The run ends by itself once the inbox is empty.{said}\n\n<project_state>\n{}\n</project_state>\n\n{}",
             items.len(),
             items
                 .iter()

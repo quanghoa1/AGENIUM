@@ -243,7 +243,27 @@ impl Driver for Opencode {
                 .map(|s| vec![Event::Session(s.to_owned())])
                 .unwrap_or_default(),
             Some("session.tool.called") => vec![tool(false)],
-            Some("session.tool.success" | "session.tool.error") => vec![tool(true)],
+            Some(kind @ ("session.tool.success" | "session.tool.error")) => {
+                let error = kind == "session.tool.error";
+                let mut text: Vec<String> = d["content"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|c| c["text"].as_str().map(str::to_owned))
+                    .collect();
+                for k in ["error", "message"] {
+                    if let Some(t) = d[k].as_str().or_else(|| d[k]["message"].as_str()) {
+                        text.push(t.to_owned());
+                    }
+                }
+                let text = text.join("\n");
+                let out = (error || !text.is_empty()).then(|| Event::ToolOutput {
+                    id: d["id"].as_str().unwrap_or("").to_owned(),
+                    text,
+                    error,
+                });
+                out.into_iter().chain([tool(true)]).collect()
+            }
             Some("session.text.ended") => d["text"]
                 .as_str()
                 .filter(|t| !t.is_empty())
@@ -344,9 +364,24 @@ mod tests {
         }
         assert!(matches!(
             &ev(
-                r#"{"type":"session.tool.success","data":{"id":"call_1","name":"shell","input":{}}}"#
-            )[0],
+                r#"{"type":"session.tool.success","data":{"id":"call_1","name":"shell","input":{},"content":[{"text":"ok"}]}}"#
+            )[1],
             Event::Tool { done: true, .. }
+        ));
+        // What the call returned (captured from opencode 2.2.5): its content's text, before the end of the step.
+        assert_eq!(
+            ev(
+                r#"{"type":"session.tool.success","data":{"id":"call_1","name":"shell","input":{},"content":[{"text":"ok"}]}}"#
+            )[0],
+            Event::ToolOutput {
+                id: "call_1".into(),
+                text: "ok".into(),
+                error: false
+            }
+        );
+        assert!(matches!(
+            &ev(r#"{"type":"session.tool.error","data":{"id":"c2","name":"x","error":"boom"}}"#)[0],
+            Event::ToolOutput { error: true, text, .. } if text == "boom"
         ));
         assert_eq!(
             ev(

@@ -29,7 +29,11 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    tickets", "get ticket details", "board", "progress"). The inbox prompt names them.
 2. **A CLI tool's result** (`Event::ToolOutput`) reaches the log and the chat: Claude Code's and Grok's `tool_result`
    (a tool search lists the tools it found as `tool: <name>`), Codex's command output (an error when it exits non-zero).
-   OpenCode, Agy and Devin not yet: their result shapes were not checked.
+   OpenCode (`session.tool.success`/`error`: `data.content[].text`), Agy (`step_update` DONE/ERROR:
+   `tool_info.output` or `tool_info.error.message`) and Devin (ACP `tool_call_update` completed/failed:
+   `content[].content.text`) too, from streams captured on real runs (amended 2026-11-05). `AGENIUM_CLI_STREAM_DIR`
+   appends each line of a CLI's stream to `stream.jsonl` there, for learning a CLI's shapes; off by default (it holds
+   file contents and tool output).
 3. **One tool search.** Claude Code runs with `ENABLE_TOOL_SEARCH=false` and without `ToolSearch`: Agenium's tools are
    listed as for every other CLI, other servers' tools found with Agenium's `tool_search`. Grok keeps `search_tool` and
    `use_tool`, its only way to reach MCP tools; its config holds Agenium's server alone.
@@ -49,6 +53,19 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
 7. **Small views:** the live view shows "running projects × `runtime.max_parallel_agents`" (the setting is per
    project); a plugin's preview names the environment variables and headers its MCP servers get (names only). The
    chat folds a run of tool calls into one line, and shows a Lead turn another window or a script sent.
+
+8. **No inbox run beside a Lead's run** (amended 2026-11-05). A chat turn marks no one Working, so the scheduler gave
+   the Lead an inbox run while its chat turn still planned: both made the plan and its tickets at once and rewrote
+   each other's (a DeepSeek Solo's plan revised three times, four tickets cancelled, 16 minutes). The inbox now waits
+   while the Lead has a run going. The same task planned again: one run, one revision of its own, nothing cancelled,
+   3.6 minutes.
+9. **The inbox run sees the user's latest words** (the last three messages of the chat, as written): it had assigned
+   the tickets of a user who had just said not to start, since it saw no chat.
+10. **Load on one worker is the team's shape, not a fault**: a ticket's required role must match, and a planner takes
+   no tickets; the team of the long task had one backend for nine backend items. A second backend spreads that work.
+
+Known: Devin's own `exec` exits 0xC0000142 in MXC (it starts Git Bash, which cannot start in the container, as for
+plugin hooks); its commands go through Agenium's `shell`.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

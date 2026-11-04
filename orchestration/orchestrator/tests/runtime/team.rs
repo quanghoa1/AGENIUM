@@ -675,3 +675,85 @@ async fn a_long_chat_is_summarised_once_and_kept() {
         "the stored conversation stays whole"
     );
 }
+
+/// A Lead with a run going (a chat turn marks no one Working) is not given an inbox run beside it: the two planned the
+/// same work at once and rewrote each other's plan (2026-11-05). Once the run ends, the inbox runs.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn no_inbox_run_while_the_lead_has_a_run_going() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let project = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "busy".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    let (_, members) = app
+        .create_team(
+            project,
+            "busy team",
+            &agent_spec("lead", "lead", RoleKind::Lead, &[]),
+            &[agent_spec("api-1", "api", RoleKind::Worker, &["rust"])],
+        )
+        .unwrap();
+    let lead = members[0].id;
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(lead),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+    app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    assert_eq!(
+        app.lead_inbox(project).unwrap().len(),
+        1,
+        "a plan item waits for its ticket"
+    );
+    // The Lead's chat turn, still going.
+    let chat = RunId::new();
+    app.store()
+        .commit(None, "system", |w| {
+            runs::insert(
+                w.tx,
+                &runs::Run {
+                    id: chat,
+                    ticket: None,
+                    agent: lead,
+                    provider: "mock".into(),
+                    model: "m".into(),
+                    started_at: agenium_core::now_iso(),
+                    ended_at: None,
+                    outcome: None,
+                    steps: 0,
+                    usage: UsageSummary::default(),
+                    heartbeat: None,
+                },
+            )
+        })
+        .unwrap();
+    let ran = rt.tick(project).await.unwrap();
+    assert!(ran.is_empty(), "no inbox run beside the chat turn: {ran:?}");
+    assert_eq!(p.requests().len(), 0);
+    // The turn ends: the inbox runs (here it answers with nothing and stops).
+    app.store()
+        .commit(None, "system", |w| {
+            runs::finish(w.tx, chat, &agenium_core::now_iso(), "Completed")
+        })
+        .unwrap();
+    p.push_text("nothing to do");
+    let _ = rt.tick(project).await.unwrap();
+    assert!(
+        !p.requests().is_empty(),
+        "the inbox ran once the turn ended"
+    );
+}

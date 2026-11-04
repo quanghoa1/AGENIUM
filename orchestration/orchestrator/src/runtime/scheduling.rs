@@ -369,6 +369,18 @@ impl Runtime {
         if self.app.agent(lead)?.status != AgentStatus::Idle {
             return Ok(None);
         }
+        // Not while the Lead has a run going (a chat turn marks no one Working): an inbox run beside it planned the
+        // same work at once, and each rewrote what the other had made (a Solo's plan revised three times, its tickets
+        // cancelled; 2026-11-05). Runs a crash left open are closed at start (`reconcile`).
+        if self
+            .app
+            .store()
+            .read(agenium_store::core::runs::unfinished)?
+            .iter()
+            .any(|r| r.agent == lead)
+        {
+            return Ok(None);
+        }
         let signature = items
             .iter()
             .map(|i| format!("{:?}:{:?}:{:?}", i.kind, i.ticket, i.comment))

@@ -224,12 +224,32 @@ impl Driver for Agy {
                         .filter(|t| !t.is_empty())
                         .map(|t| vec![Event::Text(t.to_owned())])
                         .unwrap_or_default(),
-                    Some("tool") => vec![Event::Tool {
-                        id: s["step_index"].to_string(),
-                        name: s["tool_name"].as_str().unwrap_or("tool").to_owned(),
-                        input: s["tool_info"]["parameters"].clone(),
-                        done: s["state"] == "DONE",
-                    }],
+                    Some("tool") => {
+                        let id = s["step_index"].to_string();
+                        let info = &s["tool_info"];
+                        let error = s["state"] == "ERROR";
+                        let text = info["output"]
+                            .as_str()
+                            .or_else(|| info["error"]["message"].as_str())
+                            .unwrap_or("");
+                        // A step that ended (done or refused) carries what it returned.
+                        let output = (matches!(s["state"].as_str(), Some("DONE" | "ERROR"))
+                            && (error || !text.is_empty()))
+                        .then(|| Event::ToolOutput {
+                            id: id.clone(),
+                            text: text.to_owned(),
+                            error,
+                        });
+                        output
+                            .into_iter()
+                            .chain([Event::Tool {
+                                id,
+                                name: s["tool_name"].as_str().unwrap_or("tool").to_owned(),
+                                input: info["parameters"].clone(),
+                                done: s["state"] == "DONE",
+                            }])
+                            .collect()
+                    }
                     _ => vec![],
                 }
             }
@@ -473,6 +493,25 @@ mod tests {
                 r#"{"event":"step_update","step_update":{"step_index":1,"state":"DONE","step_type":"agent_response","text_delta":"PONG"}}"#
             ),
             vec![Event::Text("PONG".into())]
+        );
+        // What a step returned (captured from agy 1.5.0): its output when done, its error when refused.
+        let done = Agy.parse(&serde_json::json!({"event":"step_update","step_update":{"step_index":3,"state":"DONE","step_type":"tool","tool_name":"call_mcp_tool","tool_info":{"name":"call_mcp_tool","output":"agenium.toml","parameters":{}}}}));
+        assert_eq!(
+            done[0],
+            Event::ToolOutput {
+                id: "3".into(),
+                text: "agenium.toml".into(),
+                error: false
+            }
+        );
+        let refused = Agy.parse(&serde_json::json!({"event":"step_update","step_update":{"step_index":2,"state":"ERROR","step_type":"tool","tool_name":"run_command","tool_info":{"error":{"message":"denied"},"parameters":{}}}}));
+        assert_eq!(
+            refused[0],
+            Event::ToolOutput {
+                id: "2".into(),
+                text: "denied".into(),
+                error: true
+            }
         );
         assert_eq!(
             ev(

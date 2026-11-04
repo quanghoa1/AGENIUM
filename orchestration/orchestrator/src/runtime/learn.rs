@@ -639,6 +639,28 @@ pub fn turn_memory(text: &str) -> Vec<&str> {
     block.lines().filter(|l| l.starts_with("- ")).collect()
 }
 
+/// The user's last messages of a chat as they wrote them ([`user_words`]), newest last, each cut to 800 characters:
+/// what a Lead run outside the chat (the inbox) must still follow.
+pub(crate) fn recent_user_words(messages: &[Message]) -> String {
+    const LAST: usize = 3;
+    const CUT: usize = 800;
+    let mut said: Vec<String> = messages
+        .iter()
+        .rev()
+        .filter(|m| m.role == agenium_llm::Role::User)
+        .filter_map(|m| {
+            let t = user_words(&m.text()).trim().to_owned();
+            (!t.is_empty()).then(|| t.chars().take(CUT).collect::<String>())
+        })
+        .take(LAST)
+        .collect();
+    said.reverse();
+    said.iter()
+        .map(|s| format!("- {s}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// The chat as plain text for extraction, each user message as the user wrote it ([`user_words`]).
 pub fn chat_transcript(messages: &[Message]) -> String {
     let own: Vec<Message> = messages
@@ -729,5 +751,27 @@ mod tests {
             "{t}"
         );
         assert!(t.contains("[Assistant] Noted."), "{t}");
+    }
+}
+
+#[cfg(test)]
+mod said_tests {
+    use super::*;
+
+    #[test]
+    fn the_users_last_words_come_without_the_turns_context() {
+        let user =
+            |t: &str| Message::user_text(turn_message("Run context\nx", &["- a fact"], t, "state"));
+        let msgs = vec![
+            user("first"),
+            Message::assistant_text("ok"),
+            user("second"),
+            user("third"),
+            user("do not start the work yet"),
+        ];
+        let s = recent_user_words(&msgs);
+        assert_eq!(s, "- second\n- third\n- do not start the work yet");
+        assert!(!s.contains("a fact") && !s.contains("state"));
+        assert_eq!(recent_user_words(&[]), "");
     }
 }

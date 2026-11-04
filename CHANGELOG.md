@@ -177,6 +177,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **A Lead gets no inbox run while it has a run going**: a chat turn and an inbox run planned the same work at once
+  and rewrote each other's plan and tickets; and the inbox run now sees the user's latest words, so "do not start yet"
+  holds there too.
+- **OpenCode's, Agy's and Devin's own tool results** reach the log and the chat (shapes taken from captured streams;
+  `AGENIUM_CLI_STREAM_DIR` captures a CLI's stream for diagnostics).
 - **A learning can be undone** (ADR-158): the run page's learning step undoes what it wrote to the memory in one
   transaction (added facts out, replaced or retired ones back); refused when a later learning changed one of its facts;
   a proven lesson asks first; skills built on lessons gone are flagged.

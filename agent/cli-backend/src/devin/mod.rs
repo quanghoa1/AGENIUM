@@ -448,12 +448,29 @@ fn update(u: &Value) -> Vec<Event> {
             if kind == "tool_call_update" && !done {
                 return vec![];
             }
-            vec![Event::Tool {
-                id: u["toolCallId"].as_str().unwrap_or("").to_owned(),
-                name: tool_name(u),
-                input: u["rawInput"].clone(),
-                done,
-            }]
+            let id = u["toolCallId"].as_str().unwrap_or("").to_owned();
+            let error = u["status"] == "failed";
+            let text = u["content"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|c| c["content"]["text"].as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            let output = (done && (error || !text.is_empty())).then(|| Event::ToolOutput {
+                id: id.clone(),
+                text,
+                error,
+            });
+            output
+                .into_iter()
+                .chain([Event::Tool {
+                    id,
+                    name: tool_name(u),
+                    input: u["rawInput"].clone(),
+                    done,
+                }])
+                .collect()
         }
         Some("usage_update") => u["used"]
             .as_u64()
@@ -510,6 +527,17 @@ mod tests {
             e => panic!("{e:?}"),
         }
         assert!(ev(r#"{"type":"update","update":{"sessionUpdate":"tool_call_update","toolCallId":"exec:0#1","status":"in_progress"}}"#).is_empty());
+        // What a call returned (captured from devin 3000.11.234): its content's text, before the end of the step.
+        assert_eq!(
+            ev(
+                r#"{"type":"update","update":{"sessionUpdate":"tool_call_update","toolCallId":"m:1","status":"completed","content":[{"type":"content","content":{"type":"text","text":"a\nb"}}],"_meta":{"cognition.ai/inferenceToolName":"mcp__agenium__list_dir"}}}"#
+            )[0],
+            Event::ToolOutput {
+                id: "m:1".into(),
+                text: "a\nb".into(),
+                error: false
+            }
+        );
         assert!(matches!(
             &ev(
                 r#"{"type":"update","update":{"sessionUpdate":"tool_call_update","toolCallId":"exec:0#1","status":"completed","_meta":{"cognition.ai/inferenceToolName":"exec"}}}"#
