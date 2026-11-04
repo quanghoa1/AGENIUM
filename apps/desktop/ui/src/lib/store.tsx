@@ -59,6 +59,8 @@ export interface LiveRun {
   text: string;
   thinking: string;
   tools: { name: string; args?: unknown }[];
+  /** The turn as it happens, in order: each stretch of text, each call between them (the chat shows them so). */
+  steps: LiveStep[];
   /** What the model is doing now: reasoning, writing text, or calling a tool (`tool` names it). */
   phase: "thinking" | "text" | "tool" | "idle";
   tool?: string;
@@ -68,6 +70,9 @@ export interface LiveRun {
   /** Last event (ms since epoch). */
   at: number;
 }
+
+/** One step of a turn in progress: a stretch of text, or a call (its args once the call is known whole). */
+export type LiveStep = { kind: "text"; text: string } | { kind: "tool"; id?: string; name: string; args?: unknown };
 
 const TAIL = 20_000;
 /** Finished runs are dropped from the live map after this long (ms). */
@@ -124,26 +129,37 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     const now = Date.now();
     m = Object.fromEntries(Object.entries(m).filter(([, l]) => !l.done || now - l.at < KEEP_DONE));
   }
-  const cur: LiveRun = m[run] ?? { agent, text: "", thinking: "", tools: [], phase: "idle", done: false, at: 0 };
+  const cur: LiveRun = m[run] ?? { agent, text: "", thinking: "", tools: [], steps: [], phase: "idle", done: false, at: 0 };
   const next: LiveRun = { ...cur, agent: cur.agent ?? agent, at: Date.now() };
   if (ev.type === "text") {
     next.text = (cur.text + ev.text).slice(-TAIL);
     next.phase = "text";
+    const last = cur.steps[cur.steps.length - 1];
+    next.steps =
+      last?.kind === "text"
+        ? [...cur.steps.slice(0, -1), { kind: "text", text: (last.text + ev.text).slice(-TAIL) }]
+        : [...cur.steps.slice(-60), { kind: "text", text: ev.text }];
   } else if (ev.type === "thinking") {
     next.thinking = (cur.thinking + ev.text).slice(-2000);
     next.phase = "thinking";
   } else if (ev.type === "restart") {
     next.text = "";
+    next.steps = cur.steps.filter((s) => s.kind === "tool");
     next.phase = "thinking";
   } else if (ev.type === "tool_start") {
     next.phase = "tool";
     next.tool = ev.name;
     next.toolArgs = undefined;
+    next.steps = [...cur.steps.slice(-60), { kind: "tool", id: ev.id, name: ev.name }];
   } else if (ev.type === "tool") {
     next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
     next.phase = "tool";
     next.tool = ev.name;
     next.toolArgs = ev.args;
+    // The call its start announced, now known whole; or one that came whole at once.
+    const i = cur.steps.findIndex((s) => s.kind === "tool" && s.args === undefined && (s.id ? s.id === ev.id : s.name === ev.name));
+    const step: LiveStep = { kind: "tool", id: ev.id, name: ev.name, args: ev.args };
+    next.steps = i >= 0 ? cur.steps.map((s, k) => (k === i ? step : s)) : [...cur.steps.slice(-60), step];
   } else if (ev.type === "usage") {
     // A step ended: the next one starts by thinking. An API step ends as its tool calls start running: the tool
     // stays shown until the model reasons or writes again.

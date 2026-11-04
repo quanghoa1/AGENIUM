@@ -159,3 +159,8 @@ The chat shows an agent's turn on its side, step by step, from what the conversa
 for the message, each call it made (its kind, Agenium, Tool, MCP or Skill; red when it failed), then its text. The
 chat history gives the calls as lines of their own (role `tool`, with the call's arguments and whether it failed).
 A CLI's text before a step and after it are two paragraphs.
+
+The turn in progress is drawn the same way, as it happens: the live store keeps the run's steps in the order its
+events come (each stretch of text, each call between them, a call's arguments filled in once known), so a sentence
+such as "I'll read abc.txt" is followed right away by its tagged call. Its reasoning shows last, where the agent is
+now. The chat page and the Live view's chat share one state per project (lines, turns in flight, queue).

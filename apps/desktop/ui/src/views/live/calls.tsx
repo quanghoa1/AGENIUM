@@ -81,6 +81,13 @@ export function classify(tool: string, raw: any): Call {
   return { kind, label: `${name}: ${argPreview(args)}`, name };
 }
 
+/** A call as one line, its kind first: `Agenium::read_file abc.txt`, `Tool::bash ls`, `MCP::figma::get_file 1:2`. */
+export function callText(c: Call): string {
+  const kind = c.kind === "mcp" ? "MCP" : c.kind === "skill" ? "Skill" : c.kind === "agenium" ? "Agenium" : "Tool";
+  const label = (c.kind === "mcp" ? c.label.replace(" :: ", "::") : c.label).replace(": ", " ");
+  return `${kind}::${label}`;
+}
+
 const CALL_TONE: Record<CallKind, string> = {
   mcp: "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-300",
   skill: "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-300",

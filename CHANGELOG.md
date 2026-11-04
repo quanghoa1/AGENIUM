@@ -173,7 +173,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   says it is already the newest, and the CLI is shown at its newest after; a version that answered Agenium's check
   after an update here is no longer flagged as beyond the verified one ("checked on this machine").
 - **The chat shows an agent's turn as a CLI does** (ADR-155): on the agent's side, what it recalled, each call it made
-  (tagged, red when it failed) and its answer, in that order, for finished turns too.
+  (tagged, red when it failed) and its answer, in the order they came, while the turn runs and after it; the chat page
+  and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
 - **Devin's plugin list is guarded**: a plugin a run adds to the user's own Devin is taken out again (ADR-156).

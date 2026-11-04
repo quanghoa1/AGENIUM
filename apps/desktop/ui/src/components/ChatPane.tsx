@@ -13,7 +13,7 @@ import { useShared } from "./sharedChat";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
-import { CallBadge, classify } from "../views/live/calls";
+import { callText, classify } from "../views/live/calls";
 
 // A long paste shows as one label in the input ("[Pasted #1 · 120 lines · 8.4 KB]") and is put back on send.
 const PASTE_CHARS = 1000;
@@ -79,15 +79,21 @@ function turnsOf(lines: ChatLine[]): { at: number; user?: ChatLine; steps: ChatL
 }
 
 /** One call the agent made in its turn: its kind (Agenium, Tool, MCP, Skill) and what it was, red when it failed. */
-function Step({ line }: { line: ChatLine }) {
-  const c = classify(line.text, line.args);
+function Step({ line, running }: { line: ChatLine; running?: boolean }) {
+  const t = callText(classify(line.text, line.args));
   return (
-    <div className={cn("flex min-w-0 items-center gap-1.5 font-mono text-[11.5px]", line.ok === false ? "text-rose-600 dark:text-rose-400" : "text-muted")}>
-      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", line.ok === false ? "bg-rose-500" : "bg-emerald-500")} />
-      <CallBadge kind={c.kind} />
-      <span className="truncate" title={c.label}>
-        {c.label}
-      </span>
+    <div
+      className={cn(
+        "flex w-fit max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-[11.5px]",
+        line.ok === false
+          ? "border-rose-500/40 bg-rose-500/5 text-rose-600 dark:text-rose-300"
+          : "border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-300",
+        running && "animate-pulse",
+      )}
+      title={t}
+    >
+      <Wrench className="h-3 w-3 shrink-0" />
+      <span className="truncate">{t}</span>
     </div>
   );
 }
@@ -131,6 +137,20 @@ export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
     <div className="flex gap-3">
       <Avatar name={name} />
       <div className="min-w-0 max-w-[85%] flex-1 space-y-1.5">
+        {/* The turn as it happens: each stretch of text, and each call right where it was made (tagged, the newest lit
+            while it runs), as the finished turn shows it. */}
+        {stream?.steps.map((st, k, all) =>
+          st.kind === "text" ? (
+            st.text.trim() && (
+              <div key={k} className="whitespace-pre-wrap rounded-xl border border-line bg-elevated px-3.5 py-2.5 text-[13px] leading-relaxed">
+                <Markdown text={st.text} />
+              </div>
+            )
+          ) : (
+            <Step key={k} line={{ role: "tool", text: st.name, args: st.args }} running={k === all.length - 1 && stream.phase === "tool"} />
+          ),
+        )}
+        {/* What it does now comes last: its reasoning while it thinks. */}
         {thinking ? (
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/5">
             <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] text-blue-600 dark:text-blue-300" onClick={() => setOpen(!open)}>
@@ -146,28 +166,6 @@ export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {app.t("live.thinking")}… <span className="text-[11px]">{stream ? app.t("chat.noReasoning") : ""}</span>
             </div>
           )
-        )}
-        {/* Every call of the turn, one per line in the order made, the newest last and lit while it runs: an API model's tool runs in milliseconds, so
-            showing only the current one let it flash by. */}
-        {!!stream?.tools.length && (
-          <div className="flex flex-col items-start gap-1">
-            {stream.tools.slice(-8).map((c, k, all) => (
-              <span
-                key={k}
-                className={cn(
-                  "inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border px-2 py-0.5 font-mono text-[11px]",
-                  k === all.length - 1 && stream.phase === "tool" ? "border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-300" : "border-line text-subtle",
-                )}
-              >
-                <Wrench className="h-3 w-3 shrink-0" /> {classify(c.name, c.args).label}
-              </span>
-            ))}
-          </div>
-        )}
-        {writing && (
-          <div className="whitespace-pre-wrap rounded-xl border border-line bg-elevated px-3.5 py-2.5 text-[13px] leading-relaxed">
-            <Markdown text={stream!.text} />
-          </div>
         )}
       </div>
     </div>

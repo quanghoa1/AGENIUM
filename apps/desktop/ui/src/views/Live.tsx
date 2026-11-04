@@ -20,7 +20,7 @@ import { Empty, Mono, cn, tokens } from "../components/ui";
 import { api, onEvent, onRun } from "../lib/api";
 import { recentCalls, useApp, useLive } from "../lib/store";
 import type { EventRecord, LiveAgent, LiveData } from "../lib/types";
-import { classify } from "./live/calls";
+import { callText, classify } from "./live/calls";
 import { Dot, LogLine, Room, RoomLog, roomsOf, useActivity } from "./live/activity";
 import { Dock } from "./live/Dock";
 import { PlanList } from "./live/PlanList";
@@ -127,7 +127,7 @@ export function LiveView() {
       icon: c.kind === "mcp" ? <Plug className="h-3 w-3 text-purple-500" /> : c.kind === "skill" ? <BookOpen className="h-3 w-3 text-teal-500" /> : c.kind === "agenium" ? <GitBranch className="h-3 w-3 text-blue-500" /> : <Terminal className="h-3 w-3 text-muted" />,
       text: (
         <>
-          <b>{a.agent.name}</b> {c.kind === "skill" ? t("live.loads") : t("live.calls")} [{c.kind === "mcp" ? "MCP" : c.kind === "skill" ? "Skill" : c.kind === "agenium" ? "Agenium" : "Tool"}: {c.label}]
+          <b>{a.agent.name}</b> {c.kind === "skill" ? t("live.loads") : t("live.calls")} [{callText(c)}]
         </>
       ),
     };
