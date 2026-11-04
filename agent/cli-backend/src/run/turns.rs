@@ -72,6 +72,7 @@ impl CliRun<'_> {
                 self.observer.message(&m);
                 st.messages.push(m);
             }
+            st.wrote = false;
             match st.effect {
                 Some(Effect::End) => break Outcome::Completed,
                 Some(Effect::Park) => break Outcome::Parked,
@@ -400,10 +401,6 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
             } => {
                 st.steps += 1;
                 self.observer.step(st.steps, &st.usage);
-                // What it wrote before this step and what it writes after are two paragraphs, not one run-on line.
-                if !st.text.is_empty() && !st.text.ends_with('\n') {
-                    st.text.push_str("\n\n");
-                }
                 // Named `cli:` as in the run's log: the live views tell the CLI's own tools from Agenium's.
                 self.observer.event(&ChatEvent::ToolCallStarted {
                     id: id.clone(),
@@ -448,7 +445,7 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                     st.subagents.insert(id.clone(), own);
                     self.observer
                         .tool(&format!("cli:{name}"), &shown, &Ok(String::new()));
-                    self.record_tool(st, &id, &name, &input, None);
+                    self.record_tool(st, &id, &format!("cli:{name}"), &input, None);
                     st.logged.insert(id.clone());
                 }
                 st.started.insert(id, (name.clone(), input.clone()));
@@ -508,7 +505,7 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                     self.observer
                         .tool(&format!("cli:{name}"), &shown, &Ok(String::new()));
                     // The CLI ran it; its result is not in the stream.
-                    self.record_tool(st, &id, &name, &input, None);
+                    self.record_tool(st, &id, &format!("cli:{name}"), &input, None);
                 } else {
                     self.observer.tool(
                         &format!("cli:{name}"),
@@ -533,7 +530,7 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 st.subagent_calls.clear();
                 st.usage.add(&usage);
                 self.observer.event(&ChatEvent::Usage(st.usage));
-                if st.text.trim().is_empty() {
+                if st.text.trim().is_empty() && !st.wrote {
                     st.text = response;
                 }
                 Some((denied, error))

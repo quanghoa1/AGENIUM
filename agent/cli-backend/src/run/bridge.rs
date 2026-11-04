@@ -133,6 +133,13 @@ impl CliRun<'_> {
         args: &Value,
         result: Option<(&str, bool)>,
     ) {
+        let text = std::mem::take(&mut st.text);
+        if !text.trim().is_empty() {
+            let m = Message::assistant_text(text.trim().to_owned());
+            self.observer.message(&m);
+            st.messages.push(m);
+            st.wrote = true;
+        }
         let call = Message {
             role: Role::Assistant,
             parts: vec![Part::ToolCall {

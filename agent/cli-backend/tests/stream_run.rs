@@ -298,6 +298,24 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
         &|p| matches!(p, agenium_llm::Part::ToolResult { name, content, .. }
         if name == "submit_report" && content.contains("accepted"))
     ));
+    // In the turn's order: what it wrote before its first step comes first; its own steps are kept as `cli:`.
+    let first_text = report
+        .messages
+        .iter()
+        .position(|m| m.text().contains("Starting."));
+    let first_call = report.messages.iter().position(|m| {
+        m.parts
+            .iter()
+            .any(|p| matches!(p, agenium_llm::Part::ToolCall { .. }))
+    });
+    assert!(
+        matches!((first_text, first_call), (Some(t), Some(c)) if t < c),
+        "{:?}",
+        report.messages
+    );
+    assert!(has(
+        &|p| matches!(p, agenium_llm::Part::ToolCall { name, .. } if name.starts_with("cli:"))
+    ));
     let calls = proto.calls.lock().unwrap().clone();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].1, json!({"summary": "done"}));

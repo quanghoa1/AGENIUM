@@ -228,6 +228,7 @@ fn main() {
             // ADR-129: its own file tools reach its scratch folder only and its own shell is off; the worktree is
             // worked on through Agenium's tools over MCP.
             "report" => {
+                a.say("Starting.");
                 let target = std::env::current_dir().unwrap().join("a.txt");
                 if a.tool(
                     "write_to_file",

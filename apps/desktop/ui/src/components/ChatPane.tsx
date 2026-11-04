@@ -9,6 +9,7 @@ import type { ChatLine, QueuedMessage } from "../lib/types";
 import { AttachmentBar, DocChip, material, splitMaterial, useAttachments } from "./Attachments";
 import { LeadQueue } from "./LeadQueue";
 import { useMentions } from "./Mentions";
+import { useShared } from "./sharedChat";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
@@ -194,14 +195,16 @@ export function ChatPane({
 }) {
   const app = useApp();
   const live = useLive();
-  const [lines, setLines] = useState<ChatLine[]>([]);
+  // The conversation, its turns in flight and its queue are the project's, shared by every pane that shows them (the
+  // chat page and the Live view's chat are one chat with the Lead).
+  const [lines, setLines] = useShared<ChatLine[]>(`chat:${project}:lines`, []);
   const [text, setText] = useState("");
   const att = useAttachments(project);
   const [note, setNote] = useState<string | null>(null);
-  // This pane's own turns in flight (a message sent while one runs waits in the Lead's queue: ADR-149).
-  const [turns, setTurns] = useState(0);
+  // The turns in flight sent from any pane of this chat (a message sent while one runs waits in the queue: ADR-149).
+  const [turns, setTurns] = useShared(`chat:${project}:turns`, 0);
   const busy = turns > 0;
-  const [queue, setQueue] = useState<QueuedMessage[]>([]);
+  const [queue, setQueue] = useShared<QueuedMessage[]>(`chat:${project}:queue`, []);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const pastes = useRef(new Map<number, string>());
@@ -225,9 +228,8 @@ export function ChatPane({
   const leadWorking = busy || (!!agentId && Object.values(live).some((l) => !l.done && l.agent === agentId));
   const reloadQueue = () => api.leadQueue(project).then(setQueue).catch(() => {});
   useEffect(() => {
-    setLines([]);
-    setQueue([]);
-    api.chatHistory(project).then(setLines);
+    // Not while a turn sent from the other pane is in flight: its message is in the conversation only once it ends.
+    if (turns === 0) api.chatHistory(project).then(setLines);
     reloadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
