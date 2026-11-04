@@ -757,3 +757,74 @@ async fn no_inbox_run_while_the_lead_has_a_run_going() {
         "the inbox ran once the turn ended"
     );
 }
+
+/// An inbox run the Lead ends with words and no call (here: the user said to wait) is not run again for the same items,
+/// and its words reach the user once, not a "could not handle its inbox" after two runs (2026-11-05).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_inbox_the_lead_leaves_as_it_is_is_not_run_again() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let project = app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "hold".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    let (_, members) = app
+        .create_team(
+            project,
+            "hold team",
+            &agent_spec("lead", "lead", RoleKind::Lead, &[]),
+            &[agent_spec("api-1", "api", RoleKind::Worker, &["rust"])],
+        )
+        .unwrap();
+    let lead = members[0].id;
+    let as_lead = agenium_orchestrator::CallCtx {
+        project,
+        actor: Actor::Lead(lead),
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&as_lead, Intent::ProposeSpec(spec())).unwrap();
+    app.approve_spec(project, 1).unwrap();
+    app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    for _ in 0..6 {
+        p.push_text(
+            "The user asked me to wait for their go, so I leave PI-1 without a ticket for now.",
+        );
+    }
+    let _ = rt.tick(project).await.unwrap();
+    let asked = p.requests().len();
+    assert!(asked >= 1, "the inbox ran");
+    let _ = rt.tick(project).await.unwrap();
+    assert_eq!(
+        p.requests().len(),
+        asked,
+        "the same items are not run again"
+    );
+    let needs = app
+        .store()
+        .read(|c| events::recent_of_kind(c, "NeedsUser", 10))
+        .unwrap();
+    let texts: Vec<String> = needs.iter().map(|e| e.payload.to_string()).collect();
+    assert_eq!(
+        texts
+            .iter()
+            .filter(|t| t.contains("left 1 inbox item"))
+            .count(),
+        1,
+        "{texts:?}"
+    );
+    assert!(
+        texts.iter().all(|t| !t.contains("could not handle")),
+        "{texts:?}"
+    );
+}

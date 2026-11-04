@@ -64,8 +64,15 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
 10. **Load on one worker is the team's shape, not a fault**: a ticket's required role must match, and a planner takes
    no tickets; the team of the long task had one backend for nine backend items. A second backend spreads that work.
 
-Known: Devin's own `exec` exits 0xC0000142 in MXC (it starts Git Bash, which cannot start in the container, as for
-plugin hooks); its commands go through Agenium's `shell`.
+11. **An inbox the Lead leaves as it is** (an answer and no call, as when the user said to wait) is not run again for the
+   same items; the Lead's words reach the user once (`NeedsUser`, the project named). Before, it ran twice and then
+   said the Lead "could not handle its inbox". The inbox nudge says that a user's hold is the one reason to leave
+   items. Verified with a DeepSeek Solo: told to hold, one inbox run of 5 steps and the notice, the tickets left
+   unassigned; told "go", both assigned and the first started.
+12. **Devin's own `exec` runs in the sandbox**: it took `bash` from PATH, on Windows WSL's launcher in System32, which
+   cannot start in MXC (0xC0000142); `SHELL=powershell.exe` makes it PowerShell (checked on the host: the shell it
+   logs changes; in the app: `echo` printed). Its output, sent while the command runs (`terminalPreview`,
+   `terminal_exit` with the exit code) and not with the completed update, reaches the log.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

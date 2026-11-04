@@ -154,6 +154,9 @@ impl Driver for Devin {
             .into_iter()
             .filter_map(|k| std::env::var(k).ok().map(|v| (k.to_owned(), v)))
             .collect();
+        // Its own `exec` takes `bash` from PATH, on Windows WSL's launcher in System32, which cannot start in the
+        // sandbox (0xC0000142): `SHELL` makes it PowerShell, which runs there (checked 2026-11-05, 3000.11.234).
+        let shell = cfg!(windows).then(|| ("SHELL".to_owned(), "powershell.exe".to_owned()));
         Ok([
             (HOOK_URL_ENV, s.hook_url),
             (HOOK_TOKEN_ENV, token),
@@ -163,6 +166,7 @@ impl Driver for Devin {
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
         .chain(known)
+        .chain(shell)
         .collect())
     }
 
@@ -445,11 +449,11 @@ fn update(u: &Value) -> Vec<Event> {
             .unwrap_or_default(),
         Some(kind @ ("tool_call" | "tool_call_update")) => {
             let done = matches!(u["status"].as_str(), Some("completed" | "failed"));
-            if kind == "tool_call_update" && !done {
-                return vec![];
-            }
             let id = u["toolCallId"].as_str().unwrap_or("").to_owned();
-            let error = u["status"] == "failed";
+            // A command's output comes while it runs (`terminalPreview`, then `terminal_exit` with its code); the
+            // update that completes it carries none (captured 2026-11-05): each one with text replaces the last.
+            let exit = u["_meta"]["terminal_exit"]["exit_code"].as_i64();
+            let error = u["status"] == "failed" || exit.is_some_and(|c| c != 0);
             let text = u["content"]
                 .as_array()
                 .into_iter()
@@ -457,6 +461,13 @@ fn update(u: &Value) -> Vec<Event> {
                 .filter_map(|c| c["content"]["text"].as_str())
                 .collect::<Vec<_>>()
                 .join("\n");
+            if kind == "tool_call_update" && !done {
+                return if text.is_empty() {
+                    vec![]
+                } else {
+                    vec![Event::ToolOutput { id, text, error }]
+                };
+            }
             let output = (done && (error || !text.is_empty())).then(|| Event::ToolOutput {
                 id: id.clone(),
                 text,
@@ -527,6 +538,17 @@ mod tests {
             e => panic!("{e:?}"),
         }
         assert!(ev(r#"{"type":"update","update":{"sessionUpdate":"tool_call_update","toolCallId":"exec:0#1","status":"in_progress"}}"#).is_empty());
+        // A command's output while it runs, its exit code with it (captured from devin 3000.11.234 in the sandbox).
+        assert_eq!(
+            ev(
+                r#"{"type":"update","update":{"_meta":{"cognition.ai/inferenceToolName":"exec","terminal_exit":{"exit_code":1}},"content":[{"content":{"text":"boom","type":"text"},"type":"content"}],"sessionUpdate":"tool_call_update","status":"in_progress","toolCallId":"exec:0#2"}}"#
+            ),
+            [Event::ToolOutput {
+                id: "exec:0#2".into(),
+                text: "boom".into(),
+                error: true
+            }]
+        );
         // What a call returned (captured from devin 3000.11.234): its content's text, before the end of the step.
         assert_eq!(
             ev(
