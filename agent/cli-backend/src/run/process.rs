@@ -132,6 +132,40 @@ impl CliRun<'_> {
                 else {
                     return Err(failed("stdio pipes missing"));
                 };
+                if self.driver.acp() {
+                    let (Ok(w), Ok(r)) = (std_writer(stdin), std_reader(stdout)) else {
+                        return Err(failed("stdio pipes could not be handed to the bridge"));
+                    };
+                    crate::devin::bridge(
+                        w,
+                        r,
+                        in_rx,
+                        out_tx,
+                        env,
+                        self.cwd.clone(),
+                        tail.clone(),
+                        resume.map(str::to_owned),
+                    );
+                    let t = tail.clone();
+                    tokio::spawn(async move {
+                        let mut buf = [0u8; 4096];
+                        while let Ok(n) = stderr.read(&mut buf).await {
+                            if n == 0 {
+                                break;
+                            }
+                            keep_tail(&t, &buf[..n]);
+                        }
+                    });
+                    return Ok(Proc {
+                        input: Some(in_tx),
+                        lines,
+                        stderr: tail,
+                        handle: Handle::Host {
+                            child: Box::new(child),
+                            _tree: tree,
+                        },
+                    });
+                }
                 if self.driver.served() {
                     drop(stdin);
                     crate::opencode::bridge(
@@ -210,6 +244,7 @@ impl CliRun<'_> {
                 let mut policy = self.ctx.policy.clone();
                 policy.network = true;
                 policy.writable_roots.push(home.to_path_buf());
+                policy.writable_roots.extend(self.driver.writable_roots());
                 policy
                     .read_roots
                     .extend(self.driver.read_roots(&self.program));
@@ -222,6 +257,34 @@ impl CliRun<'_> {
                 else {
                     return Err(failed("stdio pipes missing"));
                 };
+                if self.driver.acp() {
+                    crate::devin::bridge(
+                        stdin,
+                        stdout,
+                        in_rx,
+                        out_tx,
+                        env,
+                        self.cwd.clone(),
+                        tail.clone(),
+                        resume.map(str::to_owned),
+                    );
+                    let t = tail.clone();
+                    std::thread::spawn(move || {
+                        let mut buf = [0u8; 4096];
+                        while let Ok(n) = stderr.read(&mut buf) {
+                            if n == 0 {
+                                break;
+                            }
+                            keep_tail(&t, &buf[..n]);
+                        }
+                    });
+                    return Ok(Proc {
+                        input: Some(in_tx),
+                        lines,
+                        stderr: tail,
+                        handle: Handle::Contained(Arc::new(Mutex::new(child))),
+                    });
+                }
                 let mut in_rx = in_rx;
                 std::thread::spawn(move || {
                     while let Some(l) = in_rx.blocking_recv() {
@@ -262,4 +325,22 @@ impl CliRun<'_> {
             }
         }
     }
+}
+
+/// A host child's stdin as a plain writer, for a bridge that runs on threads (the ACP bridge).
+fn std_writer(s: tokio::process::ChildStdin) -> std::io::Result<Box<dyn std::io::Write + Send>> {
+    #[cfg(windows)]
+    let f = std::fs::File::from(s.into_owned_handle()?);
+    #[cfg(unix)]
+    let f = std::fs::File::from(s.into_owned_fd()?);
+    Ok(Box::new(f))
+}
+
+/// A host child's stdout as a plain reader (see [`std_writer`]).
+fn std_reader(s: tokio::process::ChildStdout) -> std::io::Result<Box<dyn std::io::Read + Send>> {
+    #[cfg(windows)]
+    let f = std::fs::File::from(s.into_owned_handle()?);
+    #[cfg(unix)]
+    let f = std::fs::File::from(s.into_owned_fd()?);
+    Ok(Box::new(f))
 }

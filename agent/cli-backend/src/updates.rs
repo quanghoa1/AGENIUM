@@ -23,7 +23,7 @@ impl CliKind {
             CliKind::Claude => Some("2.1.316"),
             CliKind::Opencode => Some("2.1.2"),
             CliKind::Grok => Some("1.0.41"),
-            CliKind::Devin => None,
+            CliKind::Devin => Some("3000.11.3"),
         }
     }
 
@@ -49,6 +49,7 @@ impl CliKind {
             (CliKind::Opencode, Some(x)) => v(&["upgrade", x]),
             (CliKind::Grok, None) => v(&["update"]),
             (CliKind::Grok, Some(x)) => v(&["update", "--version", x]),
+            (CliKind::Devin, None) => v(&["update"]),
             _ => None,
         }
     }
@@ -201,7 +202,8 @@ mod tests {
         assert_eq!(CliKind::Codex.update_args(None).unwrap(), ["update"]);
         assert!(CliKind::Codex.update_args(Some("0.163.0")).is_none());
         assert!(CliKind::Agy.update_args(Some("1.4.12")).is_none());
-        assert!(CliKind::Devin.update_args(None).is_none());
+        assert_eq!(CliKind::Devin.update_args(None).unwrap(), ["update"]);
+        assert!(CliKind::Devin.update_args(Some("3000.11.3")).is_none());
         assert!(
             newer("0.166.0", "0.163.0")
                 && !newer("2.1.2", "2.1.2")
@@ -210,13 +212,11 @@ mod tests {
         assert!(valid_version("2.1.316") && valid_version("0.1.151-alpha.2"));
         assert!(!valid_version("2.1; rm -rf") && !valid_version("") && !valid_version("latest"));
         for k in CliKind::ALL {
-            if k != CliKind::Devin {
-                assert!(
-                    k.verified_version()
-                        .is_some_and(|v| parse_version(v).unwrap() >= k.min_version()),
-                    "{k:?}"
-                );
-            }
+            assert!(
+                k.verified_version()
+                    .is_some_and(|v| parse_version(v).unwrap() >= k.min_version()),
+                "{k:?}"
+            );
         }
     }
 }

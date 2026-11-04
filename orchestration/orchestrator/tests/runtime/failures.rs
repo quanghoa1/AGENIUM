@@ -175,13 +175,13 @@ async fn a_run_that_cannot_go_on_leaves_nothing_open() {
     set_removed(false);
 
     // A run that fails after its start (here: its CLI cannot run) is ended with the error.
-    app.set_agent_backend(agent, BackendKind::Cli, &devin())
+    app.set_agent_backend(agent, BackendKind::Cli, &no_cli(&rt))
         .unwrap();
     for err in [
         rt.run_ticket(project, &key("AGN-1")).await.unwrap_err(),
         rt.chat(project, "hello").await.unwrap_err(),
     ] {
-        assert!(err.to_string().contains("does not drive devin"), "{err}");
+        assert!(err.to_string().contains("devin is not installed"), "{err}");
         assert!(open(&app).is_empty(), "the failed run was ended");
         // ADR-132: set aside until the user fixes the CLI or gives it another model.
         assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Offline);
@@ -219,7 +219,7 @@ async fn a_lead_or_planner_whose_cli_cannot_run_waits_for_the_user() {
     app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
         .unwrap();
     assert!(!app.lead_inbox(project).unwrap().is_empty());
-    app.set_agent_backend(lead, BackendKind::Cli, &devin())
+    app.set_agent_backend(lead, BackendKind::Cli, &no_cli(&rt))
         .unwrap();
     for _ in 0..4 {
         assert!(rt.tick(project).await.unwrap().is_empty());
@@ -246,7 +246,7 @@ async fn a_lead_or_planner_whose_cli_cannot_run_waits_for_the_user() {
         .unwrap();
     let (team, members) = app.team_of_project(project).unwrap().unwrap();
     let planner = members.iter().find(|m| m.name == "pl-planner").unwrap().id;
-    app.set_agent_backend(planner, BackendKind::Cli, &devin())
+    app.set_agent_backend(planner, BackendKind::Cli, &no_cli(&rt))
         .unwrap();
     let as_lead = agenium_orchestrator::CallCtx {
         project,

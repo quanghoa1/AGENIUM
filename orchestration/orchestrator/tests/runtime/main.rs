@@ -228,8 +228,17 @@ fn team_project(app: &agenium_orchestrator::App, name: &str) -> (ProjectId, Agen
     (project, members[0].id, members[1].id)
 }
 
-/// An agent CLI Agenium does not drive (ADR-56): every run of an agent bound to it fails before its loop.
-fn devin() -> ModelBinding {
+/// An agent CLI that is not installed here (devin, taken as not found whatever the machine has): every run of an
+/// agent bound to it fails before its loop.
+fn no_cli(rt: &Runtime) -> ModelBinding {
+    rt.assume_cli(agenium_cli_backend::detect::CliInfo {
+        kind: agenium_cli_backend::CliKind::Devin,
+        path: None,
+        version: None,
+        login: agenium_cli_backend::Login::Unknown,
+        compatible: false,
+        note: None,
+    });
     ModelBinding {
         provider: "devin".into(),
         model: "some-model".into(),

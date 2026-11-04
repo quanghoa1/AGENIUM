@@ -264,6 +264,7 @@ export const work = {
   "chat.showMore": "Show all ({n} lines)",
   "chat.showLess": "Show less",
   "chat.thought": "Thinking",
+  "chat.recalled": "Recalled from its memory ({n})",
   "chat.noReasoning": "(this model does not stream its reasoning)",
   "runs.live": "live",
   "runs.steps": "Steps",

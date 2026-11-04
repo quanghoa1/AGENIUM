@@ -153,10 +153,7 @@ impl App {
     pub async fn cli_updates(&self, clis: &[CliInfo]) -> Vec<CliUpdateInfo> {
         let mut out = Vec::new();
         let checks = self.cli_checks();
-        for c in clis
-            .iter()
-            .filter(|c| c.path.is_some() && c.kind != CliKind::Devin)
-        {
+        for c in clis.iter().filter(|c| c.path.is_some()) {
             let program = c.kind.program();
             let (latest, latest_error) = match updates::latest(c.kind, c.path.as_deref()).await {
                 Ok(v) => (v, None),

@@ -3,7 +3,8 @@
 - **Status:** Accepted; implemented for `codex`, `agy` and `claude` (golden tasks through each, see Verification)
 - **Date:** 2026-10-24 (Asia/Saigon)
 - **Implements:** decision 3c and ADR-30. An ACP-based attempt (`devin acp`) was dropped at the owner's request:
-  only the API backend and the CLIs' own headless JSON-stream modes are used.
+  only the API backend and the CLIs' own headless JSON-stream modes are used. Taken up again for devin on the owner's
+  request (2026-11-04, ADR-156): ACP, inside the sandbox.
 - **Owner's rules (2026-10-24):** every CLI runs in its own YOLO mode inside Agenium and Agenium handles the
   permissions; the CLIs must not use the user's own configuration.
 
@@ -64,7 +65,7 @@
 | agy 1.4.4 | stream-json in/out | `USERPROFILE`/`HOME` | hook | driven, golden 5/5 (gemini-3.8-flash-low) |
 | claude 2.1.310 | `-p` stream-json in/out | `CLAUDE_CONFIG_DIR` | hook | driven, golden 5/5 (haiku) |
 | opencode 2.1.2 | `serve` + HTTP API (ADR-68) | all `XDG_*` and opencode's home in the per-run home | Agenium answers `permission.asked` (hook endpoint) | driven since 2026-10-25 for OpenCode's free models (ADR-68); paid OpenCode models stay on the API backend |
-| devin | `-p` prints text only | none (always loads the user's MCP servers and hooks) | — | not drivable |
+| devin 3000.11.3 | `acp` (JSON-RPC both ways, ADR-156) | none of its own: in the sandbox, its folder read-only but `cli`, `--config`, the user's servers off by name | sandbox | driven since 2026-11-04 (ADR-156; `-p` prints text only) |
 
 ## Findings that shaped the design
 

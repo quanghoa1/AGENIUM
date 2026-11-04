@@ -292,6 +292,15 @@ pub trait Driver: Send + Sync {
     fn served(&self) -> bool {
         false
     }
+    /// The CLI speaks ACP (JSON-RPC both ways) on its stdio: an in-process bridge talks to it and answers its
+    /// requests (Devin, ADR-156).
+    fn acp(&self) -> bool {
+        false
+    }
+    /// Folders outside the per-run home the CLI must write inside the sandbox (its own logs and sessions).
+    fn writable_roots(&self) -> Vec<PathBuf> {
+        vec![]
+    }
     /// Called every few seconds while the run goes on and once after it: keeps the run's copy of the login and the
     /// user's the same (`sync_login`).
     fn finish(&self, _setup: &Setup) -> std::io::Result<()> {

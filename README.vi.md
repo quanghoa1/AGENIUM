@@ -31,7 +31,7 @@ ticket và merge qua một hàng đợi duy nhất. Bạn theo dõi mọi thứ 
 là người quyết định cuối cùng.
 
 Một nhóm có thể trộn mọi loại model: model API của Anthropic, OpenAI, Google, DeepSeek và các hãng khác, model chạy
-trên máy, và các CLI lập trình bạn đang dùng — Claude Code, Codex, Grok, Gemini (Antigravity), OpenCode. Lead là
+trên máy, và các CLI lập trình bạn đang dùng — Claude Code, Codex, Grok, Gemini (Antigravity), OpenCode, Devin. Lead là
 Claude, worker là Codex, Grok và DeepSeek vẫn là một nhóm.
 
 ## Cách hoạt động

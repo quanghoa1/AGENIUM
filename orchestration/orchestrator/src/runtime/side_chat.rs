@@ -227,15 +227,12 @@ impl Runtime {
             .find(|m| m.role == Role::Assistant && !m.text().trim().is_empty())
             .map(Message::text)
             .unwrap_or_default();
-        match report.outcome {
-            Outcome::Completed => {}
-            other if text.trim().is_empty() => {
-                return Err(OrchError::Invalid(format!(
-                    "{label} gave no answer ({})",
-                    other.label()
-                )))
-            }
-            _ => {}
+        // Only a finished turn is an answer: one cut short (its step limit, its time, a cancel) left part of one.
+        if !matches!(report.outcome, Outcome::Completed) {
+            return Err(OrchError::Invalid(format!(
+                "{label} did not finish its answer ({})",
+                report.outcome.label()
+            )));
         }
         Ok(SideAnswer {
             text,

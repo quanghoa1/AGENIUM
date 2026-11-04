@@ -8,6 +8,7 @@ pub mod agy;
 pub mod claude;
 pub mod codex;
 pub mod detect;
+pub mod devin;
 pub mod driver;
 pub mod grok;
 pub mod login;
@@ -35,6 +36,6 @@ pub fn driver(kind: CliKind) -> Option<&'static dyn Driver> {
         CliKind::Claude => Some(&claude::Claude),
         CliKind::Opencode => Some(&opencode::Opencode),
         CliKind::Grok => Some(&grok::Grok),
-        CliKind::Devin => None,
+        CliKind::Devin => Some(&devin::Devin),
     }
 }

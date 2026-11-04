@@ -266,6 +266,7 @@ export const work: Record<keyof typeof en, string> = {
   "chat.showMore": "Xem hết ({n} dòng)",
   "chat.showLess": "Thu gọn",
   "chat.thought": "Suy nghĩ",
+  "chat.recalled": "Nhớ lại từ memory của agent ({n})",
   "chat.noReasoning": "(model này không gửi suy luận ra ngoài)",
   "runs.live": "đang chạy",
   "runs.steps": "Các bước",

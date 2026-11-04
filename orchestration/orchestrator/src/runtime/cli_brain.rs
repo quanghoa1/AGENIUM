@@ -132,6 +132,14 @@ impl Provider for CliBrain {
             .unwrap_or_default();
         agenium_sandbox::remove_run_temp_dir(&dir);
         let _ = std::fs::remove_dir_all(&dir);
+        // A run that stopped before it finished (its step limit, its time, a cancel) left at most part of an answer:
+        // memory drawn from it would be drawn from half a reply.
+        if !matches!(report.outcome, agenium_backend::Outcome::Completed) {
+            return Err(LlmError::Config(format!(
+                "{label} did not finish its answer ({})",
+                report.outcome.label()
+            )));
+        }
         if text.trim().is_empty() {
             return Err(LlmError::Config(format!(
                 "{label} answered nothing ({})",

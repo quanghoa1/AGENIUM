@@ -114,7 +114,7 @@ async fn queued_messages_are_answered_kept_or_taken_back() {
     // The turn that would answer fails: the message goes back to the queue, tried twice, then waits for the user.
     p.push(while_working("Also a licence."));
     rt.chat(project, "Good.").await.unwrap();
-    app.set_agent_backend(agent, BackendKind::Cli, &devin())
+    app.set_agent_backend(agent, BackendKind::Cli, &no_cli(&rt))
         .unwrap();
     for _ in 0..3 {
         assert!(rt.work(project).await.unwrap().is_empty());

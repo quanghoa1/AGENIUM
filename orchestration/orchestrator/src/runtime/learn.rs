@@ -576,8 +576,24 @@ pub(crate) fn chat_session(project: ProjectId) -> String {
     format!("chat:{project}")
 }
 
-/// What the user wrote in a chat turn, without the turn's own context around it: the run context before it and the
-/// project state after it (ADR-113).
+/// The tag a chat turn's recalled memory travels in: the agent's own memory, not the user's words.
+pub const MEMORY_OPEN: &str = "<memory note=\"what you learned earlier, recalled for this message; verify before relying on it\">";
+pub const MEMORY_CLOSE: &str = "</memory>";
+
+/// A chat turn's message: the turn's own context, the memory recalled for it (ADR-155), the user's words, the
+/// project state. Stored and replayed exactly as sent (the history stays a cached prefix); [`user_words`] and
+/// [`turn_memory`] read the parts back.
+pub fn turn_message(run_context: &str, memory: &[&str], user_text: &str, state: &str) -> String {
+    let memory = if memory.is_empty() {
+        String::new()
+    } else {
+        format!("{MEMORY_OPEN}\n{}\n{MEMORY_CLOSE}\n\n", memory.join("\n"))
+    };
+    format!("{run_context}\n\n{memory}{user_text}\n\n<project_state>\n{state}\n</project_state>")
+}
+
+/// What the user wrote in a chat turn, without the turn's own context around it: the run context before it, the
+/// recalled memory and the project state after it (ADR-113).
 pub fn user_words(text: &str) -> &str {
     let mut t = text;
     if let Some(i) = t.find("\n\n<project_state>") {
@@ -588,7 +604,34 @@ pub fn user_words(text: &str) -> &str {
             t = &t[i + 2..];
         }
     }
+    if t.starts_with(MEMORY_OPEN) {
+        if let Some(i) = t.find(MEMORY_CLOSE) {
+            t = t[i + MEMORY_CLOSE.len()..].trim_start();
+        }
+    } else if t.starts_with(LEGACY_MEMORY) {
+        // Turns stored before the tag: the block ran from its heading to the first blank line.
+        if let Some(i) = t.find("\n\n") {
+            t = &t[i + 2..];
+        }
+    }
     t
+}
+
+/// How a turn's memory was headed before it had its tag (2026-11-02 to 2026-11-04).
+const LEGACY_MEMORY: &str = "## From your memory";
+
+/// The memory recalled for a chat turn (its `- ` lines), when it had any.
+pub fn turn_memory(text: &str) -> Vec<&str> {
+    let block = if let Some(i) = text.find(MEMORY_OPEN) {
+        let rest = &text[i + MEMORY_OPEN.len()..];
+        &rest[..rest.find(MEMORY_CLOSE).unwrap_or(rest.len())]
+    } else if let Some(i) = text.find(LEGACY_MEMORY) {
+        let rest = &text[i..];
+        &rest[..rest.find("\n\n").unwrap_or(rest.len())]
+    } else {
+        return vec![];
+    };
+    block.lines().filter(|l| l.starts_with("- ")).collect()
 }
 
 /// The chat as plain text for extraction, each user message as the user wrote it ([`user_words`]).
@@ -613,6 +656,29 @@ pub fn chat_transcript(messages: &[Message]) -> String {
 #[cfg(test)]
 mod tests {
     use agenium_llm::{Message, Part, Role};
+
+    #[test]
+    fn a_turns_memory_is_the_agents_not_the_users_words() {
+        let m = super::turn_message(
+            "Run context\n- Worktree: /w",
+            &["- likes tabs", "- ships on Fridays"],
+            "Add a page.",
+            "spec v1",
+        );
+        assert_eq!(super::user_words(&m), "Add a page.");
+        assert_eq!(
+            super::turn_memory(&m),
+            ["- likes tabs", "- ships on Fridays"]
+        );
+        let none =
+            super::turn_message("Run context\n- Worktree: /w", &[], "Add a page.", "spec v1");
+        assert_eq!(super::user_words(&none), "Add a page.");
+        assert!(super::turn_memory(&none).is_empty());
+        // A turn stored before the tag.
+        let old = "Run context\n- Worktree: /w\n\n## From your memory (earlier work; verify before relying on it)\n- likes tabs\n\nAdd a page.\n\n<project_state>\nx\n</project_state>";
+        assert_eq!(super::user_words(old), "Add a page.");
+        assert_eq!(super::turn_memory(old), ["- likes tabs"]);
+    }
 
     fn result(name: &str, content: &str) -> Message {
         Message {

@@ -31,7 +31,7 @@ ticket's criteria and a merge through a single queue. You follow it all in a des
 and keep the final say.
 
 A team can mix any models: API models from Anthropic, OpenAI, Google, DeepSeek and others, local models, and the
-coding CLIs you already use — Claude Code, Codex, Grok, Gemini (Antigravity) and OpenCode. A Claude Lead with Codex,
+coding CLIs you already use — Claude Code, Codex, Grok, Gemini (Antigravity), OpenCode and Devin. A Claude Lead with Codex,
 Grok and DeepSeek workers is one team.
 
 ## How it works

@@ -83,21 +83,28 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
         .agent_store(lead, o.rt.embedder.dim(), o.rt.embedder.model_id())
         .map_err(err)?;
     let msgs = mem.load_messages(&format!("chat:{p}")).map_err(err)?;
-    // User turns carry the run context before the request and the project state after it: show what the user wrote.
-    let out: Vec<Value> = msgs
+    // User turns carry the run context before the request, the memory recalled for it and the project state after
+    // it: show what the user wrote, and the recalled memory as the agent's (role `memory`), before its answer.
+    use agenium_orchestrator::runtime::learn::{turn_memory, user_words};
+    let mut out: Vec<Value> = Vec::new();
+    for m in msgs
         .into_iter()
         .filter_map(|m| serde_json::from_value::<agenium_llm::Message>(m).ok())
-        .filter_map(|m| {
-            let text = m.text();
-            let text = match m.role {
-                agenium_llm::Role::User => agenium_orchestrator::runtime::learn::user_words(&text),
-                _ => &text,
+    {
+        let text = m.text();
+        if m.role == agenium_llm::Role::User {
+            let words = user_words(&text).trim();
+            if !words.is_empty() {
+                out.push(json!({ "role": m.role, "text": words }));
             }
-            .trim()
-            .to_owned();
-            (!text.is_empty()).then(|| json!({ "role": m.role, "text": text }))
-        })
-        .collect();
+            let recalled = turn_memory(&text);
+            if !recalled.is_empty() {
+                out.push(json!({ "role": "memory", "text": recalled.join("\n") }));
+            }
+        } else if !text.trim().is_empty() {
+            out.push(json!({ "role": m.role, "text": text.trim() }));
+        }
+    }
     Ok(json!(out))
 }
 

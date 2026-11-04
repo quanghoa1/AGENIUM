@@ -334,18 +334,18 @@ async fn agenium_decides_every_tool_call_and_the_run_ends_through_submit_report(
         !tools.iter().any(|t| t.0 == "cli:call_mcp_tool"),
         "Agenium's own MCP calls are logged once: {tools:?}"
     );
-    // ADR-153: a CLI's call reaches the live view with its arguments. agy wraps a call to Agenium's MCP server in
-    // `call_mcp_tool` (as Codex wraps it in `mcp_tool_call`), the server and tool only in the arguments: the UI names
-    // it by those, and needs them here.
+    // ADR-153: a CLI's call reaches the live view with its arguments, named `cli:` like its log. agy wraps a call to
+    // Agenium's MCP server in `call_mcp_tool` (as Codex wraps it in `mcp_tool_call`), the server and tool only in the
+    // arguments: the UI names it by those, and needs them here.
     let calls = obs.calls.lock().unwrap().clone();
     let mcp = calls
         .iter()
-        .find(|(n, a)| n == "call_mcp_tool" && a["ToolName"] == "submit_report")
+        .find(|(n, a)| n == "cli:call_mcp_tool" && a["ToolName"] == "submit_report")
         .unwrap_or_else(|| panic!("its MCP call with its arguments: {calls:?}"));
     assert_eq!(mcp.1["ServerName"], "agenium");
     assert_eq!(mcp.1["Arguments"], json!({"summary": "done"}));
     assert!(
-        calls.iter().any(|(n, a)| n == "write_to_file"
+        calls.iter().any(|(n, a)| n == "cli:write_to_file"
             && a["Content"].as_str() == Some("plan")
             && a["TargetFile"]
                 .as_str()

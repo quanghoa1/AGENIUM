@@ -111,10 +111,12 @@ impl Runtime {
             usage: Default::default(),
             text,
         };
-        // Under the steering lock: a message sent while this turn starts waits for the next one.
+        // One turn at a time (the steering lock): a message stored before the running turn takes the queue is read by
+        // that turn, a later one by the next, so the reply says either.
         let Some(_turn) = self.register_if_idle(project, lead.id, run) else {
             return Ok(queued(format!(
-                "{} is working: your message waits in the queue (you can change it until then) and opens its next turn.",
+                "{} is working: your message is read by its turn now starting or by its next one (until then you can \
+                 change it in the queue).",
                 lead.name
             )));
         };
@@ -197,15 +199,6 @@ impl Runtime {
             .lines()
             .filter(|l| l.starts_with("- ") && !seen.contains(*l))
             .collect();
-        let memory = if fresh.is_empty() {
-            String::new()
-        } else {
-            format!(
-                "{}\n{}\n\n",
-                memory.lines().next().unwrap_or_default(),
-                fresh.join("\n")
-            )
-        };
         let soul = self.soul_and_role(lead);
         let solo = team.solo;
         let started = Instant::now();
@@ -229,9 +222,8 @@ impl Runtime {
         if let Some(t) = &roster {
             run_context.push_str(&format!("\n- Team: {t}"));
         }
-        let msg = Message::user_text(format!(
-            "{run_context}\n\n{memory}{user_text}\n\n<project_state>\n{state}\n</project_state>"
-        ));
+        // The memory in its own tag: the agent's recall, never read back as the user's words (the chat, its learning).
+        let msg = Message::user_text(learn::turn_message(&run_context, &fresh, user_text, &state));
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let (manifest, _) = self.manifest(lead, solo, ctx, specs, None, &ctx.fetch_allow);
             let system = vec![
@@ -271,9 +263,14 @@ impl Runtime {
             )
             .await;
         let (report, cost) = res?;
+        // The user has the answer: a turn that cannot be kept in the history is logged, not failed (a failed turn puts
+        // its messages back, and the next turn would answer them again).
         for m in std::iter::once(&msg).chain(report.messages.iter()) {
             if let Ok(v) = serde_json::to_value(m) {
-                mem.append_message(&session, &v)?;
+                if let Err(e) = mem.append_message(&session, &v) {
+                    tracing::warn!(error = %e, %project, "a chat turn was answered but not kept in the history");
+                    break;
+                }
             }
         }
         // When the chat goes quiet, the scheduler learns from it (ADR-98).

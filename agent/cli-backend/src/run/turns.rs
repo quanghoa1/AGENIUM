@@ -400,16 +400,17 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
             } => {
                 st.steps += 1;
                 self.observer.step(st.steps, &st.usage);
+                // Named `cli:` as in the run's log: the live views tell the CLI's own tools from Agenium's.
                 self.observer.event(&ChatEvent::ToolCallStarted {
                     id: id.clone(),
-                    name: name.clone(),
+                    name: format!("cli:{name}"),
                 });
                 // The CLI reports the call whole at once: its arguments for the live view (a Codex or Antigravity
                 // MCP call names its server and tool only there).
                 self.observer
                     .event(&ChatEvent::ToolCall(agenium_llm::ToolCall {
                         id: id.clone(),
-                        name: name.clone(),
+                        name: format!("cli:{name}"),
                         args: input.clone(),
                     }));
                 // ADR-129: the step of a subagent carries its label; a call of an Agenium tool waits for its MCP

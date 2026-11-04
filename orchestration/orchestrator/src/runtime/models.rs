@@ -149,6 +149,15 @@ impl Runtime {
         info
     }
 
+    /// Takes a CLI as found elsewhere (the app's own detection; a test's CLI that is not installed) instead of
+    /// detecting it again, for as long as a detection is kept.
+    pub fn assume_cli(&self, info: agenium_cli_backend::detect::CliInfo) {
+        self.cli_infos
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(info.kind, (std::time::Instant::now(), info));
+    }
+
     /// Drops what this runtime remembers about a provider (its client and its models' capabilities) after the
     /// user edits or removes it.
     pub fn forget_provider(&self, id: &str) {

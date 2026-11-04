@@ -83,7 +83,7 @@ pub async fn cli_models_of(app: &App, c: &CliInfo) -> Option<Result<Vec<ModelInf
             })
         }
         CliKind::Grok => agenium_cli_backend::grok::models(program).await.map(ids),
-        CliKind::Devin => return None,
+        CliKind::Devin => agenium_cli_backend::devin::models(program).await,
     };
     Some(models)
 }

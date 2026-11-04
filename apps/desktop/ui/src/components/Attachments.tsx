@@ -148,8 +148,6 @@ export function material(docs: SkillDoc[], maxChars = 120_000): string {
 
 /** A chat message split into what the user wrote and the documents attached to it (shown as chips). */
 export function splitMaterial(text: string): { text: string; docs: { name: string; size: number }[] } {
-  // The memory recalled for a chat turn rides at the head of the user's stored message (ADR-155): not the user's words.
-  text = text.replace(/^## From your memory[^\n]*\n(?:- [^\n]*\n)*\n*/, "");
   const start = text.indexOf("<attachments note=");
   const end = text.indexOf("</attachments>", start);
   if (start < 0 || end < 0) return { text, docs: [] };

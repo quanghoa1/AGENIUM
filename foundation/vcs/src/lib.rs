@@ -76,6 +76,8 @@ pub const LOCAL_EXCLUDES: &[&str] = &[
     "node_modules/",
     ".DS_Store",
     "Thumbs.db",
+    // The file a Devin run writes to turn the user's own Devin MCP servers off (ADR-156).
+    ".devin/mcp_config.local.json",
 ];
 
 /// A project repository (its own working tree has `main` checked out).

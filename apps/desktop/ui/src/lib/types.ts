@@ -503,7 +503,8 @@ export interface AgentDetail {
 }
 
 export interface ChatLine {
-  role: "user" | "assistant" | "system";
+  /** `memory`: what the agent recalled for the user's message before it (the agent's own, not the user's words). */
+  role: "user" | "assistant" | "system" | "memory";
   text: string;
 }
 

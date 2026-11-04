@@ -172,6 +172,19 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   newest is unknown; a CLI whose own check fails says why (grok: "program not found"); an update that changed nothing
   says it is already the newest, and the CLI is shown at its newest after; a version that answered Agenium's check
   after an update here is no longer flagged as beyond the verified one ("checked on this machine").
+- **Devin CLI is driven** (ADR-156): over ACP inside the sandbox, one process per turn with its session loaded again;
+  files it hands over are read and written by Agenium after a check (nothing in a read-only run); the user's own
+  Devin MCP servers are off by name and its folder is read-only but its logs and sessions; models from `devin models
+  list` (`swe-2-max` free). Verified with a Solo on `swe-2-max`: spec, plan, two tickets merged, a memory run.
+- **Tools Agenium runs are tagged Agenium** in the chat and the Live room log, whether an API model or a CLI (through
+  Agenium's MCP server) calls them; a CLI's own tools are Tool, another server's MCP.
+- **The recalled memory is the agent's, not the user's words** (ADR-155): it travels in its own `<memory>` tag in the
+  turn's message (the history stays a cached prefix), learning from the chat no longer reads it as something the user
+  said, and the chat shows it as "Recalled from its memory" under the user's message.
+- Review fixes from the agents' own review of Agenium: a CLI's memory or helper call cut short (its step limit, its
+  time) is no longer taken as an answer; a fold of a CLI's conversation never folds the turn's own instruction,
+  reserves its notes and keeps the first message whole; a Lead's answered turn whose history could not be stored is
+  not answered again; the reply to a message sent while a turn starts says which turn reads it.
 - **The Lead sums the work up when it is done** (ADR-147): a project that becomes done gets a short summary from its
   Lead or Solo agent in the chat (what was delivered, how it was checked, what is open), in the user's language.
 - **No comment box on a ticket** (ADR-122): the user's requests and corrections go to the Lead or Solo agent, who

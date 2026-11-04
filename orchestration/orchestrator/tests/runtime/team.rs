@@ -16,17 +16,12 @@ async fn a_cli_agent_whose_cli_cannot_run_waits_for_the_user() {
         c.cli.fallback_model = "memory-model".into();
     })
     .unwrap();
-    // devin is known but not driven by Agenium (ADR-56).
-    let cli_model = ModelBinding {
-        provider: "devin".into(),
-        model: "some-model".into(),
-        effort: Effort::LOW,
-        max_tokens: None,
-    };
+    // An agent CLI that is not installed: the agent cannot run.
+    let cli_model = super::no_cli(&rt);
     app.set_agent_backend(agent, BackendKind::Cli, &cli_model)
         .unwrap();
     let err = rt.chat(project, "hello").await.unwrap_err().to_string();
-    assert!(err.contains("does not drive devin"), "{err}");
+    assert!(err.contains("devin is not installed"), "{err}");
     assert_eq!(p.requests().len(), 0, "no other model takes the work");
     assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Offline);
     let told = app

@@ -300,17 +300,23 @@ const named = await js(`import('/src/views/live/calls.tsx').then(m => JSON.strin
   m.classify('mcp_tool_call', {server:'agenium', tool:'submit_report', arguments:{ticket_id:'AGN-1'}}),
   m.classify('read_file', {path:'.agenium/attachments/seo-checklist.docx'}),
   m.classify('cli:agenium__shell', {command:'git status --porcelain'}),
-  m.classify('command_execution', {command:'git status --porcelain'}),
+  m.classify('shell', {command:'git status --porcelain'}),
+  m.classify('cli:command_execution', {command:'git status --porcelain'}),
 ])).catch(e => 'ERR ' + e)`);
 const callReads = typeof named === "string" && named.startsWith("[") ? JSON.parse(named) : [];
 check(
-  "a call reads the same whatever the brain: Agenium's tools by their name, another server's by server and tool",
-  callReads.length === 6 &&
-    callReads[0].kind === "tool" &&
+  "a call reads the same whatever the brain: Agenium's tools tagged Agenium, a CLI's own as Tool, another server as MCP",
+  callReads.length === 7 &&
+    callReads[0].kind === "agenium" &&
     callReads[0].label === "read_file: .agenium/attachments/seo-checklist.docx" &&
+    callReads[3].kind === "agenium" &&
     callReads[3].label === callReads[0].label &&
+    callReads[4].kind === "agenium" &&
     callReads[4].label === "bash: git status --porcelain" &&
+    callReads[5].kind === "agenium" &&
     callReads[5].label === callReads[4].label &&
+    callReads[6].kind === "tool" &&
+    callReads[6].label === callReads[4].label &&
     callReads[1].kind === "mcp" &&
     callReads[1].label === "figma :: get_file: 1:2" &&
     callReads[2].kind === "agenium" &&

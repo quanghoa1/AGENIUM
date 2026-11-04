@@ -143,3 +143,12 @@ Unit tests:
   - `components/ContextGauge.tsx`;
   - the run page (`ControlStep`), the Live dock and the chat page;
   - strings `context.*`, `control.*`.
+
+## Amendment (2026-11-04, the memory is the agent's)
+
+A chat turn's recalled memory went at the head of the user's words in the stored message ("## From your memory …"):
+the chat showed it as the user's, and learning from the chat read it back as something the user said. It now travels
+in its own tag in the same message (`learn::turn_message`, `<memory note="…">`), so the history stays a cached prefix;
+`user_words` leaves it out (the chat, the learning) and `turn_memory` reads it. The chat history gives it as its own
+line (role `memory`), shown folded under the user's message as "Recalled from its memory (n)". Turns stored before the
+tag are read the same way. Test `a_turns_memory_is_the_agents_not_the_users_words`.

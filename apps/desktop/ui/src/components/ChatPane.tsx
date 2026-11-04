@@ -65,6 +65,30 @@ export interface Prefill {
   nonce: number;
 }
 
+/** What the agent recalled from its memory for the message above (ADR-155): its own, folded, on the agent's side. */
+function Recalled({ text }: { text: string }) {
+  const app = useApp();
+  const [open, setOpen] = useState(false);
+  const items = text.split("\n").filter((l) => l.trim());
+  return (
+    <div className="pl-11">
+      <div className="inline-block max-w-[80%] rounded-lg border border-teal-500/30 bg-teal-500/5 text-[11px] text-teal-700 dark:text-teal-300">
+        <button className="flex items-center gap-1.5 px-2.5 py-1 text-left" onClick={() => setOpen(!open)}>
+          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          <Brain className="h-3 w-3" /> {app.t("chat.recalled").replace("{n}", String(items.length))}
+        </button>
+        {open && (
+          <ul className="space-y-0.5 px-3 pb-2 text-muted">
+            {items.map((l, k) => (
+              <li key={k}>{l.replace(/^- /, "")}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** The turn in progress: thinking (expandable, open while the model reasons), the tool being called, the text. */
 export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
   const app = useApp();
@@ -325,7 +349,10 @@ export function ChatPane({
     <TicketLinks.Provider value={prefix ? { prefix, open: (k) => app.openTicket(k, project) } : null}>
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-        {lines.map((l, i) => (
+        {lines.map((l, i) =>
+          l.role === "memory" ? (
+            <Recalled key={i} text={l.text} />
+          ) : (
           <ListItem key={i} id={String(i)} className={cn("flex gap-3", l.role === "user" && "flex-row-reverse")}>
             {l.role === "user" ? (
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-elevated font-mono text-[11px] font-bold">{app.t("chat.you")}</div>
@@ -341,7 +368,8 @@ export function ChatPane({
               {l.role === "assistant" ? <Markdown text={l.text} /> : l.role === "user" ? <UserText text={l.text} /> : l.text}
             </div>
           </ListItem>
-        ))}
+          ),
+        )}
         {(busy || current) && <LiveTurn name={agentName} stream={current} />}
         {lines.length === 0 && !busy && <Empty>{app.t("chat.intro")}</Empty>}
         <div ref={end} />

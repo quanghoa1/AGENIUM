@@ -59,12 +59,15 @@ function unwrap(name: string, args: any): [string, any] {
   return [name, args];
 }
 
-/** Sorts a call into MCP (`mcp__<server>__<tool>`), Skill (`load_skill`), Agenium (protocol) or Tool. */
+/** Sorts a call into Agenium (a tool Agenium runs: an API agent's, or a CLI's call of Agenium's MCP server), Skill,
+ * MCP (another server) or Tool (a CLI's own tool, which Agenium checks). A CLI's calls come named `cli:`. */
 export function classify(tool: string, raw: any): Call {
+  const fromCli = tool.startsWith("cli:");
   const [wrapped, args] = unwrap(tool.replace(/^cli:/, ""), raw);
   // A tool of Agenium's own MCP server, however the CLI names it (claude `mcp__agenium__x`, grok `agenium__x`, opencode
   // `agenium_x`), reads as the same tool does for an API agent: the brain does not change how a call is shown.
   const name = wrapped.replace(/^(mcp__agenium__|agenium__|agenium_)/, "");
+  const agenium = !fromCli || name !== wrapped;
   if (name.startsWith("mcp__")) {
     const [, server, ...rest] = name.split("__");
     const t = rest.join("__");
@@ -73,8 +76,9 @@ export function classify(tool: string, raw: any): Call {
   }
   if (name === "load_skill" || name === "Skill") return { kind: "skill", label: String(args?.name ?? args?.skill ?? args?.command ?? "skill"), name };
   if (PROTOCOL.has(name)) return { kind: "agenium", label: `${name}${args?.ticket_id ? ` ${args.ticket_id}` : ""}`, name };
-  if (SHELL.has(name)) return { kind: "tool", label: `bash: ${argPreview(args)}`, name };
-  return { kind: "tool", label: `${name}: ${argPreview(args)}`, name };
+  const kind = agenium ? "agenium" : "tool";
+  if (SHELL.has(name)) return { kind, label: `bash: ${argPreview(args)}`, name };
+  return { kind, label: `${name}: ${argPreview(args)}`, name };
 }
 
 const CALL_TONE: Record<CallKind, string> = {
