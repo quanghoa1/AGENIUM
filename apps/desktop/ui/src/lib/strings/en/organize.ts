@@ -360,4 +360,7 @@ export const organize = {
   "plugins.installed": "Installed",
   "plugins.new": "new",
   "plugins.changed": "changed",
+  "plugins.hooks": "Hooks Agenium runs",
+  "plugins.hooksNote": "Each runs in Agenium's sandbox (the plugin's folder read-only, no network, a time limit), only for the agents that have the plugin on. What it says joins that run's instructions and is never stored: once the plugin is off or removed, nothing of it stays in a prompt.",
+  "plugins.hookCount": "{n} hooks",
 } as const;

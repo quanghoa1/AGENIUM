@@ -31,6 +31,26 @@ pub struct Pieces {
     pub manifest: Value,
     /// The servers taken, under their own names, as the manifest's `mcpServers` writes them.
     pub mcp_raw: serde_json::Map<String, Value>,
+    /// The hooks taken, in Claude Code's shape (`{event: [{matcher, hooks: [{type: "command", command, ...}]}]}`),
+    /// only of the events Agenium runs (ADR-157).
+    pub hooks: serde_json::Map<String, Value>,
+    /// The folders the hooks' scripts are in: (path in the plugin, the folder in the repository).
+    pub hook_dirs: Vec<(String, PathBuf)>,
+}
+
+/// The hook events Agenium runs, and when: `SessionStart` at the start of every run, `UserPromptSubmit` on each of the
+/// user's messages to the Lead or Solo, `PreToolUse` before each tool call (it may only refuse or ask).
+pub const HOOK_EVENTS: [&str; 3] = ["SessionStart", "UserPromptSubmit", "PreToolUse"];
+
+/// Why the other events are not run.
+fn unrun(event: &str) -> &'static str {
+    match event {
+        "PostToolUse" | "Stop" | "SubagentStop" | "PreCompact" => {
+            "its text would stay in the stored conversation after the plugin is gone"
+        }
+        "SubagentStart" => "Agenium's agents are not subagents; each run starts with SessionStart",
+        _ => "an event of Claude Code that Agenium has not",
+    }
 }
 
 /// An installed plugin's manifest, Agenium's own file in Claude Code's `plugin.json` format (ADR-157).
@@ -63,6 +83,9 @@ impl Pieces {
         }
         if !self.mcp_raw.is_empty() {
             m.insert("mcpServers".into(), Value::Object(self.mcp_raw.clone()));
+        }
+        if !self.hooks.is_empty() {
+            m.insert("hooks".into(), Value::Object(self.hooks.clone()));
         }
         Value::Object(m)
     }
@@ -262,12 +285,95 @@ pub fn read(root: &Path, plugin: Option<&str>, fallback: &str) -> Result<Pieces>
         }
     }
 
+    // Hooks: run by Agenium in its sandbox (ADR-157), only of the events it has.
+    let mut configs: Vec<(Option<String>, Value)> = Vec::new();
+    match &manifest["hooks"] {
+        Value::Object(o) => configs.push((None, Value::Object(o.clone()))),
+        Value::Null => {
+            if let Some(v) = read_json(&dir.join("hooks/hooks.json"))? {
+                configs.push((Some("hooks/hooks.json".into()), v));
+            }
+        }
+        v => {
+            for rel in paths(v) {
+                let rel = rel.trim_start_matches("./").to_owned();
+                if let Some(v) = inside(&dir, &rel)
+                    .map(|p| read_json(&p))
+                    .transpose()?
+                    .flatten()
+                {
+                    configs.push((Some(rel), v));
+                }
+            }
+        }
+    }
+    for (file, v) in configs {
+        if v.get("modules").is_some_and(|m| !m.is_null()) {
+            out.skipped.push(format!(
+                "{}: Claude Code interface modules",
+                file.as_deref().unwrap_or("hooks")
+            ));
+        }
+        let events = v.get("hooks").cloned().unwrap_or(v);
+        let Some(events) = events.as_object() else {
+            continue;
+        };
+        for (event, groups) in events {
+            if event == "modules" {
+                continue;
+            }
+            if !HOOK_EVENTS.contains(&event.as_str()) {
+                out.skipped
+                    .push(format!("hook {event}: not run, {}", unrun(event)));
+                continue;
+            }
+            for g in groups.as_array().into_iter().flatten() {
+                let mut g = g.clone();
+                let kept: Vec<Value> = g["hooks"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|h| {
+                        let ok = h["type"].as_str() == Some("command") && h["command"].is_string();
+                        if !ok {
+                            out.skipped.push(format!(
+                                "hook {event}: a {} hook (only commands are run)",
+                                h["type"].as_str().unwrap_or("?")
+                            ));
+                        }
+                        ok
+                    })
+                    .cloned()
+                    .collect();
+                if kept.is_empty() {
+                    continue;
+                }
+                g["hooks"] = Value::Array(kept);
+                out.hooks
+                    .entry(event.clone())
+                    .or_insert_with(|| Value::Array(vec![]))
+                    .as_array_mut()
+                    .expect("an array")
+                    .push(g);
+            }
+        }
+        // The scripts sit beside their config (`hooks/`), as Claude Code's plugins keep them.
+        let folder = file
+            .as_deref()
+            .and_then(|f| Path::new(f).parent())
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .filter(|p| !p.is_empty())
+            .unwrap_or_else(|| "hooks".into());
+        if let Some(src) = inside(&dir, &folder).filter(|d| d.is_dir()) {
+            if !out.hook_dirs.iter().any(|(f, _)| *f == folder) {
+                out.hook_dirs.push((folder, src));
+            }
+        }
+    }
+
     // What Agenium does not take.
     let has = |rel: &str| dir.join(rel).exists();
     let mut not_taken: BTreeMap<&str, &str> = BTreeMap::new();
-    if has("hooks") || !manifest["hooks"].is_null() {
-        not_taken.insert("hooks", "not run: Agenium runs no vendor code of a plugin");
-    }
     if has("commands") || !manifest["commands"].is_null() {
         not_taken.insert("commands", "slash commands of a vendor's CLI");
     }
@@ -339,12 +445,7 @@ mod tests {
         assert_eq!(p.mcp.len(), 1);
         assert_eq!(p.mcp[0].id, "super-powers-docs");
         let skipped = p.skipped.join("\n");
-        for k in [
-            "skill skills/bad",
-            "MCP server local",
-            "hooks:",
-            "commands:",
-        ] {
+        for k in ["skill skills/bad", "MCP server local", "commands:"] {
             assert!(skipped.contains(k), "{k} in {skipped}");
         }
     }

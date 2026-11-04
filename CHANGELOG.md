@@ -183,6 +183,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   taken) beside `skills/`, and a Claude-shaped `installed_plugins.json`. Its skills and MCP servers are taken; hooks, commands, agents and programs are listed and
   never run. An agent's Plugin tab switches a whole plugin; its skills are read-only to learning; an update shows what
   changes and replaces the whole set; removing it switches it off everywhere.
+- **Plugin hooks, Agenium's way** (ADR-157): `SessionStart`, `UserPromptSubmit` and `PreToolUse` command hooks run in
+  the sandbox for the agents that have the plugin on; their text joins the run's instructions and is never stored, so a
+  plugin switched off or removed leaves nothing in a prompt (its agents' kept CLI sessions end too). The chat shows
+  each hook a turn ran, folded, and a plugin skill's call as `Plugin::<plugin>::<skill>`.
 - **CLIs checked after their updates** (ADR-153, 2026-11-04): agy 1.5.0 and devin 3000.11.234 verified with real
   turns; Devin's new "fusion" pairs (655 variants of a model with a SWE-2 sidekick) are left out of its model list.
 - **Devin's models with their efforts** (ADR-156): `swe-2` with medium, high and max (not `swe-2-max` as a model of

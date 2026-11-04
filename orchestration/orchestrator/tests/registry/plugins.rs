@@ -42,11 +42,8 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
         ["brainstorming", "writing-plans"]
     );
     assert_eq!(p.plugin.mcp[0].id, "superpowers-docs");
-    assert!(
-        p.plugin.skipped.iter().any(|s| s.starts_with("hooks")),
-        "{:?}",
-        p.plugin.skipped
-    );
+    // An empty hooks folder brings no hook.
+    assert!(p.plugin.hooks.is_empty());
     assert!(f.app.plugins().unwrap().is_empty());
     f.app
         .install_plugin(
@@ -84,13 +81,6 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
         "{installed}"
     );
     assert_eq!(installed["version"], 2);
-    assert!(f
-        .app
-        .plugin("superpowers")
-        .unwrap()
-        .skipped
-        .iter()
-        .any(|s| s.starts_with("hooks")));
 
     // Off until the agent has it on, then every skill and server at once.
     let ana = new_agent(&f, "ana", "coding-backend");
@@ -159,4 +149,145 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
     assert!(f.app.plugins().unwrap().is_empty());
     assert!(f.app.agent(ana.id).unwrap().skills.is_empty());
     assert!(f.app.remove_plugin("superpowers").is_err());
+}
+
+/// A plugin with one SessionStart hook whose script reads Claude Code's input on stdin.
+fn hooked_repo(dir: &std::path::Path) {
+    std::fs::create_dir_all(dir.join(".claude-plugin")).unwrap();
+    std::fs::write(
+        dir.join(".claude-plugin/plugin.json"),
+        r#"{"name":"hooky","version":"1.0","description":"A hook."}"#,
+    )
+    .unwrap();
+    write_skill(
+        &dir.join("skills/hooky-rules"),
+        "hooky-rules",
+        "Hooky's rules.",
+    );
+    std::fs::create_dir_all(dir.join("hooks")).unwrap();
+    std::fs::write(
+        dir.join("hooks/hooks.json"),
+        r#"{"hooks":{
+            "SessionStart":[{"matcher":"startup","hooks":[{"type":"command",
+                "command":"bash \"${CLAUDE_PLUGIN_ROOT}/hooks/start.sh\"",
+                "powershell":"& \"${CLAUDE_PLUGIN_ROOT}/hooks/start.ps1\""}]}],
+            "Stop":[{"hooks":[{"type":"command","command":"echo bye"}]}]}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("hooks/start.sh"),
+        "read -r line\ncase \"$line\" in *SessionStart*) echo \"Hooky says: check the rules.\";; esac\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("hooks/start.ps1"),
+        "$j = (@($input) -join '') | ConvertFrom-Json\nif ($j.hook_event_name -eq 'SessionStart') { 'Hooky says: check the rules.' }\n",
+    )
+    .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugins_hooks_run_in_the_sandbox_and_leave_nothing_once_removed() {
+    let f = fixture();
+    provider(&f);
+    let repo = f.root.join("vendor-hooky");
+    hooked_repo(&repo);
+    let p = f
+        .app
+        .preview_plugin(&repo.display().to_string(), None)
+        .await
+        .unwrap();
+    assert_eq!(p.plugin.hooks.len(), 1, "{:?}", p.plugin.hooks);
+    assert!(p.plugin.hooks[0].starts_with("SessionStart: bash"));
+    assert!(
+        p.plugin.skipped.iter().any(|s| s.starts_with("hook Stop")),
+        "{:?}",
+        p.plugin.skipped
+    );
+    f.app
+        .install_plugin(
+            &p.plugin.source,
+            &p.plugin.reference,
+            None,
+            &p.plugin.commit,
+        )
+        .await
+        .unwrap();
+    let dir = f.app.skill_registry().plugins_dir().join("hooky");
+    // What was skipped stays with the install.
+    let kept = f.app.plugin("hooky").unwrap();
+    assert!(kept.skipped.iter().any(|s| s.starts_with("hook Stop")) && kept.hooks.len() == 1);
+    assert!(dir.join("hooks/start.sh").is_file() && dir.join("hooks/start.ps1").is_file());
+
+    let ana = new_agent(&f, "ana", "coding-backend");
+    // Off: no hook runs for the agent.
+    assert!(!f.app.has_plugin_hooks(&ana.skills, "SessionStart"));
+    f.app.toggle_agent_plugin(ana.id, "hooky", true).unwrap();
+    let ana = f.app.agent(ana.id).unwrap();
+    assert!(f.app.has_plugin_hooks(&ana.skills, "SessionStart"));
+    let project = f.root.join("work");
+    std::fs::create_dir_all(&project).unwrap();
+    let runs = f
+        .app
+        .run_plugin_hooks(
+            &ana.skills,
+            "SessionStart",
+            "startup",
+            serde_json::json!({"source": "startup"}),
+            "R1",
+            &project,
+        )
+        .await;
+    assert_eq!(runs.len(), 1);
+    if agenium_sandbox::detect().backend.is_some() {
+        assert!(runs[0].note.ok, "{:?}", runs[0].note);
+        assert_eq!(
+            runs[0].context.as_deref(),
+            Some("Hooky says: check the rules.")
+        );
+    } else {
+        assert!(!runs[0].note.ok && runs[0].context.is_none());
+    }
+    // A matcher that does not take the source runs nothing.
+    assert!(f
+        .app
+        .run_plugin_hooks(
+            &ana.skills,
+            "SessionStart",
+            "resume",
+            serde_json::json!({}),
+            "R2",
+            &project
+        )
+        .await
+        .is_empty());
+
+    // Switched off: the agent's kept CLI sessions go (they carry what the hooks said); removed: every file goes.
+    let sessions = f.app.cli_sessions(ana.id).join("T-1");
+    std::fs::create_dir_all(&sessions).unwrap();
+    f.app.toggle_agent_plugin(ana.id, "hooky", false).unwrap();
+    assert!(!sessions.exists());
+    f.app.toggle_agent_plugin(ana.id, "hooky", true).unwrap();
+    f.app.remove_plugin("hooky").unwrap();
+    assert!(!dir.exists());
+    let left: Vec<_> = std::fs::read_dir(f.app.skill_registry().plugins_dir())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(left, ["installed_plugins.json"]);
+    let ana = f.app.agent(ana.id).unwrap();
+    assert!(ana.skills.is_empty());
+    assert!(f
+        .app
+        .run_plugin_hooks(
+            &["plugin:hooky".into()],
+            "SessionStart",
+            "startup",
+            serde_json::json!({}),
+            "R3",
+            &project
+        )
+        .await
+        .is_empty());
 }

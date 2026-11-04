@@ -505,10 +505,14 @@ export interface AgentDetail {
 export interface ChatLine {
   /** `memory`: what the agent recalled for the user's message (the agent's own, not the user's words); `tool`: a call
    * the agent made in its turn (`text` its name, `args`, `ok` false when it failed). */
-  role: "user" | "assistant" | "system" | "memory" | "tool";
+  role: "user" | "assistant" | "system" | "memory" | "tool" | "plugin";
   text: string;
   args?: unknown;
   ok?: boolean;
+  /** The plugin a call's skill or server comes from, or (role `plugin`) whose hook ran (ADR-157). */
+  plugin?: string;
+  /** Role `plugin`: the hook's event (`SessionStart`, `UserPromptSubmit`). */
+  event?: string;
 }
 
 /** A message waiting for the busy Lead (ADR-149): the user can change or take it back until its next turn reads it. */
@@ -615,6 +619,8 @@ export interface Plugin {
   /** Each skill and a digest of its files. */
   skills: Record<string, string>;
   mcp: McpServerConfig[];
+  /** Its hooks Agenium runs in the sandbox: `event: command`. */
+  hooks: string[];
   /** What was not taken, and why. */
   skipped: string[];
   installed_at: string;

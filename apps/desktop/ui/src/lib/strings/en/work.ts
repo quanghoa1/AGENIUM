@@ -265,6 +265,8 @@ export const work = {
   "chat.showLess": "Show less",
   "chat.thought": "Thinking",
   "chat.recalled": "Recalled from its memory ({n})",
+  "chat.pluginHook": "Plugin {p}: its {e} hook",
+  "chat.pluginHookFailed": "Plugin {p}: its {e} hook failed",
   "chat.noReasoning": "(this model does not stream its reasoning)",
   "runs.live": "live",
   "runs.steps": "Steps",

@@ -310,6 +310,14 @@ fn a_plugin_is_on_whole_and_its_skills_stay_the_vendors() {
     assert!(validate(&plug.join("planning"), Origin::Library).is_err());
     skill(&plug, "escaping", "Out.", "See [x](../../../secret.md).");
     assert!(validate(&plug.join("escaping"), Origin::Plugin).is_err());
+    skill(
+        &plug,
+        "example",
+        "Ex.",
+        "Run `scripts/tool.sh` in your own skill.",
+    );
+    assert!(validate(&plug.join("example"), Origin::Plugin).is_ok());
+    assert!(validate(&plug.join("example"), Origin::Library).is_err());
     assert_eq!(plugin_of("plugin:superpowers"), Some("superpowers"));
     assert_eq!(plugin_of("plugin:../x"), None);
     assert_eq!(plugin_of("git-flow"), None);

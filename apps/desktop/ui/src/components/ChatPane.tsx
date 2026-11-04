@@ -1,7 +1,7 @@
 // The conversation with a project's Lead (or Solo agent), like a CLI chat: history, the turn in progress (its
 // reasoning folded in an expandable "thinking" block, the tool being called, the text as it streams), the input.
 // Used by the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
-import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Send, Wrench, X } from "lucide-react";
+import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Package, Send, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useApp, useLive, type LiveRun } from "../lib/store";
@@ -80,7 +80,9 @@ function turnsOf(lines: ChatLine[]): { at: number; user?: ChatLine; steps: ChatL
 
 /** One call the agent made in its turn: its kind (Agenium, Tool, MCP, Skill) and what it was, red when it failed. */
 function Step({ line, running }: { line: ChatLine; running?: boolean }) {
-  const t = callText(classify(line.text, line.args));
+  const c = classify(line.text, line.args);
+  // A plugin's skill or server (ADR-157) is shown as the plugin's: `Plugin::superpowers::brainstorming`.
+  const t = line.plugin ? `Plugin::${line.plugin}::${callText(c).split("::").slice(1).join("::")}` : callText(c);
   return (
     <div
       className={cn(
@@ -94,6 +96,29 @@ function Step({ line, running }: { line: ChatLine; running?: boolean }) {
     >
       <Wrench className="h-3 w-3 shrink-0" />
       <span className="truncate">{t}</span>
+    </div>
+  );
+}
+
+/** What a plugin's hook did for this turn (ADR-157): the text it added to the instructions, or why it failed. Kept
+ *  for the chat only: the model never reads it back. */
+function PluginNote({ line }: { line: ChatLine }) {
+  const app = useApp();
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <div
+        className={cn(
+          "inline-block max-w-full rounded-lg border text-[11px]",
+          line.ok === false ? "border-rose-500/40 bg-rose-500/5 text-rose-600 dark:text-rose-300" : "border-indigo-500/30 bg-indigo-500/5 text-indigo-700 dark:text-indigo-300",
+        )}
+      >
+        <button className="flex items-center gap-1.5 px-2.5 py-1 text-left" onClick={() => setOpen(!open)} disabled={!line.text}>
+          {line.text ? open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" /> : null}
+          <Package className="h-3 w-3" /> {app.t(line.ok === false ? "chat.pluginHookFailed" : "chat.pluginHook").replace("{p}", line.plugin ?? "").replace("{e}", line.event ?? "")}
+        </button>
+        {open && line.text && <div className="max-h-72 overflow-auto whitespace-pre-wrap px-3 pb-2 text-muted">{line.text}</div>}
+      </div>
     </div>
   );
 }
@@ -391,6 +416,8 @@ export function ChatPane({
                 {steps.map((l, k) =>
                   l.role === "memory" ? (
                     <Recalled key={k} text={l.text} />
+                  ) : l.role === "plugin" ? (
+                    <PluginNote key={k} line={l} />
                   ) : l.role === "tool" ? (
                     <Step key={k} line={l} />
                   ) : (

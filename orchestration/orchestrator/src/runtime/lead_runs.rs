@@ -224,6 +224,29 @@ impl Runtime {
         }
         // The memory in its own tag: the agent's recall, never read back as the user's words (the chat, its learning).
         let msg = Message::user_text(learn::turn_message(&run_context, &fresh, user_text, &state));
+        // The UserPromptSubmit hooks of the plugins the Lead has on (ADR-157): their text joins this turn's
+        // instructions, not the stored message, so nothing of a plugin stays in the conversation.
+        let prompt_hooks = self
+            .app
+            .run_plugin_hooks(
+                &lead.skills,
+                "UserPromptSubmit",
+                "",
+                serde_json::json!({ "prompt": user_text }),
+                &run.to_string(),
+                &root,
+            )
+            .await;
+        let plugin_text: String = prompt_hooks
+            .iter()
+            .filter_map(|h| {
+                h.context.as_ref().map(|c| {
+                    format!("From the plugin {} (its UserPromptSubmit hook, for this message):\n{c}\n\n", h.note.plugin)
+                })
+            })
+            .collect();
+        let notes: Vec<_> = prompt_hooks.into_iter().map(|h| h.note).collect();
+        self.note_plugin_hooks(lead.id, project, &notes);
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let (manifest, _) = self.manifest(lead, solo, ctx, specs, None, &ctx.fetch_allow);
             let system = vec![
@@ -231,6 +254,13 @@ impl Runtime {
                 SystemBlock { text: format!("{soul}\n\n# Talking with the user\nThe user writes to you directly. Clarify the request, then propose_spec, create_plan, create_ticket and assign_ticket as needed (a Solo agent assigns tickets to itself). You do not edit files in this conversation: once a ticket is assigned, the system starts a separate work run with file and shell tools in the ticket's worktree. Reply to the user in their language; everything you write into tickets and plans is English."), cache: true },
                 SystemBlock { text: manifest, cache: false },
             ];
+            let mut system = system;
+            if !plugin_text.is_empty() {
+                system.push(SystemBlock {
+                    text: plugin_text.trim_end().to_owned(),
+                    cache: false,
+                });
+            }
             let mut messages = history.clone();
             messages.push(msg.clone());
             Ok(WorkOrder { system, messages })
@@ -494,5 +524,31 @@ impl Runtime {
             usage,
             text,
         }))
+    }
+
+    /// Keeps what plugins' hooks did in a chat turn for the chat to show (ADR-157), apart from the conversation: the
+    /// model never reads it. `at`: the turn's place, the number of messages of the chat before it.
+    pub(super) fn note_plugin_hooks(
+        &self,
+        agent: AgentId,
+        project: ProjectId,
+        notes: &[crate::plugins::hooks::HookNote],
+    ) {
+        if notes.is_empty() {
+            return;
+        }
+        let Ok(mem) = self.agent_memory(agent) else {
+            return;
+        };
+        let at = mem
+            .load_messages(&learn::chat_session(project))
+            .map(|m| m.len())
+            .unwrap_or(0);
+        for n in notes {
+            let v = serde_json::json!({ "at": at, "plugin": n.plugin, "event": n.event, "ok": n.ok, "text": n.text });
+            if let Err(e) = mem.append_message(&learn::plugin_hooks_session(project), &v) {
+                tracing::warn!(error = %e, "a plugin hook's note was not kept");
+            }
+        }
     }
 }

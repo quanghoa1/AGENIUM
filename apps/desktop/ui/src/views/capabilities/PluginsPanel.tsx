@@ -77,6 +77,7 @@ export function PluginsPanel() {
               {p.description && <div className="mt-1 text-[11px] text-subtle">{p.description}</div>}
               <div className="mt-1 text-[11px] text-muted">
                 {app.t("plugins.counts").replace("{skills}", String(Object.keys(p.skills).length)).replace("{mcp}", String(p.mcp.length))}
+                {p.hooks.length > 0 && ` · ${app.t("plugins.hookCount").replace("{n}", String(p.hooks.length))}`}
                 {" · "}
                 {users.length ? `${app.t("plugins.usedBy")} ${users.join(", ")}` : app.t("plugins.noUsers")}
               </div>
@@ -97,6 +98,19 @@ export function PluginsPanel() {
             )}
             <Pieces title={app.t("plugins.skills")} all={Object.keys(preview.plugin.skills)} added={preview.installed ? preview.skills_added : []} changed={preview.skills_changed} removed={preview.skills_removed} />
             <Pieces title="MCP" all={preview.plugin.mcp.map((m) => `${m.id}: ${m.url ?? [m.command, ...(m.args ?? [])].join(" ")}`)} added={preview.installed ? preview.mcp_added : []} changed={preview.mcp_changed} removed={preview.mcp_removed} />
+            {preview.plugin.hooks.length > 0 && (
+              <div>
+                <div className="label mb-1">{app.t("plugins.hooks")}</div>
+                <div className="mb-1 text-[11px] text-subtle">{app.t("plugins.hooksNote")}</div>
+                <ul className="space-y-0.5 font-mono text-[11px]">
+                  {preview.plugin.hooks.map((h) => (
+                    <li key={h} className="break-all rounded border border-line px-1.5 py-0.5">
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {preview.plugin.skipped.length > 0 && (
               <div>
                 <div className="label mb-1">{app.t("plugins.skipped")}</div>

@@ -398,7 +398,8 @@ fn validate_named(dir: &Path, origin: Origin, check_dir_name: bool) -> Result<Sk
             }
         };
         let target = base.join(&rel);
-        if !target.exists() {
+        // A plugin's text may name a path as an example (superpowers' `scripts/tool.sh`): the vendor's, kept as it is.
+        if !target.exists() && origin != Origin::Plugin {
             return Err(invalid(format!(
                 "referenced path {r:?} does not exist in the skill folder"
             )));

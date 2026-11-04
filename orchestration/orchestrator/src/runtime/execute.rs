@@ -179,6 +179,31 @@ impl Runtime {
             ctx.capabilities.extend(offer.lines);
             mcp_tools.extend(offer.tools);
         }
+        // The SessionStart hooks of the plugins the agent has on, in the sandbox (ADR-157): what they say joins this
+        // run's instructions only, rebuilt at every run, so a plugin switched off or removed leaves nothing behind.
+        let session_hooks = self
+            .app
+            .run_plugin_hooks(
+                &agent.skills,
+                "SessionStart",
+                "startup",
+                serde_json::json!({ "source": "startup" }),
+                &run.to_string(),
+                root,
+            )
+            .await;
+        for h in &session_hooks {
+            if let Some(c) = &h.context {
+                ctx.capabilities.push(format!(
+                    "From the plugin {} (its SessionStart hook, for this run):\n{c}",
+                    h.note.plugin
+                ));
+            }
+        }
+        if kind == RunKind::Chat {
+            let notes: Vec<_> = session_hooks.into_iter().map(|h| h.note).collect();
+            self.note_plugin_hooks(agent.id, project, &notes);
+        }
         // Every vendor CLI works through the run's own tools over MCP (ADR-117, ADR-129): its own shell is off and its
         // own file tools reach only its scratch folder, so these do the work under the sandbox, the gate and the write
         // scope, like an API agent's.
@@ -210,6 +235,16 @@ impl Runtime {
             work.retain(|t| t.name() != "view_image");
         }
         work.extend(mcp_tools);
+        // A plugin's PreToolUse hooks before each call (ADR-157): they may refuse one, never allow what is refused.
+        if self.app.has_plugin_hooks(&agent.skills, "PreToolUse") {
+            work = crate::plugins::hooks::wrap(
+                self.app.clone(),
+                agent.skills.clone(),
+                root.to_path_buf(),
+                run.to_string(),
+                work,
+            );
+        }
         // ADR-127: long shell/grep results of a work run are trimmed by the judge before the model reads them.
         if kind == RunKind::Work && self.app.config().judge.trim_output {
             if let Some(t) = ticket {

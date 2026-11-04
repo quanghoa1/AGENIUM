@@ -576,6 +576,11 @@ pub(crate) fn chat_session(project: ProjectId) -> String {
     format!("chat:{project}")
 }
 
+/// Where what plugins' hooks did in a project's chat is kept for the chat to show (ADR-157); never sent to a model.
+pub fn plugin_hooks_session(project: ProjectId) -> String {
+    format!("plugin-hooks:{project}")
+}
+
 /// The tag a chat turn's recalled memory travels in: the agent's own memory, not the user's words.
 pub const MEMORY_OPEN: &str = "<memory note=\"what you learned earlier, recalled for this message; verify before relying on it\">";
 pub const MEMORY_CLOSE: &str = "</memory>";

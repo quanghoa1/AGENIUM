@@ -362,4 +362,7 @@ export const organize: Record<keyof typeof en, string> = {
   "plugins.installed": "Đã cài",
   "plugins.new": "mới",
   "plugins.changed": "đổi",
+  "plugins.hooks": "Hook Agenium chạy",
+  "plugins.hooksNote": "Mỗi hook chạy trong sandbox của Agenium (thư mục plugin chỉ đọc, không mạng, có giới hạn thời gian), chỉ cho agent đang bật plugin. Chữ nó trả ra chỉ đi vào hướng dẫn của run đó và không được lưu: khi tắt hoặc gỡ plugin, không còn gì của nó trong prompt.",
+  "plugins.hookCount": "{n} hook",
 };

@@ -10,6 +10,7 @@
 //! taken), and the skills taken under `skills/`. Where each came from is kept in `<root>/plugins/installed_plugins.json`,
 //! shaped like Claude Code's (`name@source` -> install path, version, `gitCommitSha`, dates).
 
+pub mod hooks;
 mod layout;
 pub mod source;
 
@@ -113,6 +114,9 @@ pub struct Plugin {
     /// Each skill and a digest of its files.
     pub skills: BTreeMap<String, String>,
     pub mcp: Vec<McpServerConfig>,
+    /// Its hooks Agenium runs in the sandbox: `event: command` (ADR-157).
+    #[serde(default)]
+    pub hooks: Vec<String>,
     /// What was not taken, and why.
     pub skipped: Vec<String>,
     pub installed_at: String,
@@ -356,6 +360,7 @@ impl App {
             src.at(commit)
         };
         let dir = self.plugins_dir();
+        sweep(&dir);
         let plugin = self
             .with_fetched(&at, entry, |p, got| {
                 if got != commit {
@@ -373,6 +378,12 @@ impl App {
                     std::fs::write(fresh.join(layout::MANIFEST), manifest)?;
                     for (name, from) in &p.skills {
                         let to = fresh.join("skills").join(name);
+                        std::fs::create_dir_all(&to)?;
+                        agenium_skills::copy_dir(from, &to).map_err(|e| invalid(e.to_string()))?;
+                    }
+                    // The hooks' scripts, in their folder as the plugin keeps them (`hooks/`).
+                    for (folder, from) in &p.hook_dirs {
+                        let to = fresh.join(folder);
                         std::fs::create_dir_all(&to)?;
                         agenium_skills::copy_dir(from, &to).map_err(|e| invalid(e.to_string()))?;
                     }
@@ -434,13 +445,23 @@ impl App {
         for a in self.plugin_agents(name)? {
             let rest: Vec<String> = a.skills.into_iter().filter(|s| *s != entry).collect();
             self.set_agent_skills(a.id, &rest)?;
+            self.forget_plugin_sessions(a.id);
         }
         installed.remove(name);
         installed.save(&root)?;
+        // Everything of it goes: skills, hook scripts, the data its hooks wrote.
         if dir.exists() {
             std::fs::remove_dir_all(dir)?;
         }
+        sweep(&root);
+        tracing::info!(plugin = name, "plugin removed");
         Ok(())
+    }
+
+    /// Ends the agent's kept CLI sessions: a resumed session would carry what a plugin's hooks said in its earlier
+    /// runs, after the plugin is off or gone. The next run starts fresh with the instructions of now.
+    fn forget_plugin_sessions(&self, id: AgentId) {
+        let _ = std::fs::remove_dir_all(self.cli_sessions(id));
     }
 
     /// Turns a whole plugin on or off for an agent.
@@ -450,12 +471,16 @@ impl App {
         }
         let entry = format!("{}{name}", agenium_skills::PLUGIN_PREFIX);
         let mut skills = self.agent(id)?.skills;
+        let had = skills.contains(&entry);
         skills.retain(|s| *s != entry);
         if on {
             skills.push(entry);
             skills.sort();
         }
         self.set_agent_skills(id, &skills)?;
+        if had && !on {
+            self.forget_plugin_sessions(id);
+        }
         Ok(skills)
     }
 
@@ -504,7 +529,34 @@ fn plugin_record(
         commit: commit.to_owned(),
         skills,
         mcp: p.mcp.clone(),
+        hooks: p
+            .hooks
+            .iter()
+            .flat_map(|(event, groups)| {
+                groups
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|g| g["hooks"].as_array().cloned().unwrap_or_default())
+                    .filter_map(|h| h["command"].as_str().map(|c| format!("{event}: {c}")))
+                    .collect::<Vec<_>>()
+            })
+            .collect(),
         skipped: p.skipped.clone(),
         installed_at: chrono::Utc::now().to_rfc3339(),
     })
+}
+
+/// Removes what an install or a fetch left half done (`.fetch-*`, `.new-*`, `.old-*`): a stopped app leaves no plugin
+/// files behind.
+fn sweep(dir: &Path) {
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let n = e.file_name().to_string_lossy().into_owned();
+        if [".fetch-", ".new-", ".old-"]
+            .iter()
+            .any(|p| n.starts_with(p))
+        {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
 }
