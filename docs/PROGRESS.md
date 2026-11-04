@@ -163,7 +163,7 @@ root:
 | Code signing, auto-update | NOT DONE: needs a certificate and an update host (owner decision) | |
 
 Known limits of 0.1.0: Anthropic, Gemini and OpenAI APIs contract-tested, not called with a real key; ADR-115's extra
-request fields for OpenAI-compatible endpoints only; Devin's CLI not drivable; the macOS installer is an ad-hoc signed `.dmg` for Apple silicon (run 7, 2026-11-01), not notarized: Gatekeeper asks the user to open it by hand until it is signed with a Developer ID.
+request fields for OpenAI-compatible endpoints only; Devin's CLI driven over ACP inside the sandbox (ADR-156; devin 3000.11.234 verified 2026-11-04), Linux and macOS not yet; the macOS installer is an ad-hoc signed `.dmg` for Apple silicon (run 7, 2026-11-01), not notarized: Gatekeeper asks the user to open it by hand until it is signed with a Developer ID.
 
 ## History
 

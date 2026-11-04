@@ -408,13 +408,16 @@ pub async fn learn(
         match op {
             Op::Add { fact, text } => match new_fact(fact, text) {
                 Some((nf, v)) => {
-                    stored.push((fact, store.add(&nf, Some(&v))?));
+                    let new_id = store.add(&nf, Some(&v))?;
+                    stored.push((fact, new_id));
                     report.added += 1;
                     report.changes.push(Change {
                         op: "add",
                         kind: nf.kind,
                         text: nf.text,
                         was: None,
+                        id: Some(new_id),
+                        old_id: None,
                     });
                 }
                 None => report
@@ -430,13 +433,16 @@ pub async fn learn(
                 }
                 match new_fact(fact, text) {
                     Some((nf, v)) if nf.untrusted && trusted(id) => {
-                        stored.push((fact, store.add(&nf, Some(&v))?));
+                        let new_id = store.add(&nf, Some(&v))?;
+                        stored.push((fact, new_id));
                         report.added += 1;
                         report.changes.push(Change {
                             op: "add",
                             kind: nf.kind,
                             text: nf.text.clone(),
                             was: None,
+                            id: Some(new_id),
+                            old_id: None,
                         });
                         report.rejected.push(format!(
                             "external content may not rewrite trusted memory {id}; stored beside it as untrusted"
@@ -464,6 +470,8 @@ pub async fn learn(
                             kind: nf.kind,
                             text: nf.text,
                             was: was.map(|o| o.text),
+                            id: Some(new_id),
+                            old_id: Some(id),
                         });
                     }
                     None => report
@@ -504,6 +512,8 @@ pub async fn learn(
                         kind: o.kind,
                         text: o.text,
                         was: None,
+                        id: None,
+                        old_id: Some(id),
                     });
                 }
             }

@@ -116,8 +116,9 @@ function ControlStep({ e }: { e: LogEntry }) {
   );
 }
 
-function Step({ e }: { e: LogEntry }) {
-  if (e.kind === "memory" || (e.kind === "run" && e.data?.kind === "memory")) return <MemoryStep e={e} />;
+function Step({ e, run, undone, reload }: { e: LogEntry; run?: string; undone?: boolean; reload?: () => void }) {
+  if (e.kind === "memory" || (e.kind === "run" && e.data?.kind === "memory")) return <MemoryStep e={e} run={run} undone={undone} reload={reload} />;
+  if (e.kind === "memory-revert") return <MemoryStep e={e} />;
   if (e.kind === "control") return <ControlStep e={e} />;
   if (e.kind !== "tool") {
     return (
@@ -275,7 +276,7 @@ export function RunView({ id }: { id: string }) {
                 {JSON.stringify(e, null, 2)}
               </pre>
             ) : (
-              <Step key={e.n} e={e} />
+              <Step key={e.n} e={e} run={d.run.id} undone={d.log.some((x) => x.kind === "memory-revert")} reload={() => api.runDetail(id).then(setD)} />
             ),
           )}
           {d.log.length === 0 && <Empty>{app.t("common.none")}</Empty>}

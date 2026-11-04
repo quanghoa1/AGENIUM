@@ -10,7 +10,7 @@ mod error;
 pub mod graph;
 pub mod migrate;
 
-pub use agent::{AgentStore, Fact, FactKind, Hit, NewFact, Via};
+pub use agent::{AgentStore, Fact, FactKind, Hit, NewFact, Undo, Via};
 pub use ann::{
     AgentOptions, AnnDtype, AnnOptions, AnnStatus, IndexKind, IndexMode, DEFAULT_ANN_THRESHOLD,
 };

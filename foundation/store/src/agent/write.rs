@@ -85,6 +85,57 @@ impl AgentStore {
         .inspect(|_| self.vectors.after_write())
     }
 
+    /// Undoes one episode's changes (newest first, in one transaction): a fact it added is retired, a fact it replaced
+    /// or retired is live again (its vector rebuilt by the next `refresh_vectors`: `model_id` cleared). Refused, with
+    /// nothing changed, when a later change already touched a fact of the episode: undo that one first. Returns how
+    /// many changes were undone.
+    pub fn undo(&self, changes: &[Undo]) -> Result<usize, StoreError> {
+        let state =
+            |tx: &rusqlite::Transaction<'_>, id: i64| -> Result<Option<Option<i64>>, StoreError> {
+                Ok(tx
+                    .query_row("SELECT superseded_by FROM fact WHERE id = ?1", [id], |r| {
+                        r.get(0)
+                    })
+                    .optional()?)
+            };
+        let later = |id: i64| {
+            StoreError::Conflict(format!(
+                "fact {id} was changed after this episode: undo that first"
+            ))
+        };
+        let n = self.db.write(|tx| {
+            for c in changes.iter().rev() {
+                // What the episode wrote must still be live: the episode is the last one to have touched it.
+                if let Some(id) = c.id {
+                    match state(tx, id)? {
+                        Some(None) => {}
+                        Some(Some(_)) => return Err(later(id)),
+                        None => return Err(StoreError::NotFound(format!("fact {id}"))),
+                    }
+                    tx.execute(
+                        "UPDATE fact SET superseded_by = id, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1",
+                        [id],
+                    )?;
+                    Self::drop_vector(tx, id)?;
+                }
+                // What it replaced or retired comes back, if nothing else replaced it since.
+                if let Some(old) = c.old_id {
+                    let by = c.id.unwrap_or(old);
+                    if state(tx, old)? != Some(Some(by)) {
+                        return Err(later(old));
+                    }
+                    tx.execute(
+                        "UPDATE fact SET superseded_by = NULL, model_id = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?1",
+                        [old],
+                    )?;
+                }
+            }
+            Ok(changes.len())
+        })?;
+        self.vectors.after_write();
+        Ok(n)
+    }
+
     /// DELETE: retires a fact (self-superseded tombstone; the text stays for audit, it is never retrieved).
     pub fn retire(&self, id: i64) -> Result<(), StoreError> {
         self.db.write(|tx| {
@@ -173,4 +224,12 @@ impl AgentStore {
         out.truncate(limit);
         Ok(out)
     }
+}
+
+/// One change of a memory episode to undo ([`AgentStore::undo`]): the fact it wrote (`id`, add and update) and the one it
+/// replaced or retired (`old_id`, update and delete).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Undo {
+    pub id: Option<i64>,
+    pub old_id: Option<i64>,
 }

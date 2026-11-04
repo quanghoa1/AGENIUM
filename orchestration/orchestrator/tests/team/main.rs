@@ -9,6 +9,7 @@ use common::*;
 
 mod judge;
 mod lead;
+mod memory_revert;
 mod roles;
 mod skills;
 mod teams;

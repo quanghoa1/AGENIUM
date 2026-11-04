@@ -37,7 +37,8 @@ impl Runtime {
                 f.kind == agenium_store::FactKind::Lesson
                     && !f.untrusted
                     && !project_scoped
-                    && self.app.evidenced_contexts(f).len() >= crate::skill_overlay::MIN_CONTEXTS
+                    && evidenced_projects(&self.app.evidenced_contexts(f))
+                        >= crate::skill_overlay::MIN_CONTEXTS
             })
             .collect();
         // A text the pool dropped as misleading (audit M3) is not shared again, by this agent or another.
@@ -232,5 +233,33 @@ mod tests {
         assert_eq!(retire, vec![1, 2, 3, 4]);
         let added: Vec<i64> = add.iter().map(|i| general[*i].id).collect();
         assert_eq!(added, vec![13], "neither dropped text comes back");
+    }
+}
+
+/// Projects among a lesson's evidenced contexts (`<project>/ticket:<key>`): a lesson shared with every agent must have
+/// held in two projects, not in two tickets of one (they share its people and conventions). An agent's own skill still
+/// needs two tickets (`skill_overlay::MIN_CONTEXTS`); leaving the pool still takes two misleading contexts.
+fn evidenced_projects(contexts: &[String]) -> usize {
+    contexts
+        .iter()
+        .filter_map(|c| c.split_once('/').map(|(p, _)| p))
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+}
+
+#[cfg(test)]
+mod project_tests {
+    #[test]
+    fn two_tickets_of_one_project_are_one_project() {
+        let c = |s: &[&str]| s.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            super::evidenced_projects(&c(&["P1/ticket:A-1", "P1/ticket:A-2"])),
+            1
+        );
+        assert_eq!(
+            super::evidenced_projects(&c(&["P1/ticket:A-1", "P2/ticket:B-1"])),
+            2
+        );
+        assert_eq!(super::evidenced_projects(&[]), 0);
     }
 }

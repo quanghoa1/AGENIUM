@@ -29,6 +29,7 @@ mod write;
 pub use facts::*;
 pub use search::{fts_query, fts_search_query};
 pub use settle::{ConflictChoice, FactConflict, PairVerdict};
+pub use write::Undo;
 
 pub const AGENT_MIGRATIONS: &[Migration] = &[
     Migration {

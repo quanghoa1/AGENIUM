@@ -16,7 +16,14 @@ pub struct SessionStore {
     /// Messages of the work order the kept session already holds (the earlier runs' conversation); 0 for a fresh start,
     /// which resumes nothing.
     pub held: usize,
+    /// The context window of the model this run uses, from the catalogue; 0 when not known (a session then resumes
+    /// only on the model that wrote it).
+    pub window: u64,
 }
+
+/// Share of the window a resumed session may already fill on another model of the same CLI (as for a conversation
+/// shown as text, ADR-155): above it the new model gets the conversation fitted instead.
+const FIT_PERCENT: u64 = 70;
 
 /// A kept session older than this belongs to a ticket long ended.
 const STALE: Duration = Duration::from_secs(14 * 24 * 3600);
@@ -24,12 +31,20 @@ const STALE: Duration = Duration::from_secs(14 * 24 * 3600);
 /// What a kept session is.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Kept {
-    /// The CLI and its model (`claude:haiku`, ADR-155): a session resumes only on the model that wrote it.
+    /// The CLI and its model (`claude:haiku`, ADR-155): the same CLI resumes it on another model only when it fits.
     cli: String,
     id: String,
     /// Messages of the ticket's conversation it holds: the next run's earlier messages must be these, or another run
     /// (an API model, another CLI) went on in between and the session misses its work.
     total: usize,
+    /// Tokens of context the session filled at its last step (0: not reported).
+    #[serde(default)]
+    context: u64,
+}
+
+/// The CLI of a `cli:model` label.
+fn cli_of(label: &str) -> &str {
+    label.split_once(':').map_or(label, |(c, _)| c)
 }
 
 const KEPT: &str = "agenium-session.json";
@@ -43,7 +58,7 @@ impl SessionStore {
             return None;
         }
         let kept: Kept = serde_json::from_slice(&std::fs::read(self.dir.join(KEPT)).ok()?).ok()?;
-        if kept.cli != cli || kept.id.is_empty() || kept.total != self.held {
+        if !self.resumes(&kept, cli) {
             return None;
         }
         copy_tree(&self.dir.join(HOME), home, &[]).ok()?;
@@ -59,7 +74,20 @@ impl SessionStore {
         std::fs::read(self.dir.join(KEPT))
             .ok()
             .and_then(|b| serde_json::from_slice::<Kept>(&b).ok())
-            .is_some_and(|k| k.cli == cli && !k.id.is_empty() && k.total == self.held)
+            .is_some_and(|k| self.resumes(&k, cli))
+    }
+
+    /// The session holds the run's earlier messages, and it was written by this model, or by another model of the same
+    /// CLI and what it holds fits this model's window (a known one): a switch to a model as large keeps the session.
+    fn resumes(&self, k: &Kept, cli: &str) -> bool {
+        if k.id.is_empty() || k.total != self.held {
+            return false;
+        }
+        k.cli == cli
+            || (cli_of(&k.cli) == cli_of(cli)
+                && self.window > 0
+                && k.context > 0
+                && k.context <= self.window * FIT_PERCENT / 100)
     }
 
     /// Keeps the run's home (without the login copy), the CLI's session id and how many messages of the ticket's
@@ -72,6 +100,7 @@ impl SessionStore {
         cli: &str,
         id: Option<&str>,
         total: usize,
+        context: u64,
     ) {
         let _ = std::fs::remove_dir_all(&self.dir);
         let (Some(id), true) = (id, driver.resumes_across_runs()) else {
@@ -96,6 +125,7 @@ impl SessionStore {
             cli: cli.to_owned(),
             id: id.to_owned(),
             total,
+            context,
         };
         let r = copy_tree(home, &self.dir.join(HOME), &skip).and_then(|()| {
             std::fs::write(
@@ -169,8 +199,9 @@ mod tests {
         let store = |held| SessionStore {
             dir: kept.clone(),
             held,
+            window: 0,
         };
-        store(0).keep(&home, claude, "claude", Some("s1"), 5);
+        store(0).keep(&home, claude, "claude", Some("s1"), 5, 0);
         assert!(!kept.join("home/.credentials.json").exists());
         assert!(!original(&kept.join("home/.credentials.json")).exists());
         assert_eq!(
@@ -193,16 +224,73 @@ mod tests {
             store(0).restore(&next, claude, "claude").is_none(),
             "a fresh start"
         );
-        store(0).keep(&home, claude, "claude", None, 5);
+        store(0).keep(&home, claude, "claude", None, 5, 0);
         assert!(!kept.exists(), "a run with no session keeps nothing");
         // Codex's databases hold the old home's path: its sessions are kept without them.
         std::fs::write(home.join("state_5.sqlite"), "paths").unwrap();
         std::fs::write(home.join("state_5.sqlite-wal"), "paths").unwrap();
-        store(0).keep(&home, &crate::codex::Codex, "codex", Some("t1"), 5);
+        store(0).keep(&home, &crate::codex::Codex, "codex", Some("t1"), 5, 0);
         assert!(kept.join("home/projects/wt/s1.jsonl").exists());
         assert!(
             !kept.join("home/state_5.sqlite").exists()
                 && !kept.join("home/state_5.sqlite-wal").exists()
         );
+    }
+
+    #[test]
+    fn another_model_of_the_same_cli_resumes_when_the_session_fits() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (home, next, kept) = (
+            tmp.path().join("h"),
+            tmp.path().join("n"),
+            tmp.path().join("k"),
+        );
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("s.jsonl"), "turns").unwrap();
+        let claude = &crate::claude::Claude;
+        let store = |held, window| SessionStore {
+            dir: kept.clone(),
+            held,
+            window,
+        };
+        // Written by Opus, 90 000 tokens of context.
+        store(0, 0).keep(&home, claude, "claude:opus", Some("s1"), 5, 90_000);
+        assert!(
+            store(5, 200_000).would_resume(claude, "claude:sonnet"),
+            "fits a window as large"
+        );
+        assert!(
+            store(5, 1_000_000).would_resume(claude, "claude:sonnet"),
+            "a larger window"
+        );
+        assert!(
+            !store(5, 100_000).would_resume(claude, "claude:haiku"),
+            "over 70 % of a smaller window"
+        );
+        assert!(
+            !store(5, 0).would_resume(claude, "claude:sonnet"),
+            "a window not known"
+        );
+        assert!(
+            store(5, 0).would_resume(claude, "claude:opus"),
+            "the model that wrote it"
+        );
+        assert!(
+            !store(6, 200_000).would_resume(claude, "claude:sonnet"),
+            "a run went on in between"
+        );
+        assert!(
+            !store(5, 200_000).would_resume(claude, "codex:gpt-6-luna"),
+            "another CLI"
+        );
+        assert_eq!(
+            store(5, 200_000)
+                .restore(&next, claude, "claude:sonnet")
+                .as_deref(),
+            Some("s1")
+        );
+        // A session whose size was not reported resumes only on its own model.
+        store(0, 0).keep(&home, claude, "claude:opus", Some("s2"), 5, 0);
+        assert!(!store(5, 1_000_000).would_resume(claude, "claude:sonnet"));
     }
 }

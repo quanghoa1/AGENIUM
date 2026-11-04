@@ -265,6 +265,16 @@ export function LiveView() {
         <Radio className="h-4 w-4 text-rose-500" />
         <span className="text-sm font-semibold">{app.t("nav.live")}</span>
         <Pill icon={<Bot className="h-3.5 w-3.5 text-blue-500" />} label={app.t("live.active")} value={`${data.totals.working}/${data.agents.length}`} />
+        {(() => {
+          // Each running project starts up to this many ticket runs: in all, projects × the setting.
+          const per = app.status?.max_parallel_agents ?? 0;
+          const running = app.projects.filter((p) => p.run_state === "Running").length;
+          return per > 0 && running > 0 ? (
+            <span title={app.t("live.parallelHint")}>
+              <Pill icon={<Bot className="h-3.5 w-3.5 text-subtle" />} label={app.t("live.parallel")} value={`${running} × ${per} = ${running * per}`} />
+            </span>
+          ) : null;
+        })()}
         <Pill icon={<Wrench className="h-3.5 w-3.5 text-purple-500" />} label={app.t("live.toolsNow")} value={toolsNow} />
         <Pill icon={<Plug className="h-3.5 w-3.5 text-purple-500" />} label={cctv ? "MCP" : `MCP · ${current?.name ?? ""}`} value={cctv ? mcpIn({ members: data.agents.map((a) => a.agent.id) } as Room) : mcpIn(current)} />
         <Pill icon={<Coins className="h-3.5 w-3.5 text-amber-500" />} label={app.t("live.tokensToday")} value={tokens(data.totals.tokens_today)} />

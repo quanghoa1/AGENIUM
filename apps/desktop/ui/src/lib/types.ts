@@ -42,6 +42,8 @@ export interface Status {
   ready: boolean;
   version: string;
   ui_language?: string | null;
+  /** Ticket runs at once per project (`runtime.max_parallel_agents`). */
+  max_parallel_agents?: number | null;
   /** Linux and macOS, first start: the default work folder, asked about before anything is written (ADR-154). */
   choose_root?: string | null;
   /** The embedding model's preparation: the app opens once it is ready. */

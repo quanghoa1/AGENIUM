@@ -177,6 +177,14 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **A learning can be undone** (ADR-158): the run page's learning step undoes what it wrote to the memory in one
+  transaction (added facts out, replaced or retired ones back); refused when a later learning changed one of its facts;
+  a proven lesson asks first; skills built on lessons gone are flagged.
+- **A CLI session follows another model of its CLI** when what it holds fits that model's window (70 %, from the
+  catalogue); before, any model change started over with the conversation as text.
+- **The shared lesson pool needs two projects**; an agent's own skills still need two tickets.
+- **The live view shows how many runs may go at once** (running projects × `runtime.max_parallel_agents`), and a
+  plugin's preview names the environment and headers of its MCP servers.
 - **The Lead reads its board** (Lead and Solo): `list_tickets` (tickets and their progress, counts by status) and
   `read_ticket` (one ticket whole with its comments), read only. A Lead that lost track of what it created looked in
   the shell before (a Grok Lead read Agenium's store).

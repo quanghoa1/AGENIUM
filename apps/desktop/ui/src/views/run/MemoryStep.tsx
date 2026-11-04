@@ -1,6 +1,9 @@
-import { Brain } from "lucide-react";
+import { Brain, Undo2 } from "lucide-react";
+import { ConfirmModal } from "../../components/motion";
 import { Mono, ago, cn } from "../../components/ui";
 import type { Key } from "../../lib/i18n";
+import { useState } from "react";
+import { api } from "../../lib/api";
 import { useApp } from "../../lib/store";
 import type { LogEntry } from "../../lib/types";
 
@@ -27,8 +30,29 @@ export function memorySource(data: any): { ticket?: string; chat: boolean } {
  *  a memory extraction learned from an episode and changed in the memory (its report), shared lessons that left the
  *  pool (`pool_dropped`), a settling pass (`settled`), the proven lessons reflected on (`reflected`), or why it did
  *  not run. The memory run's first line (`kind: memory`) names what it learned from. */
-export function MemoryStep({ e }: { e: LogEntry }) {
+export function MemoryStep({ e, run, undone, reload }: { e: LogEntry; run?: string; undone?: boolean; reload?: () => void }) {
   const app = useApp();
+  const [busy, setBusy] = useState(false);
+  // A proven lesson the undo would lose: shown, and the undo goes on only once confirmed.
+  const [warn, setWarn] = useState<string[] | null>(null);
+  // Undo what this learning wrote (its facts out, those it replaced or retired back); a proven lesson asks first.
+  const undo = async (force: boolean) => {
+    if (!run) return;
+    setBusy(true);
+    try {
+      const r = await api.revertMemoryRun(run, force);
+      if (!r.done) {
+        setWarn(r.warnings);
+        return;
+      }
+      app.notify(app.t("runmem.undone").replace("{n}", String(r.undone ?? 0)));
+      reload?.();
+    } catch (err) {
+      app.notify(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
   const d = e.data ?? {};
   const fill = (k: Key, xs: Record<string, unknown>) => Object.entries(xs).reduce((s, [a, b]) => s.replace(`{${a}}`, String(b ?? 0)), app.t(k));
   let title: string;
@@ -72,11 +96,47 @@ export function MemoryStep({ e }: { e: LogEntry }) {
           ))}
         </ul>
       );
+  } else if (e.kind === "memory-revert") {
+    title = app.t("runmem.reverted").replace("{n}", String(d.undone ?? 0));
+    body = d.skills_flagged?.length > 0 ? <div className="mt-1 text-xs text-muted">{app.t("runmem.skillsFlagged")}: {d.skills_flagged.join(", ")}</div> : null;
   } else if (typeof d.extracted === "number") {
     const changes: any[] = d.changes ?? [];
+    // Only a learning whose changes name their facts can be undone (those learned before could not).
+    const undoable = !!run && changes.length > 0 && changes.every((c) => c.id != null || c.old_id != null);
     title = app.t("runmem.learned");
     body = (
       <div className="mt-1 space-y-1.5 text-xs">
+        {undoable &&
+          (undone ? (
+            <div className="text-subtle">{app.t("runmem.isUndone")}</div>
+          ) : (
+            <>
+              <button className="btn btn-sm" disabled={busy} onClick={() => undo(false)}>
+                <Undo2 className="h-3.5 w-3.5" /> {app.t("runmem.undo")}
+              </button>
+              <ConfirmModal
+                open={!!warn}
+                title={app.t("runmem.undo")}
+                note={
+                  <>
+                    {app.t("runmem.undoWarn")}
+                    <ul className="mt-2 list-disc pl-5">
+                      {warn?.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </>
+                }
+                confirm={app.t("runmem.undo")}
+                icon={<Undo2 className="h-3.5 w-3.5" />}
+                onClose={() => setWarn(null)}
+                onConfirm={() => {
+                  setWarn(null);
+                  void undo(true);
+                }}
+              />
+            </>
+          ))}
         <div className="text-muted">{fill("runmem.counts", { x: d.extracted, a: d.added, u: d.updated, d: d.deleted, k: d.noop })}</div>
         {(d.helped > 0 || d.misleading?.length > 0 || d.validated > 0) && (
           <div className="text-muted">{fill("runmem.reuse", { h: d.helped, m: d.misleading?.length ?? 0, v: d.validated })}</div>

@@ -47,6 +47,12 @@ pub struct Change {
     /// The text an update replaced.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub was: Option<String>,
+    /// The fact this change wrote (add, update), so the episode can be undone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<i64>,
+    /// The fact it replaced (update) or retired (delete).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]

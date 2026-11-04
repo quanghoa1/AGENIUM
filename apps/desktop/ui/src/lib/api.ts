@@ -121,6 +121,8 @@ export const api = {
   /** The helpers' model calls (team designer, skill writer) as runs with no ticket (ADR-152). */
   helperCalls: (limit?: number) => call<RunRow[]>("helper_calls", { limit }),
   runDetail: (run: string) => call<RunDetail>("run_detail", { run }),
+  revertMemoryRun: (run: string, force: boolean) =>
+    call<{ done: boolean; undone?: number; warnings: string[]; skills_flagged?: string[] }>("revert_memory_run", { run, force }),
   events: (since?: number, limit?: number) => call<EventRecord[]>("events", { since, limit }),
   /** `clis: false`: without the agent CLIs (finding them takes seconds the first time). */
   capabilities: (refresh = false, clis = true) => call<Capabilities>("capabilities", { refresh, clis }),

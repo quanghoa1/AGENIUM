@@ -444,3 +444,72 @@ fn symbol_names_get_their_own_keys_and_old_keys_are_rewritten() {
         2
     );
 }
+
+#[test]
+/// One episode added two facts, updated one and retired one: undone, the live facts are those before it; a fact a
+/// later episode changed refuses the undo with nothing changed.
+fn an_episode_is_undone_and_a_later_change_refuses_it() {
+    use agenium_store::Undo;
+    let tmp = tempfile::tempdir().unwrap();
+    let s = open(tmp.path());
+    let live_ids = |s: &AgentStore| {
+        let mut v: Vec<i64> = s.live(1000).unwrap().iter().map(|f| f.id).collect();
+        v.sort();
+        v
+    };
+    let kept = add(&s, "The build uses cargo xtask");
+    let old = add(&s, "Tests run with cargo test");
+    let gone = add(&s, "The CI runs on Linux only");
+    let before = live_ids(&s);
+    // The episode.
+    let a1 = add(&s, "Releases are tagged vX.Y.Z");
+    let a2 = add(&s, "Docs live in docs/adr");
+    let upd = s
+        .supersede(
+            old,
+            &NewFact::fact("Tests run with cargo nextest", "ticket:AGN-2"),
+            Some(&embed("nextest", DIM)),
+        )
+        .unwrap();
+    s.retire(gone).unwrap();
+    let episode = [
+        Undo {
+            id: Some(a1),
+            old_id: None,
+        },
+        Undo {
+            id: Some(a2),
+            old_id: None,
+        },
+        Undo {
+            id: Some(upd),
+            old_id: Some(old),
+        },
+        Undo {
+            id: None,
+            old_id: Some(gone),
+        },
+    ];
+    // A later episode changed one of its facts: refused, nothing changed.
+    let later = s
+        .supersede(
+            a2,
+            &NewFact::fact("Docs live in docs/adr and docs/design", "ticket:AGN-3"),
+            Some(&embed("docs", DIM)),
+        )
+        .unwrap();
+    let mid = live_ids(&s);
+    assert!(matches!(s.undo(&episode), Err(StoreError::Conflict(_))));
+    assert_eq!(live_ids(&s), mid, "a refused undo changes nothing");
+    // The later episode undone first, then this one.
+    s.undo(&[Undo {
+        id: Some(later),
+        old_id: Some(a2),
+    }])
+    .unwrap();
+    assert_eq!(s.undo(&episode).unwrap(), 4);
+    assert_eq!(live_ids(&s), before);
+    assert!(before.contains(&kept));
+    // The facts back are found again once vectors are rebuilt (their model id was cleared).
+    assert!(s.stale_vectors("toy-hash").unwrap() >= 2);
+}

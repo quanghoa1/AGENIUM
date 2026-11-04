@@ -119,6 +119,7 @@ fn main() {
             api::template_toml,
             api::memory,
             api::memory_action,
+            api::revert_memory_run,
             api::resolve_memory_conflict,
             api::set_agent_status,
             api::close_project,

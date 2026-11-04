@@ -280,6 +280,7 @@ impl Runtime {
                 let kept = agenium_cli_backend::run::SessionStore {
                     dir: self.app.cli_sessions(agent.id).join(t.key.to_string()),
                     held: order.messages.len().saturating_sub(1),
+                    window,
                 };
                 self.fit_cli_order(agent, Some((*driver, &kept)), order, window)
                     .await

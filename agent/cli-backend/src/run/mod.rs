@@ -174,6 +174,8 @@ struct State {
     recent: Vec<String>,
     /// Tool steps by id (results of some CLIs only carry the id).
     started: std::collections::HashMap<String, (String, Value)>,
+    /// Tokens of context the CLI's last step filled (`Event::Context`): kept with its session.
+    context: u64,
     /// What the CLI's own tool steps returned, by id, until the step ends (`Event::ToolOutput`).
     outputs: std::collections::HashMap<String, (String, bool)>,
     session: Option<String>,
@@ -387,8 +389,8 @@ impl CliRun<'_> {
         // A refresh token this run comes to hold is free for another run once it ends (ADR-137).
         let _released = crate::login_access::Released(home.path().to_path_buf());
         // The ticket's CLI session of an earlier run comes back first; the run's own files are written over it.
-        // The CLI and its model (`claude:haiku`): another model starts a new session, shown the conversation so far
-        // fitted to its window, rather than resuming one written for another model's window (ADR-155).
+        // The CLI and its model (`claude:haiku`): another model of the same CLI resumes the session when what it holds
+        // fits its window; otherwise it starts a new one, shown the conversation so far fitted (ADR-155).
         let cli = self.label.clone();
         if let Some(id) = self
             .session
@@ -445,7 +447,14 @@ impl CliRun<'_> {
         // Kept for the ticket's next run, which resumes the session (ADR-134).
         if let Some(s) = &self.session {
             let total = order.messages.len() + st.messages.len();
-            s.keep(home.path(), self.driver, &cli, st.session.as_deref(), total);
+            s.keep(
+                home.path(),
+                self.driver,
+                &cli,
+                st.session.as_deref(),
+                total,
+                st.context,
+            );
         }
         drop(server);
         Ok(outcome)

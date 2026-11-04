@@ -97,7 +97,11 @@ export function PluginsPanel() {
               </div>
             )}
             <Pieces title={app.t("plugins.skills")} all={Object.keys(preview.plugin.skills)} added={preview.installed ? preview.skills_added : []} changed={preview.skills_changed} removed={preview.skills_removed} />
-            <Pieces title="MCP" all={preview.plugin.mcp.map((m) => `${m.id}: ${m.url ?? [m.command, ...(m.args ?? [])].join(" ")}`)} added={preview.installed ? preview.mcp_added : []} changed={preview.mcp_changed} removed={preview.mcp_removed} />
+            <Pieces title="MCP" all={preview.plugin.mcp.map((m) => {
+                // What runs, and the names (never values) of the environment and headers it is given.
+                const named = [...Object.keys(m.env ?? {}), ...Object.keys(m.headers ?? {})];
+                return `${m.id}: ${m.url ?? [m.command, ...(m.args ?? [])].join(" ")}${named.length ? ` · ${app.t("plugins.mcpEnv")}: ${named.join(", ")}` : ""}`;
+              })} added={preview.installed ? preview.mcp_added : []} changed={preview.mcp_changed} removed={preview.mcp_removed} />
             {preview.plugin.hooks.length > 0 && (
               <div>
                 <div className="label mb-1">{app.t("plugins.hooks")}</div>

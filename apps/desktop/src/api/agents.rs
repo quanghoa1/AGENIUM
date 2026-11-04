@@ -205,6 +205,17 @@ pub(super) fn memory_action_now(
     Ok(json!({ "ok": true }))
 }
 
+/// Undoes what a learning run wrote to its agent's memory. Without `force`, a proven lesson it would lose comes back
+/// as `warnings` and nothing changes.
+#[tauri::command]
+pub fn revert_memory_run(d: State<'_, Desktop>, run: String, force: bool) -> R<Value> {
+    let o = d.opened()?;
+    let id: RunId = run.parse().map_err(|e: IdParseError| e.to_string())?;
+    o.app
+        .revert_memory_run(id, o.rt.embedder.dim(), o.rt.embedder.model_id(), force)
+        .map_err(err)
+}
+
 #[tauri::command]
 pub fn runs(d: State<'_, Desktop>, limit: Option<usize>) -> R<Vec<Value>> {
     let o = d.opened()?;

@@ -249,6 +249,8 @@ running without one)"
                 Some(agenium_cli_backend::run::SessionStore {
                     dir: kept.join(t.to_string()),
                     held: order.messages.len().saturating_sub(1),
+                    // The CLI's model from the catalogue, else 0: then only the model that wrote it resumes.
+                    window: self.window_of(agent).await,
                 })
             }
             _ => None,

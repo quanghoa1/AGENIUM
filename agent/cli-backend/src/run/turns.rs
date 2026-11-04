@@ -379,6 +379,7 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 None
             }
             Event::Context(n) => {
+                st.context = n;
                 self.observer.context(n, 0);
                 None
             }
