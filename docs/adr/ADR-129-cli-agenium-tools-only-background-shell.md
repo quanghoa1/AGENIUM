@@ -82,7 +82,7 @@ own).
 |---|---|---|
 | Solo golden tasks | 25/25 (with DeepSeek over the API) | 20/20 on the four CLIs |
 | Team task | 4/4 | 4/4 |
-| The CLIs' own tools in the work | Claude `Read`/`Grep`/`Write`, Grok `read_file`/`grep`, Codex `command_execution` | none: Codex only Agenium's; Claude only `ToolSearch` (loads Agenium's); Grok only its MCP dispatchers; agy reads Agenium's tool schemas in its scratch folder; every attempt on the worktree refused and redirected |
+| The CLIs' own tools in the work | Claude `Read`/`Grep`/`Write`, Grok `read_file`/`grep`, Codex `command_execution` | none: Codex only Agenium's; Claude only `ToolSearch` (loads Agenium's; since ADR-158 none: Agenium's tools are listed); Grok only its MCP dispatchers; agy reads Agenium's tool schemas in its scratch folder; every attempt on the worktree refused and redirected |
 
 The workers used the background commands to check their pages (`shell_output`, `shell_stop`). Found while verifying,
 and fixed: an API Lead's review run was offered `shell_output` without `shell` (it guessed job ids); the other

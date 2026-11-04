@@ -136,7 +136,8 @@ decision 3c ("Opencode via API or CLI") to API only. The findings below are kept
   `PublishPlugin`, `ScheduleWakeup`, `EnterWorktree`, `Workflow`, `Skill`, ...). The hook used to allow every tool not
   denied explicitly; it is now an **allowlist**: `Bash, PowerShell, Read, Write, Edit, NotebookEdit, Glob, Grep,
   ToolSearch` (+ `Task, SendMessage, ListAgents, TaskStop` for Solo), and the same list is passed as `--tools` so the
-  model never sees the rest (verified: the init event lists exactly these).
+  model never sees the rest (verified: the init event lists exactly these). (Narrowed since by ADR-129 and ADR-158: no
+  shells, no `ToolSearch`; Agenium's tools are listed with `ENABLE_TOOL_SEARCH=false`.)
 - agy 1.4.4 names some tools differently in its hook (`write_file`) and its init event (`write_to_file`), so it keeps
   a deny rule set, extended to subagents (team), its own scheduling/messaging/inbox/marketplace/plugin/image/knowledge/
   workflow tools, `notebook_execution` (code outside the command gate) and its interactive `ask_*`/permission tools

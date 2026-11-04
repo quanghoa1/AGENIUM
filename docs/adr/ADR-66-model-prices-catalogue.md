@@ -23,7 +23,7 @@ models FREE"; "some free models only work from the opencode CLI, look into it")
 
 ## Consequences
 
-- `agenium_llm::pricing::{Catalogue, Prices, fetch_catalogue}`; `agenium_orchestrator::prices` (`price_view`,
+- `agenium_llm::pricing::{Catalogue, Prices, fetch_models_dev}`; `agenium_orchestrator::prices` (`price_view`,
   `usage_cost`, `save_price_catalogue`, `price_unpriced_runs`, `refresh_price_catalogue`); runs priced through the
   app at the end of a run.
 - Desktop IPC `prices`, `refresh_prices`; UI `lib/prices.ts`, `FreeTag`.

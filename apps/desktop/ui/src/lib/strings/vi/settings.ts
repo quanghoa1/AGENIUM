@@ -68,7 +68,6 @@ export const settings: Record<keyof typeof en, string> = {
   "providers.api": "Provider API",
   "providers.cli": "CLI agent (YOLO trong Agenium; Agenium quyết mọi quyền)",
   "providers.fallback": "Rút bài học cho agent CLI bằng một model API thay vì chính CLI của nó (tùy chọn; việc của agent không bao giờ tự chuyển sang nó)",
-  "providers.notSet": "chưa đặt",
   "providers.cliBrain": "chính CLI của agent",
   "settings.support": "Gói hỗ trợ",
   "settings.judge": "Judge TypeSafe Jev",

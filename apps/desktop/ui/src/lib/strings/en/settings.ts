@@ -66,7 +66,6 @@ export const settings = {
   "providers.api": "API providers",
   "providers.cli": "Agent CLIs (YOLO inside Agenium; Agenium decides every permission)",
   "providers.fallback": "Draw CLI agents' lessons with an API model instead of their own CLI (optional; their work never moves to it)",
-  "providers.notSet": "not set",
   "providers.cliBrain": "the agent's own CLI",
   "settings.support": "Support bundle",
   "settings.judge": "TypeSafe Jev judge",

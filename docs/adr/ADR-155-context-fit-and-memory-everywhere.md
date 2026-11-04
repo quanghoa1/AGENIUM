@@ -58,7 +58,8 @@ folding piece by piece.
      fit, compaction folds piece by piece instead of failing.
    - A chat turn keeps folding only its own messages (the chat history has its own summary).
 3. **CLI.**
-   - A kept session resumes only on the model that wrote it (`cli:model`).
+   - A kept session resumes only on the model that wrote it (`cli:model`). (Amended by ADR-158: another model of
+     the same CLI resumes it when the context it holds fits 70 % of that model's window.)
    - A conversation shown again as text that is over 70 % of the model's window is folded by the agent's own model
      through the CLI (`fit_cli_order`), the same way.
    - Claude's and opencode's per-request usage feeds the gauge.

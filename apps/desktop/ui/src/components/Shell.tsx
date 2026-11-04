@@ -173,12 +173,17 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
           {/* Language and theme live here only (not in Settings). Both languages shown, the current one lit: a
               lone "VI" did not say whether it was the state or the switch. */}
+          {/* What the language changes, on each choice: the interface only; agents answer in yours, work stays English. */}
           <Segmented
             id="lang"
             value={app.lang}
             onChange={app.setLang}
             itemClassName="px-2 py-1.5 font-mono text-[11px]"
-            items={(["vi", "en"] as const).map((l) => ({ value: l, label: l.toUpperCase(), title: l === "vi" ? "Tiếng Việt" : "English" }))}
+            items={(["vi", "en"] as const).map((l) => ({
+              value: l,
+              label: l.toUpperCase(),
+              title: `${l === "vi" ? "Tiếng Việt" : "English"}. ${t("settings.languageNote")}`,
+            }))}
           />
           <Segmented
             id="theme"
