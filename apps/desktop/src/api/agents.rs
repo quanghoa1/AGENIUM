@@ -372,8 +372,12 @@ pub(super) async fn cli_models(
     let todo = clis.iter().filter(|c| {
         let program = c.kind.program();
         // Claude Code's list is Agenium's own (nothing is started to read it): always the current one, so a list kept
-        // by an older version (with the aliases) is not shown.
-        if c.kind == agenium_cli_backend::CliKind::Claude {
+        // by an older version (with the aliases) is not shown. Devin's is read at every start: its runs name a model's
+        // variant from it (`swe-1-7` at `max` is `swe-1-7`).
+        if c.kind == agenium_cli_backend::CliKind::Claude
+            || (c.kind == agenium_cli_backend::CliKind::Devin
+                && !agenium_cli_backend::devin::variants_known())
+        {
             return true;
         }
         match reload {

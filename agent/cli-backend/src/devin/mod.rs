@@ -115,11 +115,12 @@ impl Driver for Devin {
         Turns::ProcessPerTurn
     }
 
-    /// The effort is part of Devin's model name (`swe-2-max`); the session id goes to the bridge, which loads it.
+    /// Devin names a model with its effort (`swe-2-max`): the agent's model and effort are put together here
+    /// ([`variant`]); the session id goes to the bridge, which loads it.
     fn args(
         &self,
         model: &str,
-        _effort: Option<&Effort>,
+        effort: Option<&Effort>,
         home: &Path,
         _resume: Option<&str>,
         _subagents: bool,
@@ -132,17 +133,15 @@ impl Driver for Devin {
             "acp".to_owned(),
         ];
         if !model.is_empty() {
-            a.extend(["--model".to_owned(), model.to_owned()]);
+            a.extend(["--model".to_owned(), variant(model, effort)]);
         }
         a
     }
 
     fn prepare(&self, s: &Setup) -> std::io::Result<BTreeMap<String, String>> {
-        // No hooks, no permissions of the user's: Devin's own config is replaced for the run.
-        let mut config = json!({"version": 1});
-        if !s.model.is_empty() {
-            config["agent"] = json!({"model": s.model});
-        }
+        // No hooks, no permissions of the user's: Devin's own config is replaced for the run. The model comes in
+        // `--model` with its effort (the user's `DEVIN_MODEL` does not reach the run: its environment is Agenium's).
+        let config = json!({"version": 1});
         std::fs::write(
             s.home.join("config.json"),
             serde_json::to_vec_pretty(&config)?,
@@ -176,8 +175,6 @@ impl Driver for Devin {
             (HOOK_TOKEN_ENV, token),
             (MCP_URL_ENV, s.mcp_url),
             (MCP_NAME_ENV, s.mcp_name),
-            // Its own model setting would otherwise win over `--config`.
-            ("DEVIN_MODEL", s.model),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
@@ -321,8 +318,8 @@ impl Driver for Devin {
     }
 }
 
-/// The models Devin offers (`devin models list --format json`): its id, label and window; the effort is part of the
-/// name (`swe-2-max`), so none is set apart.
+/// The models Devin offers (`devin models list --format json`): one per model, its efforts from its variants
+/// (`swe-2-high`, `swe-2-max`: `swe-2` at `high`, `max`). The variant of each model and effort is kept for the runs.
 pub async fn models(program: &Path) -> Result<Vec<agenium_llm::ModelInfo>, String> {
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(["models", "list", "--format", "json"])
@@ -336,28 +333,133 @@ pub async fn models(program: &Path) -> Result<Vec<agenium_llm::ModelInfo>, Strin
         .await
         .map_err(|_| "devin models list did not answer in 40 s".to_owned())?
         .map_err(|e| format!("cannot start devin: {e}"))?;
-    parse_models(&String::from_utf8_lossy(&out.stdout))
+    let (models, variants) = parse_models(&String::from_utf8_lossy(&out.stdout))?;
+    *VARIANTS.write().unwrap_or_else(|p| p.into_inner()) = Some(variants);
+    Ok(models)
 }
 
-fn parse_models(text: &str) -> Result<Vec<agenium_llm::ModelInfo>, String> {
+/// Words a Devin variant may end with after its effort: another line of the same model (`swe-2-high-lightning`).
+/// shortcut: the list seen in devin 3000.11.3's models; a new kind of line reads as a model of its own until added.
+const LINES: [&str; 4] = ["lightning", "fast", "priority", "1m"];
+
+/// Each model and effort's own variant, as the last model list named them (`swe-1-7` at `max` is `swe-1-7`, the
+/// variant with no effort in its name, labelled "Max"). Filled whenever the list is read (every start of the app).
+static VARIANTS: std::sync::RwLock<Option<Variants>> = std::sync::RwLock::new(None);
+
+type Variants = std::collections::HashMap<(String, String), String>;
+
+/// Whether this process read Devin's model list yet (its runs name variants from it).
+pub fn variants_known() -> bool {
+    VARIANTS.read().unwrap_or_else(|p| p.into_inner()).is_some()
+}
+
+/// A Devin variant's model and effort: `swe-2-max` is `swe-2` at `max`, `swe-2-high-lightning` is `swe-2-lightning` at
+/// `high`; `adaptive` has no effort.
+fn split(uid: &str) -> (String, Option<Effort>) {
+    let words: Vec<&str> = uid.split('-').collect();
+    let level = words.iter().rposition(|w| Effort::ORDER.contains(w));
+    match level {
+        Some(i) if i > 0 && words[i + 1..].iter().all(|w| LINES.contains(w)) => {
+            let mut id = words[..i].to_vec();
+            id.extend(&words[i + 1..]);
+            (id.join("-"), words[i].parse().ok())
+        }
+        _ => (uid.to_owned(), None),
+    }
+}
+
+/// The variant Devin runs for `model` at `effort` (`swe-2` at `max` is `swe-2-max`): the one the model list named, else
+/// the effort put in the name. A model that already names its effort (an agent saved with `swe-2-max`) runs as it is.
+fn variant(model: &str, effort: Option<&Effort>) -> String {
+    let Some(e) = effort else {
+        return model.to_owned();
+    };
+    let known = VARIANTS
+        .read()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_ref()
+        .and_then(|m| m.get(&(model.to_owned(), e.as_str().to_owned())).cloned());
+    if let Some(uid) = known {
+        return uid;
+    }
+    if split(model).1.is_some() {
+        return model.to_owned();
+    }
+    let mut words: Vec<&str> = model.split('-').collect();
+    let at = words
+        .iter()
+        .position(|w| LINES.contains(w))
+        .unwrap_or(words.len());
+    words.insert(at, e.as_str());
+    words.join("-")
+}
+
+fn parse_models(text: &str) -> Result<(Vec<agenium_llm::ModelInfo>, Variants), String> {
     let v: Value = serde_json::from_str(text.trim_start_matches('\u{feff}').trim())
         .map_err(|e| format!("devin models list: {e}"))?;
-    Ok(v["families"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .flat_map(|f| f["variants"].as_array().cloned().unwrap_or_default())
-        .filter_map(|m| {
-            Some(agenium_llm::ModelInfo {
-                id: m["model_uid"].as_str()?.to_owned(),
-                display_name: m["label"].as_str().map(str::to_owned),
-                context_window: m["max_context_tokens"].as_u64(),
-                max_output: m["max_output_tokens"].as_u64(),
-                efforts: Some(vec![]),
-                ..Default::default()
-            })
-        })
-        .collect())
+    let mut out: Vec<agenium_llm::ModelInfo> = Vec::new();
+    let mut variants = Variants::new();
+    for f in v["families"].as_array().into_iter().flatten() {
+        let all = f["variants"].as_array().cloned().unwrap_or_default();
+        for m in &all {
+            let Some(uid) = m["model_uid"].as_str() else {
+                continue;
+            };
+            let label = m["label"].as_str().unwrap_or(uid);
+            let (id, mut level) = split(uid);
+            // `swe-1-7` beside `swe-1-7-medium` is the model at the level its label ends with ("SWE-1.7 Max").
+            let has_siblings = all.iter().any(|o| {
+                o["model_uid"]
+                    .as_str()
+                    .is_some_and(|u| u != uid && split(u).0 == id)
+            });
+            if level.is_none() && has_siblings {
+                level = label
+                    .rsplit(' ')
+                    .next()
+                    .and_then(|w| w.to_ascii_lowercase().parse::<Effort>().ok())
+                    .filter(|e| e.rank().is_some());
+            }
+            if let Some(l) = &level {
+                variants.insert((id.clone(), l.as_str().to_owned()), uid.to_owned());
+            }
+            let i = match out.iter().position(|x| x.id == id) {
+                Some(i) => i,
+                None => {
+                    out.push(agenium_llm::ModelInfo {
+                        id: id.clone(),
+                        display_name: Some(without_level(label, level.as_ref())),
+                        context_window: m["max_context_tokens"].as_u64(),
+                        max_output: m["max_output_tokens"].as_u64(),
+                        efforts: Some(vec![]),
+                        // The level Devin names first for a model is its default (`swe-2-high` before `-medium`).
+                        default_effort: level.clone(),
+                        ..Default::default()
+                    });
+                    out.len() - 1
+                }
+            };
+            if let (Some(l), Some(levels)) = (level, out[i].efforts.as_mut()) {
+                if !levels.contains(&l) {
+                    levels.push(l);
+                    levels.sort_by_key(|e| e.rank());
+                }
+            }
+        }
+    }
+    Ok((out, variants))
+}
+
+/// A variant's label without its effort word ("SWE-2 Medium Lightning" names "SWE-2 Lightning").
+fn without_level(label: &str, level: Option<&Effort>) -> String {
+    match level {
+        Some(e) => label
+            .split(' ')
+            .filter(|w| !w.eq_ignore_ascii_case(e.as_str()))
+            .collect::<Vec<_>>()
+            .join(" "),
+        None => label.to_owned(),
+    }
 }
 
 /// One ACP `session/update` as the run's events (the bridge has put a tool's name and input on its updates).
@@ -511,17 +613,77 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_model_list() {
+    fn a_model_is_its_name_and_its_effort_apart() {
         let m = parse_models(
-            r#"{"families":[{"family_uid":"swe-2","variants":[{"model_uid":"swe-2-max","label":"SWE-2 Max","max_context_tokens":262000,"max_output_tokens":128000,"cost_tier":"Free"}]},{"family_uid":"adaptive","variants":[{"model_uid":"adaptive","label":"Adaptive"}]}]}"#,
+            r#"{"families":[{"family_uid":"swe-2","variants":[
+                {"model_uid":"swe-2-high","label":"SWE-2 High","max_context_tokens":262000},
+                {"model_uid":"swe-2-medium","label":"SWE-2 Medium","max_context_tokens":262000},
+                {"model_uid":"swe-2-max","label":"SWE-2 Max","max_context_tokens":262000},
+                {"model_uid":"swe-2-medium-lightning","label":"SWE-2 Medium Lightning"},
+                {"model_uid":"swe-2-max-lightning","label":"SWE-2 Max Lightning"}]},
+              {"family_uid":"adaptive","variants":[{"model_uid":"adaptive","label":"Adaptive"}]},
+              {"family_uid":"glm-5.2","variants":[{"model_uid":"glm-5-2"},{"model_uid":"glm-5-2-max"},{"model_uid":"glm-5-2-max-1m"}]},
+              {"family_uid":"swe-1.7","variants":[{"model_uid":"swe-1-7","label":"SWE-1.7 Max"},{"model_uid":"swe-1-7-medium","label":"SWE-1.7 Medium"}]}]}"#,
         )
         .unwrap();
-        assert_eq!(m.len(), 2);
+        let (m, variants) = m;
+        let ids: Vec<&str> = m.iter().map(|x| x.id.as_str()).collect();
         assert_eq!(
-            (m[0].id.as_str(), m[0].context_window),
-            ("swe-2-max", Some(262_000))
+            ids,
+            [
+                "swe-2",
+                "swe-2-lightning",
+                "adaptive",
+                "glm-5-2",
+                "glm-5-2-1m",
+                "swe-1-7"
+            ]
         );
-        assert_eq!(m[0].efforts, Some(vec![]));
+        let names = |i: usize| {
+            m[i].efforts
+                .clone()
+                .unwrap()
+                .iter()
+                .map(|e| e.as_str().to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(0), ["medium", "high", "max"]);
+        assert_eq!(m[0].display_name.as_deref(), Some("SWE-2"));
+        assert_eq!(
+            m[0].default_effort.as_ref().map(|e| e.as_str()),
+            Some("high")
+        );
+        assert_eq!(m[0].context_window, Some(262_000));
+        assert_eq!(names(1), ["medium", "max"]);
+        assert!(names(2).is_empty());
+        // The variant with no effort in its name, at the level its label names.
+        assert_eq!(names(5), ["medium", "max"]);
+        assert_eq!(
+            variants[&("swe-1-7".to_owned(), "max".to_owned())],
+            "swe-1-7"
+        );
+        assert_eq!(m[1].display_name.as_deref(), Some("SWE-2 Lightning"));
+        assert_eq!(m[5].display_name.as_deref(), Some("SWE-1.7"));
+        // Run as Devin names it.
+        assert_eq!(variant("swe-2", Some(&Effort::MAX)), "swe-2-max");
+        assert_eq!(
+            variant("swe-2-lightning", Some(&Effort::HIGH)),
+            "swe-2-high-lightning"
+        );
+        assert_eq!(variant("adaptive", None), "adaptive");
+        assert_eq!(
+            variant("swe-2-max", Some(&Effort::MEDIUM)),
+            "swe-2-max",
+            "an agent saved with the old name"
+        );
+        *VARIANTS.write().unwrap() = Some(variants);
+        assert_eq!(variant("swe-1-7", Some(&Effort::MAX)), "swe-1-7");
+        assert_eq!(variant("swe-1-7", Some(&Effort::MEDIUM)), "swe-1-7-medium");
+        let a = Devin.args("swe-2", Some(&Effort::MAX), Path::new("/h"), None, false);
+        assert_eq!(
+            a[a.len() - 2..],
+            ["--model".to_owned(), "swe-2-max".to_owned()]
+        );
     }
 
     #[test]

@@ -178,6 +178,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
 - **Devin's plugin list is guarded**: a plugin a run adds to the user's own Devin is taken out again (ADR-156).
+- **Devin's models with their efforts** (ADR-156): `swe-2` with medium, high and max (not `swe-2-max` as a model of
+  its own), each run given the variant of its model and effort.
 - **Devin CLI is driven** (ADR-156): over ACP inside the sandbox, one process per turn with its session loaded again;
   files it hands over are read and written by Agenium after a check (nothing in a read-only run); the user's own
   Devin MCP servers are off by name and its folder is read-only but its logs and sessions; models from `devin models

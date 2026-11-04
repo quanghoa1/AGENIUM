@@ -45,8 +45,14 @@ Protocol server: JSON-RPC both ways on stdio. It gives structured tool calls (`s
      `session/request_permission` (Agenium's MCP tools allowed, any other server refused). A hook that cannot be
      reached refuses.
    - A failure carries the tail of what Devin printed.
-4. **Models**: `devin models list --format json` (ids, labels, windows). The effort is in the model's name
-   (`swe-2-max`), so no level is offered apart. The owner's choice for tests: `swe-2-max` (free, 262K).
+4. **Models** (amended 2026-11-04, the owner: "swe2 is the model, max the effort"): `devin models list --format json`
+   lists variants that name a model and an effort (`swe-2-high`, `swe-2-max`; `swe-2-high-lightning` is another line
+   of it). Agenium shows one model per line with its efforts (`swe-2`: medium, high, max; `swe-2-lightning`), the
+   first named as its default, the label without the effort ("SWE-2"). A variant with no effort in its name beside
+   leveled ones takes the level its label ends with (`swe-1-7`, "SWE-1.7 Max"). A run gets `--model` with the variant
+   of its model and effort, from the table the last list made (read at every start of the app), else the effort put
+   in the name; an agent saved with a full variant (`swe-2-max`) runs as it is. `DEVIN_MODEL` and the config's model
+   are no longer set. The owner's choice for tests: `swe-2` at `max` (free, 262K).
 5. **Updates**: `devin update` (it cannot say its newest version: "Run its updater").
 
 ## Verified
