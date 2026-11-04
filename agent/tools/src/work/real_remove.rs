@@ -133,11 +133,16 @@ mod tests {
             std::fs::read_to_string(out.path().join(".bashrc")).unwrap(),
             "mine"
         );
-        // A new name out there: made empty and left, never a file that was there.
+        // A new name out there: made empty and left, never a file that was there. Under `%LOCALAPPDATA%` Windows
+        // (seen 2026-11-04) refuses the new file through the link itself ("The file exists"): refused either way,
+        // and nothing written out there.
         let e = super::super::write_file(&root, &root.join("sub/new.txt"), "sub/new.txt", b"x")
             .unwrap_err();
-        assert!(e.message.contains("empty file was left"), "{e}");
-        assert_eq!(std::fs::read(out.path().join("new.txt")).unwrap(), b"");
+        assert!(
+            e.message.contains("empty file was left") || e.code == "io_error",
+            "{e}"
+        );
+        assert!(std::fs::read(out.path().join("new.txt")).map_or(true, |b| b.is_empty()));
         // Inside the worktree a delete still works.
         std::fs::write(root.join("mine.txt"), "x").unwrap();
         remove_file(&root, &root.join("mine.txt"), "mine.txt").unwrap();

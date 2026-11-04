@@ -503,9 +503,12 @@ export interface AgentDetail {
 }
 
 export interface ChatLine {
-  /** `memory`: what the agent recalled for the user's message before it (the agent's own, not the user's words). */
-  role: "user" | "assistant" | "system" | "memory";
+  /** `memory`: what the agent recalled for the user's message (the agent's own, not the user's words); `tool`: a call
+   * the agent made in its turn (`text` its name, `args`, `ok` false when it failed). */
+  role: "user" | "assistant" | "system" | "memory" | "tool";
   text: string;
+  args?: unknown;
+  ok?: boolean;
 }
 
 /** A message waiting for the busy Lead (ADR-149): the user can change or take it back until its next turn reads it. */

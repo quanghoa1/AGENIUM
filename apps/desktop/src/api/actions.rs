@@ -85,24 +85,51 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
     let msgs = mem.load_messages(&format!("chat:{p}")).map_err(err)?;
     // User turns carry the run context before the request, the memory recalled for it and the project state after
     // it: show what the user wrote, and the recalled memory as the agent's (role `memory`), before its answer.
+    // The agent's turn step by step, as a CLI shows it: the memory it recalled, each tool it called (failed or not),
+    // its text, in the order they came.
+    use agenium_llm::Part;
     use agenium_orchestrator::runtime::learn::{turn_memory, user_words};
     let mut out: Vec<Value> = Vec::new();
+    let mut calls: std::collections::HashMap<String, usize> = Default::default();
     for m in msgs
         .into_iter()
         .filter_map(|m| serde_json::from_value::<agenium_llm::Message>(m).ok())
     {
-        let text = m.text();
         if m.role == agenium_llm::Role::User {
+            for p in &m.parts {
+                if let Part::ToolResult {
+                    call_id,
+                    is_error: true,
+                    ..
+                } = p
+                {
+                    if let Some(&i) = calls.get(call_id) {
+                        out[i]["ok"] = json!(false);
+                    }
+                }
+            }
+            let text = m.text();
             let words = user_words(&text).trim();
             if !words.is_empty() {
-                out.push(json!({ "role": m.role, "text": words }));
+                out.push(json!({ "role": "user", "text": words }));
             }
             let recalled = turn_memory(&text);
             if !recalled.is_empty() {
                 out.push(json!({ "role": "memory", "text": recalled.join("\n") }));
             }
-        } else if !text.trim().is_empty() {
-            out.push(json!({ "role": m.role, "text": text.trim() }));
+            continue;
+        }
+        for p in &m.parts {
+            match p {
+                Part::Text { text } if !text.trim().is_empty() => {
+                    out.push(json!({ "role": m.role, "text": text.trim() }));
+                }
+                Part::ToolCall { id, name, args, .. } => {
+                    calls.insert(id.clone(), out.len());
+                    out.push(json!({ "role": "tool", "text": name, "args": args, "ok": true }));
+                }
+                _ => {}
+            }
         }
     }
     Ok(json!(out))

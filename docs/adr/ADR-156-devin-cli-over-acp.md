@@ -64,10 +64,17 @@ Protocol server: JSON-RPC both ways on stdio. It gives structured tool calls (`s
 
 - Devin needs a sandbox backend; without one it runs only if the user allows unsandboxed CLIs (ADR-117), and then the
   other tools' configurations it imports are visible to it (its own servers stay off).
-- Known limit: `%APPDATA%\devin\cli` is writable from the sandbox, including its `plugins` folder, so a run could
-  leave a file there that the user's own Devin later loads. Checking that folder after a run is not done yet.
-- In the sandbox the Python on PATH is the Microsoft Store alias, and the interpreters installed under the user's
-  profile are not readable: a run that needs Python fetches its own (Devin did). This is the sandbox's, not Devin's.
+- `%APPDATA%\devin\cli` is writable from the sandbox, its plugin list (`plugins/lock.json`) among it: a plugin a
+  run put there would load in the user's own Devin. The run keeps the list as it was when it started, and a plugin
+  added since (not one Devin's account manages, `scope: managed`) is taken out of the list again during the run and
+  after it (`Driver::finish`, the entry only; logged). Devin's own files beside it are left to it.
+- No per-run home on Windows (checked 2026-11-04 in MXC): with `APPDATA` pointed at a fresh home holding a copy of
+  the login, Devin still read `C:\Users\<you>\AppData\Roaming\devin\config.json`; with `USERPROFILE` too, it could
+  not find its cache folder. It locates its folders through the profile's Known Folders and only needs the variables
+  to be there. Hence the read-only folder, `--config` and the servers turned off by name.
+- In the sandbox the Python on PATH was the Store's alias (`WindowsApps`) and the Python install manager's launcher
+  (which, unable to read its state, set out to install Python again). PATH in MXC now leaves `WindowsApps` out and
+  takes the install manager's runtimes (`pythoncore-*`) in place of its launcher folder (`mxc::sandbox_path`).
 - Files: `agent/cli-backend/src/devin/{mod.rs, bridge.rs}`; `driver.rs` (`acp`, `writable_roots`); `run/process.rs`;
   `updates.rs`; `foundation/vcs` (`LOCAL_EXCLUDES`); `orchestration/orchestrator/src/{model_lists.rs, cli_updates.rs,
   runtime/models.rs (`assume_cli`)}`.

@@ -400,6 +400,10 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
             } => {
                 st.steps += 1;
                 self.observer.step(st.steps, &st.usage);
+                // What it wrote before this step and what it writes after are two paragraphs, not one run-on line.
+                if !st.text.is_empty() && !st.text.ends_with('\n') {
+                    st.text.push_str("\n\n");
+                }
                 // Named `cli:` as in the run's log: the live views tell the CLI's own tools from Agenium's.
                 self.observer.event(&ChatEvent::ToolCallStarted {
                     id: id.clone(),

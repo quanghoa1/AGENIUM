@@ -12,7 +12,7 @@ import { useMentions } from "./Mentions";
 import { Markdown, TicketLinks } from "./Markdown";
 import { ListItem } from "./motion";
 import { Avatar, Empty, cn } from "./ui";
-import { classify } from "../views/live/calls";
+import { CallBadge, classify } from "../views/live/calls";
 
 // A long paste shows as one label in the input ("[Pasted #1 · 120 lines · 8.4 KB]") and is put back on send.
 const PASTE_CHARS = 1000;
@@ -65,14 +65,40 @@ export interface Prefill {
   nonce: number;
 }
 
-/** What the agent recalled from its memory for the message above (ADR-155): its own, folded, on the agent's side. */
+/** The chat as turns: each user message alone, and the agent's lines after it (memory, calls, text) as one turn. */
+function turnsOf(lines: ChatLine[]): { at: number; user?: ChatLine; steps: ChatLine[] }[] {
+  const out: { at: number; user?: ChatLine; steps: ChatLine[] }[] = [];
+  lines.forEach((l, i) => {
+    const last = out[out.length - 1];
+    if (l.role === "user") out.push({ at: i, user: l, steps: [] });
+    else if (last && !last.user) last.steps.push(l);
+    else out.push({ at: i, steps: [l] });
+  });
+  return out;
+}
+
+/** One call the agent made in its turn: its kind (Agenium, Tool, MCP, Skill) and what it was, red when it failed. */
+function Step({ line }: { line: ChatLine }) {
+  const c = classify(line.text, line.args);
+  return (
+    <div className={cn("flex min-w-0 items-center gap-1.5 font-mono text-[11.5px]", line.ok === false ? "text-rose-600 dark:text-rose-400" : "text-muted")}>
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", line.ok === false ? "bg-rose-500" : "bg-emerald-500")} />
+      <CallBadge kind={c.kind} />
+      <span className="truncate" title={c.label}>
+        {c.label}
+      </span>
+    </div>
+  );
+}
+
+/** What the agent recalled from its memory for the user's message (ADR-155): its own, folded, first in its turn. */
 function Recalled({ text }: { text: string }) {
   const app = useApp();
   const [open, setOpen] = useState(false);
   const items = text.split("\n").filter((l) => l.trim());
   return (
-    <div className="pl-11">
-      <div className="inline-block max-w-[80%] rounded-lg border border-teal-500/30 bg-teal-500/5 text-[11px] text-teal-700 dark:text-teal-300">
+    <div>
+      <div className="inline-block max-w-full rounded-lg border border-teal-500/30 bg-teal-500/5 text-[11px] text-teal-700 dark:text-teal-300">
         <button className="flex items-center gap-1.5 px-2.5 py-1 text-left" onClick={() => setOpen(!open)}>
           {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           <Brain className="h-3 w-3" /> {app.t("chat.recalled").replace("{n}", String(items.length))}
@@ -349,25 +375,38 @@ export function ChatPane({
     <TicketLinks.Provider value={prefix ? { prefix, open: (k) => app.openTicket(k, project) } : null}>
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-        {lines.map((l, i) =>
-          l.role === "memory" ? (
-            <Recalled key={i} text={l.text} />
-          ) : (
-          <ListItem key={i} id={String(i)} className={cn("flex gap-3", l.role === "user" && "flex-row-reverse")}>
-            {l.role === "user" ? (
+        {turnsOf(lines).map(({ at, user, steps }) =>
+          user ? (
+            <ListItem key={at} id={String(at)} className="flex flex-row-reverse gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-elevated font-mono text-[11px] font-bold">{app.t("chat.you")}</div>
-            ) : (
+              <div className="max-w-[80%] whitespace-pre-wrap rounded-xl bg-accent px-3.5 py-2.5 text-[13px] leading-relaxed text-white">
+                <UserText text={user.text} />
+              </div>
+            </ListItem>
+          ) : (
+            // The agent's turn as a CLI shows it: what it recalled, each call it made, its answer, in that order.
+            <ListItem key={at} id={String(at)} className="flex gap-3">
               <Avatar name={agentName} />
-            )}
-            <div
-              className={cn(
-                "max-w-[80%] whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-                l.role === "user" ? "bg-accent text-white" : l.role === "system" ? "border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300" : "border border-line bg-elevated",
-              )}
-            >
-              {l.role === "assistant" ? <Markdown text={l.text} /> : l.role === "user" ? <UserText text={l.text} /> : l.text}
-            </div>
-          </ListItem>
+              <div className="min-w-0 max-w-[80%] flex-1 space-y-1.5">
+                {steps.map((l, k) =>
+                  l.role === "memory" ? (
+                    <Recalled key={k} text={l.text} />
+                  ) : l.role === "tool" ? (
+                    <Step key={k} line={l} />
+                  ) : (
+                    <div
+                      key={k}
+                      className={cn(
+                        "whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+                        l.role === "system" ? "border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-300" : "border border-line bg-elevated",
+                      )}
+                    >
+                      {l.role === "assistant" ? <Markdown text={l.text} /> : l.text}
+                    </div>
+                  ),
+                )}
+              </div>
+            </ListItem>
           ),
         )}
         {(busy || current) && <LiveTurn name={agentName} stream={current} />}

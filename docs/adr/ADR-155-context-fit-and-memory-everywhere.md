@@ -152,3 +152,10 @@ in its own tag in the same message (`learn::turn_message`, `<memory note="…">`
 `user_words` leaves it out (the chat, the learning) and `turn_memory` reads it. The chat history gives it as its own
 line (role `memory`), shown folded under the user's message as "Recalled from its memory (n)". Turns stored before the
 tag are read the same way. Test `a_turns_memory_is_the_agents_not_the_users_words`.
+
+## Amendment (2026-11-04, the agent's turn as a CLI shows it)
+
+The chat shows an agent's turn on its side, step by step, from what the conversation keeps: the memory it recalled
+for the message, each call it made (its kind, Agenium, Tool, MCP or Skill; red when it failed), then its text. The
+chat history gives the calls as lines of their own (role `tool`, with the call's arguments and whether it failed).
+A CLI's text before a step and after it are two paragraphs.

@@ -31,6 +31,66 @@ fn fold(p: &Path) -> PathBuf {
     PathBuf::from(long_path(p).to_string_lossy().to_lowercase())
 }
 
+/// PATH as a contained command can use it. The `WindowsApps` folders go: their programs are app execution aliases
+/// (the Store's `python.exe`), which do not start in a container and hide the real interpreter further down. The
+/// Python install manager's `bin` folder gives way to the runtimes beside it (`pythoncore-*`, newest first, with their
+/// `Scripts`): its `python.exe` is a launcher that, unable to read its own state in the container, sets out to download
+/// and install Python again.
+fn sandbox_path(path: &str, runtimes: impl Fn(&Path) -> Vec<PathBuf>) -> String {
+    let mut out: Vec<PathBuf> = Vec::new();
+    for d in std::env::split_paths(path) {
+        let low = d
+            .to_string_lossy()
+            .trim_end_matches(['\\', '/'])
+            .to_ascii_lowercase();
+        if low.ends_with("\\microsoft\\windowsapps") {
+            continue;
+        }
+        if low.ends_with("\\python\\bin") {
+            let found = d.parent().map(&runtimes).unwrap_or_default();
+            if !found.is_empty() {
+                for r in found {
+                    out.push(r.join("Scripts"));
+                    out.push(r);
+                }
+                continue;
+            }
+        }
+        out.push(d);
+    }
+    std::env::join_paths(out)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| path.to_owned())
+}
+
+/// The Python install manager's runtimes under `root` (`pythoncore-3.15-64`), newest first.
+fn python_runtimes(root: &Path) -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = std::fs::read_dir(root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("pythoncore-"))
+                && p.join("python.exe").is_file()
+        })
+        .collect();
+    v.sort_by_key(|p| {
+        let n = p
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let ver: Vec<u64> = n
+            .trim_start_matches("pythoncore-")
+            .split(['.', '-'])
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        std::cmp::Reverse(ver)
+    });
+    v
+}
+
 /// A drive root, the user profile, or a relative PATH entry (`.`, `.\bin`, `\tools`): one would resolve against the
 /// harness's working directory, often the profile itself.
 fn is_unsafe_root(p: &Path, profile: Option<&Path>) -> bool {
@@ -171,7 +231,18 @@ pub fn request(
             .to_str()
             .ok_or_else(|| ExecError::Refused("MXC needs a Unicode working directory".into()))?
             .to_owned(),
-        env: Some(env.iter().map(|(k, v)| format!("{k}={v}")).collect()),
+        env: Some(
+            env.iter()
+                .map(|(k, v)| {
+                    let v = if k.eq_ignore_ascii_case("PATH") {
+                        sandbox_path(v, python_runtimes)
+                    } else {
+                        v.clone()
+                    };
+                    format!("{k}={v}")
+                })
+                .collect(),
+        ),
         policy: codex_derived::mxc_policy::container_policy(
             unicode(write)?,
             unicode(read)?,
@@ -252,6 +323,22 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_leaves_the_store_aliases_and_takes_pythons_runtime() {
+        let rt = |root: &Path| vec![root.join("pythoncore-3.15-64")];
+        let p = r"C:\Users\me\AppData\Local\Microsoft\WindowsApps;C:\Users\me\AppData\Local\Python\bin;C:\Windows";
+        assert_eq!(
+            sandbox_path(p, rt),
+            r"C:\Users\me\AppData\Local\Python\pythoncore-3.15-64\Scripts;C:\Users\me\AppData\Local\Python\pythoncore-3.15-64;C:\Windows"
+        );
+        // No runtime beside the launcher: the folder stays.
+        assert_eq!(
+            sandbox_path(r"C:\x\Python\bin;C:\Windows", |_: &Path| vec![]),
+            r"C:\x\Python\bin;C:\Windows"
+        );
+        assert_eq!(sandbox_path(r"C:\Windows", rt), r"C:\Windows");
+    }
 
     /// The profile is refused however PATH spells it, and a relative PATH entry (it would resolve against the
     /// harness's working directory) is never a read root.
