@@ -177,6 +177,16 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **The Lead reads its board** (Lead and Solo): `list_tickets` (tickets and their progress, counts by status) and
+  `read_ticket` (one ticket whole with its comments), read only. A Lead that lost track of what it created looked in
+  the shell before (a Grok Lead read Agenium's store).
+- **CLI tools' results are kept**: Claude Code's and Grok's own tool results (a tool search lists the tools it found)
+  and Codex's command output reach the run's log and the chat; before, every CLI tool of its own showed no output.
+- **One tool search for every CLI**: Claude Code no longer defers Agenium's tools behind its own `ToolSearch`
+  (`ENABLE_TOOL_SEARCH=false`); they are listed as for the other CLIs, and other servers' tools are found with
+  Agenium's `tool_search`. Grok keeps its `search_tool`/`use_tool` dispatchers, its only way to reach MCP tools.
+- **The chat folds a run of tool calls** into one line (how many, failures, the newest), opened on a click, so the
+  agent's text keeps its room; and it shows a Lead turn this pane did not send while it runs.
 - **Devin runs on Agenium's configuration only** (ADR-156): in the sandbox it sees its login and its logs and
   sessions, not the user's own config, MCP servers or plugins; the user's Devin plugins stay as they are, untouched.
 - **Plugins** (ADR-157): a vendor's plugin (`obra/superpowers`, `owner/repo@tag`, or a folder) is previewed, then

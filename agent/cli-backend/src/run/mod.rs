@@ -174,6 +174,8 @@ struct State {
     recent: Vec<String>,
     /// Tool steps by id (results of some CLIs only carry the id).
     started: std::collections::HashMap<String, (String, Value)>,
+    /// What the CLI's own tool steps returned, by id, until the step ends (`Event::ToolOutput`).
+    outputs: std::collections::HashMap<String, (String, bool)>,
     session: Option<String>,
     /// The run goes on in the CLI's session of an earlier run (ADR-134).
     resumed: bool,

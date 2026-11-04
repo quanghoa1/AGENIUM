@@ -30,6 +30,7 @@ mod questions;
 mod reports;
 mod team;
 mod ticket_intents;
+mod ticket_reads;
 mod write_scope;
 
 /// Who calls, for which project, under which idempotency key and run.
@@ -126,6 +127,8 @@ impl App {
             Intent::CreateHandoff(h) => self.create_handoff(ctx, h),
             Intent::ApprovePermission(a) => self.approve_permission(ctx, &project, a),
             Intent::GetTeam(_) => self.get_team(ctx),
+            Intent::ListTickets(q) => self.list_tickets(ctx, q),
+            Intent::ReadTicket(q) => self.read_ticket(ctx, q),
             Intent::SetMemberMcpKey(k) => self.set_member_mcp_key(ctx, k),
             Intent::ConfirmLink(l) => self.confirm_link(ctx, l),
             Intent::CreateAggregate(a) => self.create_aggregate(ctx, &project, a),

@@ -18,7 +18,6 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use agenium_core::Effort;
-use agenium_llm::Usage;
 use serde_json::{json, Value};
 
 use crate::driver::{
@@ -28,6 +27,7 @@ use crate::driver::{
 use crate::driver::{HOOK_TIMEOUT, HOOK_TOKEN_ENV, HOOK_URL_ENV, MCP_CALL_TIMEOUT};
 use crate::login_access::{lend_login, promote, sync_lent};
 
+mod stream;
 mod usage;
 pub use usage::rate_limits;
 
@@ -43,11 +43,12 @@ pub(super) fn lend(login: &Value) -> Option<(Value, std::time::SystemTime)> {
     ))
 }
 
-/// Claude Code tools an Agenium run may use (ADR-129): `ToolSearch`, which loads the Agenium MCP tools that do the
-/// work, and its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
+/// Claude Code tools an Agenium run may use (ADR-129): its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
 /// result and reads it back); the hook refuses them on the worktree. Its shells are not offered: commands go through
 /// Agenium's `shell`. Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
-const BASE_TOOLS: [&str; 6] = ["ToolSearch", "Read", "Write", "Edit", "Glob", "Grep"];
+/// Not its `ToolSearch`: the Agenium tools are listed, as for every other CLI, and other servers' tools are found with
+/// Agenium's `tool_search` (ADR-139; `ENABLE_TOOL_SEARCH=false`, 2026-11-04).
+const BASE_TOOLS: [&str; 5] = ["Read", "Write", "Edit", "Glob", "Grep"];
 /// Subagents and their messaging (Solo only).
 /// Claude Code 2.1 calls its subagent tool `Agent` (`Task` before; `--tools Task` still offers it under the new name).
 const SUBAGENT_TOOLS: [&str; 6] = [
@@ -72,7 +73,6 @@ pub struct Claude;
 const MCP_FILE: &str = "agenium-mcp.json";
 const HOOK_FILE: &str = "agenium-hook.sh";
 const LOGIN: &str = ".credentials.json";
-
 /// The user's own Claude Code configuration folder (`CLAUDE_CONFIG_DIR` or `~/.claude`).
 pub fn user_claude_dir() -> Option<PathBuf> {
     if let Some(d) = std::env::var_os("CLAUDE_CONFIG_DIR") {
@@ -105,93 +105,6 @@ fn protected(home: &Path) -> Vec<PathBuf> {
         original(&login),
         login,
     ]
-}
-
-impl Claude {
-    /// The events of one stream line, as the main agent's (a subagent's are wrapped by `parse`).
-    fn parse_own(&self, v: &Value) -> Vec<Event> {
-        match v["type"].as_str() {
-            Some("system") if v["subtype"] == "init" => v["session_id"]
-                .as_str()
-                .map(|s| vec![Event::Session(s.to_owned())])
-                .unwrap_or_default(),
-            Some("assistant") => {
-                let mut out: Vec<Event> = v["message"]["content"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|c| match c["type"].as_str() {
-                        Some("text") => c["text"]
-                            .as_str()
-                            .filter(|t| !t.is_empty())
-                            .map(|t| Event::Text(format!("{t}\n"))),
-                        Some("tool_use") => Some(Event::Tool {
-                            id: c["id"].as_str().unwrap_or("").to_owned(),
-                            name: c["name"].as_str().unwrap_or("tool").to_owned(),
-                            input: c["input"].clone(),
-                            done: false,
-                        }),
-                        _ => None,
-                    })
-                    .collect();
-                // The request's own usage: what the model read, its context (ADR-155).
-                let u = &v["message"]["usage"];
-                let n = |k: &str| u[k].as_u64().unwrap_or(0);
-                let context = n("input_tokens")
-                    + n("cache_read_input_tokens")
-                    + n("cache_creation_input_tokens")
-                    + n("output_tokens");
-                if context > 0 {
-                    out.push(Event::Context(context));
-                }
-                out
-            }
-            Some("user") => v["message"]["content"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|c| c["type"] == "tool_result")
-                .map(|c| Event::Tool {
-                    id: c["tool_use_id"].as_str().unwrap_or("").to_owned(),
-                    name: String::new(),
-                    input: Value::Null,
-                    done: true,
-                })
-                .collect(),
-            Some("rate_limit_event") => {
-                agenium_llm::vendor_usage::from_claude_event(v, &agenium_core::now_iso())
-                    .map(Event::Limits)
-                    .into_iter()
-                    .collect()
-            }
-            Some("result") => {
-                let u = &v["usage"];
-                let n = |k: &str| u[k].as_u64().unwrap_or(0);
-                vec![Event::TurnEnd {
-                    usage: Usage {
-                        input: n("input_tokens"),
-                        output: n("output_tokens"),
-                        cache_read: n("cache_read_input_tokens"),
-                        cache_write: n("cache_creation_input_tokens"),
-                        cache_write_1h: 0,
-                        reasoning: u["output_tokens_details"]["thinking_tokens"]
-                            .as_u64()
-                            .unwrap_or(0),
-                    },
-                    response: v["result"].as_str().unwrap_or("").to_owned(),
-                    denied: vec![],
-                    error: (v["is_error"] == true).then(|| {
-                        format!(
-                            "claude turn ended with {}: {}",
-                            v["subtype"].as_str().unwrap_or("an error"),
-                            v["result"].as_str().unwrap_or("")
-                        )
-                    }),
-                }]
-            }
-            _ => vec![],
-        }
-    }
 }
 
 impl Driver for Claude {
@@ -291,6 +204,8 @@ impl Driver for Claude {
             // The connectors of the user's claude.ai account (Gmail, Drive, Slack ...) come with the login, not the
             // configuration folder: off, so the agent has Agenium's MCP server only.
             ("ENABLE_CLAUDEAI_MCP_SERVERS".to_owned(), "false".to_owned()),
+            // The Agenium tools listed, not deferred behind Claude Code's own search (one search for all: Agenium's).
+            ("ENABLE_TOOL_SEARCH".to_owned(), "false".to_owned()),
             (HOOK_URL_ENV.to_owned(), s.hook_url.to_owned()),
             (HOOK_TOKEN_ENV.to_owned(), token.to_owned()),
         ]
@@ -367,7 +282,7 @@ impl Driver for Claude {
         if !allowed_tools(cx.subagents).contains(&name) {
             return Check::Deny(own_tool_off(name));
         }
-        if name == "ToolSearch" || SUBAGENT_TOOLS.contains(&name) {
+        if SUBAGENT_TOOLS.contains(&name) {
             return Check::Allow;
         }
         // Its own file and search tools: its scratch folder only. A search pattern may not start elsewhere (Glob's
@@ -474,12 +389,25 @@ mod tests {
             ev(
                 r#"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"ok"}]}}"#
             ),
-            vec![Event::Tool {
-                id: "toolu_1".into(),
-                name: String::new(),
-                input: Value::Null,
-                done: true
-            }]
+            vec![
+                Event::ToolOutput {
+                    id: "toolu_1".into(),
+                    text: "ok".into(),
+                    error: false
+                },
+                Event::Tool {
+                    id: "toolu_1".into(),
+                    name: String::new(),
+                    input: Value::Null,
+                    done: true
+                }
+            ]
+        );
+        assert_eq!(
+            stream::result_text(
+                &serde_json::json!([{"type":"text","text":"a"},{"type":"tool_reference","tool_name":"mcp__agenium__create_ticket"}])
+            ),
+            "a\ntool: mcp__agenium__create_ticket"
         );
         match &ev(
             r#"{"type":"result","subtype":"success","is_error":false,"result":"Done.","usage":{"input_tokens":10,"cache_creation_input_tokens":7564,"cache_read_input_tokens":114296,"output_tokens":764,"output_tokens_details":{"thinking_tokens":226}}}"#,
@@ -601,10 +529,10 @@ mod tests {
             call("WebFetch", json!({"url": "https://x"})),
             Check::Deny(_)
         ));
-        assert_eq!(
+        assert!(matches!(
             call("ToolSearch", json!({"query": "agenium"})),
-            Check::Allow
-        );
+            Check::Deny(_)
+        ));
         assert!(
             matches!(call("TodoWrite", json!({"todos": []})), Check::Deny(_)),
             "not in the allowlist"
@@ -751,7 +679,7 @@ mod tests {
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
         assert!(a.contains(&"--disable-slash-commands".to_owned()));
         let i = a.iter().position(|x| x == "--tools").unwrap();
-        assert_eq!(a[i + 1], "ToolSearch,Read,Write,Edit,Glob,Grep");
+        assert_eq!(a[i + 1], "Read,Write,Edit,Glob,Grep");
         let s = Claude.args("haiku", None, Path::new("/h"), None, true);
         let i = s.iter().position(|x| x == "--tools").unwrap();
         assert!(s[i + 1].ends_with(",Agent,Task,TaskOutput,SendMessage,ListAgents,TaskStop"));

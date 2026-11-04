@@ -248,6 +248,13 @@ pub enum Event {
         input: Value,
         done: bool,
     },
+    /// What a tool step of the CLI's own returned, when the stream carries it (before its `Tool { done: true }`): the run's
+    /// log and the chat show it as the call's result.
+    ToolOutput {
+        id: String,
+        text: String,
+        error: bool,
+    },
     /// Steps of a subagent the CLI started (Claude Code's `parent_tool_use_id`): `parent` is the id of the tool step
     /// that started it (ADR-129: the run's log shows them as the subagent's).
     Subagent { parent: String, events: Vec<Event> },

@@ -1,0 +1,24 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/list_tickets.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "List the project's tickets and their progress (the board): ticket id, title, status, assignee, plan item, depends_on, scope paths, approved/merged, counts by status. Shows what you already created before you create or assign more. Read only.",
+  "properties": {
+    "include_finished": {
+      "default": false,
+      "description": "Closed and Cancelled tickets too.",
+      "type": "boolean"
+    },
+    "status": {
+      "default": [],
+      "description": "Only tickets in these states (e.g. \"InProgress\", \"Resolved\"); empty: every state shown.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "list_tickets",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

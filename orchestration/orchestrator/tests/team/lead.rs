@@ -485,3 +485,93 @@ fn lead_inbox_order_sla_and_escalation() {
     // Still Pending: the permission request is blocking too.
     assert_eq!(ticket(f, k.as_str()).status, TicketStatus::Pending);
 }
+
+#[test]
+/// The Lead (here a Solo) sees the board mid-run and reads a ticket whole; a worker may not; nothing is written.
+fn the_lead_lists_and_reads_its_tickets() {
+    let f = &fixture();
+    let a = solo_with_plan(f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let lead = Actor::Lead(a.id);
+    for (item, title) in [("PI-1", "Parse CSV"), ("PI-2", "Render HTML")] {
+        f.app
+            .apply(
+                &ctx(f, lead),
+                Intent::CreateTicket(new_ticket(item, title, &[], &[])),
+            )
+            .unwrap();
+    }
+    let k2 = f
+        .app
+        .tickets(f.project.id)
+        .unwrap()
+        .into_iter()
+        .find(|t| t.title == "Render HTML")
+        .unwrap()
+        .key;
+    f.app
+        .apply(
+            &ctx(f, lead),
+            Intent::CancelTicket(CancelTicket {
+                ticket_id: k2.clone(),
+                reason: "not needed now".into(),
+                replaced_by: None,
+            }),
+        )
+        .unwrap();
+    let events_before = f
+        .app
+        .store()
+        .read(agenium_store::core::events::last_seq)
+        .unwrap();
+    let list = |q: agenium_core::protocol::ListTickets| {
+        f.app
+            .apply(&ctx(f, lead), Intent::ListTickets(q))
+            .unwrap()
+            .result
+    };
+    let open = list(Default::default());
+    assert_eq!(open["total"], 2);
+    assert_eq!(open["tickets"].as_array().unwrap().len(), 1, "{open}");
+    assert_eq!(open["tickets"][0]["title"], "Parse CSV");
+    assert_eq!(open["by_status"]["Cancelled"], 1, "{open}");
+    let all = list(agenium_core::protocol::ListTickets {
+        status: vec![],
+        include_finished: true,
+    });
+    assert_eq!(all["tickets"].as_array().unwrap().len(), 2);
+    let cancelled = list(agenium_core::protocol::ListTickets {
+        status: vec!["cancelled".into()],
+        include_finished: true,
+    });
+    assert_eq!(cancelled["tickets"][0]["ticket_id"], serde_json::json!(k2));
+    let one = f
+        .app
+        .apply(
+            &ctx(f, lead),
+            Intent::ReadTicket(agenium_core::protocol::ReadTicket {
+                ticket_id: k2.clone(),
+            }),
+        )
+        .unwrap()
+        .result;
+    assert!(
+        one["text"].as_str().unwrap().contains("Render HTML"),
+        "{one}"
+    );
+    assert!(
+        one["comments"].as_str().unwrap().contains("not needed now"),
+        "{one}"
+    );
+    let events_after = f
+        .app
+        .store()
+        .read(agenium_store::core::events::last_seq)
+        .unwrap();
+    assert_eq!(events_before, events_after, "reading writes no event");
+    // Only the Lead: a worker of a team is refused (here: an agent that is not the project's Lead).
+    let other = Actor::Lead(AgentId::new());
+    assert!(f
+        .app
+        .apply(&ctx(f, other), Intent::ListTickets(Default::default()))
+        .is_err());
+}

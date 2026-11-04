@@ -414,7 +414,7 @@ impl Runtime {
              (or escalate = true when only the user can decide: scope, acceptance criteria, facts you do not have), \
              approve_permission, create_ticket for plan items (one ticket per item unless it is too large; keep \
              depends_on in line with the plan) and assign_ticket to a team member whose role and tags match (see \
-             get_team). The run ends by itself once the inbox is empty.\n\n<project_state>\n{}\n</project_state>\n\n{}",
+             get_team; list_tickets shows the tickets you already created and read_ticket one of them whole). The run ends by itself once the inbox is empty.\n\n<project_state>\n{}\n</project_state>\n\n{}",
             items.len(),
             items
                 .iter()

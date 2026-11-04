@@ -13,6 +13,8 @@
     "approve_permission",
     "propose_role",
     "get_team",
+    "list_tickets",
+    "read_ticket",
     "set_member_mcp_key",
     "confirm_link",
     "create_aggregate"

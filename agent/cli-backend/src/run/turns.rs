@@ -388,6 +388,10 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 }
                 None
             }
+            Event::ToolOutput { id, text, error } => {
+                st.outputs.insert(id, (text, error));
+                None
+            }
             Event::Text(t) => {
                 self.observer.event(&ChatEvent::TextDelta(t.clone()));
                 st.text.push_str(&t);
@@ -477,6 +481,7 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                     _ => (name, input),
                 };
                 let label = st.labels.remove(&id);
+                let output = st.outputs.remove(&id);
                 if st.logged.remove(&id) {
                     return None;
                 }
@@ -502,10 +507,21 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                     };
                 let shown = labelled(&input, label.as_deref());
                 if ran {
+                    // The CLI ran it; its result when the stream carries it.
+                    let shown_result = match &output {
+                        Some((t, true)) => Err(ToolError::new("cli_tool_error", t.clone())),
+                        Some((t, false)) => Ok(t.clone()),
+                        None => Ok(String::new()),
+                    };
                     self.observer
-                        .tool(&format!("cli:{name}"), &shown, &Ok(String::new()));
-                    // The CLI ran it; its result is not in the stream.
-                    self.record_tool(st, &id, &format!("cli:{name}"), &input, None);
+                        .tool(&format!("cli:{name}"), &shown, &shown_result);
+                    self.record_tool(
+                        st,
+                        &id,
+                        &format!("cli:{name}"),
+                        &input,
+                        output.as_ref().map(|(t, e)| (t.as_str(), *e)),
+                    );
                 } else {
                     self.observer.tool(
                         &format!("cli:{name}"),

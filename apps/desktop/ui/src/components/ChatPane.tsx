@@ -4,7 +4,7 @@
 import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Package, Send, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import { useApp, useLive, type LiveRun } from "../lib/store";
+import { ticketlessRuns, useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine, QueuedMessage } from "../lib/types";
 import { AttachmentBar, DocChip, material, splitMaterial, useAttachments } from "./Attachments";
 import { LeadQueue } from "./LeadQueue";
@@ -100,6 +100,53 @@ function Step({ line, running }: { line: ChatLine; running?: boolean }) {
   );
 }
 
+/** Calls made one after another, folded into one line so the agent's text keeps its room: how many, and the newest
+ *  (lit while it runs); opened, each call in order. A single call is shown as it is. */
+function Steps({ lines, running }: { lines: ChatLine[]; running?: boolean }) {
+  const app = useApp();
+  const [open, setOpen] = useState(false);
+  if (lines.length === 1) return <Step line={lines[0]} running={running} />;
+  const failed = lines.filter((l) => l.ok === false).length;
+  const last = lines[lines.length - 1];
+  return (
+    <div className="max-w-full">
+      <button
+        className={cn(
+          "flex w-fit max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 text-left font-mono text-[11.5px]",
+          failed ? "border-rose-500/40 bg-rose-500/5 text-rose-600 dark:text-rose-300" : "border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-300",
+          running && !open && "animate-pulse",
+        )}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+        <Wrench className="h-3 w-3 shrink-0" />
+        <span className="shrink-0">{app.t("chat.toolCalls").replace("{n}", String(lines.length))}</span>
+        {failed > 0 && <span className="shrink-0">· {app.t("chat.toolCallsFailed").replace("{n}", String(failed))}</span>}
+        {!open && <span className="truncate opacity-70">· {callText(classify(last.text, last.args))}</span>}
+      </button>
+      {open && (
+        <div className="mt-1 max-h-64 space-y-1 overflow-y-auto border-l border-purple-500/30 pl-2">
+          {lines.map((l, k) => (
+            <Step key={k} line={l} running={running && k === lines.length - 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Items in order with each run of consecutive calls taken together. */
+function grouped<T>(items: T[], isCall: (t: T) => boolean): ({ calls: T[] } | { item: T })[] {
+  const out: ({ calls: T[] } | { item: T })[] = [];
+  for (const t of items) {
+    const prev = out[out.length - 1];
+    if (!isCall(t)) out.push({ item: t });
+    else if (prev && "calls" in prev) prev.calls.push(t);
+    else out.push({ calls: [t] });
+  }
+  return out;
+}
+
 /** What a plugin's hook did for this turn (ADR-157): the text it added to the instructions, or why it failed. Kept
  *  for the chat only: the model never reads it back. */
 function PluginNote({ line }: { line: ChatLine }) {
@@ -164,17 +211,23 @@ export function LiveTurn({ name, stream }: { name: string; stream?: LiveRun }) {
       <div className="min-w-0 max-w-[85%] flex-1 space-y-1.5">
         {/* The turn as it happens: each stretch of text, and each call right where it was made (tagged, the newest lit
             while it runs), as the finished turn shows it. */}
-        {stream?.steps.map((st, k, all) =>
-          st.kind === "text" ? (
-            st.text.trim() && (
-              <div key={k} className="whitespace-pre-wrap rounded-xl border border-line bg-elevated px-3.5 py-2.5 text-[13px] leading-relaxed">
-                <Markdown text={st.text} />
-              </div>
-            )
-          ) : (
-            <Step key={k} line={{ role: "tool", text: st.name, args: st.args }} running={k === all.length - 1 && stream.phase === "tool"} />
-          ),
-        )}
+        {stream &&
+          grouped(stream.steps, (st) => st.kind === "tool").map((g, k, all) =>
+            "calls" in g ? (
+              <Steps
+                key={k}
+                lines={g.calls.map((st) => ({ role: "tool", text: st.kind === "tool" ? st.name : "", args: st.kind === "tool" ? st.args : undefined }))}
+                running={k === all.length - 1 && stream.phase === "tool"}
+              />
+            ) : (
+              g.item.kind === "text" &&
+              g.item.text.trim() && (
+                <div key={k} className="whitespace-pre-wrap rounded-xl border border-line bg-elevated px-3.5 py-2.5 text-[13px] leading-relaxed">
+                  <Markdown text={g.item.text} />
+                </div>
+              )
+            ),
+          )}
         {/* What it does now comes last: its reasoning while it thinks. */}
         {thinking ? (
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/5">
@@ -237,15 +290,20 @@ export function ChatPane({
     ...lines.filter((l) => l.role === "user").flatMap((l) => splitMaterial(l.text).docs.map((d) => d.name)),
   ];
   const mentions = useMentions(named, text, setText, input);
-  // The turn in progress: the agent's run when known, else (chat page) this agent's newest live run while we wait.
+  // The turn in progress: the agent's run when known, else (chat page) this agent's newest live run while we wait, or
+  // its newest run without a ticket (a turn this pane did not send: another window, the queue, a script).
+  const newest = (ok: (run: string) => boolean) =>
+    Object.entries(live)
+      .filter(([run, l]) => !l.done && l.agent === agentId && ok(run))
+      .sort(([, a], [, b]) => a.at - b.at)
+      .slice(-1)[0]?.[1];
   const current =
     stream && !stream.done
       ? stream
-      : busy && agentId
-        ? Object.values(live)
-            .filter((l) => !l.done && l.agent === agentId)
-            .sort((a, b) => a.at - b.at)
-            .slice(-1)[0]
+      : agentId
+        ? busy
+          ? newest(() => true)
+          : newest((run) => ticketlessRuns.has(run))
         : undefined;
   // Any run of the Lead going on (a chat turn from another window, a review, an inbox run): a message waits for it.
   const leadWorking = busy || (!!agentId && Object.values(live).some((l) => !l.done && l.agent === agentId));
@@ -413,13 +471,15 @@ export function ChatPane({
             <ListItem key={at} id={String(at)} className="flex gap-3">
               <Avatar name={agentName} />
               <div className="min-w-0 max-w-[80%] flex-1 space-y-1.5">
-                {steps.map((l, k) =>
+                {grouped(steps, (l) => l.role === "tool").map((g, k) =>
+                  "calls" in g ? (
+                    <Steps key={k} lines={g.calls} />
+                  ) : (
+                    (({ item: l }) =>
                   l.role === "memory" ? (
                     <Recalled key={k} text={l.text} />
                   ) : l.role === "plugin" ? (
                     <PluginNote key={k} line={l} />
-                  ) : l.role === "tool" ? (
-                    <Step key={k} line={l} />
                   ) : (
                     <div
                       key={k}
@@ -430,6 +490,7 @@ export function ChatPane({
                     >
                       {l.role === "assistant" ? <Markdown text={l.text} /> : l.text}
                     </div>
+                  ))(g)
                   ),
                 )}
               </div>

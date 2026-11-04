@@ -116,6 +116,9 @@ export function useApp(): Ctx {
 
 /** The tool calls of this session, oldest first, whatever page was open when they were made (the Live page's room
  * log shows them when it opens; they are not stored). */
+/** Runs started without a ticket (the Lead's chat, inbox and plan turns), by id: the chat shows one of them as the turn
+ *  in progress even when no pane of it sent the message (another window, the queue, a script). */
+export const ticketlessRuns = new Set<string>();
 export const recentCalls: { at: number; run: string; agent: string | null; name: string; args: unknown }[] = [];
 
 /** Live output of the runs in progress (and of those finished in the last minutes), by run id. */
@@ -309,6 +312,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     // A run is done when it ends (its RunEnded event), not when one of its model calls does.
     const unEnd = onEvent((e) => {
+      if (e.kind === "RunStarted" && e.payload?.run && !e.payload.ticket) {
+        ticketlessRuns.add(String(e.payload.run));
+        if (ticketlessRuns.size > 200) ticketlessRuns.delete(ticketlessRuns.values().next().value as string);
+      }
       if (e.kind !== "RunEnded" || !e.payload?.run) return;
       queue.push([String(e.payload.run), { type: "done" }, e.payload.agent ? String(e.payload.agent) : null]);
       if (timer === undefined) timer = window.setTimeout(flush, 50);

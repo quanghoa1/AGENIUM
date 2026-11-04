@@ -196,12 +196,27 @@ impl Driver for Codex {
                         .map(|t| vec![Event::Text(format!("{t}\n"))])
                         .unwrap_or_default(),
                     "agent_message" | "reasoning" | "todo_list" | "error" => vec![],
-                    "command_execution" => vec![Event::Tool {
-                        id: item["id"].as_str().unwrap_or("").to_owned(),
-                        name: "command_execution".into(),
-                        input: json!({"command": item["command"]}),
-                        done,
-                    }],
+                    "command_execution" => {
+                        let id = item["id"].as_str().unwrap_or("").to_owned();
+                        // The command's output, once it ended: the call's result in the run's log.
+                        let output = item["aggregated_output"]
+                            .as_str()
+                            .filter(|_| done)
+                            .map(|t| Event::ToolOutput {
+                                id: id.clone(),
+                                text: t.to_owned(),
+                                error: item["exit_code"].as_i64().is_some_and(|c| c != 0),
+                            });
+                        output
+                            .into_iter()
+                            .chain([Event::Tool {
+                                id,
+                                name: "command_execution".into(),
+                                input: json!({"command": item["command"]}),
+                                done,
+                            }])
+                            .collect()
+                    }
                     "mcp_tool_call" => vec![Event::Tool {
                         id: item["id"].as_str().unwrap_or("").to_owned(),
                         name: "mcp_tool_call".into(),

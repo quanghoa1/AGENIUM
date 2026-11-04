@@ -98,6 +98,10 @@ protocol_tools! {
         "Propose a role your team lacks: a role id from get_team's role_library, or a new id with what the role does and why the plan needs it. An agent with it joins your team only if the user approves.";
     GetTeam => "get_team", Lead, NoArgs,
         "Read the current team roster: members, roles, tags, model, status, current ticket and MCP servers with their key names.";
+    ListTickets => "list_tickets", Lead, ListTickets,
+        "List the project's tickets and their progress (the board): ticket id, title, status, assignee, plan item, depends_on, scope paths, approved/merged, counts by status. Shows what you already created before you create or assign more. Read only.";
+    ReadTicket => "read_ticket", Lead, ReadTicket,
+        "Read one ticket in full (get ticket details): description, acceptance criteria, scope, dependencies, status, assignee, and its comments: questions, progress, report, review. Read only.";
     SetMemberMcpKey => "set_member_mcp_key", Lead, SetMemberMcpKey,
         "Give a member its own key for an MCP server it uses (value null: back to the system key). Never put the key anywhere else.";
     ConfirmLink => "confirm_link", Lead, ConfirmLink,
@@ -183,6 +187,25 @@ impl Validate for CreateAggregate {
     }
 }
 
+/// list_tickets: the open tickets by default.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ListTickets {
+    /// Only tickets in these states (e.g. "InProgress", "Resolved"); empty: every state shown.
+    #[serde(default)]
+    pub status: Vec<String>,
+    /// Closed and Cancelled tickets too.
+    #[serde(default)]
+    pub include_finished: bool,
+}
+
+/// read_ticket: one ticket by its id (e.g. "LT-3").
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadTicket {
+    pub ticket_id: crate::ids::TicketKey,
+}
+
 /// get_team takes no arguments.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -206,6 +229,8 @@ pub enum Intent {
     ApprovePermission(ApprovePermission),
     ProposeRole(ProposeRole),
     GetTeam(NoArgs),
+    ListTickets(ListTickets),
+    ReadTicket(ReadTicket),
     SetMemberMcpKey(SetMemberMcpKey),
     ConfirmLink(ConfirmLink),
     CreateAggregate(CreateAggregate),
@@ -253,6 +278,8 @@ impl Intent {
             ApprovePermission(_) => ProtocolTool::ApprovePermission,
             ProposeRole(_) => ProtocolTool::ProposeRole,
             GetTeam(_) => ProtocolTool::GetTeam,
+            ListTickets(_) => ProtocolTool::ListTickets,
+            ReadTicket(_) => ProtocolTool::ReadTicket,
             SetMemberMcpKey(_) => ProtocolTool::SetMemberMcpKey,
             ConfirmLink(_) => ProtocolTool::ConfirmLink,
             CreateAggregate(_) => ProtocolTool::CreateAggregate,
@@ -328,6 +355,8 @@ impl Intent {
             | ApprovePermission(_)
             | ProposeRole(_)
             | GetTeam(_)
+            | ListTickets(_)
+            | ReadTicket(_)
             | SetMemberMcpKey(_)
             | ConfirmLink(_)
             | LoadSkill(_)
@@ -347,7 +376,8 @@ mod tests {
     fn catalogue_matches_design_index() {
         // docs/design/SCHEMAS/tools/index.json: Lead 15, Worker 5, Shared 4 (24 tools); Solo = all. Agenium adds
         // set_member_mcp_key (Lead group; per-agent MCP keys, 2026-10-25) and
-        // submit_plan_draft (Worker group, planner role only; ADR-59) and propose_new_skill (Shared; ADR-91).
+        // submit_plan_draft (Worker group, planner role only; ADR-59), propose_new_skill (Shared; ADR-91), and
+        // list_tickets and read_ticket (Lead group: the board mid-run, 2026-11-04).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -355,10 +385,10 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (16, 6, 5)
+            (18, 6, 5)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 27);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 21);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 29);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 23);
         assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 11);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);
