@@ -54,6 +54,17 @@ pub enum Origin {
     Agent,
     /// The agent's own copy of a role or library skill (it replaces that version for this agent only).
     Overlay,
+    /// A skill of an imported plugin (`<root>/plugins/<plugin>/skills`): the vendor's, read-only, on for the agents
+    /// that enable the whole plugin (ADR-157).
+    Plugin,
+}
+
+/// How an agent's skill binding names a plugin it enables whole: `plugin:<name>` (ADR-157).
+pub const PLUGIN_PREFIX: &str = "plugin:";
+
+/// The plugin an entry of a skill binding enables (`plugin:superpowers` is `superpowers`).
+pub fn plugin_of(entry: &str) -> Option<&str> {
+    entry.strip_prefix(PLUGIN_PREFIX).filter(|n| valid_name(n))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -366,12 +377,27 @@ fn validate_named(dir: &Path, origin: Origin, check_dir_name: bool) -> Result<Sk
     walk(dir, dir, &mut files, &mut total)?;
     files.retain(|f| f != SKILL_FILE);
     for r in references(&body) {
-        let Some(rel) = inside(&r) else {
-            return Err(invalid(format!(
-                "referenced path {r:?} leaves the skill folder"
-            )));
+        // A plugin's skill may point at a sibling skill of the same plugin (`../other/file.md`), as Claude Code
+        // allows; it stays inside the plugin's skills folder (ADR-157).
+        let (base, rel) = match (inside(&r), origin, dir.file_name()) {
+            (Some(rel), _, _) => (dir.to_path_buf(), rel),
+            (None, Origin::Plugin, Some(own)) => {
+                match inside(&Path::new(own).join(&r).to_string_lossy()) {
+                    Some(rel) => (dir.parent().unwrap_or(dir).to_path_buf(), rel),
+                    None => {
+                        return Err(invalid(format!(
+                            "referenced path {r:?} leaves the plugin's skills folder"
+                        )))
+                    }
+                }
+            }
+            (None, _, _) => {
+                return Err(invalid(format!(
+                    "referenced path {r:?} leaves the skill folder"
+                )))
+            }
         };
-        let target = dir.join(&rel);
+        let target = base.join(&rel);
         if !target.exists() {
             return Err(invalid(format!(
                 "referenced path {r:?} does not exist in the skill folder"
@@ -478,6 +504,22 @@ fn scan(
         }
         match validate(&p, origin) {
             Ok(mut s) => {
+                match (origin, set.get(&s.meta.name).map(|r| r.meta.origin)) {
+                    // A plugin brings no second skill of a name the agent has.
+                    (Origin::Plugin, Some(_)) => continue,
+                    // A plugin's skill is the vendor's: an own skill of its name does not replace it.
+                    (Origin::Agent, Some(Origin::Plugin)) => {
+                        problems.push(Problem {
+                            dir: p,
+                            error: format!(
+                                "{} is a plugin's skill, which is read-only",
+                                s.meta.name
+                            ),
+                        });
+                        continue;
+                    }
+                    _ => {}
+                }
                 if origin == Origin::Agent
                     && set
                         .get(&s.meta.name)
@@ -519,6 +561,11 @@ impl Registry {
         }
     }
 
+    /// Where imported plugins are kept (`<root>/plugins`, next to the agents folder; ADR-157).
+    pub fn plugins_dir(&self) -> PathBuf {
+        self.agents_dir.with_file_name("plugins")
+    }
+
     pub fn dir_of(&self, owner: &Owner) -> PathBuf {
         match owner {
             Owner::Agent(a) => self.agents_dir.join(a).join("skills"),
@@ -544,7 +591,8 @@ impl Registry {
     }
 
     /// Skills of an agent: the library skills it enables (`enabled`, the agent's skill binding), the role's
-    /// skills, then the agent's own (an own skill with the name of a role or library skill is the agent's overlay
+    /// skills, the skills of the plugins it enables (`plugin:<name>`, never replacing a skill it has), then the agent's
+    /// own (never replacing a plugin's skill) (an own skill with the name of a role or library skill is the agent's overlay
     /// of it; a role skill wins over a library skill of the same name).
     pub fn for_agent(&self, agent: &str, role: &str, enabled: &[String]) -> SkillSet {
         let mut map = BTreeMap::new();
@@ -572,6 +620,14 @@ impl Registry {
             &mut map,
             &mut problems,
         );
+        for plugin in enabled.iter().filter_map(|e| plugin_of(e)) {
+            scan(
+                &self.plugins_dir().join(plugin).join("skills"),
+                Origin::Plugin,
+                &mut map,
+                &mut problems,
+            );
+        }
         scan(
             &self.dir_of(&Owner::Agent(agent.into())),
             Origin::Agent,
@@ -691,7 +747,8 @@ fn skill_root(staging: &Path) -> Result<PathBuf> {
     }
 }
 
-fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
+/// Copies a folder under the skill limits (no symbolic links, at most 1000 files and 50 MiB).
+pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
     let mut files = Vec::new();
     let mut total = 0;
     walk(src, src, &mut files, &mut total)?; // rejects symlinks and enforces limits before copying
@@ -713,7 +770,9 @@ fn entry_name<R: std::io::Read>(e: &zip::read::ZipFile<'_, R>) -> String {
         .unwrap_or_else(|_| "?".into())
 }
 
-fn extract_zip(src: &Path, dst: &Path) -> Result<()> {
+/// Unpacks a `.zip` into `dst` under the skill limits (no symbolic links, no entry leaving the folder, at most
+/// 50 MiB written).
+pub fn extract_zip(src: &Path, dst: &Path) -> Result<()> {
     let f = std::fs::File::open(src)?;
     let mut z = zip::ZipArchive::new(f).map_err(|e| SkillError::Zip(e.to_string()))?;
     if z.len() > MAX_FILES * 2 {

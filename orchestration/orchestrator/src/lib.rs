@@ -26,6 +26,7 @@ pub mod model_cache;
 pub mod model_lists;
 pub mod model_windows;
 pub mod needs;
+pub mod plugins;
 pub mod preferences;
 pub mod prices;
 pub mod project_close;

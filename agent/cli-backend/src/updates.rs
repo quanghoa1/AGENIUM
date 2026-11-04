@@ -19,11 +19,11 @@ impl CliKind {
     pub fn verified_version(self) -> Option<&'static str> {
         match self {
             CliKind::Codex => Some("0.163.0"),
-            CliKind::Agy => Some("1.4.12"),
+            CliKind::Agy => Some("1.5.0"),
             CliKind::Claude => Some("2.1.316"),
             CliKind::Opencode => Some("2.1.2"),
             CliKind::Grok => Some("1.0.41"),
-            CliKind::Devin => Some("3000.11.3"),
+            CliKind::Devin => Some("3000.11.234"),
         }
     }
 
@@ -201,9 +201,9 @@ mod tests {
         );
         assert_eq!(CliKind::Codex.update_args(None).unwrap(), ["update"]);
         assert!(CliKind::Codex.update_args(Some("0.163.0")).is_none());
-        assert!(CliKind::Agy.update_args(Some("1.4.12")).is_none());
+        assert!(CliKind::Agy.update_args(Some("1.5.0")).is_none());
         assert_eq!(CliKind::Devin.update_args(None).unwrap(), ["update"]);
-        assert!(CliKind::Devin.update_args(Some("3000.11.3")).is_none());
+        assert!(CliKind::Devin.update_args(Some("3000.11.234")).is_none());
         assert!(
             newer("0.166.0", "0.163.0")
                 && !newer("2.1.2", "2.1.2")

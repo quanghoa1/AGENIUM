@@ -23,7 +23,7 @@ export function Switches({ skills, mcp, onSkills, onMcp, lib, servers }: { skill
         <div className="label mb-1.5 flex items-center gap-1">
           <Wrench className="h-3 w-3" /> {app.t("agents.librarySkills")}
           <span className="ml-auto font-mono text-[10px] text-subtle">
-            {skills.length}/{lib.length}
+            {skills.filter((s) => !s.startsWith("plugin:")).length}/{lib.length}
           </span>
         </div>
         {lib.length > 3 && (
@@ -77,7 +77,7 @@ export function Switches({ skills, mcp, onSkills, onMcp, lib, servers }: { skill
   );
 }
 
-function Toggle({ on, onChange, title, sub, tags }: { on: boolean; onChange: (v: boolean) => void; title: string; sub?: string; tags?: string[] }) {
+export function Toggle({ on, onChange, title, sub, tags }: { on: boolean; onChange: (v: boolean) => void; title: string; sub?: string; tags?: string[] }) {
   return (
     <button type="button" onClick={() => onChange(!on)} className={cn("press flex w-full items-center gap-3 rounded-lg border p-2 text-left", on ? "border-accent/50 bg-blue-600/10" : "border-line hover:border-line-strong")}>
       <span className={cn("relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors", on ? "bg-accent" : "bg-line-strong")}>

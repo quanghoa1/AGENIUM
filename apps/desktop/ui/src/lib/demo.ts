@@ -424,6 +424,7 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "helper_calls":
     case "cli_updates":
     case "lead_queue":
+    case "plugins":
       return [];
     default:
       return null;

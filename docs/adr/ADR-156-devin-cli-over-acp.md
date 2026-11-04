@@ -52,7 +52,8 @@ Protocol server: JSON-RPC both ways on stdio. It gives structured tool calls (`s
    leveled ones takes the level its label ends with (`swe-1-7`, "SWE-1.7 Max"). A run gets `--model` with the variant
    of its model and effort, from the table the last list made (read at every start of the app), else the effort put
    in the name; an agent saved with a full variant (`swe-2-max`) runs as it is. `DEVIN_MODEL` and the config's model
-   are no longer set. The owner's choice for tests: `swe-2` at `max` (free, 262K).
+   are no longer set. The owner's choice for tests: `swe-2` at `max` (free, 262K). Devin 3000.11.234 adds a "fusion"
+   family (a model paired with a SWE-2 sidekick, 655 variants): left out of the list for now.
 5. **Updates**: `devin update` (it cannot say its newest version: "Run its updater").
 
 ## Verified

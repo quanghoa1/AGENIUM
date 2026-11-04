@@ -97,7 +97,10 @@ impl App {
     /// Sets the agent's skill binding: the library skills it enables (its role's and its own skills are always
     /// on; ADR-61).
     pub fn set_agent_skills(&self, id: AgentId, skills: &[String]) -> Result<()> {
-        if let Some(bad) = skills.iter().find(|s| !agenium_skills::valid_name(s)) {
+        if let Some(bad) = skills
+            .iter()
+            .find(|s| !agenium_skills::valid_name(s) && agenium_skills::plugin_of(s).is_none())
+        {
             return Err(OrchError::Invalid(format!("invalid skill name {bad:?}")));
         }
         self.store

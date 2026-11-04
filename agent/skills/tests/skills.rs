@@ -255,6 +255,67 @@ fn registry_resolution_and_binding() {
 }
 
 #[test]
+fn a_plugin_is_on_whole_and_its_skills_stay_the_vendors() {
+    let tmp = tempfile::tempdir().unwrap();
+    let reg = Registry::new(tmp.path().join("agents"), tmp.path().join("roles"));
+    let plug = reg.plugins_dir().join("superpowers").join("skills");
+    assert_eq!(reg.plugins_dir(), tmp.path().join("plugins"));
+    skill(&plug, "brainstorming", "Brainstorm first.", "Vendor text.");
+    skill(&plug, "git-flow", "Branch rules (plugin).", "Plugin git.");
+    let role = reg.dir_of(&Owner::Role("coder".into()));
+    skill(&role, "git-flow", "Branch rules.", "Role git.");
+    let own = reg.dir_of(&Owner::Agent("A1".into()));
+    skill(&own, "brainstorming", "Brainstorm (mine).", "Agent copy.");
+
+    // Off: nothing of the plugin.
+    assert_eq!(
+        reg.for_agent("A1", "coder", &[]).names(),
+        vec!["brainstorming", "git-flow"]
+    );
+    assert_eq!(
+        reg.for_agent("A1", "coder", &[])
+            .get("brainstorming")
+            .unwrap()
+            .meta
+            .origin,
+        Origin::Agent
+    );
+    // On: the plugin's skills, not over the role's, and the agent's own copy does not replace the vendor's.
+    let on = reg.for_agent("A1", "coder", &["plugin:superpowers".into()]);
+    assert_eq!(on.names(), vec!["brainstorming", "git-flow"]);
+    let b = on.get("brainstorming").unwrap();
+    assert_eq!(
+        (b.meta.origin, b.body.trim()),
+        (Origin::Plugin, "Vendor text.")
+    );
+    assert_eq!(on.get("git-flow").unwrap().body.trim(), "Role git.");
+    assert!(
+        on.problems.iter().any(|p| p.error.contains("read-only")),
+        "{:?}",
+        on.problems
+    );
+    // A plugin's skill may point at a sibling skill's file, never out of the plugin's skills folder.
+    write(&plug.join("reviewing/notes.md"), "notes");
+    skill(
+        &plug,
+        "planning",
+        "Plan.",
+        "See [notes](../reviewing/notes.md).",
+    );
+    write(
+        &plug.join("reviewing/SKILL.md"),
+        "---\nname: reviewing\ndescription: Review.\n---\nReview.\n",
+    );
+    assert!(validate(&plug.join("planning"), Origin::Plugin).is_ok());
+    assert!(validate(&plug.join("planning"), Origin::Library).is_err());
+    skill(&plug, "escaping", "Out.", "See [x](../../../secret.md).");
+    assert!(validate(&plug.join("escaping"), Origin::Plugin).is_err());
+    assert_eq!(plugin_of("plugin:superpowers"), Some("superpowers"));
+    assert_eq!(plugin_of("plugin:../x"), None);
+    assert_eq!(plugin_of("git-flow"), None);
+}
+
+#[test]
 fn import_folder_and_zip() {
     let tmp = tempfile::tempdir().unwrap();
     let reg = Registry::new(tmp.path().join("agents"), tmp.path().join("roles"));

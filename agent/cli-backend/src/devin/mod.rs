@@ -400,6 +400,11 @@ fn parse_models(text: &str) -> Result<(Vec<agenium_llm::ModelInfo>, Variants), S
     let mut out: Vec<agenium_llm::ModelInfo> = Vec::new();
     let mut variants = Variants::new();
     for f in v["families"].as_array().into_iter().flatten() {
+        // shortcut: Devin 3000.11.234's "fusion" pairs (a model + a SWE-2 sidekick, 655 variants) are left out of the
+        // list; add them when an agent should pick a pair.
+        if f["family_uid"].as_str() == Some("fusion") {
+            continue;
+        }
         let all = f["variants"].as_array().cloned().unwrap_or_default();
         for m in &all {
             let Some(uid) = m["model_uid"].as_str() else {
@@ -623,7 +628,8 @@ mod tests {
                 {"model_uid":"swe-2-max-lightning","label":"SWE-2 Max Lightning"}]},
               {"family_uid":"adaptive","variants":[{"model_uid":"adaptive","label":"Adaptive"}]},
               {"family_uid":"glm-5.2","variants":[{"model_uid":"glm-5-2"},{"model_uid":"glm-5-2-max"},{"model_uid":"glm-5-2-max-1m"}]},
-              {"family_uid":"swe-1.7","variants":[{"model_uid":"swe-1-7","label":"SWE-1.7 Max"},{"model_uid":"swe-1-7-medium","label":"SWE-1.7 Medium"}]}]}"#,
+              {"family_uid":"swe-1.7","variants":[{"model_uid":"swe-1-7","label":"SWE-1.7 Max"},{"model_uid":"swe-1-7-medium","label":"SWE-1.7 Medium"}]},
+              {"family_uid":"fusion","variants":[{"model_uid":"fusion-claude-opus-5-5-medium-sidekick-swe-2-medium"}]}]}"#,
         )
         .unwrap();
         let (m, variants) = m;

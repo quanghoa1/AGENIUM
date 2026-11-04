@@ -130,6 +130,58 @@ fn mask_forms(v: &str) -> Vec<&str> {
     out
 }
 
+/// The servers of an `mcpServers` object (`{name: {command, args, env} | {url, headers}}`), each with the id its name
+/// gives, values kept as written.
+pub(crate) fn servers_from_json(map: &serde_json::Value) -> Result<Vec<(String, McpServerConfig)>> {
+    let map = map
+        .as_object()
+        .ok_or_else(|| OrchError::Invalid("expected an object \"mcpServers\"".into()))?;
+    let mut configs = Vec::new();
+    for (name, s) in map {
+        let id = server_id(name);
+        if !agenium_config::valid_mcp_id(&id) {
+            return Err(OrchError::Invalid(format!(
+                "cannot derive a server id from {name:?}"
+            )));
+        }
+        let strings = |key: &str| -> BTreeMap<String, String> {
+            s.get(key)
+                .and_then(|e| e.as_object())
+                .map(|o| {
+                    o.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|v| (k.clone(), v.to_owned())))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let cfg = McpServerConfig {
+            id: id.clone(),
+            command: s.get("command").and_then(|c| c.as_str()).map(str::to_owned),
+            args: s
+                .get("args")
+                .and_then(|a| a.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(str::to_owned))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            env: strings("env"),
+            url: s
+                .get("url")
+                .or_else(|| s.get("serverUrl"))
+                .and_then(|u| u.as_str())
+                .map(str::to_owned),
+            headers: strings("headers"),
+            timeout_secs: 120,
+            oauth: None,
+            approval: None,
+        };
+        configs.push((name.clone(), cfg));
+    }
+    Ok(configs)
+}
+
 fn server_id(name: &str) -> String {
     let id: String = name
         .to_ascii_lowercase()
@@ -192,53 +244,14 @@ impl App {
         let map = v
             .get("mcpServers")
             .or_else(|| v.get("servers"))
-            .and_then(|m| m.as_object())
             .ok_or_else(|| OrchError::Invalid("expected an object \"mcpServers\"".into()))?;
-        let mut out = JsonImport::default();
-        let mut configs = Vec::new();
-        for (name, s) in map {
-            let id = server_id(name);
-            if !agenium_config::valid_mcp_id(&id) {
-                return Err(OrchError::Invalid(format!(
-                    "cannot derive a server id from {name:?}"
-                )));
-            }
-            let strings = |key: &str| -> BTreeMap<String, String> {
-                s.get(key)
-                    .and_then(|e| e.as_object())
-                    .map(|o| {
-                        o.iter()
-                            .filter_map(|(k, v)| v.as_str().map(|v| (k.clone(), v.to_owned())))
-                            .collect()
-                    })
-                    .unwrap_or_default()
-            };
-            let cfg = McpServerConfig {
-                id: id.clone(),
-                command: s.get("command").and_then(|c| c.as_str()).map(str::to_owned),
-                args: s
-                    .get("args")
-                    .and_then(|a| a.as_array())
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|x| x.as_str().map(str::to_owned))
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                env: strings("env"),
-                url: s
-                    .get("url")
-                    .or_else(|| s.get("serverUrl"))
-                    .and_then(|u| u.as_str())
-                    .map(str::to_owned),
-                headers: strings("headers"),
-                timeout_secs: 120,
-                oauth: None,
-                approval: None,
-            };
-            out.servers.push(id);
-            configs.push(cfg);
-        }
+        let configs: Vec<McpServerConfig> = servers_from_json(map)?
+            .into_iter()
+            .map(|(_, c)| c)
+            .collect();
+        let out = JsonImport {
+            servers: configs.iter().map(|c| c.id.clone()).collect(),
+        };
         self.update_config(|c| {
             for cfg in configs {
                 c.mcp.retain(|m| m.id != cfg.id);

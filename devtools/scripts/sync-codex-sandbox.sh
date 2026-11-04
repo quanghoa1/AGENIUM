@@ -36,8 +36,13 @@ fi
 
 REF="${1:?usage: sync-codex-sandbox.sh <ref> [--summary|--update] | --check}"
 MODE="${2:-diff}"
-META="$(curl -fsSL -H 'User-Agent: agenium-sync' "https://api.github.com/repos/$REPO/commits/$REF")"
+META="$(curl -fsSL -H 'User-Agent: agenium-sync' "https://api.github.com/repos/$REPO/commits/$REF" || true)"
 SHA="$(printf '%s' "$META" | grep -o '"sha": *"[0-9a-f]\{40\}"' | head -1 | grep -o '[0-9a-f]\{40\}' || true)"
+# The API allows 60 calls an hour without a token: a tag or branch is then read with git, a sha taken as given.
+if [ -z "$SHA" ]; then
+  if [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then SHA="$REF"
+  else SHA="$(git ls-remote "https://github.com/$REPO" "refs/tags/$REF^{}" "refs/heads/$REF" | head -1 | cut -f1)"; fi
+fi
 [ -n "$SHA" ] || { echo "cannot resolve $REF on $REPO" >&2; exit 2; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 echo "upstream $REPO @ $SHA"
@@ -66,6 +71,7 @@ if [ "$MODE" = "--update" ]; then
     for path in $(files); do [ -f "$UP/$path" ] && echo "$path $(sha "$UP/$path")"; done
   } > "$LOCK"
   DATE="$(printf '%s' "$META" | grep -o '"date": *"[^"]*"' | sed -n '2p' | grep -o '[0-9T:Z-]\{20\}' || true)"
+  DATE="${DATE:-read $(date -u +%F)}"
   sed -i.bak -e "s|^- Upstream commit: .*|- Upstream commit: \`$SHA\` ($DATE)|" "$VDIR/VENDOR.md" && rm -f "$VDIR/VENDOR.md.bak"
   echo "updated vendor/codex-sandbox to $SHA; review the derived code listed in VENDOR.md, then commit vendor/ alone"
 fi

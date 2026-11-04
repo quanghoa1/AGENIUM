@@ -178,6 +178,13 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
 - **Devin's plugin list is guarded**: a plugin a run adds to the user's own Devin is taken out again (ADR-156).
+- **Plugins** (ADR-157): a vendor's plugin (`obra/superpowers`, `owner/repo@tag`, or a folder) is previewed, then
+  installed at the commit shown, kept in Claude Code's formats: `agenium-plugin.json` (a `plugin.json` of what was
+  taken) beside `skills/`, and a Claude-shaped `installed_plugins.json`. Its skills and MCP servers are taken; hooks, commands, agents and programs are listed and
+  never run. An agent's Plugin tab switches a whole plugin; its skills are read-only to learning; an update shows what
+  changes and replaces the whole set; removing it switches it off everywhere.
+- **CLIs checked after their updates** (ADR-153, 2026-11-04): agy 1.5.0 and devin 3000.11.234 verified with real
+  turns; Devin's new "fusion" pairs (655 variants of a model with a SWE-2 sidekick) are left out of its model list.
 - **Devin's models with their efforts** (ADR-156): `swe-2` with medium, high and max (not `swe-2-max` as a model of
   its own), each run given the variant of its model and effort.
 - **Devin CLI is driven** (ADR-156): over ACP inside the sandbox, one process per turn with its session loaded again;
@@ -312,7 +319,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Tool caches and installed packages are kept out of commits (ADR-116).
 - Vendor CLIs work only through Agenium's tools (ADR-129): their own shells are off, their own file and search
   tools reach only their scratch folder, so every vendor works under the same sandbox, command gate and write scope
-  as an API agent. The vendored Codex sandbox follows upstream b0f977c.
+  as an API agent. The vendored Codex sandbox follows upstream 3a2788e (2026-11-04: deny-path and
+  volume-root handling Agenium does not use, Linux and macOS refactors with no new hardening; nothing to carry over).
 - On Linux a sandboxed command can no longer have the host resolve names with the network off: mxc-sdk 1.0.1 brings
   the host resolver's folders into the sandbox whole, with systemd-resolved's socket in them; Agenium masks every
   socket there, `/etc/resolv.conf` stays readable (containment row `net.resolver_socket`; fixed upstream after 1.0.1,

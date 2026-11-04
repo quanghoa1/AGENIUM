@@ -12,6 +12,7 @@ use common::*;
 
 mod agents;
 mod cli;
+mod plugins;
 mod providers;
 
 fn provider(f: &Fixture) {

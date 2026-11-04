@@ -6,6 +6,7 @@ mod browser;
 mod live;
 mod manage;
 mod model;
+mod plugins;
 mod state;
 
 use std::time::Duration;
@@ -172,6 +173,12 @@ fn main() {
             api::skill_effects,
             api::cli_updates,
             api::update_cli,
+            plugins::plugins,
+            plugins::preview_plugin,
+            plugins::preview_plugin_update,
+            plugins::install_plugin,
+            plugins::remove_plugin,
+            plugins::toggle_agent_plugin,
             api::markitdown_status,
             api::install_markitdown,
             api::update_markitdown,

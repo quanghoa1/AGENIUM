@@ -1,3 +1,4 @@
+import { AgentPlugins } from "./AgentPlugins";
 import { ArrowLeft, Check, Crown, Download, Pencil, Plug, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal, PanelSwap, Segmented } from "../../components/motion";
@@ -166,10 +167,10 @@ export function AgentView({ id }: { id: string }) {
   const app = useApp();
   const [d, setD] = useState<AgentDetail | null>(null);
   const [entry, setEntry] = useState<AgentEntry | null>(null);
-  const [tab, setTab] = useState<"overview" | "runs" | "memory" | "skills">("overview");
+  const [tab, setTab] = useState<"overview" | "runs" | "memory" | "skills" | "plugins">("overview");
   const [dir, setDir] = useState(1);
   const { lib, servers } = useLibrary(app.tick);
-  const order = ["overview", "runs", "memory", "skills"];
+  const order = ["overview", "runs", "memory", "skills", "plugins"];
   useEffect(() => {
     api.agentDetail(id).then(setD).catch((e) => app.notify(String(e)));
     api.agents().then((xs) => setEntry(xs.find((x) => x.agent.id === id) ?? null));
@@ -178,7 +179,7 @@ export function AgentView({ id }: { id: string }) {
   const a = d.agent;
   const canLead = entry && entry.team_id && !entry.solo && !entry.is_lead && !d.planner;
   const bound: string[] = Array.isArray(a.mcp) ? a.mcp.map((b: { server: string }) => b.server) : [];
-  const ownSkills = d.skills.filter((s) => String(s.origin) !== "library");
+  const ownSkills = d.skills.filter((s) => !["library", "plugin"].includes(String(s.origin)));
   const toggle = (p: Promise<unknown>) => p.then(() => app.refresh()).catch((e) => app.notify(String(e)));
   return (
     <div className="space-y-4">
@@ -236,6 +237,7 @@ export function AgentView({ id }: { id: string }) {
           { value: "runs" as const, label: app.t("nav.runs") },
           { value: "memory" as const, label: `${app.t("agents.memory")} (${d.facts_total})` },
           { value: "skills" as const, label: app.t("agents.skills") },
+          { value: "plugins" as const, label: app.t("plugins.tab") },
         ]}
       />
       <PanelSwap id={tab} dir={dir}>
@@ -363,6 +365,7 @@ export function AgentView({ id }: { id: string }) {
             </Section>
           </div>
         )}
+        {tab === "plugins" && <AgentPlugins agent={a.id} enabled={a.skills} onToggle={(n, on) => toggle(api.toggleAgentPlugin(a.id, n, on))} />}
       </PanelSwap>
     </div>
   );

@@ -600,6 +600,38 @@ export interface ToolSearchSettings {
   judge: "unsure" | "always" | "off";
 }
 
+/** An imported plugin (ADR-157): the vendor's skills and MCP servers, on or off whole per agent, read-only. */
+export interface Plugin {
+  name: string;
+  description: string;
+  version?: string | null;
+  /** `owner/repo` or a folder. */
+  source: string;
+  /** The ref an update follows. */
+  reference: string;
+  entry?: string | null;
+  /** The commit installed (`local` for a folder). */
+  commit: string;
+  /** Each skill and a digest of its files. */
+  skills: Record<string, string>;
+  mcp: McpServerConfig[];
+  /** What was not taken, and why. */
+  skipped: string[];
+  installed_at: string;
+}
+
+export interface PluginPreview {
+  plugin: Plugin;
+  installed?: Plugin | null;
+  skills_added: string[];
+  skills_changed: string[];
+  skills_removed: string[];
+  mcp_added: string[];
+  mcp_changed: string[];
+  mcp_removed: string[];
+  agents: string[];
+}
+
 export interface McpServerRow {
   config: McpServerConfig;
   users: string[];

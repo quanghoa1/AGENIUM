@@ -141,13 +141,18 @@ impl Runtime {
             ctx.policy.read_roots.push(root.to_path_buf());
         }
         let mut mcp_tools: Vec<Arc<dyn Tool>> = Vec::new();
-        let bindings = agenium_mcp::parse_bindings(&agent.mcp)
+        let mut bindings = agenium_mcp::parse_bindings(&agent.mcp)
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        self.app.mask_mcp_keys(&bindings);
+        // The servers of the plugins the agent has on come with them, whole (ADR-157).
+        let (plugin_bindings, mut servers) = self.app.plugin_mcp(&agent.skills);
+        bindings.retain(|b| !plugin_bindings.iter().any(|p| p.server == b.server));
+        bindings.extend(plugin_bindings);
         if !bindings.is_empty() {
-            self.app.mask_mcp_keys(&bindings);
+            servers.extend(self.app.config().mcp);
             let m = self
                 .mcp
-                .tools_for(&agent.id.to_string(), &bindings, &self.app.config().mcp)
+                .tools_for(&agent.id.to_string(), &bindings, &servers)
                 .await;
             if !m.servers.is_empty() {
                 ctx.capabilities.push(format!(

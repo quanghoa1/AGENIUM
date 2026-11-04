@@ -65,7 +65,7 @@
 | agy 1.4.4 | stream-json in/out | `USERPROFILE`/`HOME` | hook | driven, golden 5/5 (gemini-3.8-flash-low) |
 | claude 2.1.310 | `-p` stream-json in/out | `CLAUDE_CONFIG_DIR` | hook | driven, golden 5/5 (haiku) |
 | opencode 2.1.2 | `serve` + HTTP API (ADR-68) | all `XDG_*` and opencode's home in the per-run home | Agenium answers `permission.asked` (hook endpoint) | driven since 2026-10-25 for OpenCode's free models (ADR-68); paid OpenCode models stay on the API backend |
-| devin 3000.11.3 | `acp` (JSON-RPC both ways, ADR-156) | none of its own: in the sandbox, its folder read-only but `cli`, `--config`, the user's servers off by name | sandbox | driven since 2026-11-04 (ADR-156; `-p` prints text only) |
+| devin 3000.11.234 | `acp` (JSON-RPC both ways, ADR-156) | none of its own: in the sandbox, its folder read-only but `cli`, `--config`, the user's servers off by name | sandbox | driven since 2026-11-04 (ADR-156; `-p` prints text only) |
 
 ## Findings that shaped the design
 

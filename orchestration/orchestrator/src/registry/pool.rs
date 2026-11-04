@@ -134,6 +134,12 @@ impl App {
         }
         let lib = self.skill_registry().library();
         for s in skills {
+            if let Some(p) = agenium_skills::plugin_of(s) {
+                if self.plugin(p).is_none() {
+                    return Err(invalid(format!("plugin {p:?} is not installed")));
+                }
+                continue;
+            }
             if lib.get(s).is_none() {
                 return Err(invalid(format!("skill {s:?} is not in the library")));
             }

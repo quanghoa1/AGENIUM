@@ -83,3 +83,10 @@ after its update had answered the check; grok said only "newest unknown".
   (`mcp_tool_call`) and Antigravity (`call_mcp_tool`) wrap every MCP call in one tool; the UI names it by the server
   and tool inside (`views/live/calls.tsx` `classify`), Agenium's own protocol tools as the team's moves. Verified in the
   app with codex gpt-6-luna: `agenium :: read_file: .agenium/attachments/seo-checklist.docx`.
+
+**Amendment (2026-11-04, every updater run):** claude 2.1.317 → 2.1.318, agy 1.4.12 → 1.5.0, devin 3000.11.3 →
+3000.11.234, codex 0.166.0 and opencode 2.2.5 already newest, grok's updater still "program not found". `devin update`
+only prints its installer command (`irm https://cli.devin.ai/install.ps1 | iex`); Agenium shows that line and does not
+run a piped script itself. Headless shapes unchanged: real turns in the app with agy 1.5.0 (gemini-3.8-flash, a ticket
+worked end to end) and devin 3000.11.234 (`swe-2` at max, ACP file tools); model lists read again for codex, agy,
+opencode, grok and devin. Verified versions: agy 1.5.0, devin 3000.11.234 (claude is not tested by policy).
