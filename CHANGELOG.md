@@ -177,7 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
-- **Devin's plugin list is guarded**: a plugin a run adds to the user's own Devin is taken out again (ADR-156).
+- **Devin runs on Agenium's configuration only** (ADR-156): in the sandbox it sees its login and its logs and
+  sessions, not the user's own config, MCP servers or plugins; the user's Devin plugins stay as they are, untouched.
 - **Plugins** (ADR-157): a vendor's plugin (`obra/superpowers`, `owner/repo@tag`, or a folder) is previewed, then
   installed at the commit shown, kept in Claude Code's formats: `agenium-plugin.json` (a `plugin.json` of what was
   taken) beside `skills/`, and a Claude-shaped `installed_plugins.json`. Its skills and MCP servers are taken; hooks, commands, agents and programs are listed and

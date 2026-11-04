@@ -8,12 +8,13 @@
 //!   Devin hands file reads and writes to the client (`fs/read_text_file`, `fs/write_text_file`): the bridge asks
 //!   Agenium (the hook endpoint, `check`) and does them itself, so a read-only run writes nothing and nothing outside
 //!   the worktree is touched.
-//! - Isolation: Devin keeps its login, configuration and sessions under `%APPDATA%\devin` (the Known Folder, not
-//!   `APPDATA`) and loads the user's MCP servers from there and from other tools' configurations. In the sandbox the
-//!   other tools' files are not visible, `%APPDATA%\devin` is read-only but for its `cli` folder (logs, sessions),
-//!   `--config` replaces the user's `config.json` (hooks, permissions), and the worktree's
-//!   `.devin/mcp_config.local.json` turns each of the user's own servers off by name; Agenium's MCP server comes in
-//!   `session/new`.
+//! - Isolation: Devin keeps its login, configuration, plugins and sessions under `%APPDATA%\devin` (the Known Folder,
+//!   not `APPDATA`, so no per-run home) and loads the user's MCP servers from there and from other tools'
+//!   configurations. In the sandbox it sees only its login ([`LOGIN_FILES`], read-only) and the `cli` folder's
+//!   entries but `plugins` (logs, sessions; writable): not the user's `config.json`, `mcp_config.json` or plugins,
+//!   nor the other tools' files. `--config` gives it Agenium's `config.json`, the worktree's
+//!   `.devin/mcp_config.local.json` turns each of the user's own servers off by name (for a run without the
+//!   sandbox), and Agenium's MCP server comes in `session/new`.
 
 mod bridge;
 
@@ -60,35 +61,23 @@ fn user_servers() -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Devin's plugin list: a plugin is a `requirements` entry (`{"spec": {"source": "github", "repo": …}}`).
-fn plugin_lock() -> Option<PathBuf> {
-    devin_dir().map(|d| d.join("cli").join("plugins").join("lock.json"))
-}
+/// What Devin reads of its own folder in the sandbox: its login and machine id, nothing else (2026-11-04, 3000.11.234).
+const LOGIN_FILES: [&str; 3] = ["credentials.toml", "machineid", ".devin-migration-complete"];
 
-/// What the run kept of the plugin list when it started.
-const PLUGINS_BEFORE: &str = "devin-plugins-before.json";
-
-/// `now` without the plugins added since `before` other than those Devin's account manages (`scope: managed`): a
-/// run writes in Devin's `cli` folder, and a plugin it put in the list would load in the user's own Devin later.
-/// `None` when nothing was added.
-fn without_added(before: &Value, now: &Value) -> Option<Value> {
-    let had: Vec<&Value> = before["requirements"]
-        .as_array()
+/// Its folder's `cli` entries the run may write (logs, sessions): all but the user's plugins.
+fn cli_entries() -> Vec<PathBuf> {
+    // shortcut: entries that exist when the run starts; a folder a later Devin adds beside them is not writable until
+    // it exists (Devin made it in the user's own run first), upgrade to a fixed list if one is missed.
+    let Some(cli) = devin_dir().map(|d| d.join("cli")) else {
+        return Vec::new();
+    };
+    std::fs::read_dir(&cli)
         .into_iter()
         .flatten()
-        .map(|r| &r["spec"])
-        .collect();
-    let reqs = now["requirements"].as_array()?;
-    let kept: Vec<Value> = reqs
-        .iter()
-        .filter(|r| had.contains(&&r["spec"]) || r["origin"]["scope"] == "managed")
-        .cloned()
-        .collect();
-    (kept.len() < reqs.len()).then(|| {
-        let mut v = now.clone();
-        v["requirements"] = Value::Array(kept);
-        v
-    })
+        .flatten()
+        .filter(|e| e.file_name() != "plugins")
+        .map(|e| e.path())
+        .collect()
 }
 
 /// `.devin/mcp_config.local.json` with each of `servers` off, what the file already held kept.
@@ -155,17 +144,12 @@ impl Driver for Devin {
             &local,
             serde_json::to_vec_pretty(&local_mcp(existing.as_deref(), &user_servers()))?,
         )?;
-        // The plugin list as it is now, to take back what the run adds to it (`finish`).
-        let before = plugin_lock()
-            .and_then(|f| std::fs::read(f).ok())
-            .unwrap_or_else(|| b"{}".to_vec());
-        std::fs::write(s.home.join(PLUGINS_BEFORE), before)?;
         let token = s
             .mcp_authorization
             .strip_prefix("Bearer ")
             .unwrap_or(s.mcp_authorization);
         // Devin finds its config directory from these (without them it does not start); the sandbox still shows it
-        // only its own folder of the profile.
+        // only its login and its `cli` folder but the plugins.
         let known: Vec<(String, String)> = ["APPDATA", "LOCALAPPDATA", "USERPROFILE"]
             .into_iter()
             .filter_map(|k| std::env::var(k).ok().map(|v| (k.to_owned(), v)))
@@ -186,40 +170,24 @@ impl Driver for Devin {
         true
     }
 
-    /// Takes back a plugin the run added to Devin's own list (the entry only, the rest of the file as it is).
-    fn finish(&self, s: &Setup) -> std::io::Result<()> {
-        let (Some(lock), Ok(before)) = (plugin_lock(), std::fs::read(s.home.join(PLUGINS_BEFORE)))
-        else {
-            return Ok(());
-        };
-        let (Ok(before), Some(now)) = (
-            serde_json::from_slice::<Value>(&before),
-            std::fs::read(&lock)
-                .ok()
-                .and_then(|b| serde_json::from_slice::<Value>(&b).ok()),
-        ) else {
-            return Ok(());
-        };
-        if let Some(v) = without_added(&before, &now) {
-            tracing::warn!(file = %lock.display(), "a Devin run added a plugin to Devin's own list: taken back");
-            std::fs::write(&lock, serde_json::to_vec_pretty(&v)?)?;
-        }
-        Ok(())
-    }
-
-    /// Devin's binary, read-only, and its own folder: read-only, its login and configuration among it.
+    /// Devin's binary and its login, read-only: not the user's configuration, MCP servers or plugins.
     fn read_roots(&self, program: &Path) -> Vec<PathBuf> {
+        let dir = devin_dir();
         program
             .parent()
             .map(Path::to_path_buf)
             .into_iter()
-            .chain(devin_dir())
+            .chain(
+                LOGIN_FILES
+                    .iter()
+                    .filter_map(|f| dir.as_ref().map(|d| d.join(f))),
+            )
             .collect()
     }
 
-    /// Where Devin writes its logs and sessions (it does not start without them).
+    /// Where Devin writes its logs and sessions (it does not start without them), its plugins left out.
     fn writable_roots(&self) -> Vec<PathBuf> {
-        devin_dir().map(|d| d.join("cli")).into_iter().collect()
+        cli_entries()
     }
 
     fn resumes_across_runs(&self) -> bool {
@@ -693,20 +661,19 @@ mod tests {
     }
 
     #[test]
-    fn a_plugin_the_run_adds_is_taken_back() {
-        let req = |repo: &str, scope: &str| json!({"spec": {"source": "github", "repo": repo}, "origin": {"scope": scope}});
-        let before = json!({"requirements": [req("a/one", "managed")], "resolved": []});
-        let now = json!({"requirements": [req("a/one", "managed"), req("evil/x", "user"), req("team/new", "managed")], "resolved": [1]});
-        let v = without_added(&before, &now).unwrap();
-        let repos: Vec<&str> = v["requirements"]
-            .as_array()
-            .unwrap()
+    fn the_run_sees_devins_login_but_not_the_users_plugins_or_config() {
+        let read = Devin.read_roots(Path::new("/bin/devin"));
+        let names: Vec<String> = read
             .iter()
-            .map(|r| r["spec"]["repo"].as_str().unwrap())
+            .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
             .collect();
-        assert_eq!(repos, ["a/one", "team/new"]);
-        assert_eq!(v["resolved"], json!([1]));
-        assert!(without_added(&before, &before).is_none());
+        for f in ["config.json", "mcp_config.json", "cli", "devin", "plugins"] {
+            assert!(!names.iter().any(|n| n == f), "{f} must not be readable");
+        }
+        assert!(Devin
+            .writable_roots()
+            .iter()
+            .all(|p| p.file_name().is_some_and(|n| n != "plugins")));
     }
 
     #[test]

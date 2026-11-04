@@ -25,8 +25,9 @@ Protocol server: JSON-RPC both ways on stdio. It gives structured tool calls (`s
    commands run contained. A command it judges risky asks `session/request_permission`; the bridge asks Agenium.
 2. **Isolation in the sandbox.** Measured on 2026-11-04:
    - In MXC the other tools' configurations Devin would import are not visible.
-   - `%APPDATA%\devin` is read-only (its login and configuration) but for `%APPDATA%\devin\cli`, where it must write its
-     logs and sessions (`Driver::writable_roots`).
+   - Of `%APPDATA%\devin` it sees only its login, read-only (`credentials.toml`, `machineid`,
+     `.devin-migration-complete`), and the entries of `cli` but `plugins`, writable (logs, sessions). The user's
+     `config.json`, `mcp_config.json` and plugins are not visible (amended 2026-11-04, below).
    - `--config <home>/config.json` replaces the user's `config.json` (hooks, permissions).
    - The worktree's `.devin/mcp_config.local.json` turns each of the user's own servers off by name (names read from
      their `mcp_config.json`, never their settings; what the file already held is kept). It is in every project's
@@ -71,10 +72,15 @@ Protocol server: JSON-RPC both ways on stdio. It gives structured tool calls (`s
 
 - Devin needs a sandbox backend; without one it runs only if the user allows unsandboxed CLIs (ADR-117), and then the
   other tools' configurations it imports are visible to it (its own servers stay off).
-- `%APPDATA%\devin\cli` is writable from the sandbox, its plugin list (`plugins/lock.json`) among it: a plugin a
-  run put there would load in the user's own Devin. The run keeps the list as it was when it started, and a plugin
-  added since (not one Devin's account manages, `scope: managed`) is taken out of the list again during the run and
-  after it (`Driver::finish`, the entry only; logged). Devin's own files beside it are left to it.
+- The user's Devin plugins (`%APPDATA%\devin\cli\plugins`) are neither read nor written by a run (amended
+  2026-11-04, the owner: Devin runs on Agenium's configuration like the other CLIs, and what the user installed in it
+  is not touched). Before, the whole folder was readable and `cli` writable: the user's plugins (superpowers, ponytail)
+  loaded into Agenium's runs, and a run's added plugin had to be taken back from `lock.json`; that restore is gone.
+  Checked in MXC with 3000.11.234: `skills list` shows only Devin's built-in skills, `mcp list` none, `models list`
+  works (logged in); in the app a Devin Solo saw no plugin and resumed its session on the next turn. Plugins for an
+  agent come from Agenium's own Plugin tab (ADR-157).
+- `cli`'s writable entries are those that exist when the run starts: a folder a newer Devin adds there is writable
+  only once the user's own Devin made it. Without a sandbox (ADR-117) none of this holds.
 - No per-run home on Windows (checked 2026-11-04 in MXC): with `APPDATA` pointed at a fresh home holding a copy of
   the login, Devin still read `C:\Users\<you>\AppData\Roaming\devin\config.json`; with `USERPROFILE` too, it could
   not find its cache folder. It locates its folders through the profile's Known Folders and only needs the variables
