@@ -266,14 +266,28 @@ impl Runtime {
             .unwrap_or_default()
             .into_iter()
             .filter(|m| m.role_kind == RoleKind::Worker && m.id != planner.id)
-            .map(|m| format!("- {} (role {}, tags {})", m.name, m.role, m.tags.join(", ")))
+            .map(|m| {
+                let paths = self.app.role_allowed_paths(&m.role);
+                format!(
+                    "- {} (role {}, tags {}, writes {})",
+                    m.name,
+                    m.role,
+                    m.tags.join(", "),
+                    if paths.is_empty() {
+                        "anywhere".to_owned()
+                    } else {
+                        paths.join(", ")
+                    }
+                )
+            })
             .collect();
         let task = format!(
             "Draft plan v1 for the approved requirement spec v{v}.\n\n## Spec v{v}\n{spec}\n\n## Team members who will do the work\n{roles}\n\n\
              Read the repository with your read-only tools first. Then call submit_plan_draft once: milestones; items with \
              acceptance criteria (ids AC-n), trace_to (requirement ids of this spec), role (one of the roles above), \
-             depends_on (item ids), estimate and scope_paths (items touching the same paths must depend on each other); \
-             and the rationale of the split. You do not create tickets; the Lead reviews your draft.",
+             depends_on (item ids), estimate and scope_paths (inside the paths its role writes; items touching the same \
+             paths must depend on each other); and the rationale of the split. Split for parallel work: each worker takes one ticket at a time, so give every worker an item it can start early and let items depend on each other only where one needs the other's result or they share paths; a chain through one worker leaves the others waiting. You do not create \
+             tickets; the Lead reviews your draft.",
             v = spec.version,
             spec = serde_json::to_string_pretty(&spec.body).unwrap_or_default(),
             roles = roles.join("\n"),

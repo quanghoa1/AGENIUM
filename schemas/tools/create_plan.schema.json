@@ -2,7 +2,7 @@
   "$id": "https://agenium.dev/schemas/v1/tools/create_plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Create plan v1 from the locked spec: milestones and items, each item tracing to requirement ids. Every ticket must reference a plan item.",
+  "description": "Create plan v1 from the locked spec: milestones and items, each item tracing to requirement ids. Every ticket must reference a plan item. Split for parallel work: each worker takes one ticket at a time, so give every worker an item it can start early and let items depend on each other only where one needs the other's result or they share paths; a chain through one worker leaves the others waiting.",
   "properties": {
     "items": {
       "items": {

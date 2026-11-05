@@ -127,6 +127,13 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    with `shell_output {job, wait_ms}`; three identical calls in a row stopped the run as a loop, though each answer was
    new. The same-call check (API and CLI loops) leaves `shell_output` out (`agenium_backend::polls`); the command's
    timeout and `max_steps` still bound it.
+23. **Plans for parallel work, reviews that list every problem** (same team): the plan ran almost all the time one
+   run at a time (293 of 314 minutes with one run, none with three), a chain through the backend worker while the
+   others waited; and two tickets were reopened five and eight times, each review raising one new point. The
+   planner's order now names where each worker writes and asks for a split that gives every worker an item it can
+   start early, depending only where an item needs another's result or shares its paths (`create_plan`'s
+   description says the same to the Lead). The review order asks for every problem in one review, the next review
+   looking only at what the fix changed. Text only: whether it holds is for the next long run to show.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

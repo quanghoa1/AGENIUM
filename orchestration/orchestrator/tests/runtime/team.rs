@@ -339,6 +339,10 @@ async fn planner_drafts_then_the_lead_creates_the_plan() {
             task.contains("Draft plan v1")
                 && task.contains("coding-backend")
                 && !task.contains("pl-planner")
+                // Where each worker writes, and the split for parallel work.
+                && task.contains("writes ")
+                && task.contains("Split for parallel work"),
+            "{task}"
         );
         let tools: Vec<&str> = req.tools.iter().map(|t| t.name.as_str()).collect();
         assert!(

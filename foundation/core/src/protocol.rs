@@ -75,7 +75,7 @@ protocol_tools! {
     ProposeSpec => "propose_spec", Lead, RequirementSpec,
         "Propose the requirement spec after discovery. A team's spec waits for user approval; a Solo agent's spec is locked at once and the user is informed.";
     CreatePlan => "create_plan", Lead, TicketPlan,
-        "Create plan v1 from the locked spec: milestones and items, each item tracing to requirement ids. Every ticket must reference a plan item.";
+        "Create plan v1 from the locked spec: milestones and items, each item tracing to requirement ids. Every ticket must reference a plan item. Split for parallel work: each worker takes one ticket at a time, so give every worker an item it can start early and let items depend on each other only where one needs the other's result or they share paths; a chain through one worker leaves the others waiting.";
     RevisePlan => "revise_plan", Lead, PlanRevision,
         "Revise the plan (version+1, with a reason). Use it instead of splitting a ticket: add items, then create tickets for them. Scope changes need user approval.";
     CreateTicket => "create_ticket", Lead, NewTicket,

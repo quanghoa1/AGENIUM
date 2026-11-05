@@ -56,7 +56,7 @@ pub use models::apply_caps;
 use steering::SteerQueue;
 
 /// Text-only answers in a review run: the review ends with a decision, then the close.
-const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_ticket (Approve, or Reopen with feedback per unmet acceptance criterion). Once an approved ticket is merged, or has no code, call close_ticket with a reason. Stop only when a tool result tells you to.";
+const REVIEW_NUDGE: &str = "Text alone does not finish the review. Call review_ticket (Approve, or Reopen with feedback on every unmet acceptance criterion at once). Once an approved ticket is merged, or has no code, call close_ticket with a reason. Stop only when a tool result tells you to.";
 
 /// Text-only answers in a Lead inbox run.
 const INBOX_NUDGE: &str = "Text alone does not handle the inbox. Use answer_question (or escalate it), approve_permission, create_ticket and assign_ticket until every item is handled; the run ends when the inbox is empty. Only when the user's latest messages ask you to wait or hold, leave those items and say so in one sentence: the user is told.";
