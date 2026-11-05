@@ -22,6 +22,12 @@ from Orca's rules (stablyai/orca: status-bar usage segments, its per-vendor read
      a scratch `CODEX_HOME` with a copy of the login like a run (a refreshed login is handed back the same way).
      Orca's fallback to `chatgpt.com/backend-api/wham/usage` sends Codex's User-Agent and originator: out.
    - **OpenCode Go**: `GET <base>/usage` with the provider's own key (`usage.rolling/weekly/monthly`).
+   - **Devin** and **Grok** (added 2026-11-05): listed without numbers. Devin's quota (daily and weekly %, resets)
+     is shown only by its terminal UI's `/usage`; over ACP, Agenium's channel, `/usage` is unknown and `/status`
+     names the plan only (checked in Agenium's sandbox, no model turn, 3000.11.234), and `devin -p` writes its
+     `trusted_workspaces.json` atomically into Devin's own `cli` folder, beside the user's plugins, which runs keep
+     out of. Third-party readers call an undocumented user-status service with the CLI's login: out, as above.
+     `grok usage` prints one session's tokens and cost, not the plan's quota.
    - **Antigravity**: listed without numbers. agy 1.4.7 has no usage subcommand, and `agy -p /usage` runs as a model
      turn (seen on 2026-10-25), so it is never called.
 3. **Refresh.** Every 15 minutes in the desktop app (and at start), plus the footer's refresh; the UI hears

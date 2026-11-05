@@ -25,7 +25,7 @@ pub struct UsageWindow {
 /// What a vendor last reported.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VendorUsage {
-    /// `claude`, `codex`, `agy`, or `opencode-go:<provider id>`.
+    /// `claude`, `codex`, `agy`, `devin`, `grok`, or `opencode-go:<provider id>`.
     pub vendor: String,
     #[serde(default)]
     pub plan: Option<String>,

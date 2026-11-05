@@ -177,6 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **Devin and Grok on the usage footer** (ADR-67), without numbers and saying where their quota is: neither reports
+  it to another app (Devin's `/usage` exists only in its terminal UI; over ACP it is unknown).
 - **Workers can take in what merged meanwhile** (`update_from_main`, ADR-158 decision 18): Agenium commits their work
   and rebases the branch on main outside the sandbox, where git writes are blocked; a conflict lists the files and a
   second call keeps the worker's version once it brought main's change in. The rebase messages point to it.

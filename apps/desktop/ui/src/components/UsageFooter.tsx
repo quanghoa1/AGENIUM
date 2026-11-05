@@ -9,7 +9,7 @@ import { useApp } from "../lib/store";
 import type { VendorUsage } from "../lib/types";
 import { ago, cn } from "./ui";
 
-const NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", agy: "Antigravity" };
+const NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", agy: "Antigravity", devin: "Devin", grok: "Grok" };
 
 function vendorName(id: string) {
   if (id.startsWith("opencode-go:")) {

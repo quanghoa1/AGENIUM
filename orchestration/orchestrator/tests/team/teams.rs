@@ -735,14 +735,26 @@ fn vendor_usage_keeps_the_last_good_reading() {
         compatible: true,
         note: None,
     };
-    let rows = f.app.vendor_usage(&[codex]);
-    assert_eq!(rows.len(), 1);
+    let cli = |kind| agenium_cli_backend::CliInfo {
+        kind,
+        ..codex.clone()
+    };
+    let (devin, grok) = (
+        cli(agenium_cli_backend::CliKind::Devin),
+        cli(agenium_cli_backend::CliKind::Grok),
+    );
+    let rows = f.app.vendor_usage(&[grok, devin, codex]);
+    let ids: Vec<&str> = rows.iter().map(|r| r.vendor.as_str()).collect();
+    assert_eq!(ids, ["codex", "devin", "grok"]);
     assert_eq!(rows[0].windows[0].used_percent, 42.0);
     assert_eq!(
         rows[0].updated_at, "2026-10-25T00:00:00Z",
         "the good reading's time"
     );
     assert!(rows[0].error.as_deref().unwrap().contains("did not answer"));
+    // Devin and Grok are listed without numbers, saying where their quota is (ADR-67).
+    assert!(rows[1].windows.is_empty() && rows[1].note.as_deref().unwrap().contains("/usage"));
+    assert!(rows[2].windows.is_empty() && rows[2].note.as_deref().unwrap().contains("grok usage"));
 }
 
 /// ADR-152: a team from a template can run each role on its own model (the template's `default_model`) when this

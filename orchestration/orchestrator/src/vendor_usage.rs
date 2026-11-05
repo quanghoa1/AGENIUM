@@ -59,9 +59,15 @@ impl App {
         let mut out = Vec::new();
         let mut clis: Vec<_> = clis.iter().collect();
         clis.sort_by_key(|c| {
-            [CliKind::Claude, CliKind::Codex, CliKind::Agy]
-                .iter()
-                .position(|k| *k == c.kind)
+            [
+                CliKind::Claude,
+                CliKind::Codex,
+                CliKind::Agy,
+                CliKind::Devin,
+                CliKind::Grok,
+            ]
+            .iter()
+            .position(|k| *k == c.kind)
         });
         let row = |id: &str| {
             known
@@ -74,6 +80,8 @@ impl App {
                 CliKind::Claude => "claude",
                 CliKind::Codex => "codex",
                 CliKind::Agy => "agy",
+                CliKind::Devin => "devin",
+                CliKind::Grok => "grok",
                 _ => continue,
             };
             let mut r = row(id);
@@ -83,6 +91,15 @@ impl App {
                 r.note = Some("updates when a Claude agent runs, or read it now".into());
             } else if c.kind == CliKind::Agy {
                 r.note = Some("Antigravity does not report its quota to other apps".into());
+            } else if c.kind == CliKind::Devin {
+                // Checked 2026-11-05 (3000.11.234): over ACP `/usage` is unknown and `/status` names the plan only;
+                // `devin -p` must write into Devin's own folder, beside the user's plugins. Its terminal UI shows it.
+                r.note = Some("Devin shows its quota only in its own terminal (/usage), Devin Desktop or app.devin.ai".into());
+            } else if c.kind == CliKind::Grok {
+                r.note = Some(
+                    "Grok reports token use per session only (grok usage), not its plan's quota"
+                        .into(),
+                );
             }
             out.push(r);
         }
