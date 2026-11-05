@@ -133,6 +133,7 @@ impl App {
             Intent::ReadTicket(q) => self.read_ticket(ctx, q),
             Intent::ReadSpec(_) => self.read_spec(ctx),
             Intent::AddDependency(a) => self.add_dependency(ctx, a),
+            Intent::ShareImage(a) => self.share_image(ctx, a),
             Intent::SetMemberMcpKey(k) => self.set_member_mcp_key(ctx, k),
             Intent::ConfirmLink(l) => self.confirm_link(ctx, l),
             Intent::CreateAggregate(a) => self.create_aggregate(ctx, &project, a),

@@ -8,7 +8,7 @@ impl App {
         &self,
         ctx: &CallCtx,
         project: &projects::Project,
-        r: WorkReport,
+        mut r: WorkReport,
     ) -> Result<Outcome> {
         let pid = ctx.project;
         // Pre-checks outside the transaction so the auto-commit only happens for a report that can be accepted.
@@ -33,6 +33,21 @@ impl App {
             )));
         }
         crate::templates::validate_extension(&t0.report_template, &r.extension)?;
+        // Screenshots go to the project's evidence folder (outside git, kept after the worktree), named by file.
+        if r.artifacts.iter().any(|a| a.kind == "screenshot") {
+            if let Some(ws) = self
+                .store
+                .read(|c| workspaces::get(c, t0.id))?
+                .filter(|w| !w.removed)
+            {
+                crate::evidence::keep(
+                    std::path::Path::new(&project.path),
+                    std::path::Path::new(&ws.worktree),
+                    t0.key.as_str(),
+                    &mut r,
+                )?;
+            }
+        }
         // Auto-commit the worktree (journal-first) and learn whether the ticket carries code.
         let commit = self.auto_commit(project, &t0, agent, ctx.intent_id.as_deref())?;
         self.commit(ctx, |w| {

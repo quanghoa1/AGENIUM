@@ -63,6 +63,8 @@ export const api = {
   ticket: (project: string, key: string) => call<TicketDetail>("ticket", { project, key }),
   ticketDiff: (project: string, key: string) =>
     call<{ diff: string; truncated?: boolean; branch?: string; merged?: string | null; note?: string }>("ticket_diff", { project, key }),
+  evidenceImage: (project: string, key: string, image: string) =>
+    call<{ media_type: string; base64: string }>("evidence_image", { project, key, image }),
   ticketFile: (project: string, key: string, path: string) =>
     call<{ original: string | null; modified: string | null; binary: boolean; too_big: boolean }>("ticket_file", { project, key, path }),
   agentDetail: (agent: string) => call<AgentDetail>("agent_detail", { agent }),

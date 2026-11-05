@@ -149,6 +149,13 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    `Ticket` and `Agenium-Intent` trailers kept) and saying how many steps it was; the steps stay on its branch until
    it closes. `Agenium-Squash-Of: <head>` lets a replayed merge find it merged (`Repo::squash_of`), since the branch
    is no longer an ancestor of main. A ticket of one commit goes in as it is.
+26. **Screenshots for acceptance, in the report and in the chat** (the owner: "nghiệm thu thì cần agent cung cấp ảnh
+   về sản phẩm trong chat"): nothing showed an image of the work. A report's artifacts of kind `screenshot` (a path
+   in the worktree, best under `.agenium/shots/`, outside git) are checked on submit (inside the worktree, a PNG,
+   JPEG, GIF or WebP by its bytes, at most 3.75 MB) and copied to `<project>/.agenium/evidence/<KEY>/` (kept after the
+   worktree goes; every run of the project may read it, so the Lead's review looks at them with `view_image`). The
+   ticket's report card shows them. The Lead's `share_image` (a ticket and the file name) puts one into its chat
+   with the user, shown under the call, to accept the work together.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

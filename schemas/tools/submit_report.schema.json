@@ -2,7 +2,7 @@
   "$id": "https://agenium.dev/schemas/v1/tools/submit_report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run.",
+  "description": "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run. When the work shows on screen, attach screenshots of it as artifacts {kind: \"screenshot\", ref: <path in your worktree>} (save them under .agenium/shots/, outside git): the Lead and the user see them.",
   "properties": {
     "acceptance": {
       "description": "One result per acceptance criterion of the ticket (all of them).",

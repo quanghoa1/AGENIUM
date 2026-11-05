@@ -140,6 +140,25 @@ fn ticket_diff_now(o: &crate::state::Opened, project: &str, key: &str) -> R<Valu
 
 /// One changed file of a ticket, before and after (for a side-by-side diff): the content at the ticket's base, and
 /// the worktree's file (or, once merged, the merge's). `null` = the file does not exist on that side.
+/// A screenshot of a ticket's report (ADR-158), by its file name: its media type and bytes (base64).
+#[tauri::command]
+pub fn evidence_image(
+    d: State<'_, Desktop>,
+    project: String,
+    key: String,
+    image: String,
+) -> R<Value> {
+    use base64::Engine as _;
+    let o = d.opened()?;
+    let p = o.app.project(pid(&project)?).map_err(err)?;
+    let (media_type, bytes) =
+        agenium_orchestrator::evidence::read(std::path::Path::new(&p.path), &key, &image)
+            .ok_or_else(|| format!("{key} has no screenshot {image}"))?;
+    Ok(
+        json!({ "media_type": media_type, "base64": base64::engine::general_purpose::STANDARD.encode(bytes) }),
+    )
+}
+
 #[tauri::command]
 pub async fn ticket_file(
     d: State<'_, Desktop>,

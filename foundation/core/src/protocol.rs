@@ -80,6 +80,8 @@ protocol_tools! {
         "Revise the plan (version+1, with a reason). Use it instead of splitting a ticket: add items, then create tickets for them. Scope changes need user approval.";
     CreateTicket => "create_ticket", Lead, NewTicket,
         "Create a ticket for an item of the approved plan. depends_on must stay acyclic; tickets whose scope_paths overlap an open ticket must depend on it.";
+    ShareImage => "share_image", Lead, ShareImage,
+        "Show the user, in this chat, a screenshot a worker attached to a ticket's report (its artifacts of kind screenshot: the image's file name): to accept the work together, or to ask about what it shows. One image per call, with a caption.";
     AddDependency => "add_dependency", Lead, AddDependency,
         "Make an open ticket wait for another one (add to its depends_on, for example a fix found while it ran): it starts, or goes on, only once that one is done. Refused when it would make a cycle or the other is cancelled.";
     AssignTicket => "assign_ticket", Lead, AssignTicket,
@@ -117,7 +119,7 @@ protocol_tools! {
     RequestPermission => "request_permission", Worker, PermissionRequest,
         "Request a permission the sandbox does not give (network domain, path outside the worktree, blocked command). The ticket pauses until decided.";
     SubmitReport => "submit_report", Worker, WorkReport,
-        "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run.";
+        "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run. When the work shows on screen, attach screenshots of it as artifacts {kind: \"screenshot\", ref: <path in your worktree>} (save them under .agenium/shots/, outside git): the Lead and the user see them.";
     UpdateFromMain => "update_from_main", Worker, UpdateFromMain,
         "Bring the latest main into your worktree (rebase, sync, pull what merged): Agenium commits your changes on your branch and rebases it on main, since git commit, stash and rebase cannot run in the sandbox. Use it when a ticket you depend on merged or you are told to rebase. On a conflict nothing changes and the files are listed: read main's version (git show main:<file>), bring its change into your file, then call again with keep_mine=true.";
     SuggestLink => "suggest_link", Worker, SuggestLink,
@@ -222,6 +224,16 @@ pub struct UpdateFromMain {
     pub keep_mine: bool,
 }
 
+/// share_image: one screenshot of a ticket's report (`image`: its file name), shown to the user in the chat.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ShareImage {
+    pub ticket_id: crate::ids::TicketKey,
+    pub image: String,
+    #[serde(default)]
+    pub caption: String,
+}
+
 /// add_dependency: `ticket_id` waits for `depends_on` from now on.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -246,6 +258,7 @@ pub enum Intent {
     CreateTicket(NewTicket),
     AssignTicket(AssignTicket),
     AddDependency(AddDependency),
+    ShareImage(ShareImage),
     AnswerQuestion(AnswerQuestion),
     ReviewTicket(ReviewDecision),
     CloseTicket(CloseTicket),
@@ -298,6 +311,7 @@ impl Intent {
             CreateTicket(_) => ProtocolTool::CreateTicket,
             AssignTicket(_) => ProtocolTool::AssignTicket,
             AddDependency(_) => ProtocolTool::AddDependency,
+            ShareImage(_) => ProtocolTool::ShareImage,
             AnswerQuestion(_) => ProtocolTool::AnswerQuestion,
             ReviewTicket(_) => ProtocolTool::ReviewTicket,
             CloseTicket(_) => ProtocolTool::CloseTicket,
@@ -383,6 +397,7 @@ impl Intent {
             CreateAggregate(x) => x.validate(),
             AssignTicket(_)
             | AddDependency(_)
+            | ShareImage(_)
             | ApprovePermission(_)
             | ProposeRole(_)
             | GetTeam(_)
@@ -412,7 +427,7 @@ mod tests {
         // submit_plan_draft (Worker group, planner role only; ADR-59), propose_new_skill (Shared; ADR-91), and
         // list_tickets and read_ticket (Lead group: the board mid-run, 2026-11-04), update_from_main (Worker: Agenium
         // rebases the worktree outside the sandbox, ADR-158), read_spec (Shared: the whole approved spec, ADR-158), add_dependency (Lead: a wait found
-        // mid-run, ADR-158).
+        // mid-run, ADR-158), share_image (Lead: a report's screenshot in the chat, ADR-158).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -420,10 +435,10 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (19, 7, 6)
+            (20, 7, 6)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 32);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 25);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 33);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 26);
         assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 13);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);

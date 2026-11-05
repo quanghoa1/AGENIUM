@@ -730,3 +730,54 @@ fn a_worker_waits_for_its_review_before_a_new_ticket() {
         "the reopened one first, before {a2}"
     );
 }
+
+/// A worker attaches a screenshot to its report: it is kept out of the worktree, under the ticket's evidence, and the
+/// Lead can show it to the user in the chat; an image the report does not have is refused.
+#[test]
+fn a_reports_screenshot_is_kept_and_the_lead_shares_it() {
+    let f = &fixture();
+    let a = solo_with_plan(f, &[("PI-1", &[])]);
+    let k = started(f, a.id, "PI-1", "Page", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wt = worktree(f, k.as_str());
+    let png = [&[0x89, b'P', b'N', b'G', 13, 10, 26, 10][..], &[0u8; 32]].concat();
+    std::fs::create_dir_all(wt.join(".agenium/shots")).unwrap();
+    std::fs::write(wt.join(".agenium/shots/home.png"), &png).unwrap();
+    write(&wt, "index.html", "<h1>Hi</h1>");
+    let mut r = report(k.as_str());
+    r.artifacts = vec![agenium_core::forms::ArtifactRef {
+        kind: "screenshot".into(),
+        reference: ".agenium/shots/home.png".into(),
+    }];
+    f.app
+        .apply(
+            &CallCtx {
+                run: Some(run.run),
+                ..ctx(f, Actor::Worker(a.id))
+            },
+            Intent::SubmitReport(r),
+        )
+        .unwrap();
+    let root = std::path::PathBuf::from(&f.app.project(f.project.id).unwrap().path);
+    assert_eq!(
+        agenium_orchestrator::evidence::read(&root, k.as_str(), "home.png")
+            .unwrap()
+            .1,
+        png
+    );
+    let share = |image: &str| {
+        f.app.apply(
+            &ctx(f, Actor::Lead(a.id)),
+            Intent::ShareImage(agenium_core::protocol::ShareImage {
+                ticket_id: k.clone(),
+                image: image.into(),
+                caption: "The home page".into(),
+            }),
+        )
+    };
+    assert_eq!(share("home.png").unwrap().result["shown"], true);
+    assert!(share("other.png")
+        .unwrap_err()
+        .to_string()
+        .contains("no screenshot"));
+}

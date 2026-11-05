@@ -1,0 +1,27 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/share_image.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Show the user, in this chat, a screenshot a worker attached to a ticket's report (its artifacts of kind screenshot: the image's file name): to accept the work together, or to ask about what it shows. One image per call, with a caption.",
+  "properties": {
+    "caption": {
+      "default": "",
+      "type": "string"
+    },
+    "image": {
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "image"
+  ],
+  "title": "share_image",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

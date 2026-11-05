@@ -82,4 +82,25 @@ impl App {
             "version": s.version, "approved": s.approved_by.is_some(), "spec": s.body,
         })))
     }
+
+    /// share_image: a screenshot of a ticket's report, shown to the user in the chat (the chat reads it from the call).
+    pub(super) fn share_image(
+        &self,
+        ctx: &CallCtx,
+        a: agenium_core::protocol::ShareImage,
+    ) -> Result<Outcome> {
+        self.require_project_lead(ctx)?;
+        let p = self.project(ctx.project)?;
+        let t = self.ticket(ctx.project, &a.ticket_id)?;
+        if crate::evidence::read(std::path::Path::new(&p.path), t.key.as_str(), &a.image).is_none()
+        {
+            return Err(invalid(format!(
+                "{} has no screenshot {:?}: read_ticket shows its report's screenshots (artifacts of kind screenshot)",
+                t.key, a.image
+            )));
+        }
+        Ok(Outcome::ok(
+            serde_json::json!({ "shown": true, "ticket_id": t.key, "image": a.image }),
+        ))
+    }
 }

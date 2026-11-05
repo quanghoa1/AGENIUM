@@ -81,6 +81,7 @@ fn main() {
             api::ticket,
             api::ticket_diff,
             api::ticket_file,
+            api::evidence_image,
             api::agent_detail,
             api::audit,
             api::agents,

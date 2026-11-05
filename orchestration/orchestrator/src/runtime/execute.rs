@@ -102,6 +102,13 @@ impl Runtime {
         if picks.is_dir() {
             ctx.read_roots.push(picks.clone());
         }
+        // Screenshots of the tickets' reports (ADR-158): the Lead's review looks at them with view_image.
+        let evidence = std::path::Path::new(&p.path)
+            .join(".agenium")
+            .join("evidence");
+        if evidence.is_dir() {
+            ctx.read_roots.push(evidence);
+        }
         // Documents the user attached in the chat (ADR-152): kept whole, so an agent can open the original again.
         let attached = std::path::Path::new(&p.path)
             .join(".agenium")

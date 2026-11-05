@@ -12,6 +12,7 @@ pub mod effects;
 pub mod engine;
 mod engine_support;
 mod error;
+pub mod evidence;
 pub mod helper_sessions;
 pub mod inbox;
 pub mod judge;

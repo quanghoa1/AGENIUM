@@ -1,5 +1,6 @@
 import { CheckCircle2, Crown, HelpCircle, Package, RotateCcw, Send, ShieldAlert, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { EvidenceImage } from "../../components/EvidenceImage";
 import { Markdown } from "../../components/Markdown";
 import { Avatar, Mono, ago, cn } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -100,6 +101,20 @@ export function CommentCard({
               <div className="label mb-1.5">{app.t("ticket.summary")}</div>
               <div className="rounded-lg border border-line bg-background/50 p-3">
                 <Markdown className="text-xs leading-relaxed text-fg" text={d.summary} />
+              </div>
+            </div>
+          )}
+
+          {/* Screenshots of the work (ADR-158) */}
+          {Array.isArray(d.artifacts) && d.artifacts.some((a: { kind: string }) => a.kind === "screenshot") && (
+            <div>
+              <div className="label mb-1.5">{app.t("ticket.screenshots")}</div>
+              <div className="flex flex-wrap gap-2">
+                {d.artifacts
+                  .filter((a: { kind: string }) => a.kind === "screenshot")
+                  .map((a: { ref: string }) => (
+                    <EvidenceImage key={a.ref} project={project} ticket={ticket} image={a.ref} />
+                  ))}
               </div>
             </div>
           )}

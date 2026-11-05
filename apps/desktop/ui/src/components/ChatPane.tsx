@@ -1,6 +1,7 @@
 // The conversation with a project's Lead (or Solo agent), like a CLI chat: history, the turn in progress (its
 // reasoning folded in an expandable "thinking" block, the tool being called, the text as it streams), the input.
 // Used by the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
+import { EvidenceImage } from "./EvidenceImage";
 import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Package, Send, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
@@ -473,7 +474,15 @@ export function ChatPane({
               <div className="min-w-0 max-w-[80%] flex-1 space-y-1.5">
                 {grouped(steps, (l) => l.role === "tool").map((g, k) =>
                   "calls" in g ? (
-                    <Steps key={k} lines={g.calls} />
+                    <div key={k} className="space-y-1.5">
+                      <Steps lines={g.calls} />
+                      {/* A screenshot the Lead shared (ADR-158): shown with the turn. */}
+                      {g.calls
+                        .filter((l) => /(^|__)share_image$/.test(l.text) && l.ok !== false && (l.args as any)?.ticket_id)
+                        .map((l, i) => (
+                          <EvidenceImage key={i} project={project} ticket={(l.args as any).ticket_id} image={(l.args as any).image} caption={(l.args as any).caption} />
+                        ))}
+                    </div>
                   ) : (
                     (({ item: l }) =>
                   l.role === "memory" ? (
