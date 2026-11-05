@@ -285,7 +285,7 @@ export const work = {
   "audit.copied": "Markdown copied.",
   "live.active": "Active agents",
   "live.parallel": "Max at once",
-  "live.parallelHint": "Ticket runs at once: up to runtime.max_parallel_agents per running project (config.toml), so in all the running projects times it.",
+  "live.parallelHint": "Ticket runs that may go at once: each worker takes one ticket at a time, so a running project goes as wide as its workers, at most {cap} on this machine (runtime.max_parallel_agents in config.toml). How many run now depends on which tickets are ready.",
   "live.toolsNow": "Running tools",
   "live.tokensToday": "Tokens today",
   "live.pauseAll": "Pause all agents",

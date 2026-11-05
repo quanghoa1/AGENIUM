@@ -287,7 +287,7 @@ export const work: Record<keyof typeof en, string> = {
   "audit.copied": "Đã chép Markdown.",
   "live.active": "Agent đang chạy",
   "live.parallel": "Tối đa song song",
-  "live.parallelHint": "Số run ticket chạy cùng lúc: tối đa runtime.max_parallel_agents cho mỗi project đang chạy (config.toml), nên tổng cộng là số project đang chạy nhân với nó.",
+  "live.parallelHint": "Số run ticket có thể chạy cùng lúc: mỗi worker làm một ticket một lúc, nên một project đang chạy rộng tới số worker của nó, tối đa {cap} trên máy này (runtime.max_parallel_agents trong config.toml). Số đang chạy thực tế tuỳ ticket nào đã sẵn sàng.",
   "live.toolsNow": "Tool đang gọi",
   "live.tokensToday": "Token hôm nay",
   "live.pauseAll": "Tạm dừng tất cả",

@@ -266,12 +266,14 @@ export function LiveView() {
         <span className="text-sm font-semibold">{app.t("nav.live")}</span>
         <Pill icon={<Bot className="h-3.5 w-3.5 text-blue-500" />} label={app.t("live.active")} value={`${data.totals.working}/${data.agents.length}`} />
         {(() => {
-          // Each running project starts up to this many ticket runs: in all, projects × the setting.
-          const per = app.status?.max_parallel_agents ?? 0;
-          const running = app.projects.filter((p) => p.run_state === "Running").length;
-          return per > 0 && running > 0 ? (
-            <span title={app.t("live.parallelHint")}>
-              <Pill icon={<Bot className="h-3.5 w-3.5 text-subtle" />} label={app.t("live.parallel")} value={`${running} × ${per} = ${running * per}`} />
+          // Each worker takes one ticket at a time: a running project goes as wide as its workers, up to this machine's
+          // ceiling (runtime.max_parallel_agents); how many run now still follows which tickets are ready.
+          const cap = app.status?.max_parallel_agents ?? 0;
+          const running = app.projects.filter((p) => p.run_state === "Running" && p.team);
+          const most = running.reduce((n, p) => n + Math.min(p.team?.workers ?? 0, cap || Infinity), 0);
+          return running.length > 0 && most > 0 ? (
+            <span title={app.t("live.parallelHint").replace("{cap}", String(cap))}>
+              <Pill icon={<Bot className="h-3.5 w-3.5 text-subtle" />} label={app.t("live.parallel")} value={String(most)} />
             </span>
           ) : null;
         })()}

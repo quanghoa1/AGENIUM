@@ -29,8 +29,14 @@ pub(super) fn project_summary(o: &Opened, p: &agenium_store::core::projects::Pro
         }
         let team = o.app.team_of_project(p.id).map_err(err)?.map(|(t, m)| {
             let lead_name = m.iter().find(|a| Some(a.id) == t.lead).map(|a| a.name.clone());
+            // Who takes tickets: each runs one at a time, so the team's own parallelism (a solo agent works alone).
+            let workers = m
+                .iter()
+                .filter(|a| a.role_kind == agenium_core::RoleKind::Worker && !o.app.is_planner_role(&a.role))
+                .count()
+                .max(usize::from(t.solo));
             json!({ "id": t.id, "name": t.name, "solo": t.solo, "template": t.template, "lead": t.lead,
-                    "lead_name": lead_name, "members": m.len() })
+                    "lead_name": lead_name, "members": m.len(), "workers": workers })
         });
         let pv = o.app.plan_view(p.id).map_err(err)?;
         // A reopened project waiting for its busy team (ADR-130); one with a team waits for no other.

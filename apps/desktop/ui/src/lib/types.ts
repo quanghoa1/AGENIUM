@@ -66,7 +66,7 @@ export interface ProjectSummary {
   key_prefix: string;
   status: string;
   main_branch: string;
-  team: { id: string; name: string; solo: boolean; template: string; lead?: string | null; lead_name?: string | null; members: number } | null;
+  team: { id: string; name: string; solo: boolean; template: string; lead?: string | null; lead_name?: string | null; members: number; workers?: number } | null;
   tickets: number;
   by_status: Record<string, number>;
   plan_items: number;

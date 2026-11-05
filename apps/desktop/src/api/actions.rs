@@ -93,21 +93,29 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
     let mut calls: std::collections::HashMap<String, usize> = Default::default();
     // What plugins' hooks did in each turn (ADR-157), kept apart from the conversation: shown after the user's message.
     let notes = mem
-        .load_messages(&agenium_orchestrator::runtime::learn::plugin_hooks_session(p))
+        .load_messages(&agenium_orchestrator::runtime::learn::plugin_hooks_session(
+            p,
+        ))
         .unwrap_or_default();
     // Which plugin each of the Lead's skills and servers comes from, so a call of one is shown as the plugin's.
     let lead_agent = o.app.agent(lead).map_err(err)?;
-    let plugin_skills: HashMap<String, String> = o
-        .rt
-        .skills(&lead_agent)
-        .skills
-        .iter()
-        .filter(|s| s.meta.origin == agenium_skills::Origin::Plugin)
-        .filter_map(|s| {
-            let plugin = s.meta.dir.parent()?.parent()?.file_name()?.to_string_lossy().into_owned();
-            Some((s.meta.name.clone(), plugin))
-        })
-        .collect();
+    let plugin_skills: HashMap<String, String> =
+        o.rt.skills(&lead_agent)
+            .skills
+            .iter()
+            .filter(|s| s.meta.origin == agenium_skills::Origin::Plugin)
+            .filter_map(|s| {
+                let plugin = s
+                    .meta
+                    .dir
+                    .parent()?
+                    .parent()?
+                    .file_name()?
+                    .to_string_lossy()
+                    .into_owned();
+                Some((s.meta.name.clone(), plugin))
+            })
+            .collect();
     let plugins: Vec<String> = lead_agent
         .skills
         .iter()
@@ -119,7 +127,10 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
             let skill = args["name"].as_str().or(args["skill"].as_str())?;
             return plugin_skills.get(skill).cloned();
         }
-        plugins.iter().find(|p| bare.contains(&format!("mcp__{p}-"))).cloned()
+        plugins
+            .iter()
+            .find(|p| bare.contains(&format!("mcp__{p}-")))
+            .cloned()
     };
     for (i, m) in msgs.into_iter().enumerate() {
         let Ok(m) = serde_json::from_value::<agenium_llm::Message>(m) else {
@@ -151,7 +162,10 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
             let mut here: Vec<&Value> = notes
                 .iter()
                 .filter(|n| n["at"].as_u64() == Some(i as u64))
-                .filter(|n| n["ok"] == json!(false) || n["text"].as_str().is_some_and(|t| !t.trim().is_empty()))
+                .filter(|n| {
+                    n["ok"] == json!(false)
+                        || n["text"].as_str().is_some_and(|t| !t.trim().is_empty())
+                })
                 .collect();
             here.sort_by_key(|n| n["event"] != json!("SessionStart"));
             for n in here {
@@ -166,7 +180,8 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
                 }
                 Part::ToolCall { id, name, args, .. } => {
                     calls.insert(id.clone(), out.len());
-                    let mut line = json!({ "role": "tool", "text": name, "args": args, "ok": true });
+                    let mut line =
+                        json!({ "role": "tool", "text": name, "args": args, "ok": true });
                     if let Some(plugin) = plugin_of_call(name, args) {
                         line["plugin"] = json!(plugin);
                     }

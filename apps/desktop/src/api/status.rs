@@ -40,8 +40,8 @@ pub fn status(d: State<'_, Desktop>, handle: AppHandle) -> Value {
         // The installer's version (tauri.conf.json), the one Windows, the .deb and the .app show; not the crate's.
         "version": handle.package_info().version.to_string(),
         "ui_language": cfg.as_ref().map(|c| c.app.language.clone()),
-        // Ticket runs at once, per project (`runtime.max_parallel_agents`): the live view multiplies it by the running
-        // projects, so the user sees how many runs may go at once in all.
+        // This machine's ceiling on ticket runs at once per project (`runtime.max_parallel_agents`, lowered by the
+        // setup on a smaller machine): the live view sums, per running project, its workers up to this ceiling.
         "max_parallel_agents": cfg.as_ref().map(|c| c.runtime.max_parallel_agents),
         "model": d.model_prep(),
     })
