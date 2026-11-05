@@ -61,3 +61,61 @@ mod tests {
         assert!(t.starts_with("éééééééééé"), "cuts on characters, not bytes");
     }
 }
+
+/// Whether `text` is `read_file`'s numbered view copied back (each line `  12\t...`, the numbers counting up) rather
+/// than a file's own text: a weaker model wrote a whole spec so, every line prefixed twice.
+pub fn numbered_copy(text: &str) -> bool {
+    let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+    if lines.len() < 3 {
+        return false;
+    }
+    let mut prev: Option<u64> = None;
+    let mut counted = 0;
+    for l in &lines {
+        let Some((n, _)) = l.split_once('\t') else {
+            continue;
+        };
+        let Ok(n) = n.trim_start().parse::<u64>() else {
+            continue;
+        };
+        if prev.is_none_or(|p| n > p) {
+            counted += 1;
+        }
+        prev = Some(n);
+    }
+    counted * 10 >= lines.len() * 8
+}
+
+/// The refusal for [`numbered_copy`] content.
+pub fn numbered_refusal(rel: &str) -> crate::ToolError {
+    crate::ToolError::new(
+        "numbered_lines",
+        format!(
+            "the content for {rel} still has read_file's line numbers (each line starts with its number and a tab): \
+             write the file's own text without them"
+        ),
+    )
+}
+
+#[cfg(test)]
+mod numbered_tests {
+    use super::*;
+
+    #[test]
+    fn read_files_numbers_are_told_from_a_files_own_text() {
+        assert!(numbered_copy(
+            "     1\t# Spec\n     2\t\n     3\tLine\n     4\tMore\n"
+        ));
+        assert!(
+            numbered_copy("     1\t     1\t# Spec\n     2\t     2\tA\n     3\t     3\tB\n"),
+            "twice"
+        );
+        assert!(!numbered_copy("# Spec\n\nSome text\nmore\n"));
+        assert!(!numbered_copy("a\tb\nc\td\ne\tf\n"), "a tab-separated file");
+        assert!(
+            !numbered_copy("3\tx\n2\ty\n1\tz\n"),
+            "numbers not counting up"
+        );
+        assert!(!numbered_copy("1\tonly two\n2\tlines\n"));
+    }
+}

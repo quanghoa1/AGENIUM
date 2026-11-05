@@ -35,6 +35,9 @@ impl Tool for WriteFile {
                 format!("{rel} is a directory"),
             ));
         }
+        if crate::text::numbered_copy(&a.content) {
+            return Err(crate::text::numbered_refusal(&rel));
+        }
         let existed = p.exists();
         if existed {
             let cur = super::handle::read_regular(&p).map_err(|e| io_err(&rel, e))?;

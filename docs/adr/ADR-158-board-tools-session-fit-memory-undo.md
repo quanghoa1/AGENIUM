@@ -110,6 +110,10 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    outside the sandbox; the workspace base follows. On a conflict nothing changes and the files are listed: the
    worker brings main's change into its file (`git show main:<file>` reads) and calls again with `keep_mine`, so the
    hunks that still conflict keep its version. Both messages now point to the tool.
+19. **A file is not written with read_file's line numbers** (same team): the docs worker (a free model) wrote
+   `docs/spec.md` from `read_file`'s numbered view, every line prefixed twice, and the Lead reopened it for that.
+   `write_file`, and `edit_file`'s new text, refuse content whose lines are mostly `<n>	...` with the numbers counting
+   up (a tab-separated file or two lines pass), saying to write the file's own text.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

@@ -38,6 +38,9 @@ pub(super) fn apply_edit(
             format!("{at}old_string is empty; use write_file to create files"),
         ));
     }
+    if crate::text::numbered_copy(&e.new_string) && !crate::text::numbered_copy(&e.old_string) {
+        return Err(crate::text::numbered_refusal(rel));
+    }
     if e.old_string == e.new_string {
         return Err(ToolError::new(
             "invalid_arguments",
