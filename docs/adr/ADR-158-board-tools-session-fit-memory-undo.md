@@ -143,6 +143,12 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    going (one at a time: one Lead), and a worker its review freed starts its next ticket while others run. No agent
    has two runs at once; a ticket runs once a round (a reopen goes on in the next round, three seconds later); the
    round ends when nothing runs and nothing more can start.
+25. **One commit per ticket on main** (the owner: "gộp mỗi ticket thành 1 commit"): each report was a commit and
+   main took them all (StudyDeck: 39 commits for 15 tickets, ten `SD-11: ...` in a row). A ticket of several commits
+   now goes in as one, with the tree its rebased and checked head has, named and signed as its first commit (its
+   `Ticket` and `Agenium-Intent` trailers kept) and saying how many steps it was; the steps stay on its branch until
+   it closes. `Agenium-Squash-Of: <head>` lets a replayed merge find it merged (`Repo::squash_of`), since the branch
+   is no longer an ancestor of main. A ticket of one commit goes in as it is.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

@@ -86,6 +86,10 @@ impl Repo {
                 sha: self.head_sha(&self.main)?.unwrap_or(head),
             }));
         }
+        // A ticket squashed into main: its branch is no ancestor, the squash names its head.
+        if let Some(sha) = self.squash_of(&head)? {
+            return Ok(Prepared::Done(MergeOutcome::AlreadyMerged { sha }));
+        }
         // A rebase of an earlier attempt the process died in is aborted first, which puts the branch back: read as it
         // was, its partly rebased HEAD passed for rebased, was checked and could be fast-forwarded into main (audit
         // M11, 2026-10-31). A worktree off its branch is an error, never merged.
@@ -121,6 +125,8 @@ impl Repo {
     /// error. No hook runs: a relative `core.hooksPath` (husky's `.husky`) would find the hooks the merged branch
     /// brings, written by an agent, and run them here, on the host.
     pub fn fast_forward(&self, head: &str, main_before: &str) -> Result<MergeOutcome, VcsError> {
+        let target = self.squashed(head, main_before)?;
+        let head = target.as_str();
         self.git.check(
             &self.root,
             [
@@ -170,5 +176,68 @@ impl Repo {
             let _ = std::fs::rename(&aside, &dir);
         }
         r
+    }
+
+    /// What goes into main for the ticket branch `head` (rebased on `main_before`): `head` itself when it is one
+    /// commit, else one commit with its tree, named as its first commit (`KEY: title`) and by its author, so main
+    /// reads one commit per ticket; the steps stay on the ticket's branch. `Agenium-Squash-Of` names `head`, so a
+    /// replay finds it merged ([`Repo::squash_of`]).
+    fn squashed(&self, head: &str, main_before: &str) -> Result<String, VcsError> {
+        let range = format!("{main_before}..{head}");
+        let subjects = self
+            .git
+            .check(&self.root, ["log", "--format=%s", "--reverse", &range])?;
+        let subjects: Vec<&str> = subjects.lines().filter(|l| !l.trim().is_empty()).collect();
+        if subjects.len() < 2 {
+            return Ok(head.to_owned());
+        }
+        let first = self.git.check(
+            &self.root,
+            ["log", "--format=%B%x00%an%x00%ae", "--reverse", &range],
+        )?;
+        let mut parts = first.split('\0');
+        let body = parts.next().unwrap_or_default().trim().to_owned();
+        let (name, email) = (
+            parts.next().unwrap_or("Agenium").trim().to_owned(),
+            parts
+                .next()
+                .unwrap_or(git::COMMITTER_EMAIL)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_owned(),
+        );
+        // The first commit's message keeps its trailers (Ticket, Agenium-Intent); the squash adds what it holds.
+        let message = format!(
+            "{body}\n\nSteps: {} commits on the ticket's branch.\nAgenium-Squash-Of: {head}",
+            subjects.len()
+        );
+        let tree = format!("{head}^{{tree}}");
+        let sha = self.git.check_env(
+            &self.root,
+            ["commit-tree", &tree, "-p", main_before, "-m", &message],
+            &[
+                ("GIT_AUTHOR_NAME", name.as_str()),
+                ("GIT_AUTHOR_EMAIL", email.as_str()),
+            ],
+        )?;
+        Ok(sha.trim().to_owned())
+    }
+
+    /// The commit of main that squashed the ticket branch `head` into it, if any.
+    pub fn squash_of(&self, head: &str) -> Result<Option<String>, VcsError> {
+        let out = self.git.check(
+            &self.root,
+            [
+                "log",
+                "--format=%H",
+                "--fixed-strings",
+                &format!("--grep=Agenium-Squash-Of: {head}"),
+                "-1",
+                &self.main,
+            ],
+        )?;
+        Ok(Some(out.trim().to_owned()).filter(|s| !s.is_empty()))
     }
 }

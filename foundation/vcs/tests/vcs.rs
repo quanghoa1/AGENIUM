@@ -630,3 +630,63 @@ fn a_gone_worktree_reached_through_a_link_is_added_again() {
     let back = r.add_worktree("AGN-1", "main").unwrap();
     assert!(back.path.join(".git").exists());
 }
+
+/// A ticket of several commits reaches main as one, named as its first and by its author; its steps stay on the
+/// branch; merging it again finds it merged. A ticket of one commit goes in as it is.
+#[test]
+fn a_ticket_of_several_commits_is_one_commit_on_main() {
+    let d = tempfile::tempdir().unwrap();
+    let r = repo(d.path());
+    let log = |range: &str| {
+        let o = std::process::Command::new("git")
+            .args(["log", "--format=%s|%an", range])
+            .current_dir(d.path().join("proj"))
+            .output()
+            .unwrap();
+        String::from_utf8(o.stdout).unwrap()
+    };
+    let before = r.head_sha("main").unwrap().unwrap();
+    let w = r.add_worktree("AGN-1", "main").unwrap();
+    for (i, step) in ["first", "second", "third"].iter().enumerate() {
+        write(&w.path, "app.txt", step);
+        let msg = format!("AGN-1: Greeting\n\nTicket: AGN-1\nAgenium-Intent: i{i}");
+        r.commit_all(&w.path, &msg, AUTHOR, &[]).unwrap().unwrap();
+    }
+    let head = r.head_sha("agenium/AGN-1").unwrap().unwrap();
+    let out = r.merge_ticket("AGN-1", &NoCheck).unwrap();
+    let MergeOutcome::Merged { sha, changed_files } = out else {
+        panic!("{out:?}")
+    };
+    assert_eq!(changed_files, ["app.txt"]);
+    assert_eq!(
+        log(&format!("{before}..main")),
+        "AGN-1: Greeting|worker-1\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.path().join("proj/app.txt")).unwrap(),
+        "third"
+    );
+    assert_eq!(r.squash_of(&head).unwrap().as_deref(), Some(sha.as_str()));
+    assert_eq!(
+        log(&format!("{before}..agenium/AGN-1")).lines().count(),
+        3,
+        "the steps stay on the branch"
+    );
+    assert!(matches!(
+        r.merge_ticket("AGN-1", &NoCheck).unwrap(),
+        MergeOutcome::AlreadyMerged { .. }
+    ));
+
+    let one = r.head_sha("main").unwrap().unwrap();
+    let w2 = r.add_worktree("AGN-2", "main").unwrap();
+    write(&w2.path, "other.txt", "x");
+    r.commit_all(&w2.path, "AGN-2: Other", AUTHOR, &[])
+        .unwrap()
+        .unwrap();
+    let head2 = r.head_sha("agenium/AGN-2").unwrap().unwrap();
+    let MergeOutcome::Merged { sha, .. } = r.merge_ticket("AGN-2", &NoCheck).unwrap() else {
+        panic!()
+    };
+    assert_eq!(sha, head2, "one commit: as it is");
+    assert_eq!(log(&format!("{one}..main")), "AGN-2: Other|worker-1\n");
+}
