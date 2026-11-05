@@ -73,10 +73,26 @@ impl App {
         // Effective priority (P0 first, raised by waiting), then oldest first.
         let (now, aging) = (chrono::Utc::now(), self.config().runtime.aging_hours);
         let eff = |t: &Ticket| effective_priority(t.priority, &t.created_at, now, aging);
-        cands.sort_by(|a, b| eff(a).cmp(&eff(b)).then(a.created_at.cmp(&b.created_at)));
+        // A reopened ticket goes back to its worker before anything new (the review's points are fresh), then by
+        // effective priority (P0 first, raised by waiting), then oldest first.
+        cands.sort_by(|a, b| {
+            (b.status == TicketStatus::Reopened)
+                .cmp(&(a.status == TicketStatus::Reopened))
+                .then(eff(a).cmp(&eff(b)))
+                .then(a.created_at.cmp(&b.created_at))
+        });
+        // A worker whose report waits for the Lead's decision takes nothing new: a reopen is fixed at once, not after
+        // a ticket it started meanwhile. Not a Solo agent: it reviews its own work, after it (no one else does).
+        let lead = self.team_of_project(project)?.and_then(|(t, _)| t.lead);
+        let awaiting: std::collections::HashSet<AgentId> = ts
+            .iter()
+            .filter(|t| t.status == TicketStatus::Resolved && !t.approved)
+            .filter_map(|t| t.assignee)
+            .filter(|a| Some(*a) != lead)
+            .collect();
         for t in cands {
             let agent = t.assignee.unwrap_or_else(AgentId::new);
-            if out.iter().any(|r| r.agent == agent) {
+            if out.iter().any(|r| r.agent == agent) || awaiting.contains(&agent) {
                 continue;
             }
             let a = self.agent(agent)?;

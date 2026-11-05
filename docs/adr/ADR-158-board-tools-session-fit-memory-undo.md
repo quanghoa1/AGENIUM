@@ -134,6 +134,15 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    start early, depending only where an item needs another's result or shares its paths (`create_plan`'s
    description says the same to the Lead). The review order asks for every problem in one review, the next review
    looking only at what the fix changed. Text only: whether it holds is for the next long run to show.
+24. **A worker waits for its review; reviews do not wait for the round** (the owner, after the habits run: the plan
+   let backend and frontend start together, yet a finished worker waited for the slower one's run, then for the
+   Lead's reviews one by one, before the next round). The owner's rule: a worker whose report waits for the Lead's
+   decision takes no new ticket, so a reopen is fixed at once and not after a ticket started meanwhile; its reopened
+   ticket comes back to it before anything new. A Solo agent reviews its own work after it, as before. In a round,
+   work runs and reviews now go on together: a review starts as soon as a report is in, beside the runs still
+   going (one at a time: one Lead), and a worker its review freed starts its next ticket while others run. No agent
+   has two runs at once; a ticket runs once a round (a reopen goes on in the next round, three seconds later); the
+   round ends when nothing runs and nothing more can start.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

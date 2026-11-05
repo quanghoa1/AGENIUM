@@ -671,3 +671,62 @@ fn the_lead_makes_a_running_ticket_wait_for_a_fix() {
         "the Lead's tool"
     );
 }
+
+/// A worker whose report waits for the Lead's review takes no new ticket (a reopen is fixed at once, not after one it
+/// started meanwhile); the reopened ticket then comes back to it before anything new. Another worker is not held.
+#[test]
+fn a_worker_waits_for_its_review_before_a_new_ticket() {
+    let t = team();
+    planned(&t);
+    let (f, lead) = (&t.f, Actor::Lead(t.lead));
+    let a1 = started(f, t.web, "PI-1", "Page", &[], &["web/page.html"]);
+    let a2 = started(f, t.web, "PI-2", "Styles", &[], &["web/style.css"]);
+    let b1 = started(f, t.api, "PI-2", "Endpoint", &[], &["api/main.rs"]);
+    let ready = || -> Vec<TicketKey> {
+        f.app
+            .ready_tickets(f.project.id)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.ticket.key)
+            .collect()
+    };
+    assert_eq!(ready(), [a1.clone(), b1.clone()], "one ticket per worker");
+    let run = f.app.start_run(f.project.id, &a1, "mock", "m").unwrap();
+    f.app
+        .apply(
+            &CallCtx {
+                run: Some(run.run),
+                ..ctx(f, Actor::Worker(t.web))
+            },
+            Intent::SubmitReport(report(a1.as_str())),
+        )
+        .unwrap();
+    f.app
+        .finish_run(run.run, "Completed", 1, &UsageSummary::default())
+        .unwrap();
+    assert_eq!(ticket(f, a1.as_str()).status, TicketStatus::Resolved);
+    assert_eq!(
+        ready(),
+        std::slice::from_ref(&b1),
+        "web waits for its review; api goes on"
+    );
+    f.app
+        .apply(
+            &ctx(f, lead),
+            Intent::ReviewTicket(ReviewDecision {
+                ticket_id: a1.clone(),
+                decision: ReviewVerdict::Reopen,
+                ac_feedback: vec![AcFeedback {
+                    ac_id: "AC-1".into(),
+                    feedback: "The page has no title".into(),
+                }],
+                required_changes: vec![],
+            }),
+        )
+        .unwrap();
+    assert_eq!(
+        ready(),
+        [a1.clone(), b1.clone()],
+        "the reopened one first, before {a2}"
+    );
+}

@@ -90,37 +90,109 @@ impl Runtime {
             return Ok(out);
         }
         let max = self.app.config().runtime.max_parallel_agents.max(1) as usize;
-        let mut ready = Vec::new();
-        for r in self.app.ready_tickets(project)? {
-            if ready.len() == max {
+        let lead = self.app.team_of_project(project)?.and_then(|(t, _)| t.lead);
+        // Work runs and the Lead's reviews go on together (ADR-158): a review starts as soon as a report is in, not
+        // once every work run of the round ended, and a worker its review freed starts its next ticket while the others
+        // still run. One review at a time (one Lead); a worker waiting for its review takes nothing new (sched).
+        enum Step {
+            Work(Result<RunSummary>),
+            Review(Result<RunSummary>),
+        }
+        let mut running: futures::stream::FuturesUnordered<
+            std::pin::Pin<Box<dyn std::future::Future<Output = Step> + Send + '_>>,
+        > = Default::default();
+        let mut working: std::collections::HashSet<TicketId> = Default::default();
+        // Agents with a run of this round going: never two at once (a Solo agent reviews only after its work run).
+        let mut busy: std::collections::HashMap<TicketId, AgentId> = Default::default();
+        let mut reviewed: std::collections::HashSet<TicketId> = Default::default();
+        let mut reviewing = false;
+        loop {
+            if !paused() && busy.len() < max {
+                for r in self.app.ready_tickets(project)? {
+                    if busy.len() >= max {
+                        break;
+                    }
+                    if working.contains(&r.ticket.id)
+                        || busy.values().any(|a| *a == r.agent)
+                        || (reviewing && lead == Some(r.agent))
+                    {
+                        continue;
+                    }
+                    if self.ready_to_autostart(r.ticket.id)? || self.stall_nudge(&r.ticket)? {
+                        working.insert(r.ticket.id);
+                        busy.insert(r.ticket.id, r.agent);
+                        let key = r.ticket.key.clone();
+                        running.push(Box::pin(async move {
+                            Step::Work(self.run_ticket(project, &key).await)
+                        }));
+                    }
+                }
+            }
+            if let (false, Some(lead)) = (reviewing, lead) {
+                if !paused()
+                    && !busy.values().any(|a| *a == lead)
+                    && self.app.agent(lead)?.status == AgentStatus::Idle
+                {
+                    if let Some(t) = self.next_review(project, &reviewed)? {
+                        reviewing = true;
+                        reviewed.insert(t.id);
+                        let key = t.key;
+                        running.push(Box::pin(async move {
+                            Step::Review(self.review(project, &key).await)
+                        }));
+                    }
+                }
+            }
+            let Some(step) = futures::StreamExt::next(&mut running).await else {
                 break;
-            }
-            if self.ready_to_autostart(r.ticket.id)? || self.stall_nudge(&r.ticket)? {
-                ready.push(r);
+            };
+            match step {
+                Step::Work(Ok(s)) => {
+                    if let Some(t) = s
+                        .ticket
+                        .as_ref()
+                        .and_then(|k| self.app.ticket(project, k).ok())
+                    {
+                        // Its ticket stays in `working`: not started twice in a round (a reopen goes on in the next one).
+                        busy.remove(&t.id);
+                    }
+                    out.push(s)
+                }
+                Step::Work(Err(e)) => {
+                    // The ticket is not known here: the next round sees it again.
+                    tracing::warn!(error = %e, "work run failed to start");
+                    working.clear();
+                    busy.clear();
+                    working.extend(
+                        self.app
+                            .store()
+                            .read(runs::unfinished)?
+                            .into_iter()
+                            .filter_map(|r| r.ticket),
+                    );
+                }
+                Step::Review(r) => {
+                    reviewing = false;
+                    match r {
+                        Ok(s) => out.push(s),
+                        Err(e) => tracing::warn!(error = %e, "review run failed"),
+                    }
+                }
             }
         }
-        let futs = ready
-            .iter()
-            .map(|r| self.run_ticket(project, &r.ticket.key));
-        for r in futures_join_all(futs).await {
-            match r {
-                Ok(s) => out.push(s),
-                Err(e) => tracing::warn!(error = %e, "work run failed to start"),
-            }
-        }
-        // Lead reviews: Resolved and not yet decided (or approved+merged and not yet closed).
-        let (team, _) = match self.app.team_of_project(project)? {
-            Some(t) => t,
-            None => return Ok(out),
-        };
-        let Some(lead) = team.lead else {
-            return Ok(out);
-        };
+        Ok(out)
+    }
+
+    /// The next Resolved ticket the Lead should review now (not yet decided, or approved and merged or without code
+    /// and not closed), skipping those reviewed this round and those that wait for the user.
+    fn next_review(
+        &self,
+        project: ProjectId,
+        reviewed: &std::collections::HashSet<TicketId>,
+    ) -> Result<Option<Ticket>> {
         for t in self.app.tickets(project)? {
-            // Checked before each review: one that left the Lead out of quota or offline (or a pause) would make every
-            // further review of this round fail the same way.
-            if paused() || self.app.agent(lead)?.status != AgentStatus::Idle {
-                break;
+            if reviewed.contains(&t.id) {
+                continue;
             }
             let needs_review =
                 t.status == TicketStatus::Resolved && (!t.approved || (t.merged || !t.has_code));
@@ -130,13 +202,10 @@ impl Runtime {
                 && !self.review_stalled(&t)?
                 && (self.ready_to_autostart(t.id)? || self.stall_nudge(&t)?)
             {
-                match self.review(project, &t.key).await {
-                    Ok(s) => out.push(s),
-                    Err(e) => tracing::warn!(error = %e, "review run failed"),
-                }
+                return Ok(Some(t));
             }
         }
-        Ok(out)
+        Ok(None)
     }
 
     /// Runs the team's planner when the latest spec is approved, there is no plan and no draft for that spec yet

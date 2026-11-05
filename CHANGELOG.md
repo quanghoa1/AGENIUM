@@ -177,6 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **A worker waits for its review; reviews do not wait for the round** (ADR-158 decision 24): no new ticket while a
+  report waits for the Lead, a reopen first; a review starts as soon as a report is in, beside the other workers' runs.
 - **Plans for parallel work, reviews that list every problem** (ADR-158 decision 23): the planner sees where each
   worker writes and is asked for a split every worker can start early; a review names every unmet point at once.
 - **Waiting on a background command is no loop** (ADR-158 decision 22): reading a running suite with `shell_output`
