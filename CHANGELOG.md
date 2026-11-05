@@ -177,6 +177,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **No user comment on a ticket left anywhere** (ADR-158 decision 13): the user works through the Lead or Solo only.
+  A review that keeps stalling gets another try after the user's next message to the Lead (it was a ticket comment
+  no screen could write). An unused dependency (`ulid` in documents) is gone; `cargo machete` is clean.
 - **A Lead that leaves its inbox as it is** (the user said to wait) is not run again and tells the user why, once;
   and **Devin's own commands run in the sandbox on Windows** (PowerShell, not WSL's bash), their output in the log.
 - **A Lead gets no inbox run while it has a run going**: a chat turn and an inbox run planned the same work at once

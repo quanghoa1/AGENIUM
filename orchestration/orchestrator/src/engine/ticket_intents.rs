@@ -166,22 +166,4 @@ impl App {
             })
             .map(|c| c.value)
     }
-
-    /// A free-text `User` comment on a ticket (steering, decision 19).
-    pub fn user_comment(&self, project: ProjectId, key: &TicketKey, text: &str) -> Result<Comment> {
-        self.store
-            .commit(None, "user", |w| -> Result<Comment> {
-                let t = ticket_by_key(w, project, key)?;
-                add_comment(
-                    w,
-                    &t,
-                    Author::User,
-                    None,
-                    CommentBody::Text {
-                        text: text.to_owned(),
-                    },
-                )
-            })
-            .map(|c| c.value)
-    }
 }

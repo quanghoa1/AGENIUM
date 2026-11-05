@@ -76,16 +76,16 @@ impl Runtime {
 
     /// Whether the Lead's reviews of `t` keep ending at a checkpoint (max_steps, context) without a decision. A review
     /// starts fresh each time, so it would run again every round: after MAX_FAILED_RUNS in a row since the user's last
-    /// comment on the ticket (a hint gives the Lead another try) it waits for the user, who is told once.
+    /// message to the Lead (a hint gives the Lead another try) it waits for the user, who is told once.
     pub(super) fn review_stalled(&self, t: &Ticket) -> Result<bool> {
         let rs = self.app.store().read(|c| runs::for_ticket(c, t.id))?;
         let cs = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
-        let hint = cs
-            .iter()
-            .rev()
-            .find(|c| c.author == Author::User)
-            .map(|c| c.created_at.as_str())
+        let hint = self
+            .app
+            .store()
+            .read(|c| agenium_store::core::ledger::last_message_at(c, t.project))?
             .unwrap_or_default();
+        let hint = hint.as_str();
         let undecided: Vec<&runs::Run> = rs
             .iter()
             .rev()
@@ -110,7 +110,7 @@ impl Runtime {
             let outcome = undecided[0].outcome.clone().unwrap_or_default();
             self.app.store().commit(None, "system", |w| -> Result<()> {
                 let tk = tickets::get(w.tx, t.id)?;
-                crate::engine::system_comment(w, &tk, format!("{REVIEW_STALLED} {} reviews of {} in a row stopped at a checkpoint ({outcome}) without a decision; it waits for you (comment on the ticket to give the Lead another try with a hint, or give the Lead more steps or another model).", undecided.len(), t.key))?;
+                crate::engine::system_comment(w, &tk, format!("{REVIEW_STALLED} {} reviews of {} in a row stopped at a checkpoint ({outcome}) without a decision; it waits for you (tell the Lead a hint to give it another try, or give the Lead more steps or another model).", undecided.len(), t.key))?;
                 w.emit(DomainEvent::NeedsUser { ticket: Some(t.id), reason: format!("{}: the Lead's reviews keep stopping at a checkpoint ({outcome}); look at the run log", t.key) })?;
                 Ok(())
             })?;

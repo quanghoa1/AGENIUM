@@ -10,6 +10,10 @@ publish = false
 # Its own workspace: the WebView dependencies (WebView2, webkit2gtk) stay out of the core workspace's build and CI.
 [workspace]
 
+# build.rs calls tauri_build; cargo-machete does not read build scripts here.
+[package.metadata.cargo-machete]
+ignored = ["tauri-build"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

@@ -108,7 +108,6 @@ export const settings: Record<keyof typeof en, string> = {
   "settings.supportNote": "Thông tin chẩn đoán để gửi khi cần trợ giúp: phiên bản, cấu hình (chỉ tên secret), thống kê, log đã che.",
   "settings.supportMake": "Tạo gói hỗ trợ",
   "settings.supportDone": "Đã ghi vào",
-  "settings.languageNote": "Ngôn ngữ giao diện. Lead và agent Solo trả lời bằng ngôn ngữ bạn viết; ticket và plan luôn bằng tiếng Anh.",
   "settings.commands": "Lệnh của agent: khi nào cần hỏi bạn",
   "settings.commands.intro": "Trong lúc làm việc, agent chạy lệnh: chạy test, build, script… Chọn xem lệnh có cần bạn đồng ý trước hay không.",
   "settings.commands.sandboxed": "Chạy trong sandbox (khuyên dùng)",

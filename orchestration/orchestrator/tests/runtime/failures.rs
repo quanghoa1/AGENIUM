@@ -348,7 +348,7 @@ async fn a_lead_out_of_quota_reviews_nothing_more() {
 }
 
 /// Reviews that keep ending at a checkpoint (each starts fresh) stop after MAX_FAILED_RUNS and the user is asked once;
-/// the user's comment on the ticket gives the Lead another try.
+/// the user's message to the Lead gives it another try.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn reviews_stopping_at_a_checkpoint_go_to_the_user() {
     let f = fixture();
@@ -378,8 +378,8 @@ async fn reviews_stopping_at_a_checkpoint_go_to_the_user() {
         1,
         "the user is asked once"
     );
-    app.user_comment(project, &key("AGN-1"), "Only check AC-1.")
-        .unwrap();
+    p.push_text("I will check AC-1 only.");
+    rt.chat(project, "Only check AC-1.").await.unwrap();
     review(&p);
     assert_eq!(rt.tick(project).await.unwrap().len(), 1, "another try");
     assert_eq!(p.remaining(), 0);

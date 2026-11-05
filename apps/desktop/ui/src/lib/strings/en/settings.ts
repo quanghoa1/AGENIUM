@@ -106,7 +106,6 @@ export const settings = {
   "settings.supportNote": "Diagnostics to share when asking for help: versions, config (secret names only), store counts, masked logs.",
   "settings.supportMake": "Create support bundle",
   "settings.supportDone": "Written to",
-  "settings.languageNote": "Interface language. The Lead and Solo agents answer in the language you write in; tickets and plans are always English.",
   "settings.commands": "Agent commands: when to ask you",
   "settings.commands.intro": "While they work, agents run commands: tests, builds, scripts. Choose whether a command needs your OK first.",
   "settings.commands.sandboxed": "Run in the sandbox (recommended)",

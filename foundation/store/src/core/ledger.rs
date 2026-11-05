@@ -49,6 +49,15 @@ pub fn undelivered(c: &Connection, project: ProjectId) -> Result<Vec<LeadMessage
     Ok(rows)
 }
 
+/// When the user last wrote to the Lead of `project`, if ever.
+pub fn last_message_at(c: &Connection, project: ProjectId) -> Result<Option<String>, StoreError> {
+    Ok(c.query_row(
+        "SELECT MAX(created_at) FROM lead_message WHERE project = ?1",
+        params![project.to_string()],
+        |r| r.get(0),
+    )?)
+}
+
 pub fn mark_delivered(c: &Connection, ids: &[i64], at: &str) -> Result<(), StoreError> {
     for id in ids {
         c.execute(

@@ -6,7 +6,7 @@ Status: Accepted (2026-10-25, M4.5, decision 35 and ADR-51 §8).
 
 1. **A lesson needs a cue and a signal.** The extractor gives each lesson a `cue` (when it applies); a lesson without
    one is dropped. Lessons come only from episodes with a signal, which Agenium derives from the ticket: the review
-   reopened it, it was accepted after reopens, a merge or pre-merge check failed, or the user commented on it.
+   reopened it, it was accepted after reopens, a merge or pre-merge check failed, or the user commented on it (that last one removed, ADR-158 decision 13).
    Without a signal only facts and preferences are kept. Evidence stays the episode's outcome.
 2. **Rule or hint by scope.** A recalled lesson whose every scope key matches the work's context is shown as
    "Rule (lesson[, held in N contexts]): ... (when: cue)"; from a nearby context (a key the work does not set) as

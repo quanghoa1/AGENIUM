@@ -73,6 +73,12 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    cannot start in MXC (0xC0000142); `SHELL=powershell.exe` makes it PowerShell (checked on the host: the shell it
    logs changes; in the app: `echo` printed). Its output, sent while the command runs (`terminalPreview`,
    `terminal_exit` with the exit code) and not with the completed update, reaches the log.
+13. **No user comment on a ticket, anywhere** (2026-11-05): the box went in ADR-122's amendment, and `App::user_comment`,
+   only tests still called it, goes too, with what read the user's comments: the learning signal "the user commented
+   on the work" (ADR-72) and the review stall's reset. A stalled review now gets another try after the user's next
+   message to the Lead. The user works through the Lead or Solo only, who write the ticket in English, so a worker
+   is never given work, or a ticket text in another language, by the user directly. The language switch no longer
+   says tickets and plans are English: that is not a choice the user has.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

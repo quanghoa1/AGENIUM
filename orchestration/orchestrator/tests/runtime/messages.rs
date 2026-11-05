@@ -156,8 +156,7 @@ async fn a_continuation_sees_comments_posted_during_the_last_run() {
     let (project, _) = solo_with_tickets(&app, &["PI-1"]);
     let a = app.clone();
     p.push(Box::new(move |_| {
-        a.user_comment(project, &key("AGN-1"), "Use tabs, not spaces.")
-            .unwrap();
+        a.user_set_priority(project, &key("AGN-1"), 0).unwrap();
         Ok(calls_response("thinking out loud", vec![]))
     }));
     p.push_text("thinking out loud");
@@ -168,7 +167,7 @@ async fn a_continuation_sees_comments_posted_during_the_last_run() {
         let last = req.messages.last().unwrap().text();
         assert!(
             last.contains("New on the ticket since your last step")
-                && last.contains("Use tabs, not spaces."),
+                && last.contains("changed the priority"),
             "{last}"
         );
         Ok(calls_response(

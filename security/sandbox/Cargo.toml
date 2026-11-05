@@ -7,6 +7,10 @@ license.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+# tracelogging is only a version pin for mxc-sdk (see its line below); no code names it.
+[package.metadata.cargo-machete]
+ignored = ["tracelogging"]
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true

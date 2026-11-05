@@ -58,4 +58,4 @@ The ticket popup still had a "Comment to steer the work" box, and `agenium ticke
 on a ticket a worker reads, which is telling the worker directly. Both are gone (desktop `comment`, `api.comment`, the
 CLI subcommand). A new request or a correction goes to the Lead or Solo agent in the chat; it writes to the ticket, in
 English. The user's decisions on a ticket stay (close, reopen with feedback per criterion, waive, cancel), and
-`App::user_comment` stays for the engine's own tests.
+`App::user_comment` was removed later (ADR-158 decision 13): the user works through the Lead only.

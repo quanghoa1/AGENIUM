@@ -182,7 +182,7 @@ export function Shell({ children }: { children: ReactNode }) {
             items={(["vi", "en"] as const).map((l) => ({
               value: l,
               label: l.toUpperCase(),
-              title: `${l === "vi" ? "Tiếng Việt" : "English"}. ${t("settings.languageNote")}`,
+              title: l === "vi" ? "Tiếng Việt" : "English",
             }))}
           />
           <Segmented

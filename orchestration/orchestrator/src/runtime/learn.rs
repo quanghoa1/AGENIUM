@@ -138,12 +138,6 @@ impl Runtime {
         ) {
             signals.push("a merge or pre-merge check failed".into());
         }
-        if cmts
-            .iter()
-            .any(|c| c.author == Author::User && matches!(c.body, CommentBody::Text { .. }))
-        {
-            signals.push("the user commented on the work".into());
-        }
         let ep = Episode {
             signals,
             source: format!("ticket:{}", t.key),
