@@ -1,0 +1,25 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/add_dependency.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Make an open ticket wait for another one (add to its depends_on, for example a fix found while it ran): it starts, or goes on, only once that one is done. Refused when it would make a cycle or the other is cancelled.",
+  "properties": {
+    "depends_on": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "depends_on"
+  ],
+  "title": "add_dependency",
+  "type": "object",
+  "x-agenium-role": "Lead"
+}

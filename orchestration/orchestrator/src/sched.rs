@@ -84,12 +84,10 @@ impl App {
                 continue;
             }
             let continuation = t.status == TicketStatus::InProgress;
-            if !continuation
-                && !self.store.read(|c| {
-                    deps_satisfied(c, t)
-                        .map_err(|e| agenium_store::StoreError::Invalid(e.to_string()))
-                })?
-            {
+            // A ticket in progress waits too when the Lead made it wait for another one meanwhile (add_dependency).
+            if !self.store.read(|c| {
+                deps_satisfied(c, t).map_err(|e| agenium_store::StoreError::Invalid(e.to_string()))
+            })? {
                 continue;
             }
             // An agent already working on another InProgress ticket keeps it (one active ticket per worker).

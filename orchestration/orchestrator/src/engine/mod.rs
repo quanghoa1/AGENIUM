@@ -23,6 +23,7 @@ pub(crate) use crate::engine_support::{
 };
 
 // The intents, by concern (split out of this file; behaviour unchanged).
+mod deps;
 mod links;
 mod permissions;
 mod planning;
@@ -131,6 +132,7 @@ impl App {
             Intent::ListTickets(q) => self.list_tickets(ctx, q),
             Intent::ReadTicket(q) => self.read_ticket(ctx, q),
             Intent::ReadSpec(_) => self.read_spec(ctx),
+            Intent::AddDependency(a) => self.add_dependency(ctx, a),
             Intent::SetMemberMcpKey(k) => self.set_member_mcp_key(ctx, k),
             Intent::ConfirmLink(l) => self.confirm_link(ctx, l),
             Intent::CreateAggregate(a) => self.create_aggregate(ctx, &project, a),

@@ -606,3 +606,61 @@ fn a_worker_reads_the_whole_approved_spec() {
         .to_string();
     assert!(e.contains("no approved spec"), "{e}");
 }
+
+/// The Lead makes a ticket wait for one created later (a fix its QA found), even while it runs: the scheduler holds it
+/// until that one is done; a cycle is refused.
+#[test]
+fn the_lead_makes_a_running_ticket_wait_for_a_fix() {
+    let f = &fixture();
+    let a = solo_with_plan(f, &[("PI-1", &[]), ("PI-2", &[])]);
+    let lead = Actor::Lead(a.id);
+    let qa = started(f, a.id, "PI-1", "Prove the suite", &[], &[]);
+    let run = f.app.start_run(f.project.id, &qa, "mock", "m").unwrap();
+    f.app
+        .finish_run(run.run, "Stopped:no_tool_call", 1, &UsageSummary::default())
+        .unwrap();
+    assert_eq!(ticket(f, qa.as_str()).status, TicketStatus::InProgress);
+    let out = f
+        .app
+        .apply(
+            &ctx(f, lead),
+            Intent::CreateTicket(new_ticket("PI-2", "Fix the store", &[], &[])),
+        )
+        .unwrap();
+    let fix: TicketKey = serde_json::from_value(out.result["ticket_id"].clone()).unwrap();
+    let wait = |t: &TicketKey, d: &TicketKey| {
+        f.app.apply(
+            &ctx(f, lead),
+            Intent::AddDependency(agenium_core::protocol::AddDependency {
+                ticket_id: t.clone(),
+                depends_on: d.clone(),
+            }),
+        )
+    };
+    let ready = || -> Vec<TicketKey> {
+        f.app
+            .ready_tickets(f.project.id)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.ticket.key)
+            .collect()
+    };
+    assert_eq!(ready(), [qa.clone()], "in progress, nothing to wait for");
+    wait(&qa, &fix).unwrap();
+    assert_eq!(ticket(f, qa.as_str()).depends_on, [fix.clone()]);
+    assert!(ready().is_empty(), "it waits for the fix, even in progress");
+    let e = wait(&fix, &qa).unwrap_err().to_string();
+    assert!(e.contains("cycle"), "{e}");
+    assert!(
+        f.app
+            .apply(
+                &ctx(f, Actor::Worker(a.id)),
+                Intent::AddDependency(agenium_core::protocol::AddDependency {
+                    ticket_id: qa.clone(),
+                    depends_on: fix.clone(),
+                })
+            )
+            .is_err(),
+        "the Lead's tool"
+    );
+}

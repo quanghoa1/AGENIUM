@@ -118,6 +118,11 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    requirements its plan item serves. The docs ticket had to document the store contract against "the approved v1
    spec", which lived only in Agenium's database; the worker could not read it and the Lead reopened the ticket for
    that. `read_spec` returns the spec the current plan traces to (else the newest approved one), read only.
+21. **The Lead can make a ticket wait for one made later** (`add_dependency`, Lead): QA found the store off the
+   approved contract, the Lead made SD-14 to fix it, and could tell SD-12 to wait only in a comment, so QA asked twice
+   whether the fix had merged. The tool adds to `depends_on` (no cycle, not a cancelled ticket, a comment on the
+   ticket), and the scheduler now checks dependencies for a ticket in progress too, so it goes on only once they are
+   done.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

@@ -80,6 +80,8 @@ protocol_tools! {
         "Revise the plan (version+1, with a reason). Use it instead of splitting a ticket: add items, then create tickets for them. Scope changes need user approval.";
     CreateTicket => "create_ticket", Lead, NewTicket,
         "Create a ticket for an item of the approved plan. depends_on must stay acyclic; tickets whose scope_paths overlap an open ticket must depend on it.";
+    AddDependency => "add_dependency", Lead, AddDependency,
+        "Make an open ticket wait for another one (add to its depends_on, for example a fix found while it ran): it starts, or goes on, only once that one is done. Refused when it would make a cycle or the other is cancelled.";
     AssignTicket => "assign_ticket", Lead, AssignTicket,
         "Assign a New or Reopened ticket to a worker of your team whose role and tags match and whose allowed_paths (get_team) cover the ticket's scope_paths. The scheduler starts the work when dependencies are satisfied.";
     AnswerQuestion => "answer_question", Lead, AnswerQuestion,
@@ -220,6 +222,14 @@ pub struct UpdateFromMain {
     pub keep_mine: bool,
 }
 
+/// add_dependency: `ticket_id` waits for `depends_on` from now on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AddDependency {
+    pub ticket_id: crate::ids::TicketKey,
+    pub depends_on: crate::ids::TicketKey,
+}
+
 /// get_team takes no arguments.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -235,6 +245,7 @@ pub enum Intent {
     RevisePlan(PlanRevision),
     CreateTicket(NewTicket),
     AssignTicket(AssignTicket),
+    AddDependency(AddDependency),
     AnswerQuestion(AnswerQuestion),
     ReviewTicket(ReviewDecision),
     CloseTicket(CloseTicket),
@@ -286,6 +297,7 @@ impl Intent {
             RevisePlan(_) => ProtocolTool::RevisePlan,
             CreateTicket(_) => ProtocolTool::CreateTicket,
             AssignTicket(_) => ProtocolTool::AssignTicket,
+            AddDependency(_) => ProtocolTool::AddDependency,
             AnswerQuestion(_) => ProtocolTool::AnswerQuestion,
             ReviewTicket(_) => ProtocolTool::ReviewTicket,
             CloseTicket(_) => ProtocolTool::CloseTicket,
@@ -370,6 +382,7 @@ impl Intent {
             SubmitPlanDraft(x) => x.validate(),
             CreateAggregate(x) => x.validate(),
             AssignTicket(_)
+            | AddDependency(_)
             | ApprovePermission(_)
             | ProposeRole(_)
             | GetTeam(_)
@@ -398,7 +411,8 @@ mod tests {
         // set_member_mcp_key (Lead group; per-agent MCP keys, 2026-10-25) and
         // submit_plan_draft (Worker group, planner role only; ADR-59), propose_new_skill (Shared; ADR-91), and
         // list_tickets and read_ticket (Lead group: the board mid-run, 2026-11-04), update_from_main (Worker: Agenium
-        // rebases the worktree outside the sandbox, ADR-158), read_spec (Shared: the whole approved spec, ADR-158).
+        // rebases the worktree outside the sandbox, ADR-158), read_spec (Shared: the whole approved spec, ADR-158), add_dependency (Lead: a wait found
+        // mid-run, ADR-158).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -406,10 +420,10 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (18, 7, 6)
+            (19, 7, 6)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 31);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 24);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 32);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 25);
         assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 13);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);

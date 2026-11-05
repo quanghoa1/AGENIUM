@@ -177,6 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **The Lead can make a ticket wait for one made later** (`add_dependency`, ADR-158 decision 21), even while it runs;
+  the scheduler holds it until that one is done.
 - **Every agent can read the whole approved spec** (`read_spec`, ADR-158 decision 20): a worker saw only its item's
   requirements, and a docs ticket asked to match the whole contract could not.
 - **Claude Code's earlier models are offered too** (Opus 5, 4.8, 4.7, 4.6, Fable 5, Sonnet 5, 4.6, Haiku 4.5), each with
