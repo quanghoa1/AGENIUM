@@ -493,6 +493,15 @@ impl App {
         }
         m.save(Path::new(&p.path))
             .map_err(|e| OrchError::Invalid(e.to_string()))?;
+        // On main, so the worktrees, the merge check and the push on close carry it (it stayed an uncommitted change).
+        let path = Path::new(&p.path);
+        if path.join(".git").exists() {
+            agenium_vcs::Repo::open(path, &p.main_branch).commit_file(
+                path,
+                crate::manifest::FILE,
+                &format!("Agenium: team template {} sets the project's checks", t.id),
+            )?;
+        }
         let (team, agents) = self.create_team(project, &t.name, &lead, &workers)?;
         // A model of an agent CLI runs on that CLI.
         for a in agents.iter().filter(|a| cli_agents.contains(&a.name)) {

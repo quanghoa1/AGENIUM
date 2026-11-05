@@ -88,6 +88,29 @@ impl Repo {
         ))
     }
 
+    /// Commits only `path` (relative to `dir`), as Agenium: the rest of the checkout, the user's own changes there
+    /// included, stays as it is. `None` when the file did not change.
+    pub fn commit_file(
+        &self,
+        dir: &Path,
+        path: &str,
+        message: &str,
+    ) -> Result<Option<String>, VcsError> {
+        let g = self.git_for(dir)?;
+        if g.run(dir, ["diff", "--quiet", "HEAD", "--", path])?.ok() {
+            return Ok(None);
+        }
+        g.check_env(
+            dir,
+            ["commit", "-q", "--no-verify", "-m", message, "--", path],
+            &[
+                ("GIT_AUTHOR_NAME", crate::git::COMMITTER_NAME),
+                ("GIT_AUTHOR_EMAIL", crate::git::COMMITTER_EMAIL),
+            ],
+        )?;
+        Ok(Some(g.check(dir, ["rev-parse", "HEAD"])?.trim().to_owned()))
+    }
+
     /// Scans the added lines of the staged diff.
     pub(super) fn staged_findings(
         g: &Git,

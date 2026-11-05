@@ -442,6 +442,21 @@ fn a_template_sets_the_projects_pre_merge_check() {
         .manifest(&f.app.project(f.project.id).unwrap())
         .unwrap();
     assert_eq!(m.checks.pre_merge, "echo check-ok");
+    // On main, not left as an uncommitted change of the checkout.
+    let root = std::path::PathBuf::from(&f.app.project(f.project.id).unwrap().path);
+    let git = |args: &[&str]| {
+        String::from_utf8(
+            std::process::Command::new("git")
+                .args(args)
+                .current_dir(&root)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+    };
+    assert_eq!(git(&["status", "--porcelain", "agenium.toml"]), "");
+    assert!(git(&["show", "HEAD:agenium.toml"]).contains("echo check-ok"));
 
     let p = f.app.project(f.project.id).unwrap();
     assert!(

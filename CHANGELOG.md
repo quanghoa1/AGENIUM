@@ -177,6 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **A team template's checks are committed on main**: `pre_merge` was written into `agenium.toml` and left as an
+  uncommitted change of the checkout (worktrees, the merge check's base and the push on close missed it).
 - **A worker waits for its review; reviews do not wait for the round** (ADR-158 decision 24): no new ticket while a
   report waits for the Lead, a reopen first; a review starts as soon as a report is in, beside the other workers' runs.
 - **Plans for parallel work, reviews that list every problem** (ADR-158 decision 23): the planner sees where each
