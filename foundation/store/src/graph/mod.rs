@@ -22,6 +22,9 @@ pub use types::*;
 mod edges;
 mod entities;
 mod expand;
+mod view;
+
+pub use view::GraphView;
 
 fn now() -> &'static str {
     "strftime('%Y-%m-%dT%H:%M:%fZ','now')"

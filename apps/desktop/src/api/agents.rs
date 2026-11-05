@@ -118,6 +118,20 @@ pub fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
     }))
 }
 
+/// The Memory page's graph tab: an agent's live entities, the edges between them, which facts are about which entity,
+/// and the verdicts on pairs of its live facts (the facts themselves come with `memory`).
+#[tauri::command]
+pub fn memory_graph(d: State<'_, Desktop>, agent: String) -> R<Value> {
+    let o = d.opened()?;
+    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let mem = o
+        .app
+        .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
+        .map_err(err)?;
+    // shortcut: the 300 most connected entities, enough to read on one screen; page it when a memory grows past that.
+    serde_json::to_value(mem.graph_view(300).map_err(err)?).map_err(|e| e.to_string())
+}
+
 /// Memory actions of the user: `retire` a fact, `remove_skill` (a skill the agent created), `revert` or `promote` a
 /// skill overlay, `rebase`, `tidy` (decay, consolidation and a settling pass now, ADR-145).
 #[tauri::command]

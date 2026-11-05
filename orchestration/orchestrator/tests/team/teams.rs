@@ -148,6 +148,96 @@ fn team_from_template_and_write_scope() {
     assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::Resolved);
 }
 
+/// The Lead sees where each member may write, and a ticket whose paths the member's role does not cover is not
+/// assigned to it (it would stop at its first write and wait for the user).
+#[test]
+fn a_ticket_outside_the_workers_role_paths_is_not_assigned() {
+    let f = fixture();
+    f.app
+        .create_team_from_template(f.project.id, "pentest", &model(), None, None, "acme")
+        .unwrap();
+    let (team, members) = f.app.team_of_project(f.project.id).unwrap().unwrap();
+    let lead = Actor::Lead(team.lead.unwrap());
+    let web = members.iter().find(|a| a.name == "acme-web").unwrap().id;
+    let planner = f.app.planner(f.project.id).unwrap().unwrap().id;
+    f.app
+        .apply(&ctx(&f, lead), Intent::ProposeSpec(spec()))
+        .unwrap();
+    f.app.approve_spec(f.project.id, 1).unwrap();
+    let p = plan(&[("PI-1", &[])]);
+    f.app
+        .apply(
+            &ctx(&f, Actor::Worker(planner)),
+            Intent::SubmitPlanDraft(agenium_core::plan::PlanDraft {
+                spec_version: 1,
+                milestones: p.milestones.clone(),
+                items: p.items.clone(),
+                rationale: "One item.".into(),
+            }),
+        )
+        .unwrap();
+    f.app.apply(&ctx(&f, lead), Intent::CreatePlan(p)).unwrap();
+
+    let roster = f
+        .app
+        .apply(&ctx(&f, lead), Intent::GetTeam(Default::default()))
+        .unwrap()
+        .result;
+    let me = roster["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["name"] == "acme-web")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        me["allowed_paths"],
+        serde_json::json!(["deliverables/web/**", "artifacts/web/**"])
+    );
+
+    let out = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::CreateTicket(new_ticket(
+                "PI-1",
+                "Test the mobile app",
+                &[],
+                &["deliverables/web/login.md", "deliverables/mobile/app.md"],
+            )),
+        )
+        .unwrap();
+    let k: TicketKey = serde_json::from_value(out.result["ticket_id"].clone()).unwrap();
+    let e = f
+        .app
+        .apply(
+            &ctx(&f, lead),
+            Intent::AssignTicket(AssignTicket {
+                ticket_id: k.clone(),
+                worker: web,
+                note: None,
+            }),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("deliverables/mobile/app.md")
+            && !e.contains("login.md")
+            && e.contains("deliverables/web/**"),
+        "{e}"
+    );
+    assert_eq!(ticket(&f, k.as_str()).status, TicketStatus::New);
+    // Inside the role's paths (a file or a pattern), it is assigned.
+    started(
+        &f,
+        web,
+        "PI-1",
+        "Test the login page",
+        &[],
+        &["deliverables/web/xss.md", "artifacts/web/**"],
+    );
+}
+
 /// Without a prefix a template names its agents after their roles; names stay unique across teams (ignoring case),
 /// so a taken name gets the next free number and a name the user types twice is refused.
 #[test]

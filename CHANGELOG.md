@@ -177,6 +177,14 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **A Graph tab on the Memory page** (ADR-158 decision 16): an agent's entities and their relations, each memory tied
+  to what it names, contradictions in red; click a node for what it touches, scroll to zoom, drag to move.
+- **The pre-merge check has the network the work had** (ADR-158 decision 15): a test suite that starts its own server
+  passed in the worker's run and failed the merge on Windows (`connect EACCES 127.0.0.1`); the check now runs under
+  `[sandbox] network` like the work's own commands.
+- **The Lead sees where each member may write** (ADR-158 decision 14): `get_team` lists `allowed_paths` and every
+  MCP server of a member; a ticket whose paths the worker's role does not cover is not assigned to it (the Lead is
+  told which paths), instead of the worker stopping at its first write for a path permission.
 - **No user comment on a ticket left anywhere** (ADR-158 decision 13): the user works through the Lead or Solo only.
   A review that keeps stalling gets another try after the user's next message to the Lead (it was a ticket comment
   no screen could write). An unused dependency (`ulid` in documents) is gone; `cargo machete` is clean.

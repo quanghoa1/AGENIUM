@@ -1,6 +1,7 @@
 //! The real pre-merge check (M5): runs the project's `[checks] pre_merge` command (set by the team template or by
 //! hand) in the ticket worktree before the merge queue fast-forwards. It runs inside Agenium's sandbox when a
-//! backend works (writes stay in the worktree, no network); without a backend it is refused (fail-closed), because
+//! backend works (writes stay in the worktree, the network as `[sandbox] network` gives the work's own commands: a
+//! suite that starts its own server reaches it); without a backend it is refused (fail-closed), because
 //! it is a shell command and Agenium does not run shell commands unsandboxed on its own. A non-zero exit fails the
 //! merge and the ticket is reopened with the output, which the merge flow already handles.
 //!
@@ -29,18 +30,20 @@ impl CheckFactory for SandboxCheckFactory {
         &self,
         _: &projects::Project,
         manifest: &ProjectManifest,
+        network: bool,
     ) -> Arc<dyn CheckRunner> {
         let cmd = manifest.checks.pre_merge.trim().to_owned();
         if cmd.is_empty() {
             Arc::new(NoCheck)
         } else {
-            Arc::new(SandboxCheck { cmd })
+            Arc::new(SandboxCheck { cmd, network })
         }
     }
 }
 
 struct SandboxCheck {
     cmd: String,
+    network: bool,
 }
 
 impl CheckRunner for SandboxCheck {
@@ -54,13 +57,13 @@ impl CheckRunner for SandboxCheck {
                 ),
             };
         }
-        run_check(&self.cmd, worktree)
+        run_check(&self.cmd, worktree, self.network)
     }
 }
 
-/// Runs a pre-merge check command in `worktree` under the workspace policy and turns the exit into an outcome.
-/// Safe to call from inside a Tokio runtime (it runs on a scratch thread then).
-pub fn run_check(cmd: &str, worktree: &Path) -> CheckOutcome {
+/// Runs a pre-merge check command in `worktree` under the workspace policy (with the network when `network`) and
+/// turns the exit into an outcome. Safe to call from inside a Tokio runtime (it runs on a scratch thread then).
+pub fn run_check(cmd: &str, worktree: &Path, network: bool) -> CheckOutcome {
     let ex = Executor::new(Shell::detect());
     let spec = CommandSpec {
         command: cmd.to_owned(),
@@ -68,7 +71,8 @@ pub fn run_check(cmd: &str, worktree: &Path) -> CheckOutcome {
         timeout: TIMEOUT,
         ..Default::default()
     };
-    let policy = SandboxPolicy::workspace(worktree);
+    let mut policy = SandboxPolicy::workspace(worktree);
+    policy.network = network;
     // Run on a scratch thread so a current Tokio runtime is not blocked.
     let r = match tokio::runtime::Handle::try_current() {
         Ok(h) => std::thread::scope(|s| {

@@ -29,6 +29,21 @@ impl App {
         ))
     }
 
+    /// The ticket paths of `scope` that `role`'s allowed paths do not cover: its assignee could not write them.
+    pub(super) fn outside_role(&self, scope: &[String], role: &str) -> Result<Vec<String>> {
+        let allowed = self.role_allowed_paths(role);
+        if allowed.is_empty() {
+            return Ok(vec![]);
+        }
+        let s = agenium_tools::paths::WriteScope::new(vec![allowed], vec![])
+            .map_err(OrchError::Invalid)?;
+        Ok(scope
+            .iter()
+            .filter(|p| !s.allows(p.trim().trim_start_matches("./").trim_end_matches('/')))
+            .cloned()
+            .collect())
+    }
+
     /// Files changed on the ticket's branch (committed since its base, and uncommitted) that fall outside the write
     /// scope of the assignee. Covers shell commands and CLI backends, whose writes the file tools never see.
     pub(super) fn out_of_scope_changes(

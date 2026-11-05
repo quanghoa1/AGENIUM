@@ -118,6 +118,7 @@ fn main() {
             api::template_from_team,
             api::template_toml,
             api::memory,
+            api::memory_graph,
             api::memory_action,
             api::revert_memory_run,
             api::resolve_memory_conflict,

@@ -79,6 +79,25 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    message to the Lead. The user works through the Lead or Solo only, who write the ticket in English, so a worker
    is never given work, or a ticket text in another language, by the user directly. The language switch no longer
    says tickets and plans are English: that is not a choice the user has.
+14. **The Lead slices inside the roles' paths** (2026-11-05, seen in a 7-agent team): a designed template gave the
+   backend `server/store/**`, the Lead's first ticket named `server/store.js` and `test/store.test.js`, and the
+   worker's write scope (ticket paths and role paths, both) left it one file; it stopped at once for a path
+   permission. `get_team` did not say where a member may write. It now lists each member's `allowed_paths`, and
+   every MCP server the member uses (a server without keys was missing). `assign_ticket` refuses a ticket whose
+   `scope_paths` its worker's role does not cover, naming the paths, so the Lead fixes the ticket or the assignee
+   while it plans; the user's own assignment is not checked, and a role without paths takes anything.
+15. **The pre-merge check has the network the work had** (same team): the backend's boot test started the server
+   and fetched `127.0.0.1:3000`; it passed in the worker's run and in the Lead's review, and failed the merge with
+   `connect EACCES`, because the check ran with no network and Windows' sandbox cannot tell the suite's own loopback
+   from the host's (ADR-84's addendum). The worker then weakened the test to get through, and the Lead rightly
+   reopened it twice. The check now runs under `[sandbox] network`, as the work's own commands do: the same code
+   already ran so in the worker's run, so nothing new is exposed. `CheckFactory::for_project` takes `network`.
+16. **A graph of the memory** (the owner asked for it): the Memory page has a Graph tab. Entities (coloured by type)
+   with their typed edges, each fact, lesson or preference tied to the entities it names, and pairs of memories the
+   settling pass judged (a contradiction in red, two that both hold dotted); a click shows what a node touches.
+   `memory_graph` reads `AgentStore::graph_view` (live rows only; the 300 most connected entities). No graph
+   library: a small force layout in the page. The Lead console names the Lead by its agent (`lead_name`), not by
+   the team, whose initials were another member's.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

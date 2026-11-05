@@ -299,6 +299,17 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
           { id: 7, text: "The shop API runs on port 8080 in development.", kind: "fact", scope: {}, source: "ticket:SHOP-2", untrusted: false, confidence: 0.55, weight: 0.8, created_at: iso(9000) },
         ],
       };
+    case "memory_graph":
+      return {
+        entities: [
+          { id: 1, kind: "project", name: "shop", description: null, mentions: 2, degree: 1 },
+          { id: 2, kind: "concept", name: "release notes", description: null, mentions: 1, degree: 1 },
+        ],
+        edges: [{ id: 1, src: 1, dst: 2, kind: "uses" }],
+        fact_links: [[12, 2, "subject"], [7, 1, "subject"]],
+        fact_pairs: [],
+        more: 0,
+      };
     case "memory_action":
       return { ok: true };
     case "decide_role_proposal":

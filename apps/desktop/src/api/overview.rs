@@ -28,8 +28,9 @@ pub(super) fn project_summary(o: &Opened, p: &agenium_store::core::projects::Pro
             *by_status.entry(t.status.to_string()).or_default() += 1;
         }
         let team = o.app.team_of_project(p.id).map_err(err)?.map(|(t, m)| {
+            let lead_name = m.iter().find(|a| Some(a.id) == t.lead).map(|a| a.name.clone());
             json!({ "id": t.id, "name": t.name, "solo": t.solo, "template": t.template, "lead": t.lead,
-                    "members": m.len() })
+                    "lead_name": lead_name, "members": m.len() })
         });
         let pv = o.app.plan_view(p.id).map_err(err)?;
         // A reopened project waiting for its busy team (ADR-130); one with a team waits for no other.

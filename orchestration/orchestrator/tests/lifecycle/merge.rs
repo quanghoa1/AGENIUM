@@ -315,6 +315,7 @@ impl CheckFactory for DuringChecks {
         &self,
         _: &agenium_store::core::projects::Project,
         _: &agenium_orchestrator::manifest::ProjectManifest,
+        _: bool,
     ) -> std::sync::Arc<dyn agenium_vcs::CheckRunner> {
         self.0.clone()
     }

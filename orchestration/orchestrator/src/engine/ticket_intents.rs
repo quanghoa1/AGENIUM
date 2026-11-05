@@ -90,6 +90,20 @@ impl App {
             if !missing.is_empty() && !team.solo {
                 return Err(invalid(format!("{} lacks required tags {missing:?}", agent.name)));
             }
+            // A ticket whose paths the worker's role may not write would stop at its first write (ADR-158 decision 14).
+            if !team.solo && ctx.actor != Actor::User {
+                let outside = self.outside_role(&t.scope_paths, &agent.role)?;
+                if !outside.is_empty() {
+                    return Err(invalid(format!(
+                        "{} may write only {}; {} of {} {} outside it: change the ticket's paths, split it, or assign a member whose role covers them (get_team lists each member's allowed_paths)",
+                        agent.name,
+                        self.role_allowed_paths(&agent.role).join(", "),
+                        outside.join(", "),
+                        t.key,
+                        if outside.len() == 1 { "is" } else { "are" },
+                    )));
+                }
+            }
             let has_plan_item = plans::current_plan(w.tx, pid)?.is_some_and(|p| p.body.items.iter().any(|i| i.id == t.plan_item));
             let mut ops = vec![];
             match t.status {

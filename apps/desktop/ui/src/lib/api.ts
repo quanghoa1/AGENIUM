@@ -3,55 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
-import type {
-  MemoryData,
-  PriceView,
-  VendorUsage,
-  AgentMcpKey,
-  AgentDetail,
-  AgentEntry,
-  AgentRecord,
-  AgentTrace,
-  BusItem,
-  LeadSuggestion,
-  LibrarySkill,
-  Plugin,
-  PluginPreview,
-  LiveData,
-  LocalServer,
-  McpServerConfig,
-  McpServerRow,
-  McpApproval,
-  McpApprovalSettings,
-  ToolSearchSettings,
-  ModelCapsRow,
-  ModelInfo,
-  RoleInfo,
-  TeamRecord,
-  TeamsData,
-  AuditEntry,
-  Capabilities,
-  ChatLine,
-  QueuedMessage,
-  Column,
-  ApprovalPolicy,
-  CommandApproval,
-  CommandPolicy,
-  EventRecord,
-  InboxItem,
-  NeedItem,
-  Overview,
-  PlanView,
-  ProjectSummary,
-  RunDetail,
-  RunRow,
-  Status,
-  TeamTemplate,
-  TicketDetail,
-  JudgeActivity,
-  JudgeConfig,
-  JudgeForm,
-} from "./types";
+import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MemoryData, MemoryGraphData, ModelCapsRow, ModelInfo, NeedItem, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -128,6 +80,7 @@ export const api = {
   capabilities: (refresh = false, clis = true) => call<Capabilities>("capabilities", { refresh, clis }),
   templates: () => call<TeamTemplate[]>("templates"),
   memory: (agent: string) => call<MemoryData>("memory", { agent }),
+  memoryGraph: (agent: string) => call<MemoryGraphData>("memory_graph", { agent }),
   resolveMemoryConflict: (agent: string, a: number, b: number, choice: "a" | "b" | "both") =>
     call<void>("resolve_memory_conflict", { agent, a, b, choice }),
   memoryAction: (agent: string, action: string, fact?: number, skill?: string) =>

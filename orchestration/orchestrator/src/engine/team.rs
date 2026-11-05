@@ -166,8 +166,13 @@ impl App {
         let roster: Vec<serde_json::Value> = members
             .iter()
             .map(|m| {
-                // MCP servers with their key names and whether the member has its own key (values never).
-                let mut mcp: Vec<serde_json::Value> = Vec::new();
+                // Every MCP server the member uses, with its key names and whether the member has its own key
+                // (values never); a server without keys is listed too.
+                let mut mcp: Vec<serde_json::Value> = agenium_mcp::parse_bindings(&m.mcp)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|b| serde_json::json!({ "server": b.server, "keys": [] }))
+                    .collect();
                 for k in self.agent_mcp_keys(m.id).unwrap_or_default() {
                     let entry = serde_json::json!({ "key": k.name, "own_key": k.own.is_some() });
                     match mcp.iter_mut().find(|s| s["server"] == k.server.as_str()) {
@@ -179,6 +184,8 @@ impl App {
                     "agent": m.id, "name": m.name, "role": m.role, "kind": m.role_kind, "tags": m.tags,
                     "model": format!("{}/{}", m.model.provider, m.model.model), "status": m.status,
                     "current_ticket": open.get(&m.id), "planner": self.is_planner_role(&m.role), "mcp": mcp,
+                    // Where the member may write: a ticket's paths must fall inside (empty: anywhere).
+                    "allowed_paths": self.role_allowed_paths(&m.role),
                 })
             })
             .collect();

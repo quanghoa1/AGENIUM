@@ -462,3 +462,78 @@ proptest! {
         prop_assert_eq!(got, want);
     }
 }
+
+/// The Memory page's graph: live entities and edges, which live facts are about what, and the verdicts between live
+/// facts; nothing retired or merged.
+#[test]
+fn the_graph_view_shows_what_is_live() {
+    let d = tempfile::tempdir().unwrap();
+    let s = open(d.path());
+    let app = ent(&s, "project", "StudyDeck", json!({}));
+    let node = ent(&s, "software", "Node.js 22", json!({}));
+    let sm2 = ent(&s, "concept", "SM-2", json!({}));
+    s.add_edge(app, node, "uses", &json!({}), 0.9, None, "t")
+        .unwrap();
+    s.add_edge(app, sm2, "uses", &json!({}), 0.9, None, "t")
+        .unwrap();
+    let gone = s
+        .add_edge(node, sm2, "related_to", &json!({}), 0.5, None, "t")
+        .unwrap();
+    s.invalidate_edge(gone, None).unwrap();
+    let f1 = s
+        .add(&NewFact::fact("StudyDeck runs on Node.js 22", "t"), None)
+        .unwrap();
+    let f2 = s
+        .add(&NewFact::fact("Ease never falls below 1.3", "t"), None)
+        .unwrap();
+    let f3 = s
+        .add(&NewFact::fact("Ease never falls below 1.5", "t"), None)
+        .unwrap();
+    let old = s
+        .add(&NewFact::fact("StudyDeck runs on Node.js 20", "t"), None)
+        .unwrap();
+    s.link_fact(f1, node, "subject").unwrap();
+    s.link_fact(f2, sm2, "subject").unwrap();
+    s.link_fact(old, node, "subject").unwrap();
+    s.retire(old).unwrap();
+    s.set_pair(
+        f2,
+        f3,
+        agenium_store::agent::PairVerdict::Conflict,
+        0.9,
+        "figures",
+    )
+    .unwrap();
+    s.set_pair(
+        f1,
+        old,
+        agenium_store::agent::PairVerdict::Conflict,
+        0.9,
+        "figures",
+    )
+    .unwrap();
+
+    let g = s.graph_view(2).unwrap();
+    assert_eq!(g.entities.len(), 2, "the two most connected");
+    assert_eq!(g.more, 1);
+    let g = s.graph_view(100).unwrap();
+    let edges: Vec<(i64, i64, &str)> = g
+        .edges
+        .iter()
+        .map(|e| (e.src, e.dst, e.kind.as_str()))
+        .collect();
+    assert_eq!(
+        edges,
+        [(app, node, "uses"), (app, sm2, "uses")],
+        "the invalidated edge is left out"
+    );
+    assert_eq!(
+        g.fact_links,
+        [
+            (f1, node, "subject".to_string()),
+            (f2, sm2, "subject".to_string())
+        ],
+        "the retired fact's link is left out"
+    );
+    assert_eq!(g.fact_pairs, [(f2, f3, "conflict".to_string())]);
+}

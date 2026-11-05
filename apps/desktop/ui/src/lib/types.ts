@@ -66,7 +66,7 @@ export interface ProjectSummary {
   key_prefix: string;
   status: string;
   main_branch: string;
-  team: { id: string; name: string; solo: boolean; template: string; lead?: string | null; members: number } | null;
+  team: { id: string; name: string; solo: boolean; template: string; lead?: string | null; lead_name?: string | null; members: number } | null;
   tickets: number;
   by_status: Record<string, number>;
   plan_items: number;
@@ -490,6 +490,18 @@ export interface MemoryData {
   /** Skill name -> what the agent created and why. */
   created: Record<string, CreatedSkill>;
   hide_below: number;
+}
+
+/** An agent's memory graph (ADR-51): entities, their edges, which facts are about which entity, verdicts on pairs. */
+export interface MemoryGraphData {
+  entities: { id: number; kind: string; name: string; description?: string | null; mentions: number; degree: number }[];
+  edges: { id: number; src: number; dst: number; kind: string }[];
+  /** [fact, entity, role] */
+  fact_links: [number, number, string][];
+  /** [a, b, "conflict" | "distinct"] */
+  fact_pairs: [number, number, string][];
+  /** Entities left out (the least connected). */
+  more: number;
 }
 
 export interface AgentDetail {

@@ -81,7 +81,7 @@ protocol_tools! {
     CreateTicket => "create_ticket", Lead, NewTicket,
         "Create a ticket for an item of the approved plan. depends_on must stay acyclic; tickets whose scope_paths overlap an open ticket must depend on it.";
     AssignTicket => "assign_ticket", Lead, AssignTicket,
-        "Assign a New or Reopened ticket to a worker of your team whose role and tags match. The scheduler starts the work when dependencies are satisfied.";
+        "Assign a New or Reopened ticket to a worker of your team whose role and tags match and whose allowed_paths (get_team) cover the ticket's scope_paths. The scheduler starts the work when dependencies are satisfied.";
     AnswerQuestion => "answer_question", Lead, AnswerQuestion,
         "Answer an open Question comment on a ticket of your team. If you are not sure, ask the user instead of guessing.";
     ReviewTicket => "review_ticket", Lead, ReviewDecision,
@@ -97,7 +97,7 @@ protocol_tools! {
     ProposeRole => "propose_role", Lead, ProposeRole,
         "Propose a role your team lacks: a role id from get_team's role_library, or a new id with what the role does and why the plan needs it. An agent with it joins your team only if the user approves.";
     GetTeam => "get_team", Lead, NoArgs,
-        "Read the current team roster: members, roles, tags, model, status, current ticket and MCP servers with their key names.";
+        "Read the current team roster: members, roles, tags, model, status, current ticket, the paths each member may write (allowed_paths) and MCP servers with their key names.";
     ListTickets => "list_tickets", Lead, ListTickets,
         "List the project's tickets and their progress (the board): ticket id, title, status, assignee, plan item, depends_on, scope paths, approved/merged, counts by status. Shows what you already created before you create or assign more. Read only.";
     ReadTicket => "read_ticket", Lead, ReadTicket,

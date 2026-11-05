@@ -86,6 +86,7 @@ struct ApprovedChecks;
 
 struct ApprovedCheck {
     command: String,
+    network: bool,
 }
 
 impl agenium_vcs::CheckRunner for ApprovedCheck {
@@ -110,7 +111,7 @@ impl agenium_vcs::CheckRunner for ApprovedCheck {
                 log: "the user declined the pre-merge check".into(),
             };
         }
-        agenium_orchestrator::check::run_check(&self.command, worktree)
+        agenium_orchestrator::check::run_check(&self.command, worktree, self.network)
     }
 }
 
@@ -119,12 +120,14 @@ impl CheckFactory for ApprovedChecks {
         &self,
         _: &Project,
         m: &agenium_orchestrator::manifest::ProjectManifest,
+        network: bool,
     ) -> Arc<dyn agenium_vcs::CheckRunner> {
         if m.checks.pre_merge.trim().is_empty() {
             Arc::new(agenium_vcs::NoCheck)
         } else {
             Arc::new(ApprovedCheck {
                 command: m.checks.pre_merge.clone(),
+                network,
             })
         }
     }

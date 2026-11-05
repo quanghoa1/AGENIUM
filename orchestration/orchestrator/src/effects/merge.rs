@@ -47,7 +47,9 @@ impl App {
             return Ok(());
         }
         let manifest = self.manifest(p)?;
-        let check = self.checks.for_project(p, &manifest);
+        let check = self
+            .checks
+            .for_project(p, &manifest, self.config().sandbox.network);
         let prepared = repo.prepare_merge(t.key.as_str(), check.as_ref())?;
         let done = self.store.commit(None, "system", |w| -> Result<Option<MergeOutcome>> {
             let mut t = tickets::get(w.tx, t.id)?;

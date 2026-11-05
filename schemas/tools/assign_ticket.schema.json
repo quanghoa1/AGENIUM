@@ -2,7 +2,7 @@
   "$id": "https://agenium.dev/schemas/v1/tools/assign_ticket.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Assign a New or Reopened ticket to a worker of your team whose role and tags match. The scheduler starts the work when dependencies are satisfied.",
+  "description": "Assign a New or Reopened ticket to a worker of your team whose role and tags match and whose allowed_paths (get_team) cover the ticket's scope_paths. The scheduler starts the work when dependencies are satisfied.",
   "properties": {
     "note": {
       "default": null,

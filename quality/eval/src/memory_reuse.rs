@@ -97,6 +97,7 @@ impl CheckFactory for OwnerRuleFactory {
         &self,
         _: &agenium_store::core::projects::Project,
         _: &agenium_orchestrator::manifest::ProjectManifest,
+        _: bool,
     ) -> Arc<dyn CheckRunner> {
         Arc::new(OwnerRule {
             seen: self.0.clone(),

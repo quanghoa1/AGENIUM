@@ -64,6 +64,7 @@ impl CheckFactory for Checks {
         &self,
         _: &projects::Project,
         _: &agenium_orchestrator::manifest::ProjectManifest,
+        _: bool,
     ) -> Arc<dyn agenium_vcs::CheckRunner> {
         match &self.0 {
             Some((ok, log)) => Arc::new(FixedCheck(*ok, log.clone())),

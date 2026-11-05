@@ -446,7 +446,7 @@ fn a_template_sets_the_projects_pre_merge_check() {
     let p = f.app.project(f.project.id).unwrap();
     assert!(
         !SandboxCheckFactory
-            .for_project(&p, &m)
+            .for_project(&p, &m, false)
             .run(f._tmp.path())
             .ok
             || agenium_sandbox::detect().backend.is_some()
@@ -456,8 +456,24 @@ fn a_template_sets_the_projects_pre_merge_check() {
     // An empty check always passes.
     assert!(
         SandboxCheckFactory
-            .for_project(&p, &empty)
+            .for_project(&p, &empty, false)
             .run(f._tmp.path())
             .ok
     );
+}
+
+/// A pre-merge check whose suite starts its own server reaches it with `[sandbox] network` on, as the work's own
+/// commands did (seen: a boot test passed in the worker's run and failed the merge with `connect EACCES 127.0.0.1`).
+#[cfg(windows)]
+#[test]
+fn a_pre_merge_check_reaches_the_server_it_starts() {
+    if agenium_sandbox::detect().backend.is_none() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let serve_and_connect = "$l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0); $l.Start(); \
+        $c = [System.Net.Sockets.TcpClient]::new(); $c.Connect('127.0.0.1', $l.LocalEndpoint.Port); \
+        if ($c.Connected) { 'connected' } else { exit 3 }";
+    let out = agenium_orchestrator::check::run_check(serve_and_connect, dir.path(), true);
+    assert!(out.ok && out.log.contains("connected"), "{}", out.log);
 }

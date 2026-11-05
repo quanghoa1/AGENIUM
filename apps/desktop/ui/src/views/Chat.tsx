@@ -98,7 +98,7 @@ export function ChatView() {
         </div>
       )}
       <div className="card flex min-h-0 flex-1 flex-col">
-        <ChatPane key={p.id} project={p.id} agentName={p.team?.name ?? "lead"} agentId={p.team?.lead} enabled={!!p.team} prefill={prefill} />
+        <ChatPane key={p.id} project={p.id} agentName={p.team?.lead_name ?? p.team?.name ?? "lead"} agentId={p.team?.lead} enabled={!!p.team} prefill={prefill} />
       </div>
     </div>
   );

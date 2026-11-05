@@ -18,18 +18,25 @@ use crate::manifest::{ProjectManifest, ProjectSection};
 use crate::{OrchError, Result};
 
 /// Builds the pre-merge check of a project. The runtime decides how commands run (sandbox or approval); tests
-/// and projects without a check use [`NoCheckFactory`].
+/// and projects without a check use [`NoCheckFactory`]. `network`: `[sandbox] network`, as the work's own commands
+/// had it (a test suite that starts its own server needs the loopback, which the sandbox cannot tell from the host's).
 pub trait CheckFactory: Send + Sync {
     fn for_project(
         &self,
         project: &projects::Project,
         manifest: &ProjectManifest,
+        network: bool,
     ) -> Arc<dyn CheckRunner>;
 }
 
 pub struct NoCheckFactory;
 impl CheckFactory for NoCheckFactory {
-    fn for_project(&self, _: &projects::Project, _: &ProjectManifest) -> Arc<dyn CheckRunner> {
+    fn for_project(
+        &self,
+        _: &projects::Project,
+        _: &ProjectManifest,
+        _: bool,
+    ) -> Arc<dyn CheckRunner> {
         Arc::new(NoCheck)
     }
 }

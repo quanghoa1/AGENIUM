@@ -267,6 +267,15 @@ if (exported) {
   const shownConflict = await until(`!!${card} && ${card}.innerText.includes('9090') && ${card}.innerText.includes('8080')`, 30000);
   await shot("memory-conflict");
   check("tidying folds the same memories and shows the contradicting ones", shownConflict, memo?.id);
+  // The graph tab draws the two contradicting memories joined by a red line, and a click shows the other one.
+  await clickText("Graph", "document.querySelector('main')");
+  const graph = "document.querySelector('main svg[role=img]')";
+  const drawn = await until(`!!${graph} && ${graph}.querySelectorAll('rect').length >= 2 && [...${graph}.querySelectorAll('line')].some(l => l.getAttribute('stroke') === '#e5484d')`, 15000);
+  await js(`${graph}.querySelector('g.cursor-pointer')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
+  const linked = await until(`(document.querySelector('main')?.innerText ?? '').includes('contradiction') && [...document.querySelectorAll('main li button')].some(b => /8080|9090/.test(b.innerText))`, 10000);
+  await shot("memory-graph");
+  check("the memory graph joins the contradicting memories and lists what a node touches", drawn && linked);
+  await clickText("Lessons", "document.querySelector('main')");
   await js(`(() => { const side = [...${card}.querySelectorAll('div')].find(d => d.querySelectorAll('button').length === 1 && d.innerText.includes('9090')); side?.querySelector('button')?.click(); })()`);
   const decided = await until(`!${card}`, 15000);
   const m = JSON.parse((await invoke("memory", { agent: memo?.id ?? "" })) || "{}");
