@@ -130,6 +130,7 @@ impl App {
             Intent::GetTeam(_) => self.get_team(ctx),
             Intent::ListTickets(q) => self.list_tickets(ctx, q),
             Intent::ReadTicket(q) => self.read_ticket(ctx, q),
+            Intent::ReadSpec(_) => self.read_spec(ctx),
             Intent::SetMemberMcpKey(k) => self.set_member_mcp_key(ctx, k),
             Intent::ConfirmLink(l) => self.confirm_link(ctx, l),
             Intent::CreateAggregate(a) => self.create_aggregate(ctx, &project, a),

@@ -60,4 +60,26 @@ impl App {
             "comments_left_out": from,
         })))
     }
+
+    /// read_spec: the approved spec the current plan traces to (else the newest approved one), whole. Workers see only
+    /// the requirements their item serves; a ticket that documents or checks the whole contract needs all of it (a docs
+    /// worker was told to compare with "the approved v1 contract" it could not read, and reopened for it).
+    pub(super) fn read_spec(&self, ctx: &CallCtx) -> Result<Outcome> {
+        let spec = self.store.read(|c| {
+            let traced = match plans::current_plan(c, ctx.project)? {
+                Some(p) => plans::spec(c, ctx.project, p.body.spec_version)?,
+                None => None,
+            };
+            Ok(match traced {
+                Some(s) => Some(s),
+                None => plans::latest_spec(c, ctx.project)?.filter(|s| s.approved_by.is_some()),
+            })
+        })?;
+        let Some(s) = spec else {
+            return Err(invalid("the project has no approved spec yet"));
+        };
+        Ok(Outcome::ok(serde_json::json!({
+            "version": s.version, "approved": s.approved_by.is_some(), "spec": s.body,
+        })))
+    }
 }

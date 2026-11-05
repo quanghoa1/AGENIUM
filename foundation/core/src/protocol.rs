@@ -122,6 +122,8 @@ protocol_tools! {
         "Suggest that your ticket is related to another ticket; the Lead decides.";
     SubmitPlanDraft => "submit_plan_draft", Worker, PlanDraft,
         "Planner only: submit your draft of plan v1 for the locked spec, with the rationale of the split. The Lead reviews it and creates the plan. This ends your run.";
+    ReadSpec => "read_spec", Shared, NoArgs,
+        "Read the approved requirement spec in full (the contract): goals, constraints, out of scope, every requirement with its acceptance criteria, and its version. Your ticket shows only the requirements it serves; use this to check or document anything against the whole spec. Read only.";
     LoadSkill => "load_skill", Shared, LoadSkill,
         "Load the full instructions of a skill listed in your skills index.";
     ProposeSkillUpdate => "propose_skill_update", Shared, ProposeSkillUpdate,
@@ -253,6 +255,7 @@ pub enum Intent {
     UpdateFromMain(UpdateFromMain),
     SuggestLink(SuggestLink),
     SubmitPlanDraft(PlanDraft),
+    ReadSpec(NoArgs),
     LoadSkill(LoadSkill),
     ProposeSkillUpdate(ProposeSkillUpdate),
     ProposeNewSkill(ProposeNewSkill),
@@ -303,6 +306,7 @@ impl Intent {
             UpdateFromMain(_) => ProtocolTool::UpdateFromMain,
             SuggestLink(_) => ProtocolTool::SuggestLink,
             SubmitPlanDraft(_) => ProtocolTool::SubmitPlanDraft,
+            ReadSpec(_) => ProtocolTool::ReadSpec,
             LoadSkill(_) => ProtocolTool::LoadSkill,
             ProposeSkillUpdate(_) => ProtocolTool::ProposeSkillUpdate,
             ProposeNewSkill(_) => ProtocolTool::ProposeNewSkill,
@@ -372,6 +376,7 @@ impl Intent {
             | ListTickets(_)
             | ReadTicket(_)
             | UpdateFromMain(_)
+            | ReadSpec(_)
             | SetMemberMcpKey(_)
             | ConfirmLink(_)
             | LoadSkill(_)
@@ -393,7 +398,7 @@ mod tests {
         // set_member_mcp_key (Lead group; per-agent MCP keys, 2026-10-25) and
         // submit_plan_draft (Worker group, planner role only; ADR-59), propose_new_skill (Shared; ADR-91), and
         // list_tickets and read_ticket (Lead group: the board mid-run, 2026-11-04), update_from_main (Worker: Agenium
-        // rebases the worktree outside the sandbox, ADR-158).
+        // rebases the worktree outside the sandbox, ADR-158), read_spec (Shared: the whole approved spec, ADR-158).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -401,11 +406,11 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (18, 7, 5)
+            (18, 7, 6)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 30);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 23);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 12);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 31);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 24);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 13);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);
         }

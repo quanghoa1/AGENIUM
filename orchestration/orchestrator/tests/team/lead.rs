@@ -575,3 +575,34 @@ fn the_lead_lists_and_reads_its_tickets() {
         .apply(&ctx(f, other), Intent::ListTickets(Default::default()))
         .is_err());
 }
+
+/// A worker reads the whole approved spec (its ticket shows only the requirements its item serves); before a spec is
+/// approved there is none to read.
+#[test]
+fn a_worker_reads_the_whole_approved_spec() {
+    let f = &fixture();
+    let a = solo_with_plan(f, &[("PI-1", &[])]);
+    let r = f
+        .app
+        .apply(
+            &ctx(f, Actor::Worker(a.id)),
+            Intent::ReadSpec(Default::default()),
+        )
+        .unwrap()
+        .result;
+    assert_eq!(r["version"], 1);
+    assert_eq!(r["approved"], true);
+    assert_eq!(r["spec"]["requirements"][0]["id"], "REQ-1");
+    assert_eq!(r["spec"]["requirements"][0]["acceptance"][0]["id"], "AC-1");
+
+    let other = fixture();
+    let e = other
+        .app
+        .apply(
+            &ctx(&other, Actor::User),
+            Intent::ReadSpec(Default::default()),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("no approved spec"), "{e}");
+}

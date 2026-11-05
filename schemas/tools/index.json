@@ -20,6 +20,7 @@
     "create_aggregate"
   ],
   "Shared": [
+    "read_spec",
     "load_skill",
     "propose_skill_update",
     "propose_new_skill",

@@ -114,6 +114,10 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    `docs/spec.md` from `read_file`'s numbered view, every line prefixed twice, and the Lead reopened it for that.
    `write_file`, and `edit_file`'s new text, refuse content whose lines are mostly `<n>	...` with the numbers counting
    up (a tab-separated file or two lines pass), saying to write the file's own text.
+20. **Every agent can read the whole approved spec** (`read_spec`, Shared): a worker's ticket shows only the
+   requirements its plan item serves. The docs ticket had to document the store contract against "the approved v1
+   spec", which lived only in Agenium's database; the worker could not read it and the Lead reopened the ticket for
+   that. `read_spec` returns the spec the current plan traces to (else the newest approved one), read only.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);
