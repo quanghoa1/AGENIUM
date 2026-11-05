@@ -318,12 +318,22 @@ impl Driver for Claude {
 
 /// The models offered for Claude Code's `--model`, by their full ids: its aliases (`haiku`, `sonnet`, `opus`) are left
 /// out, since what they name changes with each release (an agent set to one still runs: `effort::alias_of`). The CLI
-/// has no command that lists them.
-pub const MODELS: [&str; 4] = [
+/// has no command that lists them, so this follows Anthropic's model list: the current ones first, then the earlier
+/// ones still served (Claude Code's own picker offers them too; the plan decides which answer). Retired ones are out.
+// shortcut: a fixed list, checked against Anthropic's models on 2026-11-05; update it when a model ships or retires.
+pub const MODELS: [&str; 12] = [
     "claude-haiku-5-5",
     "claude-sonnet-5-5",
     "claude-opus-5-5",
     "claude-fable-5-1",
+    "claude-fable-5",
+    "claude-opus-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-sonnet-5",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
 ];
 
 #[cfg(test)]

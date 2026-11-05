@@ -177,6 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **Claude Code's earlier models are offered too** (Opus 5, 4.8, 4.7, 4.6, Fable 5, Sonnet 5, 4.6, Haiku 4.5), each with
+  its own efforts; only the 5.x ones were listed.
 - **No file written with read_file's line numbers** (ADR-158 decision 19): write_file and edit_file refuse such
   content and say why; a docs worker had written a whole spec so.
 - **The live view's "max at once" follows the teams**: each running project counts its workers (one ticket each),
