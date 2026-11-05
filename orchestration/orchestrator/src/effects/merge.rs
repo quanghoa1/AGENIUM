@@ -93,7 +93,7 @@ impl App {
                     if t.status == TicketStatus::Resolved {
                         transition(w, &mut t, &Actor::System, TicketStatus::Reopened, &Guards { merge_failed: true, ..Default::default() })?;
                         let mut text = format!(
-                            "Merge failed: rebase on the latest {} conflicts in: {}.\nRebase your branch on {} in your worktree, resolve the conflicts, then submit_report again.",
+                            "Merge failed: rebase on the latest {} conflicts in: {}.\nCall update_from_main to bring {} into your worktree (Agenium does the git work), resolve what it reports, then submit_report again.",
                             p.main_branch,
                             files.join(", "),
                             p.main_branch
@@ -176,11 +176,10 @@ impl App {
                 continue;
             }
             let text = format!(
-                "{} was merged into {} and changed files you are changing too: {}. Rebase your branch on {} now (commit or stash first, then `git rebase {}`) and resolve any conflict while the change is small.",
+                "{} was merged into {} and changed files you are changing too: {}. Call update_from_main now to bring {} into your worktree (Agenium does the git work) and resolve any conflict while the change is small.",
                 merged.key,
                 p.main_branch,
                 both.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "),
-                p.main_branch,
                 p.main_branch
             );
             self.store.commit(None, "system", |w| -> Result<()> {

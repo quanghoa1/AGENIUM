@@ -177,6 +177,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **Workers can take in what merged meanwhile** (`update_from_main`, ADR-158 decision 18): Agenium commits their work
+  and rebases the branch on main outside the sandbox, where git writes are blocked; a conflict lists the files and a
+  second call keeps the worker's version once it brought main's change in. The rebase messages point to it.
+- **An API agent whose provider has no key waits for the user** (ADR-158 decision 17), told once, instead of failing
+  its runs as plain errors with nobody told.
 - **A Graph tab on the Memory page** (ADR-158 decision 16): an agent's entities and their relations, each memory tied
   to what it names, contradictions in red; click a node for what it touches, scroll to zoom, drag to move.
 - **The pre-merge check has the network the work had** (ADR-158 decision 15): a test suite that starts its own server

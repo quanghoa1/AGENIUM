@@ -140,9 +140,67 @@ fn a_merge_nudges_work_in_progress_on_the_same_file_to_rebase() {
     });
     let nudge = nudge.expect("AGN-2 is told to rebase");
     assert!(
-        nudge.contains("notes/shared.md") && !nudge.contains("notes/other.md"),
+        nudge.contains("notes/shared.md")
+            && !nudge.contains("notes/other.md")
+            && nudge.contains("update_from_main"),
         "{nudge}"
     );
+
+    // The worker cannot rebase in the sandbox; Agenium does it. A conflict changes nothing and names the file.
+    let update = |keep_mine| {
+        f.app
+            .apply(
+                &ctx(&f, worker),
+                Intent::UpdateFromMain(agenium_core::protocol::UpdateFromMain {
+                    ticket_id: k2.clone(),
+                    keep_mine,
+                }),
+            )
+            .unwrap()
+            .result
+    };
+    let wt2 = worktree(&f, "AGN-2");
+    let r = update(false);
+    assert_eq!(r["updated"], false, "{r}");
+    assert_eq!(
+        r["conflicts"],
+        serde_json::json!(["notes/shared.md"]),
+        "{r}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(wt2.join("notes/shared.md")).unwrap(),
+        "from two\n"
+    );
+    // It brings main's line into its file and asks again: its version is kept, on top of main.
+    write(&wt2, "notes/shared.md", "from one\nfrom two\n");
+    let r = update(true);
+    assert_eq!(r["updated"], true, "{r}");
+    assert_eq!(
+        std::fs::read_to_string(wt2.join("notes/shared.md")).unwrap(),
+        "from one\nfrom two\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(wt2.join("notes/other.md")).unwrap(),
+        "mine\n"
+    );
+    let main = f.app.project(f.project.id).unwrap().main_branch;
+    let repo = agenium_vcs::Repo::open(
+        &std::path::PathBuf::from(&f.app.project(f.project.id).unwrap().path),
+        &main,
+    );
+    let main_head = repo.head_sha(&main).unwrap().unwrap();
+    assert!(
+        repo.is_ancestor(&main_head, "agenium/AGN-2").unwrap(),
+        "AGN-2 sits on the latest main"
+    );
+    // Only AGN-2's own work counts as its change (the review diff and the scope check).
+    let ws = f
+        .app
+        .store()
+        .read(|c| agenium_store::core::workspaces::get(c, ticket(&f, "AGN-2").id))
+        .unwrap()
+        .unwrap();
+    assert_eq!(ws.base_sha, main_head);
 }
 
 /// Found with a real model: after a new spec version adds a requirement, a plan revision must trace to the newest

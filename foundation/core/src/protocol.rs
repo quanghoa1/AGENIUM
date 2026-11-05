@@ -116,6 +116,8 @@ protocol_tools! {
         "Request a permission the sandbox does not give (network domain, path outside the worktree, blocked command). The ticket pauses until decided.";
     SubmitReport => "submit_report", Worker, WorkReport,
         "Submit the final report of your ticket with one result per acceptance criterion. Your worktree is committed and the ticket becomes Resolved. This ends your run.";
+    UpdateFromMain => "update_from_main", Worker, UpdateFromMain,
+        "Bring the latest main into your worktree (rebase, sync, pull what merged): Agenium commits your changes on your branch and rebases it on main, since git commit, stash and rebase cannot run in the sandbox. Use it when a ticket you depend on merged or you are told to rebase. On a conflict nothing changes and the files are listed: read main's version (git show main:<file>), bring its change into your file, then call again with keep_mine=true.";
     SuggestLink => "suggest_link", Worker, SuggestLink,
         "Suggest that your ticket is related to another ticket; the Lead decides.";
     SubmitPlanDraft => "submit_plan_draft", Worker, PlanDraft,
@@ -206,6 +208,16 @@ pub struct ReadTicket {
     pub ticket_id: crate::ids::TicketKey,
 }
 
+/// update_from_main: the worker's ticket; `keep_mine` resolves the hunks that still conflict with the worker's version
+/// (after it brought main's change into its files).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateFromMain {
+    pub ticket_id: crate::ids::TicketKey,
+    #[serde(default)]
+    pub keep_mine: bool,
+}
+
 /// get_team takes no arguments.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -238,6 +250,7 @@ pub enum Intent {
     AskQuestion(Question),
     RequestPermission(PermissionRequest),
     SubmitReport(WorkReport),
+    UpdateFromMain(UpdateFromMain),
     SuggestLink(SuggestLink),
     SubmitPlanDraft(PlanDraft),
     LoadSkill(LoadSkill),
@@ -287,6 +300,7 @@ impl Intent {
             AskQuestion(_) => ProtocolTool::AskQuestion,
             RequestPermission(_) => ProtocolTool::RequestPermission,
             SubmitReport(_) => ProtocolTool::SubmitReport,
+            UpdateFromMain(_) => ProtocolTool::UpdateFromMain,
             SuggestLink(_) => ProtocolTool::SuggestLink,
             SubmitPlanDraft(_) => ProtocolTool::SubmitPlanDraft,
             LoadSkill(_) => ProtocolTool::LoadSkill,
@@ -357,6 +371,7 @@ impl Intent {
             | GetTeam(_)
             | ListTickets(_)
             | ReadTicket(_)
+            | UpdateFromMain(_)
             | SetMemberMcpKey(_)
             | ConfirmLink(_)
             | LoadSkill(_)
@@ -377,7 +392,8 @@ mod tests {
         // docs/design/SCHEMAS/tools/index.json: Lead 15, Worker 5, Shared 4 (24 tools); Solo = all. Agenium adds
         // set_member_mcp_key (Lead group; per-agent MCP keys, 2026-10-25) and
         // submit_plan_draft (Worker group, planner role only; ADR-59), propose_new_skill (Shared; ADR-91), and
-        // list_tickets and read_ticket (Lead group: the board mid-run, 2026-11-04).
+        // list_tickets and read_ticket (Lead group: the board mid-run, 2026-11-04), update_from_main (Worker: Agenium
+        // rebases the worktree outside the sandbox, ADR-158).
         let count = |g| ProtocolTool::ALL.iter().filter(|t| t.group() == g).count();
         assert_eq!(
             (
@@ -385,11 +401,11 @@ mod tests {
                 count(ToolGroup::Worker),
                 count(ToolGroup::Shared)
             ),
-            (18, 6, 5)
+            (18, 7, 5)
         );
-        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 29);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Lead, true).len(), 30);
         assert_eq!(ProtocolTool::for_role(RoleKind::Lead, false).len(), 23);
-        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 11);
+        assert_eq!(ProtocolTool::for_role(RoleKind::Worker, false).len(), 12);
         for t in ProtocolTool::ALL {
             assert_eq!(t.name().parse::<ProtocolTool>().unwrap(), *t);
         }

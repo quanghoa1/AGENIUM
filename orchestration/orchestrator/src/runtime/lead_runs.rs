@@ -288,6 +288,7 @@ impl Runtime {
                     ProtocolTool::PostProgress,
                     ProtocolTool::AskQuestion,
                     ProtocolTool::RequestPermission,
+                    ProtocolTool::UpdateFromMain,
                     ProtocolTool::SuggestLink,
                 ],
             )

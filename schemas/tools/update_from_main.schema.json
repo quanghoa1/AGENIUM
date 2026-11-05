@@ -1,0 +1,23 @@
+{
+  "$id": "https://agenium.dev/schemas/v1/tools/update_from_main.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bring the latest main into your worktree (rebase, sync, pull what merged): Agenium commits your changes on your branch and rebases it on main, since git commit, stash and rebase cannot run in the sandbox. Use it when a ticket you depend on merged or you are told to rebase. On a conflict nothing changes and the files are listed: read main's version (git show main:<file>), bring its change into your file, then call again with keep_mine=true.",
+  "properties": {
+    "keep_mine": {
+      "default": false,
+      "type": "boolean"
+    },
+    "ticket_id": {
+      "description": "Ticket key, e.g. AGN-11",
+      "pattern": "^[A-Z]{1,10}-[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ticket_id"
+  ],
+  "title": "update_from_main",
+  "type": "object",
+  "x-agenium-role": "Worker"
+}

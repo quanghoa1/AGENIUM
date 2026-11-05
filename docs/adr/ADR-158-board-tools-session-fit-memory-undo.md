@@ -98,6 +98,18 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    `memory_graph` reads `AgentStore::graph_view` (live rows only; the 300 most connected entities). No graph
    library: a small force layout in the page. The Lead console names the Lead by its agent (`lead_name`), not by
    the team, whose initials were another member's.
+17. **An API agent whose provider has no key waits for the user** (same team, after a vault reset): the run failed as
+   a plain `Error` (`secret ... is not set`), twice, and the ticket stopped starting with nobody told. A provider that
+   cannot be built (`NotFound`: no key, not configured) now sets the agent aside like a CLI that cannot run
+   (ADR-132): Offline, a NeedsUser and a comment on its ticket naming the provider.
+18. **Agenium brings main into a worktree** (`update_from_main`, Worker group): git writes are blocked in the sandbox by
+   design (ADR-53), yet Agenium's own messages told a worker to "commit or stash, then `git rebase main`" (the rebase
+   nudge) or to rebase after a merge conflict. A worker whose ticket depended on one merged meanwhile (the Lead added
+   it mid-plan) tried exactly that, met `index.lock ... denied`, and spent 400 steps inspecting git's index. Now
+   Agenium commits the worker's changes on its branch (journal-first, secrets refused) and rebases it on main,
+   outside the sandbox; the workspace base follows. On a conflict nothing changes and the files are listed: the
+   worker brings main's change into its file (`git show main:<file>` reads) and calls again with `keep_mine`, so the
+   hunks that still conflict keep its version. Both messages now point to the tool.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

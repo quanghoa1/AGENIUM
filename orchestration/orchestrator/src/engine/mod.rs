@@ -31,6 +31,7 @@ mod reports;
 mod team;
 mod ticket_intents;
 mod ticket_reads;
+mod update_main;
 mod write_scope;
 
 /// Who calls, for which project, under which idempotency key and run.
@@ -136,6 +137,7 @@ impl App {
             Intent::AskQuestion(q) => self.ask_question(ctx, q),
             Intent::RequestPermission(r) => self.request_permission(ctx, &project, r),
             Intent::SubmitReport(r) => self.submit_report(ctx, &project, r),
+            Intent::UpdateFromMain(u) => self.update_from_main(ctx, &project, u),
             Intent::SuggestLink(l) => self.suggest_link(ctx, l),
             Intent::SubmitPlanDraft(d) => self.submit_plan_draft(ctx, d),
             Intent::ProposeSpec(s) => self.propose_spec(ctx, s),

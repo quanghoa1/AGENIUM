@@ -32,6 +32,7 @@
     "ask_question",
     "request_permission",
     "submit_report",
+    "update_from_main",
     "suggest_link",
     "submit_plan_draft"
   ]

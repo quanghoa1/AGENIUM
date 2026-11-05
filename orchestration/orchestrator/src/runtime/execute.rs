@@ -357,7 +357,16 @@ impl Runtime {
                 agent.model.model, agent.name, agent.model.provider
             )));
         }
-        let provider = self.providers.provider(&agent.model.provider)?;
+        // A provider without its key (or not configured) fails every run the same way: the agent waits for the user,
+        // told once, as a CLI that cannot run does (it was retried as a plain error, and nobody was told).
+        let provider = match self.providers.provider(&agent.model.provider) {
+            Ok(p) => p,
+            Err(e @ OrchError::NotFound(_)) => {
+                self.set_aside(agent, ticket, &e.to_string())?;
+                return Err(e);
+            }
+            Err(e) => return Err(e),
+        };
         let info = self
             .model_info(&agent.model.provider, &agent.model.model, provider.as_ref())
             .await;

@@ -5,13 +5,28 @@ use super::*;
 impl Repo {
     /// Rebases the worktree's branch onto `onto`. On conflict the rebase is aborted and the files are listed.
     pub fn rebase(&self, worktree: &Path, onto: &str) -> Result<RebaseOutcome, VcsError> {
+        self.rebase_with(worktree, onto, false)
+    }
+
+    /// [`Repo::rebase`]; `keep_branch`: hunks that still conflict keep the branch's version (`-X theirs`, which in a
+    /// rebase is the commits being replayed), for a worker that already brought `onto`'s change into its files.
+    pub fn rebase_with(
+        &self,
+        worktree: &Path,
+        onto: &str,
+        keep_branch: bool,
+    ) -> Result<RebaseOutcome, VcsError> {
         let g = self.git_for(worktree)?;
         let head = g.check(worktree, ["rev-parse", "HEAD"])?.trim().to_owned();
         let onto_sha = g.check(worktree, ["rev-parse", onto])?.trim().to_owned();
         if self.is_ancestor(&onto_sha, &head)? {
             return Ok(RebaseOutcome::Rebased { head });
         }
-        let out = g.run(worktree, ["rebase", "-q", onto])?;
+        let out = if keep_branch {
+            g.run(worktree, ["rebase", "-q", "-X", "theirs", onto])?
+        } else {
+            g.run(worktree, ["rebase", "-q", onto])?
+        };
         if out.ok() {
             let head = g.check(worktree, ["rev-parse", "HEAD"])?.trim().to_owned();
             return Ok(RebaseOutcome::Rebased { head });

@@ -285,11 +285,12 @@ pub enum RunKind {
 }
 
 /// A worker's tools that are about its own ticket.
-const OWN_TICKET_TOOLS: [&str; 4] = [
+const OWN_TICKET_TOOLS: [&str; 5] = [
     "submit_report",
     "post_progress",
     "ask_question",
     "request_permission",
+    "update_from_main",
 ];
 
 /// `args` with `ticket_id` set to `ticket` when it is missing (a given one is kept, for the engine to check).

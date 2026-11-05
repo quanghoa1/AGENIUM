@@ -634,3 +634,26 @@ async fn a_panicking_or_dropped_run_is_ended_without_a_restart() {
         .iter()
         .all(|r| r.outcome.as_deref() == Some("Interrupted")));
 }
+
+/// An agent whose API provider cannot be built (its key not set, or not configured) waits for the user, told once,
+/// like a CLI that cannot run; it was retried as a plain error and nobody was told (seen after a vault reset).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_agent_whose_provider_has_no_key_waits_for_the_user() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    app.update_config(|c| c.memory.learn = false).unwrap();
+    let (project, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let nokey = ModelBinding {
+        provider: "nokey".into(),
+        model: "m".into(),
+        effort: Default::default(),
+        max_tokens: None,
+    };
+    app.set_agent_backend(agent, BackendKind::Api, &nokey)
+        .unwrap();
+    assert!(rt.run_ticket(project, &key("AGN-1")).await.is_err());
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Offline);
+    assert_eq!(needs_user(&app, "cannot use nokey"), 1);
+    assert_eq!(p.requests().len(), 0, "no model was called");
+}
