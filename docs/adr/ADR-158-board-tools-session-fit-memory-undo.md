@@ -123,6 +123,10 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    whether the fix had merged. The tool adds to `depends_on` (no cycle, not a cancelled ticket, a comment on the
    ticket), and the scheduler now checks dependencies for a ticket in progress too, so it goes on only once they are
    done.
+22. **Waiting on a background command is no loop** (same team): QA started its suite in the background and read it
+   with `shell_output {job, wait_ms}`; three identical calls in a row stopped the run as a loop, though each answer was
+   new. The same-call check (API and CLI loops) leaves `shell_output` out (`agenium_backend::polls`); the command's
+   timeout and `max_steps` still bound it.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

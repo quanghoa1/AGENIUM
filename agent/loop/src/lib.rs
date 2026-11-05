@@ -447,7 +447,7 @@ impl Run<'_> {
                 }
                 let n = last_calls.len();
                 let limit = self.cfg.same_call_limit.max(1) as usize;
-                let looping = n >= limit && last_calls.iter().all(|k| *k == key);
+                let looping = n >= limit && last_calls.iter().all(|k| *k == key) && !polls(&c.name);
                 let (res, eff, untrusted, images) = if looping {
                     (
                         Err(ToolError::new(
@@ -635,4 +635,22 @@ pub fn sorted_specs(mut v: Vec<ToolSpec>) -> Vec<ToolSpec> {
     v.sort_by(|a, b| a.name.cmp(&b.name));
     v.dedup_by(|a, b| a.name == b.name);
     v
+}
+
+/// Whether `tool` (a bare or an MCP name: `mcp__agenium__shell_output`) waits on a background command: asked again
+/// with the same arguments while the command runs, each answer new, so it is no loop (a QA run waiting for its test
+/// suite was stopped as one). The command's own timeout and `max_steps` still bound it.
+pub fn polls(tool: &str) -> bool {
+    tool == "shell_output" || tool.ends_with("__shell_output")
+}
+
+#[cfg(test)]
+mod polls_tests {
+    #[test]
+    fn waiting_on_a_background_command_is_no_loop() {
+        assert!(super::polls("shell_output"));
+        assert!(super::polls("mcp__agenium__shell_output"));
+        assert!(!super::polls("shell"));
+        assert!(!super::polls("read_file"));
+    }
 }

@@ -177,6 +177,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   and the Live view's chat are one state.
 - **Python in the sandbox** (Windows): PATH there leaves out the Store's aliases and takes the Python install
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
+- **Waiting on a background command is no loop** (ADR-158 decision 22): reading a running suite with `shell_output`
+  again stopped QA's runs as a loop.
 - **The Lead can make a ticket wait for one made later** (`add_dependency`, ADR-158 decision 21), even while it runs;
   the scheduler holds it until that one is done.
 - **Every agent can read the whole approved spec** (`read_spec`, ADR-158 decision 20): a worker saw only its item's

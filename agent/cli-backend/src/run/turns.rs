@@ -464,7 +464,10 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 }
                 let n = st.recent.len();
                 if st.stop.is_none() && st.effect.is_none() {
-                    if n >= limit && st.recent[n - limit..].iter().all(|k| *k == key) {
+                    if n >= limit
+                        && st.recent[n - limit..].iter().all(|k| *k == key)
+                        && !agenium_backend::polls(&name)
+                    {
                         st.stop = Some(Stop::Loop(format!("cli:{name}")));
                     } else if st.steps > self.limits.max_steps {
                         st.stop = Some(Stop::Steps);
