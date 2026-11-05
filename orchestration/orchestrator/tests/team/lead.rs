@@ -645,9 +645,16 @@ fn the_lead_makes_a_running_ticket_wait_for_a_fix() {
             .map(|r| r.ticket.key)
             .collect()
     };
-    assert_eq!(ready(), [qa.clone()], "in progress, nothing to wait for");
+    assert_eq!(
+        ready(),
+        std::slice::from_ref(&qa),
+        "in progress, nothing to wait for"
+    );
     wait(&qa, &fix).unwrap();
-    assert_eq!(ticket(f, qa.as_str()).depends_on, [fix.clone()]);
+    assert_eq!(
+        ticket(f, qa.as_str()).depends_on,
+        std::slice::from_ref(&fix)
+    );
     assert!(ready().is_empty(), "it waits for the fix, even in progress");
     let e = wait(&fix, &qa).unwrap_err().to_string();
     assert!(e.contains("cycle"), "{e}");
