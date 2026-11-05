@@ -15,6 +15,7 @@ use real_read::read_checked;
 use real_write::write_file;
 
 mod apply_patch;
+mod browser;
 mod edit;
 mod fetch;
 mod glob;
@@ -33,6 +34,7 @@ mod view_image;
 mod write_file;
 
 pub use apply_patch::*;
+pub use browser::*;
 pub use edit::*;
 pub use fetch::*;
 pub use glob::*;

@@ -179,6 +179,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   manager's runtime in place of its launcher, so `python` runs in an agent's command.
 - **Screenshots for acceptance** (ADR-158 decision 26): a worker attaches screenshots to its report, the ticket shows
   them, and the Lead shows one to the user in the chat (`share_image`).
+- **A browser for agents** (ADR-158 decision 27): the work tool `browser` opens the app being built in a headless Edge
+  or Chrome, clicks, types and reads it like a user, reports its console errors, and saves screenshots for the report.
+  It reaches only this machine, the network allowlist and the worktree's files.
 - **One commit per ticket on main** (ADR-158 decision 25): a ticket's steps are squashed when it merges, named as
   its first commit; the steps stay on its branch.
 - **A team template's checks are committed on main**: `pre_merge` was written into `agenium.toml` and left as an

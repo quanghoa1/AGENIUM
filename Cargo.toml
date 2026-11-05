@@ -34,6 +34,7 @@ async-trait = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
 dirs = "6"
 futures = "0.3"
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect"] }
 ignore = "0.4"
 regex = "1"
 proptest = "1"

@@ -3,6 +3,7 @@
 //! unique match for edits, atomic multi-file patches, outputs cut to 30 000 characters / 256 lines with the full
 //! text saved as an artifact, shell commands through the command gate (approval or sandbox) with timeouts.
 
+pub mod browser;
 pub mod coerce;
 pub mod edit_match;
 pub mod jobs;
@@ -194,6 +195,8 @@ pub struct ToolCtx {
     /// How long a `shell` call may last before its command goes on as a job the run waits for (ADR-133): set for a
     /// vendor CLI's run, which waits only so long for a tool; `None` (an API run) waits for the command.
     pub foreground_limit: Option<Duration>,
+    /// The run's headless browser (ADR-158), started by the first `browser` call, ended with the context.
+    pub browser: browser::Session,
 }
 
 impl ToolCtx {
@@ -226,6 +229,7 @@ impl ToolCtx {
             jobs: Default::default(),
             stop: Arc::default(),
             foreground_limit: None,
+            browser: Default::default(),
         }
     }
 
@@ -371,6 +375,7 @@ pub fn work_tools() -> Vec<Arc<dyn Tool>> {
         Arc::new(FetchTool),
         Arc::new(TodoTool),
         Arc::new(ViewImage),
+        Arc::new(BrowserTool),
     ];
     v.sort_by(|a, b| a.name().cmp(b.name()));
     v

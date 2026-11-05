@@ -1,6 +1,6 @@
 [package]
 name = "agenium-tools"
-description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, todo, view_image."
+description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, todo, view_image, browser."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,7 @@ publish.workspace = true
 agenium-documents.workspace = true
 agenium-sandbox.workspace = true
 async-trait.workspace = true
+futures.workspace = true
 base64 = "0.22"
 globset = "0.4"
 ignore = "0.4"
@@ -20,8 +21,10 @@ schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["net"] }
+tokio-tungstenite.workspace = true
 agenium-core.workspace = true
 
 [target.'cfg(unix)'.dependencies]

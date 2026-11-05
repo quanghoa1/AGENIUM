@@ -156,6 +156,17 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    worktree goes; every run of the project may read it, so the Lead's review looks at them with `view_image`). The
    ticket's report card shows them. The Lead's `share_image` (a ticket and the file name) puts one into its chat
    with the user, shown under the call, to accept the work together.
+27. **A browser of the run** (the owner chose a built-in tool over an MCP server): an agent could only fetch a page's
+   text, so nothing checked a web app as a user sees it, and nothing took the screenshots of decision 26. The work
+   tool `browser` drives a headless Edge or Chrome found on the machine (`AGENIUM_BROWSER` names another) over the
+   DevTools protocol: `open` a URL, `click` / `type` / `press` like a user, `eval` an expression, `screenshot` the page
+   or one element to `.agenium/shots/<name>.png` (always there, whatever the role's write scope: evidence, not work;
+   the model sees it when it takes images). Each step returns the page's text, its clickable and typable elements
+   with selectors, and its console errors, marked untrusted like fetched content. The browser starts on the first
+   call with a fresh profile in the system temp folder and ends with the run (its process tree and profile go). It
+   runs outside the sandbox, as MCP servers do, so it is held to what `fetch` may reach: pages open on this machine,
+   on the network allowlist, or as files of the worktree; every other host goes to a closed proxy port and fails.
+   Its one dependency is `tokio-tungstenite` (MIT, no TLS: the socket is local).
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

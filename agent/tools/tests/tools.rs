@@ -18,6 +18,7 @@ fn catalogue_is_sorted_and_described() {
         names,
         [
             "apply_patch",
+            "browser",
             "edit_file",
             "fetch",
             "glob",

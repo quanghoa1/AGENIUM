@@ -39,12 +39,13 @@ to check your work (`shell_output` reads it, `shell_stop` ends it)"
         ("todo", "your task list"),
         ("fetch", "a web page"),
         ("view_image", "an image"),
+        ("browser", "your app as a user sees it, and its screenshots"),
     ] {
         if has(name) {
             parts.push(format!("`{name}` for {what}"));
         }
     }
-    const KNOWN: [&str; 15] = [
+    const KNOWN: [&str; 16] = [
         "read_file",
         "list_dir",
         "glob",
@@ -60,6 +61,7 @@ to check your work (`shell_output` reads it, `shell_stop` ends it)"
         "todo",
         "fetch",
         "view_image",
+        "browser",
     ];
     let others: Vec<String> = tools
         .iter()
