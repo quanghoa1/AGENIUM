@@ -662,3 +662,43 @@ async fn an_agent_whose_provider_has_no_key_waits_for_the_user() {
     assert_eq!(needs_user(&app, "cannot use nokey"), 1);
     assert_eq!(p.requests().len(), 0, "no model was called");
 }
+
+/// ADR-158: an agent whose provider could not be reached is tried again by itself, two minutes later and then twice as
+/// long each time; after six tries it waits for the user.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unreachable_agent_is_tried_again_by_itself() {
+    use std::time::{Duration, SystemTime};
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (_, agent) = solo_with_tickets(&app, &["PI-1"]);
+    let min = |m: u64| Duration::from_secs(m * 60);
+    let t0 = SystemTime::now();
+    let offline = |at: SystemTime| {
+        app.set_agent_status(agent, AgentStatus::Offline).unwrap();
+        rt.offline_later(agent, at)
+    };
+    assert_eq!(offline(t0), Some(min(2)));
+    assert!(
+        rt.offline_back_round(t0 + min(1)).unwrap().is_empty(),
+        "not yet"
+    );
+    assert_eq!(rt.offline_back_round(t0 + min(3)).unwrap(), vec![agent]);
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    // Still unreachable: twice as long, then the tries are spent and the user is left to it.
+    assert_eq!(offline(t0 + min(3)), Some(min(4)));
+    assert!(rt.offline_back_round(t0 + min(6)).unwrap().is_empty());
+    assert_eq!(rt.offline_back_round(t0 + min(7)).unwrap(), vec![agent]);
+    for _ in 0..4 {
+        assert!(offline(t0 + min(8)).is_some());
+    }
+    assert_eq!(offline(t0 + min(8)), None);
+    assert!(
+        rt.offline_back_round(t0 + min(200)).unwrap().is_empty(),
+        "left to the user"
+    );
+    assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Offline);
+    // An agent the user set back to work meanwhile is not touched.
+    app.set_agent_status(agent, AgentStatus::Idle).unwrap();
+    assert!(rt.offline_back_round(t0 + min(200)).unwrap().is_empty());
+}

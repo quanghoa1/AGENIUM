@@ -19,6 +19,7 @@ mod lead_runs;
 pub mod learn;
 mod mcp_gate;
 mod models;
+mod offline_back;
 mod pool;
 mod quota_back;
 mod recall;
@@ -141,6 +142,8 @@ pub struct Runtime {
     left_failures: Mutex<std::collections::HashMap<ProjectId, usize>>,
     /// Agents set aside for their quota: when each is tried again (ADR-135).
     quota_waits: Mutex<std::collections::HashMap<AgentId, quota_back::QuotaWait>>,
+    /// Agents whose provider could not be reached: when each is tried again (ADR-158).
+    offline_waits: Mutex<std::collections::HashMap<AgentId, offline_back::OfflineWait>>,
 }
 
 /// Two stopped/failed runs in a row on one ticket: stop auto-restarting it and ask the user (avoids burning tokens on
@@ -178,6 +181,7 @@ impl Runtime {
             steering: Mutex::default(),
             left_failures: Mutex::default(),
             quota_waits: Mutex::default(),
+            offline_waits: Mutex::default(),
             mcp,
             app,
             providers,

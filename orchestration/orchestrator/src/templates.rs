@@ -22,7 +22,7 @@ pub fn describe(template: &str) -> &'static str {
     match template.split('@').next().unwrap_or_default() {
         "coding" => "submit_report.extension is optional. If you ran tests, use {\"tests\": {\"ran\": <integer>, \"passed\": <integer>}} (passed <= ran); otherwise send {}.",
         "pentest" => "submit_report.extension must be {\"findings\": [{\"title\": str, \"asset\": str, \"severity\": \"info|low|medium|high|critical\", ...}]} (an empty list is allowed).",
-        "research" => "submit_report.extension must be {\"sources\": [ ... at least one source ... ]}.",
+        "research" => "submit_report.extension must be {\"sources\": [<the URL or reference of each source you cite>, ...]} (at least one).",
         _ => "submit_report.extension: any JSON object (may be {}).",
     }
 }

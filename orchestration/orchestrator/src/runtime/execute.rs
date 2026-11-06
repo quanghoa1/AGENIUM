@@ -482,7 +482,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 })?;
             }
             Outcome::Offline { .. } => self.app.set_agent_status(agent.id, AgentStatus::Offline)?,
-            _ => {}
+            _ => self.offline_over(agent.id),
         }
         Ok(())
     }
@@ -530,12 +530,19 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 note(&self.app, format!("{} stopped: the provider reports exhausted quota or credit ({message}). It goes on by itself once the quota is back, with the same model; or add credit, resume it or give it another model.", agent.name))?;
             }
             Outcome::Offline { message } => {
+                let then = match self.offline_later(agent.id, std::time::SystemTime::now()) {
+                    Some(d) => format!(
+                        "It is tried again by itself in {} minutes (a busy or unreachable service often comes back); or set it back to Idle or give it another model.",
+                        d.as_secs() / 60
+                    ),
+                    None => format!(
+                        "It was tried again {} times: it takes no work until it is set back to Idle or given another model.",
+                        super::offline_back::MAX_TRIES
+                    ),
+                };
                 note(
                     &self.app,
-                    format!(
-                        "{} is offline: {message}. It takes no work until it is set back to Idle.",
-                        agent.name
-                    ),
+                    format!("{} is offline: {message}. {then}", agent.name),
                 )?;
             }
             Outcome::Refused { why } => {

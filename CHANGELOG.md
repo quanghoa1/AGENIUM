@@ -184,6 +184,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   It reaches only this machine, the network allowlist and the worktree's files.
 - **Acceptance in the chat** (ADR-158 decision 28): when the Lead closes a ticket with screenshots, the chat says it
   is done and shows them, without being asked. A picked element in the Browser page can be copied.
+- **Busy providers and research reports** (ADR-158 decision 29): an agent whose provider was unreachable is tried
+  again by itself (2 minutes, then longer, six times) instead of waiting for the user; a worker's work order says what
+  its report template needs (a research report's sources), so the report is accepted the first time.
 - **One commit per ticket on main** (ADR-158 decision 25): a ticket's steps are squashed when it merges, named as
   its first commit; the steps stay on its branch.
 - **A team template's checks are committed on main**: `pre_merge` was written into `agenium.toml` and left as an

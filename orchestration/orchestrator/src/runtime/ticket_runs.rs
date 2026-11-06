@@ -231,6 +231,12 @@ impl Runtime {
                     ));
                 }
                 first.push_str(&format!("\nYour worktree is {} on branch agenium/{}. Do the work, then call submit_report.", ctx.root.display(), t.key));
+                // What the report's template asks of `extension`, so the report is valid the first time (the research
+                // team's workers met "sources (array) is required" only at submit, three refusals and a stopped run).
+                first.push_str(&format!(
+                    " {}",
+                    crate::templates::describe(&t.report_template)
+                ));
                 if let Some(h) = &skill_hint {
                     first.push_str(h);
                 }

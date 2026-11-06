@@ -178,6 +178,14 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    <title>.` and a line `Screenshot of <KEY>: <file>` for each (four at most), written before the review run ends so
    the chat's reload at its end shows it. The desktop shows such a line as the image, like a `share_image` call; the
    Lead's model reads it as plain text in later turns (no made-up tool call in its history, which providers check).
+29. **An unreachable provider is tried again by itself; a report's template is in the work order** (the research run:
+   a Lead, two researchers, a synthesist on DeepSeek flash). OpenCode answered "overloaded" for over a minute, the
+   Lead's review ended Offline and the project waited for the user. An agent whose run ends Offline (its provider
+   unreachable after the retries; not a CLI that cannot run nor a missing key, which wait for the user as before) is
+   set back to work two minutes later, then four, eight, sixteen, thirty, thirty: six tries, then the user. Both
+   researchers' reports were refused three times and their runs stopped, the last refusal "sources (array) is
+   required": the template's description of `extension` (`templates::describe`) was written for the work order and
+   never put in it. It is now, for every template.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

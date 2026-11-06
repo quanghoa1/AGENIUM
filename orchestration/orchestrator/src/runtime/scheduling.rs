@@ -12,6 +12,10 @@ impl Runtime {
         if let Err(e) = self.quota_back_round(std::time::SystemTime::now()) {
             tracing::warn!(error = %e, "resuming agents after their quota failed");
         }
+        // Agents whose provider could not be reached are tried again (ADR-158).
+        if let Err(e) = self.offline_back_round(std::time::SystemTime::now()) {
+            tracing::warn!(error = %e, "trying unreachable agents again failed");
+        }
         // Before work runs: a ticket the user reopened is learned from while it is still Reopened (ADR-147).
         self.learn_owed(project).await;
         // The user's queued messages first: the user waits on them, the inbox and the work do not (ADR-149).

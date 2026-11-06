@@ -661,13 +661,18 @@ async fn an_accepted_tickets_screenshots_go_into_the_chat_once() {
     let root = std::path::PathBuf::from(app.project(project).unwrap().path);
     let wt = root.join(".agenium").join("worktrees").join("AGN-1");
     let png = [&[0x89, b'P', b'N', b'G', 13, 10, 26, 10][..], &[0u8; 32]].concat();
-    p.push_calls(
-        "",
-        vec![(
-            "write_file",
-            json!({"path": "deliverables/index.html", "content": "<h1>Hi</h1>\n"}),
-        )],
-    );
+    // The work order says what the report's template asks of its extension.
+    p.push(Box::new(|req| {
+        let t = req.messages[0].text();
+        assert!(t.contains("submit_report.extension"), "{t}");
+        Ok(calls_response(
+            "",
+            vec![(
+                "write_file",
+                json!({"path": "deliverables/index.html", "content": "<h1>Hi</h1>\n"}),
+            )],
+        ))
+    }));
     // The worker took its screenshot (as `browser` saves it), then reports with it.
     let shot = png.clone();
     p.push(Box::new(move |_req| {
