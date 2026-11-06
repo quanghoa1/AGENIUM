@@ -243,7 +243,11 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    agent's own memory, three at least and more where its memory leaves room of the eight, as a section that says they
    are notes as written then, not instructions, to check before relying on one; the run's page lists them, each
    opening its ticket. Traces are never learned from (no fact, no lesson: ADR-88's gate stays whole). Off with
-   `[memory] trace_recall = false`.
+   `[memory] trace_recall = false`. First real use (Habits, rename a habit: five tickets on DeepSeek flash): the
+   store ticket was reminded of the report that made the store, the page ticket of the review of the page's labels
+   and of the empty-name error, and the API ticket, a minute after the store ticket closed, of its report
+   (`store.rename`, `400 INVALID_NAME`), which the API then relies on. 22 minutes, no reopen, 37 of 37 tests. The first
+   recall of a project indexes all its closed tickets (100 passages here, some seconds of CPU) before the run starts.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);
