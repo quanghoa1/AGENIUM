@@ -186,6 +186,25 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    researchers' reports were refused three times and their runs stopped, the last refusal "sources (array) is
    required": the template's description of `extension` (`templates::describe`) was written for the work order and
    never put in it. It is now, for every template.
+30. **Raw traces as a recall channel: measured, not adopted yet** (the owner asked to compare Zero-Mem, a memory that
+   keeps raw traces and indexes them with no model tokens). `agent/memory/examples/trace_recall.rs`, on the QA runs'
+   real episodes (StudyDeck and Habits: 186 live facts, 486 chunks of their tickets' reports, reviews, system,
+   question and answer comments), 69 questions written by DeepSeek flash from sampled chunks and facts (answers copied
+   from the passage, checked verbatim), bge-small and the production `recall`, 8 items:
+
+   | | detail questions (from traces, 36) | fact questions (33) | all (69) |
+   |---|---|---|---|
+   | facts only (today) | answer 0.17, MRR 0.17 | answer 1.00, MRR 0.93 | answer 0.57 |
+   | traces only | 0.89, 0.69 | 0.30, 0.23 | 0.61 |
+   | both, reciprocal rank | 0.89, 0.44 | 1.00, 0.92 | 0.94 |
+   | facts first, traces 3 places at most | 0.81, 0.27 | 1.00, 0.93 | 0.90 |
+
+   The extraction keeps a fifth of the details a later ticket may ask (`409 QUIZ_ALREADY_SUBMITTED`, a 64 KiB body
+   limit, the sandbox's `connect EACCES`); a trace channel finds nine in ten, and the facts keep their places.
+   About a third of those details are passing (a test count of one moment, "the next step is submit_report"), so a
+   trace in a work order must say it is one (its ticket, its date, verify it). Not one of Zero-Mem's other parts is
+   taken: its routing by question type and its many thresholds are tuned to its benchmarks, a work order is not a
+   question, and our graph already showed (ADR-94) that reaching wider hurts.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);
