@@ -187,6 +187,11 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **Busy providers and research reports** (ADR-158 decision 29): an agent whose provider was unreachable is tried
   again by itself (2 minutes, then longer, six times) instead of waiting for the user; a worker's work order says what
   its report template needs (a research report's sources), so the report is accepted the first time.
+- **Reminders from closed tickets** (ADR-158 decisions 30-31): a ticket's first message also carries what the
+  project's closed tickets said about the same thing (a review's finding, an answer, a failed merge, the approved
+  report), marked as written then. Measured on four projects before it was turned on: details a later ticket needs
+  went from one in four found to nine in ten, with the agents' own memories still found as before. Shown on the
+  run's page; `[memory] trace_recall` turns it off.
 - **One commit per ticket on main** (ADR-158 decision 25): a ticket's steps are squashed when it merges, named as
   its first commit; the steps stay on its branch.
 - **A team template's checks are committed on main**: `pre_merge` was written into `agenium.toml` and left as an

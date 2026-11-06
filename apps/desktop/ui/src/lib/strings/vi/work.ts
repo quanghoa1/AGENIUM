@@ -336,6 +336,7 @@ export const work: Record<keyof typeof en, string> = {
   "live.pickAgent": "Bấm vào một người trong văn phòng.",
   "live.noCalls": "Run này chưa gọi tool nào.",
   "runmem.recalled": "Memory nạp vào tin nhắn đầu tiên",
+  "runmem.traces": "Từ các ticket đã đóng của project (như lúc viết)",
   "runmem.none": "Không có memory nào khớp ticket này: agent bắt đầu mà không có nhắc nhở nào.",
   "runmem.shared": "dùng chung, từ agent khác",
   "runmem.learned": "Memory đã học",

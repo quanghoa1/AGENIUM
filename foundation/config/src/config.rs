@@ -347,6 +347,9 @@ pub struct MemorySection {
     /// Learn from the user's chat with the Lead once the chat has been quiet this many minutes: facts and preferences
     /// only, each part of the chat once. 0 = never learn from chats.
     pub chat_idle_minutes: u32,
+    /// Remind a work run of the project's closed tickets' raw traces (reviews, answers, the approved report) beside its
+    /// memory (ADR-158 decision 31).
+    pub trace_recall: bool,
 }
 
 impl Default for MemorySection {
@@ -359,6 +362,7 @@ impl Default for MemorySection {
             learn: true,
             share: true,
             chat_idle_minutes: 20,
+            trace_recall: true,
         }
     }
 }

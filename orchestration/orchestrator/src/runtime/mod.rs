@@ -29,6 +29,7 @@ pub mod side_chat;
 mod stalls;
 mod steering;
 mod ticket_runs;
+pub mod trace_recall;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

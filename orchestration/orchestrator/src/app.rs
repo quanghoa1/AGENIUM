@@ -74,6 +74,8 @@ pub struct App {
     /// Journaled operations whose replays keep failing (`replay_pending_ops` backs off on them).
     pub(crate) op_retries: Mutex<HashMap<i64, crate::effects::OpRetry>>,
     agent_stores: Mutex<HashMap<AgentId, Arc<AgentStore>>>,
+    /// Each project's index of its closed tickets' traces (ADR-158 decision 31).
+    trace_stores: Mutex<HashMap<ProjectId, Arc<AgentStore>>>,
     /// The judge's client, kept while its endpoint, model and key stay the same (connections reused, ADR-75).
     pub(crate) judge_client: Mutex<crate::judge::KeptJudge>,
     /// Whose turn it is among the judge keys in use (they take turns, one request each).
@@ -178,6 +180,7 @@ impl App {
             faults: Arc::new(Mutex::new(Vec::new())),
             op_retries: Mutex::new(HashMap::new()),
             agent_stores: Mutex::new(HashMap::new()),
+            trace_stores: Mutex::new(HashMap::new()),
             judge_client: Mutex::default(),
             judge_turn: Default::default(),
             judge_paused: Mutex::default(),
@@ -683,6 +686,27 @@ impl App {
     pub fn pool_memory(&self) -> Result<Arc<AgentStore>> {
         let e = self.embedder();
         self.agent_store(AgentId::from_ulid(ulid::Ulid::nil()), e.dim(), e.model_id())
+    }
+
+    /// The index of a project's closed tickets' traces (ADR-158 decision 31), an agent database's layout under
+    /// `<root>/db/projects/` (opened once per process).
+    pub fn trace_store(&self, project: ProjectId) -> Result<Arc<AgentStore>> {
+        let mut m = self.trace_stores.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some(s) = m.get(&project) {
+            return Ok(s.clone());
+        }
+        let e = self.embedder();
+        let dir = self.layout.db().join("projects");
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| OrchError::Invalid(format!("{}: {e}", dir.display())))?;
+        let s = Arc::new(AgentStore::open(
+            &dir.join(format!("{project}-traces.db")),
+            e.dim(),
+            e.model_id(),
+            &self.layout.backups(),
+        )?);
+        m.insert(project, s.clone());
+        Ok(s)
     }
 
     /// Closes this process's handle of an agent database (deletion).

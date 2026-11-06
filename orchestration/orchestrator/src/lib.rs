@@ -53,6 +53,7 @@ pub mod team_design;
 pub mod team_templates;
 pub mod templates;
 mod tool_search;
+pub mod traces;
 pub mod vendor_usage;
 pub mod verification;
 pub mod views;

@@ -91,6 +91,7 @@ impl Runtime {
         // Memories reach the model only in a conversation's first message: a run that goes on from its conversation
         // recalls nothing and records nothing, so the close credits what the agent was shown, not what a later
         // recall would have found.
+        let trace_query = query.clone();
         let recalled = if prev.is_empty() {
             // Embedding the ticket takes the CPU for 120-400 ms: off the async threads, where several tickets starting
             // at once stalled every other task (audit L17, 2026-10-31).
@@ -122,6 +123,19 @@ impl Runtime {
                 serde_json::json!({ "recalled": shown }),
             );
         }
+        // The project's closed tickets, beside the memory (ADR-158): in the first message only, as the memory is.
+        let traces = if prev.is_empty() {
+            self.trace_recall(project, trace_query, recalled.len())
+                .await
+        } else {
+            Vec::new()
+        };
+        if !traces.is_empty() {
+            let _ = self
+                .app
+                .run_log(start.run, "memory", serde_json::json!({ "traces": traces }));
+        }
+        let traces_text = trace_recall::text(&traces);
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;
@@ -213,8 +227,9 @@ impl Runtime {
                     .map(agenium_memory::retrieve::label)
                     .collect();
                 let mut first = format!(
-                    "{}{}{}\n{}",
+                    "{}{}{}{}\n{}",
                     prompt::memory_text(&facts),
+                    traces_text,
                     prompt::ticket_text(&t, None),
                     requirements,
                     self.plan_outline(project, &t.plan_item)?

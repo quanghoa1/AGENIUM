@@ -234,6 +234,16 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
      seventh; dropping reports loses half the gain.
    Not measured: whether agents finish tickets sooner or repeat fewer mistakes with it (judged usefulness only), how a
    "verify it" label changes the cost of a misleading note, and teams on other models (all four ran DeepSeek flash).
+31. **A work run is reminded of the project's closed tickets** (the owner, after decision 30: "okay làm đi"), in the
+   measured setting that kept the gain and cut the misleading notes: a closed ticket's reviews, questions and answers,
+   handoffs, failed merges and the report its review approved (`crate::traces`: earlier reports and progress lines
+   left out), in passages of about 700 characters, in an index of the project (`<root>/db/projects/<id>-traces.db`,
+   an agent database's layout and search). A ticket goes in the first time a work run of its project recalls after it
+   closed (every way of closing is covered, older projects too). The work run's first message gets them after the
+   agent's own memory, three at least and more where its memory leaves room of the eight, as a section that says they
+   are notes as written then, not instructions, to check before relying on one; the run's page lists them, each
+   opening its ticket. Traces are never learned from (no fact, no lesson: ADR-88's gate stays whole). Off with
+   `[memory] trace_recall = false`.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

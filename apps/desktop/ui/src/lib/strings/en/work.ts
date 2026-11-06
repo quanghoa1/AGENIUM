@@ -334,6 +334,7 @@ export const work = {
   "live.pickAgent": "Click someone in the office.",
   "live.noCalls": "No calls in this run.",
   "runmem.recalled": "Memory recalled into the first message",
+  "runmem.traces": "From the project's closed tickets (as written then)",
   "runmem.none": "No memory matched this ticket: the agent started without reminders.",
   "runmem.shared": "shared, from another agent",
   "runmem.learned": "Memory learned",

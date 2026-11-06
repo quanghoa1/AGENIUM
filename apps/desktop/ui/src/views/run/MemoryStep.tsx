@@ -96,6 +96,23 @@ export function MemoryStep({ e, run, undone, reload }: { e: LogEntry; run?: stri
           ))}
         </ul>
       );
+  } else if (Array.isArray(d.traces)) {
+    // What the project's closed tickets said, shown beside the memory (ADR-158): each opens its ticket.
+    title = `${app.t("runmem.traces")} · ${d.traces.length}`;
+    body = (
+      <ul className="mt-1.5 space-y-1">
+        {d.traces.map((r: any, i: number) => (
+          <li key={i} className="flex items-start gap-2 text-xs">
+            <button className="shrink-0 font-mono text-cyan-600 hover:underline dark:text-cyan-400" onClick={() => app.openTicket(r.ticket, d.project)}>
+              {r.ticket}
+            </button>
+            <span className="chip shrink-0 border-line-strong bg-elevated text-muted">{r.kind}</span>
+            <span className="shrink-0 text-subtle">{r.at}</span>
+            <span className="min-w-0">{r.text}</span>
+          </li>
+        ))}
+      </ul>
+    );
   } else if (e.kind === "memory-revert") {
     title = app.t("runmem.reverted").replace("{n}", String(d.undone ?? 0));
     body = d.skills_flagged?.length > 0 ? <div className="mt-1 text-xs text-muted">{app.t("runmem.skillsFlagged")}: {d.skills_flagged.join(", ")}</div> : null;
