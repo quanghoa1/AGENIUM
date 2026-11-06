@@ -208,6 +208,33 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    taken: its routing by question type and its many thresholds are tuned to its benchmarks, a work order is not a
    question, and our graph already showed (ADR-94) that reaching wider hurts.
 
+   Verified again, more strictly (the owner: "verify lại cho thật kĩ, cùng nhau ngẫu nhiên"): four projects of three
+   QA roots (StudyDeck, two Habits runs, the research run: 302 facts, 690 trace chunks, Progress comments left out),
+   `agent/memory/examples/recall_rank.rs` ranking through the production `recall`, analysis outside Rust.
+   - A, questions from a channel's own items, 3 random seeds x 2 writers (DeepSeek flash, beam-free), 298 questions:
+     detail questions 0.27 -> 0.90 with both channels fused [0.85-0.95], 82 more answered and none lost (McNemar
+     p < 1e-24), every seed and both writers alike; fact questions 1.00 -> 0.99 (one of 167 lost).
+   - B, neutral questions from the projects' final code and docs, which neither channel is made of (64): 0.17 ->
+     0.33, 10 more answered and none lost (p = 0.002), all three seeds up.
+   - C, each of 28 tickets in time order, recalled as when it started (its assignee's facts, the traces of tickets
+     closed before, nothing of its own), every note shown rated blind and shuffled by two judges (0/1/2 and
+     "misleading"; they agree on useful-or-not 87 % of the time). Per ticket, against facts only (4.07 useful notes,
+     2.32 strongly useful, 0.29 misleading), paired bootstrap 95 %:
+
+     | traces in the recall | useful | strongly useful | misleading |
+     |---|---|---|---|
+     | fused by rank | +1.82 [+1.00 +2.68] | +1.18 [+0.46 +1.89] | +0.96 [+0.61 +1.36] |
+     | facts first, 3 places at most | +1.71 [+0.96 +2.50] | +1.18 [+0.57 +1.86] | +0.79 [+0.46 +1.18] |
+     | the same, each ticket's last report only | +1.50 [+0.82 +2.25] | +1.18 [+0.54 +1.89] | +0.68 [+0.32 +1.11] |
+     | the same, no reports | +0.75 [+0.21 +1.39] | +0.54 [+0.07 +1.07] | +0.54 [+0.25 +0.89] |
+
+     The misleading notes are mostly reports (27 % of those shown, reviews 13 %): a report describes the code as it
+     was, and an earlier report of a reopened ticket describes work the review refused. Keeping each ticket's last
+     report (the approved one) keeps the whole gain in strongly useful notes and cuts the misleading ones by a
+     seventh; dropping reports loses half the gain.
+   Not measured: whether agents finish tickets sooner or repeat fewer mistakes with it (judged usefulness only), how a
+   "verify it" label changes the cost of a misleading note, and teams on other models (all four ran DeepSeek flash).
+
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);
 a hash in place of the held count (no dropped session seen yet; a folded conversation would change the hash anyway);
