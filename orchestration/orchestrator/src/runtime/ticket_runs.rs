@@ -485,6 +485,10 @@ impl Runtime {
             )
             .await;
         let (report, cost) = res?;
+        // Before the run ends: the chat reloads at its end and shows the screenshots then.
+        if let Err(e) = self.show_acceptance(project, key) {
+            tracing::warn!(ticket = %key, error = %e, "acceptance screenshots not shown in the chat");
+        }
         let summary = self.finish(
             project,
             &t,

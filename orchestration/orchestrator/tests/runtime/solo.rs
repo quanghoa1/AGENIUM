@@ -626,3 +626,102 @@ async fn a_smaller_window_than_the_context_is_found_before_the_change() {
         .await;
     assert!(550_000 <= big * 85 / 100, "a larger window is not");
 }
+
+/// ADR-158: a ticket closed with screenshots in its report shows them in the chat once, without the user asking.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_accepted_tickets_screenshots_go_into_the_chat_once() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, agent) = solo(&app);
+    let lead = Actor::Lead(agent);
+    let ctxp = |a: Actor| agenium_orchestrator::CallCtx {
+        project,
+        actor: a,
+        intent_id: None,
+        run: None,
+    };
+    app.apply(&ctxp(lead), Intent::ProposeSpec(spec())).unwrap();
+    app.apply(&ctxp(lead), Intent::CreatePlan(plan(&[("PI-1", &[])])))
+        .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::CreateTicket(new_ticket("PI-1", "Home page", &[], &[])),
+    )
+    .unwrap();
+    app.apply(
+        &ctxp(lead),
+        Intent::AssignTicket(agenium_core::forms::AssignTicket {
+            ticket_id: key("AGN-1"),
+            worker: agent,
+            note: None,
+        }),
+    )
+    .unwrap();
+    let root = std::path::PathBuf::from(app.project(project).unwrap().path);
+    let wt = root.join(".agenium").join("worktrees").join("AGN-1");
+    let png = [&[0x89, b'P', b'N', b'G', 13, 10, 26, 10][..], &[0u8; 32]].concat();
+    p.push_calls(
+        "",
+        vec![(
+            "write_file",
+            json!({"path": "deliverables/index.html", "content": "<h1>Hi</h1>\n"}),
+        )],
+    );
+    // The worker took its screenshot (as `browser` saves it), then reports with it.
+    let shot = png.clone();
+    p.push(Box::new(move |_req| {
+        std::fs::create_dir_all(wt.join(".agenium/shots")).unwrap();
+        std::fs::write(wt.join(".agenium/shots/home.png"), &shot).unwrap();
+        let mut r = report("AGN-1");
+        r.artifacts = vec![agenium_core::forms::ArtifactRef {
+            kind: "screenshot".into(),
+            reference: ".agenium/shots/home.png".into(),
+        }];
+        Ok(calls_response(
+            "",
+            vec![("submit_report", serde_json::to_value(r).unwrap())],
+        ))
+    }));
+    p.push_calls(
+        "",
+        vec![(
+            "review_ticket",
+            json!({"ticket_id": "AGN-1", "decision": "Approve"}),
+        )],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "close_ticket",
+            json!({"ticket_id": "AGN-1", "reason": "All AC met, merged into main"}),
+        )],
+    );
+    rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    rt.review(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Closed
+    );
+    let e = app.embedder();
+    let mem = app.agent_store(agent, e.dim(), e.model_id()).unwrap();
+    let said = |mem: &agenium_store::AgentStore| -> Vec<String> {
+        mem.load_messages(&format!("chat:{project}"))
+            .unwrap()
+            .into_iter()
+            .filter_map(|v| serde_json::from_value::<agenium_llm::Message>(v).ok())
+            .map(|m| m.text())
+            .filter(|t| t.contains("Screenshot of AGN-1: home.png"))
+            .collect()
+    };
+    let lines = said(&mem);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(
+        lines[0].starts_with("AGN-1 is done and accepted: Home page."),
+        "{}",
+        lines[0]
+    );
+    // Once: another look at the ticket does not say it again.
+    let _ = rt.review(project, &key("AGN-1")).await;
+    assert_eq!(said(&mem).len(), 1);
+}

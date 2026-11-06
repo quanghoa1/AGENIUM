@@ -172,6 +172,12 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    the Lead made one ticket of them for the page's author, the worker checked the page with `browser` and attached its
    screenshot, and the Lead showed it in the chat with `share_image` when asked. A picked element can now be copied
    (selector, HTML, styles, note) from its card.
+28. **Acceptance shows itself in the chat** (same run): the screenshots reached the chat only when the user asked
+   the Lead for them, since a review is not a chat turn and has no `share_image`. When a review closes a ticket whose
+   report kept screenshots, the Lead's chat now gets one message, once per ticket: `<KEY> is done and accepted:
+   <title>.` and a line `Screenshot of <KEY>: <file>` for each (four at most), written before the review run ends so
+   the chat's reload at its end shows it. The desktop shows such a line as the image, like a `share_image` call; the
+   Lead's model reads it as plain text in later turns (no made-up tool call in its history, which providers check).
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

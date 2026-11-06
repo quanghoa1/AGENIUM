@@ -176,7 +176,19 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
         for p in &m.parts {
             match p {
                 Part::Text { text } if !text.trim().is_empty() => {
-                    out.push(json!({ "role": m.role, "text": text.trim() }));
+                    // A screenshot line (an accepted ticket's, ADR-158) is shown as the image, like a share_image call.
+                    use agenium_orchestrator::runtime::acceptance::shot_of;
+                    let (shots, words): (Vec<&str>, Vec<&str>) =
+                        text.lines().partition(|l| shot_of(l).is_some());
+                    let words = words.join("
+");
+                    if !words.trim().is_empty() {
+                        out.push(json!({ "role": m.role, "text": words.trim() }));
+                    }
+                    for (ticket, image) in shots.into_iter().filter_map(shot_of) {
+                        out.push(json!({ "role": "tool", "text": "share_image", "ok": true,
+                            "args": { "ticket_id": ticket, "image": image, "caption": "" } }));
+                    }
                 }
                 Part::ToolCall { id, name, args, .. } => {
                     calls.insert(id.clone(), out.len());

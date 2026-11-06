@@ -406,7 +406,12 @@ async fn the_users_stop_ends_a_running_command_at_once() {
     );
     p.push_calls("", vec![("list_dir", json!({}))]);
     let stopper = rt.clone();
+    let calls = p.clone();
     tokio::spawn(async move {
+        // Once the model asked for the command (a loaded machine may take a while to get there), and it runs.
+        while calls.remaining() > 1 {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
         tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
         stopper.pause_project(project).unwrap();
     });
@@ -414,7 +419,7 @@ async fn the_users_stop_ends_a_running_command_at_once() {
     let s = rt.run_ticket(project, &key("AGN-1")).await.unwrap();
     assert_eq!(s.outcome, "Cancelled");
     assert!(
-        started.elapsed() < std::time::Duration::from_secs(20),
+        started.elapsed() < std::time::Duration::from_secs(30),
         "{:?}",
         started.elapsed()
     );

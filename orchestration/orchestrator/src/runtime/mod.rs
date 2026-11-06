@@ -8,6 +8,7 @@
 //! Each run rebuilds its work order from stored data in a cache-stable order (decision 36), so a crash or a model
 //! switch loses nothing; continuation runs resume the stored conversation (or the checkpoint summary).
 
+pub mod acceptance;
 pub mod bridge;
 mod chat_history;
 mod cli_brain;

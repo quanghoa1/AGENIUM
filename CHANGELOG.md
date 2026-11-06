@@ -182,6 +182,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **A browser for agents** (ADR-158 decision 27): the work tool `browser` opens the app being built in a headless Edge
   or Chrome, clicks, types and reads it like a user, reports its console errors, and saves screenshots for the report.
   It reaches only this machine, the network allowlist and the worktree's files.
+- **Acceptance in the chat** (ADR-158 decision 28): when the Lead closes a ticket with screenshots, the chat says it
+  is done and shows them, without being asked. A picked element in the Browser page can be copied.
 - **One commit per ticket on main** (ADR-158 decision 25): a ticket's steps are squashed when it merges, named as
   its first commit; the steps stay on its branch.
 - **A team template's checks are committed on main**: `pre_merge` was written into `agenium.toml` and left as an
