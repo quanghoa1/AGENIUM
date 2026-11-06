@@ -3,7 +3,7 @@
 // elements gather on the right with a note each and go to that project's Lead in one message, with what lets an agent
 // find them: selector, tag and classes, text, HTML, computed styles, size and place, and the component and source
 // file when the page is a development build. A page outside the user's machine is sent as a reference to follow.
-import { ArrowLeft, ArrowRight, Crosshair, Globe, Link2, Pencil, Plus, RotateCw, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, Crosshair, Globe, Link2, Pencil, Plus, RotateCw, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Annotate } from "../components/Annotate";
 import { NeedsProject } from "../components/GettingStarted";
@@ -467,9 +467,19 @@ export function BrowserView() {
                 <Mono className="truncate text-xs font-semibold text-cyan-600 dark:text-cyan-400">
                   {i + 1}. {p.element}
                 </Mono>
-                <button className="btn px-1.5" title={app.t("common.delete")} onClick={() => patch(tab.id, { picks: tab.picks.filter((_, j) => j !== i) })}>
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <div className="flex shrink-0 gap-1">
+                  {/* The element as an agent gets it (selector, HTML, styles, note), to paste anywhere. */}
+                  <button
+                    className="btn px-1.5"
+                    title={app.t("browser.copy")}
+                    onClick={() => navigator.clipboard.writeText(pickMessage("", [p]).split("\n\n").slice(1).join("\n\n")).then(() => app.notify(app.t("browser.copied")))}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                  <button className="btn px-1.5" title={app.t("common.delete")} onClick={() => patch(tab.id, { picks: tab.picks.filter((_, j) => j !== i) })}>
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
               {p.text && <div className="mt-1 line-clamp-2 text-[11px] text-muted">"{p.text}"</div>}
               {p.component && <div className="mt-1 truncate font-mono text-[10px] text-emerald-600 dark:text-emerald-400">{[p.component.name, p.component.file].filter(Boolean).join(" · ")}</div>}

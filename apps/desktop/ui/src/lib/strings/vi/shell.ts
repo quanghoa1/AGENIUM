@@ -15,6 +15,8 @@ export const shell: Record<keyof typeof en, string> = {
   "browser.link": "Đây là app của {p}",
   "browser.linkHint": "Gắn địa chỉ này với dự án: các tab mở nó sẽ hiện tên dự án, và element chọn ở đó gửi cho Lead của dự án.",
   "browser.draw": "Vẽ lên ảnh",
+  "browser.copy": "Copy element (selector, HTML, style, ghi chú)",
+  "browser.copied": "Đã copy element",
   "annotate.box": "Khung",
   "annotate.arrow": "Mũi tên",
   "annotate.pen": "Bút",

@@ -13,6 +13,8 @@ export const shell = {
   "browser.link": "This is {p}'s app",
   "browser.linkHint": "Tie this address to the project: its tabs then show the project, and picks go to its Lead.",
   "browser.draw": "Draw on it",
+  "browser.copy": "Copy the element (selector, HTML, styles, note)",
+  "browser.copied": "Element copied",
   "annotate.box": "Box",
   "annotate.arrow": "Arrow",
   "annotate.pen": "Pen",
