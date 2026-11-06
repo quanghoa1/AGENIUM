@@ -248,6 +248,24 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    and of the empty-name error, and the API ticket, a minute after the store ticket closed, of its report
    (`store.rename`, `400 INVALID_NAME`), which the API then relies on. 22 minutes, no reopen, 37 of 37 tests. The first
    recall of a project indexes all its closed tickets (100 passages here, some seconds of CPU) before the run starts.
+   A/B, end to end (the owner: "chạy cùng một yêu cầu hai lần"): one request (archive a habit) from one copy of the
+   Habits root, eight times, trace recall on or off, the user's part (spec, a path permission) done the same way in
+   every arm and its waits taken out. DeepSeek flash in the order on/off/on/off, then gpt-6-luna (Codex) in
+   off/on/on/off against the drift of the night (the first four ran faster each time).
+
+   | | DeepSeek, on | DeepSeek, off | Luna, on | Luna, off |
+   |---|---|---|---|---|
+   | minutes (two arms) | 33.1, 24.6 | 29.2, 19.8 | 22.1, 13.5 | 16.7, 15.0 |
+   | input tokens, millions | 13.0, 10.3 | 12.5, 9.4 | 6.2, 4.2 | 4.9, 5.2 |
+   | reads before the first write, per work run | 7.8, 11.5 | 7.3, 9.3 | 5.6, 6.4 | 6.2, 8.6 |
+   | reopens | 0, 0 | 0, 0 | 2, 0 | 0, 0 |
+
+   Every arm closed its five tickets with every test passing. No difference shows above the spread between two arms
+   of one setting (nine minutes for DeepSeek on): on this task the reminders neither saved nor cost measurable time,
+   tokens or quality. The two reopens are not theirs: a property made non-enumerable, and a README line ("405 for any
+   other method") already wrong in the copy every arm started from, which the review caught. The task is small and
+   its facts are a read away; whether the measured recall gain (decision 30) turns into work saved needs a task
+   whose earlier findings are costly to find again (a sandbox's refusal, a contract changed by another ticket).
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);
