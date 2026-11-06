@@ -185,7 +185,9 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    set back to work two minutes later, then four, eight, sixteen, thirty, thirty: six tries, then the user. Both
    researchers' reports were refused three times and their runs stopped, the last refusal "sources (array) is
    required": the template's description of `extension` (`templates::describe`) was written for the work order and
-   never put in it. It is now, for every template.
+   never put in it. It is now, for every template. In the same run the Lead, set aside again, came back by itself,
+   but 18 minutes later instead of 2: set-aside agents were looked at only when a round began, and a worker's run held
+   the round. A round with runs going now looks at them every 30 seconds (quota waits too).
 30. **Raw traces as a recall channel: measured, not adopted yet** (the owner asked to compare Zero-Mem, a memory that
    keeps raw traces and indexes them with no model tokens). `agent/memory/examples/trace_recall.rs`, on the QA runs'
    real episodes (StudyDeck and Habits: 186 live facts, 486 chunks of their tickets' reports, reviews, system,

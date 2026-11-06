@@ -3,19 +3,15 @@
 
 use super::*;
 
+/// How often a round with runs going looks again at agents set aside (their quota, an unreachable provider).
+const RECHECK: std::time::Duration = std::time::Duration::from_secs(30);
+
 impl Runtime {
     /// One scheduling round: start work runs for ready tickets (bounded parallelism), then review runs for Resolved
     /// tickets awaiting the Lead, then learn from the chat with the Lead if it has gone quiet. Returns the runs
     /// executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
-        // Agents whose quota should be back go on (ADR-135).
-        if let Err(e) = self.quota_back_round(std::time::SystemTime::now()) {
-            tracing::warn!(error = %e, "resuming agents after their quota failed");
-        }
-        // Agents whose provider could not be reached are tried again (ADR-158).
-        if let Err(e) = self.offline_back_round(std::time::SystemTime::now()) {
-            tracing::warn!(error = %e, "trying unreachable agents again failed");
-        }
+        self.agents_back();
         // Before work runs: a ticket the user reopened is learned from while it is still Reopened (ADR-147).
         self.learn_owed(project).await;
         // The user's queued messages first: the user waits on them, the inbox and the work do not (ADR-149).
@@ -63,6 +59,16 @@ impl Runtime {
                     .or_default() += 1;
                 None
             }
+        }
+    }
+
+    /// Agents set aside for their quota (ADR-135) or an unreachable provider (ADR-158) whose wait is over go on.
+    fn agents_back(&self) {
+        if let Err(e) = self.quota_back_round(std::time::SystemTime::now()) {
+            tracing::warn!(error = %e, "resuming agents after their quota failed");
+        }
+        if let Err(e) = self.offline_back_round(std::time::SystemTime::now()) {
+            tracing::warn!(error = %e, "trying unreachable agents again failed");
         }
     }
 
@@ -147,9 +153,17 @@ impl Runtime {
                     }
                 }
             }
-            let Some(step) = futures::StreamExt::next(&mut running).await else {
-                break;
-            };
+            // A long run must not hold back an agent whose wait is over (the research run: a Lead set aside for an
+            // overloaded provider waited 18 minutes for a worker's run to end): every RECHECK, they are looked at.
+            let step =
+                match tokio::time::timeout(RECHECK, futures::StreamExt::next(&mut running)).await {
+                    Ok(Some(step)) => step,
+                    Ok(None) => break,
+                    Err(_) => {
+                        self.agents_back();
+                        continue;
+                    }
+                };
             match step {
                 Step::Work(Ok(s)) => {
                     if let Some(t) = s
