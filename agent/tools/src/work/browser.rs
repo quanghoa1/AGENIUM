@@ -46,6 +46,9 @@ pub struct BrowserArgs {
     pub width: Option<u32>,
     #[serde(default)]
     pub height: Option<u32>,
+    /// open: render as the user's system in "light" or "dark" mode (prefers-color-scheme); the page's default otherwise.
+    #[serde(default)]
+    pub color_scheme: Option<String>,
 }
 
 pub struct BrowserTool;
@@ -135,6 +138,21 @@ impl Tool for BrowserTool {
                 b.call(
                     "Emulation.setDeviceMetricsOverride",
                     json!({ "width": w, "height": h, "deviceScaleFactor": 1, "mobile": false }),
+                )
+                .await?;
+                let scheme = match a.color_scheme.as_deref().map(str::trim) {
+                    None | Some("") => "",
+                    Some(s @ ("light" | "dark")) => s,
+                    Some(s) => {
+                        return Err(ToolError::new(
+                            "invalid_arguments",
+                            format!("color_scheme is light or dark, not {s}"),
+                        ))
+                    }
+                };
+                b.call(
+                    "Emulation.setEmulatedMedia",
+                    json!({ "features": [{ "name": "prefers-color-scheme", "value": scheme }] }),
                 )
                 .await?;
                 let r = b.call("Page.navigate", json!({ "url": url })).await?;

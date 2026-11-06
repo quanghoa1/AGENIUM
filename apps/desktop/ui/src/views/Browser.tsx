@@ -472,7 +472,7 @@ export function BrowserView() {
                   <button
                     className="btn px-1.5"
                     title={app.t("browser.copy")}
-                    onClick={() => navigator.clipboard.writeText(pickMessage("", [p]).split("\n\n").slice(1).join("\n\n")).then(() => app.notify(app.t("browser.copied")))}
+                    onClick={() => navigator.clipboard.writeText(pickMessage("", [p]).split("\n\n").slice(1).join("\n\n")).then(() => app.notify(app.t("browser.copied")), (e) => app.notify(String(e)))}
                   >
                     <Copy className="h-3 w-3" />
                   </button>

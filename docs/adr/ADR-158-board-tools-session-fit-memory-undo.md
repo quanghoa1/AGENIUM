@@ -167,6 +167,11 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    runs outside the sandbox, as MCP servers do, so it is held to what `fetch` may reach: pages open on this machine,
    on the network allowlist, or as files of the worktree; every other host goes to a closed proxy port and fails.
    Its one dependency is `tokio-tungstenite` (MIT, no TLS: the socket is local).
+   `open` takes `color_scheme` (light or dark): the Lead of the first real use (habits, HB-6) said it could not see the
+   page in dark mode, only read its CSS. In that run the user picked two elements in the Browser page with a note each,
+   the Lead made one ticket of them for the page's author, the worker checked the page with `browser` and attached its
+   screenshot, and the Lead showed it in the chat with `share_image` when asked. A picked element can now be copied
+   (selector, HTML, styles, note) from its card.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

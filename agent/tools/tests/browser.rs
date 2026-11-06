@@ -121,6 +121,27 @@ async fn a_page_is_opened_used_and_shot() {
     .await
     .unwrap();
     assert!(o.text.contains(".agenium/shots/list.png"));
+    // The page as the system's dark mode shows it, then light.
+    std::fs::write(
+        wt.root.join("scheme.html"),
+        "<style>body{background:rgb(255,255,255)} @media (prefers-color-scheme: dark){body{background:rgb(0,0,0)}}</style><p>x</p>",
+    )
+    .unwrap();
+    let bg = "getComputedStyle(document.body).backgroundColor";
+    for (scheme, want) in [("dark", "rgb(0, 0, 0)"), ("light", "rgb(255, 255, 255)")] {
+        let url = reqwest_url(&wt.root.join("scheme.html"));
+        call(
+            &c,
+            "browser",
+            json!({"action": "open", "url": url, "color_scheme": scheme}),
+        )
+        .await
+        .unwrap();
+        let v = call(&c, "browser", json!({"action": "eval", "expression": bg}))
+            .await
+            .unwrap();
+        assert!(v.text.contains(want), "{scheme}: {}", v.text);
+    }
     // A host outside the allowlist is refused before any browser work.
     assert_eq!(
         call(
