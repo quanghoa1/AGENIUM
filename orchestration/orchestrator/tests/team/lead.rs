@@ -781,3 +781,11 @@ fn a_reports_screenshot_is_kept_and_the_lead_shares_it() {
         .to_string()
         .contains("no screenshot"));
 }
+
+#[test]
+fn a_title_with_twice_escaped_quotes_is_plain_text() {
+    let f = &fixture();
+    let a = solo_with_plan(f, &[("PI-1", &[])]);
+    let k = started(f, a.id, "PI-1", r#"Green \"Add\" button"#, &[], &[]);
+    assert_eq!(ticket(f, k.as_str()).title, r#"Green "Add" button"#);
+}

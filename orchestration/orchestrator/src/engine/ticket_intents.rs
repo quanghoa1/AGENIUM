@@ -7,9 +7,11 @@ impl App {
         &self,
         ctx: &CallCtx,
         project: &projects::Project,
-        nt: NewTicket,
+        mut nt: NewTicket,
     ) -> Result<Outcome> {
         let pid = project.id;
+        // Some models escape the quotes of a title twice (`\"Add\"` seen from DeepSeek): a title is plain text.
+        nt.title = nt.title.replace("\\\"", "\"");
         let default_template = self.default_template(project);
         let follows = nt.follows.clone();
         self.commit(ctx, |w| {
