@@ -273,6 +273,26 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    its facts are a read away; whether the measured recall gain (decision 30) turns into work saved needs a task
    whose earlier findings are costly to find again (a sandbox's refusal, a contract changed by another ticket).
 
+   Such a task, then (StudyDeck, 15 tickets of history: the sandbox's loopback refusal, a store contract approved at
+   13 functions after two alignment tickets): "reset a deck's progress", every agent on gpt-6-luna, arms off/on/on/off
+   then two more. Two "on" arms stopped at the start, their Lead asking the user in the chat instead of proposing a
+   spec (the superpowers brainstorming step); the user's part was then widened to answer such a question with "Go
+   with your recommendation", the same for every arm (one "on" arm got that sentence three times by a watcher fault,
+   telling the Lead nothing new). Five arms count:
+
+   | | off (3) | on (2) |
+   |---|---|---|
+   | minutes | 26.3, 54.9, 66.1 | 57.5, 73.2 |
+   | tickets | 2, 5, 4 | 4, 6 |
+   | reopens | 2, 1, 11 | 3, 3 |
+   | input tokens, millions | 9.2, 49.5, 13.4 | 26.7, 24.6 |
+
+   All passed the full suite (275-282 tests); no merge failed. The spread inside each column is larger than any
+   difference between them, so no gain shows here either. One "off" and one "on" arm both needed a follow-up ticket
+   to put the store back to its 13 approved functions: the reminders shown to the store ticket were its own area's
+   reports (the review store, its tests), not the alignment tickets' findings, which share none of its words. The
+   measured recall gain is real for questions; it does not reach the pitfall a later ticket walks into.
+
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);
 a hash in place of the held count (no dropped session seen yet; a folded conversation would change the hash anyway);
