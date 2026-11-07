@@ -3,6 +3,25 @@
 
 use super::*;
 
+/// How much of the handover report the Lead's summary reads.
+const REPORT_CHARS: usize = 40_000;
+
+/// `md` within `max` characters: its head (goals, requirements, the ticket list) and its tail (the last tickets, the
+/// open risks), the middle cut and said so. The research run's report was 60 000 characters: its first 40 000 ended
+/// before the final ticket, and the summary repeated what that ticket had corrected.
+fn fit_report(md: &str, max: usize) -> String {
+    let n = md.chars().count();
+    if n <= max {
+        return md.to_owned();
+    }
+    let head: String = md.chars().take(max / 4).collect();
+    let tail: String = md.chars().skip(n - (max - max / 4)).collect();
+    format!(
+        "{head}\n\n[... {} characters of earlier ticket details cut ...]\n\n{tail}",
+        n - max
+    )
+}
+
 impl Runtime {
     /// When a project is done, its Lead (or Solo agent) tells the user in the chat what was delivered: the handover
     /// report summed up by the Lead's own model (API or CLI), in the language of the user's last message. A failure
@@ -22,11 +41,11 @@ impl Runtime {
             team.lead
                 .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
         )?;
-        let md: String = std::fs::read_to_string(report)
-            .map_err(|e| OrchError::Invalid(format!("{}: {e}", report.display())))?
-            .chars()
-            .take(40_000)
-            .collect();
+        let md = fit_report(
+            &std::fs::read_to_string(report)
+                .map_err(|e| OrchError::Invalid(format!("{}: {e}", report.display())))?,
+            REPORT_CHARS,
+        );
         let mem = self.agent_memory(lead.id)?;
         let session = learn::chat_session(project);
         let last_user = mem
@@ -40,7 +59,8 @@ impl Runtime {
         let ask = format!(
             "The project is done. Its handover report:\n\n<report>\n{md}\n</report>\n\nWrite the user a short \
              summary of it (under 200 words, Markdown allowed): what was delivered, how it was checked, anything left \
-             open or risky, and that the full report is in {}. Answer in the language of the user's last message:\n\
+             open or risky, and that the full report is in {}. Where tickets say different things, the later ticket is \
+             the final word (a review reopened the earlier one). Answer in the language of the user's last message:\n\
              <last_message>\n{last_user}\n</last_message>",
             report.display()
         );
@@ -570,5 +590,25 @@ impl Runtime {
                 tracing::warn!(error = %e, "a plugin hook's note was not kept");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fit_report;
+
+    #[test]
+    fn a_long_report_keeps_its_head_and_its_last_tickets() {
+        let md = format!(
+            "# Goals\n{}\n### TR-6 the final ticket\n## Open risks\nnone",
+            "x".repeat(100_000)
+        );
+        let f = fit_report(&md, 40_000);
+        assert!(f.chars().count() < 40_200);
+        assert!(
+            f.starts_with("# Goals") && f.contains("TR-6 the final ticket") && f.ends_with("none")
+        );
+        assert!(f.contains("characters of earlier ticket details cut"));
+        assert_eq!(fit_report("short", 40_000), "short");
     }
 }
