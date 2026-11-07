@@ -292,6 +292,10 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    to put the store back to its 13 approved functions: the reminders shown to the store ticket were its own area's
    reports (the review store, its tests), not the alignment tickets' findings, which share none of its words. The
    measured recall gain is real for questions; it does not reach the pitfall a later ticket walks into.
+32. **Trace recall is off by default** (the owner: "nếu thấy không có ích thì tắt đi"): thirteen end-to-end arms on two
+   projects and two models showed no time, tokens or quality saved, and the one pitfall that mattered was not reached.
+   `[memory] trace_recall` stays (false by default) with its index, for a later recall that finds a ticket's pitfalls
+   by more than its words (a refused review or a failed merge of the same files); off, nothing is indexed or recalled.
 
 Not taken from the notes: facts from the chat in the chat's language (work and memory stay English: facts are recalled
 into English work runs, the embedder is English, and the extraction already writes them in English in the same call);

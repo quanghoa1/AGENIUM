@@ -738,7 +738,12 @@ async fn a_later_ticket_is_reminded_of_a_closed_tickets_review() {
     let f = fixture();
     let p = Arc::new(ScriptedProvider::new("mock"));
     let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
-    app.update_config(|c| c.memory.learn = false).unwrap();
+    // Off by default (decision 32): the test turns it on.
+    app.update_config(|c| {
+        c.memory.learn = false;
+        c.memory.trace_recall = true;
+    })
+    .unwrap();
     let (project, agent) = solo(&app);
     let lead = Actor::Lead(agent);
     let ctxp = |a: Actor| agenium_orchestrator::CallCtx {

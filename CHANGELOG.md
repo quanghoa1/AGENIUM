@@ -189,9 +189,9 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   its report template needs (a research report's sources), so the report is accepted the first time.
 - **Reminders from closed tickets** (ADR-158 decisions 30-31): a ticket's first message also carries what the
   project's closed tickets said about the same thing (a review's finding, an answer, a failed merge, the approved
-  report), marked as written then. Measured on four projects before it was turned on: details a later ticket needs
-  went from one in four found to nine in ten, with the agents' own memories still found as before. Shown on the
-  run's page; `[memory] trace_recall` turns it off.
+  report), marked as written then, when `[memory] trace_recall = true` (off by default: retrieval found nine in ten
+  of the details a later ticket asks against one in four, but thirteen end-to-end A/B runs saved no work, ADR-158
+  decision 32). Shown on the run's page.
 - **One commit per ticket on main** (ADR-158 decision 25): a ticket's steps are squashed when it merges, named as
   its first commit; the steps stay on its branch.
 - **A team template's checks are committed on main**: `pre_merge` was written into `agenium.toml` and left as an

@@ -124,7 +124,7 @@ impl Runtime {
     }
 
     /// The traces a work run of `project` is reminded of for `query`, `facts` being how many memories it already got.
-    /// Off with `[memory] trace_recall = false`; a failure is logged and leaves the work order without them.
+    /// Only with `[memory] trace_recall = true` (off by default); a failure is logged and leaves the work order without them.
     pub(super) async fn trace_recall(
         &self,
         project: ProjectId,
