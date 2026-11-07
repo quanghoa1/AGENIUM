@@ -167,6 +167,11 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    runs outside the sandbox, as MCP servers do, so it is held to what `fetch` may reach: pages open on this machine,
    on the network allowlist, or as files of the worktree; every other host goes to a closed proxy port and fails.
    Its one dependency is `tokio-tungstenite` (MIT, no TLS: the socket is local).
+   On Ubuntu 25.10 (the VM, AppArmor's user-namespace restriction on as shipped) a downloaded Chrome for Testing
+   exits at once, "No usable sandbox": only a browser the distribution packages (.deb, snap) has the AppArmor profile
+   that lets it make its sandbox. The tool now says that, from what the browser printed, instead of "did not start its
+   DevTools"; it never turns the sandbox off (the pages run code an agent wrote). Through a `--no-sandbox` wrapper used
+   in the VM only, both browser tests pass on Linux.
    `open` takes `color_scheme` (light or dark): the Lead of the first real use (habits, HB-6) said it could not see the
    page in dark mode, only read its CSS. In that run the user picked two elements in the Browser page with a note each,
    the Lead made one ticket of them for the page's author, the worker checked the page with `browser` and attached its

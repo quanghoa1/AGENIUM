@@ -120,10 +120,15 @@ impl Browser {
             .take()
             .ok_or_else(|| err("browser", "no stderr"))?;
         let mut lines = BufReader::new(stderr).lines();
+        // What it said before it gave up: the reason, when it does not start.
+        let mut said: Vec<String> = Vec::new();
         let port = tokio::time::timeout(START, async {
             while let Ok(Some(l)) = lines.next_line().await {
                 if let Some(rest) = l.split("ws://127.0.0.1:").nth(1) {
                     return rest.split('/').next().and_then(|p| p.parse::<u16>().ok());
+                }
+                if said.len() < 40 {
+                    said.push(l);
                 }
             }
             None
@@ -131,12 +136,7 @@ impl Browser {
         .await
         .ok()
         .flatten()
-        .ok_or_else(|| {
-            err(
-                "browser",
-                format!("{} did not start its DevTools", exe.display()),
-            )
-        })?;
+        .ok_or_else(|| err("browser", not_started(&exe, &said)))?;
         // Its later output is not read: drain it so the browser never blocks on a full pipe.
         tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
         let page = page_socket(port).await?;
@@ -267,6 +267,28 @@ impl Drop for Browser {
     }
 }
 
+/// Why the browser at `exe` did not start, from what it printed. On Ubuntu 23.10 and later AppArmor keeps a browser
+/// without its own profile (a downloaded build, Chrome for Testing) from making its sandbox, and it exits: the browser
+/// packaged by the distribution (snap, .deb) has that profile. The sandbox is never turned off here: the pages run the
+/// code an agent wrote.
+fn not_started(exe: &Path, said: &[String]) -> String {
+    let all = said.join("\n");
+    if all.contains("No usable sandbox") {
+        return format!(
+            "{} cannot make its sandbox on this Linux (AppArmor restricts user namespaces, Ubuntu 23.10+): use the \
+             Chrome or Chromium your distribution packages (.deb, snap), or set AGENIUM_BROWSER to one",
+            exe.display()
+        );
+    }
+    let last = said
+        .iter()
+        .rev()
+        .find(|l| l.contains("FATAL") || l.contains("ERROR"))
+        .map(|l| format!(": {}", l.chars().take(300).collect::<String>()))
+        .unwrap_or_default();
+    format!("{} did not start its DevTools{last}", exe.display())
+}
+
 /// The DevTools socket of the browser's first page.
 async fn page_socket(port: u16) -> Result<String, ToolError> {
     let http = reqwest::Client::new();
@@ -336,5 +358,23 @@ pub fn url_allowed(url: &str, allow: &[String], root: &Path) -> Result<String, T
             "invalid_url",
             format!("{s}: only http, https and files of your worktree open"),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_browser_that_does_not_start_says_why() {
+        let exe = Path::new("/home/u/cft/chrome");
+        let sandbox = ["[1:1:FATAL:zygote_host_impl_linux.cc:144] No usable sandbox! If you are running on Ubuntu 23.10+".into()];
+        assert!(not_started(exe, &sandbox).contains("AppArmor"));
+        let other = [
+            "starting".into(),
+            "[2:2:ERROR:gpu.cc:1] cannot open display".into(),
+        ];
+        assert!(not_started(exe, &other).ends_with("cannot open display"));
+        assert!(not_started(exe, &[]).ends_with("did not start its DevTools"));
     }
 }
