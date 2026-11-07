@@ -1,7 +1,7 @@
 # Vendored OpenAI Codex sandbox sources
 
 - Upstream: https://github.com/openai/codex (Apache License 2.0, `upstream/LICENSE`, `upstream/NOTICE`)
-- Upstream commit: `3a2788e6fc897fc4dd40185225167af9a9f13754` (main, read 2026-11-04)
+- Upstream commit: `57a808a3920f05f2d4b9eab2d0493e1df136ae6b` (read 2026-11-07)
 - Files: `FILES.txt` (what is vendored), `FILES.lock` (sha256 of each vendored file, checked by
   `devtools/scripts/sync-codex-sandbox.sh --check` in local CI)
 
