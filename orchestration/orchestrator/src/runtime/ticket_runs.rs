@@ -510,6 +510,9 @@ impl Runtime {
         if let Err(e) = self.show_acceptance(project, key) {
             tracing::warn!(ticket = %key, error = %e, "acceptance screenshots not shown in the chat");
         }
+        if self.app.ticket(project, key)?.status == TicketStatus::Closed {
+            self.index_traces_soon(project);
+        }
         let summary = self.finish(
             project,
             &t,

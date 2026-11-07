@@ -809,6 +809,18 @@ async fn a_later_ticket_is_reminded_of_a_closed_tickets_review() {
         app.ticket(project, &key("AGN-1")).unwrap().status,
         TicketStatus::Closed
     );
+    // Indexed once the review closed it, before any work run recalls.
+    let id = app.ticket(project, &key("AGN-1")).unwrap().id;
+    let store = app.trace_store(project).unwrap();
+    let mut indexed = false;
+    for _ in 0..100 {
+        if store.meta(&format!("indexed:{id}")).unwrap().is_some() {
+            indexed = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(indexed, "the closed ticket is indexed at once");
     // The next ticket of the project: its first message says what the review said.
     p.push(Box::new(|req| {
         let t = req.messages[0].text();

@@ -247,7 +247,8 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    store ticket was reminded of the report that made the store, the page ticket of the review of the page's labels
    and of the empty-name error, and the API ticket, a minute after the store ticket closed, of its report
    (`store.rename`, `400 INVALID_NAME`), which the API then relies on. 22 minutes, no reopen, 37 of 37 tests. The first
-   recall of a project indexes all its closed tickets (100 passages here, some seconds of CPU) before the run starts.
+   recall of a project indexes all its closed tickets (100 passages here, some seconds of CPU) before the run starts;
+   so a review that closes a ticket now indexes it in the background at once, and the recall only catches up.
    A/B, end to end (the owner: "chạy cùng một yêu cầu hai lần"): one request (archive a habit) from one copy of the
    Habits root, eight times, trace recall on or off, the user's part (spec, a path permission) done the same way in
    every arm and its waits taken out. DeepSeek flash in the order on/off/on/off, then gpt-6-luna (Codex) in

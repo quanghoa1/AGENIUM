@@ -109,6 +109,20 @@ pub fn text(hits: &[TraceHit]) -> String {
 }
 
 impl Runtime {
+    /// Indexes the project's newly closed tickets in the background (after a review closed one), so the next work run
+    /// does not wait for it; the recall still indexes what this missed.
+    pub(super) fn index_traces_soon(&self, project: ProjectId) {
+        if !self.app.config().memory.trace_recall {
+            return;
+        }
+        let (app, e) = (self.app.clone(), self.embedder.clone());
+        tokio::task::spawn_blocking(move || {
+            if let Err(err) = index(&app, e.as_ref(), project) {
+                tracing::warn!(error = %err, "traces of closed tickets not indexed");
+            }
+        });
+    }
+
     /// The traces a work run of `project` is reminded of for `query`, `facts` being how many memories it already got.
     /// Off with `[memory] trace_recall = false`; a failure is logged and leaves the work order without them.
     pub(super) async fn trace_recall(
