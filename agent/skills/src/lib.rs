@@ -12,6 +12,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::Serialize;
 
 mod files;
+pub mod scan;
 pub use files::file_path;
 
 pub const SKILL_FILE: &str = "SKILL.md";

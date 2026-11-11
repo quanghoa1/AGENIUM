@@ -4,7 +4,7 @@
 // Usage: node smoke.mjs <screenshot-dir> [devtools-port]
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 const out = process.argv[2] ?? "ui-smoke";
 const port = process.argv[3] ?? "9222";
@@ -151,6 +151,30 @@ await js(`window.location.hash = '/projects'`);
 const refShown = await until(`[...document.querySelectorAll('main input')].some((i) => i.value === 'the SDK')`, 15000);
 await shot("02b-reference-folder");
 check("a reference folder shows on the project's card", !String(refs).startsWith("ERR") && refShown, String(refs).slice(0, 160));
+
+// 2c. Many skills at once: a folder of skill folders is read, its skills listed to tick (a broken one is shown, not
+// importable), and the ticked ones imported together.
+const collection = resolve(scratch, "skill-collection");
+for (const [dir, name] of [["pdf-tools", "pdf-tools"], [join("design", "brand-colors"), "brand-colors"]]) {
+  mkdirSync(resolve(collection, dir), { recursive: true });
+  writeFileSync(resolve(collection, dir, "SKILL.md"), `---\nname: ${name}\ndescription: Use when the task needs ${name}.\n---\n## Steps\n1. Do it.\n`);
+}
+mkdirSync(resolve(collection, "broken"), { recursive: true });
+writeFileSync(resolve(collection, "broken", "SKILL.md"), "no frontmatter\n");
+await js(`window.location.hash = '/library'`);
+await until(`!!document.querySelector('main input[placeholder*=".zip"]')`, 15000);
+await typeInto('main input[placeholder*=".zip"]', collection);
+await clickText("Import", "document.querySelector('main')");
+const listed = await until("document.body.innerText.includes('Skills found: 3')", 15000);
+await shot("02c-skill-picker");
+check("a folder of skills lists them to tick", listed, (await js("document.body.innerText")).slice(0, 300));
+await clickText("Import 2");
+const libNames = async () => (JSON.parse((await invoke("skill_library")) || "{}").skills ?? []).map((x) => x.name);
+const both = await until(
+  "window.__TAURI_INTERNALS__.invoke('skill_library').then((l) => ['pdf-tools', 'brand-colors'].every((n) => l.skills.some((s) => s.name === n)))",
+  20000,
+);
+check("the ticked skills are imported together", both, JSON.stringify(await libNames()));
 
 // 3. A team from the coding template (Claude CLI members; nothing runs).
 const status = JSON.parse((await invoke("projects")) || "[]");

@@ -200,6 +200,9 @@ export const api = {
   skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),
   importSkill: (path: string, replace = false) =>
     call<{ name: string; description: string; shape_notes: string[]; quality: string[] }>("import_skill", { path, replace }),
+  /** The skills a folder holds (itself or its subfolders), to import many at once. */
+  scanSkills: (path: string) => call<FoundSkill[]>("scan_skills", { path }),
+  importSkills: (paths: string[], replace = false) => call<{ path: string; name?: string; error?: string }[]>("import_skills", { paths, replace }),
   removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),
   skillText: (name: string) => call<{ name: string; body: string; raw: string; files: string[] }>("skill_text", { name }),
   // Re-run the shape, conflict and (when the judge is on) quality checks on a library skill on demand (ADR-88/90/92).
@@ -507,6 +510,15 @@ export interface Scorecard {
   criteria: Criterion[];
   ok: number;
   warn: number;
+}
+
+/** A skill folder found in a chosen folder: `exists`, the library has one of its name. */
+export interface FoundSkill {
+  path: string;
+  name: string;
+  description: string;
+  error: string | null;
+  exists: boolean;
 }
 
 export interface SkillEffect {

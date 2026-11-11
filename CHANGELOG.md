@@ -421,6 +421,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
   microsoft/mxc#1568). The containment harness counts a payload that printed nothing as broken, not as 0 escapes.
 
 ### Memory, skills, tools
+- **Many skills at once**: the library's import takes a folder of skills (chosen with Choose…, typed or dropped):
+  Agenium lists every skill folder in it a few levels down, each checked as an import would check it (a broken one
+  shows why and cannot be ticked, one the library has needs "Replace if it exists"), and imports the ticked ones
+  together. A single skill folder or a .zip imports at once as before.
 - Shared lessons answer for the work they mislead (audit M3, ADR-87 amended): the pool lessons a run is shown are
   logged in the pool, a reopened run's learning can name one as misleading (never confused with the agent's own),
   and a lesson that misled two tickets leaves the pool for good; the lesson it came from is untouched. The run page

@@ -164,6 +164,8 @@ fn main() {
             manage::dissolve_team,
             manage::skill_library,
             manage::import_skill,
+            api::scan_skills,
+            api::import_skills,
             manage::remove_skill,
             manage::skill_text,
             manage::evaluate_skill,

@@ -1,14 +1,15 @@
-import { AlertTriangle, CheckCircle2, Eye, FilePlus2, FileUp, Pencil, Plus, Sparkles, Tag, Trash2, Wand2, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, FilePlus2, FileUp, FolderOpen, Pencil, Plus, Sparkles, Tag, Trash2, Wand2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "../../components/Markdown";
 import { ConfirmModal, Modal } from "../../components/motion";
 import { Empty, Mono, Section, cn } from "../../components/ui";
-import { api, type SkillEffect } from "../../lib/api";
+import { api, type FoundSkill, type SkillEffect } from "../../lib/api";
 import { useFileDrop } from "../../lib/drops";
 import { EffectBadge } from "./Scorecard";
 import { useApp } from "../../lib/store";
 import type { LibrarySkill } from "../../lib/types";
 import { SkillEditor } from "./SkillEditor";
+import { SkillPicker } from "./SkillPicker";
 import { SkillWriter } from "./SkillWriter";
 
 
@@ -31,6 +32,8 @@ export function SkillsPanel() {
   const [view, setView] = useState<{ name: string; body: string; files: string[] } | null>(null);
   const [del, setDel] = useState<LibrarySkill | null>(null);
   const [drop, setDrop] = useState(false);
+  // The skills a chosen folder holds, when it holds more than the one skill it is: ticked, then imported together.
+  const [found, setFound] = useState<FoundSkill[] | null>(null);
   const [tag, setTag] = useState<string | null>(null);
   // The in-app SKILL.md editor (author a new skill or edit one); `create` tells the save to make a new folder.
   const [edit, setEdit] = useState<{ initial: string; create: boolean; name0: string; files0: string[] } | null>(null);
@@ -58,7 +61,20 @@ export function SkillsPanel() {
   useEffect(() => {
     load();
   }, [app.tick]);
+  // A folder is read first: a skill folder imports at once, a folder of skills opens the list to tick (ADR-88).
   const doImport = (p: string) =>
+    /\.zip$/i.test(p.trim())
+      ? importOne(p)
+      : api
+          .scanSkills(p)
+          .then((fs) => {
+            if (fs.length === 0) return app.notify(app.t("library.noneFound").replace("{x}", p));
+            const self = fs.length === 1 && fs[0].path.replace(/[\\/]+$/, "").toLowerCase() === p.trim().replace(/[\\/]+$/, "").toLowerCase();
+            if (self) return importOne(p);
+            setFound(fs);
+          })
+          .catch((e) => app.notify(String(e)));
+  const importOne = (p: string) =>
     api
       .importSkill(p, replace)
       .then((m) => {
@@ -116,6 +132,9 @@ export function SkillsPanel() {
             <label className="flex items-center gap-1.5 text-xs text-muted">
               <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} /> {app.t("library.replace")}
             </label>
+            <button className="btn" title={app.t("library.chooseHint")} onClick={() => api.pickFolder().then((p) => { if (p) { setPath(p); doImport(p); } }, (e) => app.notify(String(e)))}>
+              <FolderOpen className="h-3.5 w-3.5" /> {app.t("projects.pick")}
+            </button>
             <button className="btn" disabled={!path.trim()} onClick={() => doImport(path.trim())}>
               <FileUp className="h-3.5 w-3.5" /> {app.t("library.import")}
             </button>
@@ -199,6 +218,7 @@ export function SkillsPanel() {
           ))}
         </Section>
       )}
+      <SkillPicker found={found} replace={replace} onClose={() => setFound(null)} onDone={() => (setFound(null), setPath(""), load())} />
       <Modal open={!!view} title={view?.name ?? ""} onClose={() => setView(null)}>
         <div className="max-h-[60vh] overflow-y-auto text-xs">{view && <Markdown text={view.body} />}</div>
         {view && view.files.length > 0 && <div className="mt-3 font-mono text-[11px] text-subtle">{view.files.join(" · ")}</div>}
