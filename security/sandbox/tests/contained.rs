@@ -58,6 +58,31 @@ fn live_stdio_round_trip() {
     panic!("the contained process did not exit");
 }
 
+/// A `cmd /c` script keeps its quotes in the container (upstream `cmd_script_command_line`): the C runtime's quoting
+/// would have put a backslash before each one, which cmd keeps.
+#[cfg(windows)]
+#[test]
+fn a_cmd_script_runs_with_its_quotes() {
+    if detect().backend.is_none() {
+        eprintln!("skipped: no sandbox backend here");
+        return;
+    }
+    let wt = tempfile::tempdir().unwrap();
+    let _temp = RunTemp(wt.path().to_path_buf());
+    std::fs::write(wt.path().join("a b.txt"), "inside\r\n").unwrap();
+    let policy = SandboxPolicy::workspace(wt.path());
+    let argv: Vec<String> = ["cmd", "/D", "/S", "/C", r#"type "a b.txt" & echo "q""#]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let (mut p, mut io) = spawn_contained(&argv, wt.path(), &BTreeMap::new(), &policy).unwrap();
+    drop(io.stdin.take());
+    let mut out = String::new();
+    std::io::Read::read_to_string(&mut io.stdout.take().unwrap(), &mut out).unwrap();
+    let _ = p.try_wait();
+    assert!(out.contains("inside") && out.contains("\"q\""), "{out:?}");
+}
+
 /// Opt-in: `AGENIUM_CONTAINED_AGY=1` runs agy (logged in) inside the sandbox with network allowed and a per-run home.
 #[test]
 fn agy_inside_the_sandbox() {
