@@ -129,6 +129,10 @@ mkdirSync(resolve(picked, "src"), { recursive: true });
 writeFileSync(resolve(picked, "src", "main.c"), "int main(void) { return 0; }\n");
 const sdk = resolve(scratch, "reference-sdk");
 mkdirSync(sdk, { recursive: true });
+// A repository to clone asks for the team's branch (nothing is cloned: the form is left before Create).
+await typeInto('main input[placeholder*="github.com"]', "https://github.com/owner/repo.git");
+const asked = await until("document.querySelector('main [role=radiogroup]') !== null", 10000);
+check("a repository asks which branch the team works on", asked, (await mainText()).slice(0, 200));
 await typeInto("main input", "picked app");
 await typeInto('main input[placeholder*="github.com"]', picked);
 const noted = await until("document.querySelector('main').innerText.includes('first commit takes')", 15000);

@@ -105,6 +105,15 @@ impl Repo {
         Ok(v)
     }
 
+    /// The folder `branch` is checked out in (the repository's own or one of its worktrees), `None` when none.
+    pub fn checkout_of(&self, branch: &str) -> Result<Option<PathBuf>, VcsError> {
+        Ok(self
+            .worktrees()?
+            .into_iter()
+            .find(|(_, b)| b.as_deref() == Some(branch))
+            .map(|(p, _)| p))
+    }
+
     pub(super) fn same_path(a: &Path, b: &Path) -> bool {
         let norm = |p: &Path| {
             let s = resolved(p).to_string_lossy().replace('\\', "/");

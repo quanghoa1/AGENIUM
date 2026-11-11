@@ -47,6 +47,33 @@ impl App {
     /// Creates a project: folder + standard layout + `agenium.toml` + git repository (`git init` when needed,
     /// first commit), then registers it in `core.db`. An existing folder with `agenium.toml` is adopted.
     pub fn create_project(&self, req: &CreateProject) -> Result<projects::Project> {
+        self.create_project_on(req, None)
+    }
+
+    /// [`App::create_project`] with the branch the team works on (ADR-159): `None`, the repository's own (the default
+    /// branch of a clone, the branch checked out in a picked repository); `Some(name)`, a new branch for Agenium. A
+    /// clone checks it out (the folder is Agenium's); a picked repository keeps the user's branch checked out and gets
+    /// Agenium's in `.agenium/base`, so the user goes on working in their folder as before. A folder that is no
+    /// repository yet starts on `main` either way.
+    pub fn create_project_on(
+        &self,
+        req: &CreateProject,
+        branch: Option<&str>,
+    ) -> Result<projects::Project> {
+        let branch = branch.map(str::trim).filter(|b| !b.is_empty());
+        if let Some(b) = branch {
+            let ok = agenium_vcs::git::Git::default()
+                .run(&self.layout().root, ["check-ref-format", "--branch", b])
+                .map(|o| o.ok())
+                .unwrap_or(false);
+            // `agenium/<KEY>` are the tickets' branches: git cannot have a branch `agenium` beside them.
+            if !ok || b == "agenium" || b.starts_with("agenium/") {
+                return Err(OrchError::Invalid(format!(
+                    "{b:?} cannot be the team's branch: give a git branch name other than agenium or agenium/… (the \
+                     tickets' own), e.g. agenium-work"
+                )));
+            }
+        }
         let name = req.name.trim();
         if name.is_empty() || name.contains(['/', '\\', ':']) {
             return Err(OrchError::Invalid(format!(
@@ -119,6 +146,10 @@ impl App {
                 )));
             }
             cloned_branch = current_branch(&path);
+            if let Some(b) = branch {
+                git.check(&path, ["checkout", "-q", "-b", b])?;
+                cloned_branch = Some(b.to_owned());
+            }
         }
         std::fs::create_dir_all(&path)
             .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))?;
@@ -136,11 +167,12 @@ impl App {
             }
         }
         let fresh_files = picked && !adopted && !is_empty_dir(&path);
+        let current = adopted.then(|| current_branch(&path)).flatten();
         let manifest = match ProjectManifest::load(&path)? {
             Some(m) => m,
             None => {
                 let branch = if adopted {
-                    Some(current_branch(&path).ok_or_else(|| {
+                    Some(branch.map(str::to_owned).or(current.clone()).ok_or_else(|| {
                         OrchError::Invalid(format!(
                             "{} has no branch checked out: check out the branch the team should work on, then create the project",
                             path.display()
@@ -170,13 +202,24 @@ impl App {
             .id
             .parse()
             .map_err(|e| OrchError::Invalid(format!("agenium.toml: {e}")))?;
+        // Agenium's own branch beside the user's: its files live in `.agenium/base`; `agenium.toml` stays local.
+        let side = adopted && current.as_deref() != Some(manifest.project.main_branch.as_str());
+        let layout = if side {
+            side_checkout(&path, &manifest.project.main_branch)?
+        } else {
+            path.clone()
+        };
         if fresh_files && !path.join(".gitignore").exists() {
             std::fs::write(path.join(".gitignore"), GITIGNORE)
                 .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))?;
         }
-        let mut ours = vec![crate::manifest::FILE.to_owned()];
+        let mut ours = if side {
+            vec![]
+        } else {
+            vec![crate::manifest::FILE.to_owned()]
+        };
         for d in PROJECT_DIRS {
-            let dir = path.join(d);
+            let dir = layout.join(d);
             std::fs::create_dir_all(&dir)
                 .map_err(|e| OrchError::Invalid(format!("{}: {e}", dir.display())))?;
             let keep = dir.join(".gitkeep");
@@ -195,7 +238,26 @@ impl App {
             agenium_vcs::git::COMMITTER_NAME,
             agenium_vcs::git::COMMITTER_EMAIL,
         );
-        if adopted {
+        if side {
+            exclude(&path, crate::manifest::FILE)?;
+            let git = repo.git_for(&layout)?;
+            let mut add = vec!["add", "--"];
+            add.extend(ours.iter().map(String::as_str));
+            git.check(&layout, add)?;
+            if !git.run(&layout, ["diff", "--cached", "--quiet"])?.ok() {
+                git.check_env(
+                    &layout,
+                    [
+                        "commit",
+                        "-q",
+                        "--no-verify",
+                        "-m",
+                        "Agenium project layout",
+                    ],
+                    &[("GIT_AUTHOR_NAME", who.0), ("GIT_AUTHOR_EMAIL", who.1)],
+                )?;
+            }
+        } else if adopted {
             let ours: Vec<&str> = ours.iter().map(String::as_str).collect();
             repo.commit_paths(&ours, "Agenium project layout", who)?;
         } else if let Err(e) = repo.commit_all(&path, "Agenium project layout", who, &[]) {
@@ -350,6 +412,80 @@ pub fn references_text(refs: &[Reference]) -> Option<String> {
          your worktree): {}",
         list.join("; ")
     ))
+}
+
+/// Where a project's files are checked out on its own branch: `.agenium/base` when Agenium works on a branch beside
+/// the one the user has checked out in the folder (ADR-159), else the folder itself.
+pub fn checkout_dir(project_path: &Path) -> PathBuf {
+    let base = project_path.join(".agenium").join("base");
+    if base.join(".git").exists() {
+        base
+    } else {
+        project_path.to_path_buf()
+    }
+}
+
+/// Makes Agenium's branch (from the user's current commit, unless it exists) and checks it out in `.agenium/base`.
+fn side_checkout(path: &Path, branch: &str) -> Result<PathBuf> {
+    let base = path.join(".agenium").join("base");
+    if base.join(".git").exists() {
+        return Ok(base);
+    }
+    let git = agenium_vcs::git::Git::default();
+    let exists = git
+        .run(
+            path,
+            [
+                "rev-parse",
+                "--verify",
+                "-q",
+                &format!("refs/heads/{branch}"),
+            ],
+        )?
+        .ok();
+    if !exists {
+        let made = git.run(path, ["branch", branch, "HEAD"])?;
+        if !made.ok() {
+            return Err(OrchError::Invalid(format!(
+                "the branch {branch} could not be made from the current commit (a repository with no commit yet \
+                 cannot have one): {}",
+                made.stderr.trim()
+            )));
+        }
+    }
+    std::fs::create_dir_all(path.join(".agenium"))
+        .map_err(|e| OrchError::Invalid(format!("{}: {e}", path.display())))?;
+    git.check(
+        path,
+        [
+            std::ffi::OsStr::new("worktree"),
+            "add".as_ref(),
+            "-q".as_ref(),
+            base.as_os_str(),
+            branch.as_ref(),
+        ],
+    )?;
+    Ok(base)
+}
+
+/// Adds `entry` to the repository's local excludes (`.git/info/exclude`), never to its `.gitignore`.
+fn exclude(path: &Path, entry: &str) -> Result<()> {
+    let file = path.join(".git").join("info").join("exclude");
+    let cur = std::fs::read_to_string(&file).unwrap_or_default();
+    if cur.lines().any(|l| l.trim() == entry) {
+        return Ok(());
+    }
+    if let Some(d) = file.parent() {
+        std::fs::create_dir_all(d)
+            .map_err(|e| OrchError::Invalid(format!("{}: {e}", d.display())))?;
+    }
+    let sep = if cur.is_empty() || cur.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
+    std::fs::write(&file, format!("{cur}{sep}{entry}\n"))
+        .map_err(|e| OrchError::Invalid(format!("{}: {e}", file.display())))
 }
 
 fn is_empty_dir(p: &Path) -> bool {

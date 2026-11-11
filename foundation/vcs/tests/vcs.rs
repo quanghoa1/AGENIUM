@@ -690,3 +690,76 @@ fn a_ticket_of_several_commits_is_one_commit_on_main() {
     assert_eq!(sha, head2, "one commit: as it is");
     assert_eq!(log(&format!("{one}..main")), "AGN-2: Other|worker-1\n");
 }
+
+/// ADR-159: main is moved where it is checked out. The user switched the project's folder to their own branch: the
+/// merge moves only main's ref and leaves their folder and branch as they were.
+#[test]
+fn a_merge_leaves_the_users_other_branch_alone() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    write(&r.root, "app.txt", "v1\n");
+    r.commit_all(&r.root, "seed", AUTHOR, &[]).unwrap();
+    let a = r.add_worktree("AGN-1", "main").unwrap();
+    write(&a.path, "feature.txt", "by agent\n");
+    r.commit_all(&a.path, "AGN-1: feature", AUTHOR, &[])
+        .unwrap();
+    r.git()
+        .check(&r.root, ["checkout", "-q", "-b", "mine"])
+        .unwrap();
+    write(&r.root, "app.txt", "v1 + my edit\n");
+
+    let m = r.merge_ticket("AGN-1", &NoCheck).unwrap();
+    assert!(matches!(m, MergeOutcome::Merged { .. }), "{m:?}");
+    let head = r
+        .git()
+        .check(&r.root, ["symbolic-ref", "--short", "HEAD"])
+        .unwrap();
+    assert_eq!(head.trim(), "mine");
+    assert!(
+        !r.root.join("feature.txt").exists(),
+        "the user's checkout is not touched"
+    );
+    assert_eq!(
+        std::fs::read_to_string(r.root.join("app.txt")).unwrap(),
+        "v1 + my edit\n"
+    );
+    let on_main = r
+        .git()
+        .check(&r.root, ["show", "main:feature.txt"])
+        .unwrap();
+    assert_eq!(on_main, "by agent\n");
+    let on_mine = r.git().run(&r.root, ["show", "mine:feature.txt"]).unwrap();
+    assert!(!on_mine.ok());
+}
+
+/// ADR-159: the team's branch checked out in a worktree of its own (`.agenium/base`): the merge lands there and
+/// that checkout follows it.
+#[test]
+fn a_merge_lands_in_the_worktree_that_has_main() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = repo(tmp.path());
+    write(&r.root, "app.txt", "v1\n");
+    r.commit_all(&r.root, "seed", AUTHOR, &[]).unwrap();
+    r.git()
+        .check(&r.root, ["checkout", "-q", "-b", "mine"])
+        .unwrap();
+    let base = r.root.join(".agenium").join("base");
+    r.git()
+        .check(
+            &r.root,
+            ["worktree", "add", "-q", base.to_str().unwrap(), "main"],
+        )
+        .unwrap();
+    let a = r.add_worktree("AGN-1", "main").unwrap();
+    write(&a.path, "feature.txt", "by agent\n");
+    r.commit_all(&a.path, "AGN-1: feature", AUTHOR, &[])
+        .unwrap();
+
+    let m = r.merge_ticket("AGN-1", &NoCheck).unwrap();
+    assert!(matches!(m, MergeOutcome::Merged { .. }), "{m:?}");
+    assert_eq!(
+        std::fs::read_to_string(base.join("feature.txt")).unwrap(),
+        "by agent\n"
+    );
+    assert!(!r.root.join("feature.txt").exists());
+}

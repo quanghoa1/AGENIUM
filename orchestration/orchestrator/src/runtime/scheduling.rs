@@ -314,7 +314,7 @@ impl Runtime {
         opened: &mut Option<RunId>,
     ) -> Result<RunSummary> {
         let p = self.app.project(project)?;
-        let root = PathBuf::from(&p.path);
+        let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
         let run = self
             .app
             .store()

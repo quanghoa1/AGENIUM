@@ -38,12 +38,28 @@ inside another repository for that repository.
    roots of its file tools and of the sandbox, so a command may read them too; writes stay refused there (the tools'
    write check and the sandbox's writable roots, which are the worktree only). The manifest names them, notes
    included, with "read-only … your work goes in your worktree". They are not copied, not committed, not pushed.
-3. **One working folder per project.** Work in two repositories at once (worktrees, merges and reviews over several)
+3. **The team's branch** (the owner, 2026-11-11). A name alone makes the project in the projects folder on `main`, as
+   before; a folder that is no repository yet starts on `main`. For a repository, cloned or picked, the form asks:
+   - **its own branch** (the clone's default branch, the branch checked out in a picked folder): merged work lands on
+     it, in that folder; agents start from its last commit;
+   - **a new branch** (default `agenium-work`; `agenium` and `agenium/…` are refused, git cannot have a branch
+     `agenium` beside the tickets' `agenium/<KEY>`): a clone checks it out (the folder is Agenium's); a picked repository keeps the
+     user's branch checked out and gets Agenium's branch, made from the current commit, in a worktree of its own, `.agenium/base`. The layout is committed there and
+     `agenium.toml` stays local (`.git/info/exclude`), so the user's folder and branch are as they were. The Lead's
+     and the planner's runs and `AGENTS.md` read that checkout.
+   A merge moves the team's branch where it is checked out (`merge --ff-only` in the project folder or in
+   `.agenium/base`); checked out nowhere (the user switched the project folder to another branch), only the ref moves
+   (`update-ref` from the commit it was rebased on), and the user's folder is left alone. Before, it fast-forwarded
+   whatever the project folder had checked out. As before, when the repository has an `origin`, the team's branch
+   is pushed there each time a ticket closes: with *its own branch* that is the user's branch, with *a new branch*
+   only Agenium's.
+4. **One working folder per project.** Work in two repositories at once (worktrees, merges and reviews over several)
    is a larger change, left until it is asked for.
-4. `Repo::is_repo` is true only at a repository's top level (a folder inside one is not a repository of its own).
+5. `Repo::is_repo` is true only at a repository's top level (a folder inside one is not a repository of its own).
 
 ## Consequences
 
 - A project can be made where the user's code already is; their uncommitted work is not touched.
 - Agents can read an SDK or docs in place without anything being copied into the project.
+- The user can keep coding on their own branch in their own folder while the team works on its branch beside it.
 - The CLI's `--path` follows the same rules (a relative path is made absolute).

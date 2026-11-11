@@ -171,7 +171,7 @@ impl Runtime {
             .team_of_project(project)?
             .ok_or_else(|| OrchError::Invalid("the project has no team".into()))?;
         let p = self.app.project(project)?;
-        let root = PathBuf::from(&p.path);
+        let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
         let mem = self.agent_memory(lead.id)?;
         let session = learn::chat_session(project);
         // Older turns of a long chat are seen as a summary (ADR-106); the stored conversation stays whole.
@@ -385,7 +385,7 @@ impl Runtime {
                 .ok_or_else(|| OrchError::Invalid("the team has no Lead".into()))?,
         )?;
         let p = self.app.project(project)?;
-        let root = PathBuf::from(&p.path);
+        let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
         let run = self
             .app
             .store()

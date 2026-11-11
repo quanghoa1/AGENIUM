@@ -127,19 +127,37 @@ impl Repo {
     pub fn fast_forward(&self, head: &str, main_before: &str) -> Result<MergeOutcome, VcsError> {
         let target = self.squashed(head, main_before)?;
         let head = target.as_str();
-        self.git.check(
-            &self.root,
-            [
-                "-c",
-                git::NO_HOOKS,
-                "-c",
-                "core.fsmonitor=",
-                "merge",
-                "-q",
-                "--ff-only",
-                head,
-            ],
-        )?;
+        // Main is moved where it is checked out (the project's folder, or `.agenium/base` when Agenium works on a branch
+        // of its own beside the user's, ADR-159), so those files follow it. Checked out nowhere (the user switched their
+        // folder to another branch), only the ref moves, and only from `main_before`: their folder is left as it is.
+        match self.checkout_of(&self.main)? {
+            Some(dir) => {
+                self.git_for(&dir)?.check(
+                    &dir,
+                    [
+                        "-c",
+                        git::NO_HOOKS,
+                        "-c",
+                        "core.fsmonitor=",
+                        "merge",
+                        "-q",
+                        "--ff-only",
+                        head,
+                    ],
+                )?;
+            }
+            None => {
+                self.git.check(
+                    &self.root,
+                    [
+                        "update-ref",
+                        &format!("refs/heads/{}", self.main),
+                        head,
+                        main_before,
+                    ],
+                )?;
+            }
+        }
         let changed = self.changed_files(&self.root, main_before, head)?;
         Ok(MergeOutcome::Merged {
             sha: head.to_owned(),

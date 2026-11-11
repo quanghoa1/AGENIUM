@@ -117,8 +117,9 @@ export const api = {
     action: "priority" | "assign" | "approve" | "reopen" | "close" | "cancel" | "waive",
     extra: { reason?: string; agent?: string; priority?: number; feedback?: { ac_id: string; feedback: string }[] } = {},
   ) => call<unknown>("ticket_action", { project, ticket, action, ...extra }),
-  createProject: (name: string, source?: string, keyPrefix?: string) =>
-    call<{ id: string; name: string }>("create_project", { name, source, keyPrefix }),
+  /** `branch`: a new branch for the team (ADR-159); unset, the repository's own. */
+  createProject: (name: string, source?: string, keyPrefix?: string, branch?: string) =>
+    call<{ id: string; name: string }>("create_project", { name, source, keyPrefix, branch }),
   /** A folder picked in the system's dialog, as it is (null: closed). */
   pickFolder: () => call<string | null>("pick_folder"),
   inspectFolder: (path: string) => call<FolderInfo>("inspect_folder", { path }),

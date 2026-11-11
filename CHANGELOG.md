@@ -10,7 +10,10 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - **A project in any folder, and reference folders** (ADR-159): the project form takes a folder picked anywhere
   (Choose…): an empty one, one of your files (made a repository, the files its first commit, a `.gitignore` for what
   is rebuilt) or a repository, taken on its current branch with only Agenium's own files committed, your uncommitted
-  changes left as they are. The form says which before you create it. Reference folders (an SDK, docs, another
+  changes left as they are. The form says which before you create it. For a repository (cloned or picked) you choose
+  the team's branch: the repository's own, or a new one (`agenium-work`); a picked repository then keeps your
+  branch checked out and the team works beside it in `.agenium/base`, so you can go on coding in your folder. A
+  merge no longer goes into whatever branch the project folder has checked out: it moves the team's branch. Reference folders (an SDK, docs, another
   codebase), set in the form or on the project's card, are read by every run of the project, commands in the
   sandbox included, and never written.
 - **A smaller model keeps the work going** (ADR-155): an agent moved from a 1M-token model to a 256K one (or any

@@ -111,7 +111,8 @@ impl App {
     pub fn project_guidance(&self, project: ProjectId) -> Result<Option<String>> {
         const MAX: usize = 12_000;
         let p = self.project(project)?;
-        let file = std::path::Path::new(&p.path).join("AGENTS.md");
+        let file =
+            crate::project_create::checkout_dir(std::path::Path::new(&p.path)).join("AGENTS.md");
         let text = match std::fs::read_to_string(&file) {
             Ok(t) => t,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),

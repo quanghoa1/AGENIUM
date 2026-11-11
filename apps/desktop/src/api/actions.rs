@@ -419,7 +419,7 @@ pub fn suggest_key_prefix(d: State<'_, Desktop>, name: String) -> R<String> {
 }
 
 /// `source`: a folder name under the app's projects folder, a git repository to clone there, or the full path of a
-/// folder the user picked. `key_prefix`: the
+/// folder the user picked. `branch`: a new branch for the team (ADR-159), else the repository's own. `key_prefix`: the
 /// tickets' prefix the user gave (checked), else one made from the name.
 #[tauri::command]
 pub async fn create_project(
@@ -427,6 +427,7 @@ pub async fn create_project(
     name: String,
     source: Option<String>,
     key_prefix: Option<String>,
+    branch: Option<String>,
 ) -> R<Value> {
     let o = d.opened()?;
     let key_prefix = match key_prefix
@@ -457,7 +458,7 @@ pub async fn create_project(
         repo,
     };
     // A clone may take a while: off the UI thread.
-    let p = tokio::task::spawn_blocking(move || o.app.create_project(&req))
+    let p = tokio::task::spawn_blocking(move || o.app.create_project_on(&req, branch.as_deref()))
         .await
         .map_err(|e| e.to_string())?
         .map_err(err)?;

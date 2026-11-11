@@ -151,3 +151,123 @@ fn reference_folders_are_checked_and_kept() {
     f.app.set_references(f.project.id, vec![]).unwrap();
     assert!(f.app.project(f.project.id).unwrap().references().is_empty());
 }
+
+#[test]
+fn a_picked_repository_on_a_new_branch_keeps_the_users_folder_as_it_was() {
+    let f = fixture();
+    let dir = f._tmp.path().join("ongoing");
+    std::fs::create_dir_all(&dir).unwrap();
+    git(&dir, &["init", "-q", "-b", "master"]);
+    std::fs::write(dir.join("a.txt"), "one\n").unwrap();
+    git(&dir, &["add", "a.txt"]);
+    git(
+        &dir,
+        &[
+            "-c",
+            "user.name=u",
+            "-c",
+            "user.email=u@x",
+            "commit",
+            "-q",
+            "-m",
+            "first",
+        ],
+    );
+    std::fs::write(dir.join("a.txt"), "one\nwip\n").unwrap();
+
+    let p = f
+        .app
+        .create_project_on(
+            &CreateProject {
+                name: "ongoing".into(),
+                path: Some(dir.clone()),
+                key_prefix: Some("ONG".into()),
+                template: None,
+                folder: None,
+                repo: None,
+            },
+            Some("agenium-work"),
+        )
+        .unwrap();
+    assert_eq!(p.main_branch, "agenium-work");
+    assert_eq!(
+        git(&dir, &["symbolic-ref", "--short", "HEAD"]).trim(),
+        "master"
+    );
+    // Their folder: the same branch, the same change in progress, nothing of Agenium's to commit.
+    assert_eq!(git(&dir, &["status", "--porcelain"]).trim(), "M a.txt");
+    assert_eq!(git(&dir, &["log", "--format=%s", "master"]).trim(), "first");
+    let base = dir.join(".agenium").join("base");
+    assert_eq!(
+        agenium_orchestrator::project_create::checkout_dir(&dir),
+        base
+    );
+    let files = git(&base, &["ls-files"]);
+    assert!(
+        files.contains("a.txt") && files.contains("deliverables/.gitkeep"),
+        "{files}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(base.join("a.txt")).unwrap(),
+        "one\n"
+    );
+    assert!(dir.join("agenium.toml").is_file() && !dir.join("deliverables").exists());
+
+    let e = f
+        .app
+        .create_project_on(
+            &CreateProject {
+                name: "bad".into(),
+                path: Some(f._tmp.path().join("other")),
+                key_prefix: Some("BAD".into()),
+                template: None,
+                folder: None,
+                repo: None,
+            },
+            Some("agenium"),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("cannot be the team's branch"), "{e}");
+}
+
+#[test]
+fn a_clone_on_a_new_branch_checks_it_out() {
+    let f = fixture();
+    let origin = f._tmp.path().join("origin");
+    std::fs::create_dir_all(&origin).unwrap();
+    git(&origin, &["init", "-q", "-b", "trunk"]);
+    std::fs::write(origin.join("x.txt"), "x\n").unwrap();
+    git(&origin, &["add", "x.txt"]);
+    git(
+        &origin,
+        &[
+            "-c",
+            "user.name=u",
+            "-c",
+            "user.email=u@x",
+            "commit",
+            "-q",
+            "-m",
+            "x",
+        ],
+    );
+    let req = |name: &str, folder: &str| CreateProject {
+        name: name.into(),
+        path: None,
+        key_prefix: Some(name.to_uppercase()),
+        template: None,
+        folder: Some(folder.into()),
+        repo: Some(origin.display().to_string()),
+    };
+    let own = f.app.create_project_on(&req("own", "own"), None).unwrap();
+    assert_eq!(own.main_branch, "trunk");
+    let new = f
+        .app
+        .create_project_on(&req("new", "new"), Some("work"))
+        .unwrap();
+    assert_eq!(new.main_branch, "work");
+    let at = std::path::Path::new(&new.path);
+    assert_eq!(git(at, &["symbolic-ref", "--short", "HEAD"]).trim(), "work");
+    assert!(git(at, &["branch", "--list", "trunk"]).contains("trunk"));
+}

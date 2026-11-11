@@ -20,6 +20,9 @@ function nameFrom(source: string): string {
 /** A full path (a folder picked anywhere) rather than a folder name or a repository. */
 const isFullPath = (s: string) => /^([A-Za-z]:[\\/]|\/|\\\\)/.test(s.trim());
 
+/** A repository to clone (as the core reads it: `is_repo_url`). */
+const isRepoUrl = (s: string) => /^(https?:\/\/|git@|ssh:\/\/)/.test(s.trim()) || s.trim().endsWith(".git");
+
 function mb(bytes: number): string {
   return bytes < 1e6 ? `${Math.max(1, Math.round(bytes / 1e3))} KB` : `${(bytes / 1e6).toFixed(bytes < 1e8 ? 1 : 0)} MB`;
 }
@@ -48,6 +51,10 @@ export function ProjectsView() {
   const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
   const [refs, setRefs] = useState<Reference[]>([]);
   const [folder, setFolder] = useState<FolderInfo | null>(null);
+  // A repository (cloned or picked): the team works on its own branch, or on a new one made for it (ADR-159).
+  const [onNew, setOnNew] = useState(false);
+  const [newBranch, setNewBranch] = useState("agenium-work");
+  const repoBranch = isRepoUrl(source) ? "" : folder?.repo?.branch && !folder.project ? folder.repo.branch : null;
   useEffect(() => {
     setFolder(null);
     if (!isFullPath(source)) return;
@@ -64,7 +71,7 @@ export function ProjectsView() {
   const create = () => {
     setBusy(true);
     api
-      .createProject(finalName, source.trim() || undefined, prefix.trim() || undefined)
+      .createProject(finalName, source.trim() || undefined, prefix.trim() || undefined, repoBranch !== null && onNew ? newBranch.trim() : undefined)
       // The reference folders are the project's setting: saved right after it exists.
       .then((p) => (refs.length ? api.setReferences(p.id, refs).then(() => p) : p))
       .then((p) => (app.setProject(p.id), setName(""), setSource(""), setPrefix(""), setRefs([]), setCreated(p), app.refresh()))
@@ -104,6 +111,27 @@ export function ProjectsView() {
         {folder && (
           <div className={cn("w-full text-xs", folderNote(folder, app.t).warn ? "text-amber-600 dark:text-amber-300" : "text-subtle")}>
             {folderNote(folder, app.t).text}
+          </div>
+        )}
+        {repoBranch !== null && (
+          <div className="flex w-full flex-wrap items-center gap-3 text-xs" role="radiogroup" aria-label={app.t("projects.branch")}>
+            <span className="label">{app.t("projects.branch")}</span>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={!onNew} onChange={() => setOnNew(false)} />
+              {repoBranch ? app.t("projects.branchOwn").replace("{b}", repoBranch) : app.t("projects.branchDefault")}
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={onNew} onChange={() => setOnNew(true)} />
+              {app.t("projects.branchNew")}
+            </label>
+            <input
+              className="input w-40 py-1 font-mono"
+              value={newBranch}
+              disabled={!onNew}
+              aria-label={app.t("projects.branchNew")}
+              onChange={(e) => setNewBranch(e.target.value.replace(/\s/g, "-"))}
+            />
+            <span className="text-subtle">{app.t(onNew ? (repoBranch ? "projects.branchNewPicked" : "projects.branchNewClone") : "projects.branchOwnHint")}</span>
           </div>
         )}
         <div className="w-full">
