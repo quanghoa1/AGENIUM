@@ -38,7 +38,7 @@ tokio-tungstenite = { version = "0.28", default-features = false, features = ["c
 ignore = "0.4"
 regex = "1"
 proptest = "1"
-rusqlite = { version = "0.40", features = ["bundled", "backup", "functions", "hooks"] }
+rusqlite = { version = "0.41", features = ["bundled", "backup", "functions", "hooks"] }
 schemars = { version = "1", features = ["chrono04"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

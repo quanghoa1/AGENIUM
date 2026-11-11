@@ -387,6 +387,8 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - Strict Content Security Policy: only the app's own code runs in the window; no remote content.
 
 ### Safety
+- **SQLite 3.54.1** (rusqlite 0.41, libsqlite3-sys 0.39.1): fixes RUSTSEC-2026-0459 (uninitialized page-cache
+  memory read through a crafted database and `-wal` pair), found by the local CI's cargo-deny step.
 - Code audit of 2026-10-31: tool outputs and the sandbox's git config are no longer written through links a command
   can plant; the file tools refuse a FIFO instead of waiting on it; command output is kept within 16 MiB (its first and
   last 8 MiB); unsandboxed Unix commands leave no background processes; a CLI agent cannot write the files its CLI

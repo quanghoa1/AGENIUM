@@ -45,7 +45,7 @@ WITH RECURSIVE walk(node, depth, score, path) AS (
 SELECT node, MAX(score) AS score, MIN(depth) AS hops FROM walk
 WHERE depth > 0 AND node NOT IN (SELECT value FROM json_each(?1))
 GROUP BY node ORDER BY score DESC, node LIMIT ?5";
-        self.db.read(|c| -> Result<ExpandResult, StoreError> {
+        self.db.read_mut(|c| -> Result<ExpandResult, StoreError> {
             let start = Instant::now();
             let budget = x.budget;
             c.progress_handler(1000, Some(move || start.elapsed() > budget))?;

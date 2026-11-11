@@ -62,8 +62,7 @@ impl AgentStore {
                 for t in EXPORT_TABLES {
                     let order = backup::row_order(c, t)?;
                     let mut st = c.prepare(&format!("SELECT * FROM {t} ORDER BY {order}"))?;
-                    let cols: Vec<String> =
-                        st.column_names().iter().map(|s| s.to_string()).collect();
+                    let cols: Vec<String> = st.column_names().map(|s| s.to_string()).collect();
                     let header = serde_json::json!({ "kind": "table", "table": t, "cols": cols });
                     writeln!(w, "{header}").map_err(|e| StoreError::Invalid(e.to_string()))?;
                     let k = st.column_count();

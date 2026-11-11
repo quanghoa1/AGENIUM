@@ -252,6 +252,19 @@ impl Db {
         f(lease.conn.as_ref().expect("leased connection"))
     }
 
+    /// [`Db::read`] with the connection mutable, for what changes the connection rather than the data (a progress
+    /// handler; rusqlite 0.41 takes `&mut`). The caller restores what it set before returning.
+    pub fn read_mut<T, E: From<StoreError>>(
+        &self,
+        f: impl FnOnce(&mut Connection) -> Result<T, E>,
+    ) -> Result<T, E> {
+        let mut lease = Lease {
+            pool: &self.readers,
+            conn: Some(self.readers.acquire()),
+        };
+        f(lease.conn.as_mut().expect("leased connection"))
+    }
+
     /// Runs `f` inside `BEGIN IMMEDIATE` on the writer; commits on `Ok`, rolls back on `Err`.
     pub fn write<T, E: From<StoreError>>(
         &self,

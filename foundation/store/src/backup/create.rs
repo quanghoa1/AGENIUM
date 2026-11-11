@@ -209,7 +209,7 @@ pub fn create_incremental(
                     None => format!("SELECT {sel} FROM {} ORDER BY rowid", quote_ident(&t)),
                 };
                 let mut st = c.prepare(&sql)?;
-                let cols: Vec<String> = st.column_names().iter().map(|s| s.to_string()).collect();
+                let cols: Vec<String> = st.column_names().map(|s| s.to_string()).collect();
                 let header = serde_json::json!({ "table": t, "cols": cols, "mode": if cut.is_some() { "append" } else { "replace" } });
                 writeln!(enc, "{header}").map_err(|e| StoreError::io(&path, e))?;
                 let n = st.column_count();
