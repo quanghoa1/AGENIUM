@@ -1,8 +1,11 @@
 //! Real check through the runtime (ADR-159): a project made in a picked folder of files, with a reference folder, run
 //! by a Solo agent on a vendor CLI. The ticket can only be done by reading a file that exists only in the reference
 //! folder, and asks the agent to try writing there: the reference must stay unchanged. Uses the CLI's own login.
+//! With `--branch`, the folder is a repository on `master` with a change in progress and the team works on a new
+//! branch (`agenium-work`, in `.agenium/base`): the work must land there and the user's branch and change stay as
+//! they were.
 //!
-//! cargo run -p agenium-eval --example cli_reference_folders -- <codex|grok|claude|agy> [model]
+//! cargo run -p agenium-eval --example cli_reference_folders -- <codex|grok|claude|agy> [model] [--branch]
 
 use std::sync::Arc;
 
@@ -22,7 +25,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .first()
         .cloned()
         .ok_or("usage: cli_reference_folders <cli> [model]")?;
-    let model = args.get(1).cloned().unwrap_or_default();
+    let side = args.iter().any(|a| a == "--branch");
+    let model = args
+        .get(1)
+        .filter(|a| !a.starts_with("--"))
+        .cloned()
+        .unwrap_or_default();
     let tmp = tempfile::tempdir()?;
     let (app, _) = agenium_orchestrator::App::open(
         &tmp.path().join("root"),
@@ -48,15 +56,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         format!("Device SDK\nrelease code: {CODE}\n"),
     )?;
     std::fs::write(sdk.join("NOTES.txt"), "keep me\n")?;
+    let git = |args: &[&str]| agenium_vcs::git::Git::default().check(&mine, args);
+    if side {
+        git(&["init", "-q", "-b", "master"])?;
+        git(&["add", "."])?;
+        git(&[
+            "-c",
+            "user.name=u",
+            "-c",
+            "user.email=u@x",
+            "commit",
+            "-q",
+            "-m",
+            "my start",
+        ])?;
+        std::fs::write(
+            mine.join("src").join("main.c"),
+            "int main(void) { return 1; } // wip\n",
+        )?;
+    }
+    let user_main = std::fs::read_to_string(mine.join("src").join("main.c"))?;
 
-    let p = app.create_project(&agenium_orchestrator::CreateProject {
-        name: "firmware".into(),
-        path: Some(mine.clone()),
-        key_prefix: Some("FW".into()),
-        template: None,
-        folder: None,
-        repo: None,
-    })?;
+    let p = app.create_project_on(
+        &agenium_orchestrator::CreateProject {
+            name: "firmware".into(),
+            path: Some(mine.clone()),
+            key_prefix: Some("FW".into()),
+            template: None,
+            folder: None,
+            repo: None,
+        },
+        side.then_some("agenium-work"),
+    )?;
     let refs = app.set_references(
         p.id,
         vec![agenium_store::core::projects::Reference {
@@ -164,8 +195,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.drive(p.id, 8).await?;
 
     let t = app.ticket(p.id, &key)?;
-    let on_main =
-        std::fs::read_to_string(mine.join("deliverables").join("sdk-code.txt")).unwrap_or_default();
+    let checkout = agenium_orchestrator::project_create::checkout_dir(&mine);
+    let on_main = std::fs::read_to_string(checkout.join("deliverables").join("sdk-code.txt"))
+        .unwrap_or_default();
     let wt = std::fs::read_to_string(
         std::path::Path::new(&p.path)
             .join(".agenium")
@@ -204,11 +236,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_file = std::fs::read_to_string(mine.join("src").join("main.c"))?;
     println!(
         "{} the user's own file is kept",
-        if user_file == "int main(void) { return 0; }\n" {
+        if user_file == user_main {
             "PASS"
         } else {
             "FAIL"
         }
     );
+    if side {
+        let head = git(&["symbolic-ref", "--short", "HEAD"])?;
+        let log = git(&["log", "--format=%s", "master"])?;
+        let status = git(&["status", "--porcelain"])?;
+        let ok = head.trim() == "master"
+            && log.trim() == "my start"
+            && status.trim() == "M src/main.c"
+            && checkout.ends_with("base")
+            && !mine.join("deliverables").exists();
+        println!(
+            "{} the work is on agenium-work in .agenium/base; the user's master, log and change in progress are \
+             as they were (HEAD {:?}, log {:?}, status {:?})",
+            if ok { "PASS" } else { "FAIL" },
+            head.trim(),
+            log.trim(),
+            status.trim()
+        );
+    }
     Ok(())
 }
