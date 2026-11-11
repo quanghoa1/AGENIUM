@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/brand/agenium-demo.mp4"><img src="docs/brand/agenium-demo.jpg" alt="A real run in the Agenium desktop app: a request to the Lead, a spec, tickets, agents at work, reviewed and merged" width="100%" /></a>
+  <a href="https://github.com/quanghoa1/AGENIUM/releases/download/v0.1.0/agenium-demo.mp4"><img src="docs/brand/agenium-demo.gif" alt="A real run in the Agenium desktop app: a request to the Lead, a spec, tickets, agents at work, reviewed and merged" width="100%" /></a>
 </p>
 
 ---
@@ -45,7 +45,7 @@ Grok and DeepSeek workers is one team.
 
 ## See it work
 
-A real run, sped up: a Codex Lead and planner, Codex and Grok workers, from a one-line request to a reviewed, merged Pomodoro app in under 8 minutes. [Watch the video](docs/brand/agenium-demo.mp4) (90 s, MP4).
+A real run, sped up: a Codex Lead and planner, Codex and Grok workers, from a one-line request to a reviewed, merged Pomodoro app in under 8 minutes. The animation above is the whole run; [Full-quality video (MP4)](https://github.com/quanghoa1/AGENIUM/releases/download/v0.1.0/agenium-demo.mp4), 90 s.
 
 ## How it works
 

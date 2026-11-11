@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/brand/agenium-demo.mp4"><img src="docs/brand/agenium-demo.jpg" alt="Một lần chạy thật trong app Agenium: yêu cầu gửi Lead, spec, ticket, agent làm việc, review và merge" width="100%" /></a>
+  <a href="https://github.com/quanghoa1/AGENIUM/releases/download/v0.1.0/agenium-demo.mp4"><img src="docs/brand/agenium-demo.gif" alt="Một lần chạy thật trong app Agenium: yêu cầu gửi Lead, spec, ticket, agent làm việc, review và merge" width="100%" /></a>
 </p>
 
 ---
@@ -45,7 +45,7 @@ Claude, worker là Codex, Grok và DeepSeek vẫn là một nhóm.
 
 ## Xem Agenium chạy
 
-Một lần chạy thật, tua nhanh: Lead và planner chạy Codex, các worker chạy Codex và Grok, từ một câu yêu cầu tới một app Pomodoro đã review và merge trong chưa tới 8 phút. [Xem video](docs/brand/agenium-demo.mp4) (90 giây, MP4).
+Một lần chạy thật, tua nhanh: Lead và planner chạy Codex, các worker chạy Codex và Grok, từ một câu yêu cầu tới một app Pomodoro đã review và merge trong chưa tới 8 phút. Ảnh động ở trên là toàn bộ lần chạy; [Video chất lượng cao (MP4)](https://github.com/quanghoa1/AGENIUM/releases/download/v0.1.0/agenium-demo.mp4), 90 giây.
 
 ## Cách hoạt động
 
