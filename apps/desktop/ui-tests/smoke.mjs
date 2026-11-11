@@ -2,7 +2,8 @@
 // setup -> project -> team -> every view renders without console errors -> provider form (preset, placeholder refusal,
 // save, delete through the confirm dialog) -> agent export and import. Run by devtools/scripts/ui-smoke.ps1; no model is called.
 // Usage: node smoke.mjs <screenshot-dir> [devtools-port]
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const out = process.argv[2] ?? "ui-smoke";
@@ -118,6 +119,34 @@ await typeInto("main input", "smoke shop");
 const created = await clickText("Create project", "document.querySelector('main')");
 const hasProject = await until(`document.querySelector('header select')?.innerText.includes('smoke shop') || document.body.innerText.includes('smoke shop')`, 15000);
 check("a project is created from the form", created && hasProject);
+
+// 2b. A project in a folder picked anywhere (ADR-159): the form says what it holds, the files become the first commit;
+// a reference folder shows on the project's card.
+// Outside the repository the screenshots go to: a folder inside another repository is refused.
+const scratch = mkdtempSync(resolve(tmpdir(), "agenium-smoke-"));
+const picked = resolve(scratch, "picked-folder");
+mkdirSync(resolve(picked, "src"), { recursive: true });
+writeFileSync(resolve(picked, "src", "main.c"), "int main(void) { return 0; }\n");
+const sdk = resolve(scratch, "reference-sdk");
+mkdirSync(sdk, { recursive: true });
+await typeInto("main input", "picked app");
+await typeInto('main input[placeholder*="github.com"]', picked);
+const noted = await until("document.querySelector('main').innerText.includes('first commit takes')", 15000);
+await shot("02-picked-folder");
+check("a picked folder of files is described before the project is made", noted, (await mainText()).slice(0, 200));
+await clickText("Create project", "document.querySelector('main')");
+const pickedMade = await until("document.querySelector('main').innerText.includes('picked app')", 15000);
+const pickedProject = JSON.parse((await invoke("projects")) || "[]").find?.((p) => p.name === "picked app");
+check("the project is made in the picked folder", pickedMade && /[\\/]picked-folder$/i.test(pickedProject?.path ?? ""), pickedProject?.path);
+const refs = pickedProject
+  ? await invoke("set_references", { project: pickedProject.id, references: [{ path: sdk, note: "the SDK" }] })
+  : "no project";
+await js("location.reload()");
+await until("!!document.querySelector('main')", 30000);
+await js(`window.location.hash = '/projects'`);
+const refShown = await until(`[...document.querySelectorAll('main input')].some((i) => i.value === 'the SDK')`, 15000);
+await shot("02b-reference-folder");
+check("a reference folder shows on the project's card", !String(refs).startsWith("ERR") && refShown, String(refs).slice(0, 160));
 
 // 3. A team from the coding template (Claude CLI members; nothing runs).
 const status = JSON.parse((await invoke("projects")) || "[]");
@@ -336,4 +365,9 @@ check(
 check("no console errors overall", errors.length === 0, errors.slice(0, 5).join(" | ").slice(0, 400));
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILED`);
 ws.close();
+try {
+  rmSync(scratch, { recursive: true, force: true });
+} catch {
+  /* the app may still hold a file of it; the system TEMP clears it */
+}
 process.exit(fails === 0 ? 0 : 1);

@@ -387,7 +387,7 @@ export const organize = {
   "projects.repoChanges": "A git repository: the team works on its branch {b}. Your uncommitted changes stay yours: Agenium commits only its own files.",
   "projects.repoDetached": "A git repository with no branch checked out: check out the branch the team should work on first.",
   "projects.emptyFolder": "An empty folder: the project starts here.",
-  "projects.files": "{n} files ({s}) become the repository's first commit; a .gitignore leaves out what is rebuilt (node_modules, target, build…).",
+  "projects.files": "The repository's first commit takes these files: {n} ({s}); a .gitignore leaves out what is rebuilt (node_modules, target, build…).",
   "projects.refs": "Reference folders",
   "projects.refsHint": "Folders the agents may read but never change: an SDK, documentation, another codebase. Not copied, not committed.",
   "projects.refsAdd": "Add folder",
