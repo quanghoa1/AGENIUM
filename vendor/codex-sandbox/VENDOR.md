@@ -1,7 +1,7 @@
 # Vendored OpenAI Codex sandbox sources
 
 - Upstream: https://github.com/openai/codex (Apache License 2.0, `upstream/LICENSE`, `upstream/NOTICE`)
-- Upstream commit: `57a808a3920f05f2d4b9eab2d0493e1df136ae6b` (read 2026-11-07)
+- Upstream commit: `fe8e540a80f17716bf2a3007f06e8a602192c704` (2026-11-11T02:29:34Z)
 - Files: `FILES.txt` (what is vendored), `FILES.lock` (sha256 of each vendored file, checked by
   `devtools/scripts/sync-codex-sandbox.sh --check` in local CI)
 
@@ -16,6 +16,7 @@ code is written independently. Process for an upstream change: `docs/reference/S
 | `codex-rs/mxc-sandbox/src/availability.rs` | `codex_derived/mxc_probe.rs` | **derived**: the native MXC availability probe (create + close a process security environment, no launch) |
 | `codex-rs/mxc-sandbox/src/policy.rs` (`build_request`) | `codex_derived/mxc_policy.rs` | **derived**: the container policy shape (registry-read capability, no DACL fallback, directional network rules, desktop UI isolation, conflict normalization) |
 | `codex-rs/mxc-sandbox/src/windows.rs` (`platform_read_roots`) | `codex_derived/mxc_policy.rs` | **derived**: Windows platform folders granted read-only |
+| `codex-rs/windows-sandbox-rs/src/cmd_script.rs` (`cmd_script_command_line`) | `codex_derived/mxc_policy.rs` | **derived**: `cmd [/d] /s /c SCRIPT` passed as cmd reads it (the script quoted once, not CRT-escaped) |
 | `codex-rs/mxc-sandbox/src/native.rs` | `security/sandbox/src/mxc.rs` | reference: Agenium launches with piped stdio and its own timeout instead of an inherited-stdio helper |
 | `codex-rs/mxc-sandbox/src/lib.rs`, `transport.rs`, `README.md`, `Cargo.toml` | — | reference: helper re-exec transport (not used), dependency pins (`tracelogging = "=1.2.3"` for GNU linking is mirrored) |
 | `codex-rs/linux-sandbox/README.md`, `src/bwrap.rs`, `src/seccomp.rs`, `src/linux_run_main.rs` | `security/sandbox/src/unix.rs` | reference only: Codex runs `bwrap --ro-bind / /` (whole disk readable) + seccomp; Agenium uses mxc-sdk's allow-list bubblewrap backend (ADR-54). Watch the diff for new hardening (blocked syscalls such as `io_uring`, bwrap flags) |

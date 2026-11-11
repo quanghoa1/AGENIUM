@@ -10,6 +10,7 @@ codex-rs/mxc-sandbox/src/native.rs
 codex-rs/mxc-sandbox/src/policy.rs
 codex-rs/mxc-sandbox/src/transport.rs
 codex-rs/mxc-sandbox/src/windows.rs
+codex-rs/windows-sandbox-rs/src/cmd_script.rs
 codex-rs/linux-sandbox/README.md
 codex-rs/linux-sandbox/src/bwrap.rs
 codex-rs/linux-sandbox/src/seccomp.rs
