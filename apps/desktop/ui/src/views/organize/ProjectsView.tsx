@@ -1,4 +1,4 @@
-import { Check, FolderPlus, Users } from "lucide-react";
+import { Check, FolderOpen, FolderPlus, Users } from "lucide-react";
 import { CloseProject } from "../../components/CloseProject";
 import { HandoverReport } from "../../components/HandoverReport";
 import { ReopenProject } from "../../components/ReopenProject";
@@ -7,11 +7,33 @@ import { Empty, Mono, PageHeader, ProjectStateChips, cn, projectGlow } from "../
 import { api } from "../../lib/api";
 import { friendly } from "../../lib/errors";
 import { useApp } from "../../lib/store";
+import type { Key } from "../../lib/i18n";
+import type { FolderInfo, Reference } from "../../lib/types";
+import { ProjectReferences, ReferenceFolders } from "./ReferenceFolders";
 
 /** The project name a folder or repository suggests (`https://github.com/o/my-site.git` -> `my-site`). */
 function nameFrom(source: string): string {
   const last = source.trim().replace(/[\\/]+$/, "").split(/[\\/:]/).pop() ?? "";
   return last.replace(/\.git$/i, "");
+}
+
+/** A full path (a folder picked anywhere) rather than a folder name or a repository. */
+const isFullPath = (s: string) => /^([A-Za-z]:[\\/]|\/|\\\\)/.test(s.trim());
+
+function mb(bytes: number): string {
+  return bytes < 1e6 ? `${Math.max(1, Math.round(bytes / 1e3))} KB` : `${(bytes / 1e6).toFixed(bytes < 1e8 ? 1 : 0)} MB`;
+}
+
+/** What creating the project in the picked folder does, in one line. */
+function folderNote(f: FolderInfo, t: (k: Key) => string): { text: string; warn: boolean } {
+  if (f.inside) return { text: t("projects.inside").replace("{x}", f.inside), warn: true };
+  if (f.project) return { text: t("projects.isProject"), warn: false };
+  if (f.repo)
+    return f.repo.branch
+      ? { text: t(f.repo.changes ? "projects.repoChanges" : "projects.repo").replace("{b}", f.repo.branch), warn: false }
+      : { text: t("projects.repoDetached"), warn: true };
+  if (!f.exists || f.empty) return { text: t("projects.emptyFolder"), warn: false };
+  return { text: t("projects.files").replace("{n}", String(f.files)).replace("{s}", mb(f.bytes)), warn: f.bytes > 500e6 };
 }
 
 export function ProjectsView() {
@@ -24,6 +46,14 @@ export function ProjectsView() {
   const [busy, setBusy] = useState(false);
   // The project just made: the page stays here and points to the next step (a team), instead of jumping away.
   const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
+  const [refs, setRefs] = useState<Reference[]>([]);
+  const [folder, setFolder] = useState<FolderInfo | null>(null);
+  useEffect(() => {
+    setFolder(null);
+    if (!isFullPath(source)) return;
+    const t = window.setTimeout(() => api.inspectFolder(source.trim()).then(setFolder, () => undefined), 300);
+    return () => window.clearTimeout(t);
+  }, [source]);
   const suggested = nameFrom(source);
   const finalName = name.trim() || suggested;
   useEffect(() => {
@@ -35,7 +65,9 @@ export function ProjectsView() {
     setBusy(true);
     api
       .createProject(finalName, source.trim() || undefined, prefix.trim() || undefined)
-      .then((p) => (app.setProject(p.id), setName(""), setSource(""), setPrefix(""), setCreated(p), app.refresh()))
+      // The reference folders are the project's setting: saved right after it exists.
+      .then((p) => (refs.length ? api.setReferences(p.id, refs).then(() => p) : p))
+      .then((p) => (app.setProject(p.id), setName(""), setSource(""), setPrefix(""), setRefs([]), setCreated(p), app.refresh()))
       .catch((e) => app.notify(friendly(e, app.t)))
       .finally(() => setBusy(false));
   };
@@ -59,11 +91,24 @@ export function ProjectsView() {
         </label>
         <label className="min-w-[280px] flex-1">
           <span className="label">{app.t("projects.folder")}</span>
-          <input className="input mt-1" value={source} placeholder={app.t("projects.folderHint")} onChange={(e) => setSource(e.target.value)} />
+          <div className="mt-1 flex gap-1">
+            <input className="input" value={source} placeholder={app.t("projects.folderHint")} onChange={(e) => setSource(e.target.value)} />
+            <button className="btn shrink-0" title={app.t("projects.pickHint")} onClick={() => api.pickFolder().then((p) => p && setSource(p), (e) => app.notify(friendly(e, app.t)))}>
+              <FolderOpen className="h-3.5 w-3.5" /> {app.t("projects.pick")}
+            </button>
+          </div>
         </label>
         <button className="btn-primary" disabled={!finalName || busy} title={finalName ? undefined : app.t("projects.needName")} onClick={create}>
           <FolderPlus className="h-3.5 w-3.5" /> {busy ? app.t("projects.creating") : app.t("projects.create")}
         </button>
+        {folder && (
+          <div className={cn("w-full text-xs", folderNote(folder, app.t).warn ? "text-amber-600 dark:text-amber-300" : "text-subtle")}>
+            {folderNote(folder, app.t).text}
+          </div>
+        )}
+        <div className="w-full">
+          <ReferenceFolders value={refs} onChange={setRefs} />
+        </div>
       </div>
       {created && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs">
@@ -102,6 +147,10 @@ export function ProjectsView() {
                 </div>
               ))}
             </div>
+            <div className="mt-2 truncate font-mono text-[11px] text-subtle" title={p.path}>
+              {p.path}
+            </div>
+            {p.run_state !== "Closed" && <ProjectReferences project={p.id} refs={p.references ?? []} />}
             <div className="mt-3 flex gap-2">
               <button className="btn" onClick={() => (app.setProject(p.id), app.go("tickets"))}>
                 {app.t("nav.tickets")}

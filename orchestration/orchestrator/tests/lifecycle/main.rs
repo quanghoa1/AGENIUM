@@ -9,6 +9,7 @@ use common::*;
 
 mod close;
 mod coverage;
+mod folders;
 mod merge;
 mod review;
 mod scope;

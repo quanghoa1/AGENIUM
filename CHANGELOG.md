@@ -7,6 +7,12 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- **A project in any folder, and reference folders** (ADR-159): the project form takes a folder picked anywhere
+  (Choose…): an empty one, one of your files (made a repository, the files its first commit, a `.gitignore` for what
+  is rebuilt) or a repository, taken on its current branch with only Agenium's own files committed, your uncommitted
+  changes left as they are. The form says which before you create it. Reference folders (an SDK, docs, another
+  codebase), set in the form or on the project's card, are read by every run of the project, commands in the
+  sandbox included, and never written.
 - **A smaller model keeps the work going** (ADR-155): an agent moved from a 1M-token model to a 256K one (or any
   smaller window) has the conversation it resumes folded into notes, piece by piece by the new model itself, before
   its first request, the work order and the recent steps kept as they are; the stored conversation becomes the folded

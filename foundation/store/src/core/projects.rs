@@ -62,7 +62,26 @@ pub struct Project {
     pub created_at: String,
 }
 
+/// A folder the project's agents may read but never change (an SDK, docs, another codebase): setting `references`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Reference {
+    pub path: String,
+    /// What the folder is, in the user's words ("the device SDK").
+    #[serde(default)]
+    pub note: String,
+}
+
+/// The project setting that lists the reference folders.
+pub const REFERENCES: &str = "references";
+
 impl Project {
+    pub fn references(&self) -> Vec<Reference> {
+        self.settings
+            .get(REFERENCES)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default()
+    }
+
     pub fn review_before_merge(&self) -> bool {
         self.settings
             .get("review_before_merge")

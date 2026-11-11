@@ -418,7 +418,8 @@ pub fn suggest_key_prefix(d: State<'_, Desktop>, name: String) -> R<String> {
     d.opened()?.app.suggest_key_prefix(&name).map_err(err)
 }
 
-/// `source`: a folder name under the app's projects folder, or a git repository to clone there. `key_prefix`: the
+/// `source`: a folder name under the app's projects folder, a git repository to clone there, or the full path of a
+/// folder the user picked. `key_prefix`: the
 /// tickets' prefix the user gave (checked), else one made from the name.
 #[tauri::command]
 pub async fn create_project(
@@ -441,13 +442,15 @@ pub async fn create_project(
     let source = source
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty());
-    let (folder, repo) = match source {
-        Some(s) if agenium_orchestrator::app::is_repo_url(&s) => (None, Some(s)),
-        other => (other, None),
+    // A full path is a folder the user picked (ADR-159): the project is made there.
+    let (folder, repo, path) = match source {
+        Some(s) if agenium_orchestrator::app::is_repo_url(&s) => (None, Some(s), None),
+        Some(s) if std::path::Path::new(&s).is_absolute() => (None, None, Some(s.into())),
+        other => (other, None, None),
     };
     let req = CreateProject {
         name,
-        path: None,
+        path,
         key_prefix: Some(key_prefix),
         template: None,
         folder,

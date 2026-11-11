@@ -34,6 +34,41 @@ pub fn scan_diff(diff: &str) -> Vec<StagedFinding> {
 }
 
 impl Repo {
+    /// Commits only `paths` (relative to `root`), whatever else the folder holds staged or changed: the user's own
+    /// work in progress stays theirs. Returns `None` when they were committed already.
+    pub fn commit_paths(
+        &self,
+        paths: &[&str],
+        message: &str,
+        author: (&str, &str),
+    ) -> Result<Option<String>, VcsError> {
+        let root = self.root.as_path();
+        let mut add = vec!["add", "--"];
+        add.extend_from_slice(paths);
+        self.git.check(root, add)?;
+        let mut quiet = vec!["diff", "--cached", "--quiet", "--"];
+        quiet.extend_from_slice(paths);
+        if self.git.run(root, quiet)?.ok() {
+            return Ok(None);
+        }
+        let mut commit = vec!["commit", "-q", "--no-verify", "-m", message, "--"];
+        commit.extend_from_slice(paths);
+        self.git.check_env(
+            root,
+            commit,
+            &[
+                ("GIT_AUTHOR_NAME", author.0),
+                ("GIT_AUTHOR_EMAIL", author.1),
+            ],
+        )?;
+        Ok(Some(
+            self.git
+                .check(root, ["rev-parse", "HEAD"])?
+                .trim()
+                .to_owned(),
+        ))
+    }
+
     /// Stages everything in the worktree, scans the staged changes for secrets and commits. Returns `None`
     /// when there was nothing to commit. Never commits a detected secret (decision 34).
     pub fn commit_all(

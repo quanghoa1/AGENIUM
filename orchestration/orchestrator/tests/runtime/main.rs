@@ -16,6 +16,7 @@ use serde_json::json;
 
 mod design;
 mod failures;
+mod folders;
 mod mcp;
 mod mcp_search;
 mod memory;

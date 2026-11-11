@@ -84,6 +84,25 @@ export interface ProjectSummary {
   previous_team?: string | null;
   /** A reopened project waiting for its busy team: the team's name. */
   waits_for?: string | null;
+  /** Folders its agents read but never change (ADR-159). */
+  references?: Reference[];
+}
+
+export interface Reference {
+  path: string;
+  note: string;
+}
+
+/** What making a project in a picked folder does (ADR-159). */
+export interface FolderInfo {
+  path: string;
+  exists: boolean;
+  empty: boolean;
+  repo: { branch: string | null; changes: boolean } | null;
+  inside: string | null;
+  files: number;
+  bytes: number;
+  project: boolean;
 }
 
 export type NeedKind =

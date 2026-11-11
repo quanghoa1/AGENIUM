@@ -160,6 +160,14 @@ pub enum MergeOutcome {
     },
 }
 
+/// Whether two paths name one folder (git prints `D:/x` where Windows gives `D:\x`, links resolved).
+pub fn same_dir(a: &Path, b: &Path) -> bool {
+    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
+}
+
 fn io(path: &Path, source: std::io::Error) -> VcsError {
     VcsError::Io {
         path: path.to_path_buf(),
@@ -190,12 +198,20 @@ impl Repo {
         self.worktrees_dir().join(key)
     }
 
-    /// `true` when `root` is the top level of a git repository.
+    /// `true` when `root` is the top level of a git repository (a folder inside another repository is not one).
     pub fn is_repo(&self) -> bool {
-        self.git
+        self.toplevel().is_some_and(|t| same_dir(&t, &self.root))
+    }
+
+    /// The top level of the repository `root` is in (itself or a parent), `None` outside any.
+    pub fn toplevel(&self) -> Option<PathBuf> {
+        let o = self
+            .git
             .run(&self.root, ["rev-parse", "--show-toplevel"])
-            .map(|o| o.ok())
-            .unwrap_or(false)
+            .ok()?;
+        o.ok()
+            .then(|| PathBuf::from(o.stdout.trim()))
+            .filter(|p| !p.as_os_str().is_empty())
     }
 
     /// Makes `root` a repository with branch `main` and at least one commit (git init when needed), adds

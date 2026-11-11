@@ -116,6 +116,19 @@ impl Runtime {
         if attached.is_dir() {
             ctx.read_roots.push(attached.clone());
         }
+        // The project's reference folders (ADR-159): every run reads them, in the sandbox too; none writes them.
+        let refs: Vec<_> = p
+            .references()
+            .into_iter()
+            .filter(|r| std::path::Path::new(&r.path).is_dir())
+            .collect();
+        for r in &refs {
+            ctx.read_roots.push(r.path.clone().into());
+            ctx.policy.read_roots.push(r.path.clone().into());
+        }
+        if let Some(line) = crate::project_create::references_text(&refs) {
+            ctx.capabilities.push(line);
+        }
         if let (RunKind::Work, Some(t)) = (kind, ticket) {
             let (all_of, granted) = self.app.write_scope(t, &agent.role)?;
             ctx.write_scope = agenium_tools::paths::WriteScope::new(all_of, granted)

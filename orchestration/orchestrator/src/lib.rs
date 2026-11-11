@@ -32,6 +32,7 @@ pub mod plugins;
 pub mod preferences;
 pub mod prices;
 pub mod project_close;
+pub mod project_create;
 pub mod registry;
 pub mod report;
 pub mod role_library;

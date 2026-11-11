@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
-import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MemoryData, MemoryGraphData, ModelCapsRow, ModelInfo, NeedItem, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
+import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, FolderInfo, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MemoryData, MemoryGraphData, ModelCapsRow, ModelInfo, NeedItem, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, Reference, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -119,6 +119,11 @@ export const api = {
   ) => call<unknown>("ticket_action", { project, ticket, action, ...extra }),
   createProject: (name: string, source?: string, keyPrefix?: string) =>
     call<{ id: string; name: string }>("create_project", { name, source, keyPrefix }),
+  /** A folder picked in the system's dialog, as it is (null: closed). */
+  pickFolder: () => call<string | null>("pick_folder"),
+  inspectFolder: (path: string) => call<FolderInfo>("inspect_folder", { path }),
+  /** Replaces the project's reference folders; returns them as kept. */
+  setReferences: (project: string, references: Reference[]) => call<Reference[]>("set_references", { project, references }),
   /** A free ticket prefix made from a project name. */
   suggestKeyPrefix: (name: string) => call<string>("suggest_key_prefix", { name }),
   /** `roleModels`: each role on its template's own model where this machine runs it (ADR-152). */

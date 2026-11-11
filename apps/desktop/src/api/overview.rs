@@ -58,6 +58,7 @@ pub(super) fn project_summary(o: &Opened, p: &agenium_store::core::projects::Pro
             "run_state": o.app.run_state(p.id).map_err(err)?,
             "previous_team": o.app.previous_team(p.id).map_err(err)?,
             "waits_for": waits_for,
+            "references": p.references(),
             "inbox": o.app.lead_inbox(p.id).map_err(err)?.len(),
             "handovers": o.app.handovers(p.id).map_err(err)?.len(),
         }))

@@ -25,7 +25,8 @@ pub(crate) async fn run(cli: &Cli) -> Result<()> {
                     };
                     let p = app.create_project(&CreateProject {
                         name: name.clone(),
-                        path: path.clone(),
+                        // A folder named on the command line is the one the user picked (ADR-159): a full path.
+                        path: path.as_deref().map(std::path::absolute).transpose()?,
                         key_prefix: Some(prefix),
                         template: template.clone(),
                         folder: None,
