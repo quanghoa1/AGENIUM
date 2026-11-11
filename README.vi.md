@@ -27,6 +27,10 @@
   <a href="docs/JEV.md">Jev</a>
 </p>
 
+<p align="center">
+  <a href="docs/brand/agenium-demo.mp4"><img src="docs/brand/agenium-demo.jpg" alt="Một lần chạy thật trong app Agenium: yêu cầu gửi Lead, spec, ticket, agent làm việc, review và merge" width="100%" /></a>
+</p>
+
 ---
 
 Bạn nói với **Lead** của nhóm điều bạn muốn, bằng ngôn ngữ của bạn. Lead viết bản đặc tả (spec) để bạn duyệt, chia
@@ -38,6 +42,10 @@ là người quyết định cuối cùng.
 Một nhóm có thể trộn mọi loại model: model API của Anthropic, OpenAI, Google, DeepSeek và các hãng khác, model chạy
 trên máy, và các CLI lập trình bạn đang dùng — Claude Code, Codex, Grok, Gemini (Antigravity), OpenCode, Devin. Lead là
 Claude, worker là Codex, Grok và DeepSeek vẫn là một nhóm.
+
+## Xem Agenium chạy
+
+Một lần chạy thật, tua nhanh: Lead và planner chạy Codex, các worker chạy Codex và Grok, từ một câu yêu cầu tới một app Pomodoro đã review và merge trong chưa tới 8 phút. [Xem video](docs/brand/agenium-demo.mp4) (90 giây, MP4).
 
 ## Cách hoạt động
 

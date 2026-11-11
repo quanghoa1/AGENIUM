@@ -27,6 +27,10 @@
   <a href="docs/JEV.md">Jev judge</a>
 </p>
 
+<p align="center">
+  <a href="docs/brand/agenium-demo.mp4"><img src="docs/brand/agenium-demo.jpg" alt="A real run in the Agenium desktop app: a request to the Lead, a spec, tickets, agents at work, reviewed and merged" width="100%" /></a>
+</p>
+
 ---
 
 You describe what you want to the team's **Lead** in your own language. The Lead writes a requirement spec for you to
@@ -38,6 +42,10 @@ and keep the final say.
 A team can mix any models: API models from Anthropic, OpenAI, Google, DeepSeek and others, local models, and the
 coding CLIs you already use — Claude Code, Codex, Grok, Gemini (Antigravity), OpenCode and Devin. A Claude Lead with Codex,
 Grok and DeepSeek workers is one team.
+
+## See it work
+
+A real run, sped up: a Codex Lead and planner, Codex and Grok workers, from a one-line request to a reviewed, merged Pomodoro app in under 8 minutes. [Watch the video](docs/brand/agenium-demo.mp4) (90 s, MP4).
 
 ## How it works
 
