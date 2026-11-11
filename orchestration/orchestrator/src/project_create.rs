@@ -414,6 +414,13 @@ pub fn references_text(refs: &[Reference]) -> Option<String> {
     ))
 }
 
+/// Whether git starts here (a clean Windows has none, and every project is a git repository).
+pub fn git_available(dir: &Path) -> bool {
+    agenium_vcs::git::Git::default()
+        .run(dir, ["--version"])
+        .is_ok_and(|o| o.ok())
+}
+
 /// Where a project's files are checked out on its own branch: `.agenium/base` when Agenium works on a branch beside
 /// the one the user has checked out in the folder (ADR-159), else the folder itself.
 pub fn checkout_dir(project_path: &Path) -> PathBuf {

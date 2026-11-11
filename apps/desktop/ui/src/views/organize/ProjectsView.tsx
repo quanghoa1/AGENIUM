@@ -50,6 +50,11 @@ export function ProjectsView() {
   // The project just made: the page stays here and points to the next step (a team), instead of jumping away.
   const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
   const [refs, setRefs] = useState<Reference[]>([]);
+  // A machine without git (a clean Windows) is told here, before the form, not after Create.
+  const [noGit, setNoGit] = useState(false);
+  useEffect(() => {
+    api.gitAvailable().then((ok) => setNoGit(!ok), () => undefined);
+  }, []);
   const [folder, setFolder] = useState<FolderInfo | null>(null);
   // A repository (cloned or picked): the team works on its own branch, or on a new one made for it (ADR-159).
   const [onNew, setOnNew] = useState(false);
@@ -81,6 +86,11 @@ export function ProjectsView() {
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.projects")} sub={app.t("projects.sub")} />
+      {noGit && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-200">
+          {app.t("err.noGit")}
+        </div>
+      )}
       <div className="card flex flex-wrap items-end gap-2 p-4">
         <label className="w-64">
           <span className="label">{app.t("common.name")}</span>

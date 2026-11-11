@@ -115,6 +115,12 @@ check("the app opens on its own, without a setup screen", started && shell, seen
 // 2. A project, created through the form.
 await js(`window.location.hash = '/projects'`);
 await until("document.querySelector('main input') !== null");
+// A machine without git (a clean Windows) is told on the page, before the form is used.
+if ((await invoke("git_available")) === "false") {
+  const told = await until("!!document.querySelector('main [role=alert]') && document.querySelector('main [role=alert]').innerText.includes('Git')", 10000);
+  await shot("02-no-git");
+  check("a machine without git is told so on the Projects page", told);
+}
 await typeInto("main input", "smoke shop");
 const created = await clickText("Create project", "document.querySelector('main')");
 const hasProject = await until(`document.querySelector('header select')?.innerText.includes('smoke shop') || document.body.innerText.includes('smoke shop')`, 15000);
@@ -360,7 +366,9 @@ check("the chat's model dialog takes the keyboard and Escape closes it", chatRea
 // `call_mcp_tool`, with the server, tool and the tool's own arguments inside. A tool of Agenium's own server reads as an
 // API agent's call of it does, whatever the brain; another server's by its name. The chat and the Live view name it
 // through the dev server's own module (a production bundle is not loaded here).
-const named = await js(`import('/src/views/live/calls.tsx').then(m => JSON.stringify([
+// An installed app has only its bundle: this check runs against the dev server, and says so when skipped.
+const devServer = await js("location.port === '5173'");
+const named = !devServer ? "SKIP" : await js(`import('/src/views/live/calls.tsx').then(m => JSON.stringify([
   m.classify('mcp_tool_call', {server:'agenium', tool:'read_file', arguments:{path:'.agenium/attachments/seo-checklist.docx'}}),
   m.classify('call_mcp_tool', {ServerName:'figma', ToolName:'get_file', Arguments:{node:'1:2'}}),
   m.classify('mcp_tool_call', {server:'agenium', tool:'submit_report', arguments:{ticket_id:'AGN-1'}}),
@@ -369,6 +377,8 @@ const named = await js(`import('/src/views/live/calls.tsx').then(m => JSON.strin
   m.classify('shell', {command:'git status --porcelain'}),
   m.classify('cli:command_execution', {command:'git status --porcelain'}),
 ])).catch(e => 'ERR ' + e)`);
+if (named === "SKIP") console.log("SKIP a call reads the same whatever the brain (needs the dev server's modules)");
+else {
 const callReads = typeof named === "string" && named.startsWith("[") ? JSON.parse(named) : [];
 check(
   "a call reads the same whatever the brain: Agenium's tools tagged Agenium, a CLI's own as Tool, another server as MCP",
@@ -389,6 +399,7 @@ check(
     callReads[2].label === "submit_report AGN-1",
   named,
 );
+}
 
 check("no console errors overall", errors.length === 0, errors.slice(0, 5).join(" | ").slice(0, 400));
 console.log(fails === 0 ? "ALL PASS" : `${fails} FAILED`);

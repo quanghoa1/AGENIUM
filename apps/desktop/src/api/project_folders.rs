@@ -23,6 +23,18 @@ pub async fn pick_folder(handle: AppHandle) -> R<Option<String>> {
         .map(|p| p.display().to_string()))
 }
 
+/// Whether git can be started on this machine: every project is a git repository, so the Projects page says so
+/// before the user fills the form (a clean Windows has no git).
+#[tauri::command]
+pub async fn git_available() -> R<bool> {
+    let dir = std::env::temp_dir();
+    Ok(tokio::task::spawn_blocking(move || {
+        agenium_orchestrator::project_create::git_available(&dir)
+    })
+    .await
+    .unwrap_or(false))
+}
+
 /// What making a project in `path` does (a repository taken as it is, files committed, an empty folder).
 #[tauri::command]
 pub async fn inspect_folder(d: State<'_, Desktop>, path: String) -> R<FolderInfo> {

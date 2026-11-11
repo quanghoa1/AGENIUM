@@ -122,6 +122,8 @@ export const api = {
     call<{ id: string; name: string }>("create_project", { name, source, keyPrefix, branch }),
   /** A folder picked in the system's dialog, as it is (null: closed). */
   pickFolder: () => call<string | null>("pick_folder"),
+  /** Whether git starts on this machine (every project is a git repository). */
+  gitAvailable: () => call<boolean>("git_available"),
   inspectFolder: (path: string) => call<FolderInfo>("inspect_folder", { path }),
   /** Replaces the project's reference folders; returns them as kept. */
   setReferences: (project: string, references: Reference[]) => call<Reference[]>("set_references", { project, references }),

@@ -7,6 +7,11 @@
   <img alt="Giấy phép Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0EA5E9" />
   <img alt="Rust 1.89+" src="https://img.shields.io/badge/rust-1.89%2B-F97316" />
   <img alt="Windows và Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-10B981" />
+  <a href="https://github.com/quanghoa1/AGENIUM/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/quanghoa1/AGENIUM?style=flat&color=FACC15" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/quanghoa1/AGENIUM/releases/latest"><img alt="Tải cho Windows" src="https://img.shields.io/badge/T%E1%BA%A3i%20v%E1%BB%81-B%E1%BB%99%20c%C3%A0i%20Windows-2563EB?style=for-the-badge&logo=windows" /></a>
 </p>
 
 <p align="center">
@@ -63,7 +68,8 @@ kiểm toán và màn hình trực tiếp luôn khớp nhau, và sự cố khôn
 | **Nhóm** | Một agent Solo, hoặc một Lead cùng các worker và một planner tuỳ chọn. Template cho lập trình, nghiên cứu, nội dung và kiểm thử bảo mật có uỷ quyền; thư viện vai trò dựng sẵn; ghép nhóm từ chính các agent của bạn. |
 | **Mọi model, trộn lẫn** | Nhà cung cấp API có cấu hình sẵn, cùng mọi endpoint OpenAI-compatible với header và trường request riêng. CLI của các hãng được điều khiển không giao diện, mọi lời gọi tool do Agenium quyết định. Mức effort theo từng agent; agent hết quota sẽ chờ được giao model khác rồi chạy tiếp. |
 | **Ứng dụng desktop** | Tổng quan, chat với Lead, bảng Kanban, trang ticket với diff song song, văn phòng trực tiếp cho thấy ai đang làm gì, nhật ký chạy kèm terminal, trình xem memory, chi phí, tổ chức nhóm. Tiếng Anh và tiếng Việt. |
-| **Memory và skill** | Mỗi agent có fact, bài học và đồ thị tri thức, được tìm bằng model embedding chạy trên máy cùng tìm theo từ khoá và đồ thị, được dọn gọn mà không cần model đọc lại toàn bộ. Skill dạng `SKILL.md` theo vai trò và theo agent; thư viện ban đầu trống, chứa những gì bạn và agent thêm vào, được giữ nguyên khi nâng cấp. Plugin theo định dạng của Claude Code (`obra/superpowers`) mang skill và MCP server của nhà cung cấp, bật nguyên bộ cho từng agent và agent không bao giờ sửa. |
+| **Thư mục của bạn** | Tạo dự án từ một cái tên, một link git, hoặc bất kỳ thư mục nào trên máy: thư mục trống, thư mục chứa file của bạn (Agenium tạo repository cho bạn), hoặc repository bạn đang code dở. Với repository, team làm trên nhánh của nó hoặc một nhánh mới; chọn nhánh mới thì thư mục và nhánh của bạn giữ nguyên, bạn vẫn code tiếp trong khi team làm song song. Thư mục tham chiếu (SDK, tài liệu, một codebase khác) được mọi agent đọc và không bao giờ bị sửa. |
+| **Memory và skill** | Mỗi agent có fact, bài học và đồ thị tri thức, được tìm bằng model embedding chạy trên máy cùng tìm theo từ khoá và đồ thị, được dọn gọn mà không cần model đọc lại toàn bộ. Skill dạng `SKILL.md` theo vai trò và theo agent; thư viện ban đầu trống, chứa những gì bạn và agent thêm vào, được giữ nguyên khi nâng cấp. Viết skill ngay trong app, nhờ agent viết hộ, hoặc nhập cả một thư mục skill một lần và tick chọn những skill cần. Plugin theo định dạng của Claude Code (`obra/superpowers`) mang skill và MCP server của nhà cung cấp, bật nguyên bộ cho từng agent và agent không bao giờ sửa. |
 | **MCP** | Server qua stdio, Streamable HTTP và SSE, có OAuth, gắn theo từng agent với key riêng. Khi server có nhiều tool, agent tìm tool bằng tìm kiếm thay vì đọc hết; server đổi danh sách tool giữa chừng vẫn được theo dõi. |
 | **An toàn** | Sandbox của hệ điều hành cho mỗi lệnh (bubblewrap trên Linux, Seatbelt trên macOS, process container trên Windows khi có). Bí mật nằm trong kho mã hoá gắn với keyring của hệ điều hành, không bao giờ vào prompt, log hay git; commit được quét bí mật. Nội dung bên ngoài được rào lại như dữ liệu. |
 | **Kiểm soát** | Token và chi phí ước tính theo lượt chạy, ticket và agent; prompt caching; nén ngữ cảnh; tạm dừng, huỷ, chạy lại; sao lưu, khôi phục, gói hỗ trợ không chứa bí mật. |
@@ -82,8 +88,9 @@ các nhà cung cấp khác dùng cùng bộ tool với một bộ đọc dễ d�
 
 ### Ứng dụng desktop
 
-Tải bộ cài cho hệ điều hành của bạn từ trang releases — `Agenium_0.1.0_x64-setup.exe` cho Windows 10/11,
-`Agenium_0.1.0_amd64.deb` hoặc AppImage cho Linux. Agenium cần **Git**. Model embedding chạy trên máy đi kèm bộ cài.
+Tải bộ cài cho hệ điều hành của bạn từ [trang releases](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.0_x64-setup.exe` cho Windows 10/11,
+`Agenium_0.1.0_amd64.deb` hoặc AppImage cho Linux. Agenium cần **Git** ([Git for Windows](https://git-scm.com/downloads);
+app sẽ báo trên trang Dự án nếu máy chưa có). Model embedding chạy trên máy đi kèm bộ cài.
 Bộ cài Windows hỏi nơi Agenium lưu công việc của bạn (skill, MCP server, agent, dự án, memory), ví dụ một thư mục ở ổ
 D:; trên Linux và macOS, app hỏi một lần khi mở lần đầu. Cập nhật không bao giờ đụng tới thư mục đó. Sau đó app mở
 thẳng vào màn hình chính, theo ngôn ngữ của hệ điều hành (đổi bằng VI/EN ở trên cùng); thêm nhà cung cấp model (key đi

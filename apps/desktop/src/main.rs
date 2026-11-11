@@ -99,6 +99,7 @@ fn main() {
             api::ticket_action,
             api::create_project,
             api::pick_folder,
+            api::git_available,
             api::inspect_folder,
             api::set_references,
             api::create_team,

@@ -7,6 +7,11 @@
   <img alt="License Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0EA5E9" />
   <img alt="Rust 1.89+" src="https://img.shields.io/badge/rust-1.89%2B-F97316" />
   <img alt="Windows and Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-10B981" />
+  <a href="https://github.com/quanghoa1/AGENIUM/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/quanghoa1/AGENIUM?style=flat&color=FACC15" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/quanghoa1/AGENIUM/releases/latest"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows%20installer-2563EB?style=for-the-badge&logo=windows" /></a>
 </p>
 
 <p align="center">
@@ -62,7 +67,8 @@ live view always agree and a crash loses nothing.
 | **Teams** | A Solo agent, or a Lead with workers and an optional planner. Templates for coding, research, content and authorized security testing; a library of ready-made roles; teams composed from your own agents. |
 | **Any model, mixed** | API providers with presets, plus any OpenAI-compatible endpoint with your own headers and request fields. Vendor CLIs driven headless, every tool call decided by Agenium. Effort per agent; an agent whose model runs out of quota waits to be given another and resumes. |
 | **Desktop app** | Overview, chat with the Lead, Kanban board, ticket pages with side-by-side diffs, a live office view of who does what, run logs with a terminal, memory browser, usage and cost, team organiser. English and Vietnamese. |
-| **Memory and skills** | Facts, lessons and a knowledge graph per agent, found by a local embedding model plus keyword and graph search, kept tidy without rereading it with a model. Skills as `SKILL.md`, per role and per agent; the library starts empty and holds what you and your agents add, kept through upgrades. Plugins in Claude Code's format (`obra/superpowers`) bring a vendor's skills and MCP servers, switched on whole per agent and never changed by it. |
+| **Your folders** | Start a project from a name, a git URL, or any folder on your disk: an empty one, a folder of your files (made a repository for you), or a repository you are already working in. On a repository the team works on its own branch or a new one, and with a new one your folder and branch stay exactly as you left them, so you keep coding while the team works beside you. Reference folders (an SDK, docs, another codebase) are read by every agent and never changed. |
+| **Memory and skills** | Facts, lessons and a knowledge graph per agent, found by a local embedding model plus keyword and graph search, kept tidy without rereading it with a model. Skills as `SKILL.md`, per role and per agent; the library starts empty and holds what you and your agents add, kept through upgrades. Write a skill in the app, have an agent write one, or import a whole folder of skills at once and tick the ones you want. Plugins in Claude Code's format (`obra/superpowers`) bring a vendor's skills and MCP servers, switched on whole per agent and never changed by it. |
 | **MCP** | Servers over stdio, Streamable HTTP and SSE, with OAuth, bound per agent with their own keys. When a server offers many tools an agent finds them by search instead of reading them all; a server that changes its tools mid-run is followed. |
 | **Safety** | OS sandbox per command (Linux bubblewrap, macOS Seatbelt, Windows process containers where available). Secrets in an encrypted vault keyed by the OS keyring, never in prompts, logs or git; commits secret-scanned. External content is fenced as data. |
 | **Control** | Tokens and estimated cost per run, ticket and agent; prompt caching; context compaction; pause, cancel, re-run; backups, restore, a support bundle without secrets. |
@@ -81,8 +87,9 @@ always parses; other providers get the same tools with a lenient reader.
 
 ### Desktop app
 
-Download the installer for your system from the releases page — `Agenium_0.1.0_x64-setup.exe` on Windows 10/11,
-`Agenium_0.1.0_amd64.deb` or the AppImage on Linux. Agenium needs **Git**. The local embedding model ships with the
+Download the installer for your system from the [releases page](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.0_x64-setup.exe` on Windows 10/11,
+`Agenium_0.1.0_amd64.deb` or the AppImage on Linux. Agenium needs **Git** ([Git for Windows](https://git-scm.com/downloads);
+the app tells you on the Projects page when it is missing). The local embedding model ships with the
 installer. The Windows installer asks where Agenium keeps your work (skills, MCP servers, agents, projects, memory),
 for example a folder on drive D:; on Linux and macOS the app asks once at its first start. Updates never touch that
 folder. The app then opens straight on its main screen, in your system's language (switch with VI/EN at the top);
