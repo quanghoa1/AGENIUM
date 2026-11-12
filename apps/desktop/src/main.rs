@@ -55,6 +55,8 @@ fn main() {
             api::command_policy,
             api::set_command_policy,
             api::set_unsandboxed,
+            api::set_sandbox_off,
+            api::set_auto_escalate,
             browser::browser_open,
             browser::browser_bounds,
             browser::browser_visible,

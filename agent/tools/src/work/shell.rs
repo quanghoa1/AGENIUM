@@ -17,6 +17,11 @@ pub struct ShellArgs {
     /// output with shell_output, end it with shell_stop. It ends with your run at the latest.
     #[serde(default)]
     pub background: bool,
+    /// Only for a command that cannot work in the sandbox (it needs the user's credentials, docker, a server on
+    /// localhost, a file outside your worktree): why. The user is asked (or has chosen to allow these) before it runs
+    /// outside the sandbox, directly on their computer. A command the sandbox blocks goes to the user by itself.
+    #[serde(default)]
+    pub outside_sandbox: Option<String>,
 }
 
 pub struct ShellTool;
@@ -30,7 +35,8 @@ impl Tool for ShellTool {
         "Run a shell command in your worktree: builds, tests, linters, git status, package installs inside the \
 project. Returns the exit code, stdout and stderr; long outputs are cut and the full output is saved as an artifact. \
 Read, search and change files with the file tools rather than cat, sed or echo; start a server or a watcher with \
-background and read it with shell_output."
+background and read it with shell_output. Commands run in a sandbox: one it blocks is offered to the user to \
+run outside it, and outside_sandbox asks that up front for a command that cannot work inside."
     }
     fn parameters(&self) -> serde_json::Value {
         args_schema::<ShellArgs>()
@@ -59,9 +65,14 @@ background and read it with shell_output."
             env: ctx.env.clone(),
             ..Default::default()
         };
+        let wanted = a
+            .outside_sandbox
+            .as_deref()
+            .map(str::trim)
+            .filter(|w| !w.is_empty());
         // A vendor CLI waits only so long for a tool: its command goes on as a job the run waits for (ADR-133).
         if let (Some(limit), false) = (ctx.foreground_limit, a.background) {
-            return super::shell_awaited::call(ctx, spec, limit).await;
+            return super::shell_awaited::call(ctx, spec, limit, wanted.map(str::to_owned)).await;
         }
         // An approval the user has not given yet is given up when the run is stopped.
         let decision = tokio::select! {
@@ -72,9 +83,30 @@ background and read it with shell_output."
             return Err(denied(&reason));
         }
         if a.background {
+            // A background command leaves the sandbox only when asked up front (ADR-161).
+            let mut policy = ctx.policy.clone();
+            if let (Some(why), true) = (wanted, escalate::sandboxed(&ctx.policy)) {
+                let why = format!("the agent asks to run it outside the sandbox: {why}");
+                spec.stop = Some(ctx.stop.clone());
+                match escalate::ask(&*ctx.gate, &spec, &why).await {
+                    Some(GateDecision::Allow) => policy = escalate::outside(&ctx.policy),
+                    Some(GateDecision::Deny(r)) => {
+                        return Err(denied(&format!(
+                            "running it outside the sandbox was not allowed: {r}"
+                        )))
+                    }
+                    None => {
+                        return Err(ToolError::new(
+                            "stopped",
+                            "the run was stopped before the command was approved",
+                        ))
+                    }
+                }
+                spec.stop = None;
+            }
             let id = ctx
                 .jobs
-                .start(&ctx.executor, &ctx.policy, spec)
+                .start(&ctx.executor, &policy, spec)
                 .map_err(|e| ToolError::new("too_many_jobs", e))?;
             return Ok(ToolOutput::text(format!(
                 "started in the background as job {id}: read its output with shell_output {{\"job\": {id}, \
@@ -83,11 +115,18 @@ background and read it with shell_output."
         }
         // The run's stop ends the command at once, its whole process tree with it.
         spec.stop = Some(ctx.stop.clone());
-        let out = ctx
-            .executor
-            .run(&spec, &ctx.policy)
-            .await
-            .map_err(|e| ToolError::new("exec_failed", e.to_string()))?;
+        // Sandbox first; a command it blocks goes to the user to run outside (ADR-161).
+        let out = match escalate::run(&ctx.executor, &ctx.policy, &spec, &*ctx.gate, wanted).await {
+            Ok(ran) => ran.into_output(),
+            Err(e) if e.starts_with(DENIED) => return Err(denied(&e[DENIED.len()..])),
+            Err(e) if e == STOPPED => {
+                return Err(ToolError::new(
+                    "stopped",
+                    "the run was stopped before the command was approved",
+                ))
+            }
+            Err(e) => return Err(ToolError::new("exec_failed", e)),
+        };
         Ok(ctx.finish_output(command_text(&out, timeout, ctx.stopped()), false))
     }
 }
@@ -131,4 +170,5 @@ pub(super) fn command_text(
     text
 }
 
+use crate::jobs::{escalate, DENIED, STOPPED};
 use crate::paths;

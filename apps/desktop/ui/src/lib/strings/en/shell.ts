@@ -112,6 +112,7 @@ export const shell = {
   "needs.empty": "Nothing waits for you.",
   "needs.unreadable": "What this project waits for could not be read: open it to see what is wrong.",
   "needs.allow": "Allow once",
+  "needs.outside": "Outside the sandbox",
   "needs.mcpTool": "wants to call the MCP tool",
   "needs.always": "Always for this project",
   "needs.answer": "Your answer…",

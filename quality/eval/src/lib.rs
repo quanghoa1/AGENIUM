@@ -157,6 +157,10 @@ pub async fn run_task(task: &Task, mode: &Mode) -> anyhow::Result<TaskResult> {
             checks: Arc::new(NoCheckFactory),
         },
     )?;
+    // `AGENIUM_EVAL_SANDBOX_OFF=1` runs the tasks with the sandbox turned off (ADR-160), to compare with it on.
+    if std::env::var_os("AGENIUM_EVAL_SANDBOX_OFF").is_some() {
+        app.update_config(|c| c.sandbox.off = true)?;
+    }
     let app = Arc::new(app);
     let project = app.create_project(&CreateProject {
         name: task.id.into(),

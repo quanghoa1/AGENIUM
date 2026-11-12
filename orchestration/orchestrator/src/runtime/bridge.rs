@@ -37,6 +37,22 @@ pub trait Approver: Send + Sync {
         cwd: &Path,
     ) -> Approval;
 
+    /// A command to run outside the sandbox, directly on the user's computer (ADR-161): `why` says what the sandbox
+    /// blocked or why the agent asks. By default asked as a command line that says so.
+    async fn approve_escalation(
+        &self,
+        project: ProjectId,
+        ticket: Option<&TicketKey>,
+        agent: &str,
+        command: &str,
+        cwd: &Path,
+        why: &str,
+    ) -> Approval {
+        let line = format!("[outside the sandbox: {why}] {command}");
+        self.approve_command(project, ticket, agent, &line, cwd)
+            .await
+    }
+
     /// An MCP tool call the user approves first (ADR-143); by default asked as a command line saying what it is.
     async fn approve_tool(
         &self,
@@ -219,7 +235,9 @@ impl CommandGate for RunGate {
                     return GateDecision::Allow
                 }
                 // ADR-117: the user accepted running without a sandbox on a machine that has none.
-                (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, None) if cfg.unsandboxed => {
+                (ApprovalPolicy::Never | ApprovalPolicy::Sandboxed, None)
+                    if cfg.runs_unsandboxed() =>
+                {
                     return GateDecision::Allow
                 }
                 (ApprovalPolicy::Never, None) => {
@@ -269,6 +287,56 @@ impl CommandGate for RunGate {
 
     async fn check_tool(&self, ask: &agenium_tools::ToolAsk) -> GateDecision {
         super::mcp_gate::check(self, ask).await
+    }
+
+    /// ADR-161: a command the sandbox blocked, or one the agent asks to run outside it. "Sandbox only, never ask"
+    /// keeps every command in; an entry "outside:<command>" the user gave runs it; with automatic approval it runs;
+    /// otherwise the user decides in Needs you.
+    async fn escalate(&self, command: &str, cwd: &Path, why: &str) -> GateDecision {
+        let cfg = self.app.config().sandbox;
+        if cfg.approval == ApprovalPolicy::Never {
+            return GateDecision::Deny(
+                "the user chose \"sandbox only, never ask\": commands do not leave the sandbox"
+                    .into(),
+            );
+        }
+        let entry = format!("outside:{}", command.trim());
+        if cfg.auto_escalate {
+            tracing::info!(project = %self.project, agent = %self.agent, command, why, "runs outside the sandbox (approved automatically)");
+            return GateDecision::Allow;
+        }
+        match self.app.project(self.project) {
+            Ok(p) if crate::engine::allowlist(&self.app, &p).contains(&entry) => {
+                return GateDecision::Allow
+            }
+            Ok(_) => {}
+            Err(e) => return GateDecision::Deny(format!("cannot read the project allowlist: {e}")),
+        }
+        match self
+            .approver
+            .approve_escalation(
+                self.project,
+                self.ticket.as_ref(),
+                &self.agent,
+                command,
+                cwd,
+                why,
+            )
+            .await
+        {
+            Approval::Allow => GateDecision::Allow,
+            Approval::AllowAlways => {
+                let project = self.project;
+                let r = self.app.store().commit(None, "user", |w| {
+                    agenium_store::core::projects::add_allowlist(w.tx, project, &[entry])
+                });
+                if let Err(e) = r {
+                    tracing::warn!(error = %e, "could not save always-allow entry");
+                }
+                GateDecision::Allow
+            }
+            Approval::Deny(reason) => GateDecision::Deny(format!("the user said no: {reason}")),
+        }
     }
 }
 

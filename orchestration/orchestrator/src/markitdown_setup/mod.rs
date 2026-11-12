@@ -132,8 +132,8 @@ impl App {
         let dir = self.markitdown_dir();
         let s = own::read_state(&dir);
         let busy = BUSY.try_lock().is_err();
-        let blocked =
-            agenium_sandbox::detect().backend.is_none() && !self.config().sandbox.unsandboxed;
+        let blocked = agenium_sandbox::detect().backend.is_none()
+            && !self.config().sandbox.runs_unsandboxed();
         let mut st = MarkitdownStatus {
             source: "none",
             program: None,

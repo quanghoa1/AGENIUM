@@ -86,7 +86,7 @@ impl App {
             });
         };
         match m
-            .convert(name, bytes, self.config().sandbox.unsandboxed)
+            .convert(name, bytes, self.config().sandbox.runs_unsandboxed())
             .await
         {
             Ok(c) => Ok(c),

@@ -107,7 +107,7 @@ fn containment(write: &[String], read: &[String], network: &mut bool) -> Contain
     }
     #[cfg(target_os = "macos")]
     {
-        let mut config = mxc_sdk::v1::configs::SeatbeltConfig::default();
+        let mut config = crate::seatbelt::config();
         if *network {
             match crate::seatbelt::network_on_profile(write, read) {
                 Ok(profile) => config.profile_override = Some(profile),
@@ -115,6 +115,29 @@ fn containment(write: &[String], read: &[String], network: &mut bool) -> Contain
             }
         }
         Containment::Seatbelt(config)
+    }
+}
+
+/// The JDK the host's `/usr/libexec/java_home` picks (macOS, cached). Inside Seatbelt the `/usr/bin/java` stub cannot
+/// find a JDK on its own ("Unable to locate a Java Runtime" with Homebrew's openjdk, kit v9, 2026-11-12); given
+/// `JAVA_HOME` it runs that JDK, whose files are under the read roots (`/opt/homebrew`, `/Library/Java`).
+pub fn host_java_home() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        static HOME: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+        HOME.get_or_init(|| {
+            let out = std::process::Command::new("/usr/libexec/java_home")
+                .stderr(std::process::Stdio::null())
+                .output()
+                .ok()?;
+            let p = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+            (out.status.success() && Path::new(&p).is_dir()).then_some(p)
+        })
+        .clone()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
     }
 }
 
@@ -133,6 +156,8 @@ pub fn platform_read_roots() -> Vec<PathBuf> {
         "/System",
         "/Library/Developer/CommandLineTools",
         "/Applications/Xcode.app",
+        // JDKs (Homebrew's openjdk links itself here; /usr/bin/java finds them only through this folder).
+        "/Library/Java",
         "/opt/homebrew",
         "/usr/local",
         "/private/etc",

@@ -1,0 +1,132 @@
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+uname                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  Darwin ip-172-16-4-2.us-west-2.compute.internal 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+    off: Darwin ip-172-16-4-2.us-west-2.compute.internal 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+sw_vers                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ProductName: macOS ProductVersion: 26.6.2 BuildVersion: 25G83
+    off: ProductName: macOS ProductVersion: 26.6.2 BuildVersion: 25G83
+whoami                 ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  501
+    off: devin
+ps                     BLOCKED BY SANDBOX         on: exit=Some(126) | off: exit=Some(0)
+    on:  bash: line 1: /bin/ps: Operation not permitted
+    off: PID COMM 66267 ps
+tmp write              ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  hi
+    off: hi
+worktree write         ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  hi
+    off: hi
+git status             ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ## agenium/PROBE-1
+    off: ## agenium/PROBE-1
+git commit             BLOCKED BY SANDBOX         on: exit=Some(128) | off: exit=Some(0)
+    on:  fatal: Unable to create '/private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpfvnzTY/repo/.git/worktrees/wt/index.lock': Operation not permitted
+    off: 694cd0d probe
+git log                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  dfc697c init
+    off: dfc697c init
+curl https             ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  200
+    off: 200
+dns                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  488:126906] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 104.20.23.154
+python3                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  523:126982] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 3.9.6 (default, May 22 2026, 11:13:45) [Clang 21.0.0 (clang-2100.1.1.101)]
+python venv            ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  558:127055] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 1
+pip install (venv)     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ver, version 26.0.1 is available. You should consider upgrading via the '/private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpgGPjnt/wt/.venv/bin/python3 -m pip install --upgrade pip' command.
+    off: ver, version 26.0.1 is available. You should consider upgrading via the '/private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpgGPjnt/wt/.venv/bin/python3 -m pip install --upgrade pip' command.
+node                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  v24.21.0
+    off: v24.21.0
+npm                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  10.8.3
+    off: 10.8.3
+npm install            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  m" npm error Log files were not written due to an error writing to the directory: /Users/devin/.npm/_logs npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal
+    off: x npm warn deprecated left-pad@1.3.0: use String.prototype.padStart()
+npx                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  m" npm error Log files were not written due to an error writing to the directory: /Users/devin/.npm/_logs npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal
+    off: ____ < hi > ----
+cargo                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  cargo 1.99.1 (5f94df478 2026-08-27)
+    off: cargo 1.99.1 (5f94df478 2026-08-27)
+rustc                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  rustc 1.99.1 (58cf8f9c3 2026-10-13)
+    off: rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo new+build        ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  886:128191] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: Hello, world!
+cargo add (registry)   BLOCKED BY SANDBOX         on: exit=Some(101) | off: exit=Some(0)
+    on:  error: failed to open `/Users/devin/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f/itoa-1.0.19.crate` Caused by: Operation not permitted (os error 1)
+    off: 
+go                     fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  bash: line 1: go: command not found
+    off: /opt/homebrew/bin/bash: line 1: go: command not found
+java                   BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  The operation couldn’t be completed. Unable to locate a Java Runtime. Please visit http://www.java.com for information on installing Java.
+    off: openjdk version "17.0.20.1" 2026-08-18 OpenJDK Runtime Environment Homebrew (build 17.0.20.1+0) OpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)
+make                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  074:128765] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: GNU Make 3.81
+clang                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  117:128855] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: Apple clang version 21.0.0 (clang-2100.1.1.101)
+cc build               ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  156:129010] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 
+xcrun sdk              ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  201:129178] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+xcodebuild             ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  233:129234] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: Xcode 26.6 Build version 17F113
+swift                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  aths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead. swift-driver version: 1.148.6
+    off: Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101) Target: arm64-apple-macosx26.0 swift-driver version: 1.148.6
+swift build            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  ache/Swift-1IEYM950OGIQC.swiftmodule' for output: /Users/devin/.cache/clang/ModuleCache: Operation not permitted <unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx14.0'
+    off: 
+brew                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  Homebrew 7.0.7
+    off: Homebrew 7.0.7
+ruby                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin25]
+    off: ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin25]
+sqlite3                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  1
+    off: 1
+docker                 fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  bash: line 1: docker: command not found
+    off: /opt/homebrew/bin/bash: line 1: docker: command not found
+gh                     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  gh version 2.102.0 (2026-09-30)
+    off: gh version 2.102.0 (2026-09-30)
+ssh                    BLOCKED BY SANDBOX         on: exit=Some(255) | off: exit=Some(0)
+    on:  No user exists for uid 501
+    off: OpenSSH_10.3p1, LibreSSL 3.3.6
+open -R (GUI)          ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  
+    off: 
+pbcopy                 BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  
+    off: x
+security (keychain)    BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  security: SecKeychainCopySearchList: One or more parameters passed to a function were not valid.
+    off: "/Users/devin/Library/Keychains/login.keychain-db" "/Library/Keychains/System.keychain"
+home read              ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ls: /Users/devin: Operation not permitted
+    off: Desktop Documents Downloads
+home cache write       BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  mkdir: /Users/devin/.cache: Operation not permitted
+    off: 
+localhost server       BLOCKED BY SANDBOX         on: exit=Some(7) | off: exit=Some(0)
+    on:  000 curl: (7) Failed to connect to 127.0.0.1 port 18765 after 0 ms: Couldn't connect to server
+    off: 200
+
+summary: 30 ok both ways; 11 blocked by the sandbox: ps, git commit, npm install, cargo add (registry), java, swift build, ssh, pbcopy, security (keychain), home cache write, localhost server; 2 fail both ways: go, docker

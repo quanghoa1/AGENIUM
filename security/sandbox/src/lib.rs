@@ -27,12 +27,14 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+mod blocked;
 mod gitconfig;
 mod output;
 mod policy;
 mod shell;
 mod tree;
 
+pub use blocked::blocked_by_sandbox;
 use gitconfig::agent_gitconfig;
 use output::read_all;
 #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
@@ -58,9 +60,36 @@ pub struct Availability {
     pub reason: String,
 }
 
+static OFF: AtomicBool = AtomicBool::new(false);
+
+/// The user turned the sandbox off on this computer (`[sandbox] off`, ADR-160): from now `detect()` reports no
+/// backend, so commands and the CLIs that run contained elsewhere run directly on the host. Process-wide: the setting
+/// belongs to the machine, and the app sets it from its config when it opens and whenever the config changes.
+pub fn set_off(off: bool) {
+    OFF.store(off, Ordering::Relaxed);
+}
+
+/// Whether the user turned the sandbox off (`set_off`).
+pub fn is_off() -> bool {
+    OFF.load(Ordering::Relaxed)
+}
+
 /// Which isolation backend is usable here. `None` sends every command to the user's approval (fail-closed, never a
-/// silent unsandboxed YOLO).
+/// silent unsandboxed YOLO) unless the user chose to run without one. When the user turned the sandbox off
+/// (`set_off`) it reports none; `detect_os` tells what the OS itself offers.
 pub fn detect() -> Availability {
+    if is_off() {
+        return Availability {
+            backend: None,
+            reason: "turned off in Settings: commands run directly on this computer, without a sandbox and without asking (YOLO)"
+                .into(),
+        };
+    }
+    detect_os()
+}
+
+/// Which isolation backend the OS offers, whether or not the user turned the sandbox off.
+pub fn detect_os() -> Availability {
     #[cfg(windows)]
     {
         if mxc::available() {
@@ -248,6 +277,12 @@ impl Executor {
                 "[user]\n\tname = agenium-agent\n\temail = agent@agenium.local\n",
             )?;
             env.insert("GIT_CONFIG_GLOBAL".into(), gc.display().to_string());
+            env.extend(cache_env(t)?);
+        }
+        if !env.contains_key("JAVA_HOME") {
+            if let Some(j) = unix::host_java_home() {
+                env.insert("JAVA_HOME".into(), j);
+            }
         }
         env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
         let env: Vec<(String, String)> = env.into_iter().collect();

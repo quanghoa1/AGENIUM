@@ -164,6 +164,31 @@ pub fn remove_run_temp_dir(root: &Path) {
     }
 }
 
+/// Where package managers and compilers keep their caches inside a sandboxed command: folders of the worktree's
+/// temporary directory, the only writable place besides the worktree. The user's own caches (`~/.npm`, `~/.cache`,
+/// `~/.cargo/registry`) are outside the sandbox, and there npm could not write its logs, cargo could not open a
+/// downloaded crate and swift could not write its module cache (macOS tool probe, kit v8, 2026-11-12). Each ticket
+/// fills its own caches; nothing it downloads reaches the user's. The folders are created here.
+pub fn cache_env(temp: &Path) -> std::io::Result<Vec<(String, String)>> {
+    let mut env = Vec::new();
+    for (var, sub) in [
+        ("XDG_CACHE_HOME", "cache"),
+        ("npm_config_cache", "npm-cache"),
+        ("YARN_CACHE_FOLDER", "yarn-cache"),
+        ("PIP_CACHE_DIR", "pip-cache"),
+        ("CLANG_MODULE_CACHE_PATH", "clang-module-cache"),
+        ("CARGO_HOME", "cargo-home"),
+        ("GOMODCACHE", "go-mod"),
+        ("GOCACHE", "go-build"),
+        ("GRADLE_USER_HOME", "gradle"),
+    ] {
+        let dir = temp.join("caches").join(sub);
+        std::fs::create_dir_all(&dir)?;
+        env.push((var.to_owned(), dir.display().to_string()));
+    }
+    Ok(env)
+}
+
 /// In a worktree's temporary directory: the worktree it belongs to, so [`sweep_run_temp_dirs`] can tell when it is gone.
 const OWNER_FILE: &str = ".agenium-worktree";
 

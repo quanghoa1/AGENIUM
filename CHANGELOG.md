@@ -7,6 +7,17 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The first public build: the desktop app for Windows and Linux (Ubuntu), and the `agenium` command.
 
 ### Teams and orchestration
+- **A command the sandbox blocks asks you instead of failing** (ADR-161): docker, a server on localhost, your git
+  credentials… When the sandbox stops a command, it waits in Needs you ("Outside the sandbox", with what was blocked)
+  to run again directly on your computer: once, always for the project, or never. Agents can also ask up front for a
+  command that cannot work inside. Settings → Commands can approve these by itself; each one is in the audit log.
+- **Fewer commands blocked on macOS** (ADR-160): npm, pip, cargo, swift and other caches now work in the sandbox (each
+  ticket has its own), Homebrew's Java is found, `ssh` knows the user; `swift build` is told to use
+  `--disable-sandbox`. Measured with a probe of 44 everyday commands on a Mac.
+- **Turn the sandbox off (full YOLO)** (ADR-160): Settings → Commands can turn the sandbox off on this computer,
+  after a confirmation, for when it gets in the way of a project's tools (for example on macOS). Commands, Codex,
+  pre-merge checks and plugin hooks then run directly on the computer without asking, except in "Ask me every time"
+  and for installing software; turn it off again to get the sandbox back.
 - **A project in any folder, and reference folders** (ADR-159): the project form takes a folder picked anywhere
   (Choose…): an empty one, one of your files (made a repository, the files its first commit, a `.gitignore` for what
   is rebuilt) or a repository, taken on its current branch with only Agenium's own files committed, your uncommitted

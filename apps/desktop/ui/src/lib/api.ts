@@ -34,6 +34,8 @@ export const api = {
   retryEmbeddingModel: () => call<void>("retry_embedding_model"),
   setCommandPolicy: (approval: ApprovalPolicy) => call<CommandPolicy>("set_command_policy", { approval }),
   setUnsandboxed: (on: boolean) => call<CommandPolicy>("set_unsandboxed", { on }),
+  setSandboxOff: (off: boolean) => call<CommandPolicy>("set_sandbox_off", { off }),
+  setAutoEscalate: (on: boolean) => call<CommandPolicy>("set_auto_escalate", { on }),
   // Preview browser (ADR-121): one native view per tab, placed over the page; logical pixels.
   browserOpen: (tab: string, url: string, x: number, y: number, w: number, h: number) => call<void>("browser_open", { tab, url, x, y, w, h }),
   browserBounds: (tab: string, x: number, y: number, w: number, h: number) => call<void>("browser_bounds", { tab, x, y, w, h }),

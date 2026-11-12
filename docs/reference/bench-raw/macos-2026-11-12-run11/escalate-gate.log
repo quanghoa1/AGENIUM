@@ -1,0 +1,38 @@
+   Compiling zip v9.3.0
+   Compiling tracing v0.1.44
+   Compiling lopdf v0.42.0
+   Compiling tungstenite v0.28.0
+   Compiling globset v0.4.20
+   Compiling tokenizers v0.23.2
+   Compiling keyring-core v1.0.1
+   Compiling hyper-util v0.1.21
+   Compiling apple-native-keyring-store v1.0.2
+   Compiling tokio-tungstenite v0.28.0
+   Compiling ignore v0.4.33
+   Compiling keyring v4.2.0
+   Compiling agenium-secrets v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/security/secrets)
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling agenium-vcs v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/foundation/vcs)
+   Compiling agenium-skills v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/skills)
+   Compiling agenium-llm v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/llm)
+   Compiling pdf-extract v0.12.1
+   Compiling candle-core v0.11.1
+   Compiling agenium-documents v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/documents)
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/tools)
+   Compiling candle-nn v0.11.1
+   Compiling agenium-backend v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/loop)
+   Compiling agenium-mcp v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/mcp)
+   Compiling candle-transformers v0.11.1
+   Compiling agenium-cli-backend v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/cli-backend)
+   Compiling agenium-memory v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/memory)
+   Compiling agenium-orchestrator v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/orchestration/orchestrator)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 47.10s
+     Running tests/runtime/main.rs (/Users/devin/agenium-macos-test-v11/work/target/debug/deps/runtime-420d30edf7e0c739)
+
+running 2 tests
+test escalate::a_command_leaves_the_sandbox_as_the_user_decides ... ok
+test failures::quota_exhaustion_parks_the_agent_and_repeated_failures_escalate ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 1.05s
+

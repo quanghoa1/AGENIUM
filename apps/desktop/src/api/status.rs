@@ -52,10 +52,11 @@ pub fn status(d: State<'_, Desktop>, handle: AppHandle) -> Value {
 pub fn command_policy(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let sb = agenium_sandbox::detect();
-    Ok(
-        json!({ "approval": o.app.config().sandbox.approval, "unsandboxed": o.app.config().sandbox.unsandboxed,
-                "backend": sb.backend, "reason": sb.reason }),
-    )
+    let cfg = o.app.config().sandbox;
+    Ok(json!({ "approval": cfg.approval, "unsandboxed": cfg.unsandboxed, "off": cfg.off,
+               "auto_escalate": cfg.auto_escalate,
+               "backend": sb.backend, "reason": sb.reason,
+               "os_backend": agenium_sandbox::detect_os().backend }))
 }
 
 #[tauri::command]
@@ -76,6 +77,26 @@ pub fn set_unsandboxed(d: State<'_, Desktop>, on: bool) -> R<Value> {
     d.opened()?
         .app
         .update_config(|c| c.sandbox.unsandboxed = on)
+        .map_err(err)?;
+    command_policy(d)
+}
+
+/// Whether a command the sandbox blocks runs outside it without asking (ADR-161).
+#[tauri::command]
+pub fn set_auto_escalate(d: State<'_, Desktop>, on: bool) -> R<Value> {
+    d.opened()?
+        .app
+        .update_config(|c| c.sandbox.auto_escalate = on)
+        .map_err(err)?;
+    command_policy(d)
+}
+
+/// Full YOLO (ADR-160): turns the sandbox off on this computer even where one works.
+#[tauri::command]
+pub fn set_sandbox_off(d: State<'_, Desktop>, off: bool) -> R<Value> {
+    d.opened()?
+        .app
+        .update_config(|c| c.sandbox.off = off)
         .map_err(err)?;
     command_policy(d)
 }

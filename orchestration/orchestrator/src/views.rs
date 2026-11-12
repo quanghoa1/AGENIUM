@@ -393,6 +393,27 @@ impl App {
             for r in self.store.read(|c| runs::for_ticket(c, t.id))? {
                 for l in self.store.read(|c| runs::log_entries(c, r.id))? {
                     let tool = l.data["tool"].as_str().unwrap_or_default();
+                    // ADR-161: every command that left the sandbox, approved by the user or automatically.
+                    if l.kind == "tool"
+                        && tool == "shell"
+                        && l.data["result"]
+                            .as_str()
+                            .is_some_and(|t| t.contains(OUTSIDE_MARK))
+                    {
+                        out.push(AuditEntry {
+                            at: l.at.clone(),
+                            actor: names
+                                .get(&r.agent)
+                                .cloned()
+                                .unwrap_or_else(|| r.agent.to_string()),
+                            ticket: Some(t.key.clone()),
+                            action: "outside_sandbox".into(),
+                            intent_id: Some(format!("{}:{}", r.id, l.n)),
+                            accepted: true,
+                            detail: serde_json::json!({ "args": l.data["args"] }),
+                        });
+                        continue;
+                    }
                     if l.kind != "tool"
                         || l.data["ok"] != false
                         || ProtocolTool::from_str(tool).is_err()
@@ -415,6 +436,9 @@ impl App {
         Ok(out)
     }
 }
+
+/// What a `shell` result says when its command ran outside the sandbox (`agenium_tools::jobs::escalate`).
+const OUTSIDE_MARK: &str = "outside the sandbox, directly on the user's computer";
 
 /// Markdown rendering of an audit trail (export for people; JSON Lines is the machine form).
 pub fn audit_markdown(title: &str, entries: &[AuditEntry]) -> String {

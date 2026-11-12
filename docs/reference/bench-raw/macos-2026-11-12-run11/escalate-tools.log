@@ -1,0 +1,99 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling stable_deref_trait v1.2.1
+   Compiling crypto-common v0.1.7
+   Compiling log v0.4.34
+   Compiling num-traits v0.2.19
+   Compiling futures-sink v0.3.34
+   Compiling zerocopy v0.8.63
+   Compiling crossbeam-utils v0.8.23
+   Compiling futures-channel v0.3.34
+   Compiling digest v0.10.7
+   Compiling cipher v0.4.4
+   Compiling regex-automata v0.4.18
+   Compiling tracing-core v0.1.36
+   Compiling sha2 v0.10.9
+   Compiling ecb v0.1.2
+   Compiling cbc v0.1.2
+   Compiling aes v0.8.4
+   Compiling tracing v0.1.44
+   Compiling md-5 v0.10.6
+   Compiling getrandom v0.2.17
+   Compiling quote v1.0.47
+   Compiling zopfli v0.8.4
+   Compiling euclid v0.20.14
+   Compiling crossbeam-epoch v0.9.21
+   Compiling syn v3.0.9
+   Compiling sha1 v0.10.7
+   Compiling zip v9.3.0
+   Compiling crossbeam-deque v0.8.8
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling regex v1.13.1
+   Compiling globset v0.4.20
+   Compiling ignore v0.4.33
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.9.0
+   Compiling synstructure v0.14.0
+   Compiling rand v0.9.5
+   Compiling serde_derive_internals v0.30.0
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.7
+   Compiling displaydoc v0.2.7
+   Compiling tokio-macros v2.7.2
+   Compiling serde_derive v1.0.229
+   Compiling futures-macro v0.3.34
+   Compiling thiserror-impl v2.0.21
+   Compiling ref-cast-impl v1.0.27
+   Compiling schemars_derive v1.2.3
+   Compiling futures-util v0.3.34
+   Compiling tokio v1.54.1
+   Compiling ref-cast v1.0.27
+   Compiling async-trait v0.1.92
+   Compiling futures-executor v0.3.34
+   Compiling futures v0.3.34
+   Compiling zerofrom v0.1.8
+   Compiling hyper v1.12.0
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling tinystr v0.8.5
+   Compiling icu_locale_core v2.4.0
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling icu_collections v2.4.0
+   Compiling icu_provider v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling icu_normalizer v2.4.0
+   Compiling thiserror v2.0.21
+   Compiling lopdf v0.42.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling hyper-util v0.1.21
+   Compiling serde v1.0.229
+   Compiling url v2.5.8
+   Compiling chrono v0.4.45
+   Compiling tower v0.5.3
+   Compiling tokio-rustls v0.26.6
+   Compiling schemars v1.2.3
+   Compiling hyper-rustls v0.27.10
+   Compiling tower-http v0.6.11
+   Compiling mxc-sdk v1.0.1
+   Compiling ulid v1.2.1
+   Compiling tungstenite v0.28.0
+   Compiling reqwest v0.13.5
+   Compiling agenium-core v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/foundation/core)
+   Compiling tokio-tungstenite v0.28.0
+   Compiling pdf-extract v0.12.1
+   Compiling agenium-sandbox v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/security/sandbox)
+   Compiling agenium-documents v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/documents)
+   Compiling agenium-tools v0.1.0 (/Users/devin/agenium-macos-test-v11/work/agenium/agent/tools)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 46.84s
+     Running tests/escalate.rs (/Users/devin/agenium-macos-test-v11/work/target/debug/deps/escalate-38de80137b7b86da)
+
+running 4 tests
+test a_command_the_agent_says_needs_the_host_is_asked_before_it_runs ... ok
+test a_command_that_works_in_the_sandbox_asks_nothing ... ok
+test refused_it_keeps_the_sandbox_answer_and_says_why ... ok
+test a_command_the_sandbox_blocks_runs_again_outside_once_allowed ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+

@@ -187,6 +187,7 @@ pub(super) const ENV_ALLOW: &[&str] = &[
     "CARGO_HOME",
     "RUSTUP_HOME",
     "GOPATH",
+    "JAVA_HOME",
 ];
 
 pub fn clean_env(extra: &BTreeMap<String, String>) -> BTreeMap<String, String> {

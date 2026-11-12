@@ -26,6 +26,13 @@ pub(super) fn shell_text(shell: &agenium_sandbox::Shell) -> String {
             );
         }
     }
+    // Seatbelt cannot be applied inside Seatbelt: SwiftPM sandboxes its manifest builds with sandbox-exec and stops
+    // with "sandbox_apply: Operation not permitted" (macOS kit v9, 2026-11-12).
+    if agenium_sandbox::detect().backend == Some(agenium_sandbox::Backend::Seatbelt) {
+        s.push_str(
+            "; commands already run inside macOS's sandbox, which cannot be nested: pass --disable-sandbox to swift build, swift test and swift run",
+        );
+    }
     // ADR-120: what an agent may install itself, and what goes to the user.
     s.push_str(
         "; install project dependencies inside the worktree (a virtual environment, node_modules, the build's own fetch). Installing software on the user's machine (winget, choco, apt, brew, npm -g, pip outside a virtual environment, cargo install, an installer script) waits for the user's approval: if a tool is missing, ask instead of working around it silently",
@@ -139,8 +146,11 @@ impl Runtime {
             (true, Err(why)) => format!("no network on this machine: {why}"),
             (false, _) => "no network".to_owned(),
         };
+        let unsandboxed = self.app.config().sandbox.runs_unsandboxed();
         let sandbox_text = match (sandbox.backend, approval) {
-            (Some(b), agenium_config::ApprovalPolicy::Never | agenium_config::ApprovalPolicy::Sandboxed) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, {net_note})"),
+            (None, agenium_config::ApprovalPolicy::Never | agenium_config::ApprovalPolicy::Sandboxed) if unsandboxed => format!("none: {}; the user chose to run without one, so shell commands run directly on the user's computer without asking (nothing protects it: stay inside your worktree)", sandbox.reason),
+            (Some(b), agenium_config::ApprovalPolicy::Sandboxed) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, {net_note}); a command the sandbox blocks {}, and shell's outside_sandbox asks that up front for one that cannot work inside (credentials, docker, a server on localhost). Pushing is not yours to do: Agenium pushes after the review and the merge", if self.app.config().sandbox.auto_escalate { "runs again outside it by the user's standing approval" } else { "is offered to the user to run outside it" }),
+            (Some(b), agenium_config::ApprovalPolicy::Never) => format!("{b:?}, commands run without asking inside the sandbox (writes stay in your worktree, {net_note}); nothing leaves it"),
             (None, agenium_config::ApprovalPolicy::Sandboxed) => format!("none: {}; every shell command that is not on the project allowlist is shown to the user for approval", sandbox.reason),
             (_, agenium_config::ApprovalPolicy::Never) => format!("none: {}; shell commands are refused", sandbox.reason),
             (_, agenium_config::ApprovalPolicy::OnRequest) => "the user reviews commands for this project: every shell command that is not on the project allowlist is shown to the user for approval".into(),

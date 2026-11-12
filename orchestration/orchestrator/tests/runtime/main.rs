@@ -15,6 +15,7 @@ use common::*;
 use serde_json::json;
 
 mod design;
+mod escalate;
 mod failures;
 mod folders;
 mod mcp;

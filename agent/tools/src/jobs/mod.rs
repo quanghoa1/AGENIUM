@@ -9,9 +9,10 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use agenium_sandbox::{CommandSpec, ExecOutput, Executor, Live, SandboxPolicy};
+use agenium_sandbox::{CommandSpec, ExecOutput, Executor, Live, SandboxMode, SandboxPolicy};
 
 mod awaited;
+pub mod escalate;
 pub use awaited::{Ended, DENIED, STOPPED};
 
 /// Background commands running at once in one run.

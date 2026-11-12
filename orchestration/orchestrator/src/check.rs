@@ -48,7 +48,8 @@ struct SandboxCheck {
 
 impl CheckRunner for SandboxCheck {
     fn run(&self, worktree: &Path) -> CheckOutcome {
-        if agenium_sandbox::detect().backend.is_none() {
+        // With the sandbox turned off (ADR-160) the check runs directly on the host, like every other command.
+        if agenium_sandbox::detect().backend.is_none() && !agenium_sandbox::is_off() {
             return CheckOutcome {
                 ok: false,
                 log: format!(

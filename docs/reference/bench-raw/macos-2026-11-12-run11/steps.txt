@@ -1,0 +1,32 @@
+== machine  (03:07:01)
+== unpack the source  (03:07:04)
+== build (cargo build --workspace --all-targets)  (03:07:05)
+   exit=0 seconds=201
+== tests (cargo test --workspace --no-fail-fast)  (03:10:26)
+   exit=0 seconds=153
+== escalation: blocked in the sandbox, then outside (tools)  (03:12:59)
+   exit=0 seconds=47
+== escalation: the gate's answers (orchestrator)  (03:13:46)
+   exit=0 seconds=48
+== escalation: telling a sandbox refusal apart (unit)  (03:14:34)
+   exit=0 seconds=37
+== sandbox off: its own test (security/sandbox/tests/off.rs)  (03:15:11)
+   exit=0 seconds=1
+== tool probe: 44 developer commands with the sandbox on, then off  (03:15:12)
+   exit=0 seconds=50
+== golden tasks, sandbox on (scripted model, real tools)  (03:16:02)
+   exit=0 seconds=3
+== golden tasks, sandbox off  (03:16:05)
+   exit=0 seconds=2
+== doctor  (03:16:07)
+   exit=0 seconds=1
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (03:16:08)
+   exit=0 seconds=31
+== desktop: UI dependencies (npm ci)  (03:16:39)
+   exit=0 seconds=1
+== desktop: UI type check and build  (03:16:40)
+   exit=0 seconds=11
+== desktop: its own tests (cargo test in apps/desktop)  (03:16:51)
+   exit=0 seconds=170
+== processes left  (03:19:41)
+== summary  (03:19:41)

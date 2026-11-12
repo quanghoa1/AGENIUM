@@ -33,6 +33,8 @@ pub struct CommandApproval {
     pub cwd: String,
     pub at: String,
     pub tool: Option<ToolRequest>,
+    /// A command to run outside the sandbox (ADR-161): what the sandbox blocked, or why the agent asks.
+    pub outside: Option<String>,
 }
 
 /// The MCP tool of an approval: its server, its name, the arguments (pretty JSON) and whether the server marks it
@@ -104,6 +106,7 @@ impl Approver for UiApprover {
             cwd: cwd.display().to_string(),
             at: agenium_core::now_iso(),
             tool: None,
+            outside: None,
         };
         self.ask(req).await
     }
@@ -129,6 +132,30 @@ impl Approver for UiApprover {
                 arguments: serde_json::to_string_pretty(&ask.arguments).unwrap_or_default(),
                 destructive: ask.destructive == Some(true),
             }),
+            outside: None,
+        };
+        self.ask(req).await
+    }
+
+    async fn approve_escalation(
+        &self,
+        project: ProjectId,
+        ticket: Option<&TicketKey>,
+        agent: &str,
+        command: &str,
+        cwd: &Path,
+        why: &str,
+    ) -> Approval {
+        let req = CommandApproval {
+            id: 0,
+            project,
+            ticket: ticket.cloned(),
+            agent: agent.to_owned(),
+            command: command.to_owned(),
+            cwd: cwd.display().to_string(),
+            at: agenium_core::now_iso(),
+            tool: None,
+            outside: Some(why.to_owned()),
         };
         self.ask(req).await
     }

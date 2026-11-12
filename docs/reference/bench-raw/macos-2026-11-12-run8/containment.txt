@@ -1,0 +1,63 @@
+platform: macos | backend: Some(Seatbelt) | shell: bash (/opt/homebrew/bin/bash)
+network = true gives: private network (outbound only; no inbound, no host loopback)
+[no sandbox (baseline)] done in 9.1 s
+[no sandbox (baseline)] meta.chmod_outside: ESCAPED — inside: None
+[no sandbox (baseline)] meta.utime_outside: ESCAPED — inside: None
+[no sandbox (baseline)] net.dns: allowed (network on) — inside: ('104.20.23.154', 443)
+[no sandbox (baseline)] net.tcp_host_listener: allowed (network on) — inside: connected
+[no sandbox (baseline)] net.tcp_internet: allowed (network on) — inside: connected
+[no sandbox (baseline)] net.unix_host_socket: ESCAPED — inside: connected
+[no sandbox (baseline)] read.real_home_listing: ESCAPED — inside: ['.Trash', '.browser_data_dir', '.cache', '.cargo', '.devin']
+[no sandbox (baseline)] read.real_ssh_dir: ESCAPED — inside: ['authorized_keys']
+[no sandbox (baseline)] read.secret_outside: ESCAPED — inside: 34 2d2d2d2d2d424547494e2041
+[no sandbox (baseline)] write.delete_outside: ESCAPED — inside: None
+[no sandbox (baseline)] write.dotdot: ESCAPED — inside: /private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpTn4DtQ/project/.agenium/worktrees/T1/../../../../agenium-containment-72312-no sandbox (baseline)-1794473948397-dotdot.txt
+[no sandbox (baseline)] write.home: ESCAPED — inside: /private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpTn4DtQ/home/new.txt
+[no sandbox (baseline)] write.main_git_config: ESCAPED — inside: appended
+[no sandbox (baseline)] write.main_git_hook: ESCAPED — inside: /private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpTn4DtQ/project/.git/hooks/pre-commit
+[no sandbox (baseline)] write.outside_dir: ESCAPED — inside: /private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpTn4DtQ/outside/new.txt
+[no sandbox (baseline)] write.rename_out: ESCAPED — inside: moved
+[no sandbox (baseline)] write.tmp: ESCAPED — inside: /tmp/agenium-containment-72312-no sandbox (baseline)-1794473948397-tmp.txt
+[no sandbox (baseline)] write.truncate_outside: ESCAPED — inside: None
+[no sandbox (baseline)] write.via_hardlink: ESCAPED — inside: /private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpTn4DtQ/project/.agenium/worktrees/T1/esc_hard
+[no sandbox (baseline)] write.via_symlink: ESCAPED — inside: /private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpTn4DtQ/project/.agenium/worktrees/T1/esc_link/via_symlink.txt
+[sandbox, network off] done in 10.1 s
+[sandbox, network on] done in 10.4 s
+[sandbox, network on] net.dns: allowed (network on) — inside: ('104.20.23.154', 443)
+[sandbox, network on] net.tcp_internet: allowed (network on) — inside: connected
+
+| test | no sandbox (baseline) | sandbox, network off | sandbox, network on |
+|---|---|---|---|
+| daemon.outlives_a_timeout | ESCAPED | blocked | blocked |
+| daemon.outlives_the_run | ESCAPED | blocked | blocked |
+| env.canary | blocked | blocked | blocked |
+| meta.chmod_outside | ESCAPED | blocked | blocked |
+| meta.utime_outside | ESCAPED | blocked | blocked |
+| net.dns | allowed (network on) | blocked | allowed (network on) |
+| net.tcp_host_listener | allowed (network on) | blocked | blocked |
+| net.tcp_internet | allowed (network on) | blocked | allowed (network on) |
+| net.unix_host_socket | ESCAPED | blocked | blocked |
+| ok.dev_null | ok | ok | ok |
+| ok.git_status | ok | ok | ok |
+| ok.mkdir_and_rename | ok | ok | ok |
+| ok.read_own_interpreter | ok | ok | ok |
+| ok.subprocess | ok | ok | ok |
+| ok.tmpdir | ok | ok | ok |
+| ok.write_in_worktree | ok | ok | ok |
+| read.etc_shadow | blocked | blocked | blocked |
+| read.real_home_listing | ESCAPED | blocked | blocked |
+| read.real_ssh_dir | ESCAPED | blocked | blocked |
+| read.secret_outside | ESCAPED | blocked | blocked |
+| write.delete_outside | ESCAPED | blocked | blocked |
+| write.dotdot | ESCAPED | blocked | blocked |
+| write.home | ESCAPED | blocked | blocked |
+| write.main_git_config | ESCAPED | blocked | blocked |
+| write.main_git_hook | ESCAPED | blocked | blocked |
+| write.outside_dir | ESCAPED | blocked | blocked |
+| write.rename_out | ESCAPED | blocked | blocked |
+| write.tmp | ESCAPED | blocked | blocked |
+| write.truncate_outside | ESCAPED | blocked | blocked |
+| write.via_hardlink | ESCAPED | blocked | blocked |
+| write.via_symlink | ESCAPED | blocked | blocked |
+
+sandboxed modes: 0 escape(s) or broken must-work item(s)

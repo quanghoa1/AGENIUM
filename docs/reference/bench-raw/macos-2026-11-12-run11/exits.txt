@@ -1,0 +1,14 @@
+build (cargo build --workspace --all-targets): exit=0
+tests (cargo test --workspace --no-fail-fast): exit=0
+escalation: blocked in the sandbox, then outside (tools): exit=0
+escalation: the gate's answers (orchestrator): exit=0
+escalation: telling a sandbox refusal apart (unit): exit=0
+sandbox off: its own test (security/sandbox/tests/off.rs): exit=0
+tool probe: 44 developer commands with the sandbox on, then off: exit=0
+golden tasks, sandbox on (scripted model, real tools): exit=0
+golden tasks, sandbox off: exit=0
+doctor: exit=0
+containment matrix on Seatbelt (with an unsandboxed baseline): exit=0
+desktop: UI dependencies (npm ci): exit=0
+desktop: UI type check and build: exit=0
+desktop: its own tests (cargo test in apps/desktop): exit=0

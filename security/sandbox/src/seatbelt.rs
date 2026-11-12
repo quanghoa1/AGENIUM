@@ -21,10 +21,19 @@ const OPEN: &str = "(allow network-outbound)\n";
 const NARROWED: &str = "(allow network-outbound (remote ip \"*:*\"))\n\
                         (allow network-outbound (literal \"/private/var/run/mDNSResponder\"))\n";
 
+/// The Seatbelt settings of every command: mxc-sdk's defaults (no GUI, no keychain) plus the directory service that
+/// answers user lookups. Without it `getpwuid` finds no user: `ssh` stops with "No user exists for uid 501" and
+/// `whoami` prints the number (macOS tool probe, kit v8, 2026-11-12). It only reads the account database.
+pub fn config() -> SeatbeltConfig {
+    let mut c = SeatbeltConfig::default();
+    c.extra_mach_lookups = vec!["com.apple.system.opendirectoryd.libinfo".into()];
+    c
+}
+
 /// The profile of a command with the network on: mxc-sdk's own for these paths, with egress open, no inbound and no
 /// host loopback, and the open outbound rule narrowed. `Err` when mxc-sdk's profile no longer has exactly that rule.
 pub fn network_on_profile(readwrite: &[String], readonly: &[String]) -> Result<String, String> {
-    let sb = SeatbeltConfig::default();
+    let sb = config();
     let doc = json!({
         "version": "1.0.0",
         "containment": "seatbelt",
@@ -77,5 +86,11 @@ mod tests {
             .unwrap();
         assert!(loopback > allow);
         assert!(!p.contains("network-inbound"));
+        // User lookups answer (ssh, whoami); the keychain stays closed.
+        assert!(
+            p.contains("(global-name \"com.apple.system.opendirectoryd.libinfo\")"),
+            "{p}"
+        );
+        assert!(!p.contains("com.apple.SecurityServer"), "{p}");
     }
 }

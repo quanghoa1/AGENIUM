@@ -1,0 +1,132 @@
+sandbox: Some(Bubblewrap) - bubblewrap: writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+uname                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: Linux quanghoa1 6.17.0-41-generic #41-Ubuntu SMP PREEMPT_DYNAMIC Sat Jun 20 18:01:40 UTC 2026 x86_64 GNU/Linux
+sw_vers                fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: sw_vers: command not found
+    off: /usr/bin/bash: line 1: sw_vers: command not found
+whoami                 ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: quanghoa1
+ps                     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: PID COMMAND 5865 ps
+tmp write              ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: hi
+worktree write         ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: hi
+git status             ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: ## agenium/PROBE-1
+git commit             BLOCKED BY SANDBOX         on: exit=Some(128) | off: exit=Some(0)
+    on:  rict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) fatal: Unable to create '/tmp/.tmpSLeA7x/repo/.git/worktrees/wt/index.lock': Read-only file system
+    off: a0b88ec probe
+git log                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: 7e4ab0e init
+curl https             BLOCKED BY SANDBOX         on: exit=Some(6) | off: exit=Some(0)
+    on:  paces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) curl: (6) Could not resolve host: example.com
+    off: 200
+dns                    BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  st): File "<string>", line 1, in <module> import socket; print(socket.gethostbyname('example.com')) ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^ socket.gaierror: [Errno -3] Temporary failure in name resolution
+    off: 104.20.23.154
+python3                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: 3.13.7 (main, Mar 3 2026, 12:19:54) [GCC 15.2.0]
+python venv            fails both (missing tool?) on: exit=Some(1) | off: exit=Some(1)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off:  install python3.13-venv You may need to use sudo with that command. After installing the python3-venv package, recreate your virtual environment. Failing command: /tmp/.tmpIiR2yv/wt/.venv/bin/python3
+pip install (venv)     fails both (missing tool?) on: exit=Some(1) | off: exit=Some(1)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off:  install python3.13-venv You may need to use sudo with that command. After installing the python3-venv package, recreate your virtual environment. Failing command: /tmp/.tmpEmDUgR/wt/.venv/bin/python3
+node                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: v20.19.4
+npm                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: 9.2.0
+npm install            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  pmjs.org/left-pad failed, reason: getaddrinfo EAI_AGAIN registry.npmjs.org npm ERR! A complete log of this run can be found in: npm ERR! /home/quanghoa1/.npm/_logs/2026-11-12T08_45_39_309Z-debug-0.log
+    off: x npm WARN deprecated left-pad@1.3.0: use String.prototype.padStart()
+npx                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  .npmjs.org/cowsay failed, reason: getaddrinfo EAI_AGAIN registry.npmjs.org npm ERR! A complete log of this run can be found in: npm ERR! /home/quanghoa1/.npm/_logs/2026-11-12T08_46_50_655Z-debug-0.log
+    off: ____ < hi > ----
+cargo                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: cargo 1.99.1 (5f94df478 2026-08-27)
+rustc                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo new+build        ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: Hello, world!
+cargo add (registry)   BLOCKED BY SANDBOX         on: exit=Some(101) | off: exit=Some(0)
+    on:  rce for dependency `itoa` Caused by: unable to update registry `crates-io` Caused by: download of config.json failed Caused by: [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+    off: 
+go                     fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  work namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: go: command not found
+    off: /usr/bin/bash: line 1: go: command not found
+java                   fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  rk namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: java: command not found
+    off: /usr/bin/bash: line 1: java: command not found
+make                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: GNU Make 4.4.1
+clang                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  k namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: clang: command not found
+    off: /usr/bin/bash: line 1: clang: command not found
+cc build               ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: 
+xcrun sdk              fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  k namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: xcrun: command not found
+    off: /usr/bin/bash: line 1: xcrun: command not found
+xcodebuild             fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  espaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: xcodebuild: command not found
+    off: /usr/bin/bash: line 1: xcodebuild: command not found
+swift                  fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  k namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: swift: command not found
+    off: /usr/bin/bash: line 1: swift: command not found
+swift build            fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  k namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: swift: command not found
+    off: /usr/bin/bash: line 1: swift: command not found
+brew                   ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  rk namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: brew: command not found
+    off: /usr/bin/bash: line 1: brew: command not found
+ruby                   fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  rk namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: ruby: command not found
+    off: /usr/bin/bash: line 1: ruby: command not found
+sqlite3                fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: sqlite3: command not found
+    off: /usr/bin/bash: line 1: sqlite3: command not found
+docker                 fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:   namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: docker: command not found
+    off: /usr/bin/bash: line 1: docker: command not found
+gh                     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  work namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: gh: command not found
+    off: /usr/bin/bash: line 1: gh: command not found
+ssh                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) OpenSSH_10.0p2 Ubuntu-5ubuntu5.4, OpenSSL 3.5.3 16 Sep 2025
+    off: OpenSSH_10.0p2 Ubuntu-5ubuntu5.4, OpenSSL 3.5.3 16 Sep 2025
+open -R (GUI)          fails both (missing tool?) on: exit=Some(1) | off: exit=Some(1)
+    on:  s kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) xdg-open: unexpected option '-g' Try 'xdg-open --help' for more information.
+    off: xdg-open: unexpected option '-g' Try 'xdg-open --help' for more information.
+pbcopy                 fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:   namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: pbcopy: command not found
+    off: /usr/bin/bash: line 1: pbcopy: command not found
+security (keychain)    fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  amespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0) bash: line 1: security: command not found
+    off: /usr/bin/bash: line 1: security: command not found
+home read              ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: Desktop Documents Downloads
+home cache write       ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: 
+localhost server       ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  st refuses unprivileged user and network namespaces (Ubuntu 24.04+: AppArmor's kernel.apparmor_restrict_unprivileged_userns=1; allow them with an AppArmor profile for Agenium, or set that sysctl to 0)
+    off: 200
+
+summary: 23 ok both ways; 5 blocked by the sandbox: git commit, curl https, dns, npm install, cargo add (registry); 15 fail both ways: sw_vers, python venv, pip install (venv), go, java, xcrun sdk, xcodebuild, swift, swift build, ruby, sqlite3, docker, open -R (GUI), pbcopy, security (keychain)

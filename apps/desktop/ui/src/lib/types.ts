@@ -143,8 +143,14 @@ export interface CommandPolicy {
   approval: ApprovalPolicy;
   /** Run without a sandbox, without asking, where this machine has none (ADR-117). */
   unsandboxed: boolean;
+  /** Full YOLO: the sandbox is turned off on this computer even where one works (ADR-160). */
+  off: boolean;
+  /** A command the sandbox blocks runs outside it without asking (ADR-161). */
+  auto_escalate: boolean;
   backend: string | null;
   reason: string;
+  /** The sandbox the OS offers, whether or not it is turned off. */
+  os_backend: string | null;
 }
 
 export interface CommandApproval {
@@ -157,6 +163,8 @@ export interface CommandApproval {
   at: string;
   /** An MCP tool call rather than a shell command (ADR-143). */
   tool?: { server: string; tool: string; arguments: string; destructive: boolean } | null;
+  /** A command to run outside the sandbox (ADR-161): what the sandbox blocked, or why the agent asks. */
+  outside?: string | null;
 }
 
 export interface RunRow {

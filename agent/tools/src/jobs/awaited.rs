@@ -32,6 +32,7 @@ impl Jobs {
         mut spec: CommandSpec,
         gate: Arc<dyn CommandGate>,
         run_stop: Arc<AtomicBool>,
+        wanted: Option<String>,
     ) -> u32 {
         let live: Live = Default::default();
         let stop = Arc::new(AtomicBool::new(false));
@@ -69,10 +70,10 @@ impl Jobs {
                 Some(GateDecision::Allow) => {
                     started.store(true, Ordering::Relaxed);
                     spec.stop = Some(either.clone());
-                    executor
-                        .run(&spec, &policy)
+                    // Sandbox first; blocked, it goes to the user to run outside (ADR-161).
+                    super::escalate::run(&executor, &policy, &spec, &*gate, wanted.as_deref())
                         .await
-                        .map_err(|e| e.to_string())
+                        .map(super::escalate::Ran::into_output)
                 }
             };
             watch.abort();

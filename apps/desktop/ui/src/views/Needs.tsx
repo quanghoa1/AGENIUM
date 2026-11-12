@@ -173,7 +173,15 @@ export function CommandRow({ a }: { a: CommandApproval }) {
             <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.tool.arguments}</pre>
           </>
         ) : (
-          <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.command}</pre>
+          <>
+            {a.outside && (
+              <div className="mt-1 text-xs">
+                <span className="chip border-rose-500/30 text-rose-600">{app.t("needs.outside")}</span>{" "}
+                <span className="text-subtle">{a.outside}</span>
+              </div>
+            )}
+            <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-background p-2 font-mono text-[11px]">{a.command}</pre>
+          </>
         )}
       </div>
       <div className="flex shrink-0 gap-1.5">

@@ -158,6 +158,7 @@ const overview: Overview = {
   runs_today: runs.length,
   command_approvals: [
     { id: 1, project: P, ticket: "SHOP-2", agent: "shop-backend", command: "npm test -- cart", cwd: "…/worktrees/SHOP-2", at: iso(1) },
+    { id: 2, project: P, ticket: "SHOP-2", agent: "shop-backend", command: "docker compose up -d db", cwd: "…/worktrees/SHOP-2", at: iso(1), outside: "the sandbox blocked it: permission denied while trying to connect to the Docker daemon socket: Operation not permitted" },
   ],
 };
 
@@ -271,6 +272,8 @@ const chat: ChatLine[] = [
 
 const status: Status = { root: "C:\\Users\\you\\.agenium", ready: true, version: "0.1.0", ui_language: "vi" };
 
+const demoPolicy: { approval: string; off: boolean; auto_escalate: boolean } = { approval: "sandboxed", off: false, auto_escalate: false };
+
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 60));
   switch (cmd) {
@@ -325,7 +328,18 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
       return { priced: 0, view: demoPrices };
     case "command_policy":
     case "set_command_policy":
-      return { approval: args?.approval ?? "sandboxed", backend: "WindowsMxc", reason: "MXC process container: writes only in the worktree, reads limited to toolchains, no network" };
+    case "set_sandbox_off":
+    case "set_auto_escalate":
+      if (args && "approval" in args) demoPolicy.approval = String(args.approval);
+      if (args && "off" in args) demoPolicy.off = Boolean(args.off);
+      if (args && "on" in args) demoPolicy.auto_escalate = Boolean(args.on);
+      return {
+        ...demoPolicy,
+        unsandboxed: false,
+        backend: demoPolicy.off ? null : "WindowsMxc",
+        reason: demoPolicy.off ? "turned off in Settings" : "MXC process container: writes only in the worktree, reads limited to toolchains, no network",
+        os_backend: "WindowsMxc",
+      };
     case "status":
       return status;
     case "projects":

@@ -159,6 +159,8 @@ impl App {
             c.save(&layout.config())?;
             c
         };
+        // The user's sandbox choice for this computer (ADR-160).
+        agenium_sandbox::set_off(config.sandbox.off);
         let store = Arc::new(CoreStore::open(&layout.core_db(), &layout.backups())?);
         let bus = Bus::new(4096);
         store.set_sink(Some(Arc::new(bus.clone())));
@@ -231,6 +233,7 @@ impl App {
         f(&mut next);
         next.check().map_err(OrchError::Invalid)?;
         next.save(&self.layout.config())?;
+        agenium_sandbox::set_off(next.sandbox.off);
         *c = next.clone();
         Ok(next)
     }

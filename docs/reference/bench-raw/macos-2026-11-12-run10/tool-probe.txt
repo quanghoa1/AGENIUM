@@ -1,0 +1,135 @@
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+uname                          ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  Darwin ip-172-16-4-2.us-west-2.compute.internal 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+    off: Darwin ip-172-16-4-2.us-west-2.compute.internal 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+sw_vers                        ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ProductName: macOS ProductVersion: 26.6.2 BuildVersion: 25G83
+    off: ProductName: macOS ProductVersion: 26.6.2 BuildVersion: 25G83
+whoami                         ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  devin
+    off: devin
+ps                             BLOCKED BY SANDBOX         on: exit=Some(126) | off: exit=Some(0)
+    on:  bash: line 1: /bin/ps: Operation not permitted
+    off: PID COMM 39390 ps
+tmp write                      ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  hi
+    off: hi
+worktree write                 ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  hi
+    off: hi
+git status                     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ## agenium/PROBE-1
+    off: ## agenium/PROBE-1
+git commit                     BLOCKED BY SANDBOX         on: exit=Some(128) | off: exit=Some(0)
+    on:  fatal: Unable to create '/private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmpxP3EeQ/repo/.git/worktrees/wt/index.lock': Operation not permitted
+    off: f69389e probe
+git log                        ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  59db7fd init
+    off: 59db7fd init
+curl https                     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  200
+    off: 200
+dns                            ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  610:273259] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 104.20.23.154
+python3                        ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  644:273340] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 3.9.6 (default, May 22 2026, 11:13:45) [Clang 21.0.0 (clang-2100.1.1.101)]
+python venv                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  679:273412] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 1
+pip install (venv)             ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ver, version 26.0.1 is available. You should consider upgrading via the '/private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmp2sU4Kw/wt/.venv/bin/python3 -m pip install --upgrade pip' command.
+    off: ver, version 26.0.1 is available. You should consider upgrading via the '/private/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/.tmp2sU4Kw/wt/.venv/bin/python3 -m pip install --upgrade pip' command.
+node                           ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  v24.21.0
+    off: v24.21.0
+npm                            ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  10.8.3
+    off: 10.8.3
+npm install                    ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  x npm warn deprecated left-pad@1.3.0: use String.prototype.padStart()
+    off: x npm warn deprecated left-pad@1.3.0: use String.prototype.padStart()
+npx                            ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ice npm notice New major version of npm available! 10.8.3 -> 12.2.2 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2 npm notice To update run: npm install -g npm@12.2.2 npm notice
+    off: ____ < hi > ----
+cargo                          ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  cargo 1.99.1 (5f94df478 2026-08-27)
+    off: cargo 1.99.1 (5f94df478 2026-08-27)
+rustc                          ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  rustc 1.99.1 (58cf8f9c3 2026-10-13)
+    off: rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo new+build                ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  038:274737] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: Hello, world!
+cargo add (registry)           ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  123:275053] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 
+go                             fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  bash: line 1: go: command not found
+    off: /opt/homebrew/bin/bash: line 1: go: command not found
+java                           ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  openjdk version "17.0.20.1" 2026-08-18 OpenJDK Runtime Environment Homebrew (build 17.0.20.1+0) OpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)
+    off: openjdk version "17.0.20.1" 2026-08-18 OpenJDK Runtime Environment Homebrew (build 17.0.20.1+0) OpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)
+make                           ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  249:275414] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: GNU Make 3.81
+clang                          ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  289:275532] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: Apple clang version 21.0.0 (clang-2100.1.1.101)
+cc build                       ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  326:275603] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: 
+xcrun sdk                      ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  371:275712] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+xcodebuild                     ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  404:275780] [MT] DVTDeveloperPaths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead.
+    off: Xcode 26.6 Build version 17F113
+swift                          ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  aths: Failed to get length of DARWIN_USER_CACHE_DIR from confstr(3), error = Error Domain=NSPOSIXErrorDomain Code=5 "Input/output error". Using NSCachesDirectory instead. swift-driver version: 1.148.6
+    off: Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101) Target: arm64-apple-macosx26.0 swift-driver version: 1.148.6
+swift build                    BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  Sop/wt/sp/Package.swift", "-o", "/var/folders/jj/fwmm45ns4dz80954vdr61l2w0000gn/T/agenium/2bc7715a3507818b/TemporaryDirectory.l2hG8z/sp-manifest"]) sandbox-exec: sandbox_apply: Operation not permitted
+    off: 
+swift build --disable-sandbox  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  
+    off: 
+brew                           ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  Homebrew 7.0.7
+    off: Homebrew 7.0.7
+ruby                           ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin25]
+    off: ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin25]
+sqlite3                        ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  1
+    off: 1
+docker                         fails both (missing tool?) on: exit=Some(127) | off: exit=Some(127)
+    on:  bash: line 1: docker: command not found
+    off: /opt/homebrew/bin/bash: line 1: docker: command not found
+gh                             ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  gh version 2.102.0 (2026-09-30)
+    off: gh version 2.102.0 (2026-09-30)
+ssh                            ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  OpenSSH_10.3p1, LibreSSL 3.3.6
+    off: OpenSSH_10.3p1, LibreSSL 3.3.6
+open -R (GUI)                  ok                         on: exit=Some(0) | off: exit=Some(0)
+    on:  
+    off: 
+pbcopy                         BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  
+    off: x
+security (keychain)            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  security: SecKeychainCopySearchList: One or more parameters passed to a function were not valid.
+    off: "/Users/devin/Library/Keychains/login.keychain-db" "/Library/Keychains/System.keychain"
+home read                      BLOCKED BY SANDBOX         on: exit=Some(0) | off: exit=Some(0)
+    on:  ls: /Users/devin: Operation not permitted
+    off: Desktop Documents Downloads
+home cache write               BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+    on:  bash: line 1: /Users/devin/.cache/agenium-probe: Operation not permitted
+    off: 
+localhost server               BLOCKED BY SANDBOX         on: exit=Some(7) | off: exit=Some(0)
+    on:  000 curl: (7) Failed to connect to 127.0.0.1 port 18765 after 0 ms: Couldn't connect to server
+    off: 200
+
+summary: 34 ok both ways; 8 blocked by the sandbox: ps, git commit, swift build, pbcopy, security (keychain), home read, home cache write, localhost server; 2 fail both ways: go, docker

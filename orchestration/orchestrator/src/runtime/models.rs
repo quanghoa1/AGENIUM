@@ -209,7 +209,7 @@ impl Runtime {
         }
         if driver.control() == Control::Sandbox
             && agenium_sandbox::detect().backend.is_none()
-            && !self.app.config().sandbox.unsandboxed
+            && !self.app.config().sandbox.runs_unsandboxed()
         {
             return Err(format!(
                 "{name} runs only inside Agenium's sandbox and no sandbox backend works here (Settings can allow \

@@ -9,6 +9,7 @@ pub(super) async fn call(
     ctx: &ToolCtx,
     spec: agenium_sandbox::CommandSpec,
     limit: Duration,
+    wanted: Option<String>,
 ) -> Result<ToolOutput, ToolError> {
     let timeout = spec.timeout;
     let id = ctx.jobs.start_awaited(
@@ -17,6 +18,7 @@ pub(super) async fn call(
         spec,
         ctx.gate.clone(),
         ctx.stop.clone(),
+        wanted,
     );
     if ctx.jobs.wait_end(id, limit).await {
         if let Some(r) = ctx.jobs.take_ended(id) {

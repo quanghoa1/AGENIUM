@@ -107,6 +107,13 @@ pub trait CommandGate: Send + Sync {
     async fn check_tool(&self, _ask: &ToolAsk) -> GateDecision {
         GateDecision::Allow
     }
+
+    /// Whether a command may run outside the sandbox, directly on the host (ADR-161): one the sandbox blocked (`why`
+    /// is the line of its output that says so) or one the agent asks to run there (`why` is its reason). The runtime
+    /// asks the user, or allows it when the user chose to approve these themselves. Refused by default.
+    async fn escalate(&self, _command: &str, _cwd: &Path, _why: &str) -> GateDecision {
+        GateDecision::Deny("commands cannot leave the sandbox here".into())
+    }
 }
 
 /// A gate that refuses everything (headless runs without an approver).
@@ -125,6 +132,9 @@ pub struct AllowAll;
 #[async_trait]
 impl CommandGate for AllowAll {
     async fn check(&self, _: &str, _: &Path) -> GateDecision {
+        GateDecision::Allow
+    }
+    async fn escalate(&self, _: &str, _: &Path, _: &str) -> GateDecision {
         GateDecision::Allow
     }
 }

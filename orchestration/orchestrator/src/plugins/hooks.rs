@@ -272,7 +272,8 @@ async fn run_hook(
     run: &str,
     project_root: &Path,
 ) -> Result<(Option<i32>, String, String), String> {
-    if agenium_sandbox::detect().backend.is_none() {
+    // With the sandbox turned off (ADR-160) a hook runs directly on the host, like every other command.
+    if agenium_sandbox::detect().backend.is_none() && !agenium_sandbox::is_off() {
         return Err("not run: this machine has no sandbox for a plugin's hook".into());
     }
     let data = plugin_dir.join("data");

@@ -413,6 +413,14 @@ pub struct SandboxSection {
     /// their commands directly in the ticket's worktree without asking (Codex's full-access level) and a CLI that
     /// runs contained elsewhere runs on the host. Has no effect where a sandbox works.
     pub unsandboxed: bool,
+    /// Full YOLO (ADR-160): the sandbox is turned off on this computer even where one works. Commands, plugin hooks,
+    /// pre-merge checks and the CLIs that run contained elsewhere run directly on the host without asking (except
+    /// under `approval = "on-request"` and for system installs, ADR-120). For machines where the sandbox gets in the
+    /// way (a macOS whose Seatbelt profile blocks a tool the project needs).
+    pub off: bool,
+    /// A command the sandbox blocks, or one an agent asks to run outside it, runs outside without asking the user
+    /// (ADR-161). Off (the default): it waits for the user in Needs you. Never under `approval = "never"`.
+    pub auto_escalate: bool,
     /// Which MCP tool calls wait for the user (ADR-143); a server's own `approval` differs from it.
     pub mcp_tools: crate::mcp_approval::McpApproval,
 }
@@ -423,8 +431,18 @@ impl Default for SandboxSection {
             approval: ApprovalPolicy::default(),
             network: true,
             unsandboxed: false,
+            off: false,
+            auto_escalate: false,
             mcp_tools: Default::default(),
         }
+    }
+}
+
+impl SandboxSection {
+    /// Whether agents may run without a sandbox: the user accepted it on a machine without one (ADR-117) or turned
+    /// the sandbox off (ADR-160).
+    pub fn runs_unsandboxed(&self) -> bool {
+        self.unsandboxed || self.off
     }
 }
 
@@ -737,6 +755,16 @@ context_window = 32768
         assert!(c.providers[0].caps("qwen3:8b").is_none());
         assert_eq!(c.secrets.backend, SecretsBackend::Vault);
         assert_eq!(c.sandbox.approval, ApprovalPolicy::Sandboxed);
+        assert!(
+            !c.sandbox.off && !c.sandbox.runs_unsandboxed(),
+            "the sandbox is on by default (ADR-160)"
+        );
+        let mut off = c.sandbox.clone();
+        off.off = true;
+        assert!(
+            off.runs_unsandboxed(),
+            "turning the sandbox off runs commands without one"
+        );
         assert!(
             c.sandbox.network,
             "sandboxed commands may reach the network by default (ADR-84)"

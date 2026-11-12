@@ -1,0 +1,39 @@
+kit: v8 (source tree 5ed234c (HEAD 751914b + uncommitted sandbox-off change))
+--- exits
+build (cargo build --workspace --all-targets): exit=0
+tests (cargo test --workspace --no-fail-fast): exit=0
+sandbox off: its own test (security/sandbox/tests/off.rs): exit=0
+tool probe: 43 developer commands with the sandbox on, then off: exit=0
+golden tasks, sandbox on (scripted model, real tools): exit=0
+golden tasks, sandbox off: exit=0
+doctor: exit=0
+containment matrix on Seatbelt (with an unsandboxed baseline): exit=0
+desktop: UI dependencies (npm ci): exit=0
+desktop: UI type check and build: exit=0
+desktop: its own tests (cargo test in apps/desktop): exit=0
+--- tests
+passed 743, failed 0, ignored 5
+failing tests:
+--- sandbox off test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+--- tool probe
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+summary: 30 ok both ways; 11 blocked by the sandbox: ps, git commit, npm install, cargo add (registry), java, swift build, ssh, pbcopy, security (keychain), home cache write, localhost server; 2 fail both ways: go, docker
+ps                     BLOCKED BY SANDBOX         on: exit=Some(126) | off: exit=Some(0)
+git commit             BLOCKED BY SANDBOX         on: exit=Some(128) | off: exit=Some(0)
+npm install            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+cargo add (registry)   BLOCKED BY SANDBOX         on: exit=Some(101) | off: exit=Some(0)
+java                   BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+swift build            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+ssh                    BLOCKED BY SANDBOX         on: exit=Some(255) | off: exit=Some(0)
+pbcopy                 BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+security (keychain)    BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+home cache write       BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+localhost server       BLOCKED BY SANDBOX         on: exit=Some(7) | off: exit=Some(0)
+--- golden
+on:  score: 5/5 passed; prompt cache 0.0% of 2300 input tokens
+off: score: 5/5 passed; prompt cache 0.0% of 2300 input tokens
+--- containment
+sandboxed modes: 0 escape(s) or broken must-work item(s)
+--- processes left
+(none)

@@ -1,0 +1,54 @@
+kit: v11 (source tree 39e5975 (HEAD 751914b + uncommitted: sandbox off, macOS Seatbelt fixes, sandbox first then the user))
+--- exits
+build (cargo build --workspace --all-targets): exit=0
+tests (cargo test --workspace --no-fail-fast): exit=0
+escalation: blocked in the sandbox, then outside (tools): exit=0
+escalation: the gate's answers (orchestrator): exit=0
+escalation: telling a sandbox refusal apart (unit): exit=0
+sandbox off: its own test (security/sandbox/tests/off.rs): exit=0
+tool probe: 44 developer commands with the sandbox on, then off: exit=0
+golden tasks, sandbox on (scripted model, real tools): exit=0
+golden tasks, sandbox off: exit=0
+doctor: exit=0
+containment matrix on Seatbelt (with an unsandboxed baseline): exit=0
+desktop: UI dependencies (npm ci): exit=0
+desktop: UI type check and build: exit=0
+desktop: its own tests (cargo test in apps/desktop): exit=0
+--- tests
+passed 750, failed 0, ignored 5
+failing tests:
+--- escalation (new in v11)
+escalate-tools:
+  test a_command_the_agent_says_needs_the_host_is_asked_before_it_runs ... ok
+  test a_command_that_works_in_the_sandbox_asks_nothing ... ok
+  test refused_it_keeps_the_sandbox_answer_and_says_why ... ok
+  test a_command_the_sandbox_blocks_runs_again_outside_once_allowed ... ok
+  test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+escalate-gate:
+  test escalate::a_command_leaves_the_sandbox_as_the_user_decides ... ok
+  test failures::quota_exhaustion_parks_the_agent_and_repeated_failures_escalate ... ok
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 1.05s
+escalate-unit:
+  test blocked::tests::a_command_that_worked_or_failed_for_another_reason_is_not ... ok
+  test blocked::tests::a_failed_command_refused_by_the_sandbox_is_told_apart ... ok
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+--- sandbox off test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+--- tool probe
+sandbox: Some(Seatbelt) - Seatbelt (experimental, ADR-55): writes only in the worktree, reads limited to system and toolchain folders, network as `[sandbox] network` says
+summary: 34 ok both ways; 8 blocked by the sandbox: ps, git commit, swift build, pbcopy, security (keychain), home read, home cache write, localhost server; 2 fail both ways: go, docker
+ps                             BLOCKED BY SANDBOX         on: exit=Some(126) | off: exit=Some(0)
+git commit                     BLOCKED BY SANDBOX         on: exit=Some(128) | off: exit=Some(0)
+swift build                    BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+pbcopy                         BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+security (keychain)            BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+home read                      BLOCKED BY SANDBOX         on: exit=Some(0) | off: exit=Some(0)
+home cache write               BLOCKED BY SANDBOX         on: exit=Some(1) | off: exit=Some(0)
+localhost server               BLOCKED BY SANDBOX         on: exit=Some(7) | off: exit=Some(0)
+--- golden
+on:  score: 5/5 passed; prompt cache 0.0% of 2300 input tokens
+off: score: 5/5 passed; prompt cache 0.0% of 2300 input tokens
+--- containment
+sandboxed modes: 0 escape(s) or broken must-work item(s)
+--- processes left
+(none)

@@ -1,0 +1,27 @@
+== machine  (00:51:47)
+== unpack the source  (00:51:53)
+== install rustup (no cargo on this machine)  (00:51:53)
+== build (cargo build --workspace --all-targets)  (00:52:10)
+   exit=0 seconds=191
+== tests (cargo test --workspace --no-fail-fast)  (00:55:21)
+   exit=0 seconds=150
+== sandbox off: its own test (security/sandbox/tests/off.rs)  (00:57:51)
+   exit=0 seconds=33
+== tool probe: 43 developer commands with the sandbox on, then off  (00:58:24)
+   exit=0 seconds=38
+== golden tasks, sandbox on (scripted model, real tools)  (00:59:02)
+   exit=0 seconds=3
+== golden tasks, sandbox off  (00:59:05)
+   exit=0 seconds=2
+== doctor  (00:59:07)
+   exit=0 seconds=0
+== containment matrix on Seatbelt (with an unsandboxed baseline)  (00:59:07)
+   exit=0 seconds=31
+== desktop: UI dependencies (npm ci)  (00:59:38)
+   exit=0 seconds=2
+== desktop: UI type check and build  (00:59:40)
+   exit=0 seconds=9
+== desktop: its own tests (cargo test in apps/desktop)  (00:59:49)
+   exit=0 seconds=162
+== processes left  (01:02:31)
+== summary  (01:02:31)
