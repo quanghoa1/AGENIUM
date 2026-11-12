@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.0 pre-release" src="https://img.shields.io/badge/version-0.1.0--pre-2563EB" />
+  <img alt="Version 0.1.1 pre-release" src="https://img.shields.io/badge/version-0.1.1--pre-2563EB" />
   <img alt="License Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0EA5E9" />
   <img alt="Rust 1.89+" src="https://img.shields.io/badge/rust-1.89%2B-F97316" />
   <img alt="Windows and Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-10B981" />
@@ -95,8 +95,8 @@ always parses; other providers get the same tools with a lenient reader.
 
 ### Desktop app
 
-Download the installer for your system from the [releases page](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.0_x64-setup.exe` on Windows 10/11,
-`Agenium_0.1.0_amd64.deb` or the AppImage on Linux. Agenium needs **Git** ([Git for Windows](https://git-scm.com/downloads);
+Download the installer for your system from the [releases page](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.1_x64-setup.exe` on Windows 10/11,
+`Agenium_0.1.1_amd64.deb` or the AppImage on Linux. Agenium needs **Git** ([Git for Windows](https://git-scm.com/downloads);
 the app tells you on the Projects page when it is missing). The local embedding model ships with the
 installer. The Windows installer asks where Agenium keeps your work (skills, MCP servers, agents, projects, memory),
 for example a folder on drive D:; on Linux and macOS the app asks once at its first start. Updates never touch that
@@ -148,7 +148,7 @@ Agents get better at a project from their own work, under rules that keep them f
 
 ## Status
 
-**0.1.0 is the first release candidate** for Windows and Linux; macOS runs the full test suite and its desktop build
+**0.1.1 is a release candidate** for Windows and Linux; macOS runs the full test suite and its desktop build
 follows. Each behaviour is covered by automated tests — unit, contract, end-to-end runtime and crash tests — and checked
 with real models, over APIs and through the coding CLIs, in single-agent tasks, full team runs and memory chains. The
 evidence is in [docs/VERIFICATION.md](docs/VERIFICATION.md); the raw runs are in

@@ -255,6 +255,7 @@ Also from these runs:
 | learning chain (effort low, hashing embedder) | Opus 5.5, Sonnet 5.5 | PASS each; tickets 2, 3 and 4 passed their first merge |
 | CLI agents at effort low (ADR-114) | Claude Code `haiku`, Codex `gpt-6-luna`, Antigravity `gemini-3.8-flash` | `hello-file` PASS |
 | the agent form offers each model's own effort levels (ADR-114) | Codex, Claude Code, Antigravity, Grok, DeepSeek API | 7/7 in the desktop app |
+| Release 0.1.1: blocked commands ask the user, the sandbox off switch, macOS fixes (2026-11-12, ADR-160/161) | Workspace 749 tests and the desktop's pass on Windows; the escalation tests on the real sandbox on Windows (MXC), the Ubuntu VM (bubblewrap) and macOS (Seatbelt, Devin kit v11: 750 passed, golden 5/5 with the sandbox on and off, 0 containment escapes). `Agenium_0.1.1_x64-setup.exe` (81 MB, sha256 `4e5a381827570e1435946ccd0b9ab8d02f81f083f5efdfa63860a62a32893e62`) imports no build-machine DLL; on the **clean Windows 11 VM** (Git copied from the host onto the user's PATH): silent install, the app reports 0.1.1, the UI smoke on the installed app ALL PASS (42, the dev-server step skipped), silent uninstall leaves no app folder; Git, its PATH entry and the test folder removed. |
 
 These runs found five defects, all fixed:
 - **The Lead approved a criterion the worker had reported Partial**, without a word on it. An approval now needs

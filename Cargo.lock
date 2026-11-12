@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-backend"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "agenium-llm",
@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-bus"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "agenium-store",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-cli-backend",
  "agenium-config",
@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-cli-backend"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-backend",
  "agenium-core",
@@ -126,7 +126,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "dirs",
@@ -139,7 +139,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "proptest",
@@ -152,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-documents"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-sandbox",
  "pdf-extract",
@@ -168,7 +168,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-eval"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-backend",
  "agenium-cli-backend",
@@ -197,7 +197,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-llm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "async-trait",
@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-config",
  "agenium-sandbox",
@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-memory"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "agenium-llm",
@@ -255,7 +255,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-orchestrator"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-backend",
  "agenium-bus",
@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-sandbox"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flatbuffers",
  "libc",
@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-secrets"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chacha20poly1305",
  "keyring",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-skills"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "tempfile",
@@ -331,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "chrono",
@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-tools"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "agenium-documents",
@@ -378,7 +378,7 @@ dependencies = [
 
 [[package]]
 name = "agenium-vcs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-secrets",
  "serde",
@@ -5192,7 +5192,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agenium-core",
  "anyhow",
