@@ -41,20 +41,29 @@ pub async fn preview_plugin(
     d: State<'_, Desktop>,
     source: String,
     entry: Option<String>,
+    token: Option<String>,
 ) -> R<PluginPreview> {
     let o = d.opened()?;
     let entry = entry.filter(|e| !e.trim().is_empty());
+    // `token`: pasted for a private repository, used for this call and dropped (never stored or logged).
     o.app
-        .preview_plugin(&source, entry.as_deref())
+        .preview_plugin(&source, entry.as_deref(), token.as_deref())
         .await
         .map_err(err)
 }
 
 /// What updating `name` from its vendor would bring.
 #[tauri::command]
-pub async fn preview_plugin_update(d: State<'_, Desktop>, name: String) -> R<PluginPreview> {
+pub async fn preview_plugin_update(
+    d: State<'_, Desktop>,
+    name: String,
+    token: Option<String>,
+) -> R<PluginPreview> {
     let o = d.opened()?;
-    o.app.preview_plugin_update(&name).await.map_err(err)
+    o.app
+        .preview_plugin_update(&name, token.as_deref())
+        .await
+        .map_err(err)
 }
 
 /// Installs or replaces a plugin at the commit its preview showed.
@@ -65,10 +74,17 @@ pub async fn install_plugin(
     reference: String,
     entry: Option<String>,
     commit: String,
+    token: Option<String>,
 ) -> R<Plugin> {
     let o = d.opened()?;
     o.app
-        .install_plugin(&source, &reference, entry.as_deref(), &commit)
+        .install_plugin(
+            &source,
+            &reference,
+            entry.as_deref(),
+            &commit,
+            token.as_deref(),
+        )
         .await
         .map_err(err)
 }

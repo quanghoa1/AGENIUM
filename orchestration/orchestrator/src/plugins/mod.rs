@@ -48,6 +48,10 @@ struct Install {
     /// What the install did not take from the vendor's repository, and why.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     skipped: Vec<String>,
+    /// Installed from a private repository with a token the user pasted: an update asks for one again (the token
+    /// itself is never kept).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    private: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -120,6 +124,9 @@ pub struct Plugin {
     /// What was not taken, and why.
     pub skipped: Vec<String>,
     pub installed_at: String,
+    /// From a private repository: reading it again (an update) needs a token pasted again.
+    #[serde(default)]
+    pub private: bool,
 }
 
 /// What an install or an update would bring, shown before anything is written.
@@ -266,6 +273,7 @@ impl App {
         .ok()?;
         p.installed_at = install.installed_at;
         p.skipped = install.skipped;
+        p.private = install.private;
         Some(p)
     }
 
@@ -285,6 +293,7 @@ impl App {
         &self,
         source: &Source,
         entry: Option<&str>,
+        token: Option<&str>,
         f: impl FnOnce(&layout::Pieces, &str) -> Result<T>,
     ) -> Result<T> {
         let staging = self
@@ -292,7 +301,7 @@ impl App {
             .join(format!(".fetch-{}", ulid::Ulid::new()));
         std::fs::create_dir_all(&staging)?;
         let result = async {
-            let (root, commit) = source::fetch(source, &staging).await?;
+            let (root, commit) = source::fetch(source, &staging, token).await?;
             let pieces = layout::read(&root, entry, &source.fallback_name())?;
             f(&pieces, &commit)
         }
@@ -302,15 +311,23 @@ impl App {
     }
 
     /// What installing `source` (`owner/repo[@ref]` or a folder) would bring; `entry` names the plugin of a
-    /// marketplace listing several. Nothing is written.
-    pub async fn preview_plugin(&self, source: &str, entry: Option<&str>) -> Result<PluginPreview> {
+    /// marketplace listing several; `token` reads a private GitHub repository (used for this call only). Nothing is
+    /// written.
+    pub async fn preview_plugin(
+        &self,
+        source: &str,
+        entry: Option<&str>,
+        token: Option<&str>,
+    ) -> Result<PluginPreview> {
         let src = Source::parse(source)?;
         let reference = src.reference().to_owned();
-        let plugin = self
-            .with_fetched(&src, entry, |p, commit| {
+        let token = github_token(&src, token);
+        let mut plugin = self
+            .with_fetched(&src, entry, token, |p, commit| {
                 plugin_record(&src, entry, &reference, p, commit)
             })
             .await?;
+        plugin.private = token.is_some();
         self.previewed(plugin)
     }
 
@@ -324,17 +341,29 @@ impl App {
         Ok(PluginPreview::new(plugin, installed, agents))
     }
 
-    /// What updating `name` from its vendor would bring (the newest commit of the ref it follows).
-    pub async fn preview_plugin_update(&self, name: &str) -> Result<PluginPreview> {
+    /// What updating `name` from its vendor would bring (the newest commit of the ref it follows). A plugin from a
+    /// private repository needs a `token` again.
+    pub async fn preview_plugin_update(
+        &self,
+        name: &str,
+        token: Option<&str>,
+    ) -> Result<PluginPreview> {
         let old = self
             .plugin(name)
             .ok_or_else(|| invalid(format!("no plugin {name:?}")))?;
         let src = Source::parse(&old.source)?.at(&old.reference);
-        let plugin = self
-            .with_fetched(&src, old.entry.as_deref(), |p, commit| {
+        let token = github_token(&src, token);
+        if old.private && token.is_none() {
+            return Err(invalid(format!(
+                "{name} comes from a private repository: paste a GitHub token that can read it to update"
+            )));
+        }
+        let mut plugin = self
+            .with_fetched(&src, old.entry.as_deref(), token, |p, commit| {
                 plugin_record(&src, old.entry.as_deref(), &old.reference, p, commit)
             })
             .await?;
+        plugin.private = token.is_some();
         if plugin.name != old.name {
             return Err(invalid(format!(
                 "the vendor's plugin is now named {:?}, not {name:?}: install it as a new plugin",
@@ -352,8 +381,10 @@ impl App {
         reference: &str,
         entry: Option<&str>,
         commit: &str,
+        token: Option<&str>,
     ) -> Result<Plugin> {
         let src = Source::parse(source)?;
+        let token = github_token(&src, token);
         let at = if commit == "local" {
             src.clone()
         } else {
@@ -362,13 +393,14 @@ impl App {
         let dir = self.plugins_dir();
         sweep(&dir);
         let plugin = self
-            .with_fetched(&at, entry, |p, got| {
+            .with_fetched(&at, entry, token, |p, got| {
                 if got != commit {
                     return Err(invalid(format!(
                         "the source now serves {got}, not the {commit} shown: preview again"
                     )));
                 }
-                let plugin = plugin_record(&src, entry, reference, p, got)?;
+                let mut plugin = plugin_record(&src, entry, reference, p, got)?;
+                plugin.private = token.is_some();
                 // Build it whole beside the old one, then swap.
                 let fresh = dir.join(format!(".new-{}-{}", p.name, ulid::Ulid::new()));
                 let built = (|| -> Result<()> {
@@ -423,6 +455,7 @@ impl App {
                         reference: reference.to_owned(),
                         entry: entry.map(str::to_owned),
                         skipped: p.skipped.clone(),
+                        private: token.is_some(),
                     }],
                 );
                 installed.save(&dir)?;
@@ -508,6 +541,14 @@ impl App {
     }
 }
 
+/// The pasted token, for a GitHub source only (a folder needs none), trimmed; `None` when empty.
+fn github_token<'a>(source: &Source, token: Option<&'a str>) -> Option<&'a str> {
+    match source {
+        Source::GitHub { .. } => token.map(str::trim).filter(|t| !t.is_empty()),
+        Source::Folder(_) => None,
+    }
+}
+
 fn plugin_record(
     source: &Source,
     entry: Option<&str>,
@@ -544,6 +585,7 @@ fn plugin_record(
             .collect(),
         skipped: p.skipped.clone(),
         installed_at: chrono::Utc::now().to_rfc3339(),
+        private: false,
     })
 }
 

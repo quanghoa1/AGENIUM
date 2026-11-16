@@ -83,3 +83,26 @@ ponytail text from Agenium. superpowers' `SessionStart` fails on Windows: it sta
 MXC container (S2); its skills work. The user's own CLI plugins (installed in Devin or Claude Code themselves) are the
 CLI's, not Agenium's, and still load in its runs.
 
+## Amendment (2026-11-16): a private GitHub repository, with a token the user pastes
+
+The original decision read public GitHub only ("no private repositories with a token"). A user's own plugin kept in a
+private repository could not be installed. The owner: let the user choose Public or Private; for Private, paste the
+`GITHUB_TOKEN` into a field, each time, and keep no key.
+
+1. **The form** (Library → Plugin): Public / Private. Private shows a password field `GITHUB_TOKEN`, with how to make a
+   read-only token (a fine-grained token with the repository under Repository access and Contents: Read-only). The token
+   lives in the panel's state for that preview and install and is cleared after (install, cancel, close).
+2. **The download** (`plugins/source.rs`, `download`): the same codeload URL (`/zip/<ref>`, so the archive still carries
+   the commit as its comment), anonymous for Public, with `Authorization: token <t>` for Private. Refused without a
+   token (GitHub answers 404 for a private repository), the error says to choose Private and paste a token; refused
+   with one, that it may be mistyped, expired or not allowed to read the repository. The token is never in a message.
+3. **Nothing keeps the token**: not the install record, `agenium-plugin.json`, the config, the vault or a log; the
+   desktop commands take it as an argument for the one call. The install record keeps only `private: true`, so an
+   update of that plugin asks for a token again (a dialog) before it reads the vendor. A folder source ignores it.
+4. Not done, on purpose: reading the token from git's credential helper or an environment variable (tried first, then
+   dropped: every install ran the helper, which on Windows can open Git Credential Manager's sign-in window, and an
+   environment variable must be set before the app starts).
+
+Verified 2026-11-16: the private `quanghoa1/agenium-pentest` downloaded with a pasted token (commit `794cbe2`); without
+one, the "choose Private" message; `obra/superpowers` anonymously; `download` tests with a stand-in server (public, private
+with the token, none or a wrong one, the token not in the message); the registry plugin tests; the form in the UI.

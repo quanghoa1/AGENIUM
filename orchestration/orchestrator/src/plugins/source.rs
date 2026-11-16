@@ -114,8 +114,13 @@ impl Source {
 }
 
 /// The source's files in `staging` (created empty by the caller): the repository's root folder and its commit
-/// (`local` for a folder).
-pub async fn fetch(source: &Source, staging: &Path) -> Result<(PathBuf, String)> {
+/// (`local` for a folder). `token`: the GitHub token the user pasted for a private repository, used for this one
+/// download and kept nowhere.
+pub async fn fetch(
+    source: &Source,
+    staging: &Path,
+    token: Option<&str>,
+) -> Result<(PathBuf, String)> {
     match source {
         Source::Folder(p) => Ok((p.clone(), "local".into())),
         Source::GitHub {
@@ -129,13 +134,7 @@ pub async fn fetch(source: &Source, staging: &Path) -> Result<(PathBuf, String)>
                 .timeout(std::time::Duration::from_secs(120))
                 .build()
                 .map_err(|e| invalid(e.to_string()))?;
-            let r = http
-                .get(&url)
-                .header(reqwest::header::USER_AGENT, "agenium")
-                .send()
-                .await
-                .and_then(|r| r.error_for_status())
-                .map_err(|e| invalid(format!("cannot download {owner}/{repo}@{reference}: {e}")))?;
+            let r = download(&http, &url, &format!("{owner}/{repo}@{reference}"), token).await?;
             if r.content_length().is_some_and(|n| n > MAX_ZIP) {
                 return Err(invalid(format!(
                     "{owner}/{repo} is larger than {} MiB",
@@ -157,6 +156,46 @@ pub async fn fetch(source: &Source, staging: &Path) -> Result<(PathBuf, String)>
             unpack(&zip_path, &staging.join("repo"))
         }
     }
+}
+
+/// The archive at `url`: anonymous for a public repository, with the pasted token for a private one. A refusal says
+/// what to do (GitHub answers 404 for a private repository asked without a token), never the token.
+async fn download(
+    http: &reqwest::Client,
+    url: &str,
+    what: &str,
+    token: Option<&str>,
+) -> Result<reqwest::Response> {
+    let mut req = http.get(url).header(reqwest::header::USER_AGENT, "agenium");
+    if let Some(t) = token {
+        req = req.header(reqwest::header::AUTHORIZATION, format!("token {t}"));
+    }
+    let r = req
+        .send()
+        .await
+        .map_err(|e| invalid(format!("cannot download {what}: {e}")))?;
+    let status = r.status();
+    let refused = matches!(
+        status,
+        reqwest::StatusCode::NOT_FOUND
+            | reqwest::StatusCode::UNAUTHORIZED
+            | reqwest::StatusCode::FORBIDDEN
+    );
+    if refused && token.is_none() {
+        return Err(invalid(format!(
+            "cannot download {what}: GitHub answered {status}. If it is a private repository, choose Private and \
+             paste a GitHub token that can read it"
+        )));
+    }
+    if refused {
+        return Err(invalid(format!(
+            "cannot download {what}: GitHub answered {status} with the token given: it may be mistyped, expired or \
+             not allowed to read this repository (a fine-grained token needs it under Repository access, with \
+             Contents: Read)"
+        )));
+    }
+    r.error_for_status()
+        .map_err(|e| invalid(format!("cannot download {what}: {e}")))
 }
 
 /// A GitHub archive unpacked: its one top folder, and the commit `git archive` wrote as the archive's comment.
@@ -227,5 +266,86 @@ mod tests {
         let (root, commit) = unpack(&zip_path, &tmp.path().join("out")).unwrap();
         assert_eq!(commit, sha);
         assert!(root.ends_with("repo-HEAD") && root.join("README.md").is_file());
+    }
+}
+
+#[cfg(test)]
+mod download_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// A stand-in for codeload: 404 to anyone without `Authorization: token good` (as for a private repository),
+    /// unless `public`; counts the requests.
+    async fn server(public: bool) -> (String, Arc<AtomicUsize>) {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/zip/main", l.local_addr().unwrap());
+        let hits = Arc::new(AtomicUsize::new(0));
+        let h = hits.clone();
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = l.accept().await {
+                h.fetch_add(1, Ordering::SeqCst);
+                let mut buf = vec![0u8; 4096];
+                let n = s.read(&mut buf).await.unwrap_or(0);
+                let req = String::from_utf8_lossy(&buf[..n]).to_lowercase();
+                let ok = public || req.contains("authorization: token good");
+                let reply = if ok {
+                    "HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\nok"
+                } else {
+                    "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                };
+                let _ = s.write_all(reply.as_bytes()).await;
+            }
+        });
+        (url, hits)
+    }
+
+    #[tokio::test]
+    async fn a_public_archive_downloads_without_a_token() {
+        let (url, hits) = server(true).await;
+        let r = download(&reqwest::Client::new(), &url, "o/r@main", None)
+            .await
+            .unwrap();
+        assert_eq!(r.text().await.unwrap(), "ok");
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn a_private_archive_downloads_with_the_pasted_token() {
+        let (url, hits) = server(false).await;
+        let r = download(&reqwest::Client::new(), &url, "o/r@main", Some("good"))
+            .await
+            .unwrap();
+        assert_eq!(r.text().await.unwrap(), "ok");
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            1,
+            "one request, with the token"
+        );
+    }
+
+    #[tokio::test]
+    async fn without_a_token_or_with_a_wrong_one_it_says_what_to_do() {
+        let (url, _) = server(false).await;
+        let e = download(&reqwest::Client::new(), &url, "o/r@main", None)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("choose Private"), "{e}");
+        let e = download(
+            &reqwest::Client::new(),
+            &url,
+            "o/r@main",
+            Some("bad-secret"),
+        )
+        .await
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains("with the token given"), "{e}");
+        assert!(
+            !e.contains("bad-secret"),
+            "the token is not in the message: {e}"
+        );
     }
 }

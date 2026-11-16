@@ -665,6 +665,8 @@ export interface Plugin {
   /** What was not taken, and why. */
   skipped: string[];
   installed_at: string;
+  /** From a private repository: an update needs a GitHub token pasted again (none is kept). */
+  private?: boolean;
 }
 
 export interface PluginPreview {

@@ -10,6 +10,12 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
   numbers, `request_key`) and transparent-TCP mode were read and do not apply: Agenium's bubblewrap backend installs
   no seccomp filter of its own.
 
+### Plugins
+- **Install a plugin from a private GitHub repository** (ADR-157 amendment): Library → Plugin has Public / Private;
+  for Private, paste a GitHub token that can read the repository (the form says how to make a read-only one). The
+  token is used for that preview and install only and kept nowhere; an update of a private plugin asks for one again.
+  A private repository tried as Public now says to choose Private instead of a bare 404.
+
 ## 0.1.1 — 2026-11-12 (pre-release)
 
 Commands and the sandbox: a blocked command asks you instead of failing, and fewer commands are blocked on macOS.

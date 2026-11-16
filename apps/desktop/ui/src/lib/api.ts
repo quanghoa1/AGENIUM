@@ -195,10 +195,12 @@ export const api = {
   setTeamProject: (team: string, project: string | null) => call<void>("set_team_project", { team, project }),
   dissolveTeam: (team: string) => call<void>("dissolve_team", { team }),
   plugins: () => call<{ plugin: Plugin; users: string[] }[]>("plugins"),
-  previewPlugin: (source: string, entry?: string) => call<PluginPreview>("preview_plugin", { source, entry: entry || null }),
-  previewPluginUpdate: (name: string) => call<PluginPreview>("preview_plugin_update", { name }),
-  installPlugin: (p: Plugin) =>
-    call<Plugin>("install_plugin", { source: p.source, reference: p.reference, entry: p.entry ?? null, commit: p.commit }),
+  // `token`: pasted for a private GitHub repository, sent for that call only, never stored.
+  previewPlugin: (source: string, entry?: string, token?: string) =>
+    call<PluginPreview>("preview_plugin", { source, entry: entry || null, token: token || null }),
+  previewPluginUpdate: (name: string, token?: string) => call<PluginPreview>("preview_plugin_update", { name, token: token || null }),
+  installPlugin: (p: Plugin, token?: string) =>
+    call<Plugin>("install_plugin", { source: p.source, reference: p.reference, entry: p.entry ?? null, commit: p.commit, token: token || null }),
   removePlugin: (name: string) => call<void>("remove_plugin", { name }),
   toggleAgentPlugin: (agent: string, name: string, on: boolean) => call<string[]>("toggle_agent_plugin", { agent, name, on }),
   skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),

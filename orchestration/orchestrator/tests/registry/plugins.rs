@@ -35,7 +35,7 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
     let src = repo.display().to_string();
 
     // A preview writes nothing.
-    let p = f.app.preview_plugin(&src, None).await.unwrap();
+    let p = f.app.preview_plugin(&src, None, None).await.unwrap();
     assert_eq!(p.plugin.name, "superpowers");
     assert_eq!(
         p.plugin.skills.keys().collect::<Vec<_>>(),
@@ -51,6 +51,7 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
             &p.plugin.reference,
             None,
             &p.plugin.commit,
+            None,
         )
         .await
         .unwrap();
@@ -123,7 +124,11 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
 
     // An update shows what changes and replaces the whole set.
     plugin_repo(&repo, "2.0", &["brainstorming", "executing-plans"]);
-    let u = f.app.preview_plugin_update("superpowers").await.unwrap();
+    let u = f
+        .app
+        .preview_plugin_update("superpowers", None)
+        .await
+        .unwrap();
     assert_eq!(u.skills_added, ["executing-plans"]);
     assert_eq!(u.skills_changed, ["brainstorming"]);
     assert_eq!(u.skills_removed, ["writing-plans"]);
@@ -134,6 +139,7 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
             &u.plugin.reference,
             None,
             &u.plugin.commit,
+            None,
         )
         .await
         .unwrap();
@@ -194,7 +200,7 @@ async fn a_plugins_hooks_run_in_the_sandbox_and_leave_nothing_once_removed() {
     hooked_repo(&repo);
     let p = f
         .app
-        .preview_plugin(&repo.display().to_string(), None)
+        .preview_plugin(&repo.display().to_string(), None, None)
         .await
         .unwrap();
     assert_eq!(p.plugin.hooks.len(), 1, "{:?}", p.plugin.hooks);
@@ -210,6 +216,7 @@ async fn a_plugins_hooks_run_in_the_sandbox_and_leave_nothing_once_removed() {
             &p.plugin.reference,
             None,
             &p.plugin.commit,
+            None,
         )
         .await
         .unwrap();

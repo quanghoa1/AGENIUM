@@ -1,4 +1,4 @@
-import { Download, Package, RefreshCw, Trash2 } from "lucide-react";
+import { Download, Lock, Package, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmModal, Modal } from "../../components/motion";
 import { Empty, Mono, Section } from "../../components/ui";
@@ -15,6 +15,10 @@ export function PluginsPanel() {
   const [list, setList] = useState<{ plugin: Plugin; users: string[] }[] | null>(null);
   const [source, setSource] = useState("");
   const [entry, setEntry] = useState("");
+  // Private repository: the GitHub token pasted for this preview and install only; cleared after, never stored.
+  const [priv, setPriv] = useState(false);
+  const [token, setToken] = useState("");
+  const [askToken, setAskToken] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<PluginPreview | null>(null);
   const [del, setDel] = useState<Plugin | null>(null);
@@ -26,16 +30,32 @@ export function PluginsPanel() {
     setBusy(key);
     p.catch((e) => app.notify(String(e))).finally(() => setBusy(null));
   };
-  const look = () => run("preview", api.previewPlugin(source.trim(), entry.trim()).then(setPreview));
-  const checkUpdate = (name: string) => run(`update:${name}`, api.previewPluginUpdate(name).then(setPreview));
+  const pasted = () => (priv ? token.trim() : "");
+  const look = () => run("preview", api.previewPlugin(source.trim(), entry.trim(), pasted()).then(setPreview));
+  const checkUpdate = (p: Plugin) => {
+    if (p.private && !token.trim()) {
+      setAskToken(p.name);
+      return;
+    }
+    run(`update:${p.name}`, api.previewPluginUpdate(p.name, token.trim()).then(setPreview));
+  };
+  const forget = () => {
+    setToken("");
+    setPriv(false);
+  };
+  const close = () => {
+    setPreview(null);
+    forget();
+  };
   const install = (p: PluginPreview) =>
     run(
       "install",
-      api.installPlugin(p.plugin).then((x) => {
+      api.installPlugin(p.plugin, p.plugin.private ? token.trim() : "").then((x) => {
         app.notify(`${app.t("plugins.installed")} ${x.name} @ ${short(x.commit)}`);
         setPreview(null);
         setSource("");
         setEntry("");
+        forget();
         load();
         app.refresh();
       }),
@@ -45,13 +65,26 @@ export function PluginsPanel() {
     <div className="space-y-4">
       <Section title={app.t("plugins.add")}>
         <div className="mb-2 text-[11px] text-subtle">{app.t("plugins.addNote")}</div>
+        <div role="radiogroup" aria-label={app.t("plugins.visibility")} className="mb-2 flex gap-3 text-xs">
+          {[false, true].map((v) => (
+            <label key={String(v)} className="flex items-center gap-1.5">
+              <input type="radio" name="plugin-visibility" checked={priv === v} onChange={() => (setPriv(v), v || setToken(""))} />
+              {app.t(v ? "plugins.private" : "plugins.public")}
+            </label>
+          ))}
+        </div>
         <div className="flex flex-wrap gap-2">
           <input className="input min-w-[260px] flex-1" placeholder="obra/superpowers" value={source} onChange={(e) => setSource(e.target.value)} onKeyDown={(e) => e.key === "Enter" && source.trim() && look()} />
           <input className="input w-44" placeholder={app.t("plugins.entry")} title={app.t("plugins.entryHint")} value={entry} onChange={(e) => setEntry(e.target.value)} />
-          <button className="btn-primary" disabled={!source.trim() || busy !== null} onClick={look}>
+          <button className="btn-primary" disabled={!source.trim() || (priv && !token.trim()) || busy !== null} onClick={look}>
             <Download className="h-3.5 w-3.5" /> {busy === "preview" ? app.t("common.loading") : app.t("plugins.preview")}
           </button>
         </div>
+        {priv && (
+          <div className="mt-2">
+            <TokenField value={token} onChange={setToken} />
+          </div>
+        )}
       </Section>
       <Section title={app.t("plugins.installedTitle")}>
         <div className="space-y-2">
@@ -61,12 +94,17 @@ export function PluginsPanel() {
                 <Package className="h-3.5 w-3.5 text-muted" />
                 <span className="text-xs font-semibold">{p.name}</span>
                 {p.version && <Mono className="text-subtle">v{p.version}</Mono>}
+                {p.private && (
+                  <span className="chip border-line-strong text-muted">
+                    <Lock className="h-3 w-3" /> {app.t("plugins.private")}
+                  </span>
+                )}
                 <Mono className="text-subtle">
                   {p.source}@{p.reference} · {short(p.commit)}
                 </Mono>
                 <span className="chip border-line-strong text-muted">{app.t("plugins.readOnly")}</span>
                 <span className="ml-auto flex gap-1.5">
-                  <button className="btn" disabled={busy !== null} onClick={() => checkUpdate(p.name)}>
+                  <button className="btn" disabled={busy !== null} onClick={() => checkUpdate(p)}>
                     <RefreshCw className="h-3.5 w-3.5" /> {busy === `update:${p.name}` ? app.t("common.loading") : app.t("plugins.update")}
                   </button>
                   <button className="btn" aria-label={`${app.t("plugins.remove")} ${p.name}`} onClick={() => setDel(p)}>
@@ -86,7 +124,7 @@ export function PluginsPanel() {
           {list && list.length === 0 && <Empty>{app.t("plugins.empty")}</Empty>}
         </div>
       </Section>
-      <Modal open={!!preview} wide title={preview ? `${preview.plugin.name}${preview.plugin.version ? ` v${preview.plugin.version}` : ""} · ${short(preview.plugin.commit)}` : ""} onClose={() => setPreview(null)}>
+      <Modal open={!!preview} wide title={preview ? `${preview.plugin.name}${preview.plugin.version ? ` v${preview.plugin.version}` : ""} · ${short(preview.plugin.commit)}` : ""} onClose={close}>
         {preview && (
           <div className="space-y-3 text-xs">
             {preview.plugin.description && <div className="text-muted">{preview.plugin.description}</div>}
@@ -127,7 +165,7 @@ export function PluginsPanel() {
             )}
             <div className="text-[11px] text-subtle">{app.t("plugins.trust")}</div>
             <div className="flex justify-end gap-2">
-              <button className="btn" onClick={() => setPreview(null)}>
+              <button className="btn" onClick={close}>
                 {app.t("common.cancel")}
               </button>
               <button className="btn-primary" disabled={busy !== null || !!same} onClick={() => install(preview)}>
@@ -136,6 +174,28 @@ export function PluginsPanel() {
             </div>
           </div>
         )}
+      </Modal>
+      <Modal open={!!askToken} title={`${app.t("plugins.update")} ${askToken ?? ""}`} onClose={() => (setAskToken(null), forget())}>
+        <div className="space-y-3 text-xs">
+          <div className="text-subtle">{app.t("plugins.tokenUpdate")}</div>
+          <TokenField value={token} onChange={setToken} />
+          <div className="flex justify-end gap-2">
+            <button className="btn" onClick={() => (setAskToken(null), forget())}>
+              {app.t("common.cancel")}
+            </button>
+            <button
+              className="btn-primary"
+              disabled={!token.trim() || busy !== null}
+              onClick={() => {
+                const name = askToken;
+                setAskToken(null);
+                if (name) run(`update:${name}`, api.previewPluginUpdate(name, token.trim()).then(setPreview));
+              }}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> {app.t("plugins.update")}
+            </button>
+          </div>
+        </div>
       </Modal>
       <ConfirmModal
         open={!!del}
@@ -183,6 +243,28 @@ function Pieces({ title, all, added, changed, removed }: { title: string; all: s
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** The GitHub token of a private repository: a password field, with how to make a read-only one. Kept in the panel's
+ *  state for one preview and install, then cleared; Agenium stores it nowhere. */
+function TokenField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const app = useApp();
+  return (
+    <div className="mb-2">
+      <input
+        className="input w-full font-mono"
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder="GITHUB_TOKEN"
+        aria-label="GITHUB_TOKEN"
+        data-testid="plugin-token"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <div className="mt-1 text-[11px] text-subtle">{app.t("plugins.tokenNote")}</div>
     </div>
   );
 }
