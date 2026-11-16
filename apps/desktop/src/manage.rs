@@ -300,7 +300,28 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
         .iter()
         .map(|p| json!({ "dir": p.dir, "error": p.error }))
         .collect();
-    Ok(json!({ "skills": skills, "problems": problems }))
+    // The installed plugins' skills (ADR-157, 2026-11-17): read-only here, given to an agent one by one
+    // (`entry`) or with their whole plugin.
+    let mut plugin_skills: Vec<Value> = Vec::new();
+    for p in o.app.plugins().map_err(err)? {
+        let whole = format!("{}{}", agenium_skills::PLUGIN_PREFIX, p.name);
+        let dir = o.app.skill_registry().plugins_dir().join(&p.name).join("skills");
+        for name in p.skills.keys() {
+            let Ok(s) = agenium_skills::validate(&dir.join(name), agenium_skills::Origin::Plugin) else {
+                continue;
+            };
+            let entry = agenium_skills::plugin_skill_entry(&p.name, name);
+            let users: Vec<&str> = agents
+                .iter()
+                .filter(|a| a.skills.contains(&entry) || a.skills.contains(&whole))
+                .map(|a| a.name.as_str())
+                .collect();
+            plugin_skills.push(json!({ "name": name, "description": s.meta.description, "version": s.meta.version,
+                "tags": s.meta.tags, "files": s.files.len(), "users": users, "dir": s.meta.dir,
+                "plugin": p.name, "entry": entry }));
+        }
+    }
+    Ok(json!({ "skills": skills, "problems": problems, "plugin_skills": plugin_skills }))
 }
 
 /// Imports a skill folder or `.zip` into the library.
@@ -454,12 +475,20 @@ pub fn remove_skill(d: State<'_, Desktop>, name: String, force: bool) -> R<()> {
 
 /// One skill's instructions (SKILL.md body) for reading, and the full SKILL.md (`raw`) for editing in the app.
 #[tauri::command]
-pub fn skill_text(d: State<'_, Desktop>, name: String) -> R<Value> {
+pub fn skill_text(d: State<'_, Desktop>, name: String, plugin: Option<String>) -> R<Value> {
     let o = d.opened()?;
-    let set = o.app.skill_registry().library();
+    // A plugin's skill (read-only), or the library's.
+    let set = match plugin.filter(|p| agenium_skills::valid_name(p)) {
+        Some(p) => o.app.skill_registry().for_agent(
+            ".view",
+            ".view",
+            &[agenium_skills::plugin_skill_entry(&p, &name)],
+        ),
+        None => o.app.skill_registry().library(),
+    };
     let s = set
         .get(&name)
-        .ok_or_else(|| format!("no library skill {name:?}"))?;
+        .ok_or_else(|| format!("no skill {name:?}"))?;
     let raw = std::fs::read_to_string(s.meta.dir.join("SKILL.md")).unwrap_or_default();
     Ok(json!({ "name": s.meta.name, "body": s.body, "raw": raw, "files": s.files }))
 }

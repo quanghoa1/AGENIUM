@@ -241,6 +241,11 @@ pub enum Event {
     Session(String),
     /// Assistant text (a delta or a whole message).
     Text(String),
+    /// A piece of assistant text as the model writes it (Claude Code's `--include-partial-messages`): shown live, not
+    /// kept. The whole message still comes as `Text`, which then shows nothing it already showed.
+    Partial(String),
+    /// A piece of the model's reasoning as it thinks: shown live as progress, never kept.
+    Thinking(String),
     /// A tool step of the CLI; `done` = finished.
     Tool {
         id: String,

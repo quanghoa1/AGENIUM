@@ -5,7 +5,7 @@
 // listed under History and reopened where it stopped.
 import { Bot, History, Loader2, Plus, Send, User, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { api, type ChatTurn, type HelperSession, type ModelArg, type PrefKey, type SkillDoc } from "../lib/api";
+import { api, onHelper, type ChatTurn, type HelperSession, type ModelArg, type PrefKey, type SkillDoc } from "../lib/api";
 import { remember, rememberedModel, usable } from "../lib/remembered";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
@@ -13,6 +13,7 @@ import type { Capabilities } from "../lib/types";
 import { ModelPicker, emptyModel } from "../views/organize/ModelPicker";
 import { AttachmentBar, DocChip, useAttachments } from "./Attachments";
 import { HelperHistory, RenameInline } from "./HelperHistory";
+import { addPiece, emptyLive, partialReply, type LiveAnswer } from "./helperLive";
 import { Markdown } from "./Markdown";
 import { Overlay } from "./motion";
 import { cn } from "./ui";
@@ -82,6 +83,23 @@ export function HelperChat<A extends HelperAnswer>({
   const [text, setText] = useState(first ?? "");
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<string | null>(null);
+  // The answer as the model writes it, for the session being answered; and how long it has been writing.
+  const [live, setLive] = useState<LiveAnswer>(emptyLive);
+  const [since, setSince] = useState(0);
+  const [now, setNow] = useState(0);
+  const answering = useRef<string | null>(null);
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    onHelper((p) => {
+      if (answering.current && p.session === answering.current) setLive((l) => addPiece(l, p));
+    }).then((u) => (off = u));
+    return () => off?.();
+  }, []);
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
   // The session's name: its draft's name once it has one, else the first message; the user may name it.
   const [sessionTitle, setSessionTitle] = useState("");
   const [history, setHistory] = useState(false);
@@ -108,7 +126,7 @@ export function HelperChat<A extends HelperAnswer>({
   }, [open, !!caps]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [shown.length, busy]);
+  }, [shown.length, busy, live.raw.length > 0]);
   const ready = !!model.provider && !!model.model;
 
   const restore = (s: HelperSession) => {
@@ -155,6 +173,10 @@ export function HelperChat<A extends HelperAnswer>({
         setSession(id);
         onSession?.(id);
       }
+      answering.current = id;
+      setLive(emptyLive);
+      setSince(Date.now());
+      setNow(Date.now());
       const a = await ask(model, next, docs, id);
       const turnsAfter: ChatTurn[] = [...next, { role: "assistant", text: a.raw }];
       const shownAfter: Shown[] = [...before, mine, { user: false, text: a.reply, questions: a.questions, model: a.model }];
@@ -172,6 +194,8 @@ export function HelperChat<A extends HelperAnswer>({
       if (raw === undefined) setText(msg);
       app.notify(friendly(e, app.t));
     } finally {
+      answering.current = null;
+      setLive(emptyLive);
       setBusy(false);
     }
   };
@@ -243,11 +267,7 @@ export function HelperChat<A extends HelperAnswer>({
                       </div>
                     </div>
                   ))}
-                  {busy && (
-                    <div className="flex items-center gap-2 text-xs text-subtle">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> {app.t("helper.thinking")}
-                    </div>
-                  )}
+                  {busy && <LiveReply live={live} seconds={Math.max(0, Math.round((now - since) / 1000))} />}
                   <div ref={end} />
                 </>
               )}
@@ -278,5 +298,34 @@ export function HelperChat<A extends HelperAnswer>({
         </div>
       </div>
     </Overlay>
+  );
+}
+
+/** The answer while it is written: the reply as far as the model got, and what it is doing (thinking, then writing
+ *  the reply and the draft), with the time it has taken so far. */
+function LiveReply({ live, seconds }: { live: LiveAnswer; seconds: number }) {
+  const app = useApp();
+  const reply = partialReply(live.raw);
+  const status = live.raw
+    ? app.t("helper.writing").replace("{n}", String(live.raw.length)).replace("{s}", String(seconds))
+    : live.thinking
+      ? app.t("helper.thinkingFor").replace("{s}", String(seconds)).replace("{n}", String(live.thinking))
+      : app.t("helper.waiting").replace("{s}", String(seconds));
+  return (
+    <div className="space-y-1.5" data-testid="helper-live">
+      {reply && (
+        <div className="flex gap-2">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300">
+            <Bot className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0 max-w-[85%] rounded-lg bg-elevated px-3 py-2 text-xs">
+            <Markdown text={reply} />
+          </div>
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-xs text-subtle">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> {status}
+      </div>
+    </div>
   );
 }

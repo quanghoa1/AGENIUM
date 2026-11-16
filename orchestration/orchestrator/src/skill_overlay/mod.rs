@@ -15,7 +15,10 @@ use serde::Serialize;
 use crate::app::App;
 use crate::{OrchError, Result};
 
+mod helper_merge;
 mod patching;
+
+pub use helper_merge::OverlayMergeDraft;
 
 use patching::*;
 
@@ -44,7 +47,8 @@ pub struct OverlayView {
     /// Diff from the base SKILL.md to the overlay's.
     pub diff: String,
     pub changelog: Vec<serde_json::Value>,
-    /// Where the base lives: `role` or `library`.
+    /// Where the base lives: `role`, `library` or `plugin:<name>` (a plugin's skill: the vendor's copy, which an
+    /// overlay never replaces).
     pub base: String,
     /// The base SKILL.md changed since this overlay was built, so the diff mixes base changes with the agent's;
     /// `rebase_skill_overlays` can 3-way merge it onto the new base (ADR-86).
@@ -95,11 +99,47 @@ impl App {
             .collect()
     }
 
-    /// The base version of an agent's skill `name`: its role's skill, else the library's.
+    /// The base version of an agent's skill `name`: its role's skill, else the library's, else the skill of a plugin
+    /// the agent has on (whole or that skill alone; ADR-157, 2026-11-17).
     fn base_skill(&self, agent: &agenium_store::core::agents::Agent, name: &str) -> Option<Skill> {
         let reg = self.skill_registry();
-        let base = reg.for_agent(".base", &agent.role, &[name.to_owned()]);
+        let mut enabled = vec![name.to_owned()];
+        enabled.extend(
+            agent
+                .skills
+                .iter()
+                .filter(|e| {
+                    agenium_skills::plugin_of(e).is_some()
+                        || agenium_skills::plugin_skill_of(e).is_some_and(|(_, s)| s == name)
+                })
+                .cloned(),
+        );
+        let base = reg.for_agent(".base", &agent.role, &enabled);
         base.get(name).cloned()
+    }
+
+    /// The plugin a base skill belongs to (`<root>/plugins/<plugin>/skills/<skill>`), for a plugin's skill.
+    fn base_plugin(&self, base: &Skill) -> Option<String> {
+        (base.meta.origin == Origin::Plugin)
+            .then(|| {
+                base.meta
+                    .dir
+                    .parent()?
+                    .parent()?
+                    .file_name()?
+                    .to_str()
+                    .map(str::to_owned)
+            })
+            .flatten()
+    }
+
+    /// The rules an agent's copy of `base` is checked by: a plugin's own (a sibling skill's file, an example path).
+    fn copy_rules(base: &Skill) -> Origin {
+        if base.meta.origin == Origin::Plugin {
+            Origin::Plugin
+        } else {
+            Origin::Overlay
+        }
     }
 
     fn overlay_dir(&self, agent: AgentId, name: &str) -> PathBuf {
@@ -146,7 +186,7 @@ impl App {
         }
         let base = self.base_skill(&a, name).ok_or_else(|| {
             invalid(format!(
-                "{name:?} is not a role or library skill of yours, nor one you created"
+                "{name:?} is not a role, library or plugin skill of yours, nor one you created"
             ))
         })?;
         let dir = self.overlay_dir(agent, name);
@@ -174,7 +214,7 @@ impl App {
         }
         let base = self.base_skill(&a, name).ok_or_else(|| {
             invalid(format!(
-                "{name:?} is not a role or library skill of yours, nor one you created"
+                "{name:?} is not a role, library or plugin skill of yours, nor one you created"
             ))
         })?;
         let mem = self.agent_memory_store(agent)?;
@@ -252,7 +292,7 @@ impl App {
         let staging = staging_root.join(name);
         copy_dir(if fresh { &base.meta.dir } else { &dir }, &staging)?;
         std::fs::write(staging.join("SKILL.md"), &updated)?;
-        if let Err(e) = agenium_skills::validate(&staging, Origin::Overlay) {
+        if let Err(e) = agenium_skills::validate(&staging, Self::copy_rules(&base)) {
             let _ = std::fs::remove_dir_all(&staging_root);
             return Err(invalid(format!("the updated skill is not valid: {e}")));
         }
@@ -312,10 +352,12 @@ impl App {
                 && unapply_patch(&overlay_text, &o.patch)
                     .map(|old| old != base_text)
                     .unwrap_or(false);
+            let plugin = base.as_ref().and_then(|b| self.base_plugin(b));
             out.push(OverlayView {
                 diff: diff_texts(&base_text, &overlay_text)?,
-                base: match base.map(|b| b.meta.origin) {
-                    Some(Origin::Library) => "library".into(),
+                base: match (base.map(|b| b.meta.origin), plugin) {
+                    (_, Some(p)) => format!("plugin:{p}"),
+                    (Some(Origin::Library), _) => "library".into(),
                     _ => "role".into(),
                 },
                 skill: o.skill,
@@ -404,7 +446,7 @@ impl App {
         let staging = staging_root.join(&o.skill);
         copy_dir(&dir, &staging)?;
         std::fs::write(staging.join("SKILL.md"), &merged)?;
-        if let Err(e) = agenium_skills::validate(&staging, Origin::Overlay) {
+        if let Err(e) = agenium_skills::validate(&staging, Self::copy_rules(&base)) {
             let _ = std::fs::remove_dir_all(&staging_root);
             outcome.status = "conflict".into();
             outcome.conflict_preview =
@@ -461,6 +503,12 @@ impl App {
         let base = self
             .base_skill(&a, skill)
             .ok_or_else(|| OrchError::NotFound(format!("base skill {skill}")))?;
+        // A plugin's skill stays as its vendor wrote it (ADR-157, 2026-11-17): the agent keeps its copy.
+        if let Some(p) = self.base_plugin(&base) {
+            return Err(invalid(format!(
+                "{skill} is a skill of the plugin {p}, which stays as its vendor wrote it: the agent keeps its own copy"
+            )));
+        }
         let text = std::fs::read_to_string(dir.join("SKILL.md"))
             .map_err(|_| OrchError::NotFound(format!("overlay {skill}")))?;
         std::fs::write(base.meta.dir.join("SKILL.md"), text)?;

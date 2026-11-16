@@ -52,6 +52,13 @@ export function PluginsPanel() {
       "install",
       api.installPlugin(p.plugin, p.plugin.private ? token.trim() : "").then((x) => {
         app.notify(`${app.t("plugins.installed")} ${x.name} @ ${short(x.commit)}`);
+        // What the update did to the agents' own copies of its skills (ADR-157).
+        const r = x.refreshed;
+        if (r && (r.rebased.length || r.conflicts.length || r.dropped.length)) {
+          if (r.rebased.length) app.notify(app.t("plugins.rebased").replace("{list}", r.rebased.join(", ")));
+          if (r.conflicts.length) app.notify(app.t("plugins.conflicts").replace("{list}", r.conflicts.join(", ")));
+          if (r.dropped.length) app.notify(app.t("plugins.dropped").replace("{list}", r.dropped.join(", ")));
+        }
         setPreview(null);
         setSource("");
         setEntry("");

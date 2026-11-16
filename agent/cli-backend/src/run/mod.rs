@@ -171,6 +171,9 @@ struct State {
     /// The turn's text was already kept, in pieces before its tool steps: the CLI's own copy of its last answer is not
     /// taken for the text then (it would repeat it).
     wrote: bool,
+    /// Assistant text already shown live (`Event::Partial`) that its whole message (`Event::Text`) has not yet come
+    /// for: that part is not shown again.
+    partial: String,
     recent: Vec<String>,
     /// Tool steps by id (results of some CLIs only carry the id).
     started: std::collections::HashMap<String, (String, Value)>,

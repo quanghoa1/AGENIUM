@@ -203,14 +203,20 @@ export const api = {
     call<Plugin>("install_plugin", { source: p.source, reference: p.reference, entry: p.entry ?? null, commit: p.commit, token: token || null }),
   removePlugin: (name: string) => call<void>("remove_plugin", { name }),
   toggleAgentPlugin: (agent: string, name: string, on: boolean) => call<string[]>("toggle_agent_plugin", { agent, name, on }),
-  skillLibrary: () => call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] }>("skill_library"),
+  skillLibrary: () =>
+    call<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[]; plugin_skills?: LibrarySkill[] }>("skill_library"),
   importSkill: (path: string, replace = false) =>
     call<{ name: string; description: string; shape_notes: string[]; quality: string[] }>("import_skill", { path, replace }),
   /** The skills a folder holds (itself or its subfolders), to import many at once. */
   scanSkills: (path: string) => call<FoundSkill[]>("scan_skills", { path }),
   importSkills: (paths: string[], replace = false) => call<{ path: string; name?: string; error?: string }[]>("import_skills", { paths, replace }),
   removeSkill: (name: string, force = false) => call<void>("remove_skill", { name, force }),
-  skillText: (name: string) => call<{ name: string; body: string; raw: string; files: string[] }>("skill_text", { name }),
+  skillText: (name: string, plugin?: string) =>
+    call<{ name: string; body: string; raw: string; files: string[] }>("skill_text", { name, plugin: plugin ?? null }),
+  // ADR-157: the helper merges an agent's copy onto its skill's updated base; the user accepts (or edits) it.
+  draftOverlayMerge: (agent: string, skill: string, model: ModelArg) =>
+    call<import("./types").OverlayMergeDraft>("draft_overlay_merge", { agent, skill, model }),
+  acceptOverlayMerge: (agent: string, skill: string, text: string) => call<void>("accept_overlay_merge", { agent, skill, text }),
   // Re-run the shape, conflict and (when the judge is on) quality checks on a library skill on demand (ADR-88/90/92).
   evaluateSkill: (name: string) => call<{ shape_notes: string[]; quality: string[] | null }>("evaluate_skill", { name }),
   skillSkeleton: () => call<{ body: string }>("skill_skeleton"),
@@ -344,6 +350,12 @@ export async function onModel(f: () => void): Promise<UnlistenFn> {
 export async function onMarkitdown(f: (e: { step?: string; update?: string }) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => {};
   return listen<{ step?: string; update?: string }>("agenium://markitdown", (e) => f(e.payload));
+}
+
+/** A piece of a drafting helper's answer as its model writes it (`agenium://helper`, ADR-151). */
+export async function onHelper(f: (p: import("../components/helperLive").HelperPiece) => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => {};
+  return listen<import("../components/helperLive").HelperPiece>("agenium://helper", (e) => f(e.payload));
 }
 
 /** The vendors' usage was read again (`agenium://usage`). */

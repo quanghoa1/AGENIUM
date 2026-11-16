@@ -106,3 +106,38 @@ private repository could not be installed. The owner: let the user choose Public
 Verified 2026-11-16: the private `quanghoa1/agenium-pentest` downloaded with a pasted token (commit `794cbe2`); without
 one, the "choose Private" message; `obra/superpowers` anonymously; `download` tests with a stand-in server (public, private
 with the token, none or a wrong one, the token not in the message); the registry plugin tests; the form in the UI.
+
+## Amendment (2026-11-17): skills one by one, learned into, rebased on the vendor's update
+
+The owner: a plugin's skills show on the Skills page under the plugin's name; an agent can be given one skill of a
+plugin, or the whole plugin; agents may learn into a plugin's skill and upgrade it like a skill the user imported; the
+vendor's update still goes through, and the user or a helper then brings the agent's learned changes onto the new
+version, without losing them. The vendor's copy stays as the vendor wrote it (the user does not edit it either).
+
+1. **One skill alone**: an entry `plugin:<plugin>/<skill>` (`agenium_skills::plugin_skill_of`) loads that skill with
+   origin `plugin`, and **no MCP server or hook of the plugin** (those follow only `plugin:<plugin>`; the user adds a
+   server the skill needs). Checked like the others (`check_skills`: the plugin installed, the skill in it). The
+   library listing (`skill_library`) adds `plugin_skills` (name, plugin, `entry`, who uses it); the Skills page shows
+   them read-only under the plugin's name; an agent's Skills tab has them one by one (on, greyed, when the whole plugin
+   is on).
+2. **Learned into, in the agent's own copy**: an agent's skill of a plugin skill's name is its overlay of it (was
+   dropped as read-only), checked by the plugin's rules (a sibling skill's file, an example path). `base_skill` finds a
+   plugin's skill the agent has on (whole or alone), so `propose_skill_update` works on it under the same gates as a
+   library skill (a trusted lesson held in two closed tickets, a reason, no injected instruction or secret, no new
+   contradiction). The overlay view names its base `plugin:<name>`; promoting it over the vendor's copy is refused.
+3. **The vendor's update**: installed as before; then (`refresh_plugin_users`) every agent using the plugin has its
+   copies rebased (the 3-way merge of ADR-86: the old base rebuilt from the recorded change, the new one, the copy),
+   keeping what it learned; a copy that does not merge cleanly stays as it was, with a Needs-you; a skill the vendor
+   dropped is taken off the agents given it alone (their own copy stays as their skill). The install answers what it
+   did (`refreshed`: rebased, conflicts, dropped) and the plugins page says so.
+4. **Merged with help**: on a stale copy, the Memory page's "Ask the helper to merge" has the skill writer's model draft
+   the copy on the new base keeping what the agent learned (`Runtime::draft_overlay_merge`, nothing written); the user
+   reads it, may edit it, and accepts it (`App::accept_overlay_merge`: a valid skill, no injected instruction, no
+   secret; recorded against the new base). Library skills' copies get the same help.
+
+Tests: `agent/skills/tests/skills.rs` (one skill alone, the agent's copy as overlay, a copy that refers to a sibling
+skill), `orchestrator/tests/team/plugin_skills.rs` (one skill without MCP, the learning gates, promote refused, v2
+rebased with the lesson kept and a dropped skill taken off, v3 in conflict, an injected merge refused, the merge
+accepted, removal), `helper_merge.rs` unit test; the UI smoke installs a plugin through the form, finds its skills on
+the Skills page and gives one alone to an agent.
+

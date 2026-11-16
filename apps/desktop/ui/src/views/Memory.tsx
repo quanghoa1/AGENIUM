@@ -11,6 +11,7 @@ import { useApp } from "../lib/store";
 import type { AgentEntry, Fact, MemoryData } from "../lib/types";
 import { MemoryConflicts } from "./MemoryConflicts";
 import { MemoryGraph } from "./memory/MemoryGraph";
+import { OverlayMerge } from "./memory/OverlayMerge";
 
 type Tab = "lesson" | "fact" | "preference" | "overlay" | "graph";
 
@@ -132,6 +133,7 @@ export function MemoryView() {
     setData(null);
     load();
   }, [agent, app.tick]);
+  const [merging, setMerging] = useState<string | null>(null);
   const act = (action: string, extra: { fact?: number; skill?: string }, msg?: string) =>
     agent &&
     api
@@ -291,12 +293,20 @@ export function MemoryView() {
                           <GitMerge className="h-3.5 w-3.5" /> {app.t("memory.rebase")}
                         </button>
                       )}
+                      {o.stale && (
+                        <button className="btn" onClick={() => setMerging(o.skill)} title={app.t("merge.hint")} data-testid="merge-open">
+                          <Wand2 className="h-3.5 w-3.5" /> {app.t("merge.open")}
+                        </button>
+                      )}
                       <button className="btn" onClick={() => act("revert", { skill: o.skill })}>
                         <RotateCcw className="h-3.5 w-3.5" /> {app.t("memory.revert")}
                       </button>
-                      <button className="btn-primary" onClick={() => act("promote", { skill: o.skill }, app.t("memory.promoted"))} title={app.t("memory.promoteHint")}>
-                        <GitMerge className="h-3.5 w-3.5" /> {app.t("memory.promote")}
-                      </button>
+                      {/* A plugin's skill stays as its vendor wrote it: the copy is never promoted over it (ADR-157). */}
+                      {!o.base.startsWith("plugin:") && (
+                        <button className="btn-primary" onClick={() => act("promote", { skill: o.skill }, app.t("memory.promoted"))} title={app.t("memory.promoteHint")}>
+                          <GitMerge className="h-3.5 w-3.5" /> {app.t("memory.promote")}
+                        </button>
+                      )}
                     </span>
                   }
                 >
@@ -316,6 +326,7 @@ export function MemoryView() {
                 </Section>
               ))}
               {data.overlays.length === 0 && Object.keys(data.created ?? {}).length === 0 && <Empty>{app.t("memory.noOverlays")}</Empty>}
+              {merging && agent && <OverlayMerge agent={agent} skill={merging} onClose={() => setMerging(null)} onDone={() => (setMerging(null), load())} />}
             </div>
           ) : (
             <div className="space-y-2">

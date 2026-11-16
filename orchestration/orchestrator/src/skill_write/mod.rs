@@ -259,6 +259,32 @@ impl Runtime {
         merge_into: Option<&str>,
         session: Option<&str>,
     ) -> Result<SkillWrite> {
+        self.write_skill_live(
+            backend,
+            model,
+            turns,
+            docs,
+            seed,
+            merge_into,
+            session,
+            &|_| {},
+        )
+        .await
+    }
+
+    /// `write_skill`, telling `live` the answer as it is written (the skill writer's chat shows it live).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn write_skill_live(
+        &self,
+        backend: BackendKind,
+        model: &ModelBinding,
+        turns: &[ChatTurn],
+        docs: &[SkillDoc],
+        seed: Option<&NewSkill>,
+        merge_into: Option<&str>,
+        session: Option<&str>,
+        live: crate::runtime::side_chat::Live<'_>,
+    ) -> Result<SkillWrite> {
         let app = self.app.clone();
         let lint = move |n: &str, d: &str, b: &str| app.lint_skill_md(n, d, b);
         let redactor = self.app.redactor().clone();
@@ -341,8 +367,12 @@ impl Runtime {
         let mut msgs: Vec<Message> = messages(&turns)?;
         let mut last = String::new();
         for attempt in 0..2 {
+            if attempt > 0 {
+                // The answer is asked again: what was shown of the first goes.
+                live(&agenium_llm::ChatEvent::Restart);
+            }
             let a = self
-                .side_chat(
+                .side_chat_live(
                     "skill",
                     session,
                     backend,
@@ -350,6 +380,7 @@ impl Runtime {
                     &system,
                     msgs.clone(),
                     MAX_TOKENS,
+                    live,
                 )
                 .await?;
             let why = match agenium_memory::pipeline::json_object(&a.text) {

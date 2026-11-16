@@ -478,12 +478,22 @@ export interface Fact {
 }
 
 /** An agent's own version of a skill (decision 35). */
+/** The helper's merge of an agent's copy onto its skill's updated base (ADR-157). */
+export interface OverlayMergeDraft {
+  skill: string;
+  old_base: string;
+  new_base: string;
+  overlay: string;
+  merged: string;
+  diff: string;
+}
+
 export interface OverlayView {
   skill: string;
   base_version: string;
   diff: string;
   changelog: { at?: string; reason?: string; lesson?: number; lesson_text?: string; rebased_onto?: string }[];
-  /** `role` or `library`. */
+  /** `role`, `library` or `plugin:<name>` (a plugin's skill: its vendor's copy is never replaced). */
   base: string;
   /** The base SKILL.md changed since this overlay was built; it can be rebased onto the new base. */
   stale: boolean;
@@ -612,6 +622,10 @@ export interface LibrarySkill {
   files: number;
   users: string[];
   dir: string;
+  /** A plugin's skill (ADR-157): the plugin, read-only here. */
+  plugin?: string;
+  /** How an agent is given it alone: `plugin:<plugin>/<skill>` (a library skill is given by its name). */
+  entry?: string;
 }
 
 /** Which MCP tool calls wait for the user (ADR-143): the server's destructive tools, every tool not read-only, none. */
@@ -667,6 +681,9 @@ export interface Plugin {
   installed_at: string;
   /** From a private repository: an update needs a GitHub token pasted again (none is kept). */
   private?: boolean;
+  /** On the answer to an update only: the agents' copies of its skills rebased, waiting for a merge, or given a
+   *  skill the vendor dropped (`agent: skill`). */
+  refreshed?: { rebased: string[]; conflicts: string[]; dropped: string[] } | null;
 }
 
 export interface PluginPreview {

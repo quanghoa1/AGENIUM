@@ -6,7 +6,7 @@ import { useApp } from "../../lib/store";
 import type { LibrarySkill, McpServerRow } from "../../lib/types";
 
 /** Switches for the library skills and the system's MCP servers. */
-export function Switches({ skills, mcp, onSkills, onMcp, lib, servers }: { skills: string[]; mcp: string[]; onSkills: (name: string, on: boolean) => void; onMcp: (id: string, on: boolean) => void; lib: LibrarySkill[]; servers: McpServerRow[] }) {
+export function Switches({ skills, mcp, onSkills, onMcp, lib, servers, pluginSkills = [] }: { skills: string[]; mcp: string[]; onSkills: (name: string, on: boolean) => void; onMcp: (id: string, on: boolean) => void; lib: LibrarySkill[]; servers: McpServerRow[]; pluginSkills?: LibrarySkill[] }) {
   const app = useApp();
   // Filter the library skills to enable/disable: by tag, and by a name/description search. "on" shows only enabled.
   const [tag, setTag] = useState<string | null>(null);
@@ -54,6 +54,7 @@ export function Switches({ skills, mcp, onSkills, onMcp, lib, servers }: { skill
           )}
           {lib.length > 0 && shown.length === 0 && <div className="text-[11px] text-subtle">{app.t("agents.noMatch")}</div>}
         </div>
+        {pluginSkills.length > 0 && <PluginSkillSwitches skills={skills} onSkills={onSkills} list={pluginSkills} />}
       </div>
       <div>
         <div className="label mb-1.5 flex items-center gap-1">
@@ -101,10 +102,36 @@ export function Toggle({ on, onChange, title, sub, tags }: { on: boolean; onChan
 
 export function useLibrary(tick: number) {
   const [lib, setLib] = useState<LibrarySkill[]>([]);
+  const [pluginSkills, setPluginSkills] = useState<LibrarySkill[]>([]);
   const [servers, setServers] = useState<McpServerRow[]>([]);
   useEffect(() => {
-    api.skillLibrary().then((l) => setLib(l?.skills ?? []));
+    api.skillLibrary().then((l) => (setLib(l?.skills ?? []), setPluginSkills(l?.plugin_skills ?? [])));
     api.mcpServers().then((s) => setServers(s ?? []));
   }, [tick]);
-  return { lib, servers };
+  return { lib, servers, pluginSkills };
+}
+
+/** One skill of a plugin at a time (ADR-157): without the plugin's MCP servers, which come only with the whole plugin
+ *  (its Plugin tab). A plugin that is on whole has all its skills on already. */
+function PluginSkillSwitches({ skills, onSkills, list }: { skills: string[]; onSkills: (name: string, on: boolean) => void; list: LibrarySkill[] }) {
+  const app = useApp();
+  return (
+    <div className="mt-3">
+      <div className="label mb-1 flex items-center gap-1">
+        <Plug className="h-3 w-3" /> {app.t("agents.pluginSkills")}
+      </div>
+      <div className="mb-1.5 text-[11px] text-subtle">{app.t("agents.pluginSkillsNote")}</div>
+      <div className="space-y-1.5">
+        {list.map((s) => {
+          const whole = skills.includes(`plugin:${s.plugin}`);
+          const entry = s.entry ?? s.name;
+          return (
+            <div key={entry} title={whole ? app.t("agents.pluginWhole") : undefined} className={cn(whole && "pointer-events-none opacity-60")}>
+              <Toggle on={whole || skills.includes(entry)} onChange={(v) => onSkills(entry, v)} title={s.name} sub={s.description} tags={[s.plugin ?? "", ...(s.tags ?? [])].filter(Boolean)} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

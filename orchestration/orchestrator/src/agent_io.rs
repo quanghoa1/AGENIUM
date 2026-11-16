@@ -325,11 +325,13 @@ impl App {
             .collect();
         let name = req.name.clone().unwrap_or_else(|| profile.name.clone());
         self.check_names_free(&[&name])?;
-        if let Some(b) = profile
-            .skills
-            .iter()
-            .find(|s| !agenium_skills::valid_name(s))
-        {
+        // A library skill's name, or a plugin whole or one skill of it (ADR-157): on a root without that plugin the
+        // entry loads nothing until it is installed.
+        if let Some(b) = profile.skills.iter().find(|s| {
+            !agenium_skills::valid_name(s)
+                && agenium_skills::plugin_of(s).is_none()
+                && agenium_skills::plugin_skill_of(s).is_none()
+        }) {
             return Err(bad(&format!("invalid skill name {b:?} in the binding")));
         }
 

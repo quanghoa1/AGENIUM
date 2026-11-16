@@ -116,6 +116,25 @@ impl Claude {
                     }),
                 }]
             }
+            // `--include-partial-messages`: the main conversation's text and reasoning as they are written (a
+            // subagent's are left to its whole messages).
+            Some("stream_event") if v["parent_tool_use_id"].as_str().is_none_or(str::is_empty) => {
+                let e = &v["event"];
+                let d = &e["delta"];
+                match (e["type"].as_str(), d["type"].as_str()) {
+                    (Some("content_block_delta"), Some("text_delta")) => d["text"]
+                        .as_str()
+                        .filter(|t| !t.is_empty())
+                        .map(|t| vec![Event::Partial(t.to_owned())])
+                        .unwrap_or_default(),
+                    (Some("content_block_delta"), Some("thinking_delta")) => d["thinking"]
+                        .as_str()
+                        .filter(|t| !t.is_empty())
+                        .map(|t| vec![Event::Thinking(t.to_owned())])
+                        .unwrap_or_default(),
+                    _ => vec![],
+                }
+            }
             _ => vec![],
         }
     }

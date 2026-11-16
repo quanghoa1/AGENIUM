@@ -5,9 +5,28 @@ use agenium_orchestrator::skill_write::SkillDoc;
 use agenium_orchestrator::team_design::{ChatTurn, NewSkill};
 
 use super::*;
+use tauri::Emitter;
+
+/// What a helper's model writes as it writes it, for its chat (`agenium://helper`): `text` and `thinking` pieces, and
+/// `restart` when the answer is asked again. Only shown, never kept: the whole answer comes back from the command.
+fn live(app: tauri::AppHandle, session: Option<String>) -> impl Fn(&agenium_llm::ChatEvent) + Send + Sync {
+    move |e| {
+        let (kind, text) = match e {
+            agenium_llm::ChatEvent::TextDelta(t) => ("text", t.as_str()),
+            agenium_llm::ChatEvent::ThinkingDelta(t) => ("thinking", t.as_str()),
+            agenium_llm::ChatEvent::Restart => ("restart", ""),
+            _ => return,
+        };
+        let _ = app.emit(
+            "agenium://helper",
+            json!({ "session": session, "kind": kind, "text": text }),
+        );
+    }
+}
 
 #[tauri::command]
 pub async fn design_team(
+    app: tauri::AppHandle,
     d: State<'_, Desktop>,
     model: ModelArg,
     turns: Vec<ChatTurn>,
@@ -16,13 +35,15 @@ pub async fn design_team(
 ) -> R<Value> {
     let o = d.opened()?;
     let (backend, binding) = model.binding()?;
+    let on = live(app, session.clone());
     let design =
-        o.rt.design_team(
+        o.rt.design_team_live(
             backend,
             &binding,
             &turns,
             &documents.unwrap_or_default(),
             session.as_deref(),
+            &on,
         )
         .await
         .map_err(err)?;
@@ -30,7 +51,9 @@ pub async fn design_team(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn write_skill(
+    app: tauri::AppHandle,
     d: State<'_, Desktop>,
     model: ModelArg,
     turns: Vec<ChatTurn>,
@@ -41,8 +64,9 @@ pub async fn write_skill(
 ) -> R<Value> {
     let o = d.opened()?;
     let (backend, binding) = model.binding()?;
+    let on = live(app, session.clone());
     let draft =
-        o.rt.write_skill(
+        o.rt.write_skill_live(
             backend,
             &binding,
             &turns,
@@ -50,6 +74,7 @@ pub async fn write_skill(
             seed.as_ref(),
             merge_into.as_deref(),
             session.as_deref(),
+            &on,
         )
         .await
         .map_err(err)?;

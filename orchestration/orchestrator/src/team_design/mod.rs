@@ -170,6 +170,20 @@ impl Runtime {
         docs: &[crate::documents::Attached],
         session: Option<&str>,
     ) -> Result<TeamDesign> {
+        self.design_team_live(backend, model, turns, docs, session, &|_| {})
+            .await
+    }
+
+    /// `design_team`, telling `live` the answer as it is written (the designer's chat shows it live).
+    pub async fn design_team_live(
+        &self,
+        backend: BackendKind,
+        model: &ModelBinding,
+        turns: &[ChatTurn],
+        docs: &[crate::documents::Attached],
+        session: Option<&str>,
+        live: crate::runtime::side_chat::Live<'_>,
+    ) -> Result<TeamDesign> {
         let (ctx, catalogue) = self.app.design_ctx()?;
         let system = prompt::system(&catalogue);
         // The user's documents (a brief, a spec) open their first message, every turn.
@@ -188,8 +202,12 @@ impl Runtime {
         let mut msgs = messages(&turns)?;
         let mut last = String::new();
         for attempt in 0..2 {
+            if attempt > 0 {
+                // The answer is asked again: what was shown of the first goes.
+                live(&agenium_llm::ChatEvent::Restart);
+            }
             let a = self
-                .side_chat(
+                .side_chat_live(
                     "design",
                     session,
                     backend,
@@ -197,6 +215,7 @@ impl Runtime {
                     &system,
                     msgs.clone(),
                     MAX_TOKENS,
+                    live,
                 )
                 .await?;
             let why = match agenium_memory::pipeline::json_object(&a.text) {

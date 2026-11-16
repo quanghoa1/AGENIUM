@@ -2,7 +2,15 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
-## Unreleased
+## 0.1.2 — 2026-11-17
+
+The helpers show their answer as it is written; plugins from private repositories; the Codex sandbox sources updated.
+
+### Helpers
+- **The team designer and the skill writer show the answer as it is written**: instead of "Thinking…" for minutes
+  (a whole team template can be 17,000 tokens), the chat shows the reply as it grows, then how much of the draft is
+  written and for how long. Works with API models and Claude Code (its partial messages); a run's live view gets
+  Claude Code's text as it is written too.
 
 ### Sandbox
 - **Codex sandbox sources updated to `e5839cb`**: a command the Windows sandbox cannot start now says the Windows error
@@ -11,6 +19,11 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
   no seccomp filter of its own.
 
 ### Plugins
+- **A plugin's skills one by one, and learned into** (ADR-157 amendment): the Skills page lists the installed plugins'
+  skills under each plugin's name; an agent can be given one of them alone (without the plugin's MCP servers) or the
+  whole plugin. Agents learn into a plugin's skill like a library skill, in their own copy; a vendor update rebases
+  those copies keeping what they learned, and one that does not merge cleanly can be merged with the helper's draft,
+  which you read and accept on the Memory page.
 - **Install a plugin from a private GitHub repository** (ADR-157 amendment): Library → Plugin has Public / Private;
   for Private, paste a GitHub token that can read the repository (the form says how to make a read-only one). The
   token is used for that preview and install only and kept nowhere; an update of a private plugin asks for one again.

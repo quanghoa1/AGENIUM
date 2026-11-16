@@ -169,7 +169,7 @@ export function AgentView({ id }: { id: string }) {
   const [entry, setEntry] = useState<AgentEntry | null>(null);
   const [tab, setTab] = useState<"overview" | "runs" | "memory" | "skills" | "plugins">("overview");
   const [dir, setDir] = useState(1);
-  const { lib, servers } = useLibrary(app.tick);
+  const { lib, servers, pluginSkills } = useLibrary(app.tick);
   const order = ["overview", "runs", "memory", "skills", "plugins"];
   useEffect(() => {
     api.agentDetail(id).then(setD).catch((e) => app.notify(String(e)));
@@ -329,6 +329,7 @@ export function AgentView({ id }: { id: string }) {
                 skills={a.skills}
                 mcp={bound}
                 lib={lib}
+                pluginSkills={pluginSkills}
                 servers={servers}
                 onSkills={(s, on) => toggle(api.toggleAgentSkill(a.id, s, on))}
                 onMcp={(s, on) => toggle(api.toggleAgentMcp(a.id, s, on))}

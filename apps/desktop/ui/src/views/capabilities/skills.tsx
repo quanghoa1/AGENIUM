@@ -26,7 +26,7 @@ ${skeleton}`;
 
 export function SkillsPanel() {
   const app = useApp();
-  const [lib, setLib] = useState<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[] } | null>(null);
+  const [lib, setLib] = useState<{ skills: LibrarySkill[]; problems: { dir: string; error: string }[]; plugin_skills?: LibrarySkill[] } | null>(null);
   const [path, setPath] = useState("");
   const [replace, setReplace] = useState(false);
   const [view, setView] = useState<{ name: string; body: string; files: string[] } | null>(null);
@@ -209,6 +209,49 @@ export function SkillsPanel() {
         ))}
       </div>
       {lib && lib.skills.length === 0 && <Empty>{app.t("library.noSkills")}</Empty>}
+      {!!lib?.plugin_skills?.length && (
+        <div className="space-y-2">
+          <div className="label flex items-center gap-1.5">{app.t("library.pluginSkills")}</div>
+          <div className="text-[11px] text-subtle">{app.t("library.pluginSkillsNote")}</div>
+          <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+            {lib.plugin_skills
+              .filter((s) => tag === null || s.plugin === tag || (s.tags ?? []).includes(tag))
+              .map((s) => (
+                <div key={s.entry ?? s.name} className="card flex flex-col p-4" data-testid="plugin-skill">
+                  <div className="flex items-start gap-2">
+                    <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
+                    <span className="text-sm font-semibold">{s.name}</span>
+                    {s.version && <Mono className="mt-0.5 text-subtle">v{s.version}</Mono>}
+                    <div className="ml-auto flex flex-wrap justify-end gap-1">
+                      <button className="chip border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-300" onClick={() => setTag(s.plugin ?? null)} title={app.t("library.filterTag")}>
+                        {s.plugin}
+                      </button>
+                      <span className="chip border-line-strong text-muted">{app.t("plugins.readOnly")}</span>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 line-clamp-3 text-xs text-muted">{s.description}</div>
+                  <div className="mt-2 flex flex-1 flex-wrap items-center gap-1">
+                    <span className="label mr-1">{app.t("library.enabledBy")}</span>
+                    {s.users.length ? (
+                      s.users.map((u) => (
+                        <span key={u} className="chip border-line-strong bg-elevated text-muted">
+                          {u}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[11px] text-subtle">–</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button className="btn" onClick={() => api.skillText(s.name, s.plugin).then(setView)}>
+                      <Eye className="h-3.5 w-3.5" /> {app.t("library.read")}
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
       {lib && lib.problems.length > 0 && (
         <Section title={app.t("library.invalid")}>
           {lib.problems.map((p) => (

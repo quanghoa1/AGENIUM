@@ -53,19 +53,31 @@ pub enum Origin {
     Role,
     /// The agent's own skill.
     Agent,
-    /// The agent's own copy of a role or library skill (it replaces that version for this agent only).
+    /// The agent's own copy of a role, library or plugin skill (it replaces that version for this agent only).
     Overlay,
-    /// A skill of an imported plugin (`<root>/plugins/<plugin>/skills`): the vendor's, read-only, on for the agents
-    /// that enable the whole plugin (ADR-157).
+    /// A skill of an imported plugin (`<root>/plugins/<plugin>/skills`): the vendor's copy, never changed in place; on
+    /// for the agents that enable the whole plugin or that skill alone (ADR-157). An agent learns into its own copy.
     Plugin,
 }
 
 /// How an agent's skill binding names a plugin it enables whole: `plugin:<name>` (ADR-157).
 pub const PLUGIN_PREFIX: &str = "plugin:";
 
-/// The plugin an entry of a skill binding enables (`plugin:superpowers` is `superpowers`).
+/// The plugin an entry of a skill binding enables whole (`plugin:superpowers` is `superpowers`).
 pub fn plugin_of(entry: &str) -> Option<&str> {
     entry.strip_prefix(PLUGIN_PREFIX).filter(|n| valid_name(n))
+}
+
+/// The one skill of a plugin an entry enables (`plugin:pentest/web-pentest` is `("pentest", "web-pentest")`): the
+/// skill alone, without the plugin's MCP servers or hooks (ADR-157, 2026-11-17).
+pub fn plugin_skill_of(entry: &str) -> Option<(&str, &str)> {
+    let (plugin, skill) = entry.strip_prefix(PLUGIN_PREFIX)?.split_once('/')?;
+    (valid_name(plugin) && valid_name(skill)).then_some((plugin, skill))
+}
+
+/// The entry that enables `skill` of `plugin` alone.
+pub fn plugin_skill_entry(plugin: &str, skill: &str) -> String {
+    format!("{PLUGIN_PREFIX}{plugin}/{skill}")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -504,28 +516,27 @@ fn scan(
         if name.starts_with('.') || !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             continue;
         }
-        match validate(&p, origin) {
+        // The agent's copy of a plugin's skill keeps the plugin's rules (a sibling skill's file, an example path).
+        let rules = match (origin, set.get(&name).map(|r| r.meta.origin)) {
+            (Origin::Agent, Some(Origin::Plugin)) => Origin::Plugin,
+            _ => origin,
+        };
+        match validate(&p, rules) {
             Ok(mut s) => {
-                match (origin, set.get(&s.meta.name).map(|r| r.meta.origin)) {
-                    // A plugin brings no second skill of a name the agent has.
-                    (Origin::Plugin, Some(_)) => continue,
-                    // A plugin's skill is the vendor's: an own skill of its name does not replace it.
-                    (Origin::Agent, Some(Origin::Plugin)) => {
-                        problems.push(Problem {
-                            dir: p,
-                            error: format!(
-                                "{} is a plugin's skill, which is read-only",
-                                s.meta.name
-                            ),
-                        });
-                        continue;
-                    }
-                    _ => {}
+                s.meta.origin = origin;
+                // A plugin brings no second skill of a name the agent has.
+                if origin == Origin::Plugin && set.contains_key(&s.meta.name) {
+                    continue;
                 }
+                // The agent's own copy of a role, library or plugin skill is its overlay of it (ADR-157, 2026-11-17:
+                // agents learn into plugin skills too, in their own copy; the vendor's stays as it is).
                 if origin == Origin::Agent
-                    && set
-                        .get(&s.meta.name)
-                        .is_some_and(|r| matches!(r.meta.origin, Origin::Role | Origin::Library))
+                    && set.get(&s.meta.name).is_some_and(|r| {
+                        matches!(
+                            r.meta.origin,
+                            Origin::Role | Origin::Library | Origin::Plugin
+                        )
+                    })
                 {
                     s.meta.origin = Origin::Overlay;
                 }
@@ -593,9 +604,9 @@ impl Registry {
     }
 
     /// Skills of an agent: the library skills it enables (`enabled`, the agent's skill binding), the role's
-    /// skills, the skills of the plugins it enables (`plugin:<name>`, never replacing a skill it has), then the agent's
-    /// own (never replacing a plugin's skill) (an own skill with the name of a role or library skill is the agent's overlay
-    /// of it; a role skill wins over a library skill of the same name).
+    /// skills, the skills of the plugins it enables whole (`plugin:<name>`) or one by one (`plugin:<name>/<skill>`),
+    /// never replacing a skill it has, then the agent's own (an own skill with the name of a role, library or plugin
+    /// skill is the agent's overlay of it; a role skill wins over a library skill of the same name).
     pub fn for_agent(&self, agent: &str, role: &str, enabled: &[String]) -> SkillSet {
         let mut map = BTreeMap::new();
         let mut problems = Vec::new();
@@ -629,6 +640,22 @@ impl Registry {
                 &mut map,
                 &mut problems,
             );
+        }
+        // Single skills of a plugin (`plugin:<plugin>/<skill>`), never replacing a skill the agent has.
+        for (plugin, skill) in enabled.iter().filter_map(|e| plugin_skill_of(e)) {
+            let dir = self.plugins_dir().join(plugin).join("skills").join(skill);
+            if !dir.is_dir() || map.contains_key(skill) {
+                continue;
+            }
+            match validate(&dir, Origin::Plugin) {
+                Ok(s) => {
+                    map.insert(s.meta.name.clone(), s);
+                }
+                Err(e) => problems.push(Problem {
+                    dir,
+                    error: e.to_string(),
+                }),
+            }
         }
         scan(
             &self.dir_of(&Owner::Agent(agent.into())),

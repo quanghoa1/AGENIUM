@@ -394,8 +394,32 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 st.outputs.insert(id, (text, error));
                 None
             }
-            Event::Text(t) => {
+            Event::Partial(t) => {
                 self.observer.event(&ChatEvent::TextDelta(t.clone()));
+                st.partial.push_str(&t);
+                None
+            }
+            Event::Thinking(t) => {
+                self.observer.event(&ChatEvent::ThinkingDelta(t));
+                None
+            }
+            Event::Text(t) => {
+                // Shown live already, piece by piece: only what was not is shown now (the whole message ends with the
+                // line break its parser adds, which no piece carried).
+                let body = t.trim_end_matches('\n');
+                match st.partial.strip_prefix(body) {
+                    Some(rest) if !body.is_empty() => {
+                        st.partial = rest.to_owned();
+                        if t.len() > body.len() {
+                            self.observer
+                                .event(&ChatEvent::TextDelta(t[body.len()..].to_owned()));
+                        }
+                    }
+                    _ => {
+                        st.partial.clear();
+                        self.observer.event(&ChatEvent::TextDelta(t.clone()));
+                    }
+                }
                 st.text.push_str(&t);
                 None
             }

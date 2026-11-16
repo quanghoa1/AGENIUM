@@ -196,6 +196,56 @@ check("the members run on the picked CLI", backends.length === 1 && backends[0] 
 await js("location.reload()");
 await until("!!document.querySelector('main')", 30000);
 
+// 3b. A plugin's skills one by one (ADR-157, 2026-11-17): a plugin installed through the form; its skills listed on the
+// Skills tab under its name, read-only; one of them given alone to an agent, without the plugin's MCP server.
+const vendorDir = resolve(scratch, "vendor-pentest");
+mkdirSync(resolve(vendorDir, ".claude-plugin"), { recursive: true });
+writeFileSync(resolve(vendorDir, ".claude-plugin", "plugin.json"), `{"name":"pentest","version":"1.0","description":"Pentest skills."}`);
+writeFileSync(resolve(vendorDir, ".mcp.json"), `{"mcpServers":{"burp":{"command":"npx","args":["-y","burp-mcp"]}}}`);
+for (const name of ["web-pentest", "firmware"]) {
+  mkdirSync(resolve(vendorDir, "skills", name), { recursive: true });
+  writeFileSync(resolve(vendorDir, "skills", name, "SKILL.md"), `---
+name: ${name}
+description: Use when testing ${name} targets.
+---
+## Steps
+1. Map it.
+`);
+}
+await js(`window.location.hash = '/library'`);
+await until("!!document.querySelector('main')", 15000);
+await clickText("Plugin", "document.querySelector('main')");
+await until(`!!document.querySelector('main input[placeholder="obra/superpowers"]')`, 15000);
+await typeInto('main input[placeholder="obra/superpowers"]', vendorDir);
+await clickText("Look", "document.querySelector('main')");
+const previewed = await until("[...document.querySelectorAll('button')].some((b) => b.textContent.trim().endsWith('Install'))", 30000);
+await shot("03b-plugin-preview");
+await clickText("Install");
+const pluginIn = await until("window.__TAURI_INTERNALS__.invoke('plugins').then((ps) => ps.some((p) => p.plugin.name === 'pentest'))", 30000);
+check("a plugin is installed through the form", previewed && pluginIn);
+await clickText("Skill", "document.querySelector('main')");
+const cards = await until("document.querySelectorAll('[data-testid=plugin-skill]').length === 2", 15000);
+const cardText = await js("[...document.querySelectorAll('[data-testid=plugin-skill]')].map((c) => c.innerText).join(' | ')");
+await shot("03b-plugin-skills");
+check("the plugin's skills are listed under its name, read-only", cards && /pentest/.test(cardText ?? "") && /read-only/i.test(cardText ?? ""), (cardText ?? "").slice(0, 200));
+const member = (JSON.parse((await invoke("agents")) || "[]") ?? []).map((a) => a.agent).find((a) => a && a.skills);
+await js(`window.location.hash = '/agent/${member?.id ?? ""}'`);
+await until("[...document.querySelectorAll('main button')].some((b) => b.textContent.trim() === 'Skills & MCP')", 15000);
+await clickText("Skills & MCP", "document.querySelector('main')");
+const listedAlone = await until("[...document.querySelectorAll('main button')].some((b) => b.textContent.trim().startsWith('web-pentest'))", 15000);
+await clickText("web-pentest", "document.querySelector('main')");
+const given = await until(
+  `window.__TAURI_INTERNALS__.invoke('agents').then((xs) => xs.map((x) => x.agent).find((a) => a.id === ${JSON.stringify(member?.id ?? "")})?.skills.includes('plugin:pentest/web-pentest'))`,
+  15000,
+);
+const after = (JSON.parse((await invoke("agents")) || "[]") ?? []).map((a) => a.agent).find((a) => a.id === member?.id);
+await shot("03b-plugin-skill-on");
+check(
+  "one skill of a plugin is given alone, without the plugin",
+  listedAlone && given && !(after?.skills ?? []).includes("plugin:pentest") && !(after?.skills ?? []).includes("plugin:pentest/firmware"),
+  JSON.stringify(after?.skills ?? null),
+);
+
 // 4. Every view renders, without console errors.
 const views = ["overview", "tickets", "runs", "needs", "projects", "agents", "teams", "providers", "templates", "memory", "audit", "usage", "settings", "live", "library", "chat", "browser"];
 for (const v of views) {

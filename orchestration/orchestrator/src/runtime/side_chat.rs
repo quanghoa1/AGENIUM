@@ -6,9 +6,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use agenium_backend::{Effect, NoopObserver, Outcome, Protocol, WorkOrder};
+use agenium_backend::{Effect, Observer, Outcome, Protocol, WorkOrder};
 use agenium_core::{BackendKind, ModelBinding};
-use agenium_llm::{ChatRequest, Message, Role, SystemBlock, Usage};
+use agenium_llm::{ChatEvent, ChatRequest, Message, Role, SystemBlock, Usage};
 use agenium_tools::{DenyAll, ToolCtx, ToolError};
 use async_trait::async_trait;
 
@@ -26,6 +26,19 @@ pub struct SideAnswer {
     /// The model that answered (`codex:gpt-6-luna` for a CLI).
     pub model: String,
     pub usage: Usage,
+}
+
+/// What a side call is told as the answer is written: its text and reasoning pieces (`TextDelta`, `ThinkingDelta`),
+/// and `Restart` when a dropped stream starts again.
+pub type Live<'a> = &'a (dyn Fn(&ChatEvent) + Send + Sync);
+
+/// Hands a CLI's live events to the side call's `Live`.
+struct Forward<'a>(Live<'a>);
+
+impl Observer for Forward<'_> {
+    fn event(&self, e: &ChatEvent) {
+        (self.0)(e)
+    }
 }
 
 /// A side call offers no protocol tool.
@@ -71,13 +84,42 @@ impl Runtime {
         messages: Vec<Message>,
         max_tokens: u32,
     ) -> Result<SideAnswer> {
+        self.side_chat_live(
+            kind,
+            session,
+            backend,
+            model,
+            system,
+            messages,
+            max_tokens,
+            &|_| {},
+        )
+        .await
+    }
+
+    /// `side_chat`, telling `live` the answer's pieces as they are written (the helpers show it live).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn side_chat_live(
+        &self,
+        kind: &str,
+        session: Option<&str>,
+        backend: BackendKind,
+        model: &ModelBinding,
+        system: &str,
+        messages: Vec<Message>,
+        max_tokens: u32,
+        live: Live<'_>,
+    ) -> Result<SideAnswer> {
         if messages.is_empty() {
             return Err(OrchError::Invalid("nothing to answer".into()));
         }
         let started = agenium_core::now_iso();
         let a = match backend {
-            BackendKind::Api => self.side_api(model, system, messages, max_tokens).await,
-            BackendKind::Cli => self.side_cli(model, system, messages).await,
+            BackendKind::Api => {
+                self.side_api(model, system, messages, max_tokens, live)
+                    .await
+            }
+            BackendKind::Cli => self.side_cli(model, system, messages, live).await,
         }?;
         self.record_helper(kind, session, backend, model, &started, &a);
         Ok(a)
@@ -132,6 +174,7 @@ impl Runtime {
         system: &str,
         messages: Vec<Message>,
         max_tokens: u32,
+        live: Live<'_>,
     ) -> Result<SideAnswer> {
         let provider = self.providers.provider(&model.provider)?;
         let req = ChatRequest {
@@ -152,7 +195,7 @@ impl Runtime {
             provider.as_ref(),
             &req,
             &self.retry,
-            &|_| {},
+            &|e| live(&e),
             |_, _, _| {},
         )
         .await
@@ -169,8 +212,10 @@ impl Runtime {
         model: &ModelBinding,
         system: &str,
         messages: Vec<Message>,
+        live: Live<'_>,
     ) -> Result<SideAnswer> {
         use agenium_cli_backend::{CliRun, Limits};
+        let observer = Forward(live);
         let (driver, program) = self
             .cli_ready_named(&model.provider)
             .await
@@ -196,7 +241,7 @@ impl Runtime {
             tools: vec![],
             ctx: &ctx,
             session: None,
-            observer: &NoopObserver,
+            observer: &observer,
             cancel: self.cancel.child(),
             limits: Limits {
                 max_steps: CLI_STEPS,

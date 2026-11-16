@@ -132,6 +132,8 @@ impl Driver for Claude {
             "--output-format",
             "stream-json",
             "--verbose",
+            // The answer as it is written (`stream_event` lines): chats and the helpers show it live.
+            "--include-partial-messages",
             "--dangerously-skip-permissions",
             "--setting-sources",
             "user",
@@ -369,6 +371,29 @@ mod tests {
         assert!(
             c.starts_subagent("Agent") && c.starts_subagent("Task") && !c.starts_subagent("Read")
         );
+    }
+
+    /// `--include-partial-messages`: the main conversation's text and reasoning pieces as they are written; a
+    /// subagent's pieces and the stream's other events are left out (its whole messages still come).
+    #[test]
+    fn partial_messages_come_as_pieces() {
+        let c = Claude;
+        let ev = |s: &str| c.parse(&serde_json::from_str(s).unwrap());
+        assert_eq!(
+            ev(
+                r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Team "}},"parent_tool_use_id":null,"session_id":"s1"}"#
+            ),
+            vec![Event::Partial("Team ".into())]
+        );
+        assert_eq!(
+            ev(
+                r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"The user wants"}},"parent_tool_use_id":null}"#
+            ),
+            vec![Event::Thinking("The user wants".into())]
+        );
+        assert!(ev(r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"x"}},"parent_tool_use_id":"toolu_9"}"#).is_empty());
+        assert!(ev(r#"{"type":"stream_event","event":{"type":"message_start","message":{}},"parent_tool_use_id":null}"#).is_empty());
+        assert!(ev(r#"{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"a\""}},"parent_tool_use_id":null}"#).is_empty());
     }
 
     #[test]

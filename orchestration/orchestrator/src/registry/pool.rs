@@ -140,6 +140,16 @@ impl App {
                 }
                 continue;
             }
+            // One skill of a plugin, without its MCP servers (ADR-157, 2026-11-17).
+            if let Some((p, skill)) = agenium_skills::plugin_skill_of(s) {
+                match self.plugin(p) {
+                    None => return Err(invalid(format!("plugin {p:?} is not installed"))),
+                    Some(plugin) if !plugin.skills.contains_key(skill) => {
+                        return Err(invalid(format!("plugin {p:?} has no skill {skill:?}")))
+                    }
+                    Some(_) => continue,
+                }
+            }
             if lib.get(s).is_none() {
                 return Err(invalid(format!("skill {s:?} is not in the library")));
             }
@@ -160,7 +170,7 @@ impl App {
         Ok(())
     }
 
-    /// Turns one library skill on or off for an agent.
+    /// Turns one library skill, or one skill of a plugin (`plugin:<plugin>/<skill>`), on or off for an agent.
     pub fn toggle_agent_skill(&self, id: AgentId, skill: &str, on: bool) -> Result<Vec<String>> {
         let a = self.agent(id)?;
         let mut skills = a.skills.clone();

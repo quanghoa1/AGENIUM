@@ -1,5 +1,5 @@
-//! ADR-157: a plugin from a vendor's folder, shown before it is written, on or off whole per agent, its skills
-//! read-only, updated whole, removed with its switches.
+//! ADR-157: a plugin from a vendor's folder, shown before it is written, on or off whole per agent (or skill by skill,
+//! tests/team/plugin_skills.rs), the vendor's copy never changed, updated whole, removed with its switches.
 
 use super::*;
 
@@ -109,8 +109,9 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
     );
     assert!(f.app.toggle_agent_plugin(ana.id, "nope", true).is_err());
 
-    // Read-only: the agent's learning cannot change a plugin's skill.
-    let refused = f.app.preview_skill_update(
+    // ADR-157 (2026-11-17): an agent may learn into a plugin's skill, in its own copy (the gates and the rebase are
+    // covered in tests/team/plugin_skills.rs); a preview reads the vendor's text as the current one.
+    let preview = f.app.preview_skill_update(
         ana.id,
         &agenium_core::forms::ProposeSkillUpdate {
             skill: "brainstorming".into(),
@@ -120,7 +121,8 @@ async fn a_plugin_is_installed_switched_whole_updated_and_removed() {
             lesson: 1,
         },
     );
-    assert!(refused.is_err());
+    let (current, _) = preview.unwrap();
+    assert!(current.contains("Use brainstorming 1.0."), "{current}");
 
     // An update shows what changes and replaces the whole set.
     plugin_repo(&repo, "2.0", &["brainstorming", "executing-plans"]);

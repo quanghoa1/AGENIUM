@@ -18,7 +18,7 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
   const app = useApp();
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [caps, setCaps] = useState<Capabilities | null>(null);
-  const { lib, servers } = useLibrary(app.tick);
+  const { lib, servers, pluginSkills } = useLibrary(app.tick);
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [draft, setDraft] = useState<RoleDraft>(emptyRole);
@@ -89,7 +89,7 @@ function AgentCreate({ open, onClose }: { open: boolean; onClose: () => void }) 
             <ModelPicker value={model} onChange={setModel} caps={caps} />
             {gone && <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{app.t("models.keptGone").replace("{m}", gone)}</div>}
           </div>
-          <Switches skills={skills} mcp={mcp} lib={lib} servers={servers} onSkills={(s, on) => setSkills((xs) => flip(xs, s, on))} onMcp={(s, on) => setMcp((xs) => flip(xs, s, on))} />
+          <Switches skills={skills} mcp={mcp} lib={lib} servers={servers} pluginSkills={pluginSkills} onSkills={(s, on) => setSkills((xs) => flip(xs, s, on))} onMcp={(s, on) => setMcp((xs) => flip(xs, s, on))} />
           <div className="text-[11px] text-subtle">{app.t("agents.poolNote")}</div>
           {/* Always in view, however long the form grows. */}
           <div className="sticky bottom-0 -mx-5 flex justify-end gap-2 border-t border-line bg-surface px-5 py-3">

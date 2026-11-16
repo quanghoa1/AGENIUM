@@ -127,6 +127,8 @@ fn main() {
             api::memory,
             api::memory_graph,
             api::memory_action,
+            api::draft_overlay_merge,
+            api::accept_overlay_merge,
             api::revert_memory_run,
             api::resolve_memory_conflict,
             api::set_agent_status,

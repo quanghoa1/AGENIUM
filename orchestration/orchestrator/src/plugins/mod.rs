@@ -123,10 +123,30 @@ pub struct Plugin {
     pub hooks: Vec<String>,
     /// What was not taken, and why.
     pub skipped: Vec<String>,
+    /// Only on the answer to an install that replaced the plugin: what happened to the agents' copies of its skills.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refreshed: Option<PluginRefresh>,
     pub installed_at: String,
     /// From a private repository: reading it again (an update) needs a token pasted again.
     #[serde(default)]
     pub private: bool,
+}
+
+/// What an update did to the agents using the plugin, as `agent: skill` lines.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PluginRefresh {
+    /// Copies rebased onto the vendor's new text, what the agent learned kept.
+    pub rebased: Vec<String>,
+    /// Copies that did not merge cleanly: left as they were, waiting for the user.
+    pub conflicts: Vec<String>,
+    /// Skills given one by one that the vendor no longer ships: taken off the agent.
+    pub dropped: Vec<String>,
+}
+
+/// Whether a skill-binding entry is `plugin`'s, whole (`plugin:<p>`) or one skill (`plugin:<p>/<skill>`).
+fn of_plugin(entry: &str, plugin: &str) -> bool {
+    agenium_skills::plugin_of(entry) == Some(plugin)
+        || agenium_skills::plugin_skill_of(entry).is_some_and(|(p, _)| p == plugin)
 }
 
 /// What an install or an update would bring, shown before anything is written.
@@ -277,15 +297,49 @@ impl App {
         Some(p)
     }
 
-    /// The agents that have `plugin` on.
+    /// The agents that have `plugin` on, whole or some of its skills.
     fn plugin_agents(&self, plugin: &str) -> Result<Vec<agenium_store::core::agents::Agent>> {
-        let entry = format!("{}{plugin}", agenium_skills::PLUGIN_PREFIX);
         Ok(self
             .store()
             .read(agenium_store::core::agents::agents)?
             .into_iter()
-            .filter(|a| a.skills.contains(&entry))
+            .filter(|a| a.skills.iter().any(|s| of_plugin(s, plugin)))
             .collect())
+    }
+
+    /// After an update of `plugin` (ADR-157, 2026-11-17): an agent given a skill the vendor no longer ships loses that
+    /// entry (its own copy, if it learned into it, stays as its own skill); every agent using the plugin has its
+    /// copies of the plugin's skills rebased onto the vendor's new text, keeping what it learned. A copy that does not
+    /// merge cleanly stays as it was and goes to the user (Needs you), who can resolve it or ask the helper.
+    fn refresh_plugin_users(&self, plugin: &Plugin) -> Result<PluginRefresh> {
+        let mut out = PluginRefresh::default();
+        for a in self.plugin_agents(&plugin.name)? {
+            let keep: Vec<String> = a
+                .skills
+                .iter()
+                .filter(|s| match agenium_skills::plugin_skill_of(s) {
+                    Some((p, skill)) if p == plugin.name => plugin.skills.contains_key(skill),
+                    _ => true,
+                })
+                .cloned()
+                .collect();
+            if keep.len() != a.skills.len() {
+                for s in a.skills.iter().filter(|s| !keep.contains(s)) {
+                    out.dropped
+                        .push(format!("{}: {}", a.name, s.rsplit('/').next().unwrap_or(s)));
+                }
+                self.set_agent_skills(a.id, &keep)?;
+            }
+            for o in self.rebase_skill_overlays(a.id)? {
+                let line = format!("{}: {}", a.name, o.skill);
+                match o.status.as_str() {
+                    "rebased" => out.rebased.push(line),
+                    "conflict" => out.conflicts.push(line),
+                    _ => {}
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// Reads a plugin from its source into a staging folder and gives it to `f` (the folder goes after).
@@ -392,6 +446,7 @@ impl App {
         };
         let dir = self.plugins_dir();
         sweep(&dir);
+        let mut replaced = false;
         let plugin = self
             .with_fetched(&at, entry, token, |p, got| {
                 if got != commit {
@@ -426,6 +481,7 @@ impl App {
                     return Err(e);
                 }
                 let dest = dir.join(&p.name);
+                replaced = dest.exists();
                 if dest.exists() {
                     let old = dir.join(format!(".old-{}-{}", p.name, ulid::Ulid::new()));
                     std::fs::rename(&dest, &old)?;
@@ -463,6 +519,10 @@ impl App {
             })
             .await?;
         tracing::info!(plugin = %plugin.name, commit = %plugin.commit, "plugin installed");
+        let mut plugin = plugin;
+        if replaced {
+            plugin.refreshed = Some(self.refresh_plugin_users(&plugin)?);
+        }
         Ok(plugin)
     }
 
@@ -474,9 +534,12 @@ impl App {
             return Err(invalid(format!("no plugin {name:?}")));
         }
         let dir = root.join(name);
-        let entry = format!("{}{name}", agenium_skills::PLUGIN_PREFIX);
         for a in self.plugin_agents(name)? {
-            let rest: Vec<String> = a.skills.into_iter().filter(|s| *s != entry).collect();
+            let rest: Vec<String> = a
+                .skills
+                .into_iter()
+                .filter(|s| !of_plugin(s, name))
+                .collect();
             self.set_agent_skills(a.id, &rest)?;
             self.forget_plugin_sessions(a.id);
         }
@@ -584,6 +647,7 @@ fn plugin_record(
             })
             .collect(),
         skipped: p.skipped.clone(),
+        refreshed: None,
         installed_at: chrono::Utc::now().to_rfc3339(),
         private: false,
     })

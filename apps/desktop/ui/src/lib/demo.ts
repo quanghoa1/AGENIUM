@@ -296,7 +296,16 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "memory":
       return {
         hide_below: 0.2,
-        overlays: [],
+        overlays: [
+          {
+            skill: "web-pentest",
+            base_version: "2.0",
+            base: "plugin:pentest",
+            stale: true,
+            diff: "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -5,2 +5,3 @@\n 1. Map the app.\n 2. Test inputs.\n+3. Confirm the written scope first.\n",
+            changelog: [{ at: iso(120), reason: "a test ran out of scope", lesson: 4, lesson_text: "Confirm the written scope before testing." }],
+          },
+        ],
         facts: [
           { id: 12, text: "Breaking changes go first in release notes.", kind: "lesson", scope: { project: "shop" }, cue: "writing release notes", evidence: "Reopened by the review", source: "ticket:SHOP-4", untrusted: false, confidence: 0.7, weight: 0.95, created_at: iso(3000), used_at: iso(60), validated: ["p1/ticket:SHOP-6", "p1/ticket:SHOP-9"] },
           { id: 7, text: "The shop API runs on port 8080 in development.", kind: "fact", scope: {}, source: "ticket:SHOP-2", untrusted: false, confidence: 0.55, weight: 0.8, created_at: iso(9000) },

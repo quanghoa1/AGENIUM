@@ -307,3 +307,41 @@ fn delete_agent_rules() {
         .unwrap();
     assert_eq!(f.app.agents().unwrap()[0].id, b.id);
 }
+
+/// An agent given a plugin whole or one skill of it (ADR-157) exports and imports with those entries; on a root without
+/// the plugin they load nothing until it is installed.
+#[test]
+fn an_agent_with_plugin_entries_round_trips() {
+    let f = fixture();
+    let a = solo_with_plan(&f, &[("PI-1", &[])]);
+    let entries = vec![
+        "plugin:pentest".to_owned(),
+        "plugin:superpowers/brainstorming".to_owned(),
+    ];
+    f.app.set_agent_skills(a.id, &entries).unwrap();
+    let out = f._tmp.path().join("ada.agent.jsonl");
+    f.app
+        .export_agent(a.id, &out, emb().as_ref(), &ExportOptions::default())
+        .unwrap();
+    let g = fixture();
+    let b = g
+        .app
+        .import_agent(
+            &out,
+            &ImportRequest {
+                project: g.project.id,
+                name: Some("ada-copy".into()),
+            },
+            emb().as_ref(),
+        )
+        .unwrap();
+    assert_eq!(b.skills, entries);
+    let set = g
+        .app
+        .skill_registry()
+        .for_agent(&b.id.to_string(), &b.role, &b.skills);
+    assert!(
+        set.get("brainstorming").is_none(),
+        "nothing of a plugin this root lacks"
+    );
+}

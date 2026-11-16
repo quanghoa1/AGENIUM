@@ -255,7 +255,7 @@ fn registry_resolution_and_binding() {
 }
 
 #[test]
-fn a_plugin_is_on_whole_and_its_skills_stay_the_vendors() {
+fn a_plugin_is_on_whole_or_by_skill_and_an_agents_copy_overlays_it() {
     let tmp = tempfile::tempdir().unwrap();
     let reg = Registry::new(tmp.path().join("agents"), tmp.path().join("roles"));
     let plug = reg.plugins_dir().join("superpowers").join("skills");
@@ -280,19 +280,72 @@ fn a_plugin_is_on_whole_and_its_skills_stay_the_vendors() {
             .origin,
         Origin::Agent
     );
-    // On: the plugin's skills, not over the role's, and the agent's own copy does not replace the vendor's.
+    // On: the plugin's skills, not over the role's; the agent's own copy of a plugin skill is its overlay of it (the
+    // vendor's folder stays as it is).
     let on = reg.for_agent("A1", "coder", &["plugin:superpowers".into()]);
     assert_eq!(on.names(), vec!["brainstorming", "git-flow"]);
     let b = on.get("brainstorming").unwrap();
     assert_eq!(
         (b.meta.origin, b.body.trim()),
-        (Origin::Plugin, "Vendor text.")
+        (Origin::Overlay, "Agent copy.")
     );
     assert_eq!(on.get("git-flow").unwrap().body.trim(), "Role git.");
-    assert!(
-        on.problems.iter().any(|p| p.error.contains("read-only")),
+    assert!(on.problems.is_empty(), "{:?}", on.problems);
+    // Without the agent's copy, the vendor's text.
+    let b2 = reg.for_agent("A2", "coder", &["plugin:superpowers".into()]);
+    assert_eq!(
+        (
+            b2.get("brainstorming").unwrap().meta.origin,
+            b2.get("brainstorming").unwrap().body.trim()
+        ),
+        (Origin::Plugin, "Vendor text.")
+    );
+    // One skill of a plugin alone (`plugin:<plugin>/<skill>`): only that one; an unknown one brings nothing.
+    assert_eq!(
+        agenium_skills::plugin_skill_of("plugin:superpowers/brainstorming"),
+        Some(("superpowers", "brainstorming"))
+    );
+    assert_eq!(
+        agenium_skills::plugin_of("plugin:superpowers/brainstorming"),
+        None
+    );
+    assert_eq!(
+        agenium_skills::plugin_skill_of("plugin:superpowers/../x"),
+        None
+    );
+    let one = reg.for_agent(
+        "A2",
+        "reviewer",
+        &[
+            "plugin:superpowers/brainstorming".into(),
+            "plugin:superpowers/nope".into(),
+        ],
+    );
+    assert_eq!(one.names(), vec!["brainstorming"]);
+    assert_eq!(
+        one.get("brainstorming").unwrap().meta.origin,
+        Origin::Plugin
+    );
+    // An agent's copy of a plugin skill keeps the plugin's rules (a sibling skill's file, which the copy does not have).
+    let own2 = reg.dir_of(&Owner::Agent("A3".into()));
+    skill(
+        &plug,
+        "linking",
+        "Links.",
+        "See [notes](../reviewing/notes.md).",
+    );
+    skill(
+        &own2,
+        "linking",
+        "Links (mine).",
+        "See [notes](../reviewing/notes.md). Mine.",
+    );
+    let linked = reg.for_agent("A3", "reviewer", &["plugin:superpowers/linking".into()]);
+    assert_eq!(
+        linked.get("linking").map(|s| s.meta.origin),
+        Some(Origin::Overlay),
         "{:?}",
-        on.problems
+        linked.problems
     );
     // A plugin's skill may point at a sibling skill's file, never out of the plugin's skills folder.
     write(&plug.join("reviewing/notes.md"), "notes");

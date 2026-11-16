@@ -89,3 +89,20 @@ Markdown), the helpers' calls in the usage page, a team made on each role's mode
 - UI: `components/HelperChat.tsx`, `views/TeamDesigner.tsx`, `views/capabilities/SkillWriter.tsx`; `Templates.tsx`
   (button, `#/templates/design`, role skills field), `TeamsView.tsx` (button), `skills.tsx` (card), `SkillEditor.tsx`
   (opens drafted files); strings `helper.*`, `design.*`, `skillWriter.*`, `templates.skills*`.
+
+## Amendment (2026-11-17): the answer is shown as it is written
+
+A designer turn on Claude Code with Opus at effort `max` took 3 min 42 s for a 17,066-token team template, with only
+"Thinking…" on screen. The helpers now stream: `Runtime::side_chat_live` hands the answer's pieces (`TextDelta`,
+`ThinkingDelta`, `Restart` when the answer is asked again) to a callback, from an API model's stream or a CLI's run
+observer; `design_team_live` / `write_skill_live` pass them on; the desktop emits them as `agenium://helper` for the
+session being answered; `HelperChat` shows the `reply` read from the partial JSON as it grows, then "writing the
+answer and the draft… N characters · S s" (or "thinking… S s"). Nothing of it is kept: the whole answer still comes
+back from the command and is checked as before.
+
+Claude Code sends whole messages only, so it now runs with `--include-partial-messages`: `stream_event` text and
+thinking deltas become `Event::Partial` / `Event::Thinking` (a subagent's are left to its whole messages), and the
+whole message that follows shows only what its pieces did not (`State::partial`). Checked with the real CLI
+(`cli-backend/examples/cli_live.rs`): Haiku and Sonnet answers came in 180+ pieces, the first after 3–4 s instead of at
+the end, and the pieces made the answer exactly.
+
