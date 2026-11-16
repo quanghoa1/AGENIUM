@@ -7,3 +7,5 @@
 pub mod mxc_policy;
 #[cfg(windows)]
 pub mod mxc_probe;
+// Plain string parsing: built and tested on every OS.
+pub mod mxc_spawn_error;

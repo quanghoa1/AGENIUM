@@ -269,12 +269,21 @@ pub fn run(
     let req = request(argv, cwd, env, policy)?;
     let start = Instant::now();
     let mut logger = Logger::new(Mode::Buffer);
-    // The SDK's diagnostic buffer may contain the command or environment: only the error message is surfaced.
+    // The SDK's diagnostic buffer may contain the command or environment: only the error message is surfaced, with
+    // the Windows error number when the launch itself failed (upstream native.rs, e5839cb).
     let mut child = BaseContainerRunner::new()
         .spawn(&req, &mut logger, StdioMode::Pipes)
-        .map_err(|e| ExecError::Spawn {
-            program: argv[0].clone(),
-            source: std::io::Error::other(e.error_message),
+        .map_err(|e| {
+            let msg = match crate::codex_derived::mxc_spawn_error::create_process_error(
+                &e.extended_error,
+            ) {
+                Some(code) => format!("{} (CreateProcessW, Win32 error {code})", e.error_message),
+                None => e.error_message,
+            };
+            ExecError::Spawn {
+                program: argv[0].clone(),
+                source: std::io::Error::other(msg),
+            }
         })?;
     let out = child.take_stdout().map(|r| crate::reader(r, live.clone()));
     let err = child.take_stderr().map(|r| crate::reader(r, live.clone()));

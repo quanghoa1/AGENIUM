@@ -2,6 +2,14 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
+## Unreleased
+
+### Sandbox
+- **Codex sandbox sources updated to `e5839cb`**: a command the Windows sandbox cannot start now says the Windows error
+  number (without the working directory the SDK puts beside it). Codex's new Linux seccomp hardening (x32 syscall
+  numbers, `request_key`) and transparent-TCP mode were read and do not apply: Agenium's bubblewrap backend installs
+  no seccomp filter of its own.
+
 ## 0.1.1 — 2026-11-12 (pre-release)
 
 Commands and the sandbox: a blocked command asks you instead of failing, and fewer commands are blocked on macOS.

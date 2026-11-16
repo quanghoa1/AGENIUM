@@ -19,6 +19,7 @@ security/sandbox/src/
   codex_derived/               the ONLY Agenium code adapted from Codex; every file names its upstream source
     mxc_probe.rs               <- codex-rs/mxc-sandbox/src/availability.rs
     mxc_policy.rs              <- codex-rs/mxc-sandbox/src/policy.rs, windows.rs, windows-sandbox-rs/src/cmd_script.rs
+    mxc_spawn_error.rs         <- codex-rs/mxc-sandbox/src/native.rs (the Win32 number of a failed launch)
   mxc.rs                       Windows backend glue (toolchain roots, long paths, run loop) — Agenium's own
   unix.rs                      Linux (bubblewrap) and macOS (Seatbelt) backend through mxc-sdk v1 — Agenium's own
   seatbelt.rs                  macOS, network on: mxc-sdk's own Seatbelt profile with its open outbound rule narrowed (no host unix sockets)
