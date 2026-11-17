@@ -12,6 +12,11 @@ Quality rules learned from the open-source orchestrator babysitter (ideas only, 
   refuses the kept token (expired or revoked); the new one replaces it. Removing the repository's last plugin deletes
   the token.
 
+### Teams
+- **The built-in pentest team template is gone**: the built-in templates are coding, research and content. A security
+  team is a template you make (or one a plugin brings); teams already made from it keep working, and the `pentest@1`
+  report template stays.
+
 ### Work and review
 - **Every ticket has a criterion on the real path**: the Lead and the planner state at least one acceptance criterion
   as what a user or caller observes ("running X prints Y"), never just "tests pass". Evidence for it must run that

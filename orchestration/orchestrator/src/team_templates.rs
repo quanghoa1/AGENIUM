@@ -1,6 +1,6 @@
 //! Team templates (architecture page "Template team & Role", ADR-58): a versioned TOML file with the team's roles
 //! (Lead + workers: tags, ROLE.md text, skills, allowed paths, count, default model) and its report template.
-//! Built-in: coding, pentest, research, content; user templates in `<root>/templates/<id>.toml` (same id = override).
+//! Built-in: coding, research, content; user templates in `<root>/templates/<id>.toml` (same id = override).
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -11,9 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::app::{App, CreateAgent};
 use crate::{OrchError, Result};
 
-const BUILTIN: [&str; 4] = [
+const BUILTIN: [&str; 3] = [
     include_str!("../templates/coding.toml"),
-    include_str!("../templates/pentest.toml"),
     include_str!("../templates/research.toml"),
     include_str!("../templates/content.toml"),
 ];
@@ -618,7 +617,7 @@ mod tests {
         let all = builtin();
         assert_eq!(
             all.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
-            ["coding", "pentest", "research", "content"]
+            ["coding", "research", "content"]
         );
         for t in &all {
             assert_eq!(&TeamTemplate::parse(&t.to_toml()).unwrap(), t);

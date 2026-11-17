@@ -2,12 +2,67 @@
 
 use super::*;
 
+/// A multi-role, write-scoped template built inline for the team tests, so they do not depend on a shipped product
+/// template. Uses the `pentest@1` report template.
+const SURFACES_TEMPLATE: &str = r###"
+id = "surfaces"
+version = "1.0.0"
+name = "Surfaces team"
+report_template = "pentest@1"
+
+[[roles]]
+id = "lead"
+kind = "lead"
+prompt = "## Mission\nLead."
+
+[[roles]]
+id = "planner"
+kind = "worker"
+planner = true
+prompt = "## Mission\nPlan."
+
+[[roles]]
+id = "web"
+kind = "worker"
+allowed_paths = ["deliverables/web/**", "artifacts/web/**"]
+prompt = "## Mission\nWeb."
+
+[[roles]]
+id = "mobile"
+kind = "worker"
+allowed_paths = ["deliverables/mobile/**", "artifacts/mobile/**"]
+prompt = "## Mission\nMobile."
+
+[[roles]]
+id = "app"
+kind = "worker"
+allowed_paths = ["deliverables/app/**", "artifacts/app/**"]
+prompt = "## Mission\nApp."
+
+[[roles]]
+id = "reverser"
+kind = "worker"
+allowed_paths = ["deliverables/reverse/**", "artifacts/reverse/**"]
+prompt = "## Mission\nReverse."
+
+[[roles]]
+id = "recon"
+kind = "worker"
+allowed_paths = ["deliverables/recon/**", "artifacts/recon/**"]
+prompt = "## Mission\nRecon."
+"###;
+
 #[test]
 fn team_from_template_and_write_scope() {
     let f = fixture();
+    f.app
+        .save_team_template(
+            &agenium_orchestrator::team_templates::TeamTemplate::parse(SURFACES_TEMPLATE).unwrap(),
+        )
+        .unwrap();
     let out = f
         .app
-        .create_team_from_template(f.project.id, "pentest", &model(), None, None, "acme")
+        .create_team_from_template(f.project.id, "surfaces", &model(), None, None, "acme")
         .unwrap();
     let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
@@ -27,9 +82,9 @@ fn team_from_template_and_write_scope() {
         "pentest@1"
     );
     let roles = f.app.layout().roles();
-    assert!(roles.join("pentest-web").join("ROLE.md").is_file());
+    assert!(roles.join("surfaces-web").join("ROLE.md").is_file());
     assert_eq!(
-        f.app.role_allowed_paths("pentest-web"),
+        f.app.role_allowed_paths("surfaces-web"),
         ["deliverables/web/**", "artifacts/web/**"]
     );
     assert!(
@@ -154,7 +209,12 @@ fn team_from_template_and_write_scope() {
 fn a_ticket_outside_the_workers_role_paths_is_not_assigned() {
     let f = fixture();
     f.app
-        .create_team_from_template(f.project.id, "pentest", &model(), None, None, "acme")
+        .save_team_template(
+            &agenium_orchestrator::team_templates::TeamTemplate::parse(SURFACES_TEMPLATE).unwrap(),
+        )
+        .unwrap();
+    f.app
+        .create_team_from_template(f.project.id, "surfaces", &model(), None, None, "acme")
         .unwrap();
     let (team, members) = f.app.team_of_project(f.project.id).unwrap().unwrap();
     let lead = Actor::Lead(team.lead.unwrap());
@@ -243,9 +303,14 @@ fn a_ticket_outside_the_workers_role_paths_is_not_assigned() {
 #[test]
 fn agent_names_are_role_names_and_unique() {
     let f = fixture();
+    f.app
+        .save_team_template(
+            &agenium_orchestrator::team_templates::TeamTemplate::parse(SURFACES_TEMPLATE).unwrap(),
+        )
+        .unwrap();
     let out = f
         .app
-        .create_team_from_template(f.project.id, "pentest", &model(), None, None, "")
+        .create_team_from_template(f.project.id, "surfaces", &model(), None, None, "")
         .unwrap();
     let names: Vec<&str> = out.agents.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
