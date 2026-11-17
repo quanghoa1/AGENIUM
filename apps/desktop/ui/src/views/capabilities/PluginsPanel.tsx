@@ -15,7 +15,8 @@ export function PluginsPanel() {
   const [list, setList] = useState<{ plugin: Plugin; users: string[] }[] | null>(null);
   const [source, setSource] = useState("");
   const [entry, setEntry] = useState("");
-  // Private repository: the GitHub token pasted for this preview and install only; cleared after, never stored.
+  // Private repository: the GitHub token pasted here, cleared from the panel after; an install keeps it in the secret
+  // store for the repository's next update.
   const [priv, setPriv] = useState(false);
   const [token, setToken] = useState("");
   const [askToken, setAskToken] = useState<string | null>(null);
@@ -33,11 +34,22 @@ export function PluginsPanel() {
   const pasted = () => (priv ? token.trim() : "");
   const look = () => run("preview", api.previewPlugin(source.trim(), entry.trim(), pasted()).then(setPreview));
   const checkUpdate = (p: Plugin) => {
-    if (p.private && !token.trim()) {
+    if (p.private && !p.token_kept && !token.trim()) {
       setAskToken(p.name);
       return;
     }
-    run(`update:${p.name}`, api.previewPluginUpdate(p.name, token.trim()).then(setPreview));
+    run(
+      `update:${p.name}`,
+      api
+        .previewPluginUpdate(p.name, token.trim())
+        .then(setPreview)
+        .catch((e) => {
+          // The kept token was refused (expired or revoked): say why and ask for a new one.
+          if (!p.private || token.trim()) throw e;
+          app.notify(String(e));
+          setAskToken(p.name);
+        }),
+    );
   };
   const forget = () => {
     setToken("");
@@ -254,8 +266,8 @@ function Pieces({ title, all, added, changed, removed }: { title: string; all: s
   );
 }
 
-/** The GitHub token of a private repository: a password field, with how to make a read-only one. Kept in the panel's
- *  state for one preview and install, then cleared; Agenium stores it nowhere. */
+/** The GitHub token of a private repository: a password field, with how to make a read-only one. Cleared from the
+ *  panel after; an install keeps it in the secret store for the repository's updates. */
 function TokenField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const app = useApp();
   return (

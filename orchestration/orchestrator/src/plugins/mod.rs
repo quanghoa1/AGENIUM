@@ -13,6 +13,7 @@
 pub mod hooks;
 mod layout;
 pub mod source;
+mod token;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -48,8 +49,7 @@ struct Install {
     /// What the install did not take from the vendor's repository, and why.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     skipped: Vec<String>,
-    /// Installed from a private repository with a token the user pasted: an update asks for one again (the token
-    /// itself is never kept).
+    /// Installed from a private repository with a token: kept in the secret store per repository, not here.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     private: bool,
 }
@@ -127,9 +127,12 @@ pub struct Plugin {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refreshed: Option<PluginRefresh>,
     pub installed_at: String,
-    /// From a private repository: reading it again (an update) needs a token pasted again.
+    /// From a private repository: an update reads it with the token kept for it, or asks for one.
     #[serde(default)]
     pub private: bool,
+    /// A token is kept for its repository (ADR-157): an update need not ask for one.
+    #[serde(default)]
+    pub token_kept: bool,
 }
 
 /// What an update did to the agents using the plugin, as `agent: skill` lines.
@@ -294,6 +297,7 @@ impl App {
         p.installed_at = install.installed_at;
         p.skipped = install.skipped;
         p.private = install.private;
+        p.token_kept = p.private && self.plugin_token_kept(&source);
         Some(p)
     }
 
@@ -365,7 +369,7 @@ impl App {
     }
 
     /// What installing `source` (`owner/repo[@ref]` or a folder) would bring; `entry` names the plugin of a
-    /// marketplace listing several; `token` reads a private GitHub repository (used for this call only). Nothing is
+    /// marketplace listing several; `token` reads a private GitHub repository (else the one kept for it). Nothing is
     /// written.
     pub async fn preview_plugin(
         &self,
@@ -375,7 +379,8 @@ impl App {
     ) -> Result<PluginPreview> {
         let src = Source::parse(source)?;
         let reference = src.reference().to_owned();
-        let token = github_token(&src, token);
+        let token = self.plugin_token(&src, token);
+        let token = token.as_deref();
         let mut plugin = self
             .with_fetched(&src, entry, token, |p, commit| {
                 plugin_record(&src, entry, &reference, p, commit)
@@ -396,7 +401,7 @@ impl App {
     }
 
     /// What updating `name` from its vendor would bring (the newest commit of the ref it follows). A plugin from a
-    /// private repository needs a `token` again.
+    /// private repository is read with the `token` pasted, else the one kept for it.
     pub async fn preview_plugin_update(
         &self,
         name: &str,
@@ -406,7 +411,8 @@ impl App {
             .plugin(name)
             .ok_or_else(|| invalid(format!("no plugin {name:?}")))?;
         let src = Source::parse(&old.source)?.at(&old.reference);
-        let token = github_token(&src, token);
+        let token = self.plugin_token(&src, token);
+        let token = token.as_deref();
         if old.private && token.is_none() {
             return Err(invalid(format!(
                 "{name} comes from a private repository: paste a GitHub token that can read it to update"
@@ -438,7 +444,8 @@ impl App {
         token: Option<&str>,
     ) -> Result<Plugin> {
         let src = Source::parse(source)?;
-        let token = github_token(&src, token);
+        let token = self.plugin_token(&src, token);
+        let token = token.as_deref();
         let at = if commit == "local" {
             src.clone()
         } else {
@@ -520,6 +527,11 @@ impl App {
             .await?;
         tracing::info!(plugin = %plugin.name, commit = %plugin.commit, "plugin installed");
         let mut plugin = plugin;
+        // The token it was read with is kept for the next update (a new one pasted replaces it).
+        if let Some(t) = token {
+            self.keep_plugin_token(&src, t);
+            plugin.token_kept = true;
+        }
         if replaced {
             plugin.refreshed = Some(self.refresh_plugin_users(&plugin)?);
         }
@@ -533,6 +545,9 @@ impl App {
         if !agenium_skills::valid_name(name) || installed.get(name).is_none() {
             return Err(invalid(format!("no plugin {name:?}")));
         }
+        let source = installed
+            .get(name)
+            .and_then(|i| Source::parse(&i.source).ok());
         let dir = root.join(name);
         for a in self.plugin_agents(name)? {
             let rest: Vec<String> = a
@@ -550,6 +565,9 @@ impl App {
             std::fs::remove_dir_all(dir)?;
         }
         sweep(&root);
+        if let Some(s) = source {
+            self.forget_plugin_token(&s);
+        }
         tracing::info!(plugin = name, "plugin removed");
         Ok(())
     }
@@ -604,14 +622,6 @@ impl App {
     }
 }
 
-/// The pasted token, for a GitHub source only (a folder needs none), trimmed; `None` when empty.
-fn github_token<'a>(source: &Source, token: Option<&'a str>) -> Option<&'a str> {
-    match source {
-        Source::GitHub { .. } => token.map(str::trim).filter(|t| !t.is_empty()),
-        Source::Folder(_) => None,
-    }
-}
-
 fn plugin_record(
     source: &Source,
     entry: Option<&str>,
@@ -650,6 +660,7 @@ fn plugin_record(
         refreshed: None,
         installed_at: chrono::Utc::now().to_rfc3339(),
         private: false,
+        token_kept: false,
     })
 }
 

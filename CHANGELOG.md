@@ -4,7 +4,13 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
-Quality rules learned from the open-source orchestrator babysitter (ideas only, ADR-162).
+Quality rules learned from the open-source orchestrator babysitter (ideas only, ADR-162); a private plugin's token is kept for its updates.
+
+### Plugins
+- **A private plugin's GitHub token is kept for its updates**: the token pasted at install goes to your OS keyring (or
+  Agenium's encrypted vault), one per repository, so an update no longer asks for it. It asks again only when GitHub
+  refuses the kept token (expired or revoked); the new one replaces it. Removing the repository's last plugin deletes
+  the token.
 
 ### Work and review
 - **Every ticket has a criterion on the real path**: the Lead and the planner state at least one acceptance criterion

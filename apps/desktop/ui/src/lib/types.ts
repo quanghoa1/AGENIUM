@@ -679,8 +679,10 @@ export interface Plugin {
   /** What was not taken, and why. */
   skipped: string[];
   installed_at: string;
-  /** From a private repository: an update needs a GitHub token pasted again (none is kept). */
+  /** From a private repository: an update reads it with the token kept for it, or asks for one. */
   private?: boolean;
+  /** A GitHub token is kept (in the OS keyring or the encrypted vault) for its repository. */
+  token_kept?: boolean;
   /** On the answer to an update only: the agents' copies of its skills rebased, waiting for a merge, or given a
    *  skill the vendor dropped (`agent: skill`). */
   refreshed?: { rebased: string[]; conflicts: string[]; dropped: string[] } | null;

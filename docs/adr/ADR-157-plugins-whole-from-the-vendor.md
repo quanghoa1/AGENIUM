@@ -141,3 +141,19 @@ rebased with the lesson kept and a dropped skill taken off, v3 in conflict, an i
 accepted, removal), `helper_merge.rs` unit test; the UI smoke installs a plugin through the form, finds its skills on
 the Skills page and gives one alone to an agent.
 
+
+## Amendment (2026-11-17): the token is kept for updates
+
+Owner: a fine-grained token is shown once, when it is made, so pasting it again at every update means making a new
+one. Point 3 above is replaced:
+
+- An install from a private repository keeps the token it read with in Agenium's secret store (the OS keyring, or the
+  encrypted vault where there is none, as the API keys), under `plugin-github/<owner>/<repo>` (lower case): one token
+  per repository, shared by the plugins of a marketplace repository. It is still in no install record, config,
+  message or log, and it is registered with the redactor when read.
+- An update (and a new preview of that repository) reads it with the token pasted, else the kept one. The update
+  dialog asks only when none is kept, or when GitHub refuses the kept one (expired or revoked): the error is shown and
+  the dialog opens, and the new token replaces the kept one once the update is installed.
+- Removing the repository's last plugin deletes its token.
+
+Test: `plugins::token::tests::a_repositorys_token_is_kept_used_replaced_and_forgotten`.
