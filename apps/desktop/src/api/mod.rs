@@ -28,6 +28,7 @@ mod skill_import;
 mod skill_quality;
 mod status;
 mod ticket_view;
+mod web_search;
 
 pub use actions::*;
 pub use agents::*;
@@ -42,6 +43,7 @@ pub use skill_import::*;
 pub use skill_quality::*;
 pub use status::*;
 pub use ticket_view::*;
+pub use web_search::*;
 
 pub(crate) fn key(s: &str) -> R<TicketKey> {
     s.parse().map_err(|e: IdParseError| e.to_string())

@@ -1,6 +1,6 @@
 [package]
 name = "agenium-tools"
-description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, todo, view_image, browser."
+description = "Agent work tools (decision 16): file read/list/glob/grep/write/edit/multi_edit/apply_patch, shell, fetch, web_search, todo, view_image, browser."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -26,6 +26,8 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["net"] }
 tokio-tungstenite.workspace = true
 agenium-core.workspace = true
+htmd = "0.5"
+encoding_rs = "0.8"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

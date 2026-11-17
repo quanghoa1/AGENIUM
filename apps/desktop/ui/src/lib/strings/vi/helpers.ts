@@ -52,6 +52,17 @@ export const helpers: Record<keyof typeof en, string> = {
   "proposal.byHand": "Duyệt tay",
   "proposal.declined": "Đã bỏ đề xuất",
   "proposal.saved": "Đã lưu vào thư viện thành {name}, đã bật cho {agent}",
+  "ws.title": "Tìm kiếm web",
+  "ws.note":
+    "Agent chạy Claude Code và Codex tự tìm kiếm web. Các agent khác (model qua API, OpenCode, Antigravity) tìm qua Exa, miễn phí và không cần key nhưng có giới hạn. Thêm key Tavily (tavily.com) hoặc Brave Search (đều có gói miễn phí), hoặc key Exa (exa.ai): tìm bằng key của bạn trước, dịch vụ mạnh hơn trước, Exa miễn phí sau cùng; dịch vụ nào hết lượt thì tự chuyển sang dịch vụ kế tiếp. Mọi agent đọc trang web bằng fetch.",
+  "ws.order": "Thứ tự tìm kiếm:",
+  "ws.free": "miễn phí, không cần key (có giới hạn)",
+  "ws.yourKey": "key của bạn",
+  "ws.placeholder": "Dán key Exa, Tavily (tvly-…) hoặc Brave Search (BSA…)",
+  "ws.save": "Lưu key",
+  "ws.saved": "Đã lưu key tìm kiếm ({api})",
+  "ws.remove": "Xóa key",
+  "ws.removed": "Đã xóa key tìm kiếm",
   "md.title": "Tài liệu (markitdown)",
   "md.note":
     "Agent và các khung chat đọc tài liệu dưới dạng Markdown. Agenium tự đọc PDF, Word, PowerPoint, Excel, EPUB và nhiều định dạng khác; markitdown của Microsoft đọc file Office và bảng trong PDF tốt hơn, đọc được cả file .doc/.xls/.ppt cũ và .msg của Outlook. Nó chạy trong sandbox.",

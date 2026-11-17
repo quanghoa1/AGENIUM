@@ -4,6 +4,22 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
+### Reading the web (ADR-163)
+- **Agents search the web, free**: Claude Code and Codex agents use their own web search (it runs on Anthropic's and
+  OpenAI's servers). Other agents (API models, OpenCode, Antigravity) get a `web_search` tool that searches through
+  Exa without a key. Add Tavily and Brave Search keys (both have a free tier) or an Exa key in **Settings → Web
+  search**: searches go to your keys first, the strongest first (Exa, Tavily, Brave), and to the free Exa last; one
+  out of its limit hands the search to the next and is passed over for 15 minutes. Each result has its title, URL, date and an extract.
+- **`fetch` reads any public site when the run's commands can reach the network anyway** (the default sandbox): no
+  more asking for each site. The private network (localhost, your LAN, the cloud metadata address) is still refused
+  unless you allow a host by name; with `[sandbox] network = false` the allowlist rules as before.
+- **Pages read as Markdown**: the page's main text with headings, lists, tables, code and links (made absolute, so the
+  agent can follow them), without menus, footers and scripts, in the page's own charset. PDFs and Office documents on
+  the web read as their text. Fewer sites refuse the request.
+- **Look it up, cite it**: agents look up what may have changed since their training (a library's version or API, a
+  tool's flags) instead of recalling it, prefer the official documentation, cite the URL and the version or date, and
+  check a fact the work depends on in a second source.
+
 ## 0.1.2 — 2026-11-17
 
 The helpers show their answer as it is written and continue their CLI session; plugins from private repositories;

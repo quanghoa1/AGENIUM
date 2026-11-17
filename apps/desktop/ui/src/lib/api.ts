@@ -291,6 +291,10 @@ export const api = {
   checkMarkitdownUpdate: () => call<MarkitdownStatus>("check_markitdown_update"),
   testMarkitdown: () => call<[string, string][]>("test_markitdown"),
   removeMarkitdown: () => call<MarkitdownStatus>("remove_markitdown"),
+  /** Web search in Settings (ADR-163): the order and which keys are set; a key never comes back. */
+  webSearchStatus: () => call<WebSearchStatus>("web_search_status"),
+  setWebSearchKey: (key: string) => call<WebSearchStatus>("set_web_search_key", { key }),
+  removeWebSearchKey: (api: string) => call<WebSearchStatus>("remove_web_search_key", { api }),
   /** A skill on the 12 criteria (ADR-152), checked locally; `skip` is the library skill being scored. */
   skillScorecard: (name: string, description: string, body: string, origin: string, skip?: string | null) =>
     call<Scorecard>("skill_scorecard", { name, description, body, origin, skip: skip ?? null }),
@@ -475,6 +479,11 @@ export interface SkillProposal {
   reason: string;
   status: string;
   skill?: string | null;
+}
+
+/** The order web searches go in (ADR-163): the user's keys, the strongest first, then Exa's free search. */
+export interface WebSearchStatus {
+  order: { api: string; key: boolean }[];
 }
 
 export interface MarkitdownStatus {

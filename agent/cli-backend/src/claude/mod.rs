@@ -45,10 +45,12 @@ pub(super) fn lend(login: &Value) -> Option<(Value, std::time::SystemTime)> {
 
 /// Claude Code tools an Agenium run may use (ADR-129): its own file and search tools for its scratch folder only (the per-run home, where it saves a long tool
 /// result and reads it back); the hook refuses them on the worktree. Its shells are not offered: commands go through
-/// Agenium's `shell`. Everything else (scheduling, notifications, plugins, worktrees, web, workflows...) is withheld.
-/// Not its `ToolSearch`: the Agenium tools are listed, as for every other CLI, and other servers' tools are found with
-/// Agenium's `tool_search` (ADR-139; `ENABLE_TOOL_SEARCH=false`, 2026-11-04).
-const BASE_TOOLS: [&str; 5] = ["Read", "Write", "Edit", "Glob", "Grep"];
+/// Agenium's `shell`. `WebSearch` runs on Anthropic's servers and touches nothing here (ADR-163); its `WebFetch` would
+/// read pages from this machine, so pages go through Agenium's `fetch`. Everything else (scheduling, notifications,
+/// plugins, worktrees, workflows...) is withheld. Not its `ToolSearch`: the Agenium tools are listed, as for every
+/// other CLI, and other servers' tools are found with Agenium's `tool_search` (ADR-139; `ENABLE_TOOL_SEARCH=false`,
+/// 2026-11-04).
+const BASE_TOOLS: [&str; 6] = ["Read", "Write", "Edit", "Glob", "Grep", "WebSearch"];
 /// Subagents and their messaging (Solo only).
 /// Claude Code 2.1 calls its subagent tool `Agent` (`Task` before; `--tools Task` still offers it under the new name).
 const SUBAGENT_TOOLS: [&str; 6] = [
@@ -253,6 +255,10 @@ impl Driver for Claude {
         matches!(tool, "Agent" | "Task")
     }
 
+    fn own_web_search(&self) -> bool {
+        true
+    }
+
     fn command(&self, tool: &str, input: &Value) -> Option<String> {
         matches!(tool, "Bash" | "PowerShell")
             .then(|| input["command"].as_str().map(str::to_owned))
@@ -273,10 +279,13 @@ impl Driver for Claude {
                 Check::Deny(format!("{name} is not available in Agenium runs"))
             };
         }
-        if matches!(name, "WebFetch" | "WebSearch") {
+        if name == "WebFetch" {
             return Check::Deny(
-                "use the `fetch` tool from the \"agenium\" MCP server instead (allowlisted and logged); WebFetch/WebSearch are off".into(),
+                "use the `fetch` tool from the \"agenium\" MCP server instead (it reads PDFs too and is logged); WebFetch is off".into(),
             );
+        }
+        if name == "WebSearch" {
+            return Check::Allow;
         }
         if SUBAGENT_TOOLS.contains(&name) && !cx.subagents {
             return Check::Deny(NO_SUBAGENTS.into());
@@ -564,6 +573,8 @@ mod tests {
             call("WebFetch", json!({"url": "https://x"})),
             Check::Deny(_)
         ));
+        // ADR-163: its search runs on Anthropic's servers.
+        assert_eq!(call("WebSearch", json!({"query": "x"})), Check::Allow);
         assert!(matches!(
             call("ToolSearch", json!({"query": "agenium"})),
             Check::Deny(_)
@@ -714,7 +725,7 @@ mod tests {
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
         assert!(a.contains(&"--disable-slash-commands".to_owned()));
         let i = a.iter().position(|x| x == "--tools").unwrap();
-        assert_eq!(a[i + 1], "Read,Write,Edit,Glob,Grep");
+        assert_eq!(a[i + 1], "Read,Write,Edit,Glob,Grep,WebSearch");
         let s = Claude.args("haiku", None, Path::new("/h"), None, true);
         let i = s.iter().position(|x| x == "--tools").unwrap();
         assert!(s[i + 1].ends_with(",Agent,Task,TaskOutput,SendMessage,ListAgents,TaskStop"));

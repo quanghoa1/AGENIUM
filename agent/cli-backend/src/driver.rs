@@ -368,6 +368,11 @@ pub trait Driver: Send + Sync {
     fn starts_subagent(&self, _tool: &str) -> bool {
         false
     }
+    /// Whether the CLI searches the web itself, on its vendor's servers (ADR-163): then Agenium's `web_search` is not
+    /// offered to it. Pages are still read with Agenium's `fetch`.
+    fn own_web_search(&self) -> bool {
+        false
+    }
     /// Whether a tool step only runs other tools (opencode's code-mode `execute`): it is not checked itself, the
     /// tools it calls are (Agenium's over MCP, the CLI's own through its hook), so it is logged as run.
     fn runs_other_tools(&self, _tool: &str) -> bool {

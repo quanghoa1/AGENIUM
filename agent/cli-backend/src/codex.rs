@@ -22,7 +22,7 @@ use crate::login::guard_linked;
 /// codex features an Agenium run never uses (codex 0.163 `codex features list`): browser and computer control, apps,
 /// plugins, image generation, and (ADR-129) its own shell, image viewer, sleep and tool suggestions: commands and images
 /// go through Agenium's `shell` and `view_image` over MCP, under Agenium's sandbox, gate and write scope. `multi_agent` (subagents) follows
-/// the run (Solo only); web search is disabled.
+/// the run (Solo only). Its web search is on, live (ADR-163): it runs on OpenAI's servers and touches nothing here.
 const WITHHELD_FEATURES: [&str; 17] = [
     "browser_use",
     "browser_use_external",
@@ -68,6 +68,10 @@ impl Driver for Codex {
         Turns::ProcessPerTurn
     }
 
+    fn own_web_search(&self) -> bool {
+        true
+    }
+
     fn args(
         &self,
         model: &str,
@@ -109,7 +113,7 @@ impl Driver for Codex {
         std::fs::write(
             s.home.join("config.toml"),
             format!(
-                "web_search = \"disabled\"\n\n[features]\nmulti_agent = {sub}\n{off}\n[mcp_servers.{name}]\nurl = {url}\nbearer_token_env_var = {env}\ntool_timeout_sec = {wait}\n",
+                "web_search = \"live\"\n\n[features]\nmulti_agent = {sub}\n{off}\n[mcp_servers.{name}]\nurl = {url}\nbearer_token_env_var = {env}\ntool_timeout_sec = {wait}\n",
                 sub = s.subagents,
                 off = WITHHELD_FEATURES
                     .iter()

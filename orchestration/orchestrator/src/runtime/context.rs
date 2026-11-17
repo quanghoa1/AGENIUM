@@ -163,6 +163,14 @@ impl Runtime {
             shell: shell_text(ctx.executor.shell()),
             sandbox: sandbox_text,
             network: match (net_on, allow.is_empty()) {
+                // ADR-163: fetch follows the commands onto the public internet.
+                _ if ctx.fetch_open && allow.is_empty() => {
+                    "commands and fetch may reach the public internet".into()
+                }
+                _ if ctx.fetch_open => format!(
+                    "commands and fetch may reach the public internet; fetch also reaches {}",
+                    allow.join(", ")
+                ),
                 (true, true) => {
                     "commands may reach the network; fetch has no allowed domains".into()
                 }
@@ -207,7 +215,19 @@ impl Runtime {
             shell_timeout_max: std::time::Duration::from_secs(rt.shell_timeout_max_secs as u64),
         };
         ctx.fetch_allow = allow;
+        ctx.fetch_open = self.commands_reach_network();
         ctx
+    }
+
+    /// Whether the run's shell commands may reach the network: inside a sandbox with `[sandbox] network` on and a
+    /// network it can give them, or run without a sandbox by the user's choice. Then `fetch` reaches any public site
+    /// too (ADR-163): an allowlist would hold back the tool that is logged and fenced, not the commands.
+    pub(super) fn commands_reach_network(&self) -> bool {
+        let cfg = self.app.config().sandbox;
+        cfg.runs_unsandboxed()
+            || (cfg.network
+                && agenium_sandbox::detect().backend.is_some()
+                && agenium_sandbox::network_available().is_ok())
     }
 
     pub(super) fn loop_cfg(

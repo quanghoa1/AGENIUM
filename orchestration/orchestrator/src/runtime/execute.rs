@@ -254,6 +254,16 @@ impl Runtime {
         if !cli && !vision {
             work.retain(|t| t.name() != "view_image");
         }
+        // ADR-163: a web search with the user's key, in the runs that read the web (they have `fetch`), unless the
+        // agent's CLI searches by itself (Claude Code, Codex).
+        let cli_searches = cli_ready
+            .as_ref()
+            .is_some_and(|(driver, _)| driver.own_web_search());
+        if work.iter().any(|t| t.name() == "fetch") {
+            if let Some(search) = self.app.web_search_tool(cli_searches) {
+                work.push(search);
+            }
+        }
         work.extend(mcp_tools);
         // A plugin's PreToolUse hooks before each call (ADR-157): they may refuse one, never allow what is refused.
         if self.app.has_plugin_hooks(&agent.skills, "PreToolUse") {

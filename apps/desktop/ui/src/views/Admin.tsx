@@ -10,6 +10,7 @@ import type { AuditEntry } from "../lib/types";
 import { CommandPolicySection } from "./CommandSettings";
 import { JudgeSection } from "./JudgeSettings";
 import { MarkitdownSection } from "./MarkitdownSettings";
+import { WebSearchSection } from "./WebSearchSettings";
 
 /** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
 export function actionLabel(action: string, t: (k: Key) => string): string {
@@ -115,6 +116,7 @@ export function SettingsView() {
         <CommandPolicySection />
         <JudgeSection />
         <MarkitdownSection />
+        <WebSearchSection />
         <Section title={app.t("settings.support")}>
           <div className="text-[11px] text-subtle">{app.t("settings.supportNote")}</div>
           <button

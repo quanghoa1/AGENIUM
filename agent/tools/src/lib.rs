@@ -188,6 +188,9 @@ pub struct ToolCtx {
     pub env: std::collections::BTreeMap<String, String>,
     /// Domains `fetch` may reach (project allowlist + grants); `*.x` wildcards.
     pub fetch_allow: Vec<String>,
+    /// `fetch` may reach any public site (ADR-163): set when the run's commands may reach the network anyway, so the
+    /// allowlist would only slow the agent down. The private network still needs a host allowed by name.
+    pub fetch_open: bool,
     /// Extra lines for the capability manifest (connected MCP servers and their problems).
     pub capabilities: Vec<String>,
     /// Write scope inside the worktree (open by default).
@@ -224,6 +227,7 @@ impl ToolCtx {
             gate,
             env,
             fetch_allow: vec![],
+            fetch_open: false,
             capabilities: vec![],
             write_scope: paths::WriteScope::default(),
             // `fetch` follows redirects itself, checking every hop like the first URL (the allowlist, private

@@ -59,6 +59,7 @@ pub mod traces;
 pub mod vendor_usage;
 pub mod verification;
 pub mod views;
+pub mod web_search;
 pub mod worktree_guard;
 
 pub use app::{App, AppOptions, CheckFactory, CreateAgent, CreateProject, NoCheckFactory};

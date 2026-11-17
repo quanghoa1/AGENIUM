@@ -82,13 +82,13 @@ impl Tool for ReadFile {
 }
 
 /// Files read as documents (by extension): binary formats a model cannot read as they are.
-const DOCUMENTS: &[&str] = &[
+pub(super) const DOCUMENTS: &[&str] = &[
     "pdf", "docx", "pptx", "xlsx", "epub", "doc", "xls", "ppt", "msg", "odt", "ods", "odp",
 ];
 
 /// A document's Markdown and what read it: markitdown where it reads the format better (only inside a working sandbox),
 /// Agenium's converters otherwise. `unsandboxed`: the run itself goes without a sandbox (the user's choice, ADR-117).
-async fn document_text(
+pub(super) async fn document_text(
     name: &str,
     bytes: &[u8],
     unsandboxed: bool,

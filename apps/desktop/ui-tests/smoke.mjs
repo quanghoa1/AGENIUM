@@ -362,7 +362,34 @@ await js(`[...(${apCard}?.querySelectorAll('button[role=radio]') ?? [])].find(b 
 const apSaved = await until(`window.__TAURI_INTERNALS__.invoke('mcp_approval').then(s => s.default === 'writes')`, 10000);
 await shot("library-mcp-approval");
 check("the MCP approval default is saved from the MCP tab", apSaved);
-// The price view carries the models the catalogue marks deprecated (shown on runtime badges and in the model picker).
+// 8b. Web search (ADR-163): Exa's free search alone; a Brave and a Tavily key added in Settings go before it (the
+// strongest first, the free search last), and one is removed on its own.
+await js(`window.location.hash = '/settings'`);
+await until("!!document.querySelector('[data-testid=web-search]')", 10000);
+const wsForm = "document.querySelector('[data-testid=web-search]')?.closest('.card, section')?.querySelector('form')";
+const wsAdd = async (k) => {
+  await js(`(() => { const el = ${wsForm}?.querySelector('input'); if (!el) return false;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(k)});
+    el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+  await sleep(200);
+  await js(`${wsForm}?.querySelector('button[type=submit]')?.click()`);
+};
+const wsRows = "[...document.querySelectorAll('[data-testid=web-search] li')].map(li => li.dataset.api).join(',')";
+const wsFree = await js(wsRows);
+await wsAdd("BSA-smoke-0123456789");
+await until(`${wsRows} === 'Brave Search,Exa'`, 10000);
+await wsAdd("tvly-smoke-0123456789");
+const wsBoth = await until(`${wsRows} === 'Tavily,Brave Search,Exa'`, 10000);
+const wsStatus = await invoke("web_search_status");
+await shot("settings-web-search");
+await js(`[...document.querySelector('[data-testid=web-search] li[data-api=Tavily]').querySelectorAll('button')].find(b => b.textContent.includes('Remove key'))?.click()`);
+const wsOne = await until(`${wsRows} === 'Brave Search,Exa'`, 10000);
+await invoke("remove_web_search_key", { api: "Brave Search" });
+check(
+  "web search: Tavily and Brave keys go before the free Exa in Settings, and one is removed alone",
+  wsFree === "Exa" && wsBoth && wsOne && !wsStatus.includes("smoke-0123"),
+  wsStatus
+);// The price view carries the models the catalogue marks deprecated (shown on runtime badges and in the model picker).
 const pv = JSON.parse((await invoke("prices")) || "{}");
 check("the price view lists deprecated models", !!pv && typeof pv.deprecated === "object", Object.keys(pv ?? {}).join(","));
 

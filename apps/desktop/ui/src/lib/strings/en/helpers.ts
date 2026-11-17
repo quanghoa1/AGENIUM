@@ -50,6 +50,17 @@ export const helpers = {
   "proposal.byHand": "Review by hand",
   "proposal.declined": "Proposal declined",
   "proposal.saved": "Saved to the library as {name}, switched on for {agent}",
+  "ws.title": "Web search",
+  "ws.note":
+    "Claude Code and Codex agents search the web themselves. Other agents (API models, OpenCode, Antigravity) search through Exa, free and without a key but limited. Add keys of Tavily (tavily.com) or Brave Search (both have a free tier), or an Exa key (exa.ai): searches go to your keys first, the strongest first, and to the free Exa last; one out of its limit hands the search to the next. Every agent reads pages with fetch.",
+  "ws.order": "Searches go in this order:",
+  "ws.free": "free, no key (limited)",
+  "ws.yourKey": "your key",
+  "ws.placeholder": "Paste an Exa, Tavily (tvly-…) or Brave Search (BSA…) key",
+  "ws.save": "Save key",
+  "ws.saved": "Search key saved ({api})",
+  "ws.remove": "Remove key",
+  "ws.removed": "Search key removed",
   "md.title": "Documents (markitdown)",
   "md.note":
     "Agents and chats read documents as Markdown. Agenium reads PDF, Word, PowerPoint, Excel, EPUB and more itself; Microsoft's markitdown reads Office files and PDF tables better, and old .doc/.xls/.ppt files and Outlook .msg too. It runs in the sandbox.",
