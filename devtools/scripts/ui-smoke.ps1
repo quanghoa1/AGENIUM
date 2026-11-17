@@ -44,12 +44,15 @@ try {
   $env:AGENIUM_HOME = $home_
   $env:AGENIUM_UI_TEST_KEYRING = "memory"
   $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$Port"
+  # A WebView2 profile of its own: an installed Agenium that is open shares the app's profile, and the test app's
+  # WebView then joins that browser, without the DevTools port (2026-11-17).
+  $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $home_ "webview2"
   $app = Start-Process -PassThru -FilePath (Join-Path $desktop "target\debug\agenium-desktop.exe") `
     -RedirectStandardOutput "$out\app.log" -RedirectStandardError "$out\app.err.log"
   node (Join-Path $desktop "ui-tests\smoke.mjs") $out $Port | Tee-Object -FilePath "$out\result.txt"
   $code = $LASTEXITCODE
 } finally {
-  Remove-Item Env:AGENIUM_HOME, Env:AGENIUM_UI_TEST_KEYRING, Env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS -ErrorAction SilentlyContinue
+  Remove-Item Env:AGENIUM_HOME, Env:AGENIUM_UI_TEST_KEYRING, Env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, Env:WEBVIEW2_USER_DATA_FOLDER -ErrorAction SilentlyContinue
   if ($app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
   # Cleanup never hides the result: a Vite that already exited is fine.
   if ($vite) { try { & taskkill /PID $vite.Id /T /F 2>&1 | Out-Null } catch {} }

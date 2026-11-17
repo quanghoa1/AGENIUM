@@ -302,17 +302,22 @@ impl Runtime {
             lint: &lint,
             secret: &secret,
         };
-        let library = self.app.skill_registry().library();
+        let asked_for: String = turns
+            .iter()
+            .filter(|t| t.role == "user")
+            .map(|t| t.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
         let mut catalogue = String::from(
-            "\n\n# The library's skills (improve one of these rather than adding a second skill on its job)\n",
+            "\n\n# The skills there are (improve a library skill rather than adding a second skill on its job; a \
+             plugin's skill, plugin:<plugin>/<skill>, is its vendor's and is never extended or merged into: when one \
+             already does what is asked, say so and suggest giving it to the agents, and write a new skill only for \
+             what it lacks)\n",
         );
-        for sk in &library.skills {
-            catalogue.push_str(&format!(
-                "- {}: {}\n",
-                sk.meta.name,
-                sk.meta.description.trim()
-            ));
-        }
+        catalogue.push_str(&crate::skill_catalogue::catalogue_text(
+            &self.app.catalogue_skills()?,
+            &asked_for,
+        ));
         // The skills closest to what is asked, in full, so the writer merges knowingly (ADR-152).
         let asked = format!(
             "{} {}",

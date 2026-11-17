@@ -105,15 +105,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         on_limits: None,
         steer: None,
     };
+    // `CLI_LIVE_SYSTEM` / `CLI_LIVE_ASK` replace the instructions and the question (a helper's case).
+    let system =
+        std::env::var("CLI_LIVE_SYSTEM").unwrap_or_else(|_| "Answer in plain text.".into());
+    let ask = std::env::var("CLI_LIVE_ASK").unwrap_or_else(|_| {
+        "Write about 300 words on how a small software team splits work between a lead, a planner and two \
+         workers."
+            .into()
+    });
     let order = WorkOrder {
         system: vec![SystemBlock {
-            text: "Answer in plain text.".into(),
+            text: system,
             cache: false,
         }],
-        messages: vec![Message::user_text(
-            "Write about 300 words on how a small software team splits work between a lead, a planner and two \
-             workers.",
-        )],
+        messages: vec![Message::user_text(ask)],
     };
     let report = run.run(&order).await;
     let last = report
@@ -134,6 +139,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pieces.thinking.lock().unwrap()
     );
     println!("answer: {} chars", last.len());
+    if std::env::var_os("CLI_LIVE_SHOW").is_some() {
+        println!("---\n{last}\n---");
+    }
     let live = got.len() > 1;
     let same = joined.trim() == last.trim();
     println!(

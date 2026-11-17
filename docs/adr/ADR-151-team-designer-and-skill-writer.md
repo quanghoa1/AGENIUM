@@ -106,3 +106,19 @@ whole message that follows shows only what its pieces did not (`State::partial`)
 (`cli-backend/examples/cli_live.rs`): Haiku and Sonnet answers came in 180+ pieces, the first after 3–4 s instead of at
 the end, and the pieces made the answer exactly.
 
+## Amendment (2026-11-17): what the helpers are told, and the skills they see
+
+- **A helper has no tools, and is told so.** Every CLI run was told it works through Agenium's MCP tools on a ticket's
+  worktree, the helpers' too. Asked "I added some skills, propose them for each role", Claude went looking for files
+  for 249 s and answered it could not read them, though the skill list was in its instructions. A run that offers no
+  tool (a helper's answer) is now told it answers in text only, from what its instructions and the conversation hold
+  (`cli-backend/src/run/prompt.rs`). The same question then took 7 s and gave each role its skills.
+- **The plugins' skills are listed too** (`skill_catalogue.rs`): the team designer and the skill writer see the
+  library's skills and the installed plugins' skills, each as the entry that gives it to an agent (a library skill's
+  name, `plugin:<plugin>/<skill>`), its tags and its description cut to 80 characters (about 20–25 tokens a skill).
+  Past 500 skills, only the 40 closest to the user's words keep their description; the others are listed by entry and
+  tags, and the designer is told to ask when it cannot tell. The designer may give a role a plugin's skill (kept as
+  its entry; a team made from the template gives it to the role's agents alone); a new skill named like one that
+  exists, a plugin's included, is not proposed again. The skill writer is told a plugin's skill is its vendor's: it
+  suggests giving it to the agents and writes a new skill only for what it lacks.
+

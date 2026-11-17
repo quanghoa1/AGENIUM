@@ -569,6 +569,18 @@ mod tests {
             !chat.contains("edit_file") && !chat.contains("`shell`"),
             "{chat}"
         );
+        // A helper's answer has no tool at all: it is told to answer from what it was given, not to look for files
+        // (Claude went looking for files the team designer had been given, 2026-11-17).
+        let helper = render(&order, &[], &[], false);
+        assert!(
+            helper.contains("you answer in text only")
+                && helper.contains("Do not search for files"),
+            "{helper}"
+        );
+        assert!(
+            !helper.contains("MCP server") && !helper.contains("worktree"),
+            "{helper}"
+        );
         // A Solo agent is told its own subagent tool stays on (Codex took "not your own" for it, 2026-10-28).
         let solo = render(&order, &["submit_report".to_owned()], &work, true);
         assert!(solo.contains("you may start your own subagents"), "{solo}");

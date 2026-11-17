@@ -108,6 +108,54 @@ async fn a_plugin_skill_is_given_alone_learned_into_and_rebased_on_the_vendors_u
         "no MCP server with a single skill"
     );
 
+    // A template's role may name a plugin's skill by its entry (the team designer gives it so): the team's agents of
+    // that role get it alone.
+    let mut tpl = f
+        .app
+        .team_templates()
+        .unwrap()
+        .into_iter()
+        .find(|t| t.id == "coding")
+        .expect("the coding template");
+    tpl.id = "pentest-coding".into();
+    tpl.name = "Pentest coding".into();
+    let w = tpl
+        .roles
+        .iter()
+        .position(|r| r.kind == RoleKind::Worker)
+        .unwrap();
+    tpl.roles[w].skills = vec!["plugin:pentest/web-pentest".into()];
+    let worker_role = tpl.role_dir(&tpl.roles[w].id);
+    f.app.save_team_template(&tpl).unwrap();
+    let other = f
+        .app
+        .create_project(&agenium_orchestrator::CreateProject {
+            name: "pentest work".into(),
+            path: None,
+            key_prefix: None,
+            template: None,
+            folder: None,
+            repo: None,
+        })
+        .unwrap()
+        .id;
+    let made = f
+        .app
+        .create_team_from_template(other, "pentest-coding", &model(), None, None, "pt")
+        .unwrap();
+    assert!(made.missing_skills.is_empty(), "{:?}", made.missing_skills);
+    let given: Vec<_> = f
+        .app
+        .agents()
+        .unwrap()
+        .into_iter()
+        .filter(|a| a.role == worker_role)
+        .collect();
+    assert!(!given.is_empty());
+    for a in &given {
+        assert_eq!(a.skills, ["plugin:pentest/web-pentest"], "{}", a.name);
+    }
+
     // Learned into, through the same gates as a library skill: its own copy; the vendor's file stays.
     let e = f.app.embedder();
     let mem = f.app.agent_store(t.web, e.dim(), e.model_id()).unwrap();

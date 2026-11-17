@@ -92,6 +92,19 @@ pub fn render(order: &WorkOrder, protocol: &[String], tools: &[String], subagent
         s.push_str(b.text.trim_end());
         s.push_str("\n\n");
     }
+    // A helper's answer (the team designer, the skill writer: ADR-151) has no tool at all: told it works through
+    // Agenium's tools on a ticket's worktree, Claude went looking for files it was already given, for minutes
+    // (2026-11-17).
+    if protocol.is_empty() && tools.is_empty() {
+        s.push_str(
+            "How this run works: you answer in text only. This run has no tools and no files to look at: everything \
+you need (the lists of skills, roles and models, the documents attached) is in these instructions and the \
+conversation below. Do not search for files or call tools; answer from what is here.\n",
+        );
+        s.push_str("</agenium_instructions>\n");
+        push_messages(&mut s, order);
+        return s;
+    }
     let protocol = protocol.join(", ");
     let how = format!(
         "How this run works: you are an Agenium agent running in your own harness, and you work through the tools of \
@@ -110,6 +123,12 @@ and tell each subagent to work through the tools of the same MCP server.\n",
         );
     }
     s.push_str("</agenium_instructions>\n");
+    push_messages(&mut s, order);
+    s
+}
+
+/// The conversation after the instructions, one block per turn.
+fn push_messages(s: &mut String, order: &WorkOrder) {
     for m in &order.messages {
         let who = match m.role {
             Role::User => "user",
@@ -134,7 +153,6 @@ and tell each subagent to work through the tools of the same MCP server.\n",
             }
         }
     }
-    s
 }
 
 /// The driver's environment with the user's home replaced by the per-run home, unless the driver set it: a CLI that

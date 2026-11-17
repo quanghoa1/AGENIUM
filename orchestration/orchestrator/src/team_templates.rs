@@ -424,7 +424,12 @@ impl App {
                 if dir.join("skills").join(s).join("SKILL.md").is_file() {
                     continue;
                 }
-                if library.contains(s) {
+                // A library skill, or one skill of an installed plugin (`plugin:<plugin>/<skill>`, ADR-157).
+                let plugin_skill = agenium_skills::plugin_skill_of(s).is_some_and(|(p, k)| {
+                    self.plugin(p)
+                        .is_some_and(|plugin| plugin.skills.contains_key(k))
+                });
+                if library.contains(s) || plugin_skill {
                     from_library.push((t.role_dir(&r.id), s.clone()));
                 } else {
                     missing_skills.push(format!("{}: {s}", t.role_dir(&r.id)));

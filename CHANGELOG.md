@@ -7,6 +7,11 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The helpers show their answer as it is written; plugins from private repositories; the Codex sandbox sources updated.
 
 ### Helpers
+- **The helpers answer from what they are given**: the team designer on Claude Code no longer goes looking for files
+  (it was told it worked on a ticket's worktree): a question about the skills now takes seconds, not minutes.
+- **The helpers see the plugins' skills too**, each with its tags and the start of its description; the designer can
+  give a role a plugin's skill, and a team made from that template gives it to the role's agents. A large library is
+  kept short in the prompt: past 500 skills, only those closest to the request keep their description.
 - **The team designer and the skill writer show the answer as it is written**: instead of "Thinking…" for minutes
   (a whole team template can be 17,000 tokens), the chat shows the reply as it grows, then how much of the draft is
   written and for how long. Works with API models and Claude Code (its partial messages); a run's live view gets

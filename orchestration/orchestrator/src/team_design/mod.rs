@@ -99,10 +99,11 @@ pub(crate) fn messages(turns: &[ChatTurn]) -> Result<Vec<Message>> {
 }
 
 impl App {
-    /// What a designed team may use: the library's skills, the user's models (`provider/model`), the template ids
-    /// taken, and the catalogue text shown to the designer.
-    pub fn design_ctx(&self) -> Result<(DesignCtx, String)> {
-        let skills = self.skill_registry().library();
+    /// What a designed team may use: the library's and the plugins' skills, the user's models (`provider/model`), the
+    /// template ids taken, and the catalogue text shown to the designer (`request`: the user's words, which pick the
+    /// skills described when the library is large).
+    pub fn design_ctx(&self, request: &str) -> Result<(DesignCtx, String)> {
+        let skills = self.catalogue_skills()?;
         let roles = crate::role_library::library();
         let cache = self.model_cache();
         let mut models = BTreeSet::new();
@@ -115,14 +116,11 @@ impl App {
                 crate::role_library::mission(&r.prompt)
             ));
         }
-        text.push_str("\n## Library skills (give roles these by name)\n");
-        for s in &skills.skills {
-            text.push_str(&format!(
-                "- {}: {}\n",
-                s.meta.name,
-                s.meta.description.trim()
-            ));
-        }
+        text.push_str(
+            "\n## Skills (give roles these by entry, as written here: a library skill by its name, a plugin's skill as \
+             plugin:<plugin>/<skill>)\n",
+        );
+        text.push_str(&crate::skill_catalogue::catalogue_text(&skills, request));
         text.push_str(&format!("\n## Report templates\n{}\n", REPORTS.join(", ")));
         text.push_str("\n## The user's models (provider/model; CLI programs run the user's own subscription)\n");
         for (key, list) in &cache.models {
@@ -150,7 +148,7 @@ impl App {
         let taken = self.team_templates()?.into_iter().map(|t| t.id).collect();
         Ok((
             DesignCtx {
-                skills: skills.skills.iter().map(|s| s.meta.name.clone()).collect(),
+                skills: skills.iter().map(|s| s.entry.clone()).collect(),
                 models,
                 taken,
             },
@@ -184,7 +182,13 @@ impl Runtime {
         session: Option<&str>,
         live: crate::runtime::side_chat::Live<'_>,
     ) -> Result<TeamDesign> {
-        let (ctx, catalogue) = self.app.design_ctx()?;
+        let request: String = turns
+            .iter()
+            .filter(|t| t.role == "user")
+            .map(|t| t.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let (ctx, catalogue) = self.app.design_ctx(&request)?;
         let system = prompt::system(&catalogue);
         // The user's documents (a brief, a spec) open their first message, every turn.
         let mut turns = turns.to_vec();

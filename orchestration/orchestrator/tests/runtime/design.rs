@@ -67,7 +67,9 @@ async fn a_designed_team_becomes_a_template_and_a_team_with_its_library_skills()
     // The designer sees the library it should reuse.
     let system = &reqs[0].system[0].text;
     assert!(
-        system.contains("## Library roles") && system.contains("- writing-tests:"),
+        system.contains("## Library roles")
+            && system.contains("## Skills")
+            && system.contains("- writing-tests"),
         "{system}"
     );
     assert_eq!(d.reply, "Một team web: Lead, frontend, backend và QA.");
@@ -371,7 +373,7 @@ async fn the_skill_writer_is_shown_close_skills_and_merges_on_request() {
         .unwrap();
     let system = &p.requests()[0].system[0].text;
     assert!(
-        system.contains("# The library's skills") && system.contains("- code-review:"),
+        system.contains("# The skills there are") && system.contains("- code-review"),
         "{system}"
     );
     assert!(

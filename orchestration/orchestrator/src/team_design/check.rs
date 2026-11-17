@@ -149,8 +149,12 @@ fn check(t: RawTeam, ctx: &DesignCtx) -> std::result::Result<TeamDraft, String> 
         if name.is_empty() {
             return;
         }
-        if ctx.skills.contains(&name) {
-            notes.push(format!("{name} is already in the library"));
+        if let Some(have) = ctx
+            .skills
+            .iter()
+            .find(|e| **e == name || e.ends_with(&format!("/{name}")))
+        {
+            notes.push(format!("{name} is already a skill ({have})"));
             return;
         }
         match new_skills.iter_mut().find(|x| x.name == name) {
@@ -198,7 +202,13 @@ fn check(t: RawTeam, ctx: &DesignCtx) -> std::result::Result<TeamDraft, String> 
         };
         let mut skills = Vec::new();
         for s in r.skills {
-            let s = slug(&s);
+            // A plugin's skill is named by its entry (`plugin:<plugin>/<skill>`), kept as written when it is one.
+            let raw = s.trim().to_lowercase();
+            let s = if raw.starts_with(agenium_skills::PLUGIN_PREFIX) && ctx.skills.contains(&raw) {
+                raw
+            } else {
+                slug(&s)
+            };
             if s.is_empty() || skills.contains(&s) {
                 continue;
             }
@@ -370,6 +380,43 @@ mod tests {
         assert!(d.notes.iter().any(|n| n.contains("../etc")));
         assert!(d.notes.iter().any(|n| n.contains("large team")));
         t.validate().unwrap();
+    }
+
+    /// A plugin's skill is given to a role by its entry; a new skill named like one that exists (a plugin's) is not
+    /// proposed again.
+    #[test]
+    fn a_plugin_skill_is_kept_by_its_entry_and_not_proposed_again() {
+        let mut c = ctx();
+        c.skills.insert("plugin:pentest/web-pentest".into());
+        let v = json!({
+            "reply": "Here.",
+            "team": {
+                "id": "pentest-team", "name": "Pentest", "report_template": "coding@1",
+                "roles": [
+                    {"id": "lead", "kind": "lead", "prompt": "## Mission\nLead."},
+                    {"id": "web", "kind": "worker", "skills": ["Plugin:pentest/web-pentest", "plugin:pentest/nope"]}
+                ],
+                "new_skills": [{"name": "web-pentest", "does": "x", "when": "y"}]
+            }
+        });
+        let (_, _, draft) = answer(v, &c).unwrap();
+        let d = draft.unwrap();
+        assert_eq!(
+            d.template.roles[1].skills,
+            vec!["plugin:pentest/web-pentest"]
+        );
+        assert!(
+            d.new_skills.iter().all(|s| s.name != "web-pentest"),
+            "{:?}",
+            d.new_skills
+        );
+        assert!(
+            d.notes
+                .iter()
+                .any(|n| n.contains("already a skill (plugin:pentest/web-pentest)")),
+            "{:?}",
+            d.notes
+        );
     }
 
     #[test]
