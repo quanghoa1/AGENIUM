@@ -4,13 +4,11 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
-Quality rules learned from the open-source orchestrator babysitter (ideas only, ADR-162); a private plugin's token is kept for its updates.
+## 0.1.2 — 2026-11-17
 
-### Plugins
-- **A private plugin's GitHub token is kept for its updates**: the token pasted at install goes to your OS keyring (or
-  Agenium's encrypted vault), one per repository, so an update no longer asks for it. It asks again only when GitHub
-  refuses the kept token (expired or revoked); the new one replaces it. Removing the repository's last plugin deletes
-  the token.
+The helpers show their answer as it is written and continue their CLI session; plugins from private repositories;
+quality rules learned from the open-source orchestrator babysitter (ideas only, ADR-162); the Codex sandbox sources
+updated.
 
 ### Teams
 - **The built-in pentest team template is gone**: the built-in templates are coding, research and content. A security
@@ -30,10 +28,6 @@ Quality rules learned from the open-source orchestrator babysitter (ideas only, 
   and gives the worker its output in the same run, so it fixes it before the review instead of after a merge failure.
   After two refusals the report goes through and the ticket says the check still fails. A check that cannot run (no
   sandbox) does not block the submit and the ticket says so.
-
-## 0.1.2 — 2026-11-17
-
-The helpers show their answer as it is written; plugins from private repositories; the Codex sandbox sources updated.
 
 ### Helpers
 - **A helper chat on a CLI continues its own CLI session**: the next message on the same CLI and model resumes the
@@ -66,8 +60,10 @@ The helpers show their answer as it is written; plugins from private repositorie
   which you read and accept on the Memory page.
 - **Install a plugin from a private GitHub repository** (ADR-157 amendment): Library → Plugin has Public / Private;
   for Private, paste a GitHub token that can read the repository (the form says how to make a read-only one). The
-  token is used for that preview and install only and kept nowhere; an update of a private plugin asks for one again.
-  A private repository tried as Public now says to choose Private instead of a bare 404.
+  token goes to your OS keyring (or Agenium's encrypted vault), one per repository, so an update does not ask for it
+  again; it asks only when GitHub refuses the kept token (expired or revoked), and the new one replaces it. Removing
+  the repository's last plugin deletes the token. A private repository tried as Public now says to choose Private
+  instead of a bare 404.
 
 ## 0.1.1 — 2026-11-12 (pre-release)
 
