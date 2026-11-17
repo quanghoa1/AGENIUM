@@ -113,6 +113,14 @@ impl agenium_vcs::CheckRunner for ApprovedCheck {
         }
         agenium_orchestrator::check::run_check(&self.command, worktree, self.network)
     }
+
+    fn ready(&self) -> Result<(), String> {
+        // Asking at the terminal in the middle of a run would interrupt the user twice; the merge queue asks once.
+        Err(format!(
+            "pre-merge check `{}` asks the user first, so it runs in the merge queue only",
+            self.command
+        ))
+    }
 }
 
 impl CheckFactory for ApprovedChecks {

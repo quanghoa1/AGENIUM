@@ -218,6 +218,7 @@ pub fn report(key: &str) -> WorkReport {
         checks_not_run: vec![],
         beyond_ticket: vec![],
         tests_changed: vec![],
+        diagnosis: vec![],
         confidence: 0.9,
     }
 }

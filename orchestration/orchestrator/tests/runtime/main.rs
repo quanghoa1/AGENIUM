@@ -23,6 +23,7 @@ mod mcp_search;
 mod memory;
 mod messages;
 mod pool;
+mod quality_rules;
 mod solo;
 mod team;
 mod verify;
@@ -32,13 +33,23 @@ fn runtime(
     p: Arc<ScriptedProvider>,
     approver: Arc<dyn Approver>,
 ) -> (Arc<agenium_orchestrator::App>, Runtime) {
+    runtime_checked(f, p, approver, Arc::new(Checks(None)))
+}
+
+/// [`runtime`] whose pre-merge checks come from `checks`.
+fn runtime_checked(
+    f: &Fixture,
+    p: Arc<ScriptedProvider>,
+    approver: Arc<dyn Approver>,
+    checks: Arc<dyn agenium_orchestrator::CheckFactory>,
+) -> (Arc<agenium_orchestrator::App>, Runtime) {
     // The runtime shares the App; tests keep using the fixture's handle through the Arc. Its root lies in the fixture's
     // temp dir, so the fixture must outlive app and runtime: tests declare `f` first and never drop it early (an
     // explicit `drop(f)` at the end of ten tests left their temp dirs behind on Windows).
-    let app = Arc::new(open_app(
+    let app = Arc::new(open_app_checked(
         &f.root.parent().unwrap().join("rt-root"),
         f.keyring.clone(),
-        None,
+        checks,
     ));
     let rt = Runtime::new(
         app.clone(),

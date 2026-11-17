@@ -94,6 +94,10 @@ pub struct WorkReport {
     /// Tests you changed, skipped, loosened or removed, each with why (ADR-148).
     #[serde(default)]
     pub tests_changed: Vec<String>,
+    /// After a reopen: how you reproduced the failure, the candidate causes you ruled out and how, and the evidence for
+    /// the one you fixed (ADR-162). Empty on a first attempt.
+    #[serde(default)]
+    pub diagnosis: Vec<String>,
     /// Your confidence that every criterion is met, 0..1.
     #[schemars(range(min = 0.0, max = 1.0))]
     #[serde(deserialize_with = "crate::lenient::confidence")]

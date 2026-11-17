@@ -286,6 +286,7 @@ pub async fn run(mode: &Mode) -> anyhow::Result<TaskResult> {
                 checks_not_run: vec![],
                 beyond_ticket: vec![],
                 tests_changed: vec![],
+                diagnosis: vec![],
                 confidence: 0.9,
             }),
         )?;

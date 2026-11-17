@@ -278,6 +278,9 @@ impl App {
             if !r.tests_changed.is_empty() {
                 let _ = writeln!(s, "- Tests changed: {}", r.tests_changed.join("; "));
             }
+            if !r.diagnosis.is_empty() {
+                let _ = writeln!(s, "- Diagnosis: {}", r.diagnosis.join("; "));
+            }
             if !r.artifacts.is_empty() {
                 let a: Vec<String> = r
                     .artifacts

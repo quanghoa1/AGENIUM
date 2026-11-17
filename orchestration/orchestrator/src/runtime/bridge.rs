@@ -479,6 +479,10 @@ impl Protocol for RunProtocol {
         // ADR-126: a report that reads as done while nothing checked the work after its last change goes back to
         // the worker once, in this run. Only with the judge on and `done_check` enabled; fail-open.
         if let Intent::SubmitReport(r) = &intent {
+            // ADR-162: the project's check runs first; its failure goes back to the worker in this run.
+            if let Err(msg) = self.submit_check(r).await {
+                return Err(ToolError::new("check_failed", msg));
+            }
             if let Some(msg) = self.unverified_done(r).await {
                 return Err(ToolError::new("unverified", msg));
             }

@@ -157,7 +157,8 @@ export function CommentCard({
             d.follow_ups?.length > 0 ||
             d.checks_not_run?.length > 0 ||
             d.beyond_ticket?.length > 0 ||
-            d.tests_changed?.length > 0) && (
+            d.tests_changed?.length > 0 ||
+            d.diagnosis?.length > 0) && (
             <div className="grid gap-3 sm:grid-cols-2">
               {d.risks?.length > 0 && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
@@ -186,6 +187,7 @@ export function CommentCard({
                   ["checks_not_run", "ticket.checksNotRun"],
                   ["beyond_ticket", "ticket.beyondTicket"],
                   ["tests_changed", "ticket.testsChanged"],
+                  ["diagnosis", "ticket.diagnosis"],
                 ] as const
               ).map(
                 ([field, label]) =>

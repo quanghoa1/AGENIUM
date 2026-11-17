@@ -371,7 +371,8 @@ impl Runtime {
         let task = format!(
             "Draft plan v1 for the approved requirement spec v{v}.\n\n## Spec v{v}\n{spec}\n\n## Team members who will do the work\n{roles}\n\n\
              Read the repository with your read-only tools first. Then call submit_plan_draft once: milestones; items with \
-             acceptance criteria (ids AC-n), trace_to (requirement ids of this spec), role (one of the roles above), \
+             acceptance criteria (ids AC-n; at least one per item states what a user or caller observes on the real path, \
+             'running X prints Y', never just 'tests pass'), trace_to (requirement ids of this spec), role (one of the roles above), \
              depends_on (item ids), estimate and scope_paths (inside the paths its role writes; items touching the same \
              paths must depend on each other); and the rationale of the split. Split for parallel work: each worker takes one ticket at a time, so give every worker an item it can start early and let items depend on each other only where one needs the other's result or they share paths; a chain through one worker leaves the others waiting. You do not create \
              tickets; the Lead reviews your draft.",

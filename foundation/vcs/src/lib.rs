@@ -121,6 +121,12 @@ pub struct CheckOutcome {
 /// decides how it runs (sandbox / approval policy).
 pub trait CheckRunner: Send + Sync {
     fn run(&self, worktree: &Path) -> CheckOutcome;
+
+    /// Whether the check can run now with nobody at hand; `Err` says why not (no sandbox backend, it asks the user).
+    /// The submit-time check (ADR-162) runs only a ready check; the merge queue runs it either way.
+    fn ready(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// A check that always passes (templates without a pre-merge check).

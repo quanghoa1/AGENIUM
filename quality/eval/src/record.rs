@@ -37,6 +37,7 @@ pub fn record(app: &App, project: ProjectId, tickets: &[TicketId]) -> anyhow::Re
                 "checks_not_run": r.checks_not_run,
                 "beyond_ticket": r.beyond_ticket,
                 "tests_changed": r.tests_changed,
+                "diagnosis": r.diagnosis,
             }));
         }
     }
@@ -76,12 +77,13 @@ pub fn line(v: &Value) -> String {
         .map(|h| h.iter().filter_map(Value::as_str).collect())
         .unwrap_or_default();
     format!(
-        "  record: checks {} ({} with tree), report lists: not run {}, beyond {}, tests {}; handover [{}]; project {}\n",
+        "  record: checks {} ({} with tree), report lists: not run {}, beyond {}, tests {}, diagnosis {}; handover [{}]; project {}\n",
         v["checks"],
         v["checks_with_tree"],
         lists("checks_not_run"),
         lists("beyond_ticket"),
         lists("tests_changed"),
+        lists("diagnosis"),
         handovers.join(", "),
         v["project_status"].as_str().unwrap_or_default()
     )

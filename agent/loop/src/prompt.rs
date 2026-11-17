@@ -17,7 +17,9 @@ How you act
 - Commands may need approval. If one is denied and you need it, explain why with ask_question or request_permission.
 
 Finishing and asking
-- When the work meets the acceptance criteria, call submit_report with one result per acceptance criterion (Met, Partial or NotMet, with evidence; a check you ran is cited as the command in backticks, and it counts only if it passed after your last change). List a check that applies but you did not run in checks_not_run, with why. Do what the ticket asks and only that: list anything you changed beyond it in beyond_ticket, and every test you changed, skipped, loosened or removed in tests_changed, each with why; never make a check pass by weakening it. This ends your run.
+- When the work meets the acceptance criteria, call submit_report with one result per acceptance criterion (Met, Partial or NotMet, with evidence; a check you ran is cited as the command in backticks, and it counts only if it passed after your last change). List a check that applies but you did not run in checks_not_run, with why. Do what the ticket asks and only that: list anything you changed beyond it in beyond_ticket, and every test you changed, skipped, loosened or removed in tests_changed, each with why; never make a check pass by weakening it, and never make a failure disappear by hiding it (a catch that swallows the error, a default value that stands in for a missing or failed result, a retry that leaves no record). This ends your run.
+- A criterion that says what a user or caller observes is met only on the real path: its evidence runs that path (the command, the request, the screen) and observes the result, not a test of a mock or stub of the part that was broken.
+- If the project has a pre-merge check, submit_report runs it in your worktree first; while it fails the report is refused and you get its output: fix the cause and submit again.
 - If you are blocked or need a decision, call ask_question (blocking=true pauses the ticket until it is answered). Missing tools, credentials, skills or work outside your role: category Blocker.
 - For network access, paths outside your worktree or blocked commands, call request_permission.
 
@@ -29,9 +31,10 @@ Safety
 pub const LEAD_RULES: &str = "Lead duties
 - Every ticket belongs to an item of the approved plan. Create tickets with create_ticket and assign them with assign_ticket; workers never pick work themselves.
 - A worker sees its ticket, the ticket's comments and the requirements its plan item traces to, nothing else of the spec or plan. Write each ticket so it stands alone, and answer a worker's question on its ticket.
+- Give every ticket at least one acceptance criterion stated as what a user or caller observes on the real path ('running X prints Y', 'a request to X returns Y', 'opening X shows Y'). 'Tests pass' is never such a criterion: a test can pass on a mock while the user still sees the bug.
 - Review Resolved tickets with review_ticket: Approve when every acceptance criterion is met (code tickets then go through the merge queue; a criterion the report left Partial or NotMet needs ac_feedback saying how you verified it yourself), Reopen with feedback for each unmet criterion.
 - Review skeptically: a criterion is met only when you can check its evidence yourself (a test that runs it, a line in the diff, a file in the worktree). A claim without evidence you can check, or evidence that does not show the criterion, means Reopen with what is missing.
-- Review in this order: does the change do what the ticket asked, all of it and only it; does the diff touch anything the report's beyond_ticket does not list; was a test weakened, skipped or removed, or a check silenced (`|| true`, a broader ignore), without a reason in tests_changed you accept; what is missing (an error or empty case not handled, state set but not cleared on some path). Each is a reason to Reopen. Reopen feedback names a concrete case that fails, not a style preference.
+- Review in this order: does the change do what the ticket asked, all of it and only it; does the diff touch anything the report's beyond_ticket does not list; was a test weakened, skipped or removed, or a check silenced (`|| true`, a broader ignore), without a reason in tests_changed you accept; does the evidence for an observable criterion run the real path it names, or only a mock, a stub or another path; does new code hide a failure (a catch that swallows an error, a default value that masks a missing or failed result, a retry with no record); after a reopen, does the report's diagnosis show the failure reproduced and its cause backed by evidence; what is missing (an error or empty case not handled, state set but not cleared on some path). Each is a reason to Reopen. Reopen feedback names a concrete case that fails, not a style preference.
 - In team mode you take no tickets: give every plan item one of your workers' roles. When the team lacks a skill the plan needs, propose_role (a library role id or a new one, with why); the user decides, and an approved agent joins your team.
 - Close a ticket with close_ticket and a reason after it is approved, and for code tickets only after the merge succeeded. Closed is final.
 - If you are unsure about scope or requirements, ask the user instead of guessing.";
@@ -148,6 +151,10 @@ pub fn ticket_text(t: &Ticket, parent_title: Option<&str>) -> String {
     s
 }
 
+/// Told to a work run on a reopened ticket, never on a first run: the last fix did not hold, so diagnose before
+/// editing again (ADR-162).
+pub const DIAGNOSE_FIRST: &str = "\n## Before you change code again\nThe last attempt did not hold: this ticket was reopened (the review or system comment above says why). Do not edit code until you have diagnosed it:\n1. Reproduce the failure on the real path, or gather evidence for it (logs, real data, a test that fails on the path the criterion names).\n2. List 2-3 candidate causes, each with the observation that would rule it out, and make those observations.\n3. Fix the cause the evidence points to.\nIn submit_report, put the diagnosis in `diagnosis`: how you reproduced the failure, the causes you ruled out and how, and the evidence for the one you fixed.\n";
+
 fn comment_line(c: &Comment) -> String {
     let who = c.author.to_string();
     let body = match &c.body {
@@ -183,12 +190,13 @@ fn comment_line(c: &Comment) -> String {
                 }
             };
             format!(
-                "Report: {} | {}{}{}{}",
+                "Report: {} | {}{}{}{}{}",
                 r.summary,
                 acs.join("; "),
                 list("Checks not run", &r.checks_not_run),
                 list("Beyond the ticket", &r.beyond_ticket),
-                list("Tests changed", &r.tests_changed)
+                list("Tests changed", &r.tests_changed),
+                list("Diagnosis", &r.diagnosis)
             )
         }
         CommentBody::Review(r) => {
@@ -272,5 +280,27 @@ mod tests {
         assert!(!system_rules(false).contains("language they write in"));
         assert!(!system_rules(false).contains("Lead duties"));
         assert!(RULES.is_ascii() && LEAD_RULES.is_ascii());
+    }
+
+    #[test]
+    fn rules_ask_for_the_real_path_no_hidden_failures_and_a_diagnosis() {
+        // ADR-162: an observable criterion on every ticket, evidence on the real path, no silent fallbacks.
+        assert!(LEAD_RULES.contains("what a user or caller observes on the real path"));
+        assert!(LEAD_RULES.contains("'Tests pass' is never such a criterion"));
+        assert!(LEAD_RULES.contains("only a mock, a stub or another path"));
+        assert!(LEAD_RULES.contains("does new code hide a failure"));
+        assert!(LEAD_RULES.contains("does the report's diagnosis show the failure reproduced"));
+        assert!(RULES.contains("not a test of a mock or stub of the part that was broken"));
+        assert!(RULES.contains("never make a failure disappear by hiding it"));
+        assert!(RULES.contains("submit_report runs it in your worktree first"));
+        assert!(DIAGNOSE_FIRST.is_ascii());
+        for step in [
+            "Reproduce the failure",
+            "2-3 candidate causes",
+            "rule it out",
+            "`diagnosis`",
+        ] {
+            assert!(DIAGNOSE_FIRST.contains(step), "{step}");
+        }
     }
 }

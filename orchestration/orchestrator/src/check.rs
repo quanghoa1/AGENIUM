@@ -48,17 +48,21 @@ struct SandboxCheck {
 
 impl CheckRunner for SandboxCheck {
     fn run(&self, worktree: &Path) -> CheckOutcome {
-        // With the sandbox turned off (ADR-160) the check runs directly on the host, like every other command.
-        if agenium_sandbox::detect().backend.is_none() && !agenium_sandbox::is_off() {
-            return CheckOutcome {
-                ok: false,
-                log: format!(
-                    "pre-merge check `{}` needs Agenium's sandbox and no backend works on this machine",
-                    self.cmd
-                ),
-            };
+        if let Err(log) = self.ready() {
+            return CheckOutcome { ok: false, log };
         }
         run_check(&self.cmd, worktree, self.network)
+    }
+
+    fn ready(&self) -> Result<(), String> {
+        // With the sandbox turned off (ADR-160) the check runs directly on the host, like every other command.
+        if agenium_sandbox::detect().backend.is_none() && !agenium_sandbox::is_off() {
+            return Err(format!(
+                "pre-merge check `{}` needs Agenium's sandbox and no backend works on this machine",
+                self.cmd
+            ));
+        }
+        Ok(())
     }
 }
 

@@ -2,6 +2,24 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
+## Unreleased
+
+Quality rules learned from the open-source orchestrator babysitter (ideas only, ADR-162).
+
+### Work and review
+- **Every ticket has a criterion on the real path**: the Lead and the planner state at least one acceptance criterion
+  as what a user or caller observes ("running X prints Y"), never just "tests pass". Evidence for it must run that
+  path; a fix backed only by a test of a mock is reopened.
+- **After a reopen, the worker diagnoses first**: it reproduces the failure, weighs two or three causes with what would
+  rule each out, and cites the evidence for the one it fixes. The report has a new **Diagnosis** list, shown on the
+  ticket page and in the handover.
+- **No hidden failures**: new code that swallows an error, puts a default in place of a failed result or retries
+  without a record is a reason to reopen.
+- **The project's check runs when the worker submits**: with a pre-merge check set, a failing check refuses the report
+  and gives the worker its output in the same run, so it fixes it before the review instead of after a merge failure.
+  After two refusals the report goes through and the ticket says the check still fails. A check that cannot run (no
+  sandbox) does not block the submit and the ticket says so.
+
 ## 0.1.2 — 2026-11-17
 
 The helpers show their answer as it is written; plugins from private repositories; the Codex sandbox sources updated.

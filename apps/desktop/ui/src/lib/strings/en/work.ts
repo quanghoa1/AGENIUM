@@ -241,6 +241,7 @@ export const work = {
   "ticket.checksNotRun": "Checks not run",
   "ticket.beyondTicket": "Beyond the ticket",
   "ticket.testsChanged": "Tests changed",
+  "ticket.diagnosis": "Diagnosis",
   "ticket.reviewByLead": "Lead (reviewer)",
   "ticket.reviewBySolo": "Solo (reviews itself)",
   "ticket.reviewByYou": "You (override)",

@@ -28,6 +28,7 @@ mod scheduling;
 pub mod side_chat;
 mod stalls;
 mod steering;
+mod submit_check;
 mod ticket_runs;
 pub mod trace_recall;
 

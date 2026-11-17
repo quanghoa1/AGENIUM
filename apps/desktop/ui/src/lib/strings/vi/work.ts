@@ -243,6 +243,7 @@ export const work: Record<keyof typeof en, string> = {
   "ticket.checksNotRun": "Check chưa chạy",
   "ticket.beyondTicket": "Ngoài phạm vi ticket",
   "ticket.testsChanged": "Test đã sửa",
+  "ticket.diagnosis": "Chẩn đoán",
   "ticket.reviewByLead": "Lead (người review)",
   "ticket.reviewBySolo": "Solo (tự review)",
   "ticket.reviewByYou": "Bạn (ra tay)",

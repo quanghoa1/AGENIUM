@@ -239,6 +239,10 @@ impl Runtime {
                 if let Some(n) = &note {
                     first.push_str(&format!("\n## Notes from your previous run\n{n}\n"));
                 }
+                // ADR-162: the fix after a reopen starts from a diagnosis, not from another guess.
+                if t.reopen_count > 0 {
+                    first.push_str(prompt::DIAGNOSE_FIRST);
+                }
                 if !before.is_empty() {
                     first.push_str(&format!(
                         "\n## Work so far\n{} worked on this ticket before you (the comments above say how far and why they stopped). Their changes are in your worktree: look at them first (`git status`, `git diff`) and go on from them; do not start over.\n",

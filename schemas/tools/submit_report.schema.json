@@ -81,6 +81,14 @@
       "minimum": 0.0,
       "type": "number"
     },
+    "diagnosis": {
+      "default": [],
+      "description": "After a reopen: how you reproduced the failure, the candidate causes you ruled out and how, and the evidence for\nthe one you fixed (ADR-162). Empty on a first attempt.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "extension": {
       "additionalProperties": true,
       "default": {},
