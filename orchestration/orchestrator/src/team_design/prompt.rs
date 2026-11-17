@@ -30,9 +30,10 @@ Answer with one JSON object only, no prose around it:
       "allowed_paths": [], "model": "provider/model or empty", "prompt": "## Mission\n...",
       "why": "why this role, this count and this model"}
    ],
-   "new_skills": [{"name": "lowercase-name", "does": "what it does", "when": "when an agent should use it", "roles": ["role-id"]}]
+   "new_skills": [{"name": "lowercase-name", "does": "what it does", "when": "when an agent should use it", "roles": ["role-id"]}],
+   "based_on": "the id of the team template this team changes, when the user asked for one like it; else empty"
  }}
-"kind" is "lead" (exactly one, count 1), "worker" (at least one) or "planner" (at most one, count 1). Role ids are lowercase letters, digits and "-". Omit "team" when you only ask questions. When the user asks for changes to your last draft, answer with the whole changed team.
+"kind" is "lead" (exactly one, count 1), "worker" (at least one) or "planner" (at most one, count 1). Role ids are lowercase letters, digits and "-". Omit "team" when you only ask questions. When the user wants a team like one of the team templates listed below (or that one changed), start from it, keep what fits, and set "based_on" to its id: the user then chooses to save it as a new template or over that one. When the user asks for changes to your last draft, answer with the whole changed team.
 "###;
 
 /// The system text: the rules, then what this machine has.

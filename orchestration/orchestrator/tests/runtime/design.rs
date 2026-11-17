@@ -330,7 +330,12 @@ async fn a_helper_chat_is_a_session_that_can_be_reopened() {
         )
         .unwrap();
     assert_eq!(d.title, "Web shop team");
+    // The chat's CLI session goes with it; an id that is not a plain name names no folder.
+    let kept = app.helper_cli_session(&d.id).unwrap();
+    std::fs::create_dir_all(kept.join("home")).unwrap();
+    assert!(app.helper_cli_session("../agents").is_none() && app.helper_cli_session("").is_none());
     app.remove_session(&d.id).unwrap();
+    assert!(!kept.exists());
     assert_eq!(app.sessions("skill").unwrap().len(), 1);
     assert!(app.sessions("design").unwrap().is_empty());
     // The call is counted, under its session.

@@ -1,7 +1,7 @@
 // Team templates and their wizard (M4): the built-in templates, the user's own (saved under the root, a copy of a
 // built-in with the same id overrides it), a template made from a team as it is, import and export as TOML.
 import { Download, Pencil, Plus, Sparkles, Trash2, Upload, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConfirmModal, Modal } from "../components/motion";
 import { PageHeader, Section, cn } from "../components/ui";
 import { api } from "../lib/api";
@@ -36,6 +36,8 @@ export function TemplatesView() {
   const app = useApp();
   const [ts, setTs] = useState<TeamTemplate[]>([]);
   const [edit, setEdit] = useState<TeamTemplate | null>(null);
+  // The listed template the editor was opened on (its Edit button), if any: a draft or a new one is no template yet.
+  const editingOf = useRef<string | null>(null);
   const [fromTeam, setFromTeam] = useState(false);
   const [importing, setImporting] = useState(false);
   // Deleting a template (or resetting a built-in one) asks first (audit L12, 2026-10-31).
@@ -53,7 +55,8 @@ export function TemplatesView() {
     load();
   }, [app.tick]);
   const fail = (e: unknown) => app.notify(String(e));
-  if (edit) return <TemplateEditor initial={edit} onDone={() => (setEdit(null), load())} />;
+  // The template being edited keeps its id without asking; any other template of the id is replaced only after a yes.
+  if (edit) return <TemplateEditor initial={edit} templates={ts} editing={editingOf.current} onDone={() => (setEdit(null), (editingOf.current = null), load())} />;
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.templates")} sub={app.t("templates.sub")}>
@@ -90,7 +93,7 @@ export function TemplatesView() {
               {/* Role texts are what the agents read, so they stay in English (as tickets and plans do). */}
               <div className="mt-1 text-[11px] text-subtle">{app.t("templates.englishNote")}</div>
             </div>
-            <button className="btn" onClick={() => setEdit(structuredClone(t))}>
+            <button className="btn" onClick={() => ((editingOf.current = t.id), setEdit(structuredClone(t)))}>
               <Pencil className="h-3.5 w-3.5" /> {app.t("templates.edit")}
             </button>
             <button
@@ -223,9 +226,13 @@ function ImportToml({ open, onClose, onSaved }: { open: boolean; onClose: () => 
 
 /** Edits a template: identity, report template, and its roles (kind, count, tags, write scope, default model,
  *  ROLE.md, optionally started from a library or existing role). Saving validates on the backend. */
-function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: () => void }) {
+function TemplateEditor({ initial, templates, editing, onDone }: { initial: TeamTemplate; templates: TeamTemplate[]; editing: string | null; onDone: () => void }) {
   const app = useApp();
   const [t, setT] = useState<TeamTemplate>(initial);
+  // Another template of this id: saving replaces it, so the user says yes first (a built-in comes back with Reset;
+  // a template of the user's own does not).
+  const [replacing, setReplacing] = useState<TeamTemplate | null>(null);
+  const clash = (id: string) => (id && id !== editing ? templates.find((x) => x.id === id) ?? null : null);
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [library, setLibrary] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -233,6 +240,14 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
     api.roles().then(setRoles);
     api.skillLibrary().then((l) => setLibrary(l.skills.map((s) => s.name)));
   }, []);
+  const save = () => {
+    setSaving(true);
+    api
+      .saveTemplate(t)
+      .then(() => (app.notify(app.t("common.done")), onDone()))
+      .catch((e) => app.notify(String(e)))
+      .finally(() => setSaving(false));
+  };
   const role = (i: number, patch: Partial<RoleSpec>) => setT({ ...t, roles: t.roles.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const kindOf = (r: RoleSpec) => (r.planner ? "planner" : r.kind);
   return (
@@ -245,12 +260,9 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
           className="btn-primary"
           disabled={saving || !t.id || !t.name}
           onClick={() => {
-            setSaving(true);
-            api
-              .saveTemplate(t)
-              .then(() => (app.notify(app.t("common.done")), onDone()))
-              .catch((e) => app.notify(String(e)))
-              .finally(() => setSaving(false));
+            const other = clash(t.id);
+            if (other) return setReplacing(other);
+            save();
           }}
         >
           {app.t("common.save")}
@@ -360,6 +372,14 @@ function TemplateEditor({ initial, onDone }: { initial: TeamTemplate; onDone: ()
           </button>
         </div>
       </Section>
+      <ConfirmModal
+        open={!!replacing}
+        title={app.t("templates.replaceTitle").replace("{id}", replacing?.id ?? "")}
+        note={app.t(replacing?.custom ? "templates.replaceOwn" : "templates.replaceBuiltin").replace("{name}", replacing?.name ?? "")}
+        confirm={app.t("templates.replace")}
+        onClose={() => setReplacing(null)}
+        onConfirm={() => (setReplacing(null), save())}
+      />
     </div>
   );
 }

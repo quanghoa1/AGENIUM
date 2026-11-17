@@ -20,9 +20,13 @@ export function TeamDesigner({ onClose, onDraft }: { onClose: () => void; onDraf
   // Skills written from this draft: they are in the library now, so the role can have them.
   const [written, setWritten] = useState<Record<string, string>>({});
   const [session, setSession] = useState<string | null>(null);
+  // Save the draft as a new template (its own id), or over the template it is a variant of (`based_on`).
+  const [over, setOver] = useState(false);
   const d = design?.draft;
   const template = (): TeamTemplate => {
     const t = structuredClone(d!.template);
+    // Over the template it is based on: the same id, so saving replaces it (the editor asks first).
+    if (over && d!.based_on) t.id = d!.based_on;
     for (const s of d!.new_skills) {
       const name = written[s.name];
       if (!name) continue;
@@ -59,6 +63,19 @@ export function TeamDesigner({ onClose, onDraft }: { onClose: () => void; onDraf
                   <span className="chip border-line-strong text-muted">{d.template.report_template}</span>
                 </div>
                 {d.template.description && <div className="mt-1 text-xs text-muted">{d.template.description}</div>}
+                {d.based_on && (
+                  <div role="radiogroup" aria-label={app.t("design.saveAs")} className="mt-2 flex flex-wrap items-center gap-3 text-xs" data-testid="design-save-as">
+                    <span className="text-subtle">{app.t("design.basedOn").replace("{id}", d.based_on)}</span>
+                    <label className="flex items-center gap-1.5">
+                      <input type="radio" name="design-save-as" checked={!over} onChange={() => setOver(false)} />
+                      {app.t("design.asNew").replace("{id}", d.template.id)}
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input type="radio" name="design-save-as" checked={over} onChange={() => setOver(true)} />
+                      {app.t("design.over").replace("{id}", d.based_on)}
+                    </label>
+                  </div>
+                )}
               </div>
               <button
                 className="btn-primary shrink-0"

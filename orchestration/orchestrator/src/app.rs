@@ -497,6 +497,15 @@ impl App {
         self.layout.agent_dir(&id).join("cli-sessions")
     }
 
+    /// Where a helper chat's CLI session is kept between its turns; `None` for an id that is not a plain name.
+    pub fn helper_cli_session(&self, session: &str) -> Option<PathBuf> {
+        let plain = !session.is_empty()
+            && session
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+        plain.then(|| self.layout.helper_cli_sessions().join(session))
+    }
+
     /// Ends the kept CLI sessions of a ticket (its worktree is gone: they belong to work that is over).
     pub(crate) fn forget_cli_sessions(&self, key: &str) {
         for a in self.agents().unwrap_or_default() {

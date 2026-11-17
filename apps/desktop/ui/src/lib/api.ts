@@ -393,7 +393,8 @@ export interface NewSkill {
 export interface TeamDesign {
   reply: string;
   questions: string[];
-  draft: { template: TeamTemplate; why: string; roles: { id: string; why: string }[]; new_skills: NewSkill[]; notes: string[] } | null;
+  /** `based_on`: the template this draft is a variant of (the user may save it over that one). */
+  draft: { template: TeamTemplate; why: string; roles: { id: string; why: string }[]; new_skills: NewSkill[]; notes: string[]; based_on?: string | null } | null;
   raw: string;
   model: string;
 }

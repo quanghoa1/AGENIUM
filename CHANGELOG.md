@@ -7,6 +7,12 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 The helpers show their answer as it is written; plugins from private repositories; the Codex sandbox sources updated.
 
 ### Helpers
+- **A helper chat on a CLI continues its own CLI session**: the next message on the same CLI and model resumes the
+  session and sends only what is new, instead of a new session shown the whole chat each turn. Switching the chat to
+  another CLI or model starts a new session; deleting the chat deletes it.
+- **A team like a built-in template can replace it**: the team designer knows the templates there are and says which
+  one its draft is based on; you save the draft as a new template or over that one. Saving over another template of
+  the same id now asks first (a built-in comes back with "Back to built-in"; a template of your own does not).
 - **The helpers answer from what they are given**: the team designer on Claude Code no longer goes looking for files
   (it was told it worked on a ticket's worktree): a question about the skills now takes seconds, not minutes.
 - **The helpers see the plugins' skills too**, each with its tags and the start of its description; the designer can

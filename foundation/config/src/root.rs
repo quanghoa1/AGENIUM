@@ -169,6 +169,10 @@ impl RootLayout {
     pub fn mcp_work(&self) -> PathBuf {
         self.root.join("mcp")
     }
+    /// The vendor CLI's own session of each helper chat (`helpers/<session>`), resumed by the chat's next turn.
+    pub fn helper_cli_sessions(&self) -> PathBuf {
+        self.root.join("helpers")
+    }
     pub fn roles(&self) -> PathBuf {
         self.root.join("roles")
     }

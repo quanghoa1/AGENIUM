@@ -44,6 +44,7 @@ struct RawTeam {
     why: String,
     roles: Vec<RawRole>,
     new_skills: Vec<NewSkill>,
+    based_on: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -302,12 +303,25 @@ fn check(t: RawTeam, ctx: &DesignCtx) -> std::result::Result<TeamDraft, String> 
         roles,
     };
     template.validate().map_err(|e| e.to_string())?;
+    // A variant of a template there is: named so the user may save over it; another name is dropped.
+    let based = slug(&t.based_on);
+    let based_on = if based.is_empty() {
+        None
+    } else if ctx.taken.contains(&based) {
+        Some(based)
+    } else {
+        notes.push(format!(
+            "{based} is not a team template here: the draft is a new template"
+        ));
+        None
+    };
     Ok(TeamDraft {
         template,
         why: t.why.trim().to_owned(),
         roles: whys,
         new_skills,
         notes,
+        based_on,
     })
 }
 
@@ -417,6 +431,33 @@ mod tests {
             "{:?}",
             d.notes
         );
+    }
+
+    /// A variant of a template there is names it (the user may save over it); its own id stays new either way.
+    #[test]
+    fn a_variant_names_the_template_it_is_based_on() {
+        let team = |based: &str| {
+            json!({"reply": "Here.", "team": {
+                "id": "coding", "name": "Coding (tighter)", "report_template": "coding@1", "based_on": based,
+                "roles": [{"id": "lead", "kind": "lead", "prompt": "## Mission\nLead."},
+                          {"id": "dev", "kind": "worker"}]}})
+        };
+        let d = answer(team("Coding"), &ctx()).unwrap().2.unwrap();
+        assert_eq!(d.based_on.as_deref(), Some("coding"));
+        assert_eq!(
+            d.template.id, "coding-2",
+            "never saved over it without the user"
+        );
+        let d = answer(team("nope"), &ctx()).unwrap().2.unwrap();
+        assert_eq!(d.based_on, None);
+        assert!(
+            d.notes
+                .iter()
+                .any(|n| n.contains("nope is not a team template")),
+            "{:?}",
+            d.notes
+        );
+        assert_eq!(answer(team(""), &ctx()).unwrap().2.unwrap().based_on, None);
     }
 
     #[test]

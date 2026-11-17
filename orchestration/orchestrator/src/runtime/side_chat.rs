@@ -119,7 +119,7 @@ impl Runtime {
                 self.side_api(model, system, messages, max_tokens, live)
                     .await
             }
-            BackendKind::Cli => self.side_cli(model, system, messages, live).await,
+            BackendKind::Cli => self.side_cli(session, model, system, messages, live).await,
         }?;
         self.record_helper(kind, session, backend, model, &started, &a);
         Ok(a)
@@ -207,20 +207,29 @@ impl Runtime {
         })
     }
 
+    /// A helper chat's turn (`session`) resumes the CLI's own session of the chat's earlier turns when the same CLI and
+    /// model wrote it and it holds them all: only the new message is sent. Another CLI or model starts a new session.
     async fn side_cli(
         &self,
+        session: Option<&str>,
         model: &ModelBinding,
         system: &str,
         messages: Vec<Message>,
         live: Live<'_>,
     ) -> Result<SideAnswer> {
-        use agenium_cli_backend::{CliRun, Limits};
+        use agenium_cli_backend::{run::SessionStore, CliRun, Limits};
         let observer = Forward(live);
         let (driver, program) = self
             .cli_ready_named(&model.provider)
             .await
             .map_err(OrchError::Invalid)?;
-        let dir = Scratch(std::env::temp_dir().join(format!("agenium-side-{}", ulid::Ulid::new())));
+        let kept = session.and_then(|s| self.app.helper_cli_session(s));
+        // A chat's turns run in the same (empty) folder: a CLI finds the session it resumes by its folder (Claude).
+        let name = kept.as_ref().and_then(|k| k.file_name()).map_or_else(
+            || ulid::Ulid::new().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let dir = Scratch(std::env::temp_dir().join(format!("agenium-side-{name}")));
         std::fs::create_dir_all(&dir.0)?;
         let ctx = ToolCtx::new(
             &dir.0,
@@ -240,7 +249,17 @@ impl Runtime {
             protocol_specs: vec![],
             tools: vec![],
             ctx: &ctx,
-            session: None,
+            session: kept.map(|dir| {
+                if let Some(parent) = dir.parent() {
+                    SessionStore::sweep(parent);
+                }
+                SessionStore {
+                    dir,
+                    held: messages.len().saturating_sub(1),
+                    // Only the model that wrote the session resumes it.
+                    window: 0,
+                }
+            }),
             observer: &observer,
             cancel: self.cancel.child(),
             limits: Limits {

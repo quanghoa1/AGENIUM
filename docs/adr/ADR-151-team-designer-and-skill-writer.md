@@ -122,3 +122,39 @@ the end, and the pieces made the answer exactly.
   exists, a plugin's included, is not proposed again. The skill writer is told a plugin's skill is its vendor's: it
   suggests giving it to the agents and writes a new skill only for what it lacks.
 
+## Amendment (2026-11-17): a variant of a template, saved over it on purpose
+
+The owner: when the helper drafts a team like a built-in template, can it replace that template? Storage already lets
+a template of a built-in's id replace it (Reset brings the built-in back), but the designer always took a new id and
+the editor saved over any template of the same id without a word, a template of the user's own lost for good.
+
+- The designer is shown the team templates there are (id, name, roles) and, for a team like one of them, starts from
+  it and names it in `based_on` (checked: an id that is not a template is dropped with a note). The draft's own id stays
+  new.
+- The draft panel then offers to save it as a new template or to replace the one it is based on (the editor gets that
+  id).
+- The template editor asks before saving over another template of the same id: a built-in ("yours takes its place;
+  Back to built-in brings it back") or one of the user's own ("replaced, cannot be brought back"). Editing a template
+  and saving it under its own id does not ask.
+
+Tests: `check.rs` (`based_on` kept, an unknown one dropped, the id still new); the UI smoke saves a template with the
+built-in id `coding`, sees the question, replaces it, and brings the built-in back.
+
+
+## Amendment (2026-11-17): a helper chat resumes its CLI's own session
+
+A helper turn on a vendor CLI used to start a new CLI session each time, shown the whole chat as text: every turn paid
+for the whole history again. Now each helper chat keeps its CLI's session (ADR-134's `SessionStore`) in
+`<root>/helpers/<session>`, and its turns run in the same empty folder (`agenium-side-<session>` in the temp folder:
+Claude Code finds a session by its folder).
+
+- The next turn on the same CLI and model resumes that session and is sent only the new message (the instructions are
+  sent again, rebuilt with the current lists).
+- Another CLI or another model starts a new session, shown the chat as text; it is then the one kept.
+- A turn whose earlier messages are not what the session holds (an answer asked again after a bad draft, a turn that
+  failed) falls back to the text, as for a ticket.
+- Deleting the chat deletes its folder; a folder no turn touched for two weeks is swept.
+
+Real check `quality/eval/examples/helper_resume.rs` (Claude Haiku then Codex, and the reverse): turn 2 is sent with the
+first message's code word blanked and still answers it (resumed, same session id); a turn on the other CLI does not know
+it (new session); deleting the chat removes the folder.

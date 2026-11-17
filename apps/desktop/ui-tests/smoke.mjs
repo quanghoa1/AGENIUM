@@ -246,6 +246,24 @@ check(
   JSON.stringify(after?.skills ?? null),
 );
 
+// 3c. A template saved with a built-in's id replaces it only after a yes, and Back to built-in brings it back.
+await js(`window.location.hash = '/templates'`);
+await until("[...document.querySelectorAll('main button')].some((b) => b.textContent.trim() === 'New template')", 15000);
+await clickText("New template", "document.querySelector('main')");
+await until("document.querySelectorAll('main input').length >= 2", 10000);
+await js(`(() => { const ins = document.querySelectorAll('main input');
+  const set = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
+  set(ins[0], 'coding'); set(ins[1], 'Coding (mine)'); return true; })()`);
+await clickText("Save", "document.querySelector('main')");
+const replaceAsked = await until("document.body.innerText.includes('Replace the template coding?')", 10000);
+await shot("03c-replace-asked");
+await clickText("Replace");
+const tplReplaced = await until("window.__TAURI_INTERNALS__.invoke('templates').then((ts) => ts.some((t) => t.id === 'coding' && t.custom && t.name === 'Coding (mine)'))", 15000);
+check("a template with a built-in's id replaces it only after a yes", replaceAsked && tplReplaced);
+await invoke("remove_template", { id: "coding" });
+const builtinBack = await until("window.__TAURI_INTERNALS__.invoke('templates').then((ts) => ts.some((t) => t.id === 'coding' && !t.custom))", 10000);
+check("the built-in comes back", builtinBack);
+
 // 4. Every view renders, without console errors.
 const views = ["overview", "tickets", "runs", "needs", "projects", "agents", "teams", "providers", "templates", "memory", "audit", "usage", "settings", "live", "library", "chat", "browser"];
 for (const v of views) {

@@ -61,6 +61,10 @@ pub struct TeamDraft {
     pub new_skills: Vec<NewSkill>,
     /// What Agenium changed or wants the user to look at (an unknown model dropped, a large team...).
     pub notes: Vec<String>,
+    /// The template this draft is a variant of, when the designer started from one: the user may save the draft over
+    /// it (a built-in comes back with Reset) instead of as a new template.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub based_on: Option<String>,
 }
 
 /// The designer's answer to one turn.
@@ -122,6 +126,22 @@ impl App {
         );
         text.push_str(&crate::skill_catalogue::catalogue_text(&skills, request));
         text.push_str(&format!("\n## Report templates\n{}\n", REPORTS.join(", ")));
+        // The team templates there are: a team like one of them is drafted as its variant (`based_on`).
+        text.push_str("\n## Team templates there are (when the user wants one of these changed, start from it and set based_on)\n");
+        for t in self.team_templates()? {
+            let roles: Vec<String> = t
+                .roles
+                .iter()
+                .map(|r| {
+                    if r.count > 1 {
+                        format!("{} x{}", r.id, r.count)
+                    } else {
+                        r.id.clone()
+                    }
+                })
+                .collect();
+            text.push_str(&format!("- {}: {} ({})\n", t.id, t.name, roles.join(", ")));
+        }
         text.push_str("\n## The user's models (provider/model; CLI programs run the user's own subscription)\n");
         for (key, list) in &cache.models {
             let (kind, source) = key.split_once(':').unwrap_or(("api", key));

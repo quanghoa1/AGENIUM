@@ -185,6 +185,9 @@ impl App {
         self.store().commit(None, "user", |w| {
             helper_sessions::remove(w.tx, id).map_err(OrchError::from)
         })?;
+        if let Some(dir) = self.helper_cli_session(id) {
+            let _ = std::fs::remove_dir_all(dir);
+        }
         Ok(())
     }
 }
