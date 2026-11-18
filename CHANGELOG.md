@@ -2,8 +2,11 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
-## Unreleased
+## 0.1.5 — 2026-11-19
 
+- **Agenium's browser starts on machines with a Windows compatibility layer:** Edge relaunched itself when it saw
+  `__COMPAT_LAYER` (here `DetectorsAppHealth`, inherited from whatever started Agenium) and the process Agenium watched
+  ended without DevTools, so agents could not open a page. The browser now starts without that variable.
 - **Auto-approve now also grants an agent's permission requests:** with "approve by myself" on (Needs you), a
   `request_permission` for a network host, a path or a command outside the allowlist is granted at once instead of
   waiting for you, as a sandbox-blocked command already was. Spec and plan approvals still wait for you. Each grant is

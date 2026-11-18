@@ -154,6 +154,9 @@ pub(super) async fn launch(
     } else {
         &[][..]
     })
+    // A Windows compatibility layer inherited from whatever started Agenium (`__COMPAT_LAYER=DetectorsAppHealth` seen
+    // 2026-11-19) makes Edge relaunch itself without it and exit: the process watched here ended with no DevTools.
+    .env_remove("__COMPAT_LAYER")
     .stdin(std::process::Stdio::null())
     .stdout(std::process::Stdio::null())
     .stderr(
