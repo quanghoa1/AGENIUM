@@ -92,7 +92,7 @@ impl Runtime {
     ) -> Result<RunSummary> {
         let p = self.app.project(project)?;
         let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
-        let run = self.open_run(planner, None, RunId::new())?;
+        let run = self.open_run(planner, None, "plan", RunId::new())?;
         *opened = Some(run);
         // The roles the plan can use: the team's workers except the planner.
         let roles: Vec<String> = self

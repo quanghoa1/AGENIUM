@@ -11,13 +11,21 @@ impl App {
     ) -> Result<Outcome> {
         let pid = ctx.project;
         let inside = in_allowlist(&r, &allowlist(self, project));
+        // ADR-161: the user's standing approval (the "Needs you" auto-approve) grants a request outright, as it does a
+        // sandbox-blocked command, so the agent is not stopped to ask. Spec and plan approvals are a separate gate and
+        // are never auto-approved.
+        let auto = self.config().sandbox.auto_escalate;
         self.commit(ctx, |w| {
             let mut t = ticket_by_key(w, pid, &r.ticket_id)?;
             let agent = require_assignee(&t, &ctx.actor)?;
             if t.status != TicketStatus::InProgress && t.status != TicketStatus::Pending {
                 return Err(invalid(format!("{} is {}; permissions are requested while working on it", t.key, t.status)));
             }
-            let c = add_comment(w, &t, Author::Agent(agent), None, CommentBody::Permission { request: r, run: ctx.run, outcome: None })?;
+            let c = add_comment(w, &t, Author::Agent(agent), None, CommentBody::Permission { request: r.clone(), run: ctx.run, outcome: None })?;
+            if auto {
+                record_permission(w, &mut t, &c, r, ctx.run, PermissionDecision::Approve, "auto", "run", None)?;
+                return Ok(Outcome { result: serde_json::json!({ "request_id": c.id, "in_allowlist": inside, "decided_by": "auto" }), run: RunEffect::Continue, ops: vec![] });
+            }
             if t.status == TicketStatus::InProgress {
                 transition(w, &mut t, &ctx.actor, TicketStatus::Pending, &Guards { open_blocking: true, ..Default::default() })?;
             }

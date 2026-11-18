@@ -5,7 +5,7 @@ import { EvidenceImage } from "./EvidenceImage";
 import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Package, Send, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import { ticketlessRuns, useApp, useLive, type LiveRun } from "../lib/store";
+import { runKind, useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine, QueuedMessage } from "../lib/types";
 import { AttachmentBar, DocChip, material, splitMaterial, useAttachments } from "./Attachments";
 import { LeadQueue } from "./LeadQueue";
@@ -304,7 +304,7 @@ export function ChatPane({
       : agentId
         ? busy
           ? newest(() => true)
-          : newest((run) => ticketlessRuns.has(run))
+          : newest((run) => runKind.get(run) === "chat")
         : undefined;
   // Any run of the Lead going on (a chat turn from another window, a review, an inbox run): a message waits for it.
   const leadWorking = busy || (!!agentId && Object.values(live).some((l) => !l.done && l.agent === agentId));

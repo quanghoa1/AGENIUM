@@ -186,6 +186,7 @@ impl App {
                 run,
                 agent: agent_id,
                 ticket: Some(t.id),
+                kind: "work".into(),
             })?;
             Ok(RunStart {
                 run,

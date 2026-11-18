@@ -113,6 +113,10 @@ pub enum DomainEvent {
         run: RunId,
         agent: AgentId,
         ticket: Option<TicketId>,
+        /// Which kind of run: "chat", "inbox", "plan", "review" or "work". The live view shows only a chat turn in
+        /// the Lead's chat pane; the others (all ticketless but chat) would appear and then vanish.
+        #[serde(default)]
+        kind: String,
     },
     RunEnded {
         run: RunId,

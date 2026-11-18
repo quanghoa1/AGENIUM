@@ -317,6 +317,48 @@ fn permissions_lead_inside_allowlist_user_outside_and_always_allow() {
 }
 
 #[test]
+fn auto_escalate_grants_a_permission_outside_the_allowlist_without_asking() {
+    let t = team();
+    planned(&t);
+    let f = &t.f;
+    f.app
+        .update_config(|c| c.sandbox.auto_escalate = true)
+        .unwrap();
+    let k = started(f, t.web, "PI-1", "Needs network", &[], &[]);
+    let run = f.app.start_run(f.project.id, &k, "mock", "m").unwrap();
+    let wctx = CallCtx {
+        run: Some(run.run),
+        ..ctx(f, Actor::Worker(t.web))
+    };
+    let out = f
+        .app
+        .apply(
+            &wctx,
+            Intent::RequestPermission(PermissionRequest {
+                ticket_id: k.clone(),
+                kind: PermissionKind::Network,
+                command: None,
+                domains: vec!["github.com".into()],
+                paths: vec![],
+                reason: "read a bulletin".into(),
+            }),
+        )
+        .unwrap();
+    // Approved at once (not parked for the user), and the grant is in place so the run goes on.
+    assert_eq!(
+        (out.run, out.result["decided_by"].clone()),
+        (RunEffect::Continue, serde_json::json!("auto"))
+    );
+    assert_eq!(ticket(f, k.as_str()).status, TicketStatus::InProgress);
+    let grants = f
+        .app
+        .store()
+        .read(|c| runs::active_grants(c, f.project.id, Some(ticket(f, k.as_str()).id)))
+        .unwrap();
+    assert_eq!((grants.len(), grants[0].scope.as_str()), (1, "run"));
+}
+
+#[test]
 fn lead_inbox_order_sla_and_escalation() {
     let t = team();
     planned(&t);

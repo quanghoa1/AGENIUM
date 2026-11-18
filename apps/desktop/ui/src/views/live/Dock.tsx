@@ -5,7 +5,7 @@ import { ChatPane, type Prefill } from "../../components/ChatPane";
 import { Avatar, CacheHit, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, modelLabel, tokens } from "../../components/ui";
 import { VendorBadge } from "../../components/VendorBadge";
 import { api } from "../../lib/api";
-import { useApp } from "../../lib/store";
+import { runKind, useApp } from "../../lib/store";
 import type { AgentTrace, LiveAgent, LiveData } from "../../lib/types";
 import { Act, Dot, kindOf } from "./activity";
 import { CallBadge, CallRow, JudgeRow, classify } from "./calls";
@@ -168,7 +168,7 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
         {(k === "lead" || k === "standalone") && a.project ? (
             <>
               {k === "lead" && <Delegations project={a.project} data={data} onWatch={onPick} />}
-              <ChatPane key={a.project} project={a.project} agentName={a.agent.name} agentId={a.agent.id} prefill={k === "lead" ? prefill : null} stream={stream} className="border-t border-line" />
+              <ChatPane key={a.project} project={a.project} agentName={a.agent.name} agentId={a.agent.id} prefill={k === "lead" ? prefill : null} stream={a.run && runKind.get(a.run.run.id) === "chat" ? stream : undefined} className="border-t border-line" />
             </>
           ) : k === "worker" ? (
             <>

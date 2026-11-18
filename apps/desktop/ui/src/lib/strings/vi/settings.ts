@@ -136,7 +136,7 @@ export const settings: Record<keyof typeof en, string> = {
   "settings.sandboxOffSwitch.ok": "Tắt sandbox",
   "settings.autoEscalate": "Tự duyệt lệnh bị sandbox chặn",
   "settings.autoEscalateMoved": "Bật/tắt tự duyệt lệnh bị sandbox chặn nằm ở trang Cần bạn, nơi các lệnh đó chờ bạn.",
-  "settings.autoEscalate.hint": "Lệnh bị sandbox chặn (docker, server trên localhost, thông tin đăng nhập git…), hoặc lệnh agent báo không chạy được trong sandbox, bình thường chờ bạn duyệt ở mục Cần bạn để chạy lại ngoài sandbox. Bật: lệnh chạy ngoài sandbox ngay, không hỏi. Mọi lệnh như vậy được ghi vào Nhật ký kiểm toán. Các lệnh khác vẫn chạy trong sandbox.",
+  "settings.autoEscalate.hint": "Lệnh bị sandbox chặn (docker, server trên localhost, thông tin đăng nhập git…), hoặc quyền mà agent xin (một host mạng, một đường dẫn, một lệnh ngoài allowlist), bình thường chờ bạn duyệt ở mục Cần bạn. Bật: duyệt ngay, không hỏi. Mỗi thứ như vậy được ghi vào Nhật ký kiểm toán. Duyệt spec và plan vẫn chờ bạn.",
   "model.title": "Đang chuẩn bị memory",
   "model.why": "Agent ghi nhớ và gợi lại theo nghĩa nhờ một model embedding chạy ngay trên máy ({mb} MB). Model được cài một lần, trước khi app mở.",
   "model.retry": "Thử lại",

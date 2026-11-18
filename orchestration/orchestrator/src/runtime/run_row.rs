@@ -9,6 +9,7 @@ impl Runtime {
         &self,
         agent: &agenium_store::core::agents::Agent,
         ticket: Option<TicketId>,
+        kind: &str,
         id: RunId,
     ) -> Result<RunId> {
         Ok(self
@@ -35,6 +36,7 @@ impl Runtime {
                     run: id,
                     agent: agent.id,
                     ticket,
+                    kind: kind.to_owned(),
                 })?;
                 Ok(id)
             })?

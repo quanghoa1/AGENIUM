@@ -368,7 +368,7 @@ impl Runtime {
                 format!("(the diff could not be read: {e}; read the changes in the worktree)")
             }
         };
-        let run = self.open_run(&lead, Some(t.id), RunId::new())?;
+        let run = self.open_run(&lead, Some(t.id), "review", RunId::new())?;
         *opened = Some(run);
         // Known from the start: a review that errors is still not taken for the agent's last work conversation.
         self.app

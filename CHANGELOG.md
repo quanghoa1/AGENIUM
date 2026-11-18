@@ -4,6 +4,13 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
+- **Auto-approve now also grants an agent's permission requests:** with "approve by myself" on (Needs you), a
+  `request_permission` for a network host, a path or a command outside the allowlist is granted at once instead of
+  waiting for you, as a sandbox-blocked command already was. Spec and plan approvals still wait for you. Each grant is
+  in the Audit log.
+- **The Lead's chat no longer shows a turn that then vanishes:** its inbox and plan turns (creating tickets, deciding a
+  worker's permission) streamed into the chat pane while running and disappeared when they ended, since they are not
+  part of the conversation. The pane now streams only a chat turn. (`RunStarted` carries the run's kind.)
 - **A finished call no longer shows twice in Live → Tools / Skills / MCP:** the spinning "in progress" row of a call
   stayed until the model wrote or called again, so a call that had ended (its row in the log) also showed as still
   running, for any tool (`map_query`, a web search, a command).

@@ -176,7 +176,7 @@ impl Runtime {
         let session = learn::chat_session(project);
         // Opened first: the summary below is a model call, and meanwhile the turn must count as going on (closing the
         // project looks at the runs going on; audit M-2).
-        let run = self.open_run(lead, None, run)?;
+        let run = self.open_run(lead, None, "chat", run)?;
         *opened = Some(run);
         // Older turns of a long chat are seen as a summary (ADR-106); the stored conversation stays whole.
         let (history, summary_usage) = self.chat_history(lead, &mem, project).await?;
@@ -356,7 +356,7 @@ impl Runtime {
         let Some(_turn) = self.register_if_idle(project, lead.id, id) else {
             return Ok(None);
         };
-        let run = self.open_run(&lead, None, id)?;
+        let run = self.open_run(&lead, None, "inbox", id)?;
         *opened = Some(run);
         // The tickets the items are about, with their comments (questions need the ticket's context).
         let mut seen = std::collections::HashSet::new();
