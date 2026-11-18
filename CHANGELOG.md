@@ -2,6 +2,13 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
+## Unreleased
+
+- **Remove an empty project:** a project with no team, ticket, spec or plan has a Remove button on its card. Only
+  Agenium's record goes; its folder and files stay as they are, and creating a project there again opens it as it is.
+- **A team goes to the project you chose:** making a team from a template no longer picks the project last selected
+  (a new team went to the newest project without being asked). "Add a team" on a project's card still chooses that one.
+
 ## 0.1.3 — 2026-11-18
 
 ### Fixes from the pre-0.1.3 audit

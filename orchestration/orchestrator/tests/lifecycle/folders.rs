@@ -271,3 +271,34 @@ fn a_clone_on_a_new_branch_checks_it_out() {
     assert_eq!(git(at, &["symbolic-ref", "--short", "HEAD"]).trim(), "work");
     assert!(git(at, &["branch", "--list", "trunk"]).contains("trunk"));
 }
+
+/// An empty project is removed from Agenium and its folder stays as it is; one with work (here a team) is refused, and
+/// created again on the same folder it opens as it was.
+#[test]
+fn an_empty_project_is_removed_and_its_folder_stays() {
+    let f = fixture();
+    let dir = f._tmp.path().join("recon");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.md"), "scope\n").unwrap();
+    let p = picked(&f, "recon", &dir).unwrap();
+    f.app.remove_project(p.id).unwrap();
+    assert!(f.app.project(p.id).is_err());
+    assert_eq!(
+        std::fs::read_to_string(dir.join("notes.md")).unwrap(),
+        "scope\n"
+    );
+    assert!(
+        dir.join("agenium.toml").is_file(),
+        "the folder is left as it is"
+    );
+    let again = picked(&f, "recon", &dir).unwrap();
+    assert_eq!(again.path, p.path);
+
+    // The fixture's project has a team (a Solo agent): refused, with what holds it.
+    solo_with_plan(&f, &[("PI-1", &[])]);
+    let e = f.app.remove_project(f.project.id).unwrap_err().to_string();
+    assert!(
+        e.contains("a team") && e.contains("close it instead"),
+        "{e}"
+    );
+}

@@ -17,6 +17,12 @@ pub enum DomainEvent {
         name: String,
         path: String,
     },
+    /// An empty project the user removed from Agenium (its folder stays).
+    ProjectRemoved {
+        project: ProjectId,
+        name: String,
+        path: String,
+    },
     ProjectStatusChanged {
         project: ProjectId,
         status: String,

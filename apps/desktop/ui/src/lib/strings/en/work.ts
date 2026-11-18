@@ -110,6 +110,7 @@ export const work = {
   "audit.ev.TeamCreated": "Team created",
   "audit.ev.ProjectStatusChanged": "Project status changed",
   "audit.ev.ProjectCreated": "Project created",
+  "audit.ev.ProjectRemoved": "Project removed",
   "audit.scope": "Project: {x} (agents and teams are not project events).",
   "audit.you": "you",
   "live.effort": "effort",

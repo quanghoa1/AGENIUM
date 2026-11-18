@@ -58,3 +58,12 @@ pub fn set_references(
         .set_references(project.parse().map_err(err)?, references)
         .map_err(err)
 }
+
+/// Removes an empty project from Agenium (no team, tickets, spec or plan); its folder stays as it is.
+#[tauri::command]
+pub fn remove_project(d: State<'_, Desktop>, project: String) -> R<()> {
+    let o = d.opened()?;
+    o.app
+        .remove_project(project.parse().map_err(err)?)
+        .map_err(err)
+}

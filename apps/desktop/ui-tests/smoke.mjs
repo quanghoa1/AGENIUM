@@ -93,6 +93,22 @@ const refShown = await until(`[...document.querySelectorAll('main input')].some(
 await shot("02b-reference-folder");
 check("a reference folder shows on the project's card", !String(refs).startsWith("ERR") && refShown, String(refs).slice(0, 160));
 
+// 2b'. An empty project is removed from its card (after a confirm); its folder stays.
+await typeInto("main input", "spare");
+await clickText("Create project", "document.querySelector('main')");
+const spare = await until(`document.querySelector('main')?.innerText.includes('spare')`, 15000);
+const sparePath = (JSON.parse((await invoke("projects")) || "[]").find?.((p) => p.name === "spare") ?? {}).path;
+const removeClicked = await js(`(() => {
+  const card = [...document.querySelectorAll('main .card')].find((c) => c.querySelector('span')?.textContent.trim() === 'spare');
+  const b = card && [...card.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Remove');
+  if (!b) return false; b.click(); return true; })()`);
+const confirmed = removeClicked && (await until(`[...document.querySelectorAll('.btn-danger')].some((b) => b.textContent.trim() === 'Remove')`, 5000)) &&
+  (await js(`(() => { const b = [...document.querySelectorAll('.btn-danger')].find((x) => x.textContent.trim() === 'Remove'); b.click(); return true; })()`));
+const gone = confirmed && (await until(`!(document.querySelector('main')?.innerText ?? '').split('\\n').some((l) => l.trim() === 'spare')`, 10000));
+const kept = sparePath ? await js(`window.__TAURI_INTERNALS__.invoke('inspect_folder', { path: ${JSON.stringify(sparePath)} }).then((f) => f.exists)`) : false;
+await shot("02b-removed");
+check("an empty project is removed from its card and its folder stays", spare && gone && kept === true, JSON.stringify({ spare, removeClicked, confirmed, gone, kept }));
+
 // 2c. Many skills at once: a folder of skill folders is read, its skills listed to tick (a broken one is shown, not
 // importable), and the ticked ones imported together.
 const collection = resolve(scratch, "skill-collection");

@@ -26,7 +26,8 @@ function TeamComposer({ data, onDone, onCancel }: { data: TeamsData; onDone: () 
   const [picked, setPicked] = useState<string[]>([]);
   const [lead, setLead] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<LeadSuggestion | null>(null);
-  const [project, setProject] = useState<string>("");
+  // The project the user came for ("Add a team" on its card), never one picked for them.
+  const [project, setProject] = useState<string>(app.projects.find((p) => p.id === app.route.id && !p.team)?.id ?? "");
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   useEffect(() => {
     api.roles().then((r) => setRoles(r ?? []));
@@ -156,7 +157,9 @@ function TemplateQuickStart() {
   const [model, setModel] = useState<ModelArg>(emptyModel);
   const [leadModel, setLeadModel] = useState<ModelArg | null>(null);
   const [plannerModel, setPlannerModel] = useState<ModelArg | null>(null);
-  const [project, setProject] = useState(app.projects.find((p) => p.id === app.project && !p.team)?.id ?? "");
+  // The project the user came for ("Add a team" on its card), never the one last selected (a team went to the newest
+  // project without the user choosing it).
+  const [project, setProject] = useState(app.projects.find((p) => p.id === app.route.id && !p.team)?.id ?? "");
   const [gone, setGone] = useState<string | null>(null);
   // Each role on the model its template names (ADR-152), where this machine runs it; kept with the models.
   const [roleModels, setRoleModels] = useState(true);

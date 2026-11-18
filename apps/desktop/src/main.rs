@@ -131,6 +131,7 @@ fn main() {
             api::resolve_memory_conflict,
             api::set_agent_status,
             api::close_project,
+            api::remove_project,
             api::suggest_key_prefix,
             api::reopen_project,
             api::pause_project,

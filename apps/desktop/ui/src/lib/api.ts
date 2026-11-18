@@ -150,6 +150,7 @@ export const api = {
   renameAgent: (agent: string, name: string) => call<void>("rename_agent", { agent, name }),
   setAgentIdle: (agent: string) => call<void>("set_agent_status", { agent, status: "Idle" }),
   /** The user closes a done project (ADR-130): the freed team, and the project waiting for it that took it. */
+  removeProject: (project: string) => call<void>("remove_project", { project }),
   closeProject: (project: string) => call<{ team: string | null; taken_by: string | null }>("close_project", { project }),
   /** The user reopens a closed project: a free team on it now, a busy one it waits for (`wait`), or none yet. */
   reopenProject: (project: string, team: string | null, wait: boolean) => call<void>("reopen_project", { project, team, wait }),

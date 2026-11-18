@@ -63,3 +63,11 @@ told the user that the work was done, and the Lead's chat did not lead to where 
   closed from the header, the team went back to the first project which had been reopened to wait for it ("went on to
   uidemo, which was waiting for it"); a request in the chat raised "The team started" after 11 s and "is done" after
   72 s; the full UI check passes (57/57).
+
+## Amendment (2026-11-18): an empty project can be removed
+
+A project that never started (no team, no ticket, spec or plan, no message, proposal or permission) can be removed
+from its card, after a confirmation (`App::remove_project`, `ProjectRemoved` in the audit trail). Only Agenium's record
+goes, with its map rows; its folder, its files and its git history stay as they are, and creating a project on that
+folder again opens it as it is (`agenium.toml` is kept). A project with any work is closed instead, which keeps its
+history.

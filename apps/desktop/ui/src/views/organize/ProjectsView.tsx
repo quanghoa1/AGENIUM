@@ -1,3 +1,4 @@
+import { RemoveProject } from "../../components/RemoveProject";
 import { Check, FolderOpen, FolderPlus, Users } from "lucide-react";
 import { CloseProject } from "../../components/CloseProject";
 import { HandoverReport } from "../../components/HandoverReport";
@@ -148,11 +149,11 @@ export function ProjectsView() {
           <ReferenceFolders value={refs} onChange={setRefs} />
         </div>
       </div>
-      {created && (
+      {created && app.projects.some((p) => p.id === created.id) && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs">
           <Check className="h-4 w-4 text-emerald-500" />
           <span>{app.t("projects.created").replace("{x}", created.name)}</span>
-          <button className="btn-primary ml-auto" onClick={() => (app.setProject(created.id), app.go("teams"))}>
+          <button className="btn-primary ml-auto" onClick={() => (app.setProject(created.id), app.go("teams", created.id))}>
             <Users className="h-3.5 w-3.5" /> {app.t("projects.nextTeam")}
           </button>
           <button className="btn" onClick={() => setCreated(null)}>
@@ -199,13 +200,14 @@ export function ProjectsView() {
               <HandoverReport p={p} />
               {p.run_state === "Done" && <CloseProject p={p} />}
               {p.run_state === "Closed" && <ReopenProject p={p} />}
+              {!p.team && p.tickets === 0 && p.plan_items === 0 && p.run_state !== "Closed" && <RemoveProject p={p} />}
               {p.waits_for && (
                 <span className="chip self-center border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300">
                   {app.t("run.waiting").replace("{team}", p.waits_for)}
                 </span>
               )}
               {!p.team && !p.waits_for && p.run_state !== "Closed" && (
-                <button className="btn-primary" onClick={() => (app.setProject(p.id), app.go("teams"))}>
+                <button className="btn-primary" onClick={() => (app.setProject(p.id), app.go("teams", p.id))}>
                   <Users className="h-3.5 w-3.5" /> {app.t("projects.addTeam")}
                 </button>
               )}

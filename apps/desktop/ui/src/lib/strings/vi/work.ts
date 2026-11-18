@@ -112,6 +112,7 @@ export const work: Record<keyof typeof en, string> = {
   "audit.ev.TeamCreated": "Tạo team",
   "audit.ev.ProjectStatusChanged": "Đổi trạng thái dự án",
   "audit.ev.ProjectCreated": "Tạo dự án",
+  "audit.ev.ProjectRemoved": "Xoá dự án",
   "audit.scope": "Dự án: {x} (thao tác với agent và team không thuộc nhật ký dự án).",
   "audit.you": "bạn",
   "live.effort": "mức suy nghĩ",

@@ -62,7 +62,7 @@ export function ChatView() {
               <ReopenProject p={p} />
             </span>
           ) : (
-            <button className="btn-primary ml-auto" onClick={() => app.go("teams")}>
+            <button className="btn-primary ml-auto" onClick={() => app.go("teams", app.project ?? undefined)}>
               <Users className="h-3.5 w-3.5" /> {app.t("projects.nextTeam")}
             </button>
           )}
