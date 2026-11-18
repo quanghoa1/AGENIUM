@@ -8,7 +8,8 @@ import { api } from "../../lib/api";
 import { useApp } from "../../lib/store";
 import type { AgentTrace, LiveAgent, LiveData } from "../../lib/types";
 import { Act, Dot, kindOf } from "./activity";
-import { CallBadge, CallRow, JudgeRow } from "./calls";
+import { CallBadge, CallRow, JudgeRow, classify } from "./calls";
+import { plainArgs } from "../../lib/subagents";
 import { Delegations } from "./Delegations";
 import { WorkerBus } from "./WorkerBus";
 
@@ -52,6 +53,13 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
   // The run's tool, skill and MCP calls, and what the Jev judge said for it (a skill pick, an evidence read).
   const calls = (trace?.steps ?? []).filter((e) => e.kind === "tool" || e.kind === "judge");
   const stream = act?.stream && !act.stream.done ? act.stream : undefined;
+  // The call in progress, until its row is in the log: the stream stays on "tool" until the model writes or calls
+  // again, so a finished call showed twice, once still spinning (1 s of slack for the live events' batching).
+  const since = (stream?.toolAt ?? Infinity) - 1000;
+  const running =
+    stream?.phase === "tool" && act?.call && !calls.some((e) => e.kind === "tool" && Date.parse(e.at) >= since && classify(e.data.tool, plainArgs(e.data.args)).name === act.call!.name)
+      ? act.call
+      : undefined;
   const task = a.run?.ticket_key ? a.open_tickets.find((x) => x.key === a.run!.ticket_key) : a.open_tickets[0];
   const status: [string, string] =
     act?.activity === "tool" || act?.activity === "shell"
@@ -142,11 +150,11 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
               <ContextGauge usage={trace.run.usage} />
             </div>
           )}
-          {stream?.phase === "tool" && act?.call && (
+          {running && (
             <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/5 px-2.5 py-1.5 text-[11px]">
               <span className="h-2 w-2 animate-ping rounded-full bg-purple-500" />
-              <CallBadge kind={act.call.kind} />
-              <span className="truncate font-mono">{act.call.label}</span>
+              <CallBadge kind={running.kind} />
+              <span className="truncate font-mono">{running.label}</span>
             </div>
           )}
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">

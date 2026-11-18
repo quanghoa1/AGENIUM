@@ -2,6 +2,12 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
+## Unreleased
+
+- **A finished call no longer shows twice in Live → Tools / Skills / MCP:** the spinning "in progress" row of a call
+  stayed until the model wrote or called again, so a call that had ended (its row in the log) also showed as still
+  running, for any tool (`map_query`, a web search, a command).
+
 ## 0.1.4 — 2026-11-18
 
 - **Remove an empty project:** a project with no team, ticket, spec or plan has a Remove button on its card. Only

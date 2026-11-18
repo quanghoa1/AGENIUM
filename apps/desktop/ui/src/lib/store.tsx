@@ -68,6 +68,8 @@ export interface LiveRun {
   tool?: string;
   /** The current tool's arguments, once the call is known whole. */
   toolArgs?: unknown;
+  /** When the current call started (ms): a logged call of the same tool since then means it has finished. */
+  toolAt?: number;
   done: boolean;
   /** Model calls answered so far (one `usage` event each): what changes the run's context. */
   calls?: number;
@@ -157,6 +159,7 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     next.phase = "tool";
     next.tool = ev.name;
     next.toolArgs = undefined;
+    next.toolAt = next.at;
     next.steps = [...cur.steps.slice(-60), { kind: "tool", id: ev.id, name: ev.name }];
   } else if (ev.type === "tool") {
     next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
@@ -167,6 +170,7 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     const i = cur.steps.findIndex((s) => s.kind === "tool" && s.args === undefined && (s.id ? s.id === ev.id : s.name === ev.name));
     const step: LiveStep = { kind: "tool", id: ev.id, name: ev.name, args: ev.args };
     next.steps = i >= 0 ? cur.steps.map((s, k) => (k === i ? step : s)) : [...cur.steps.slice(-60), step];
+    if (i < 0) next.toolAt = next.at;
   } else if (ev.type === "usage") {
     next.calls = (cur.calls ?? 0) + 1;
     // A step ended: the next one starts by thinking. An API step ends as its tool calls start running: the tool
