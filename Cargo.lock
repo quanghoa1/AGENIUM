@@ -55,6 +55,7 @@ version = "0.1.2"
 dependencies = [
  "agenium-core",
  "agenium-llm",
+ "agenium-sandbox",
  "agenium-tools",
  "async-trait",
  "futures",

@@ -258,21 +258,12 @@ impl CliRun<'_> {
             Some(spec) => agenium_tools::coerce::coerce(&spec.parameters, args),
             None => args,
         };
-        // A report while a command of the run still goes on would report work whose result is not known (ADR-133).
-        let going = self.ctx.jobs.awaited_going();
-        if name == "submit_report" && !going.is_empty() {
-            let e = ToolError::new(
-                "commands_running",
-                format!(
-                    "{} still going: end your turn and wait for {} (it comes as a message), then report",
-                    going
-                        .iter()
-                        .map(|(id, c)| format!("job {id} `{c}`"))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    if going.len() == 1 { "its result" } else { "their results" }
-                ),
-            );
+        // A report while a command of the run still goes on (ADR-133), or with the agent's checklist unfinished
+        // (ADR-164), goes back to the agent.
+        if let Some(e) = (name == "submit_report")
+            .then(|| agenium_tools::submit_refusal(self.ctx))
+            .flatten()
+        {
             self.observer
                 .tool(name, &labelled(&args, label), &Err(e.clone()));
             return CallResult {

@@ -229,8 +229,11 @@ impl Runtime {
         // scope, like an API agent's.
         let cli = cli_ready.is_some();
         // A CLI waits only so long for a tool: its long commands go on as jobs the run waits for (ADR-133).
+        // An API run's loop waits for them too: a command still going at its timeout is not killed (ADR-164).
         if cli {
             ctx.foreground_limit = Some(agenium_cli_backend::FOREGROUND_LIMIT);
+        } else {
+            ctx.awaits_commands = true;
         }
         let mut work = work;
         // A CLI's read-only run (a review, a chat) keeps our shell where a sandbox makes that run read-only: the Lead

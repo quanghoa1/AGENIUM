@@ -9,6 +9,7 @@ pub mod edit_match;
 pub mod jobs;
 pub mod patch;
 pub mod paths;
+mod submit;
 pub mod text;
 pub mod untrusted;
 mod work;
@@ -22,6 +23,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+pub use submit::*;
 pub use work::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
@@ -199,6 +201,8 @@ pub struct ToolCtx {
     pub http: reqwest::Client,
     ledger: Mutex<HashMap<PathBuf, [u8; 32]>>,
     todo: Mutex<Vec<TodoItem>>,
+    /// `submit_report`s refused in this run for an unfinished checklist (ADR-164).
+    todo_refusals: AtomicU32,
     seq: AtomicU32,
     /// Background commands of the run (ADR-129); stopped when the context is dropped at the run's end.
     pub jobs: jobs::Jobs,
@@ -208,6 +212,9 @@ pub struct ToolCtx {
     /// How long a `shell` call may last before its command goes on as a job the run waits for (ADR-133): set for a
     /// vendor CLI's run, which waits only so long for a tool; `None` (an API run) waits for the command.
     pub foreground_limit: Option<Duration>,
+    /// The run hands the end of a command that outlasted its call to the agent (an API run's loop, ADR-164): a `shell`
+    /// command still going at its timeout goes on as such a job, up to `shell_timeout_max`, instead of being killed.
+    pub awaits_commands: bool,
     /// The run's headless browser (ADR-158), started by the first `browser` call, ended with the context.
     pub browser: browser::Session,
 }
@@ -239,10 +246,12 @@ impl ToolCtx {
                 .unwrap_or_default(),
             ledger: Mutex::new(HashMap::new()),
             todo: Mutex::new(vec![]),
+            todo_refusals: AtomicU32::new(0),
             seq: AtomicU32::new(0),
             jobs: Default::default(),
             stop: Arc::default(),
             foreground_limit: None,
+            awaits_commands: false,
             browser: Default::default(),
         }
     }

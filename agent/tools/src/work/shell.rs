@@ -70,8 +70,18 @@ run outside it, and outside_sandbox asks that up front for a command that cannot
             .as_deref()
             .map(str::trim)
             .filter(|w| !w.is_empty());
-        // A vendor CLI waits only so long for a tool: its command goes on as a job the run waits for (ADR-133).
-        if let (Some(limit), false) = (ctx.foreground_limit, a.background) {
+        // A vendor CLI waits only so long for a tool: its command goes on as a job the run waits for (ADR-133). An API
+        // run's loop waits for such a job too (ADR-164): the call answers at the timeout and the command goes on, up
+        // to the longest a command may run, instead of being killed with its work lost.
+        let answer_at = match (ctx.foreground_limit, ctx.awaits_commands) {
+            (Some(limit), _) => Some(limit),
+            (None, true) => {
+                spec.timeout = ctx.limits.shell_timeout_max;
+                Some(timeout)
+            }
+            (None, false) => None,
+        };
+        if let (Some(limit), false) = (answer_at, a.background) {
             return super::shell_awaited::call(ctx, spec, limit, wanted.map(str::to_owned)).await;
         }
         // An approval the user has not given yet is given up when the run is stopped.

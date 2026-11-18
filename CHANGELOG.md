@@ -4,6 +4,14 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
+### Long commands, checklists, proven done (ADR-164)
+
+- In an API run a command still going at its timeout is no longer killed: it goes on as a job (up to 10 minutes) and
+  its result comes to the agent as a message, as in a CLI's run. The stop button still ends it at once.
+- A report is refused while a command of the run still goes on, and (twice at most) while the agent's own checklist has
+  items not done.
+- The Lead tells you something is done only with evidence for each requirement; what lacks it is reported as not done.
+
 ### Reading the web (ADR-163)
 - **Agents search the web, free**: Claude Code and Codex agents use their own web search (it runs on Anthropic's and
   OpenAI's servers). Other agents (API models, OpenCode, Antigravity) get a `web_search` tool that searches through

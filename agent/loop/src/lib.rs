@@ -20,6 +20,7 @@ use agenium_tools::{ImageData, Tool, ToolCtx, ToolError};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+mod commands;
 mod context;
 mod contract;
 mod fit;
@@ -135,6 +136,12 @@ impl Run<'_> {
             None => args,
         };
         if self.protocol_names.iter().any(|n| n == name) {
+            // ADR-133, ADR-164: no report while a command still goes on or the agent's checklist is unfinished.
+            if name == "submit_report" {
+                if let Some(e) = agenium_tools::submit_refusal(self.ctx) {
+                    return (Err(e), Effect::Continue, false, vec![]);
+                }
+            }
             return match self.protocol.call(name, args, call_id).await {
                 Ok((serde_json::Value::String(text), eff)) => (Ok(text), eff, false, vec![]),
                 Ok((v, eff)) => (Ok(v.to_string()), eff, false, vec![]),
@@ -241,6 +248,11 @@ impl Run<'_> {
                     );
                     nudges = 0;
                 }
+            }
+            // ADR-164: a command that outlasted its call and has ended reaches the agent before its next step.
+            if let Some(text) = self.ended_commands() {
+                self.observer.control("command_ended", &text);
+                push(&mut messages, Message::user_text(text));
             }
             if step >= self.cfg.max_steps {
                 break self
@@ -369,6 +381,14 @@ impl Run<'_> {
             push(&mut messages, message);
             if calls.is_empty() {
                 if resp.stop == StopReason::PauseTurn {
+                    continue;
+                }
+                // The agent ended its turn while a command of its run goes on: the run waits for it, and its end
+                // comes as the next message (ADR-164), not a nudge.
+                if resp.stop != StopReason::MaxTokens && !self.ctx.jobs.awaited_going().is_empty() {
+                    if !self.wait_for_commands().await {
+                        break Outcome::Cancelled;
+                    }
                     continue;
                 }
                 if self.chat && resp.stop != StopReason::MaxTokens {

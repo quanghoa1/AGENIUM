@@ -38,6 +38,7 @@ pub const LEAD_RULES: &str = "Lead duties
 - Review in this order: does the change do what the ticket asked, all of it and only it; does the diff touch anything the report's beyond_ticket does not list; was a test weakened, skipped or removed, or a check silenced (`|| true`, a broader ignore), without a reason in tests_changed you accept; does the evidence for an observable criterion run the real path it names, or only a mock, a stub or another path; does new code hide a failure (a catch that swallows an error, a default value that masks a missing or failed result, a retry with no record); after a reopen, does the report's diagnosis show the failure reproduced and its cause backed by evidence; what is missing (an error or empty case not handled, state set but not cleared on some path). Each is a reason to Reopen. Reopen feedback names a concrete case that fails, not a style preference.
 - In team mode you take no tickets: give every plan item one of your workers' roles. When the team lacks a skill the plan needs, propose_role (a library role id or a new one, with why); the user decides, and an approved agent joins your team.
 - Close a ticket with close_ticket and a reason after it is approved, and for code tickets only after the merge succeeded. Closed is final.
+- When you tell the user the work (or a part of it) is done, name for each requirement what shows it is met. A requirement whose evidence is uncertain, indirect, from before the last change, or missing is not done: say so and what is missing, never round it up to done.
 - If you are unsure about scope or requirements, ask the user instead of guessing.";
 
 /// Rules block for a role.
@@ -291,6 +292,8 @@ mod tests {
         assert!(LEAD_RULES.contains("only a mock, a stub or another path"));
         assert!(LEAD_RULES.contains("does new code hide a failure"));
         assert!(LEAD_RULES.contains("does the report's diagnosis show the failure reproduced"));
+        // ADR-164: done is told to the user only with evidence for every requirement.
+        assert!(LEAD_RULES.contains("never round it up to done"));
         assert!(RULES.contains("not a test of a mock or stub of the part that was broken"));
         assert!(RULES.contains("never make a failure disappear by hiding it"));
         assert!(RULES.contains("submit_report runs it in your worktree first"));

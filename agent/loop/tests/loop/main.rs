@@ -8,6 +8,7 @@ use agenium_tools::{AllowAll, ToolCtx, ToolError};
 use async_trait::async_trait;
 use serde_json::json;
 
+mod commands;
 mod context;
 mod fit;
 mod messages;
