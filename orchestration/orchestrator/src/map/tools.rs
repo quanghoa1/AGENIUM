@@ -254,7 +254,9 @@ impl Tool for MapAdd {
          with a type (calls, imports, reads, writes, requests, hosted_at, part_of, depends_on…) and their evidence: \
          {\"file\", \"line\"} or {\"file\", \"lines\": [from, to]} of the source's own code that names the target, or \
          {\"url\"} of a page that names both ends. Agenium checks each one before it is kept (the code in your tree, \
-         the page by fetching it) and says why it refused one. Add what you verified, once you know it holds."
+         the page by fetching it) and says why it refused one. Add what you verified, once you know it holds, and \
+         only what later work would trace again (how a codebase's parts depend on each other, how a system fits \
+         together); a one-file script or a one-off step needs no map."
     }
     fn parameters(&self) -> Value {
         json!({

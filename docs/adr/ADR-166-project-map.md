@@ -137,3 +137,10 @@ A wrong map misleads more than no map does. Static analysis also cannot map anyt
   (audit M-5).
 - The recheck reads each file once, a path search walks each node's own links, and settling runs off the async
   workers (audit L-15).
+
+## Amendment (2026-11-18): only what later work would trace again
+
+The end-to-end run of 0.1.3 had an agent build a one-file tool and add nothing to the map, which is right: the map is
+for how a codebase's files and modules depend on each other and how a system or a vendor fits together, not a record
+of every task. The rule and `map_add`'s description now say so (not a one-file script, a one-off command, or every
+function touched), so a stronger model does not fill the map with noise.
