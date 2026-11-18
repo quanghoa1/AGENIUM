@@ -29,7 +29,6 @@ export function CommandPolicySection() {
   }, []);
   const setUnsandboxed = (on: boolean) => api.setUnsandboxed(on).then(setP).catch((e) => app.notify(String(e)));
   const setOff = (off: boolean) => api.setSandboxOff(off).then(setP).catch((e) => app.notify(String(e)));
-  const setAuto = (on: boolean) => api.setAutoEscalate(on).then(setP).catch((e) => app.notify(String(e)));
   if (!p) return null;
   const state = now(p);
   return (
@@ -91,19 +90,12 @@ export function CommandPolicySection() {
         </label>
       )}
       {p.backend && p.approval !== "never" && (
-        <label className="mt-3 flex items-start gap-2 rounded-lg border border-line p-2.5 text-xs">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            data-testid="auto-escalate"
-            checked={p.auto_escalate}
-            onChange={(e) => setAuto(e.target.checked)}
-          />
-          <span>
-            <span className="font-medium">{app.t("settings.autoEscalate")}</span>
-            <span className="mt-0.5 block text-[11px] text-subtle">{app.t("settings.autoEscalate.hint")}</span>
-          </span>
-        </label>
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-line p-2.5 text-xs">
+          <span className="text-subtle">{app.t("settings.autoEscalateMoved")}</span>
+          <button className="btn ml-auto" onClick={() => app.go("needs")}>
+            {app.t("nav.needs")}
+          </button>
+        </div>
       )}
       {(p.os_backend || p.off) && (
         <label className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/5 p-2.5 text-xs">

@@ -225,6 +225,19 @@ for (const v of views) {
   await shot(`view-${v}`);
   check(`view ${v}`, ok && errors.length === before, errors.slice(before).join(" | ").slice(0, 200));
 }
+// 4b. Auto-approve lives on Needs you, where the blocked commands wait; Settings only points there.
+const pol = await invoke("command_policy", {});
+if (pol.backend && pol.approval !== "never") {
+  await js(`window.location.hash = '/needs'`);
+  const shown = await until("!!document.querySelector('[data-testid=auto-escalate]')", 10000);
+  await js(`document.querySelector('[data-testid=auto-escalate]').click()`);
+  const flipped = await until(`window.__TAURI_INTERNALS__.invoke('command_policy').then((p) => p.auto_escalate === ${!pol.auto_escalate})`, 10000);
+  await invoke("set_auto_escalate", { on: pol.auto_escalate });
+  await js(`window.location.hash = '/settings'`);
+  await sleep(800);
+  const notInSettings = await js(`!document.querySelector('[data-testid=auto-escalate]')`);
+  check("auto-approve is switched on Needs you, not Settings", shown && flipped && notInSettings);
+} else console.log("SKIP auto-approve (no working sandbox here)");
 await js(`window.location.hash = '/teams'`);
 const leadShown = await until("/lead/i.test(document.querySelector('main')?.innerText ?? '')", 15000);
 check("the team shows its Lead", leadShown, "");

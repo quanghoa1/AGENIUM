@@ -133,6 +133,7 @@ export const settings = {
   "settings.sandboxOffSwitch.warn": "Agents' commands will run on this computer with your permissions, with no sandbox and without asking: a command can read or change any of your files and reach the network. Agenium still keeps file edits to the ticket's write scope and never gives agents your keys. Turn it on only for projects and models you trust; turn it off again to get the sandbox back.",
   "settings.sandboxOffSwitch.ok": "Turn the sandbox off",
   "settings.autoEscalate": "Approve commands the sandbox blocks by myself (auto-approve)",
+  "settings.autoEscalateMoved": "Auto-approving the commands the sandbox blocks is switched in Needs you, where they wait for you.",
   "settings.autoEscalate.hint": "A command the sandbox blocks (docker, a server on localhost, your git credentials…), or one an agent says cannot work inside it, normally waits for your OK in Needs you to run again outside the sandbox. On: it runs outside at once, without asking. Every such command is listed in the Audit log. Everything else still runs in the sandbox.",
   "model.title": "Preparing memory",
   "model.why": "Agents remember and recall by meaning with a local embedding model ({mb} MB, runs on this computer). It is put in place once, before the app opens.",

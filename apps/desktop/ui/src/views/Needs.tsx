@@ -8,6 +8,7 @@ import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import type { CommandApproval, NeedItem, NeedKind } from "../lib/types";
 import { SkillProposalActions } from "./SkillProposalActions";
+import { AutoApprove } from "../components/AutoApprove";
 
 const icon: Record<NeedKind, ReactNode> = {
   AgentBlocked: <AlertTriangle className="h-4 w-4 text-rose-500" />,
@@ -227,6 +228,7 @@ export function NeedsView() {
   return (
     <div className="space-y-4">
       <PageHeader title={app.t("nav.needs")} sub={total ? `${total} ${app.t("needs.waiting")}` : app.t("needs.sub")} />
+      <AutoApprove />
       {items
         .map((r) => ({ ...r, cmds: app.approvals.filter((a) => a.project === r.id) }))
         .filter((r) => r.items.length || r.cmds.length || r.failed)

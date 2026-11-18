@@ -2,12 +2,18 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
-## Unreleased
+## 0.1.4 — 2026-11-18
 
 - **Remove an empty project:** a project with no team, ticket, spec or plan has a Remove button on its card. Only
   Agenium's record goes; its folder and files stay as they are, and creating a project there again opens it as it is.
 - **A team goes to the project you chose:** making a team from a template no longer picks the project last selected
   (a new team went to the newest project without being asked). "Add a team" on a project's card still chooses that one.
+- **Auto-approve moved to Needs you:** "approve commands the sandbox blocks by myself" is switched on the page those
+  commands wait on; Settings points there.
+- **Codex sandbox sources updated to `bd3eaf7`**: the four files that changed upstream are reference only (the helper's
+  runtime log on Windows, Linux's transparent TCP); nothing to port. `mxc-sdk` 1.1.0 is not taken yet: it drops the
+  Windows fallbacks Agenium's process sandbox may need on some builds and adds diagnostic events that cannot be turned
+  off; Codex itself has not moved to it. It is evaluated with the containment matrix first.
 
 ## 0.1.3 — 2026-11-18
 
