@@ -234,8 +234,14 @@ fn main() {
             live::agent_bus,
             live::agent_trace,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running the Agenium desktop app");
+        .build(tauri::generate_context!())
+        .expect("error while building the Agenium desktop app")
+        .run(|_, event| {
+            // Agenium's own browser writes its cookies (the user's sign-ins) before it goes (ADR-165).
+            if let tauri::RunEvent::Exit = event {
+                tauri::async_runtime::block_on(agenium_tools::browser::shutdown_all());
+            }
+        });
 }
 
 /// Committed events go to the UI as `agenium://event` (the UI refreshes what they touch; it resyncs from the log

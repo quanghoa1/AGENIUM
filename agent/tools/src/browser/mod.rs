@@ -1,7 +1,9 @@
-//! A headless browser of the run (ADR-158): Edge or Chrome as found on the machine, started on the first browser tool
-//! call with a fresh profile in the run's temp folder, driven over the DevTools protocol, ended with the run (the tool
-//! context is dropped). It runs outside the sandbox, as MCP servers do, and reaches only the machine itself and the
-//! project's network allowlist: every other host goes to a closed proxy port and fails.
+//! The browser of a run (ADR-158, ADR-165): Edge or Chrome as found on the machine, driven over the DevTools
+//! protocol, started on the first browser tool call. A run that reaches the network gets a tab of Agenium's own
+//! browser (`shared`): one profile kept across runs, signed in where the user signed in. Any other run gets a private
+//! headless browser with a fresh profile in the run's temp folder, ended with the run, that reaches only the machine
+//! itself and the project's network allowlist: every other host goes to a closed proxy port and fails. Both run
+//! outside the sandbox, as MCP servers do.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -9,19 +11,22 @@ use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 
 use crate::ToolError;
 
 mod find;
+mod shared;
 pub use find::find_browser;
+pub use shared::{shutdown, shutdown_all};
 
 /// How long the browser has to start and say where its DevTools listen.
 const START: Duration = Duration::from_secs(20);
 /// How long one protocol call may take (a page load waits in steps of it).
 const CALL: Duration = Duration::from_secs(30);
+/// How long the page may keep changing after it loaded before a step reads it anyway.
+const QUIET_CAP_MS: u32 = 3000;
 
 type Ws =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
@@ -30,43 +35,157 @@ type Ws =
 #[derive(Default, Clone)]
 pub struct Session(Arc<Mutex<Option<Browser>>>);
 
+enum Owner {
+    /// The run's own browser, ended with it.
+    Private {
+        child: Box<tokio::process::Child>,
+        _tree: agenium_sandbox::TreeGuard,
+        _profile: tempfile::TempDir,
+    },
+    /// A tab of Agenium's own browser, closed with the run.
+    Shared {
+        profile: PathBuf,
+        port: u16,
+        gen: u64,
+        id: String,
+    },
+}
+
 pub struct Browser {
-    _child: tokio::process::Child,
-    _tree: agenium_sandbox::TreeGuard,
+    owner: Owner,
     ws: Ws,
     next: u64,
+    /// The connection to the page is gone (the browser closed or started again).
+    broken: bool,
     /// Console errors and uncaught exceptions of the page since the last tool call read them.
     pub errors: Vec<String>,
-    _profile: tempfile::TempDir,
+    /// The page's address after the last step: where a new tab of the run opens again.
+    pub url: String,
+    /// The page is in a window on the user's screen (Agenium's own browser, shown for the user to act).
+    pub visible: bool,
 }
 
 impl Session {
-    /// The browser, started with `allow` (hosts beside the machine itself the pages may reach) when it is not yet.
+    /// The run's page: a tab of Agenium's browser of `profile` (opened again at the same address when that browser
+    /// started again), or the run's private browser fenced to `allow`, started when it is not yet.
     pub async fn get(
         &self,
         temp: &Path,
         allow: &[String],
+        profile: Option<&Path>,
     ) -> Result<tokio::sync::MappedMutexGuard<'_, Browser>, ToolError> {
         let mut g = self.0.lock().await;
-        if g.is_none() {
-            *g = Some(Browser::start(temp, allow).await?);
+        match profile {
+            Some(p) => {
+                let (port, gen, visible) = shared::port(p, None).await?;
+                let current = g.as_ref().is_some_and(|b| {
+                    !b.broken && matches!(&b.owner, Owner::Shared { gen: n, .. } if *n == gen)
+                });
+                if !current {
+                    let url = g.take().map(|b| b.url.clone()).unwrap_or_default();
+                    *g = Some(Browser::tab(p, port, gen, visible, &url).await?);
+                }
+            }
+            None if g.is_none() => *g = Some(Browser::start(temp, allow).await?),
+            None => {}
         }
         Ok(tokio::sync::MutexGuard::map(g, |b| b.as_mut().unwrap()))
     }
+
+    /// Shows the run's page in a window of Agenium's browser of `profile`, for the user to act in it; its address.
+    pub async fn show(&self, profile: &Path) -> Result<String, ToolError> {
+        let mut g = self.0.lock().await;
+        let url = g
+            .as_ref()
+            .map(|b| b.url.clone())
+            .filter(|u| !u.is_empty() && u != "about:blank")
+            .ok_or_else(|| err("invalid_arguments", "open the page first"))?;
+        *g = None;
+        let (port, gen, visible) = shared::port(profile, Some(true)).await?;
+        let b = Browser::tab(profile, port, gen, visible, &url).await?;
+        if let Owner::Shared { id, .. } = &b.owner {
+            shared::activate(port, id).await;
+        }
+        *g = Some(b);
+        Ok(url)
+    }
 }
 
-fn err(code: &str, m: impl std::fmt::Display) -> ToolError {
+pub(crate) fn err(code: &str, m: impl std::fmt::Display) -> ToolError {
     ToolError::new(code, m.to_string())
+}
+
+/// Starts the browser with `extra` arguments, what it prints going to the file `log`; it, its process tree's guard and
+/// its DevTools port. Not a pipe: a reader of one (a blocking thread on Windows) would hold the runtime's shutdown
+/// for as long as Agenium's own browser lives.
+pub(super) async fn launch(
+    extra: &[String],
+    log: &Path,
+) -> Result<(tokio::process::Child, agenium_sandbox::TreeGuard, u16), ToolError> {
+    let exe = find_browser().ok_or_else(|| {
+        err(
+            "no_browser",
+            "no Edge or Chrome found on this machine (set AGENIUM_BROWSER to a Chromium browser's program)",
+        )
+    })?;
+    let mut cmd = tokio::process::Command::new(&exe);
+    cmd.args([
+        "--remote-debugging-port=0",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-extensions",
+        "--disable-sync",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--window-size=1280,800",
+    ])
+    .args(extra)
+    // On Linux the first cookie of a page waited forever for a keyring nobody could unlock (no screen, or a locked
+    // one): the browser keeps its own. One store for every start, so a sign-in made in the window reads headless too.
+    .args(if cfg!(target_os = "linux") {
+        &["--password-store=basic"][..]
+    } else {
+        &[][..]
+    })
+    .stdin(std::process::Stdio::null())
+    .stdout(std::process::Stdio::null())
+    .stderr(
+        std::fs::File::create(log)
+            .map_err(|e| err("browser", format!("{}: {e}", log.display())))?,
+    )
+    .kill_on_drop(true);
+    #[cfg(unix)]
+    cmd.process_group(0);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| err("browser", format!("{}: {e}", exe.display())))?;
+    let tree = agenium_sandbox::TreeGuard::attach(&child);
+    // The browser says where its DevTools listen: "DevTools listening on ws://127.0.0.1:<port>/...".
+    let deadline = tokio::time::Instant::now() + START;
+    loop {
+        let said = std::fs::read_to_string(log).unwrap_or_default();
+        if let Some(port) = said
+            .split("ws://127.0.0.1:")
+            .nth(1)
+            .and_then(|rest| rest.split('/').next())
+            .and_then(|p| p.parse::<u16>().ok())
+        {
+            return Ok((child, tree, port));
+        }
+        let ended = !matches!(child.try_wait(), Ok(None));
+        if ended || tokio::time::Instant::now() >= deadline {
+            // What it said before it gave up: the reason, when it does not start.
+            let lines: Vec<String> = said.lines().take(40).map(str::to_owned).collect();
+            return Err(err("browser", not_started(&exe, &lines)));
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 }
 
 impl Browser {
     async fn start(temp: &Path, allow: &[String]) -> Result<Browser, ToolError> {
-        let exe = find_browser().ok_or_else(|| {
-            err(
-                "no_browser",
-                "no Edge or Chrome found on this machine (set AGENIUM_BROWSER to a Chromium browser's program)",
-            )
-        })?;
         std::fs::create_dir_all(temp).map_err(|e| err("browser", e))?;
         let profile = tempfile::Builder::new()
             .prefix("browser-")
@@ -85,79 +204,96 @@ impl Browser {
                 .map(|a| a.trim().to_owned())
                 .filter(|a| !a.is_empty()),
         );
-        let mut cmd = tokio::process::Command::new(&exe);
-        cmd.args([
-            "--headless=new",
-            "--remote-debugging-port=0",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-extensions",
-            "--disable-sync",
-            "--disable-background-networking",
-            "--disable-component-update",
-            "--mute-audio",
-            "--window-size=1280,800",
-            "--proxy-server=http://127.0.0.1:9",
-        ])
-        .arg(format!("--proxy-bypass-list={}", bypass.join(";")))
-        .arg(format!("--user-data-dir={}", profile.path().display()))
-        .arg("about:blank")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
-        #[cfg(unix)]
-        cmd.process_group(0);
-        #[cfg(windows)]
-        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| err("browser", format!("{}: {e}", exe.display())))?;
-        let tree = agenium_sandbox::TreeGuard::attach(&child);
-        // The browser says where its DevTools listen on stderr: "DevTools listening on ws://127.0.0.1:<port>/...".
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| err("browser", "no stderr"))?;
-        let mut lines = BufReader::new(stderr).lines();
-        // What it said before it gave up: the reason, when it does not start.
-        let mut said: Vec<String> = Vec::new();
-        let port = tokio::time::timeout(START, async {
-            while let Ok(Some(l)) = lines.next_line().await {
-                if let Some(rest) = l.split("ws://127.0.0.1:").nth(1) {
-                    return rest.split('/').next().and_then(|p| p.parse::<u16>().ok());
-                }
-                if said.len() < 40 {
-                    said.push(l);
-                }
-            }
-            None
-        })
-        .await
-        .ok()
-        .flatten()
-        .ok_or_else(|| err("browser", not_started(&exe, &said)))?;
-        // Its later output is not read: drain it so the browser never blocks on a full pipe.
-        tokio::spawn(async move { while let Ok(Some(_)) = lines.next_line().await {} });
+        let (child, tree, port) = launch(
+            &[
+                "--headless=new".into(),
+                "--mute-audio".into(),
+                "--proxy-server=http://127.0.0.1:9".into(),
+                format!("--proxy-bypass-list={}", bypass.join(";")),
+                format!("--user-data-dir={}", profile.path().display()),
+                "about:blank".into(),
+            ],
+            &profile.path().join("browser.log"),
+        )
+        .await?;
         let page = page_socket(port).await?;
-        let (ws, _) = tokio_tungstenite::connect_async(page.as_str())
-            .await
-            .map_err(|e| err("browser", format!("DevTools: {e}")))?;
-        let mut b = Browser {
-            _child: child,
+        let owner = Owner::Private {
+            child: Box::new(child),
             _tree: tree,
+            _profile: profile,
+        };
+        Browser::connect(owner, &page, false).await
+    }
+
+    /// A new tab of Agenium's browser, at `url` when one is given (the run's page before that browser started again).
+    async fn tab(
+        profile: &Path,
+        port: u16,
+        gen: u64,
+        visible: bool,
+        url: &str,
+    ) -> Result<Browser, ToolError> {
+        let (id, ws) = shared::new_tab(port).await?;
+        shared::opened(profile);
+        let owner = Owner::Shared {
+            profile: profile.to_path_buf(),
+            port,
+            gen,
+            id,
+        };
+        let mut b = Browser::connect(owner, &ws, visible).await?;
+        if !url.is_empty() && url != "about:blank" {
+            b.call("Page.navigate", json!({ "url": url })).await?;
+            b.url = url.to_owned();
+            b.settle().await?;
+        }
+        Ok(b)
+    }
+
+    async fn connect(owner: Owner, page: &str, visible: bool) -> Result<Browser, ToolError> {
+        let ws = tokio_tungstenite::connect_async(page)
+            .await
+            .map_err(|e| err("browser", format!("DevTools: {e}")));
+        // A tab that cannot be reached is closed again with `owner` (its `Drop`).
+        let (ws, _) = match ws {
+            Ok(w) => w,
+            Err(e) => {
+                drop(owner);
+                return Err(e);
+            }
+        };
+        let mut b = Browser {
+            owner,
             ws,
             next: 0,
+            broken: false,
             errors: vec![],
-            _profile: profile,
+            url: String::new(),
+            visible,
         };
         b.call("Runtime.enable", json!({})).await?;
         b.call("Page.enable", json!({})).await?;
         Ok(b)
     }
 
+    /// Whether this is a tab of Agenium's own browser.
+    pub fn shared(&self) -> bool {
+        matches!(self.owner, Owner::Shared { .. })
+    }
+
     /// One protocol call on the page; events met while waiting are kept (console errors, exceptions).
     pub async fn call(&mut self, method: &str, params: Value) -> Result<Value, ToolError> {
+        let r = self.call_inner(method, params).await;
+        // The connection, not the call, failed: the page is gone (the browser closed or started again).
+        if let Err(e) = &r {
+            if e.code == "browser" && !e.message.starts_with(method) {
+                self.broken = true;
+            }
+        }
+        r
+    }
+
+    async fn call_inner(&mut self, method: &str, params: Value) -> Result<Value, ToolError> {
         self.next += 1;
         let id = self.next;
         let msg = json!({ "id": id, "method": method, "params": params }).to_string();
@@ -240,29 +376,57 @@ impl Browser {
         Ok(r["result"]["value"].clone())
     }
 
-    /// Waits until the page has loaded (or `CALL` passed), then a little longer for what it renders after.
+    /// Waits until the page has loaded (or `CALL` passed), then until it stops changing for a moment (at most
+    /// `QUIET_CAP_MS`): a page that renders after its load is read as it shows, not half built.
     pub async fn settle(&mut self) -> Result<(), ToolError> {
         let deadline = tokio::time::Instant::now() + CALL;
         while tokio::time::Instant::now() < deadline {
-            if self.eval("document.readyState").await? == "complete" {
-                break;
+            match self.eval("document.readyState").await {
+                Ok(v) if v == "complete" => break,
+                // A page being replaced (a navigation) has no context for a moment.
+                Err(e) if self.broken => return Err(e),
+                _ => {}
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
-        tokio::time::sleep(Duration::from_millis(400)).await;
-        Ok(())
+        let quiet = format!(
+            "new Promise((done) => {{ let t; const o = new MutationObserver(() => {{ clearTimeout(t); t = setTimeout(end, 300); }});
+              const end = () => {{ o.disconnect(); done(true); }};
+              o.observe(document, {{ subtree: true, childList: true, attributes: true, characterData: true }});
+              t = setTimeout(end, 300); setTimeout(end, {QUIET_CAP_MS}); }})"
+        );
+        match self.eval(&quiet).await {
+            Err(e) if self.broken => Err(e),
+            _ => Ok(()),
+        }
     }
 }
 
 impl Drop for Browser {
-    // The profile folder is removed after the fields drop; on Windows it stays locked until the browser has exited.
+    // A private profile folder is removed after the fields drop; on Windows it stays locked until the browser exited.
     fn drop(&mut self) {
-        let _ = self._child.start_kill();
-        for _ in 0..30 {
-            if matches!(self._child.try_wait(), Ok(Some(_)) | Err(_)) {
-                break;
+        match &mut self.owner {
+            Owner::Private { child, .. } => {
+                let _ = child.start_kill();
+                for _ in 0..30 {
+                    if matches!(child.try_wait(), Ok(Some(_)) | Err(_)) {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
             }
-            std::thread::sleep(Duration::from_millis(50));
+            Owner::Shared { .. } => {}
+        }
+    }
+}
+
+impl Drop for Owner {
+    fn drop(&mut self) {
+        if let Owner::Shared {
+            profile, port, id, ..
+        } = self
+        {
+            shared::closed(profile, *port, id);
         }
     }
 }
@@ -319,8 +483,14 @@ async fn page_socket(port: u16) -> Result<String, ToolError> {
     Err(err("browser", "the browser has no page"))
 }
 
-/// Whether a page at `url` may be opened: the machine itself, a host of the allowlist, or a file of `root`.
-pub fn url_allowed(url: &str, allow: &[String], root: &Path) -> Result<String, ToolError> {
+/// Whether a page at `url` may be opened: the machine itself, a host of the allowlist, or a file of `root`; with
+/// `open` (a run that reaches the network, ADR-165) any public site too, but no other private address.
+pub fn url_allowed(
+    url: &str,
+    allow: &[String],
+    root: &Path,
+    open: bool,
+) -> Result<String, ToolError> {
     let u =
         reqwest::Url::parse(url.trim()).map_err(|e| err("invalid_url", format!("{url}: {e}")))?;
     match u.scheme() {
@@ -334,8 +504,17 @@ pub fn url_allowed(url: &str, allow: &[String], root: &Path) -> Result<String, T
                 || host.ends_with(".localhost")
                 || host == "127.0.0.1"
                 || host == "::1";
-            if local || crate::work::domain_allowed(&host, allow) {
+            let public = match host.parse::<std::net::IpAddr>() {
+                Ok(ip) => crate::work::public_ip(ip),
+                Err(_) => true,
+            };
+            if local || crate::work::domain_allowed(&host, allow) || (open && public) {
                 Ok(u.to_string())
+            } else if open {
+                Err(err(
+                    "address_not_allowed",
+                    format!("{host} is on a private network; only a host of the network allowlist opens there"),
+                ))
             } else {
                 Err(err(
                     "domain_not_allowed",

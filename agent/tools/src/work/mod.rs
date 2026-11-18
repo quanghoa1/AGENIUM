@@ -16,6 +16,7 @@ use real_write::write_file;
 
 mod apply_patch;
 mod browser;
+mod browser_js;
 mod edit;
 mod exa;
 mod fetch;

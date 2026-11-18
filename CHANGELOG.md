@@ -4,6 +4,15 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
+### Agenium's own browser (ADR-165)
+
+- Agents that may reach the network browse in Agenium's own browser, which keeps sign-ins between runs like your own
+  browser does. When a site needs you (sign in, sign up, a CAPTCHA, a second factor), the agent opens the page in a
+  window on your screen and asks you; it carries on once you answer.
+- The browser is easier for agents to use: every control is listed with a ref, its label and its state (a password is
+  never shown), clicks and typing are real input, and new steps select, scroll, wait for something, go back and upload
+  a file. Downloads land in `.agenium/downloads/`.
+
 ### Long commands, checklists, proven done (ADR-164)
 
 - In an API run a command still going at its timeout is no longer killed: it goes on as a job (up to 10 minutes) and

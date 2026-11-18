@@ -102,6 +102,11 @@ impl RootLayout {
     pub fn config(&self) -> PathBuf {
         self.root.join("config.toml")
     }
+    /// The profile of Agenium's own browser (ADR-165): its cookies and sign-ins, kept across runs like a person's
+    /// browser. A secret: never in a backup sent anywhere, never in git.
+    pub fn browser_profile(&self) -> PathBuf {
+        self.root.join("browser")
+    }
     pub fn pricing(&self) -> PathBuf {
         self.root.join("pricing.toml")
     }

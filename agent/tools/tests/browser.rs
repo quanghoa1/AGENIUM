@@ -12,7 +12,7 @@ fn only_this_machine_the_allowlist_and_worktree_files_open() {
     std::fs::write(root.join("index.html"), "<p>hi</p>").unwrap();
     std::fs::write(d.path().join("outside.html"), "<p>no</p>").unwrap();
     let allow = vec!["docs.rs".to_owned()];
-    let ok = |u: &str| agenium_tools::browser::url_allowed(u, &allow, &root).is_ok();
+    let ok = |u: &str| agenium_tools::browser::url_allowed(u, &allow, &root, false).is_ok();
     assert!(ok("http://localhost:5173/"));
     assert!(ok("http://127.0.0.1:8080/app"));
     assert!(ok("http://[::1]:3000/"));
@@ -23,6 +23,15 @@ fn only_this_machine_the_allowlist_and_worktree_files_open() {
     let file = |p: &std::path::Path| reqwest_url(p);
     assert!(ok(&file(&root.join("index.html"))));
     assert!(!ok(&file(&d.path().join("outside.html"))));
+}
+
+/// The ref of the first listed control whose line has `has` (e.g. `[3-2] button "Add"`).
+fn ref_of(text: &str, has: &str) -> String {
+    text.lines()
+        .find(|l| l.starts_with('[') && l.contains(has))
+        .and_then(|l| l[1..].split(']').next())
+        .unwrap_or_else(|| panic!("no control with {has} in:\n{text}"))
+        .to_owned()
 }
 
 fn reqwest_url(p: &std::path::Path) -> String {
@@ -60,25 +69,21 @@ async fn a_page_is_opened_used_and_shot() {
         "{}",
         o.text
     );
-    assert!(
-        o.text.contains("→ #add") && o.text.contains("→ #name"),
-        "{}",
-        o.text
-    );
+    let name = ref_of(&o.text, "\"New card\"");
     call(
         &c,
         "browser",
-        json!({"action": "type", "selector": "#name", "text": "Rust"}),
+        json!({"action": "type", "ref": name, "text": "Rust"}),
     )
     .await
     .unwrap();
-    let o = call(
-        &c,
-        "browser",
-        json!({"action": "click", "selector": "#add"}),
-    )
-    .await
-    .unwrap();
+    let o = call(&c, "browser", json!({"action": "look"}))
+        .await
+        .unwrap();
+    let add = ref_of(&o.text, "button \"Add\"");
+    let o = call(&c, "browser", json!({"action": "click", "ref": add}))
+        .await
+        .unwrap();
     assert!(
         o.text.contains("Console errors:") && o.text.contains("added Rust"),
         "{}",

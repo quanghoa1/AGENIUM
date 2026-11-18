@@ -217,6 +217,9 @@ pub struct ToolCtx {
     pub awaits_commands: bool,
     /// The run's headless browser (ADR-158), started by the first `browser` call, ended with the context.
     pub browser: browser::Session,
+    /// The profile of Agenium's own browser (ADR-165), for a run that reaches the network: its tab is in that shared
+    /// browser, signed in where the user signed in. `None`: a private browser of the run, fenced to the allowlist.
+    pub browser_profile: Option<PathBuf>,
 }
 
 impl ToolCtx {
@@ -253,6 +256,7 @@ impl ToolCtx {
             foreground_limit: None,
             awaits_commands: false,
             browser: Default::default(),
+            browser_profile: None,
         }
     }
 

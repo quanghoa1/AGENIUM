@@ -216,6 +216,10 @@ impl Runtime {
         };
         ctx.fetch_allow = allow;
         ctx.fetch_open = self.commands_reach_network();
+        // A run that reaches the network browses in Agenium's own browser, signed in where the user signed in (ADR-165).
+        if ctx.fetch_open {
+            ctx.browser_profile = Some(self.app.layout().browser_profile());
+        }
         ctx
     }
 
