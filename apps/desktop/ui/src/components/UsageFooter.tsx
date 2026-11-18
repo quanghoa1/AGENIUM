@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { onUsage } from "../lib/events";
 import type { Key } from "../lib/i18n";
-import { useApp } from "../lib/store";
+import { useApp, useLive } from "../lib/store";
 import type { VendorUsage } from "../lib/types";
 import { ago, cn } from "./ui";
 
@@ -122,15 +122,16 @@ export function UsageFooter() {
   const [busy, setBusy] = useState(false);
   const [, setNow] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  // Readings change when the app reads them again (`onUsage`, every 15 minutes) or a run ends (a Claude run brings
+  // its limits): read then, not on a timer. The countdowns move every half minute.
+  const ended = Object.values(useLive()).filter((l) => l.done).length;
   useEffect(() => {
     const load = () => api.vendorUsage().then(setRows).catch(() => undefined);
     load();
-    // Readings change every 15 minutes or after a Claude run; the countdowns move every half minute.
-    const a = setInterval(load, 60_000);
     const b = setInterval(() => setNow((n) => n + 1), 30_000);
     const off = onUsage(load);
-    return () => (clearInterval(a), clearInterval(b), void off.then((f) => f()));
-  }, []);
+    return () => (clearInterval(b), void off.then((f) => f()));
+  }, [ended]);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(null);

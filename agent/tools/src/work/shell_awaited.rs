@@ -75,3 +75,53 @@ pub fn ended_message(ctx: &ToolCtx, e: &Ended) -> String {
         e.command, e.id
     )
 }
+
+/// The ends of the run's commands that ended since the agent was last told, as one message.
+pub fn ended_commands(ctx: &ToolCtx) -> Option<String> {
+    let ended = ctx.jobs.take_ended_untold();
+    (!ended.is_empty()).then(|| {
+        ended
+            .iter()
+            .map(|e| ended_message(ctx, e))
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    })
+}
+
+/// Why a wait for the run's commands ended before they did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaitEnd {
+    Stopped,
+    Deadline,
+}
+
+/// Waits until no command of the run that outlasted its call goes on (ADR-133, ADR-164); `waiting` is told once which
+/// ones it waits for. The run's stop, and its `deadline` when it has one, end the wait.
+pub async fn wait_for_commands(
+    ctx: &ToolCtx,
+    stopped: impl Fn() -> bool,
+    deadline: Option<std::time::Instant>,
+    waiting: impl FnOnce(&str),
+) -> Result<(), WaitEnd> {
+    let mut waiting = Some(waiting);
+    loop {
+        let going = ctx.jobs.awaited_going();
+        if going.is_empty() {
+            return Ok(());
+        }
+        if let Some(say) = waiting.take() {
+            say(&going
+                .iter()
+                .map(|(id, c)| format!("job {id} `{c}`"))
+                .collect::<Vec<_>>()
+                .join(", "));
+        }
+        if stopped() {
+            return Err(WaitEnd::Stopped);
+        }
+        if deadline.is_some_and(|d| std::time::Instant::now() > d) {
+            return Err(WaitEnd::Deadline);
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+}

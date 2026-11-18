@@ -92,35 +92,7 @@ impl Runtime {
     ) -> Result<RunSummary> {
         let p = self.app.project(project)?;
         let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
-        let run = self
-            .app
-            .store()
-            .commit(None, "system", |w| -> Result<RunId> {
-                let id = RunId::new();
-                runs::insert(
-                    w.tx,
-                    &runs::Run {
-                        id,
-                        ticket: None,
-                        agent: planner.id,
-                        provider: planner.model.provider.clone(),
-                        model: planner.model.model.clone(),
-                        started_at: now_iso(),
-                        ended_at: None,
-                        outcome: None,
-                        steps: 0,
-                        usage: UsageSummary::default(),
-                        heartbeat: Some(now_iso()),
-                    },
-                )?;
-                w.emit(DomainEvent::RunStarted {
-                    run: id,
-                    agent: planner.id,
-                    ticket: None,
-                })?;
-                Ok(id)
-            })?
-            .value;
+        let run = self.open_run(planner, None, RunId::new())?;
         *opened = Some(run);
         // The roles the plan can use: the team's workers except the planner.
         let roles: Vec<String> = self
@@ -191,10 +163,7 @@ impl Runtime {
                 messages: vec![Message::user_text(format!("{run_context}\n\n{task}"))],
             })
         };
-        let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
-            .into_iter()
-            .filter(|t| t.read_only() && t.name() != "fetch")
-            .collect();
+        let read_only: Vec<Arc<dyn Tool>> = super::read_only_tools();
         let others: Vec<ProtocolTool> = ProtocolTool::ALL
             .iter()
             .copied()

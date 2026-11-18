@@ -38,8 +38,14 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
   snapshots go to `paths.backups_dir`. Seven settings that did nothing were removed (old files still load).
 - **Docs:** the README's setup command, template list and version are right again; ADRs and the index say where later
   decisions changed them.
-- **Housekeeping:** dead commands and code removed, large files split, and `cargo xtask ci` now also checks the
-  desktop app and builds its UI.
+- **Closing a project** sees the Lead's chat turn from its first moment (it was missed while the turn summarized an
+  older chat).
+- **Live views:** the context gauge reads again after each model call and the usage bar when a run ends or the
+  readings refresh, instead of on timers.
+- **Housekeeping:** dead commands and code removed, code written out several times shared once (opening a run, a
+  run's answer, the read-only tools, a CLI's token and folders, the stderr readers, the wait for commands), large
+  files split, test-only APIs marked, the UI tests wait for the page instead of fixed sleeps, and `cargo xtask ci`
+  now also checks the desktop app and builds its UI.
 
 ### The project map (ADR-166)
 

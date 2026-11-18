@@ -226,40 +226,21 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
         &self,
         deadline: Instant,
     ) -> Result<Option<String>, Outcome> {
-        let mut said = false;
-        loop {
-            let going = self.ctx.jobs.awaited_going();
-            if going.is_empty() {
-                break;
-            }
-            if !said {
-                let what = going
-                    .iter()
-                    .map(|(id, c)| format!("job {id} `{c}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                self.observer.control("waiting", &what);
-                said = true;
-            }
-            if self.cancel.is_cancelled() {
-                return Err(Outcome::Cancelled);
-            }
-            if Instant::now() > deadline {
-                return Err(Outcome::Checkpoint {
-                    summary: String::new(),
-                    reason: "timeout".into(),
-                });
-            }
-            tokio::time::sleep(Duration::from_millis(250)).await;
+        match agenium_tools::wait_for_commands(
+            self.ctx,
+            || self.cancel.is_cancelled(),
+            Some(deadline),
+            |what| self.observer.control("waiting", what),
+        )
+        .await
+        {
+            Ok(()) => Ok(agenium_tools::ended_commands(self.ctx)),
+            Err(agenium_tools::WaitEnd::Stopped) => Err(Outcome::Cancelled),
+            Err(agenium_tools::WaitEnd::Deadline) => Err(Outcome::Checkpoint {
+                summary: String::new(),
+                reason: "timeout".into(),
+            }),
         }
-        let ended = self.ctx.jobs.take_ended_untold();
-        Ok((!ended.is_empty()).then(|| {
-            ended
-                .iter()
-                .map(|e| agenium_tools::ended_message(self.ctx, e))
-                .collect::<Vec<_>>()
-                .join("\n\n")
-        }))
     }
 
     /// Starts the CLI for a turn (or for the whole run) and hands it the first message.

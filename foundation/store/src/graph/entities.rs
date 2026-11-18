@@ -18,6 +18,8 @@ impl AgentStore {
     }
 
     /// Follows `merged_into` to the surviving entity.
+    // Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+    #[doc(hidden)]
     pub fn live_entity(&self, id: i64) -> Result<Entity, StoreError> {
         let mut e = self.entity(id)?;
         for _ in 0..32 {
@@ -214,6 +216,8 @@ impl AgentStore {
 
     /// Merges `from` into `into` (entity resolution): edges and fact links are rewired (an edge that becomes a
     /// duplicate or a self-loop is ended), aliases move, `from` becomes a tombstone. Logged for undo.
+    // Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+    #[doc(hidden)]
     pub fn merge_entities(
         &self,
         from: i64,

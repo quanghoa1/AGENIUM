@@ -32,6 +32,25 @@ pub struct Setup<'a> {
     pub run_for: std::time::Duration,
 }
 
+/// A CLI's own folder for the user: `env` when it is set, else `<home>/<dot>` (`USERPROFILE`, then `HOME`).
+pub(crate) fn user_folder(env: &str, dot: &str) -> Option<PathBuf> {
+    if let Some(d) = std::env::var_os(env) {
+        return Some(PathBuf::from(d));
+    }
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(|h| PathBuf::from(h).join(dot))
+}
+
+impl Setup<'_> {
+    /// The token of `mcp_authorization` without its `Bearer ` (what a CLI's own hook or config takes).
+    pub fn mcp_token(&self) -> &str {
+        self.mcp_authorization
+            .strip_prefix("Bearer ")
+            .unwrap_or(self.mcp_authorization)
+    }
+}
+
 /// Context of a permission check.
 pub struct CheckCtx<'a> {
     pub worktree: &'a Path,

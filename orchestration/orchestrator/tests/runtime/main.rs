@@ -18,6 +18,7 @@ mod design;
 mod escalate;
 mod failures;
 mod folders;
+mod lead_chat;
 mod map;
 mod mcp;
 mod mcp_search;
@@ -26,6 +27,7 @@ mod messages;
 mod pool;
 mod quality_rules;
 mod solo;
+mod solo_context;
 mod team;
 mod verify;
 

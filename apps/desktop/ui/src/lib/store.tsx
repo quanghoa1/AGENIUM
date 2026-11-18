@@ -69,6 +69,8 @@ export interface LiveRun {
   /** The current tool's arguments, once the call is known whole. */
   toolArgs?: unknown;
   done: boolean;
+  /** Model calls answered so far (one `usage` event each): what changes the run's context. */
+  calls?: number;
   /** Last event (ms since epoch). */
   at: number;
 }
@@ -166,6 +168,7 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     const step: LiveStep = { kind: "tool", id: ev.id, name: ev.name, args: ev.args };
     next.steps = i >= 0 ? cur.steps.map((s, k) => (k === i ? step : s)) : [...cur.steps.slice(-60), step];
   } else if (ev.type === "usage") {
+    next.calls = (cur.calls ?? 0) + 1;
     // A step ended: the next one starts by thinking. An API step ends as its tool calls start running: the tool
     // stays shown until the model reasons or writes again.
     if (cur.phase !== "tool") next.phase = "thinking";

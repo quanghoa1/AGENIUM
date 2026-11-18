@@ -77,12 +77,7 @@ const HOOK_FILE: &str = "agenium-hook.sh";
 const LOGIN: &str = ".credentials.json";
 /// The user's own Claude Code configuration folder (`CLAUDE_CONFIG_DIR` or `~/.claude`).
 pub fn user_claude_dir() -> Option<PathBuf> {
-    if let Some(d) = std::env::var_os("CLAUDE_CONFIG_DIR") {
-        return Some(PathBuf::from(d));
-    }
-    std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(|h| PathBuf::from(h).join(".claude"))
+    crate::driver::user_folder("CLAUDE_CONFIG_DIR", ".claude")
 }
 
 /// Forward slashes: the hook command runs in a POSIX shell, also on Windows.
@@ -199,10 +194,7 @@ impl Driver for Claude {
                 "timeout": MCP_CALL_TIMEOUT * 1000,
             }}}))?,
         )?;
-        let token = s
-            .mcp_authorization
-            .strip_prefix("Bearer ")
-            .unwrap_or(s.mcp_authorization);
+        let token = s.mcp_token();
         Ok([
             ("CLAUDE_CONFIG_DIR".to_owned(), s.home.display().to_string()),
             // The connectors of the user's claude.ai account (Gmail, Drive, Slack ...) come with the login, not the

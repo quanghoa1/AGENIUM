@@ -540,13 +540,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
     ) -> Result<RunSummary> {
         let usage = bridge::summary(&report.usage, cost, elapsed_ms);
         let label = report.outcome.label();
-        let mut text = report
-            .messages
-            .iter()
-            .rev()
-            .find(|m| m.role == agenium_llm::Role::Assistant && !m.text().is_empty())
-            .map(|m| m.text())
-            .unwrap_or_default();
+        let mut text = last_answer(&report.messages);
         let note = |app: &App, msg: String| -> Result<()> {
             app.store().commit(None, "system", |w| -> Result<()> {
                 let tk = tickets::get(w.tx, t.id)?;

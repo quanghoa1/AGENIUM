@@ -51,12 +51,7 @@ const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
 
 /// The user's own codex home (`CODEX_HOME` or `~/.codex`).
 pub(crate) fn user_codex_home() -> Option<PathBuf> {
-    if let Some(h) = std::env::var_os("CODEX_HOME") {
-        return Some(PathBuf::from(h));
-    }
-    std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(|h| PathBuf::from(h).join(".codex"))
+    crate::driver::user_folder("CODEX_HOME", ".codex")
 }
 
 impl Driver for Codex {
@@ -125,10 +120,7 @@ impl Driver for Codex {
                 wait = MCP_CALL_TIMEOUT,
             ),
         )?;
-        let token = s
-            .mcp_authorization
-            .strip_prefix("Bearer ")
-            .unwrap_or(s.mcp_authorization);
+        let token = s.mcp_token();
         Ok([
             ("CODEX_HOME".to_owned(), s.home.display().to_string()),
             (TOKEN_ENV.to_owned(), token.to_owned()),

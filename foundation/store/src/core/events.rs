@@ -103,6 +103,8 @@ pub fn for_ticket(c: &Connection, ticket: TicketId) -> Result<Vec<EventRecord>, 
     rows.map(|r| decode(r?)).collect()
 }
 
+// Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+#[doc(hidden)]
 pub fn for_intent(c: &Connection, intent: &str) -> Result<Vec<EventRecord>, StoreError> {
     let mut st = c.prepare_cached(&format!(
         "SELECT {COLS} FROM event WHERE intent_id = ?1 ORDER BY seq"

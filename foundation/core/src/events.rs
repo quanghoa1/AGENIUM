@@ -264,6 +264,8 @@ impl EventDraft {
         }
     }
 
+    // Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+    #[doc(hidden)]
     pub fn with_intent(mut self, intent: impl Into<String>) -> Self {
         self.intent_id = Some(intent.into());
         self

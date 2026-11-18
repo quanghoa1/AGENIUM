@@ -144,10 +144,7 @@ impl Driver for Devin {
             &local,
             serde_json::to_vec_pretty(&local_mcp(existing.as_deref(), &user_servers()))?,
         )?;
-        let token = s
-            .mcp_authorization
-            .strip_prefix("Bearer ")
-            .unwrap_or(s.mcp_authorization);
+        let token = s.mcp_token();
         // Devin finds its config directory from these (without them it does not start); the sandbox still shows it
         // only its login and its `cli` folder but the plugins.
         let known: Vec<(String, String)> = ["APPDATA", "LOCALAPPDATA", "USERPROFILE"]

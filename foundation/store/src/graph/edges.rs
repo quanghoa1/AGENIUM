@@ -58,6 +58,8 @@ impl AgentStore {
     }
 
     /// Ends an edge (contradicted or replaced); it stays for audit.
+    // Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+    #[doc(hidden)]
     pub fn invalidate_edge(&self, id: i64, superseded_by: Option<i64>) -> Result<(), StoreError> {
         self.db.write(|tx| {
             let ends: Option<(i64, i64)> = tx
@@ -77,6 +79,8 @@ impl AgentStore {
         })
     }
 
+    // Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+    #[doc(hidden)]
     pub fn edges_of(&self, entity: i64) -> Result<Vec<Edge>, StoreError> {
         self.db.read(|c| {
             let mut st = c.prepare_cached(

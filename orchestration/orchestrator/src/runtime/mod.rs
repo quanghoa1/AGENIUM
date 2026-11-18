@@ -26,6 +26,7 @@ mod pool;
 mod quota_back;
 mod recall;
 mod reflect;
+mod run_row;
 mod scheduling;
 pub mod side_chat;
 mod stalls;
@@ -200,4 +201,23 @@ impl Runtime {
             memory_k: k,
         }
     }
+}
+
+/// The last thing a run's model said in words (its answer), empty when it said nothing.
+pub(crate) fn last_answer(messages: &[agenium_llm::Message]) -> String {
+    messages
+        .iter()
+        .rev()
+        .find(|m| m.role == agenium_llm::Role::Assistant && !m.text().trim().is_empty())
+        .map(|m| m.text())
+        .unwrap_or_default()
+}
+
+/// The work tools of a run that only reads (a chat turn, an inbox run, a plan, a review): the read-only ones, without
+/// `fetch` (the web is a work run's).
+pub(crate) fn read_only_tools() -> Vec<std::sync::Arc<dyn agenium_tools::Tool>> {
+    agenium_tools::work_tools()
+        .into_iter()
+        .filter(|t| t.read_only() && t.name() != "fetch")
+        .collect()
 }

@@ -8,7 +8,7 @@
 //!     without one gets a nudge, then the run stops.
 
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -22,7 +22,7 @@ use agenium_sandbox::TreeGuard;
 use agenium_tools::{Tool, ToolCtx, ToolError};
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::driver::{Check, CheckCtx, Control, Driver, Event, Setup, Turns};

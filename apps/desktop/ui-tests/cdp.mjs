@@ -53,6 +53,13 @@ export async function connect(port, out) {
     }
     return false;
   };
+  // The page has stopped changing: no change to the DOM for 300 ms (at most `ms`), then two frames painted. What a
+  // fixed sleep before a screenshot waited for, without guessing how long.
+  const settle = (ms = 5000) =>
+    js(`new Promise((done) => { let t; const end = () => { o.disconnect(); requestAnimationFrame(() => requestAnimationFrame(() => done(true))); };
+      const o = new MutationObserver(() => { clearTimeout(t); t = setTimeout(end, 300); });
+      o.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+      t = setTimeout(end, 300); setTimeout(end, ${ms}); })`);
   const shot = async (name) => {
     const s = await send("Page.captureScreenshot", { format: "png" });
     if (s.result?.data) writeFileSync(`${out}/${name}.png`, Buffer.from(s.result.data, "base64"));
@@ -82,5 +89,5 @@ export async function connect(port, out) {
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, ${JSON.stringify(value)});
     el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
   const mainText = () => js("document.querySelector('main')?.innerText ?? ''");
-  return { page, ws, send, js, until, shot, check, results, errors, failed: () => fails, invoke, clickText, typeInto, mainText };
+  return { page, ws, send, js, until, shot, check, results, errors, failed: () => fails, invoke, clickText, typeInto, mainText, settle };
 }

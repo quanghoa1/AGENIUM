@@ -4,37 +4,21 @@
 
 use super::*;
 
-/// How often the wait looks at the run's commands.
-const POLL: std::time::Duration = std::time::Duration::from_millis(250);
-
 impl Run<'_> {
     /// The ends of the run's commands that ended since the agent was last told, as one message.
     pub(super) fn ended_commands(&self) -> Option<String> {
-        let ended = self.ctx.jobs.take_ended_untold();
-        (!ended.is_empty()).then(|| {
-            ended
-                .iter()
-                .map(|e| agenium_tools::ended_message(self.ctx, e))
-                .collect::<Vec<_>>()
-                .join("\n\n")
-        })
+        agenium_tools::ended_commands(self.ctx)
     }
 
     /// Waits until no command of the run goes on; `false` when the run was stopped meanwhile.
     pub(super) async fn wait_for_commands(&self) -> bool {
-        let going = self.ctx.jobs.awaited_going();
-        let what = going
-            .iter()
-            .map(|(id, c)| format!("job {id} `{c}`"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        self.observer.control("waiting", &what);
-        while !self.ctx.jobs.awaited_going().is_empty() {
-            if self.cancel.is_cancelled() {
-                return false;
-            }
-            tokio::time::sleep(POLL).await;
-        }
-        true
+        agenium_tools::wait_for_commands(
+            self.ctx,
+            || self.cancel.is_cancelled(),
+            None,
+            |what| self.observer.control("waiting", what),
+        )
+        .await
+        .is_ok()
     }
 }

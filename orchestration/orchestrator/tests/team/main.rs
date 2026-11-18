@@ -14,6 +14,7 @@ mod plugin_skills;
 mod roles;
 mod skills;
 mod teams;
+mod usage;
 
 struct Team {
     f: Fixture,

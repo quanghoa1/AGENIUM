@@ -3,6 +3,8 @@
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+#[doc(hidden)]
 pub struct RemoteTest {
     pub read_ok: bool,
     pub read_detail: String,
@@ -12,6 +14,8 @@ pub struct RemoteTest {
 
 impl Repo {
     /// Tests a remote: read (`ls-remote`) and write (`push --dry-run`).
+    // Only the tests use it today (audit, 2026-11-18): kept, out of the documented API.
+    #[doc(hidden)]
     pub fn test_remote(&self, url: &str, env: &[(&str, &str)]) -> Result<RemoteTest, VcsError> {
         let read = self
             .git

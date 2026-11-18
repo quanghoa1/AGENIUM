@@ -10,7 +10,7 @@
 //   closed-ticket: a closed ticket with a diff (default AGN-1); fresh-ticket: one closed after this build, so its runs
 //   carry the memory lines (default AGN-3).
 import { mkdirSync, writeFileSync } from "node:fs";
-import { connect, sleep } from "./cdp.mjs";
+import { connect } from "./cdp.mjs";
 
 const out = process.argv[2] ?? "ui-full";
 const port = process.argv[3] ?? "9223";
@@ -18,13 +18,13 @@ const done = process.argv[4] ?? "AGN-1";
 const fresh = process.argv[5] ?? "AGN-3";
 mkdirSync(out, { recursive: true });
 
-const { ws, send, js, until, shot, check, results, errors, failed, typeInto } = await connect(port, out);
+const { ws, send, js, until, shot, check, results, errors, failed, typeInto, settle } = await connect(port, out);
 const main = () => js("document.querySelector('main')?.innerText ?? ''");
 const has = (text, ms = 15000) => until(`(document.querySelector('main')?.innerText ?? '').includes(${JSON.stringify(text)})`, ms);
 const go = async (view) => {
   await js(`window.location.hash = ${JSON.stringify("/" + view)}`);
   await until("(document.querySelector('main')?.innerText ?? '').replace(/Loading…?/g, '').trim().length > 10", 15000);
-  await sleep(500);
+  await settle();
 };
 const click = (text, scope = "document") =>
   js(`(() => {
@@ -41,7 +41,7 @@ await send("Emulation.setDeviceMetricsOverride", { width: 2560, height: 1369, de
 await js(`localStorage.setItem('agenium-lang','en')`);
 await send("Page.reload");
 await until("!!document.querySelector('main')", 60000);
-await sleep(1500);
+await settle();
 // Only what this fresh load raises counts (a dev server's hot reload before it can leave errors behind).
 errors.length = 0;
 
@@ -83,7 +83,7 @@ check("a ticket opens in a popup with its acceptance criteria", tp);
 check("the popup's timeline holds the worker's report and the review", (await js(inDlg("/report/i"))) && (await js(inDlg("/approv|review/i"))));
 await click("Changes", dlg);
 const diff = await until(`!!${dlg}?.querySelector('.monaco-editor, .monaco-diff-editor') || ${inDlg("/calc\\.py/")}`, 20000);
-await sleep(1500);
+await settle();
 await shot("05-ticket-changes");
 check("the popup's changes tab shows the diff (calc.py)", diff);
 await click("Runs", dlg);
@@ -113,7 +113,7 @@ const steps = await main();
 check("the work run's steps show the tools it used", runPage && /write_file|edit_file|apply_patch/.test(steps) && /submit_report/.test(steps));
 if (await click("Terminal", M)) {
   const term = await until("!!document.querySelector('main .xterm')", 15000);
-  await sleep(800);
+  await settle();
   await shot("10-run-terminal");
   check("the run's terminal (xterm) shows its commands", term);
 } else results.push("INFO the work run ran no shell command: no terminal to show");
@@ -150,7 +150,7 @@ await until(`/deepseek/i.test(${M}?.innerText ?? '')`, 8000);
 const dock = await main();
 check("the dock shows the agent and its model", dock.includes("solo-ds") && /deepseek/i.test(dock));
 if (await click("Tools / Skills / MCP", M)) {
-  await sleep(800);
+  await settle();
   await shot("14-live-tools");
 }
 const planOk = (await click("Plan", M)) && (await until(`/PI-1|PI-2/.test(${M}?.innerText ?? '')`, 8000));
@@ -165,7 +165,7 @@ const before = await js(`${M}?.innerText.length ?? 0`);
 const typed = await typeInto("main textarea", "Ticket AGN-2 đang ở trạng thái nào? Trả lời một câu, không tạo ticket mới.");
 const sent = typed && (await click("Send", M));
 const replied = await until(`(${M}?.innerText.length ?? 0) > ${before} + 80 && !/thinking|…$/i.test((${M}?.innerText ?? '').slice(-40))`, 240000);
-await sleep(3000);
+await settle();
 await shot("16-chat");
 check("a chat turn with the Lead gets an answer", sent && replied && noNewErrors(e0), errs(e0));
 
@@ -195,7 +195,7 @@ await typeInto("main input[type=search]", "");
 check("the agents' search finds by model and hides the rest", none && byModel);
 await js(`[...document.querySelectorAll('main a, main button, main tr')].find((x) => x.innerText.includes('solo-ds'))?.click()`);
 const agentPage = await until(`location.hash.startsWith('#/agent/') && /deepseek/i.test(${M}?.innerText ?? '')`, 10000);
-await sleep(600);
+await settle();
 await shot("19-agent");
 check("an agent's page shows its model, role and switches", agentPage && noNewErrors(e0), errs(e0));
 
@@ -204,7 +204,7 @@ e0 = errors.length;
 await go("memory");
 await shot("20-memory");
 const searched = await typeInto("main input", "calc");
-await sleep(2500);
+await settle();
 await shot("21-memory-search");
 check("memory renders and takes a search", searched && noNewErrors(e0), errs(e0));
 
@@ -231,7 +231,7 @@ const skillOpened = await js(`(() => {
   const b = [...document.querySelectorAll('main button')].find((b) => /^(edit|open|view)/i.test(b.getAttribute('aria-label') ?? b.textContent.trim()));
   if (!b) return false; b.click(); return true; })()`);
 const editor = skillOpened && (await until("!!document.querySelector('.monaco-editor') || /SKILL.md|description/i.test(document.body.innerText)", 15000));
-await sleep(1000);
+await settle();
 await shot("24-skill-editor");
 check("a skill opens in the editor", editor && noNewErrors(e0), errs(e0));
 await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
@@ -254,7 +254,7 @@ check("the browser view renders", noNewErrors(e0), errs(e0));
 e0 = errors.length;
 await go("usage");
 await until("document.querySelectorAll('main svg[role=img]').length >= 2", 15000);
-await sleep(800);
+await settle();
 await shot("27-usage");
 const u = await main();
 check("usage draws tokens and cost per day by vendor", (await js("document.querySelectorAll('main svg[role=img]').length")) >= 2 && /tokens per day/i.test(u) && /cost per day/i.test(u), u.slice(0, 300));
@@ -280,7 +280,7 @@ await until("document.querySelectorAll('main svg[role=img]').length >= 2", 5000)
 check("a narrower range keeps the charts", await js("document.querySelectorAll('main svg[role=img]').length >= 2"));
 await shot("30-usage-7days");
 await click("All time", M);
-await sleep(500);
+await settle();
 check("usage has no console errors", noNewErrors(e0), errs(e0));
 
 // 13. Settings: no theme or language there any more; shell command modes; judge keys (add one, then remove it).
@@ -311,7 +311,7 @@ const added = await js(`(() => {
   const b = [...sec.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Add and test'); if (!b || b.disabled) return false;
   b.click(); return true; })()`);
 const listed = added && (await until(`[...document.querySelectorAll('main button')].some((b) => b.textContent.trim() === 'Remove')`, 20000));
-await sleep(1500);
+await settle();
 await shot("32-judge-key-added");
 check("a judge key is added under its name", listed);
 await js(`[...document.querySelectorAll('main button')].find((b) => b.textContent.trim() === 'Remove')?.click()`);
@@ -332,7 +332,7 @@ check("the header switches the language to Vietnamese and back", vi && en);
 await js(`document.querySelector('header button[title="Light"]')?.click()`);
 const light = await until("document.documentElement.classList.contains('light')", 5000);
 await go("usage");
-await sleep(1200);
+await settle();
 await shot("35-usage-light");
 await js(`document.querySelector('header button[title="Dark"]')?.click()`);
 const dark = await until("document.documentElement.classList.contains('dark')", 5000);
@@ -344,7 +344,7 @@ await go("overview");
 await js(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))`);
 const pal = await until("document.activeElement?.tagName === 'INPUT' && document.activeElement.closest('main') === null", 5000);
 await js(`(() => { const el = document.activeElement; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, 'AGN-2'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-await sleep(800);
+await settle();
 await shot("36-palette");
 await js(`document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
 const popped = await until(`!!${dlg} && ${dlg}.innerText.includes('AGN-2')`, 8000);
@@ -367,7 +367,7 @@ const asked = await until("[...document.querySelectorAll('.card')].some((c) => /
 await shot("38-close-ask");
 await js(`[...document.querySelectorAll('.card')].find((c) => /Close uidemo/.test(c.innerText))?.querySelector('.btn-danger')?.click()`);
 const freed = await until("location.hash.startsWith('#/teams') && /Project closed/.test(document.querySelector('header')?.innerText ?? '')", 15000);
-await sleep(800);
+await settle();
 await shot("39-closed-team-free");
 check("a done project closes from the header and its team is free", asked && freed);
 await go("projects");

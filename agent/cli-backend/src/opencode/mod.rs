@@ -166,10 +166,7 @@ impl Driver for Opencode {
             dirs[0].join("opencode").join("opencode.json"),
             serde_json::to_vec_pretty(&config)?,
         )?;
-        let token = s
-            .mcp_authorization
-            .strip_prefix("Bearer ")
-            .unwrap_or(s.mcp_authorization);
+        let token = s.mcp_token();
         let password: String = ulid::Ulid::new().to_string();
         let mut env: BTreeMap<String, String> = [
             ("XDG_CONFIG_HOME", &dirs[0]),

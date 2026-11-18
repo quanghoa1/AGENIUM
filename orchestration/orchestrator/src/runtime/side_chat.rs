@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use agenium_backend::{Effect, Observer, Outcome, Protocol, WorkOrder};
 use agenium_core::{BackendKind, ModelBinding};
-use agenium_llm::{ChatEvent, ChatRequest, Message, Role, SystemBlock, Usage};
+use agenium_llm::{ChatEvent, ChatRequest, Message, SystemBlock, Usage};
 use agenium_tools::{DenyAll, ToolCtx, ToolError};
 use async_trait::async_trait;
 
@@ -284,13 +284,7 @@ impl Runtime {
             messages,
         };
         let report = run.run(&order).await;
-        let text = report
-            .messages
-            .iter()
-            .rev()
-            .find(|m| m.role == Role::Assistant && !m.text().trim().is_empty())
-            .map(Message::text)
-            .unwrap_or_default();
+        let text = super::last_answer(&report.messages);
         // Only a finished turn is an answer: one cut short (its step limit, its time, a cancel) left part of one.
         if !matches!(report.outcome, Outcome::Completed) {
             return Err(OrchError::Invalid(format!(

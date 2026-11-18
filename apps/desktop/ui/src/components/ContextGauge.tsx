@@ -43,6 +43,8 @@ export function AgentContext({ agent }: { agent?: string | null }) {
   const [over, setOver] = useState(false);
   const running = agent ? Object.values(live).filter((l) => l.agent === agent && !l.done).length : 0;
   const ended = agent ? Object.values(live).filter((l) => l.agent === agent && l.done).length : 0;
+  // The context changes once per model call: read again then, not on a timer.
+  const calls = agent ? Object.values(live).reduce((n, l) => n + (l.agent === agent && !l.done ? (l.calls ?? 0) : 0), 0) : 0;
   useEffect(() => {
     if (!agent) return;
     const read = () =>
@@ -54,10 +56,6 @@ export function AgentContext({ agent }: { agent?: string | null }) {
         })
         .catch(() => undefined);
     read();
-    // While a run goes on, its context is read again every few seconds.
-    if (running === 0) return;
-    const t = window.setInterval(read, 4000);
-    return () => window.clearInterval(t);
-  }, [agent, running, ended, app.tick]);
+  }, [agent, running, ended, calls, app.tick]);
   return <ContextGauge usage={usage} note={over ? app.t("context.foldNext") : undefined} />;
 }

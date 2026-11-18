@@ -84,12 +84,7 @@ const DENY: &str = r#"{"decision":"deny","reason":"Agenium could not check this 
 
 /// The user's own Grok folder (`GROK_HOME` or `~/.grok`).
 pub(crate) fn user_grok_dir() -> Option<PathBuf> {
-    if let Some(d) = std::env::var_os("GROK_HOME") {
-        return Some(PathBuf::from(d));
-    }
-    std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(|h| PathBuf::from(h).join(".grok"))
+    crate::driver::user_folder("GROK_HOME", ".grok")
 }
 
 /// Agenium's files in the per-run home, out of reach of the model's file tools (`driver::file_access`): the hook
@@ -272,10 +267,7 @@ impl Driver for Grok {
             toml_str(&command)
         ));
         std::fs::write(s.home.join("config.toml"), cfg)?;
-        let token = s
-            .mcp_authorization
-            .strip_prefix("Bearer ")
-            .unwrap_or(s.mcp_authorization);
+        let token = s.mcp_token();
         Ok([
             ("GROK_HOME".to_owned(), s.home.display().to_string()),
             ("GROK_MEMORY".to_owned(), "0".to_owned()),

@@ -174,38 +174,12 @@ impl Runtime {
         let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
         let mem = self.agent_memory(lead.id)?;
         let session = learn::chat_session(project);
+        // Opened first: the summary below is a model call, and meanwhile the turn must count as going on (closing the
+        // project looks at the runs going on; audit M-2).
+        let run = self.open_run(lead, None, run)?;
+        *opened = Some(run);
         // Older turns of a long chat are seen as a summary (ADR-106); the stored conversation stays whole.
         let (history, summary_usage) = self.chat_history(lead, &mem, project).await?;
-        let run = self
-            .app
-            .store()
-            .commit(None, "system", |w| -> Result<RunId> {
-                let id = run;
-                runs::insert(
-                    w.tx,
-                    &runs::Run {
-                        id,
-                        ticket: None,
-                        agent: lead.id,
-                        provider: lead.model.provider.clone(),
-                        model: lead.model.model.clone(),
-                        started_at: now_iso(),
-                        ended_at: None,
-                        outcome: None,
-                        steps: 0,
-                        usage: UsageSummary::default(),
-                        heartbeat: Some(now_iso()),
-                    },
-                )?;
-                w.emit(DomainEvent::RunStarted {
-                    run: id,
-                    agent: lead.id,
-                    ticket: None,
-                })?;
-                Ok(id)
-            })?
-            .value;
-        *opened = Some(run);
         let state = self.project_state_text(project)?;
         // What the Lead remembers about what the user asks (ADR-155): the preferences and facts it learned from the
         // chat (ADR-98) among them. It goes in the turn's message, stored and replayed as sent like the project state:
@@ -285,10 +259,7 @@ impl Runtime {
             messages.push(msg.clone());
             Ok(WorkOrder { system, messages })
         };
-        let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
-            .into_iter()
-            .filter(|t| t.read_only() && t.name() != "fetch")
-            .collect();
+        let read_only: Vec<Arc<dyn Tool>> = super::read_only_tools();
         // Chat history lives in the chat session, not in the run's session.
         let res = self
             .execute(
@@ -326,13 +297,7 @@ impl Runtime {
         }
         // When the chat goes quiet, the scheduler learns from it (ADR-98).
         mem.set_meta(&format!("chat-last:{project}"), &now_iso())?;
-        let text = report
-            .messages
-            .iter()
-            .rev()
-            .find(|m| m.role == agenium_llm::Role::Assistant && !m.text().is_empty())
-            .map(|m| m.text())
-            .unwrap_or_default();
+        let text = last_answer(&report.messages);
         let mut usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
         // The summary of the older chat this turn needed (ADR-106) is part of its cost.
         usage.add(&summary_usage);
@@ -391,34 +356,7 @@ impl Runtime {
         let Some(_turn) = self.register_if_idle(project, lead.id, id) else {
             return Ok(None);
         };
-        let run = self
-            .app
-            .store()
-            .commit(None, "system", |w| -> Result<RunId> {
-                runs::insert(
-                    w.tx,
-                    &runs::Run {
-                        id,
-                        ticket: None,
-                        agent: lead.id,
-                        provider: lead.model.provider.clone(),
-                        model: lead.model.model.clone(),
-                        started_at: now_iso(),
-                        ended_at: None,
-                        outcome: None,
-                        steps: 0,
-                        usage: UsageSummary::default(),
-                        heartbeat: Some(now_iso()),
-                    },
-                )?;
-                w.emit(DomainEvent::RunStarted {
-                    run: id,
-                    agent: lead.id,
-                    ticket: None,
-                })?;
-                Ok(id)
-            })?
-            .value;
+        let run = self.open_run(&lead, None, id)?;
         *opened = Some(run);
         // The tickets the items are about, with their comments (questions need the ticket's context).
         let mut seen = std::collections::HashSet::new();
@@ -520,10 +458,7 @@ impl Runtime {
                 messages: vec![Message::user_text(format!("{run_context}\n\n{task}"))],
             })
         };
-        let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
-            .into_iter()
-            .filter(|t| t.read_only() && t.name() != "fetch")
-            .collect();
+        let read_only: Vec<Arc<dyn Tool>> = super::read_only_tools();
         let res = self
             .execute(
                 RunKind::Inbox,
@@ -551,13 +486,7 @@ impl Runtime {
         self.agent_state_after(&lead, None, &report.outcome)?;
         self.app
             .run_log(run, "run", serde_json::json!({ "kind": "inbox" }))?;
-        let text = report
-            .messages
-            .iter()
-            .rev()
-            .find(|m| m.role == agenium_llm::Role::Assistant && !m.text().is_empty())
-            .map(|m| m.text())
-            .unwrap_or_default();
+        let text = last_answer(&report.messages);
         Ok(Some(RunSummary {
             run,
             kind: "inbox".into(),

@@ -10,7 +10,7 @@ use agenium_backend::{NoopObserver, WorkOrder};
 use super::side_chat::{NoProtocol, Scratch};
 use agenium_cli_backend::{CliRun, Control, Driver, Limits};
 use agenium_llm::{
-    ChatEvent, ChatRequest, ChatResponse, LlmError, Message, ModelInfo, Provider, Role, StopReason,
+    ChatEvent, ChatRequest, ChatResponse, LlmError, Message, ModelInfo, Provider, StopReason,
 };
 use agenium_tools::{DenyAll, ToolCtx};
 use async_trait::async_trait;
@@ -109,13 +109,7 @@ impl Provider for CliBrain {
             messages: req.messages.clone(),
         };
         let report = run.run(&order).await;
-        let text = report
-            .messages
-            .iter()
-            .rev()
-            .find(|m| m.role == Role::Assistant && !m.text().trim().is_empty())
-            .map(Message::text)
-            .unwrap_or_default();
+        let text = super::last_answer(&report.messages);
         // A run that stopped before it finished (its step limit, its time, a cancel) left at most part of an answer:
         // memory drawn from it would be drawn from half a reply.
         if !matches!(report.outcome, agenium_backend::Outcome::Completed) {

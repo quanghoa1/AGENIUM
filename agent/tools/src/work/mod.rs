@@ -47,7 +47,7 @@ pub use list_dir::*;
 pub use read_file::*;
 pub(crate) use real_write::write_new;
 pub use shell::*;
-pub use shell_awaited::ended_message;
+pub use shell_awaited::{ended_commands, ended_message, wait_for_commands, WaitEnd};
 pub use shell_jobs::*;
 pub use todo::*;
 pub use view_image::*;

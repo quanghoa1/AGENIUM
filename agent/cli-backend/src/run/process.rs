@@ -18,6 +18,35 @@ pub(super) struct Proc {
     pub(super) handle: Handle,
 }
 
+/// A CLI's stderr read to its end into `tail` (on the runtime: a host process's pipe).
+fn drain_async(
+    mut stderr: impl tokio::io::AsyncRead + Unpin + Send + 'static,
+    tail: Arc<Mutex<Vec<u8>>>,
+) {
+    tokio::spawn(async move {
+        let mut buf = [0u8; 4096];
+        while let Ok(n) = tokio::io::AsyncReadExt::read(&mut stderr, &mut buf).await {
+            if n == 0 {
+                break;
+            }
+            keep_tail(&tail, &buf[..n]);
+        }
+    });
+}
+
+/// The same on a thread of its own (a contained process's blocking pipe).
+fn drain_thread(mut stderr: impl std::io::Read + Send + 'static, tail: Arc<Mutex<Vec<u8>>>) {
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        while let Ok(n) = stderr.read(&mut buf) {
+            if n == 0 {
+                break;
+            }
+            keep_tail(&tail, &buf[..n]);
+        }
+    });
+}
+
 pub(crate) fn keep_tail(tail: &Mutex<Vec<u8>>, bytes: &[u8]) {
     // What the CLI says besides its events (warnings about its model, its login…), for diagnostics.
     tracing::debug!(target: "agenium_cli_backend::stderr", "{}", String::from_utf8_lossy(bytes).trim_end());
@@ -130,7 +159,7 @@ impl CliRun<'_> {
                     .spawn()
                     .map_err(|e| failed(format!("cannot start {name}: {e}")))?;
                 let tree = TreeGuard::attach(&child);
-                let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
+                let (Some(mut stdin), Some(stdout), Some(stderr)) =
                     (child.stdin.take(), child.stdout.take(), child.stderr.take())
                 else {
                     return Err(failed("stdio pipes missing"));
@@ -149,16 +178,7 @@ impl CliRun<'_> {
                         tail.clone(),
                         resume.map(str::to_owned),
                     );
-                    let t = tail.clone();
-                    tokio::spawn(async move {
-                        let mut buf = [0u8; 4096];
-                        while let Ok(n) = stderr.read(&mut buf).await {
-                            if n == 0 {
-                                break;
-                            }
-                            keep_tail(&t, &buf[..n]);
-                        }
-                    });
+                    drain_async(stderr, tail.clone());
                     return Ok(Proc {
                         input: Some(in_tx),
                         lines,
@@ -180,16 +200,7 @@ impl CliRun<'_> {
                         tail.clone(),
                         resume.map(str::to_owned),
                     );
-                    let t = tail.clone();
-                    tokio::spawn(async move {
-                        let mut buf = [0u8; 4096];
-                        while let Ok(n) = stderr.read(&mut buf).await {
-                            if n == 0 {
-                                break;
-                            }
-                            keep_tail(&t, &buf[..n]);
-                        }
-                    });
+                    drain_async(stderr, tail.clone());
                     return Ok(Proc {
                         input: Some(in_tx),
                         lines,
@@ -223,16 +234,7 @@ impl CliRun<'_> {
                         }
                     }
                 });
-                let t = tail.clone();
-                tokio::spawn(async move {
-                    let mut buf = [0u8; 4096];
-                    while let Ok(n) = stderr.read(&mut buf).await {
-                        if n == 0 {
-                            break;
-                        }
-                        keep_tail(&t, &buf[..n]);
-                    }
-                });
+                drain_async(stderr, tail.clone());
                 Ok(Proc {
                     input: Some(in_tx),
                     lines,
@@ -255,7 +257,7 @@ impl CliRun<'_> {
                 argv.extend(args);
                 let (child, io) = spawn_contained(&argv, &self.cwd, env, &policy)
                     .map_err(|e| failed(format!("cannot start {name} in the sandbox: {e}")))?;
-                let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
+                let (Some(mut stdin), Some(stdout), Some(stderr)) =
                     (io.stdin, io.stdout, io.stderr)
                 else {
                     return Err(failed("stdio pipes missing"));
@@ -271,16 +273,7 @@ impl CliRun<'_> {
                         tail.clone(),
                         resume.map(str::to_owned),
                     );
-                    let t = tail.clone();
-                    std::thread::spawn(move || {
-                        let mut buf = [0u8; 4096];
-                        while let Ok(n) = stderr.read(&mut buf) {
-                            if n == 0 {
-                                break;
-                            }
-                            keep_tail(&t, &buf[..n]);
-                        }
-                    });
+                    drain_thread(stderr, tail.clone());
                     return Ok(Proc {
                         input: Some(in_tx),
                         lines,
@@ -309,16 +302,7 @@ impl CliRun<'_> {
                         }
                     }
                 });
-                let t = tail.clone();
-                std::thread::spawn(move || {
-                    let mut buf = [0u8; 4096];
-                    while let Ok(n) = stderr.read(&mut buf) {
-                        if n == 0 {
-                            break;
-                        }
-                        keep_tail(&t, &buf[..n]);
-                    }
-                });
+                drain_thread(stderr, tail.clone());
                 Ok(Proc {
                     input: Some(in_tx),
                     lines,

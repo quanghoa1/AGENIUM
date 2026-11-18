@@ -368,35 +368,7 @@ impl Runtime {
                 format!("(the diff could not be read: {e}; read the changes in the worktree)")
             }
         };
-        let run = self
-            .app
-            .store()
-            .commit(None, "system", |w| -> Result<RunId> {
-                let id = RunId::new();
-                runs::insert(
-                    w.tx,
-                    &runs::Run {
-                        id,
-                        ticket: Some(t.id),
-                        agent: lead.id,
-                        provider: lead.model.provider.clone(),
-                        model: lead.model.model.clone(),
-                        started_at: now_iso(),
-                        ended_at: None,
-                        outcome: None,
-                        steps: 0,
-                        usage: UsageSummary::default(),
-                        heartbeat: Some(now_iso()),
-                    },
-                )?;
-                w.emit(DomainEvent::RunStarted {
-                    run: id,
-                    agent: lead.id,
-                    ticket: Some(t.id),
-                })?;
-                Ok(id)
-            })?
-            .value;
+        let run = self.open_run(&lead, Some(t.id), RunId::new())?;
         *opened = Some(run);
         // Known from the start: a review that errors is still not taken for the agent's last work conversation.
         self.app
@@ -503,10 +475,7 @@ impl Runtime {
                 messages: vec![Message::user_text(format!("{run_context}\n\n{text}"))],
             })
         };
-        let read_only: Vec<Arc<dyn Tool>> = agenium_tools::work_tools()
-            .into_iter()
-            .filter(|t| t.read_only() && t.name() != "fetch")
-            .collect();
+        let read_only: Vec<Arc<dyn Tool>> = super::read_only_tools();
         let res = self
             .execute(
                 RunKind::Review,

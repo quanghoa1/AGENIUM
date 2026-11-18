@@ -193,10 +193,7 @@ impl Driver for Agy {
             }),
         )?;
         let home = s.home.display().to_string();
-        let token = s
-            .mcp_authorization
-            .strip_prefix("Bearer ")
-            .unwrap_or(s.mcp_authorization);
+        let token = s.mcp_token();
         Ok([
             ("USERPROFILE".to_owned(), home.clone()),
             ("HOME".to_owned(), home),
