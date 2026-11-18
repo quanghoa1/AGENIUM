@@ -407,6 +407,17 @@ async fn sandboxed_commands_run_without_asking() {
         GateDecision::Allow,
         "a project dependency does not"
     );
+    // With the user's standing approval (auto-approve), an install or a sudo runs without asking.
+    app.update_config(|c| c.sandbox.auto_escalate = true)
+        .unwrap();
+    for c in [
+        "winget install Python.Python.3.12",
+        "echo x; sudo tail -6 /var/log/cuda-installer.log",
+    ] {
+        assert_eq!(gate().check(c, &cwd).await, GateDecision::Allow, "{c}");
+    }
+    app.update_config(|c| c.sandbox.auto_escalate = false)
+        .unwrap();
     app.update_config(|c| c.sandbox.unsandboxed = false)
         .unwrap();
     app.update_config(|c| c.sandbox.approval = ApprovalPolicy::OnRequest)

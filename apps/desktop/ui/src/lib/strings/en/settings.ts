@@ -134,7 +134,7 @@ export const settings = {
   "settings.sandboxOffSwitch.ok": "Turn the sandbox off",
   "settings.autoEscalate": "Approve commands the sandbox blocks by myself (auto-approve)",
   "settings.autoEscalateMoved": "Auto-approving the commands the sandbox blocks is switched in Needs you, where they wait for you.",
-  "settings.autoEscalate.hint": "A command the sandbox blocks (docker, a server on localhost, your git credentials…), or a permission an agent requests (a network host, a path, a command outside the allowlist), normally waits for your OK in Needs you. On: it is approved at once, without asking. Each one is listed in the Audit log. Spec and plan approvals still wait for you.",
+  "settings.autoEscalate.hint": "A command the sandbox blocks (docker, a server on localhost, your git credentials…), a command as administrator or an install (sudo, apt, winget…), or a permission an agent requests (a network host, a path, a command outside the allowlist), normally waits for your OK in Needs you. On: it is approved at once, without asking. Each one is listed in the Audit log. Spec and plan approvals still wait for you.",
   "model.title": "Preparing memory",
   "model.why": "Agents remember and recall by meaning with a local embedding model ({mb} MB, runs on this computer). It is put in place once, before the app opens.",
   "model.retry": "Try again",

@@ -259,6 +259,13 @@ impl CommandGate for RunGate {
         if allowlisted(command, &list) {
             return GateDecision::Allow;
         }
+        // The user's standing approval (Needs you → auto-approve) answers what would wait for them here too: a command
+        // as administrator or an install (ADR-120), or any command under "ask me" (2026-11-19: a `sudo` in WSL still
+        // waited with auto-approve on).
+        if cfg.auto_escalate {
+            tracing::info!(project = %self.project, agent = %self.agent, command, "runs without asking (approved automatically)");
+            return GateDecision::Allow;
+        }
         match self
             .approver
             .approve_command(
