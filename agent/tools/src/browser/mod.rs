@@ -38,9 +38,8 @@ pub struct Session(Arc<Mutex<Option<Browser>>>);
 enum Owner {
     /// The run's own browser, ended with it.
     Private {
-        child: Box<tokio::process::Child>,
-        _tree: agenium_sandbox::TreeGuard,
-        _profile: tempfile::TempDir,
+        /// Taken when the run ends: ended off the run's thread (see `Drop`).
+        proc: Option<Box<PrivateProc>>,
     },
     /// A tab of Agenium's own browser, closed with the run.
     Shared {
@@ -49,6 +48,14 @@ enum Owner {
         gen: u64,
         id: String,
     },
+}
+
+/// The run's private browser process and its profile folder.
+struct PrivateProc {
+    child: tokio::process::Child,
+    _tree: agenium_sandbox::TreeGuard,
+    /// Removed after the browser exited (on Windows it stays locked until then).
+    _profile: tempfile::TempDir,
 }
 
 pub struct Browser {
@@ -218,9 +225,11 @@ impl Browser {
         .await?;
         let page = page_socket(port).await?;
         let owner = Owner::Private {
-            child: Box::new(child),
-            _tree: tree,
-            _profile: profile,
+            proc: Some(Box::new(PrivateProc {
+                child,
+                _tree: tree,
+                _profile: profile,
+            })),
         };
         Browser::connect(owner, &page, false).await
     }
@@ -276,11 +285,6 @@ impl Browser {
         Ok(b)
     }
 
-    /// Whether this is a tab of Agenium's own browser.
-    pub fn shared(&self) -> bool {
-        matches!(self.owner, Owner::Shared { .. })
-    }
-
     /// One protocol call on the page; events met while waiting are kept (console errors, exceptions).
     pub async fn call(&mut self, method: &str, params: Value) -> Result<Value, ToolError> {
         let r = self.call_inner(method, params).await;
@@ -288,6 +292,14 @@ impl Browser {
         if let Err(e) = &r {
             if e.code == "browser" && !e.message.starts_with(method) {
                 self.broken = true;
+                // Another run showed the browser to the user, which starts it again: said so, not a bare failure.
+                if matches!(self.owner, Owner::Shared { .. }) {
+                    return Err(err(
+                        "browser_restarted",
+                        "Agenium's browser started again (it was shown to the user, or closed): do the step again; \
+                         your page opens again at its last address",
+                    ));
+                }
             }
         }
         r
@@ -403,19 +415,26 @@ impl Browser {
 }
 
 impl Drop for Browser {
-    // A private profile folder is removed after the fields drop; on Windows it stays locked until the browser exited.
+    // A private profile folder is removed once the browser exited (on Windows it stays locked until then): with a
+    // runtime, that wait is not the run's.
     fn drop(&mut self) {
-        match &mut self.owner {
-            Owner::Private { child, .. } => {
-                let _ = child.start_kill();
-                for _ in 0..30 {
-                    if matches!(child.try_wait(), Ok(Some(_)) | Err(_)) {
-                        break;
-                    }
-                    std::thread::sleep(Duration::from_millis(50));
-                }
+        let Owner::Private { proc } = &mut self.owner else {
+            return;
+        };
+        let Some(mut p) = proc.take() else { return };
+        let _ = p.child.start_kill();
+        if let Ok(rt) = tokio::runtime::Handle::try_current() {
+            rt.spawn(async move {
+                let _ = tokio::time::timeout(Duration::from_secs(2), p.child.wait()).await;
+                drop(p);
+            });
+            return;
+        }
+        for _ in 0..30 {
+            if matches!(p.child.try_wait(), Ok(Some(_)) | Err(_)) {
+                break;
             }
-            Owner::Shared { .. } => {}
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 }

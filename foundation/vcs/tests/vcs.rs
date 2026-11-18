@@ -552,6 +552,13 @@ fn the_merge_into_the_checkout_runs_no_hook_the_branch_brings() {
         &w.path.join(".husky/post-merge"),
         &format!("echo post-merge >> '{m}'"),
     );
+    // And the hooks of the next steps on the host (audit M-21): a worktree added, a commit made on the checkout.
+    for h in ["post-checkout", "post-commit", "pre-commit"] {
+        hook(
+            &w.path.join(format!(".husky/{h}")),
+            &format!("echo {h} >> '{m}'"),
+        );
+    }
     write(&w.path, "src/a.txt", "a\n");
     r.commit_all(&w.path, "Add a", AUTHOR, &[]).unwrap();
     assert!(matches!(
@@ -562,6 +569,9 @@ fn the_merge_into_the_checkout_runs_no_hook_the_branch_brings() {
         r.root.join(".husky/post-merge").exists(),
         "the branch's files are merged"
     );
+    r.add_worktree("AGN-2", "main").unwrap();
+    write(&r.root, "notes.txt", "n\n");
+    r.commit_all(&r.root, "Notes", AUTHOR, &[]).unwrap();
     assert!(
         !marker.exists(),
         "ran on the host: {}",

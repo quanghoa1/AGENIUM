@@ -33,7 +33,7 @@ pub enum ThinkingMode {
     Budget { effort: bool },
 }
 
-pub fn thinking_mode(model: &str) -> ThinkingMode {
+pub(crate) fn thinking_mode(model: &str) -> ThinkingMode {
     let m = model.to_ascii_lowercase();
     let old = [
         "claude-3",

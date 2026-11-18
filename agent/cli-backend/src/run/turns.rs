@@ -358,6 +358,10 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
     ) -> Option<(Vec<String>, Option<String>)> {
         match ev {
             Event::Session(s) => {
+                // Another session than the one going on (a fresh start): its totals start from nothing.
+                if st.session.as_deref() != Some(s.as_str()) {
+                    st.reported = Usage::default();
+                }
                 st.session = Some(s);
                 None
             }
@@ -573,6 +577,13 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 st.denied.clear();
                 st.allowed.clear();
                 st.subagent_calls.clear();
+                let usage = if self.driver.usage_is_session_total() {
+                    let turn = usage_since(&st.reported, &usage);
+                    st.reported = usage;
+                    turn
+                } else {
+                    usage
+                };
                 st.usage.add(&usage);
                 self.observer.event(&ChatEvent::Usage(st.usage));
                 if st.text.trim().is_empty() && !st.wrote {
@@ -598,5 +609,35 @@ fn capture(v: &serde_json::Value) {
     {
         use std::io::Write;
         let _ = writeln!(f, "{v}");
+    }
+}
+
+/// What a session's total `now` adds to the total `before` (field by field; a total that went down is a new count).
+fn usage_since(before: &Usage, now: &Usage) -> Usage {
+    let d = |b: u64, n: u64| if n >= b { n - b } else { n };
+    Usage {
+        input: d(before.input, now.input),
+        output: d(before.output, now.output),
+        cache_read: d(before.cache_read, now.cache_read),
+        cache_write: d(before.cache_write, now.cache_write),
+        cache_write_1h: d(before.cache_write_1h, now.cache_write_1h),
+        reasoning: d(before.reasoning, now.reasoning),
+    }
+}
+
+#[cfg(test)]
+mod usage_tests {
+    use super::*;
+
+    /// Codex's resumed turns reported 5, 10 and 15 output tokens: each counts 5.
+    #[test]
+    fn a_session_total_counts_only_what_it_grew() {
+        let t = |output: u64| Usage {
+            output,
+            ..Default::default()
+        };
+        assert_eq!(usage_since(&t(0), &t(5)).output, 5);
+        assert_eq!(usage_since(&t(5), &t(10)).output, 5);
+        assert_eq!(usage_since(&t(10), &t(3)).output, 3, "a new count");
     }
 }

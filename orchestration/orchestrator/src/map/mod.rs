@@ -175,6 +175,14 @@ impl Whole {
 
     /// The shortest chain of links from `from` to `to` following their direction, else either way (`false`).
     pub fn path(&self, from: &str, to: &str) -> Option<(Vec<i64>, bool)> {
+        // Each node's links, once: a search then reads only the links of the nodes it reaches.
+        let mut adj: HashMap<&str, Vec<&MapLink>> = HashMap::new();
+        for l in &self.links {
+            adj.entry(l.src.as_str()).or_default().push(l);
+            if l.dst != l.src {
+                adj.entry(l.dst.as_str()).or_default().push(l);
+            }
+        }
         for directed in [true, false] {
             let mut prev: HashMap<&str, (i64, &str)> = HashMap::new();
             let mut q = VecDeque::from([from]);
@@ -191,7 +199,7 @@ impl Whole {
                     ids.reverse();
                     return Some((ids, directed));
                 }
-                for l in &self.links {
+                for l in adj.get(k).into_iter().flatten() {
                     let next = if l.src == k {
                         Some(l.dst.as_str())
                     } else if !directed && l.dst == k {
@@ -350,11 +358,10 @@ impl App {
                 (l, l)
             }
         };
-        let text = std::fs::read_to_string(Path::new(&p.path).join(file))
+        let root = crate::project_create::checkout_dir(Path::new(&p.path));
+        let text = std::fs::read_to_string(root.join(file))
             .ok()
-            .filter(|_| {
-                agenium_tools::paths::confined(&Path::new(&p.path).join(file), Path::new(&p.path))
-            })
+            .filter(|_| agenium_tools::paths::confined(&root.join(file), &root))
             .ok_or_else(|| crate::OrchError::NotFound(file.to_owned()))?;
         let lines: Vec<&str> = text.lines().collect();
         let (from, to) = (
@@ -429,6 +436,8 @@ impl App {
         let p = project.to_string();
         let tickets = self.store().read(|c| store::tentative_tickets(c, &p))?;
         let mut closed = false;
+        // Read once: each ticket's entries are its own, and confirming an entry twice changes nothing.
+        let mut whole = None;
         for key in tickets {
             let Ok(k) = key.parse() else { continue };
             let Ok(t) = self.ticket(project, &k) else {
@@ -441,24 +450,34 @@ impl App {
                 }
                 TicketStatus::Closed => {
                     closed = true;
-                    let w = self.map_whole(project)?;
+                    if whole.is_none() {
+                        whole = Some(self.map_whole(project)?);
+                    }
+                    let w = whole.as_ref().expect("read above");
                     let at = agenium_core::now_iso();
+                    let links: Vec<&MapLink> = w
+                        .links
+                        .iter()
+                        .filter(|l| l.status == TENTATIVE && l.ticket.as_deref() == Some(&key))
+                        .collect();
+                    // A confirmed link's ends are confirmed with it, whoever added them: a cancelled ticket then
+                    // cannot take them away.
+                    let ends: HashSet<&str> = links
+                        .iter()
+                        .flat_map(|l| [l.src.as_str(), l.dst.as_str()])
+                        .collect();
                     self.store().commit(None, "system", |c| {
-                        for n in w
-                            .nodes
-                            .values()
-                            .filter(|n| n.status == TENTATIVE && n.ticket.as_deref() == Some(&key))
-                        {
+                        for n in w.nodes.values().filter(|n| {
+                            n.status == TENTATIVE
+                                && (n.ticket.as_deref() == Some(&key)
+                                    || ends.contains(n.key.as_str()))
+                        }) {
                             let mut n = n.clone();
                             n.status = CONFIRMED.into();
                             n.checked_at = at.clone();
                             store::put_node(c.tx, &p, &n)?;
                         }
-                        for l in w
-                            .links
-                            .iter()
-                            .filter(|l| l.status == TENTATIVE && l.ticket.as_deref() == Some(&key))
-                        {
+                        for l in &links {
                             store::set_link_status(c.tx, &p, l.id, CONFIRMED, &l.evidence, &at)?;
                         }
                         Ok::<(), agenium_store::StoreError>(())
@@ -476,61 +495,65 @@ impl App {
     /// Checks every confirmed or stale piece of code evidence on the project's main branch again.
     pub fn map_recheck(&self, project: ProjectId) -> Result<()> {
         let proj = self.project(project)?;
-        let root = Path::new(&proj.path);
+        let root = &crate::project_create::checkout_dir(Path::new(&proj.path));
         let p = project.to_string();
         let w = self.map_whole(project)?;
         let at = agenium_core::now_iso();
-        let mut changes: Vec<(i64, &'static str, serde_json::Value)> = Vec::new();
-        for l in w.links.iter().filter(|l| l.status != TENTATIVE) {
-            let Ok(ev @ Evidence::Code { .. }) = Evidence::parse(&l.evidence) else {
-                continue;
-            };
-            let (Some(s), Some(d)) = (w.nodes.get(&l.src), w.nodes.get(&l.dst)) else {
-                continue;
-            };
-            let (Ok(src), Ok(dst)) = (
-                Ref::parse(&format!("{}:{}", s.kind, s.name)),
-                Ref::parse(&format!("{}:{}", d.kind, d.name)),
-            ) else {
-                continue;
-            };
-            match verify::moved(root, &ev, &src, &dst) {
-                Some(now) if now != ev || l.status != CONFIRMED => {
-                    changes.push((l.id, CONFIRMED, now.json()))
+        let (changes, nodes) = verify::cached(|| {
+            let mut changes: Vec<(i64, &'static str, serde_json::Value)> = Vec::new();
+            for l in w.links.iter().filter(|l| l.status != TENTATIVE) {
+                let Ok(ev @ Evidence::Code { .. }) = Evidence::parse(&l.evidence) else {
+                    continue;
+                };
+                let (Some(s), Some(d)) = (w.nodes.get(&l.src), w.nodes.get(&l.dst)) else {
+                    continue;
+                };
+                let (Ok(src), Ok(dst)) = (
+                    Ref::parse(&format!("{}:{}", s.kind, s.name)),
+                    Ref::parse(&format!("{}:{}", d.kind, d.name)),
+                ) else {
+                    continue;
+                };
+                match verify::moved(root, &ev, &src, &dst) {
+                    Some(now) if now != ev || l.status != CONFIRMED => {
+                        changes.push((l.id, CONFIRMED, now.json()))
+                    }
+                    Some(_) => {}
+                    None if l.status != STALE => changes.push((l.id, STALE, l.evidence.clone())),
+                    None => {}
                 }
-                Some(_) => {}
-                None if l.status != STALE => changes.push((l.id, STALE, l.evidence.clone())),
-                None => {}
             }
-        }
-        let mut nodes: Vec<MapNode> = Vec::new();
-        for n in w
-            .nodes
-            .values()
-            .filter(|n| n.status != TENTATIVE && matches!(n.kind.as_str(), "file" | "symbol"))
-        {
-            let Ok(r) = Ref::parse(&format!("{}:{}", n.kind, n.name)) else {
-                continue;
-            };
-            let mut n = n.clone();
-            match verify::locate(root, &r) {
-                Ok((a, b)) => {
-                    if n.status != CONFIRMED || n.line_start != Some(a) || n.line_end != Some(b) {
-                        n.status = CONFIRMED.into();
-                        n.line_start = Some(a);
-                        n.line_end = Some(b);
+            let mut nodes: Vec<MapNode> = Vec::new();
+            for n in w
+                .nodes
+                .values()
+                .filter(|n| n.status != TENTATIVE && matches!(n.kind.as_str(), "file" | "symbol"))
+            {
+                let Ok(r) = Ref::parse(&format!("{}:{}", n.kind, n.name)) else {
+                    continue;
+                };
+                let mut n = n.clone();
+                match verify::locate(root, &r) {
+                    Ok((a, b)) => {
+                        if n.status != CONFIRMED || n.line_start != Some(a) || n.line_end != Some(b)
+                        {
+                            n.status = CONFIRMED.into();
+                            n.line_start = Some(a);
+                            n.line_end = Some(b);
+                            n.checked_at = at.clone();
+                            nodes.push(n);
+                        }
+                    }
+                    Err(_) if n.status != STALE => {
+                        n.status = STALE.into();
                         n.checked_at = at.clone();
                         nodes.push(n);
                     }
+                    Err(_) => {}
                 }
-                Err(_) if n.status != STALE => {
-                    n.status = STALE.into();
-                    n.checked_at = at.clone();
-                    nodes.push(n);
-                }
-                Err(_) => {}
             }
-        }
+            (changes, nodes)
+        });
         if changes.is_empty() && nodes.is_empty() {
             return Ok(());
         }

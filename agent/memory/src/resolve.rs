@@ -85,7 +85,7 @@ pub fn same_name(a: &str, b: &str, context: &[String]) -> bool {
 }
 
 /// The words known about a stored entity that may appear around its name: description, type and identity scope.
-pub fn context_words(e: &Entity) -> Vec<String> {
+pub(crate) fn context_words(e: &Entity) -> Vec<String> {
     let mut text = format!("{} {}", e.description.as_deref().unwrap_or(""), e.kind);
     for v in e.scope.as_object().into_iter().flat_map(|o| o.values()) {
         text.push(' ');
@@ -99,7 +99,7 @@ pub fn context_words(e: &Entity) -> Vec<String> {
 }
 
 /// `firmware 1.2` vs `firmware 1.3`: the same words with different numbers name different versions.
-pub fn other_version(a: &str, b: &str) -> bool {
+pub(crate) fn other_version(a: &str, b: &str) -> bool {
     let words = |s: &str| -> String {
         canonical(s)
             .chars()
@@ -184,8 +184,7 @@ pub fn link_or_create(
         )?;
         return Ok((got, false));
     }
-    let v = embedder
-        .embed(&[entity_text(&mention.name)])
+    let v = crate::cpu_bound(|| embedder.embed(&[entity_text(&mention.name)]))
         .map_err(MemoryError::Embedder)?
         .pop();
     Ok(store.upsert_entity(mention, v.as_deref())?)

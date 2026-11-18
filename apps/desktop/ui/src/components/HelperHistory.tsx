@@ -3,7 +3,8 @@
 // and that name stays.
 import { Check, History, Loader2, Pencil, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type HelperSession } from "../lib/api";
+import { api } from "../lib/api";
+import { type HelperSession } from "../lib/apiTypes";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
 import { ago, cn } from "./ui";

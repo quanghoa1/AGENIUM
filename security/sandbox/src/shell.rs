@@ -188,6 +188,17 @@ pub(super) const ENV_ALLOW: &[&str] = &[
     "RUSTUP_HOME",
     "GOPATH",
     "JAVA_HOME",
+    // The network the machine is set up for (a corporate proxy, its own CA): without them a CLI, npm or pip there
+    // reached nothing.
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "NODE_EXTRA_CA_CERTS",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
 ];
 
 pub fn clean_env(extra: &BTreeMap<String, String>) -> BTreeMap<String, String> {

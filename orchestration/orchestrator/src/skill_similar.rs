@@ -13,8 +13,8 @@ use crate::app::App;
 use crate::skill_conflict::{subject, subject_words, SAME_SUBJECT_MEANING, SAME_SUBJECT_WORDS};
 
 /// Near the same subject from these scores (below them nothing is shown).
-pub const NEAR_WORDS: f32 = 0.30;
-pub const NEAR_MEANING: f32 = 0.70;
+pub(crate) const NEAR_WORDS: f32 = 0.30;
+pub(crate) const NEAR_MEANING: f32 = 0.70;
 /// For a request (before anything is written): a short request shares few words with a skill even on its subject (a
 /// review request scored refactoring highest by words, 0.32), so words count only as high as a duplicate's; meaning,
 /// with the local model, is the measure, a little lower than for a skill.
@@ -39,31 +39,32 @@ type Vectors = HashMap<(String, String), Vec<f32>>;
 /// Subject vectors: a library skill is embedded once until its subject changes.
 static CACHE: LazyLock<Mutex<Vectors>> = LazyLock::new(Default::default);
 
-fn cosine(a: &[f32], b: &[f32]) -> f32 {
-    let d: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
-    let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    d / (na * nb).max(1e-9)
-}
+use crate::skill_conflict::cosine;
 
-/// Vectors of `texts` with `e`, from the cache where it has them.
-fn embed_cached(e: &dyn Embedder, texts: &[String]) -> Option<Vec<Vec<f32>>> {
+/// Vectors of `me` and then of `library` with `e`; the library's from the cache where it has them. `me` (a request,
+/// a draft) is not kept: only library subjects are, so the cache stays the size of the library.
+fn embed_cached(e: &dyn Embedder, me: &str, library: &[String]) -> Option<Vec<Vec<f32>>> {
     let id = e.model_id().to_owned();
     let mut cache = CACHE.lock().unwrap_or_else(|p| p.into_inner());
-    let missing: Vec<String> = texts
+    let mut missing: Vec<String> = library
         .iter()
         .filter(|t| !cache.contains_key(&(id.clone(), (*t).clone())))
         .cloned()
         .collect();
-    if !missing.is_empty() {
-        let vs = e.embed(&missing).ok()?;
-        for (t, v) in missing.into_iter().zip(vs) {
-            cache.insert((id.clone(), t), v);
-        }
+    missing.sort();
+    missing.dedup();
+    missing.insert(0, me.to_owned());
+    let mut vs = e.embed(&missing).ok()?.into_iter();
+    let mine = vs.next()?;
+    for (t, v) in missing.into_iter().skip(1).zip(vs) {
+        cache.insert((id.clone(), t), v);
     }
-    texts
-        .iter()
-        .map(|t| cache.get(&(id.clone(), t.clone())).cloned())
+    std::iter::once(Some(mine))
+        .chain(
+            library
+                .iter()
+                .map(|t| cache.get(&(id.clone(), t.clone())).cloned()),
+        )
         .collect()
 }
 
@@ -87,9 +88,8 @@ pub fn similar(
     let meaning = semantic
         .filter(|e| !e.model_id().starts_with("hash"))
         .and_then(|e| {
-            let mut t: Vec<String> = vec![me.to_owned()];
-            t.extend(library.iter().map(|(_, s)| s.clone()));
-            embed_cached(e, &t)
+            let t: Vec<String> = library.iter().map(|(_, s)| s.clone()).collect();
+            embed_cached(e, me, &t)
         });
     let (near_w, near_m) = if request {
         (REQUEST_WORDS, REQUEST_MEANING)

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.1 pre-release" src="https://img.shields.io/badge/version-0.1.1--pre-2563EB" />
+  <img alt="Version 0.1.3 pre-release" src="https://img.shields.io/badge/version-0.1.3--pre-2563EB" />
   <img alt="License Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0EA5E9" />
   <img alt="Rust 1.89+" src="https://img.shields.io/badge/rust-1.89%2B-F97316" />
   <img alt="Windows and Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-10B981" />
@@ -72,11 +72,11 @@ live view always agree and a crash loses nothing.
 
 | | |
 |---|---|
-| **Teams** | A Solo agent, or a Lead with workers and an optional planner. Templates for coding, research, content and authorized security testing; a library of ready-made roles; teams composed from your own agents. |
+| **Teams** | A Solo agent, or a Lead with workers and an optional planner. Templates for coding, research and content (a security team is one you build yourself or one a plugin brings); a library of ready-made roles; teams composed from your own agents. |
 | **Any model, mixed** | API providers with presets, plus any OpenAI-compatible endpoint with your own headers and request fields. Vendor CLIs driven headless, every tool call decided by Agenium. Effort per agent; an agent whose model runs out of quota waits to be given another and resumes. |
 | **Desktop app** | Overview, chat with the Lead, Kanban board, ticket pages with side-by-side diffs, a live office view of who does what, run logs with a terminal, memory browser, usage and cost, team organiser. English and Vietnamese. |
 | **Your folders** | Start a project from a name, a git URL, or any folder on your disk: an empty one, a folder of your files (made a repository for you), or a repository you are already working in. On a repository the team works on its own branch or a new one, and with a new one your folder and branch stay exactly as you left them, so you keep coding while the team works beside you. Reference folders (an SDK, docs, another codebase) are read by every agent and never changed. |
-| **Memory and skills** | Facts, lessons and a knowledge graph per agent, found by a local embedding model plus keyword and graph search, kept tidy without rereading it with a model. Skills as `SKILL.md`, per role and per agent; the library starts empty and holds what you and your agents add, kept through upgrades. Write a skill in the app, have an agent write one, or import a whole folder of skills at once and tick the ones you want. Plugins in Claude Code's format (`obra/superpowers`) bring a vendor's skills and MCP servers, switched on whole per agent and never changed by it. |
+| **Memory and skills** | Facts, lessons and a knowledge graph per agent, found by a local embedding model plus keyword and graph search, kept tidy without rereading it with a model. Skills as `SKILL.md`, per role and per agent; the library starts empty and holds what you and your agents add, kept through upgrades. Write a skill in the app, have an agent write one, or import a whole folder of skills at once and tick the ones you want. Plugins in Claude Code's format (`obra/superpowers`) bring a vendor's skills and MCP servers, switched on whole or one skill at a time per agent; an agent learns into its own copy of a skill, and the vendor's copy stays as written. |
 | **MCP** | Servers over stdio, Streamable HTTP and SSE, with OAuth, bound per agent with their own keys. When a server offers many tools an agent finds them by search instead of reading them all; a server that changes its tools mid-run is followed. |
 | **Safety** | OS sandbox per command (Linux bubblewrap, macOS Seatbelt, Windows process containers where available). Secrets in an encrypted vault keyed by the OS keyring, never in prompts, logs or git; commits secret-scanned. External content is fenced as data. |
 | **Control** | Tokens and estimated cost per run, ticket and agent; prompt caching; context compaction; pause, cancel, re-run; backups, restore, a support bundle without secrets. |
@@ -86,7 +86,7 @@ live view always agree and a crash loses nothing.
 
 | API providers | Coding CLIs |
 |---|---|
-| Anthropic · OpenAI · Google Gemini · DeepSeek · xAI · OpenRouter · Azure OpenAI · Amazon Bedrock · OpenCode Go · LM Studio / Ollama · any OpenAI-compatible endpoint | Claude Code · Codex · Grok · Gemini (Antigravity) · OpenCode |
+| Anthropic · OpenAI · Google Gemini · DeepSeek · xAI · OpenRouter · Azure OpenAI · Amazon Bedrock · OpenCode Go · LM Studio / Ollama · any OpenAI-compatible endpoint | Claude Code · Codex · Grok · Gemini (Antigravity) · OpenCode · Devin |
 
 On Anthropic's and OpenAI's own APIs the forms that move work are decoded strictly against their schema, so a report
 always parses; other providers get the same tools with a lenient reader.
@@ -95,8 +95,8 @@ always parses; other providers get the same tools with a lenient reader.
 
 ### Desktop app
 
-Download the installer for your system from the [releases page](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.1_x64-setup.exe` on Windows 10/11,
-`Agenium_0.1.1_amd64.deb` or the AppImage on Linux. Agenium needs **Git** ([Git for Windows](https://git-scm.com/downloads);
+Download the installer for your system from the [releases page](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.3_x64-setup.exe` on Windows 10/11,
+`Agenium_0.1.3_amd64.deb` or the AppImage on Linux. Agenium needs **Git** ([Git for Windows](https://git-scm.com/downloads);
 the app tells you on the Projects page when it is missing). The local embedding model ships with the
 installer. The Windows installer asks where Agenium keeps your work (skills, MCP servers, agents, projects, memory),
 for example a folder on drive D:; on Linux and macOS the app asks once at its first start. Updates never touch that
@@ -121,7 +121,7 @@ On Windows the repository builds with the GNU toolchain and MSYS2 gcc (`.cargo/c
 Everything the app does is also available as the `agenium` command:
 
 ```sh
-agenium setup --user-language en
+agenium setup --ui-language en
 agenium models download                                   # the local embedding model (~130 MB, checksum verified)
 agenium provider add deepseek --preset deepseek --key-env DEEPSEEK_API_KEY
 agenium project create shop
@@ -148,7 +148,7 @@ Agents get better at a project from their own work, under rules that keep them f
 
 ## Status
 
-**0.1.1 is a release candidate** for Windows and Linux; macOS runs the full test suite and its desktop build
+**0.1.3 is a release candidate** for Windows and Linux; macOS runs the full test suite and its desktop build
 follows. Each behaviour is covered by automated tests — unit, contract, end-to-end runtime and crash tests — and checked
 with real models, over APIs and through the coding CLIs, in single-agent tasks, full team runs and memory chains. The
 evidence is in [docs/VERIFICATION.md](docs/VERIFICATION.md); the raw runs are in

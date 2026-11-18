@@ -23,7 +23,7 @@ const icon: Record<NeedKind, ReactNode> = {
 };
 
 /** The item in the interface's language: its template filled with its values (once, left to right), or its English. */
-export function needText(n: NeedItem, t: (k: Key) => string): string {
+function needText(n: NeedItem, t: (k: Key) => string): string {
   const key = `need.words.${n.words?.id}` as Key;
   const template = n.words ? t(key) : key;
   if (!n.words || template === key) return n.text;
@@ -202,7 +202,9 @@ export function CommandRow({ a }: { a: CommandApproval }) {
 export function NeedsView() {
   const app = useApp();
   const [items, setItems] = useState<{ id: string; project: string; items: NeedItem[]; failed?: boolean }[]>([]);
+  // app.projects is read again on every tick, so it alone drives the refresh; `alive` drops a slower, older answer.
   useEffect(() => {
+    let alive = true;
     // One project that cannot be read does not empty the page for the others (audit L15, 2026-10-31): it says so.
     Promise.all(
       app.projects.map((p) =>
@@ -212,12 +214,15 @@ export function NeedsView() {
           .catch(() => ({ id: p.id, project: p.name, items: [] as NeedItem[], cmds: [] as typeof app.approvals, failed: true })),
       ),
     ).then((rs) => {
+      if (!alive) return;
       setItems(rs);
       const cmds = rs.flatMap((r) => r.cmds);
       app.setApprovals(cmds.filter((c, i) => cmds.findIndex((x) => x.id === c.id) === i));
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [app.projects, app.tick]);
+    return () => {
+      alive = false;
+    };
+  }, [app.projects]);
   const total = items.reduce((n, r) => n + r.items.length, 0) + app.approvals.length;
   return (
     <div className="space-y-4">

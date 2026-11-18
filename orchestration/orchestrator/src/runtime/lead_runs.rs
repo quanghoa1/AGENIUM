@@ -386,11 +386,15 @@ impl Runtime {
         )?;
         let p = self.app.project(project)?;
         let root = crate::project_create::checkout_dir(std::path::Path::new(&p.path));
+        // Taken before anything else, as a chat turn does: a chat turn starting now waits (and this run waits for one).
+        let id = RunId::new();
+        let Some(_turn) = self.register_if_idle(project, lead.id, id) else {
+            return Ok(None);
+        };
         let run = self
             .app
             .store()
             .commit(None, "system", |w| -> Result<RunId> {
-                let id = RunId::new();
                 runs::insert(
                     w.tx,
                     &runs::Run {

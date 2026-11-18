@@ -19,7 +19,6 @@ export function OverviewView() {
       // The backend's list is the truth: answered or expired approvals leave it.
       app.setApprovals(x.command_approvals);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app.tick]);
   if (!o) return <div className="text-xs text-subtle">{app.t("common.loading")}</div>;
   const working = o.agents.filter((a) => a.status === "Working").length;

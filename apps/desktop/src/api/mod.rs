@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use agenium_core::forms::{self, PermissionDecision};
 use agenium_core::*;
-use agenium_orchestrator::app::{CreateAgent, CreateProject};
+use agenium_orchestrator::app::CreateProject;
 use agenium_orchestrator::runtime::Approval;
 use agenium_orchestrator::CallCtx;
 use agenium_store::core::{comments, events, runs, tickets, workspaces};
@@ -52,6 +52,10 @@ pub(crate) fn key(s: &str) -> R<TicketKey> {
 }
 
 pub(crate) fn pid(s: &str) -> R<ProjectId> {
+    s.parse().map_err(|e: IdParseError| e.to_string())
+}
+
+pub(crate) fn aid(s: &str) -> R<AgentId> {
     s.parse().map_err(|e: IdParseError| e.to_string())
 }
 

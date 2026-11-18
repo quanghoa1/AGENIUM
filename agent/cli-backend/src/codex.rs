@@ -50,7 +50,7 @@ pub struct Codex;
 const TOKEN_ENV: &str = "AGENIUM_MCP_TOKEN";
 
 /// The user's own codex home (`CODEX_HOME` or `~/.codex`).
-pub fn user_codex_home() -> Option<PathBuf> {
+pub(crate) fn user_codex_home() -> Option<PathBuf> {
     if let Some(h) = std::env::var_os("CODEX_HOME") {
         return Some(PathBuf::from(h));
     }
@@ -137,6 +137,11 @@ impl Driver for Codex {
     }
 
     fn resumes_across_runs(&self) -> bool {
+        true
+    }
+
+    // Seen on 2026-11-18: three resumed turns of one thread reported 5, 10 and 15 output tokens.
+    fn usage_is_session_total(&self) -> bool {
         true
     }
 
@@ -312,13 +317,9 @@ async fn app_server(program: &Path, scratch: &Path, method: &str) -> Result<Valu
     .current_dir(&cwd)
     .stdin(std::process::Stdio::piped())
     .stdout(std::process::Stdio::piped())
-    .stderr(std::process::Stdio::null())
-    .kill_on_drop(true);
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("cannot start codex: {e}"))?;
+    .stderr(std::process::Stdio::null());
+    let (mut child, _tree) =
+        crate::probe::spawn(&mut cmd).map_err(|e| format!("cannot start codex: {e}"))?;
     let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
         return Err("codex stdio pipes missing".into());
     };

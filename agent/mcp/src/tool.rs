@@ -289,6 +289,10 @@ impl Tool for McpTool {
                 let e = server_error("mcp_error", &format!("{message} (code {code})"));
                 return Err(self.changed(e).await);
             }
+            // An HTTP error carries the server's body: its words too.
+            Err(e @ McpError::Http { .. }) => {
+                return Err(server_error("mcp_unavailable", &e.to_string()))
+            }
             Err(e) => return Err(tool_error(e)),
         };
         let mut out = ctx.finish_output(r.text, true);

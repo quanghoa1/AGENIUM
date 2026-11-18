@@ -9,7 +9,8 @@ import { Annotate } from "../components/Annotate";
 import { NeedsProject } from "../components/GettingStarted";
 import { Overlay, useCovered } from "../components/motion";
 import { Empty, Mono, cn } from "../components/ui";
-import { api, onBrowser } from "../lib/api";
+import { api } from "../lib/api";
+import { onBrowser } from "../lib/events";
 import { inTauri, useApp } from "../lib/store";
 
 /** What the picker sends for one element (see apps/desktop/src/browser_picker.js). */
@@ -86,7 +87,7 @@ function linkOrigin(url: string, project: string) {
   }
 }
 /** The project whose app `url` is, if the user said so. */
-export function projectOf(url: string | null): string | null {
+function projectOf(url: string | null): string | null {
   if (!url) return null;
   try {
     return origins()[new URL(url).origin] ?? null;
@@ -96,7 +97,7 @@ export function projectOf(url: string | null): string | null {
 }
 
 /** A page served from this machine (the app being built), as opposed to a site to take as a reference. */
-export function isLocal(url: string): boolean {
+function isLocal(url: string): boolean {
   try {
     const h = new URL(url).hostname;
     return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h.endsWith(".localhost") || h.endsWith(".local");
@@ -106,7 +107,7 @@ export function isLocal(url: string): boolean {
 }
 
 /** The message the Lead gets: the user's words first, then each element with what locates it. */
-export function pickMessage(message: string, picks: Picked[], shots: (string | null)[] = []): string {
+function pickMessage(message: string, picks: Picked[], shots: (string | null)[] = []): string {
   const parts: string[] = [];
   if (message.trim()) parts.push(message.trim());
   const page = picks[0];

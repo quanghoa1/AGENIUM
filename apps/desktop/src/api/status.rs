@@ -53,10 +53,12 @@ pub fn command_policy(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
     let sb = agenium_sandbox::detect();
     let cfg = o.app.config().sandbox;
-    Ok(json!({ "approval": cfg.approval, "unsandboxed": cfg.unsandboxed, "off": cfg.off,
+    Ok(
+        json!({ "approval": cfg.approval, "unsandboxed": cfg.unsandboxed, "off": cfg.off,
                "auto_escalate": cfg.auto_escalate,
                "backend": sb.backend, "reason": sb.reason,
-               "os_backend": agenium_sandbox::detect_os().backend }))
+               "os_backend": agenium_sandbox::detect_os().backend }),
+    )
 }
 
 #[tauri::command]

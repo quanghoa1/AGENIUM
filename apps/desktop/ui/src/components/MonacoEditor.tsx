@@ -39,7 +39,6 @@ export default function MonacoEditor({ value, language = "markdown", onChange, c
       model.dispose();
     };
     // The editor is created once; `value` seeds it and is then owned by the model (controlled through onChange).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
   // A given height (a flex child that fills its column) or the default one.
   return <div ref={host} className={`${className ?? "h-[56vh] min-h-[320px]"} w-full overflow-hidden rounded-lg border border-line`} />;

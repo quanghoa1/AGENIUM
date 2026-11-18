@@ -144,23 +144,22 @@ async fn run(program: &Path, args: &[&str], timeout: Duration) -> Result<String,
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(args)
         .stdin(std::process::Stdio::null())
-        .kill_on_drop(true)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         // Updaters that would ask are told there is no one to answer.
         .env("CI", "1")
         .env("NO_COLOR", "1");
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: the desktop app has no console
-    let out = tokio::time::timeout(timeout, cmd.output())
+    let out = crate::probe::output(cmd, timeout)
         .await
-        .map_err(|_| {
+        .map_err(|e| format!("{}: {e}", program.display()))?
+        .ok_or_else(|| {
             format!(
                 "{} {} took longer than {} s",
                 program.display(),
                 args.join(" "),
                 timeout.as_secs()
             )
-        })?
-        .map_err(|e| format!("{}: {e}", program.display()))?;
+        })?;
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),

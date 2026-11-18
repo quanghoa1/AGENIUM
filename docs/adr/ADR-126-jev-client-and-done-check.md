@@ -28,7 +28,7 @@ costs a Lead review run and usually a reopen plus another work run.
    bad request no longer disables it.
 3. **One client**: `App::judge()` keeps the `Judge` while the endpoint, model and key stay the same, so connections are
    reused.
-4. **Unverified-done check** (`done_check`, a new judge switch, off by default; Settings → Judge). When a worker calls
+4. **Unverified-done check** (`done_check`, a new judge switch, off by default, on by default since ADR-128; Settings → Judge). When a worker calls
    `submit_report` in a work run:
    - the run log gives the facts with no model: the files the run changed (`write_file`, `edit_file`, `multi_edit`,
      `apply_patch`) and the shell commands after the last change with their exit codes;

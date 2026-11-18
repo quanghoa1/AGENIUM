@@ -44,26 +44,7 @@ pub fn material(docs: &[Attached], max_chars: usize) -> String {
     out
 }
 
-/// What reads documents on this machine.
-#[derive(Debug, Clone, Serialize)]
-pub struct DocumentReaders {
-    /// markitdown's program: Agenium's own copy, else the one on the PATH.
-    pub markitdown: Option<String>,
-    /// The extensions Agenium reads itself.
-    pub built_in: Vec<String>,
-}
-
 impl App {
-    pub fn document_readers(&self) -> DocumentReaders {
-        DocumentReaders {
-            markitdown: markitdown::find().map(|m| m.program.display().to_string()),
-            built_in: agenium_documents::BUILT_IN
-                .iter()
-                .map(|s| (*s).to_owned())
-                .collect(),
-        }
-    }
-
     /// `bytes` (a document named `name`) as Markdown.
     pub async fn read_document(&self, name: &str, bytes: &[u8]) -> Result<Converted> {
         let own = convert(name, bytes);

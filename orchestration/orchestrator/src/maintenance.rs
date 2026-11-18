@@ -42,12 +42,7 @@ fn age_hours(m: &Manifest, now: DateTime<Utc>) -> f64 {
 
 impl App {
     pub fn backups_dir(&self) -> PathBuf {
-        let d = PathBuf::from(&self.config().paths.backups_dir);
-        if d.is_absolute() {
-            d
-        } else {
-            self.layout.root.join(d)
-        }
+        self.config().paths.backups(&self.layout.root)
     }
 
     fn agent_db_files(&self) -> Result<Vec<(String, PathBuf)>> {

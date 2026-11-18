@@ -20,7 +20,7 @@ pub enum Wire {
     ChatCompletions,
 }
 
-pub fn wire_for(model: &str) -> Wire {
+pub(crate) fn wire_for(model: &str) -> Wire {
     let m = model.to_ascii_lowercase();
     if ["claude-", "minimax-", "qwen", "union-alpha"]
         .iter()

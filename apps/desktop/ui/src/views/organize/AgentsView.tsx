@@ -117,7 +117,6 @@ function AgentImport({ open, onClose }: { open: boolean; onClose: () => void }) 
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (open) setProject((cur) => (free.some((p) => p.id === cur) ? cur : (free[0]?.id ?? "")));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, app.projects]);
   // A file dropped on the window while the dialog is open.
   useFileDrop((e) => e.type === "drop" && e.paths[0] && setFile(e.paths[0]), open);

@@ -1,9 +1,9 @@
-//! Plugins (ADR-157): a vendor's set of skills and MCP servers, imported from its repository into
-//! `<root>/plugins/<name>/` and kept as the vendor made it. The set is one thing: an agent enables or disables the
-//! whole plugin (`plugin:<name>` in its skill binding), never one of its skills or servers. Its skills are read-only:
-//! an agent's learning, its skill proposals and overlays never touch them. An update replaces the whole set with the
-//! vendor's newer commit, after the user saw what changes. Agenium runs no vendor code of a plugin: hooks, commands,
-//! agents and programs are left out, and said so.
+//! Plugins (ADR-157): a vendor's set of skills, MCP servers and hooks, imported from its repository into
+//! `<root>/plugins/<name>/` and kept as the vendor made it. An agent is given the whole plugin (`plugin:<name>` in its
+//! skill binding) or some of its skills (`plugin:<name>/<skill>`, amended 2026-11-17). The vendor's copy is read-only:
+//! an agent learns into its own copy of a skill, rebased when the vendor's update comes. An update replaces the whole
+//! set with the vendor's newer commit, after the user saw what changes. Hooks run Agenium's way (in the sandbox; on the
+//! host when the sandbox is off, ADR-160); commands, agents and programs are left out, and said so.
 //!
 //! The formats are Claude Code's, not new ones: an installed plugin is `agenium-plugin.json`, written by Agenium in
 //! Claude Code's `plugin.json` format with what it took (the vendor's descriptive fields, `skills`, the `mcpServers`
@@ -52,6 +52,9 @@ struct Install {
     /// Installed from a private repository with a token: kept in the secret store per repository, not here.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     private: bool,
+    /// Each skill's digest as installed (the vendor's copy is read-only): a lookup need not hash every file again.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    skills: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -67,11 +70,23 @@ fn two() -> u32 {
 }
 
 impl Installed {
-    fn load(dir: &Path) -> Installed {
-        std::fs::read_to_string(dir.join(INSTALLED))
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
+    /// The records; none when the file is not there yet. A damaged file is an error: saved over, it would lose every
+    /// record.
+    fn load(dir: &Path) -> Result<Installed> {
+        match std::fs::read_to_string(dir.join(INSTALLED)) {
+            Ok(t) => serde_json::from_str(&t)
+                .map_err(|e| invalid(format!("{INSTALLED} is damaged ({e}): fix or remove it"))),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Installed::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// For reading only: a damaged file reads as no plugin (and is said so).
+    fn read(dir: &Path) -> Installed {
+        Installed::load(dir).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "the installed plugins could not be read");
+            Installed::default()
+        })
     }
 
     fn save(&mut self, dir: &Path) -> Result<()> {
@@ -267,7 +282,8 @@ impl App {
 
     /// The installed plugins, by name.
     pub fn plugins(&self) -> Result<Vec<Plugin>> {
-        let installed = Installed::load(&self.plugins_dir());
+        let dir = self.plugins_dir();
+        let installed = Installed::read(&dir);
         let mut names: Vec<&str> = installed
             .plugins
             .keys()
@@ -275,15 +291,22 @@ impl App {
             .collect();
         names.sort();
         names.dedup();
-        Ok(names.into_iter().filter_map(|n| self.plugin(n)).collect())
+        Ok(names
+            .into_iter()
+            .filter_map(|n| self.plugin_in(&dir, &installed, n))
+            .collect())
     }
 
     pub fn plugin(&self, name: &str) -> Option<Plugin> {
+        let dir = self.plugins_dir();
+        self.plugin_in(&dir, &Installed::read(&dir), name)
+    }
+
+    fn plugin_in(&self, dir: &Path, installed: &Installed, name: &str) -> Option<Plugin> {
         if !agenium_skills::valid_name(name) {
             return None;
         }
-        let dir = self.plugins_dir();
-        let install = Installed::load(&dir).get(name)?.clone();
+        let install = installed.get(name)?;
         let pieces = layout::read(&dir.join(name), None, name).ok()?;
         let source = Source::parse(&install.source).ok()?;
         let mut p = plugin_record(
@@ -292,10 +315,11 @@ impl App {
             &install.reference,
             &pieces,
             &install.git_commit_sha,
+            &install.skills,
         )
         .ok()?;
-        p.installed_at = install.installed_at;
-        p.skipped = install.skipped;
+        p.installed_at = install.installed_at.clone();
+        p.skipped = install.skipped.clone();
         p.private = install.private;
         p.token_kept = p.private && self.plugin_token_kept(&source);
         Some(p)
@@ -334,11 +358,20 @@ impl App {
                 }
                 self.set_agent_skills(a.id, &keep)?;
             }
-            for o in self.rebase_skill_overlays(a.id)? {
+            let rebased = match self.rebase_skill_overlays(a.id) {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::warn!(agent = %a.name, error = %e, "the agent's skill copies were not rebased");
+                    out.conflicts
+                        .push(format!("{}: its skill copies (not rebased: {e})", a.name));
+                    continue;
+                }
+            };
+            for o in rebased {
                 let line = format!("{}: {}", a.name, o.skill);
                 match o.status.as_str() {
                     "rebased" => out.rebased.push(line),
-                    "conflict" => out.conflicts.push(line),
+                    "conflict" | "error" => out.conflicts.push(line),
                     _ => {}
                 }
             }
@@ -383,7 +416,7 @@ impl App {
         let token = token.as_deref();
         let mut plugin = self
             .with_fetched(&src, entry, token, |p, commit| {
-                plugin_record(&src, entry, &reference, p, commit)
+                plugin_record(&src, entry, &reference, p, commit, &BTreeMap::new())
             })
             .await?;
         plugin.private = token.is_some();
@@ -420,7 +453,14 @@ impl App {
         }
         let mut plugin = self
             .with_fetched(&src, old.entry.as_deref(), token, |p, commit| {
-                plugin_record(&src, old.entry.as_deref(), &old.reference, p, commit)
+                plugin_record(
+                    &src,
+                    old.entry.as_deref(),
+                    &old.reference,
+                    p,
+                    commit,
+                    &BTreeMap::new(),
+                )
             })
             .await?;
         plugin.private = token.is_some();
@@ -461,7 +501,7 @@ impl App {
                         "the source now serves {got}, not the {commit} shown: preview again"
                     )));
                 }
-                let mut plugin = plugin_record(&src, entry, reference, p, got)?;
+                let mut plugin = plugin_record(&src, entry, reference, p, got, &BTreeMap::new())?;
                 plugin.private = token.is_some();
                 // Build it whole beside the old one, then swap.
                 let fresh = dir.join(format!(".new-{}-{}", p.name, ulid::Ulid::new()));
@@ -501,7 +541,7 @@ impl App {
                 } else {
                     std::fs::rename(&fresh, &dest)?;
                 }
-                let mut installed = Installed::load(&dir);
+                let mut installed = Installed::load(&dir)?;
                 let first = installed.get(&p.name).map(|i| i.installed_at.clone());
                 installed.remove(&p.name);
                 let now = chrono::Utc::now().to_rfc3339();
@@ -519,6 +559,7 @@ impl App {
                         entry: entry.map(str::to_owned),
                         skipped: p.skipped.clone(),
                         private: token.is_some(),
+                        skills: plugin.skills.clone(),
                     }],
                 );
                 installed.save(&dir)?;
@@ -533,7 +574,13 @@ impl App {
             plugin.token_kept = true;
         }
         if replaced {
-            plugin.refreshed = Some(self.refresh_plugin_users(&plugin)?);
+            // The plugin is installed: a copy that could not be refreshed is said, not a failed install.
+            match self.refresh_plugin_users(&plugin) {
+                Ok(r) => plugin.refreshed = Some(r),
+                Err(e) => {
+                    tracing::warn!(plugin = %plugin.name, error = %e, "the plugin's users were not refreshed")
+                }
+            }
         }
         Ok(plugin)
     }
@@ -541,7 +588,7 @@ impl App {
     /// Removes a plugin and turns it off for every agent that had it.
     pub fn remove_plugin(&self, name: &str) -> Result<()> {
         let root = self.plugins_dir();
-        let mut installed = Installed::load(&root);
+        let mut installed = Installed::load(&root)?;
         if !agenium_skills::valid_name(name) || installed.get(name).is_none() {
             return Err(invalid(format!("no plugin {name:?}")));
         }
@@ -628,10 +675,15 @@ fn plugin_record(
     reference: &str,
     p: &layout::Pieces,
     commit: &str,
+    known: &BTreeMap<String, String>,
 ) -> Result<Plugin> {
     let mut skills = BTreeMap::new();
     for (name, dir) in &p.skills {
-        skills.insert(name.clone(), digest(dir)?);
+        let d = match known.get(name) {
+            Some(d) => d.clone(),
+            None => digest(dir)?,
+        };
+        skills.insert(name.clone(), d);
     }
     Ok(Plugin {
         name: p.name.clone(),
@@ -665,13 +717,21 @@ fn plugin_record(
 }
 
 /// Removes what an install or a fetch left half done (`.fetch-*`, `.new-*`, `.old-*`): a stopped app leaves no plugin
-/// files behind.
+/// files behind. Only what is older than ten minutes: a preview or an install going on beside keeps its folder.
 fn sweep(dir: &Path) {
+    const LEFT: std::time::Duration = std::time::Duration::from_secs(10 * 60);
     for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let n = e.file_name().to_string_lossy().into_owned();
-        if [".fetch-", ".new-", ".old-"]
-            .iter()
-            .any(|p| n.starts_with(p))
+        let old = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_none_or(|age| age > LEFT);
+        if old
+            && [".fetch-", ".new-", ".old-"]
+                .iter()
+                .any(|p| n.starts_with(p))
         {
             let _ = std::fs::remove_dir_all(e.path());
         }

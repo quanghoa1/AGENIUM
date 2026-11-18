@@ -9,7 +9,7 @@ use crate::app::App;
 use crate::{OrchError, Result};
 
 /// Sessions listed at most.
-pub const LIST_MAX: usize = 50;
+pub(crate) const LIST_MAX: usize = 50;
 /// A session's stored size at most (turns, transcript, attachments and draft together).
 const SESSION_MAX_BYTES: usize = 2 * 1024 * 1024;
 

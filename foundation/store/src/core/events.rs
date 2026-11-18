@@ -84,6 +84,17 @@ pub fn since(c: &Connection, after: u64, limit: usize) -> Result<Vec<EventRecord
     rows.map(|r| decode(r?)).collect()
 }
 
+/// `project`'s events: those of its tickets and the project-level ones (which carry the project in their payload).
+pub fn of_project(c: &Connection, project: &str) -> Result<Vec<EventRecord>, StoreError> {
+    let mut st = c.prepare_cached(&format!(
+        "SELECT {COLS} FROM event WHERE ticket IN (SELECT id FROM ticket WHERE project = ?1)
+         UNION ALL SELECT {COLS} FROM event WHERE ticket IS NULL AND json_extract(payload, '$.project') = ?1
+         ORDER BY seq"
+    ))?;
+    let rows = st.query_map([project], row)?;
+    rows.map(|r| decode(r?)).collect()
+}
+
 pub fn for_ticket(c: &Connection, ticket: TicketId) -> Result<Vec<EventRecord>, StoreError> {
     let mut st = c.prepare_cached(&format!(
         "SELECT {COLS} FROM event WHERE ticket = ?1 ORDER BY seq"
@@ -109,6 +120,20 @@ pub fn last_seq(c: &Connection) -> Result<u64, StoreError> {
 }
 
 /// Events of a kind, newest first (diagnostics).
+/// The latest events of `kind` about `project` (in their payload), newest first.
+pub fn recent_of_kind_in(
+    c: &Connection,
+    kind: &str,
+    project: &str,
+    limit: usize,
+) -> Result<Vec<EventRecord>, StoreError> {
+    let mut st = c.prepare_cached(&format!(
+        "SELECT {COLS} FROM event WHERE kind = ?1 AND json_extract(payload, '$.project') = ?2 ORDER BY seq DESC LIMIT ?3"
+    ))?;
+    let rows = st.query_map(params![kind, project, limit as i64], row)?;
+    rows.map(|r| decode(r?)).collect()
+}
+
 pub fn recent_of_kind(
     c: &Connection,
     kind: &str,

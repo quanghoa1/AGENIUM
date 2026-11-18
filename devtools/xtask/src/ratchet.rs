@@ -140,6 +140,19 @@ pub fn ratchet(update: bool) -> Result<()> {
             .iter()
             .filter(|p| p.contains(" grew from "))
             .collect();
+        // A file not frozen before is split, not frozen: `--update` records what shrank (audit L-38).
+        let new: Vec<&str> = f
+            .over
+            .iter()
+            .filter(|(p, _, _)| !frozen.contains_key(p))
+            .map(|(p, _, _)| p.as_str())
+            .collect();
+        if !new.is_empty() {
+            bail!(
+                "refusing to freeze files newly over {LIMIT_BYTES} bytes (split them):\n  {}",
+                new.join("\n  ")
+            );
+        }
         if !grew.is_empty() {
             bail!(
                 "refusing to record growth:\n  {}",

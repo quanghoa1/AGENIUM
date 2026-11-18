@@ -79,19 +79,17 @@ fn load_embedder(models_root: &Path) -> Arc<dyn Embedder> {
 /// Re-embeds live facts whose vectors come from another embedder (model switch with the same dimension), and entity
 /// vectors made from "name. description" before ADR-94 (once per database).
 pub fn refresh_vectors(store: &AgentStore, embedder: &dyn Embedder) -> Result<u64, MemoryError> {
-    const ENTITY_TEXT: &str = "name";
-    let entities_current = store.meta("entity_vector_text")?.as_deref() == Some(ENTITY_TEXT);
+    // The entities' vectors: made again only when their text form or the embedder changed (a fact an undo brought
+    // back re-embeds that fact alone; it re-embedded every entity, audit M-23).
+    let entity_form = format!("name:{}", embedder.model_id());
+    if store.meta("entity_vector_text")?.as_deref() != Some(entity_form.as_str()) {
+        crate::cpu_bound(|| store.reindex_entities(|t| embedder.embed(t)))?;
+        store.set_meta("entity_vector_text", &entity_form)?;
+    }
     if store.stale_vectors(embedder.model_id())? == 0 {
-        if !entities_current {
-            store.reindex_entities(|t| embedder.embed(t))?;
-            store.set_meta("entity_vector_text", ENTITY_TEXT)?;
-        }
         return Ok(0);
     }
-    let n = store.reindex(|t| embedder.embed(t))?;
-    store.reindex_entities(|t| embedder.embed(t))?;
-    store.set_meta("entity_vector_text", ENTITY_TEXT)?;
-    Ok(n)
+    Ok(crate::cpu_bound(|| store.reindex(|t| embedder.embed(t)))?)
 }
 
 /// Deterministic hashing embedder (bag of hashed word unigrams + bigrams, L2-normalised). Keyword-level quality

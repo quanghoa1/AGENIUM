@@ -96,7 +96,13 @@ async fn a_page_is_opened_used_and_shot() {
     )
     .await
     .unwrap();
-    assert_eq!(v.text.trim(), "1");
+    // The page's answer, fenced as the page's content (audit M-19).
+    assert!(
+        v.untrusted && v.text.starts_with("<untrusted_content"),
+        "{}",
+        v.text
+    );
+    assert_eq!(v.text.lines().nth(1), Some("1"));
     assert_eq!(
         call(
             &c,

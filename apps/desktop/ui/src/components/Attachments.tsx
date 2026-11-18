@@ -3,7 +3,8 @@
 // format); the chat shows them as chips and sends their text with the next message.
 import { FileText, Loader2, Paperclip, X } from "lucide-react";
 import { type ClipboardEvent, useRef, useState } from "react";
-import { api, type ReadDoc, type SkillDoc } from "../lib/api";
+import { api } from "../lib/api";
+import { type ReadDoc, type SkillDoc } from "../lib/apiTypes";
 import { useFileDrop } from "../lib/drops";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
@@ -13,7 +14,7 @@ import { cn } from "./ui";
 const MAX_BYTES = 30 * 1024 * 1024;
 
 /** A pasted text that is only the path of a file (quoted or not), or null. */
-export function pastedPath(text: string): string | null {
+function pastedPath(text: string): string | null {
   const t = text.trim().replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
   if (!t || t.includes("\n") || t.length > 1024) return null;
   const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/|~\/)/.test(t);
@@ -74,7 +75,7 @@ export function useAttachments(project?: string) {
   };
 }
 
-export type AttachmentsState = ReturnType<typeof useAttachments>;
+type AttachmentsState = ReturnType<typeof useAttachments>;
 
 /** The attach button, the drop zone (while `active`) and the documents as chips. */
 export function AttachmentBar({ a, active = true, disabled }: { a: AttachmentsState; active?: boolean; disabled?: boolean }) {

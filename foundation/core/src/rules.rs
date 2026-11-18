@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::AgentId;
-use crate::ticket::{Ticket, TicketStatus, MAX_REOPEN_BEFORE_ESCALATE};
+use crate::ticket::{max_reopen_before_escalate, Ticket, TicketStatus};
 
 /// Who performs an action. A Solo agent acts as Lead for lead tools and as Worker for worker tools.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -201,7 +201,7 @@ pub fn apply_transition(t: &mut Ticket, to: TicketStatus) -> TransitionEffects {
         // A reopened ticket must be reviewed (and merged) again.
         t.approved = false;
         t.merged = false;
-        if t.reopen_count > MAX_REOPEN_BEFORE_ESCALATE && !t.escalated {
+        if t.reopen_count > max_reopen_before_escalate() && !t.escalated {
             t.escalated = true;
             fx.escalated_now = true;
         }

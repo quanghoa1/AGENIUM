@@ -66,7 +66,7 @@ tickets/comments). The Surreal core store was only checked for correctness (sect
 | Gap | Impact | Mitigation |
 |---|---|---|
 | No live queries / change feeds | not used: the orchestrator reads the event log (`events_since`) | none needed |
-| No native graph traversal (`->edge->`) | **ticket/dependency graph** = join tables, computed in `agenium-core` (tiny). **Memory graph** (entities/edges, multi-hop reuse across tickets) is planned in [ADR-51](adr/ADR-51-graph-memory-on-sqlite.md) as relational tables + bounded `WITH RECURSIVE`; feasibility probe in `bench-raw/linux-graph-cte-probe.txt`, real benchmarks planned (STORE-SCALE §8). SurrealDB parity for it is a stretch item | ADR-51 (planned, not implemented) |
+| No native graph traversal (`->edge->`) | **ticket/dependency graph** = join tables, computed in `agenium-core` (tiny). **Memory graph** (entities/edges, multi-hop reuse across tickets) is planned in [ADR-51](../adr/ADR-51-graph-memory-on-sqlite.md) as relational tables + bounded `WITH RECURSIVE`; feasibility probe in `bench-raw/linux-graph-cte-probe.txt`, real benchmarks planned (STORE-SCALE §8). SurrealDB parity for it is a stretch item | ADR-51 (planned, not implemented) |
 | HNSW is not built in; ANN is a usearch sidecar (C++ toolchain at build time) | extra moving part, 1.3 GB RAM at 1M facts | journal-in-transaction consistency + automatic rebuild (ADR-50); exact scan always available |
 | Agent DB `synchronous=NORMAL` | power loss may drop the last memories | core stays `FULL`; documented |
 | Retention/archive is SQLite-only | Surreal build cannot archive | optional engine, documented |

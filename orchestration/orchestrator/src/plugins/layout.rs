@@ -40,7 +40,7 @@ pub struct Pieces {
 
 /// The hook events Agenium runs, and when: `SessionStart` at the start of every run, `UserPromptSubmit` on each of the
 /// user's messages to the Lead or Solo, `PreToolUse` before each tool call (it may only refuse or ask).
-pub const HOOK_EVENTS: [&str; 3] = ["SessionStart", "UserPromptSubmit", "PreToolUse"];
+pub(crate) const HOOK_EVENTS: [&str; 3] = ["SessionStart", "UserPromptSubmit", "PreToolUse"];
 
 /// Why the other events are not run.
 fn unrun(event: &str) -> &'static str {

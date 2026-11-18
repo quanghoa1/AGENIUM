@@ -16,8 +16,8 @@ pub const MAX_SKILL_BODY_CHARS: usize = 8000;
 /// Two skills whose body word sets overlap this much are one skill twice.
 const NEAR_DUPLICATE: f64 = 0.8;
 
-/// `## Heading` -> lowercased heading, in file order (frontmatter excluded; pass the body).
-fn headings(body: &str) -> Vec<(String, String)> {
+/// `## Heading` -> lowercased heading and its body, in file order (frontmatter excluded; pass the body).
+pub(crate) fn headings(body: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for line in body.lines() {
         if let Some(h) = line.strip_prefix("## ") {
@@ -30,7 +30,7 @@ fn headings(body: &str) -> Vec<(String, String)> {
     out
 }
 
-fn words(text: &str) -> BTreeSet<String> {
+pub(crate) fn words(text: &str) -> BTreeSet<String> {
     text.split(|c: char| !c.is_alphanumeric())
         .filter(|w| w.len() >= 3)
         .map(str::to_lowercase)

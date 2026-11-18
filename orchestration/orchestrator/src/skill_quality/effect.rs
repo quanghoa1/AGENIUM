@@ -10,7 +10,7 @@ use serde::Serialize;
 /// Tickets needed on each side before a skill is judged.
 pub const MIN_TICKETS: usize = 5;
 /// A skill is worse when its tickets are reopened this much more often (as a share of tickets).
-pub const WORSE_BY: f64 = 0.20;
+pub(crate) const WORSE_BY: f64 = 0.20;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Effect {
@@ -39,7 +39,7 @@ pub fn effects(closed: &[ClosedTicket]) -> BTreeMap<String, Effect> {
         .collect()
 }
 
-pub fn effect_of(skill: &str, closed: &[ClosedTicket]) -> Effect {
+pub(crate) fn effect_of(skill: &str, closed: &[ClosedTicket]) -> Effect {
     let (with, without): (Vec<&ClosedTicket>, Vec<&ClosedTicket>) =
         closed.iter().partition(|t| t.skills.contains(skill));
     let agents: BTreeSet<&Option<String>> = with.iter().map(|t| &t.assignee).collect();

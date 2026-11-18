@@ -212,19 +212,16 @@ pub fn tentative_tickets(c: &Connection, project: &str) -> Result<Vec<String>, S
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
-/// Drops what ticket `ticket` added and was never confirmed (the ticket was cancelled).
+/// Drops what ticket `ticket` added and was never confirmed (the ticket was cancelled): its tentative links, and its
+/// tentative nodes that no link touches any more (another ticket's link keeps its end).
 pub fn drop_tentative(c: &Connection, project: &str, ticket: &str) -> Result<(), StoreError> {
     c.execute(
         "DELETE FROM map_link WHERE project = ?1 AND ticket = ?2 AND status = 'tentative'",
         params![project, ticket],
     )?;
     c.execute(
-        "DELETE FROM map_link WHERE project = ?1 AND (src IN (SELECT key FROM map_node WHERE project = ?1 AND ticket = ?2
-           AND status = 'tentative') OR dst IN (SELECT key FROM map_node WHERE project = ?1 AND ticket = ?2 AND status = 'tentative'))",
-        params![project, ticket],
-    )?;
-    c.execute(
-        "DELETE FROM map_node WHERE project = ?1 AND ticket = ?2 AND status = 'tentative'",
+        "DELETE FROM map_node WHERE project = ?1 AND ticket = ?2 AND status = 'tentative' AND NOT EXISTS
+           (SELECT 1 FROM map_link l WHERE l.project = ?1 AND (l.src = map_node.key OR l.dst = map_node.key))",
         params![project, ticket],
     )?;
     Ok(())

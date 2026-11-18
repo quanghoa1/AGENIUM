@@ -63,7 +63,8 @@ limited, with good results (ripgrep's release page first, with its date and text
   data (ADR-142) and only read with GET, without cookies or credentials; the commands of the same run could reach the
   same hosts. A project that wants neither sets `[sandbox] network = false`: commands get no network and `fetch` only
   the allowlist.
-- The browser tool (ADR-158) keeps its allowlist: it is for checking the app the agent builds.
+- The browser tool (ADR-158) keeps its allowlist: it is for checking the app the agent builds. (Until ADR-165, which
+  opened it to public sites for runs that reach the network.)
 - Not done: the API providers' own search (Anthropic's and OpenAI's server tools, Gemini's grounding), which needs
   each wire's server-tool support; a judge extracting the part of a page a question needs; a JavaScript-only page
   falling back to the browser.
@@ -85,5 +86,5 @@ limited, with good results (ripgrep's release page first, with its date and text
 - `quality/eval/examples/web_research_real.rs`: real pages (a documentation page, an RFC as PDF, the metadata address
   refused), real searches with `recent` (Exa without a key; Tavily and Brave each with a key from the environment) and a real Solo agent on Claude Code and on Codex finding ripgrep's latest release (checked against GitHub's
   API) with its own search, reading it with `fetch` without asking for network access, and citing the URL.
-- The UI smoke test: Exa alone and free; a Brave and a Tavily key added in Settings join the order behind it; one is
+- The UI smoke test: Exa alone and free; a Brave and a Tavily key added in Settings join the order before it; one is
   removed alone.

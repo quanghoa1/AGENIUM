@@ -49,9 +49,12 @@ impl Runtime {
             .iter()
             .map(|r| serde_json::json!({ "id": r.id, "kind": r.kind, "text": r.text, "shared": r.shared, "exact": r.exact }))
             .collect();
-        let _ = self
+        if let Err(e) = self
             .app
-            .run_log(run, "memory", serde_json::json!({ "recalled": shown }));
+            .run_log(run, "memory", serde_json::json!({ "recalled": shown }))
+        {
+            tracing::warn!(error = %e, "the recall record was not logged");
+        }
         let facts: Vec<String> = recalled
             .iter()
             .map(agenium_memory::retrieve::label)

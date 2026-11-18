@@ -21,13 +21,12 @@ fn embed(text: &str, dim: usize) -> Vec<f32> {
 const DIM: usize = 64;
 
 fn open(dir: &std::path::Path) -> AgentStore {
-    AgentStore::open(
-        &dir.join("agents/a.db"),
-        DIM,
-        "toy-hash",
-        &dir.join("backups"),
-    )
-    .unwrap()
+    open_as(dir, "toy-hash")
+}
+
+/// The store opened by another embedder of the same dimension (a model switch).
+fn open_as(dir: &std::path::Path, model: &str) -> AgentStore {
+    AgentStore::open(&dir.join("agents/a.db"), DIM, model, &dir.join("backups")).unwrap()
 }
 
 fn add(s: &AgentStore, text: &str) -> i64 {
@@ -150,7 +149,11 @@ fn reindex_replaces_vectors() {
     let s = open(tmp.path());
     let a = add(&s, "alpha beta");
     add(&s, "gamma delta");
+    // Only what another model embedded is embedded again (audit M-23).
+    assert_eq!(s.reindex(|_| Ok(vec![])).unwrap(), 0);
+    drop(s);
     // A "new model": reverse the toy vector. The nearest neighbour of the reversed query is still the same fact.
+    let s = open_as(tmp.path(), "toy-rev");
     let n = s
         .reindex(|texts| {
             Ok(texts
@@ -376,6 +379,8 @@ fn zero_vectors_are_not_indexed_and_do_not_break_search() {
         c.first().map(|c| (c.entity.id, c.via)),
         Some((csharp, "exact"))
     );
+    drop(s);
+    let s = open_as(tmp.path(), "toy-zero");
     s.reindex(|t| Ok(t.iter().map(|_| vec![0f32; DIM]).collect()))
         .unwrap();
     s.reindex_entities(|t| Ok(t.iter().map(|_| vec![0f32; DIM]).collect()))
@@ -384,7 +389,7 @@ fn zero_vectors_are_not_indexed_and_do_not_break_search() {
         .knn(&embed("windows toolchain", DIM), 5)
         .unwrap()
         .is_empty());
-    assert_eq!(s.stale_vectors("toy-hash").unwrap(), 0);
+    assert_eq!(s.stale_vectors("toy-zero").unwrap(), 0);
 }
 
 /// ADR-94: "C#", "C++" and "C" were all keyed "c", so a mention of C++ resolved to the C# entity. Keys keep `+` and

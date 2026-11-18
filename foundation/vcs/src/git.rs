@@ -70,16 +70,12 @@ impl Git {
             let mut wt = OsString::from("--work-tree=");
             wt.push(std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf()));
             c.arg(gd).arg(wt);
-            // Empty `core.fsmonitor` is "off" for every git since MIN_GIT (2.30 reads `false` as a hook path).
-            c.args([
-                "-c",
-                "core.fsmonitor=",
-                "-c",
-                NO_HOOKS,
-                "-c",
-                "diff.ignoreSubmodules=dirty",
-            ]);
+            c.args(["-c", "diff.ignoreSubmodules=dirty"]);
         }
+        // No hook and no fsmonitor in any call, on the project's checkout too: a hook an agent's ticket merged (a
+        // relative `core.hooksPath`, husky's `.husky`) ran on the host at the next worktree or commit (audit M-21).
+        // Empty `core.fsmonitor` is "off" for every git since MIN_GIT (2.30 reads `false` as a hook path).
+        c.args(["-c", "core.fsmonitor=", "-c", NO_HOOKS]);
         // Deterministic, non-interactive behaviour: no pager, no prompts, no editor, C locale for parsing, long
         // paths on Windows, no CRLF rewriting of agent output.
         c.args([

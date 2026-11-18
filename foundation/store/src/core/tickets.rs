@@ -344,6 +344,16 @@ pub fn open_for_agent(c: &Connection, agent: AgentId) -> Result<Vec<Ticket>, Sto
     )
 }
 
+/// Every ticket `agent` holds or held, or commented on (its message bus), in one query.
+pub fn involving_agent(c: &Connection, agent: AgentId) -> Result<Vec<Ticket>, StoreError> {
+    select(
+        c,
+        "t.assignee = ?1 OR t.id IN (SELECT ticket FROM comment WHERE author = 'agent:' || ?1)",
+        &[agent.to_string()],
+        "t.created_at",
+    )
+}
+
 /// Ids of tickets that depend on `id`.
 pub fn dependents(c: &Connection, id: TicketId) -> Result<Vec<TicketId>, StoreError> {
     let mut st = c.prepare_cached("SELECT ticket FROM ticket_dep WHERE depends_on = ?1")?;

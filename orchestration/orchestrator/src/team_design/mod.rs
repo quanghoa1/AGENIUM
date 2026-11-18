@@ -12,7 +12,7 @@ use agenium_core::{BackendKind, ModelBinding};
 use agenium_llm::Message;
 use serde::{Deserialize, Serialize};
 
-pub use check::{check_team, DesignCtx};
+pub use check::DesignCtx;
 
 use crate::app::App;
 use crate::runtime::Runtime;
@@ -106,7 +106,7 @@ impl App {
     /// What a designed team may use: the library's and the plugins' skills, the user's models (`provider/model`), the
     /// template ids taken, and the catalogue text shown to the designer (`request`: the user's words, which pick the
     /// skills described when the library is large).
-    pub fn design_ctx(&self, request: &str) -> Result<(DesignCtx, String)> {
+    pub(crate) fn design_ctx(&self, request: &str) -> Result<(DesignCtx, String)> {
         let skills = self.catalogue_skills()?;
         let roles = crate::role_library::library();
         let cache = self.model_cache();

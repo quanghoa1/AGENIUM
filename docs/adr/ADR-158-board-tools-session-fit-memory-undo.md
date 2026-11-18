@@ -98,6 +98,8 @@ the scope-hierarchy note was wrong (`workspace` and `project` are different keys
    `memory_graph` reads `AgentStore::graph_view` (live rows only; the 300 most connected entities). No graph
    library: a small force layout in the page. The Lead console names the Lead by its agent (`lead_name`), not by
    the team, whose initials were another member's.
+   (ADR-166 removed the Graph tab and the `memory_graph` command; `graph_view` is removed with them. The graph
+   memory itself stays.)
 17. **An API agent whose provider has no key waits for the user** (same team, after a vault reset): the run failed as
    a plain `Error` (`secret ... is not set`), twice, and the ticket stopped starting with nobody told. A provider that
    cannot be built (`NotFound`: no key, not configured) now sets the agent aside like a CLI that cannot run
@@ -308,3 +310,10 @@ scope hierarchy (no workspace exists); MCP servers of plugins in the sandbox (th
   `two_tickets_of_one_project_are_one_project`, `an_episode_is_undone_and_a_later_change_refuses_it`,
   `a_learning_run_is_undone_once_and_a_proven_lesson_asks_first`, the Claude parser's `tool_result` text.
 - In the app: the folded tool calls in the Lead's chat (screenshot); the real runs of the new tools follow.
+
+## Amendment (2026-11-18): every run of an agent that ends Offline is tried again
+
+The automatic retry of decision 29 now follows any run that ends Offline: a Lead's inbox run, planner run or chat turn
+too, not only work and review runs (audit M-1). The Lead's inbox is also read during a round, whenever it changed and
+the Lead is free, and the blocking-question SLA is checked every 30 s of a round (audit M-3). An inbox run waits while
+the Lead's chat turn goes on, as the chat waits for it (audit M-2).

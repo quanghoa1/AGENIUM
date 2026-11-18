@@ -197,7 +197,18 @@ pub struct Ticket {
 }
 
 /// Reopened more than this many times sets the `escalated` flag (decision 3i).
-pub const MAX_REOPEN_BEFORE_ESCALATE: u32 = 3;
+static MAX_REOPEN_BEFORE_ESCALATE: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(3);
+
+/// Reopens a ticket takes before it is escalated to the user (`runtime.max_reopen_before_escalate`, default 3).
+pub fn max_reopen_before_escalate() -> u32 {
+    MAX_REOPEN_BEFORE_ESCALATE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Set from the configuration when Agenium starts.
+pub fn set_max_reopen_before_escalate(n: u32) {
+    MAX_REOPEN_BEFORE_ESCALATE.store(n.max(1), std::sync::atomic::Ordering::Relaxed);
+}
 
 /// `true` when `s` looks like a plan item id (`PI-3`).
 pub fn is_plan_item_id(s: &str) -> bool {

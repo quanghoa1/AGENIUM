@@ -110,8 +110,8 @@ impl App {
         Ok(v)
     }
 
-    /// Creates a new skill in `agent`'s own folder from a validated lesson, only when every gate passes (ADR-91); the
-    /// judge reads it against the closest skills first when it is on (ADR-92).
+    /// Proposes a new skill from `agent`'s validated lesson, only when every gate passes (ADR-91); the user decides on
+    /// it (ADR-152). The judge reads it against the closest skills first when it is on (ADR-92).
     pub async fn propose_new_skill(
         self: &Arc<Self>,
         agent: AgentId,
@@ -132,6 +132,7 @@ impl App {
                 ),
             ));
         }
+        let body = u.body.clone();
         let mut v = tokio::task::spawn_blocking({
             let app = self.clone();
             move || app.create_agent_skill(agent, &u)
@@ -139,12 +140,11 @@ impl App {
         .await
         .map_err(|e| ToolError::new("internal", e.to_string()))?
         .map_err(|e| tool_error(&e))?;
-        // Same fail-open quality read as an update: only with the judge on.
-        if let Some(body) = self.agent_overlay_body(agent, &skill) {
-            if let Some(quality) = self.skill_quality(&body).await {
-                if let Some(obj) = v.as_object_mut() {
-                    obj.insert("quality".into(), serde_json::json!(quality));
-                }
+        // Same fail-open quality read as an update: only with the judge on. The proposal's body is what the user
+        // will read (it is in no folder of the agent's yet).
+        if let Some(quality) = self.skill_quality(&body).await {
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert("quality".into(), serde_json::json!(quality));
             }
         }
         Ok(v)

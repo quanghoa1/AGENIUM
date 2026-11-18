@@ -1,4 +1,5 @@
-# Local CI (GitHub Actions is not used): fmt, clippy, tests, generated-schema check, vendor check, the size ratchet,
+# Local CI (GitHub Actions is not used): fmt, clippy, tests (the workspace and the desktop app), the UI build,
+# generated-schema check, vendor check, the size ratchet,
 # no MSYS2 DLL imported (check-dlls.ps1), cargo-deny
 # (licenses, RustSec advisories, sources; deny.toml; install: cargo install cargo-deny --locked), scripted golden tasks,
 # and with -Ui the desktop app's UI smoke test (ui-smoke.ps1: a throwaway root, no model, no OS keyring entry).
@@ -14,6 +15,10 @@ $steps = @(
   @{ name = "fmt";     cmd = "cargo fmt --all --check" },
   @{ name = "clippy";  cmd = "cargo clippy --workspace --all-targets -- -D warnings" },
   @{ name = "test";    cmd = "cargo test --workspace" },
+  @{ name = "desktop-fmt";    cmd = "cargo fmt --manifest-path apps\desktop\Cargo.toml --check" },
+  @{ name = "desktop-clippy"; cmd = "cargo clippy --manifest-path apps\desktop\Cargo.toml --all-targets -- -D warnings" },
+  @{ name = "desktop-test";   cmd = "cargo test --manifest-path apps\desktop\Cargo.toml" },
+  @{ name = "ui-build";       cmd = "npm --prefix apps\desktop\ui run build" },
   @{ name = "schemas"; cmd = "cargo xtask schemas --check" },
   @{ name = "vendor";  cmd = "cargo xtask vendor-check" },
   @{ name = "ratchet"; cmd = "cargo xtask ratchet" },

@@ -9,12 +9,8 @@ use agenium_store::core::{comments, runs, tickets};
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::api::{names, run_json};
+use crate::api::{aid, blocking, names, run_json};
 use crate::state::{err, Desktop, Opened, R};
-
-fn aid(s: &str) -> R<AgentId> {
-    s.parse().map_err(|e: IdParseError| e.to_string())
-}
 
 /// The tool calls the shell view shows as terminal blocks (API `shell`, and the CLIs' own shells).
 const SHELL: [&str; 5] = [
@@ -50,13 +46,18 @@ fn run_kind(o: &Opened, r: &runs::Run) -> &'static str {
 
 /// Every agent now: team and role in it, live run (with its last tool call), open tickets; teams; totals.
 #[tauri::command]
-pub fn live(d: State<'_, Desktop>) -> R<Value> {
+pub async fn live(d: State<'_, Desktop>) -> R<Value> {
     let o = d.opened()?;
+    // Polled every few seconds: off the window's thread.
+    blocking(move || live_now(&o)).await
+}
+
+fn live_now(o: &Opened) -> R<Value> {
     let projects = o.app.projects().map_err(err)?;
     let teams = o.app.teams().map_err(err)?;
     let unfinished = o.app.store().read(runs::unfinished).map_err(err)?;
-    let names = names(&o)?;
-    let tokens_today: u64 = crate::api::runs_today(&o)?
+    let names = names(o)?;
+    let tokens_today: u64 = crate::api::runs_today(o)?
         .iter()
         .map(|r| r.usage.tokens_in + r.usage.tokens_out)
         .sum();
@@ -71,17 +72,18 @@ pub fn live(d: State<'_, Desktop>) -> R<Value> {
             .and_then(|t| teams.iter().find(|(x, _)| x.id == t).map(|(x, _)| x));
         let project = team.and_then(|t| t.project);
         let run = by_agent.get(&a.id).map(|r| {
-            let log = o
+            // The count and the last call only: the whole log was read every 3 s (audit M-27).
+            let (tools, last) = o
                 .app
                 .store()
-                .read(|c| runs::log_entries(c, r.id))
+                .read(|c| runs::tool_summary(c, r.id))
                 .unwrap_or_default();
-            let last_tool = log.iter().rev().find(|e| e.kind == "tool").map(|e| {
+            let last_tool = last.map(|e| {
                 json!({ "tool": e.data["tool"], "args": e.data["args"], "ok": e.data["ok"], "at": e.at,
                         "ms": e.data["ms"] })
             });
-            json!({ "run": run_json(r, &names), "kind": run_kind(&o, r), "ticket_key": ticket_key(&o, r.ticket),
-                    "last_tool": last_tool, "tools": log.iter().filter(|e| e.kind == "tool").count() })
+            json!({ "run": run_json(r, &names), "kind": run_kind(o, r), "ticket_key": ticket_key(o, r.ticket),
+                    "last_tool": last_tool, "tools": tools })
         });
         let open: Vec<Value> = o
             .app
@@ -123,41 +125,44 @@ pub fn live(d: State<'_, Desktop>) -> R<Value> {
 /// A worker's internal message bus: for each ticket it holds or held, the assignment (what the Lead handed over)
 /// and every comment on it (questions, answers, progress, reports, reviews, permissions, System notes), oldest first.
 #[tauri::command]
-pub fn agent_bus(d: State<'_, Desktop>, agent: String, limit: Option<usize>) -> R<Value> {
+pub async fn agent_bus(d: State<'_, Desktop>, agent: String, limit: Option<usize>) -> R<Value> {
     let o = d.opened()?;
-    let id = aid(&agent)?;
-    let names = names(&o)?;
+    blocking(move || agent_bus_now(&o, &agent, limit)).await
+}
+
+fn agent_bus_now(o: &Opened, agent: &str, limit: Option<usize>) -> R<Value> {
+    let id = aid(agent)?;
+    let names = names(o)?;
     let author = |a: &Author| match a {
         Author::Agent(id) => names.get(id).cloned().unwrap_or_else(|| id.to_string()),
         other => other.to_string(),
     };
     let mut items: Vec<(String, Value)> = Vec::new();
-    for p in o.app.projects().map_err(err)? {
-        for t in o.app.tickets(p.id).map_err(err)? {
-            let held = t.assignee == Some(id);
-            let cs = o
-                .app
-                .store()
-                .read(|c| comments::for_ticket(c, t.id))
-                .map_err(err)?;
-            let involved = held || cs.iter().any(|c| c.author == Author::Agent(id));
-            if !involved {
-                continue;
-            }
+    // Only the tickets it is in, found in one query (every ticket of every project was read).
+    for t in o
+        .app
+        .store()
+        .read(|c| tickets::involving_agent(c, id))
+        .map_err(err)?
+    {
+        let cs = o
+            .app
+            .store()
+            .read(|c| comments::for_ticket(c, t.id))
+            .map_err(err)?;
+        items.push((
+            t.created_at.clone(),
+            json!({ "type": "assignment", "ticket": t.key, "project": t.project, "title": t.title,
+                    "description": t.description, "acceptance": t.acceptance, "status": t.status,
+                    "scope_paths": t.scope_paths, "at": t.created_at }),
+        ));
+        for c in cs {
             items.push((
-                t.created_at.clone(),
-                json!({ "type": "assignment", "ticket": t.key, "project": p.id, "title": t.title,
-                        "description": t.description, "acceptance": t.acceptance, "status": t.status,
-                        "scope_paths": t.scope_paths, "at": t.created_at }),
+                c.created_at.clone(),
+                json!({ "type": "comment", "ticket": t.key, "project": t.project, "id": c.id, "kind": c.kind,
+                        "author": author(&c.author), "mine": c.author == Author::Agent(id),
+                        "body": c.body, "resolved": c.resolved, "at": c.created_at }),
             ));
-            for c in cs {
-                items.push((
-                    c.created_at.clone(),
-                    json!({ "type": "comment", "ticket": t.key, "project": p.id, "id": c.id, "kind": c.kind,
-                            "author": author(&c.author), "mine": c.author == Author::Agent(id),
-                            "body": c.body, "resolved": c.resolved, "at": c.created_at }),
-                ));
-            }
         }
     }
     items.sort_by(|a, b| a.0.cmp(&b.0));
@@ -171,12 +176,22 @@ pub fn agent_bus(d: State<'_, Desktop>, agent: String, limit: Option<usize>) -> 
 }
 
 /// The agent's current run (or its last one, or `run` when given): steps as the trace shows them (tool calls with
-/// arguments, result preview, duration; retries; errors) and the shell commands for the terminal view.
+/// arguments, result preview, duration; retries; errors) and the shell commands for the terminal view. With `after`,
+/// only the lines after that one (the view has the earlier ones: it polls a live run every 1.5 s).
 #[tauri::command]
-pub fn agent_trace(d: State<'_, Desktop>, agent: String, run: Option<String>) -> R<Value> {
+pub async fn agent_trace(
+    d: State<'_, Desktop>,
+    agent: String,
+    run: Option<String>,
+    after: Option<u32>,
+) -> R<Value> {
     let o = d.opened()?;
-    let id = aid(&agent)?;
-    let names = names(&o)?;
+    blocking(move || agent_trace_now(&o, &agent, run, after.unwrap_or(0))).await
+}
+
+fn agent_trace_now(o: &Opened, agent: &str, run: Option<String>, after: u32) -> R<Value> {
+    let id = aid(agent)?;
+    let names = names(o)?;
     let r = match run {
         Some(r) => {
             let rid: RunId = r.parse().map_err(|e: IdParseError| e.to_string())?;
@@ -196,7 +211,7 @@ pub fn agent_trace(d: State<'_, Desktop>, agent: String, run: Option<String>) ->
     let log = o
         .app
         .store()
-        .read(|c| runs::log_entries(c, r.id))
+        .read(|c| runs::log_since(c, r.id, after))
         .map_err(err)?;
     let terminal: Vec<Value> = log
         .iter()
@@ -213,8 +228,8 @@ pub fn agent_trace(d: State<'_, Desktop>, agent: String, run: Option<String>) ->
         .collect();
     Ok(json!({
         "run": run_json(&r, &names),
-        "kind": run_kind(&o, &r),
-        "ticket_key": ticket_key(&o, r.ticket),
+        "kind": run_kind(o, &r),
+        "ticket_key": ticket_key(o, r.ticket),
         "live": r.ended_at.is_none(),
         "steps": log,
         "terminal": terminal,

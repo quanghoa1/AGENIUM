@@ -17,11 +17,12 @@ import { GettingStarted } from "../components/GettingStarted";
 import { PanelSwap, Segmented } from "../components/motion";
 import { PixelOffice, type CallKind, type OfficeAgent } from "../components/PixelOffice";
 import { Empty, Mono, cn, tokens } from "../components/ui";
-import { api, onEvent, onRun } from "../lib/api";
+import { api } from "../lib/api";
+import { onEvent, onRun } from "../lib/events";
 import { recentCalls, useApp, useLive } from "../lib/store";
 import type { EventRecord, LiveAgent, LiveData } from "../lib/types";
 import { callText, classify } from "./live/calls";
-import { Dot, LogLine, Room, RoomLog, roomsOf, useActivity } from "./live/activity";
+import { Dot, LogLine, Room, RoomLog, roomsOf, useActivity, withId } from "./live/activity";
 import { Dock } from "./live/Dock";
 import { PlanList } from "./live/PlanList";
 
@@ -86,7 +87,7 @@ export function LiveView() {
     return app.projects.find((p) => p.key_prefix === prefix)?.id;
   };
   /** A domain event as a log line (or nothing when it says little). */
-  const lineOf = (e: EventRecord): LogLine | null => {
+  const lineOf = (e: EventRecord): Omit<LogLine, "id"> | null => {
     const at = new Date(e.at).getTime();
     const actor = String(e.actor).startsWith("agent:") ? String(e.actor).slice(6) : undefined;
     const p = e.payload ?? {};
@@ -116,7 +117,7 @@ export function LiveView() {
 
   // A tool, skill or MCP call as a line of the log, by the agent the event names (a run that started after the last
   // read of the office is not in it yet).
-  const callLine = (at: number, run: string, agent: string | null, name: string, args: unknown): LogLine | null => {
+  const callLine = (at: number, run: string, agent: string | null, name: string, args: unknown): Omit<LogLine, "id"> | null => {
     const a = dataRef.current?.agents.find((x) => (agent ? x.agent.id === agent : x.run?.run.id === run));
     if (!a) return null;
     const c = classify(name, args);
@@ -140,15 +141,15 @@ export function LiveView() {
     const t0 = window.setTimeout(() => {
       api.events(undefined, 150).then((es) => {
         if (!alive || !es) return;
-        const lines = [...es].sort((a, b) => a.seq - b.seq).map(lineOf).filter(Boolean) as LogLine[];
-        const calls = recentCalls.filter((c) => c.at < opened).map((c) => callLine(c.at, c.run, c.agent, c.name, c.args)).filter(Boolean) as LogLine[];
-        setLog((cur) => [...[...lines, ...calls].sort((a, b) => a.at - b.at), ...cur].slice(-300));
+        const lines = [...es].sort((a, b) => a.seq - b.seq).map(lineOf).filter(Boolean) as Omit<LogLine, "id">[];
+        const calls = recentCalls.filter((c) => c.at < opened).map((c) => callLine(c.at, c.run, c.agent, c.name, c.args)).filter(Boolean) as Omit<LogLine, "id">[];
+        setLog((cur) => [...[...lines, ...calls].sort((a, b) => a.at - b.at).map(withId), ...cur].slice(-300));
       });
     }, 300);
     let n = 0;
     const un = onEvent((e) => {
       const l = lineOf(e);
-      if (l) setLog((cur) => [...cur.slice(-299), l]);
+      if (l) setLog((cur) => [...cur.slice(-299), withId(l)]);
       // A comment a Lead or a worker adds to a ticket flies to the other as an envelope (Agenium hands it on through
       // the ticket: the worker's next run reads it, a question goes to the Lead's inbox).
       const d = dataRef.current;
@@ -164,7 +165,7 @@ export function LiveView() {
     const unRun = onRun((run, ev, agent) => {
       if (ev.type !== "tool") return;
       const line = callLine(Date.now(), run, agent, ev.name, ev.args);
-      if (line) setLog((cur) => [...cur.slice(-299), line]);
+      if (line) setLog((cur) => [...cur.slice(-299), withId(line)]);
     });
     return () => {
       alive = false;

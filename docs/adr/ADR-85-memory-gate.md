@@ -21,7 +21,7 @@ judge is confident the answer is no and there is nothing to reconcile**:
   and is not lost.
 - `App::worth_remembering(episode)` returns `Some(false)` only when the Noul is at or below `1 - MET` (0.3);
   `Some(true)` at or above `MET` (0.7); `None` when unsure. The gate skips only on `Some(false)`.
-- **Fail-open**: off by default, and `None` (so extraction runs as usual) whenever the judge is off/disabled, the flag
+- **Fail-open**: off by default (on by default since ADR-128), and `None` (so extraction runs as usual) whenever the judge is off/disabled, the flag
   is off, the verdict is unsure, or the call fails. A key/quota failure disables the judge (ADR-81).
 
 ## Consequences

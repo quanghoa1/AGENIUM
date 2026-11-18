@@ -43,6 +43,7 @@ pub mod sched;
 pub mod skill_catalogue;
 pub mod skill_conflict;
 pub mod skill_create;
+mod skill_gates;
 pub mod skill_overlay;
 pub mod skill_proposals;
 pub mod skill_propose;

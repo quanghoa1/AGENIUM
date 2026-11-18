@@ -267,6 +267,10 @@ impl StreamState {
             .map_err(|e| LlmError::Decode(format!("{e}: {}", ev.data)))?;
         if v["error"].is_object() {
             let kind = v["error"]["status"].as_str().unwrap_or("error").to_owned();
+            // A limit or exhausted billing told inside the stream is what the same answer over HTTP is (audit L-28).
+            if kind == "RESOURCE_EXHAUSTED" {
+                return Err(map_error(429, &HeaderMap::new(), &ev.data));
+            }
             return Err(LlmError::Stream {
                 retryable: kind == "UNAVAILABLE" || kind == "INTERNAL",
                 kind,

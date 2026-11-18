@@ -566,3 +566,65 @@ fn old_run_logs_are_compacted_keeping_refused_calls() {
         .value;
     assert_eq!(again, 0);
 }
+
+/// A cancelled ticket's tentative entries go, but not another ticket's link, nor a node such a link still uses.
+#[test]
+fn a_cancelled_tickets_map_entries_leave_other_tickets_links() {
+    use agenium_store::core::map::{self, MapLink, MapNode};
+    let d = tempfile::tempdir().unwrap();
+    let s = open(d.path());
+    let p = new_project(&s, d.path().to_str().unwrap()).id.to_string();
+    let node = |key: &str, status: &str, ticket: &str| MapNode {
+        key: key.into(),
+        kind: "service".into(),
+        name: key.into(),
+        file: None,
+        line_start: None,
+        line_end: None,
+        summary: String::new(),
+        evidence: serde_json::json!({}),
+        status: status.into(),
+        ticket: Some(ticket.into()),
+        agent: "a".into(),
+        run: "r".into(),
+        created_at: "t".into(),
+        checked_at: "t".into(),
+    };
+    let link = |src: &str, dst: &str, status: &str, ticket: &str| MapLink {
+        id: 0,
+        src: src.into(),
+        kind: "calls".into(),
+        dst: dst.into(),
+        evidence: serde_json::json!({}),
+        status: status.into(),
+        ticket: Some(ticket.into()),
+        agent: "a".into(),
+        run: "r".into(),
+        created_at: "t".into(),
+        checked_at: "t".into(),
+    };
+    s.commit(None, "system", |w| -> Result<_, StoreError> {
+        map::put_node(w.tx, &p, &node("service:a", "tentative", "AGN-1"))?;
+        map::put_node(w.tx, &p, &node("service:b", "confirmed", "AGN-2"))?;
+        map::put_node(w.tx, &p, &node("service:c", "tentative", "AGN-1"))?;
+        map::put_link(
+            w.tx,
+            &p,
+            &link("service:b", "service:a", "confirmed", "AGN-2"),
+        )?;
+        map::put_link(
+            w.tx,
+            &p,
+            &link("service:a", "service:c", "tentative", "AGN-1"),
+        )?;
+        map::drop_tentative(w.tx, &p, "AGN-1")
+    })
+    .unwrap();
+    let (nodes, links) = s
+        .read(|c| Ok((map::nodes(c, &p)?, map::links(c, &p)?)))
+        .unwrap();
+    let keys: Vec<_> = nodes.iter().map(|n| n.key.as_str()).collect();
+    assert_eq!(keys, ["service:a", "service:b"], "c had only AGN-1's link");
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].ticket.as_deref(), Some("AGN-2"));
+}

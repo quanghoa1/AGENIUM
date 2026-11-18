@@ -5,7 +5,9 @@
 // listed under History and reopened where it stopped.
 import { Bot, History, Loader2, Plus, Send, User, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { api, onHelper, type ChatTurn, type HelperSession, type ModelArg, type PrefKey, type SkillDoc } from "../lib/api";
+import { api, type ModelArg } from "../lib/api";
+import { type ChatTurn, type HelperSession, type PrefKey, type SkillDoc } from "../lib/apiTypes";
+import { onHelper } from "../lib/events";
 import { remember, rememberedModel, usable } from "../lib/remembered";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
@@ -19,7 +21,7 @@ import { Overlay } from "./motion";
 import { cn } from "./ui";
 
 /** What a helper answered to one turn. */
-export interface HelperAnswer {
+interface HelperAnswer {
   reply: string;
   questions: string[];
   raw: string;
@@ -89,11 +91,10 @@ export function HelperChat<A extends HelperAnswer>({
   const [now, setNow] = useState(0);
   const answering = useRef<string | null>(null);
   useEffect(() => {
-    let off: (() => void) | undefined;
-    onHelper((p) => {
+    const off = onHelper((p) => {
       if (answering.current && p.session === answering.current) setLive((l) => addPiece(l, p));
-    }).then((u) => (off = u));
-    return () => off?.();
+    });
+    return () => void off.then((f) => f());
   }, []);
   useEffect(() => {
     if (!busy) return;

@@ -8,7 +8,7 @@ import { cn } from "./ui";
 const MonacoDiff = lazy(() => import("./MonacoDiff"));
 
 /** Both sides of one file; `null` = absent on that side. */
-export interface FileSides {
+interface FileSides {
   original: string | null;
   modified: string | null;
   binary: boolean;

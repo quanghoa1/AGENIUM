@@ -13,7 +13,7 @@ import { MarkitdownSection } from "./MarkitdownSettings";
 import { WebSearchSection } from "./WebSearchSettings";
 
 /** An event or a refused call in words: `ProjectCreated` -> "Project created" (or its translation). */
-export function actionLabel(action: string, t: (k: Key) => string): string {
+function actionLabel(action: string, t: (k: Key) => string): string {
   const key = `audit.ev.${action}` as Key;
   const said = t(key);
   if (said !== key) return said;

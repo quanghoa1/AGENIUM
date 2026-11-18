@@ -89,7 +89,7 @@ export function ProvidersView() {
   const [models, setModels] = useState<string | null>(null);
   const [del, setDel] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const updates = useCliUpdates(app.tick);
+  const updates = useCliUpdates();
   const [vendors, setVendors] = useState<Preset[]>([]);
   const load = (refresh = false) => api.capabilities(refresh).then(setC);
   useEffect(() => {
@@ -266,6 +266,7 @@ export function ProvidersView() {
             onClick={() => {
               setScanning(true);
               load(true).finally(() => setScanning(false));
+              updates.reload();
             }}
           >
             <RefreshCw className={cn("h-3.5 w-3.5", scanning && "animate-spin")} /> {app.t("providers.detect")}

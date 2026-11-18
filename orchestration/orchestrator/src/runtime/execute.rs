@@ -498,13 +498,14 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
         Ok(())
     }
 
-    /// Agent states that outlive a run (decision 3j / 15): QuotaExhausted (and "Needs you"), Offline.
+    /// Agent states that outlive a run (decision 3j / 15): QuotaExhausted (and "Needs you"), Offline. An Offline
+    /// agent is tried again by itself, whatever its run was (ADR-158): when, or `None` once its tries are spent.
     pub(super) fn agent_state_after(
         &self,
         agent: &agenium_store::core::agents::Agent,
         ticket: Option<TicketId>,
         outcome: &Outcome,
-    ) -> Result<()> {
+    ) -> Result<Option<std::time::Duration>> {
         match outcome {
             Outcome::QuotaExhausted { .. } => {
                 self.app
@@ -517,16 +518,18 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                     .map_err(OrchError::from)
                 })?;
             }
-            Outcome::Offline { .. } => self.app.set_agent_status(agent.id, AgentStatus::Offline)?,
+            Outcome::Offline { .. } => {
+                self.app.set_agent_status(agent.id, AgentStatus::Offline)?;
+                return Ok(self.offline_later(agent.id, std::time::SystemTime::now()));
+            }
             _ => self.offline_over(agent.id),
         }
-        Ok(())
+        Ok(None)
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn finish(
         &self,
-        project: ProjectId,
         t: &Ticket,
         agent: &agenium_store::core::agents::Agent,
         run: RunId,
@@ -552,6 +555,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             })?;
             Ok(())
         };
+        let later = self.agent_state_after(agent, Some(t.id), &report.outcome)?;
         match &report.outcome {
             Outcome::Checkpoint { summary, reason } => {
                 self.app.run_log(
@@ -566,7 +570,7 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
                 note(&self.app, format!("{} stopped: the provider reports exhausted quota or credit ({message}). It goes on by itself once the quota is back, with the same model; or add credit, resume it or give it another model.", agent.name))?;
             }
             Outcome::Offline { message } => {
-                let then = match self.offline_later(agent.id, std::time::SystemTime::now()) {
+                let then = match later {
                     Some(d) => format!(
                         "It is tried again by itself in {} minutes (a busy or unreachable service often comes back); or set it back to Idle or give it another model.",
                         d.as_secs() / 60
@@ -593,8 +597,6 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             Outcome::Completed | Outcome::Parked | Outcome::Cancelled => {}
         }
         self.app.finish_run(run, &label, report.steps, &usage)?;
-        self.agent_state_after(agent, Some(t.id), &report.outcome)?;
-        let _ = project;
         self.app
             .run_log(run, "run", serde_json::json!({ "kind": kind }))?;
         Ok(RunSummary {

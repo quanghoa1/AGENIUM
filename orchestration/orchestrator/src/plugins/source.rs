@@ -114,8 +114,8 @@ impl Source {
 }
 
 /// The source's files in `staging` (created empty by the caller): the repository's root folder and its commit
-/// (`local` for a folder). `token`: the GitHub token the user pasted for a private repository, used for this one
-/// download and kept nowhere.
+/// (`local` for a folder). `token`: the GitHub token for a private repository (the one pasted, or the one kept for it
+/// in the secret store); it is sent to GitHub only.
 pub async fn fetch(
     source: &Source,
     staging: &Path,

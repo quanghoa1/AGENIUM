@@ -61,7 +61,7 @@ pub fn agents(d: State<'_, Desktop>) -> R<Vec<Value>> {
 #[tauri::command]
 pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     let a = o.app.agent(id).map_err(err)?;
     let names = names(&o)?;
     let recent = o
@@ -100,9 +100,13 @@ pub fn agent_detail(d: State<'_, Desktop>, agent: String) -> R<Value> {
 
 /// The Memory page: an agent's live facts and lessons (faded ones included) and its skill overlays.
 #[tauri::command]
-pub fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
+pub async fn memory(d: State<'_, Desktop>, agent: String) -> R<Value> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    blocking(move || memory_now(&o, &agent)).await
+}
+
+fn memory_now(o: &Opened, agent: &str) -> R<Value> {
+    let id = aid(agent)?;
     let mem = o
         .app
         .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
@@ -134,7 +138,7 @@ pub async fn memory_action(
     let o2 = d.opened()?;
     let mut out = blocking(move || memory_action_now(&o, agent, action, fact, skill)).await?;
     if tidy {
-        let id: AgentId = id.parse().map_err(|e: IdParseError| e.to_string())?;
+        let id = aid(&id)?;
         // `None`: the embedding model is not installed; decay and consolidation ran.
         if let Some(s) = o2.app.settle_memory(id, false).await.map_err(err)? {
             out["folded"] = json!(s.folded());
@@ -157,7 +161,7 @@ pub async fn resolve_memory_conflict(
 ) -> R<()> {
     let o = d.opened()?;
     blocking(move || {
-        let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+        let id = aid(&agent)?;
         let mem = o
             .app
             .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
@@ -177,7 +181,7 @@ pub(super) fn memory_action_now(
     fact: Option<i64>,
     skill: Option<String>,
 ) -> R<Value> {
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     let mem = o
         .app
         .agent_store(id, o.rt.embedder.dim(), o.rt.embedder.model_id())
@@ -436,16 +440,6 @@ pub async fn reload_cli_models(d: State<'_, Desktop>, cli: String) -> R<Value> {
     Ok(json!(e))
 }
 
-/// The judge's state: configured, enabled (not disabled by a failure), and why if disabled (ADR-81).
-#[tauri::command]
-pub fn judge_status(d: State<'_, Desktop>) -> R<Value> {
-    let o = d.opened()?;
-    let h = o.app.judge_health();
-    Ok(
-        json!({ "configured": o.app.config().judge.enabled(), "disabled": h.disabled, "reason": h.reason, "keys_off": h.keys_off }),
-    )
-}
-
 /// The judge's settings for the form (never the key: only whether one is stored).
 #[tauri::command]
 pub fn judge_config(d: State<'_, Desktop>) -> R<Value> {
@@ -525,7 +519,7 @@ pub async fn export_agent(d: State<'_, Desktop>, agent: String, out: String) -> 
 }
 
 pub(super) fn export_agent_now(o: &Opened, agent: String, out: String) -> R<String> {
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     let name = o.app.agent(id).map_err(err)?.name;
     let dir = std::path::PathBuf::from(if out.trim().is_empty() {
         std::env::temp_dir().display().to_string()
@@ -636,10 +630,10 @@ pub async fn read_claude_usage(d: State<'_, Desktop>) -> R<Value> {
     Ok(json!(o.app.vendor_usage(&clis)))
 }
 
-/// Providers, agent CLIs (detected at most every 5 minutes, or now with `refresh`), templates, CLI fallback.
+/// Providers, agent CLIs (found again once the last search is a week old, or now with `refresh`), templates, CLI
+/// fallback. `clis: false` leaves the agent CLIs out (finding them runs each one: seconds the first time), so a page
+/// shows the providers at once and asks again for the CLIs.
 #[tauri::command]
-/// `clis: false` leaves the agent CLIs out (finding them runs each one: seconds the first time), so a page shows
-/// the providers at once and asks again for the CLIs.
 pub async fn capabilities(
     d: State<'_, Desktop>,
     refresh: Option<bool>,

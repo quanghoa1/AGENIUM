@@ -22,7 +22,7 @@ art. It **can** be a cheap, calibrated second opinion.
 1. **Client, not provider.** `agenium_llm::systemone::{Judge, Judging, Question, Answer}` sends one batched request
    and returns answers by id. Off unless `[judge]` is configured (`base_url`, `model`, `api_key_ref` in the vault);
    Agenium never routes an agent's turn to it.
-2. **One wired use, opt-in: review evidence read** (`[judge] review_assist = true`). Before a review run, Agenium
+2. **One wired use, opt-in: review evidence read** (`[judge] review_assist = true`; on by default since ADR-128). Before a review run, Agenium
    asks Jev one batched Noul per acceptance criterion over the worker's report ("does `report` give evidence this is
    met?") and prepends a short calibrated "independent evidence read (verify it yourself)" to the Lead's review task.
    This is text-only (no danger-zone header), cheap, and gives the Lead's expensive model a first opinion instead of
@@ -35,6 +35,6 @@ art. It **can** be a cheap, calibrated second opinion.
 
 - `agent/llm/src/systemone.rs` (+ `Http::post_json`), `agent/llm/tests/systemone.rs`;
   `foundation/config` `[judge]`; `agenium_orchestrator::judge` (`App::judge`, `review_evidence`), wired in the
-  review run. All off by default.
+  review run. All off by default (on by default since ADR-128).
 - The skill `typesafe-ai` (github.com/typesafe-ai/skills) is a valid SKILL.md folder Agenium could import; it is not
   installed and its global-install hints are ignored.

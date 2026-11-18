@@ -1,8 +1,8 @@
 # ADR-101: The history is sent as providers accept it; cut tool calls are not run
 
-Status: Accepted (2026-10-26). Evidence: `agent/llm/src/history.rs` tests, `agent/loop/tests/loop.rs`
+Status: Accepted (2026-10-26). Evidence: `agent/llm/src/history.rs` tests, `agent/loop/tests/loop/`
 (`calls_cut_by_the_output_limit_are_not_run`, `thinking_is_kept_for_the_model_that_wrote_it`), the vendor-switch test in
-`orchestration/orchestrator/tests/runtime.rs`. Source: the bug history of the pi coding agent
+`orchestration/orchestrator/tests/runtime/`. Source: the bug history of the pi coding agent
 (`docs/reference/PI-COMPARISON.md`), where "poisoned sessions" — one stored block that makes every later request
 fail with HTTP 400 — were the most damaging class.
 

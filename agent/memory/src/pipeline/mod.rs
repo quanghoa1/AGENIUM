@@ -24,11 +24,13 @@ use crate::{Embedder, MemoryError};
 
 mod types;
 
+use ask::{ask, memory_id};
 pub use parse::{complete_items, ephemeral, json_object};
 use parse::{is_empty_scope, kind_of};
 use rules::DECIDE_RULES;
 pub use rules::{same_line, EXTRACT_RULES, SAME_RULES};
 pub use types::*;
+mod ask;
 mod parse;
 mod rules;
 
@@ -60,7 +62,7 @@ const EDGE_TYPES: &[&str] = &[
 /// How sure a new memory is, by what backs it: the user's own preference in the chat most, a fact from work the review
 /// accepted more than one from work it reopened, content read from outside least. Use moves it from there
 /// ([`HELPED_DELTA`], [`HURT_DELTA`]); a flat start made every memory read 50%, telling the user nothing.
-pub fn initial_confidence(kind: FactKind, external: bool, ep: &Episode) -> f64 {
+pub(crate) fn initial_confidence(kind: FactKind, external: bool, ep: &Episode) -> f64 {
     if external {
         0.3
     } else if ep.source.starts_with("chat:") {
@@ -74,72 +76,6 @@ pub fn initial_confidence(kind: FactKind, external: bool, ep: &Episode) -> f64 {
     } else {
         0.6
     }
-}
-
-async fn ask(
-    provider: &dyn Provider,
-    m: &PipelineModel,
-    rules: &str,
-    user: String,
-    report: &mut LearnReport,
-) -> Result<Value, MemoryError> {
-    let req = ChatRequest {
-        model: m.model.clone(),
-        system: vec![SystemBlock {
-            text: rules.to_owned(),
-            cache: false,
-        }],
-        messages: vec![Message::user_text(user)],
-        tools: vec![],
-        effort: m.effort.clone(),
-        max_tokens: m.max_tokens,
-        cache_key: None,
-        long_cache: false,
-        tools_off: false,
-    };
-    // An answer that is empty or not JSON is asked for once more: a cheap model sometimes answers nothing at all
-    // (DeepSeek, the shared-pool eval of 2026-10-31), and the whole episode was lost to it.
-    let mut text = String::new();
-    for _ in 0..2 {
-        let resp = m
-            .retry
-            .run(
-                |_| provider.chat(&req, &|_| {}),
-                tokio::time::sleep,
-                |_, _, _| {},
-            )
-            .await
-            .map_err(|e| MemoryError::Model(e.to_string()))?;
-        report.tokens_in += resp.usage.total_input();
-        report.tokens_out += resp.usage.output;
-        report.usage.add(&resp.usage);
-        text = resp.message.text();
-        if let Some(v) = json_object(&text) {
-            return Ok(v);
-        }
-        // An extraction cut off by the token budget still holds every fact it finished: keep those rather than lose
-        // the whole episode (2026-10-25: DeepSeek's answer for a ticket stopped mid-fact and the ticket taught nothing).
-        if let Some(facts) = complete_items(&text, "facts") {
-            report.rejected.push(format!(
-                "the extraction answer was cut off; kept its {} complete fact(s)",
-                facts.len()
-            ));
-            return Ok(serde_json::json!({ "facts": facts }));
-        }
-    }
-    Err(MemoryError::Model(format!(
-        "the answer is not JSON: {}",
-        text.chars().take(200).collect::<String>()
-    )))
-}
-
-/// A memory id the model named: a number, or the same written as text (`"2"`, `"id=2"`). Gemini Flash answered
-/// `["2"]` for the shared lesson that misled the work, and the blame was lost (the shared-pool eval, 2026-10-31).
-fn memory_id(x: &Value) -> Option<i64> {
-    x.as_i64().or_else(|| {
-        let s = x.as_str()?.trim();
-        s.strip_prefix("id=").unwrap_or(s).trim().parse().ok()
-    })
 }
 
 /// Forgetting and consolidation after each episode (decision 35): weights decay while facts go unused, and copies of
@@ -364,7 +300,9 @@ pub async fn learn(
         let v = if text == f.text {
             vectors[i].clone()
         } else {
-            embedder.embed(std::slice::from_ref(&text)).ok()?.pop()?
+            crate::cpu_bound(|| embedder.embed(std::slice::from_ref(&text)))
+                .ok()?
+                .pop()?
         };
         Some((
             NewFact {
@@ -543,8 +481,7 @@ pub async fn learn(
                 confidence: if f.external { 0.3 } else { 0.6 },
                 evidence: Some(ep.source.clone()),
             };
-            let v = embedder
-                .embed(&[resolve::entity_text(&mention.name)])
+            let v = crate::cpu_bound(|| embedder.embed(&[resolve::entity_text(&mention.name)]))
                 .map_err(MemoryError::Embedder)?
                 .pop();
             let cands = store.entity_candidates(&mention.kind, &mention.name, v.as_deref(), 5)?;
@@ -666,70 +603,4 @@ pub async fn learn(
 }
 
 #[cfg(test)]
-mod tests {
-    /// A memory id the model writes as text still names the memory; anything else names none.
-    #[test]
-    fn a_memory_id_written_as_text_is_read() {
-        use serde_json::json;
-        let ids: Vec<Option<i64>> = [
-            json!(2),
-            json!("2"),
-            json!(" id=7 "),
-            json!("two"),
-            json!(2.5),
-            json!(null),
-        ]
-        .iter()
-        .map(super::memory_id)
-        .collect();
-        assert_eq!(ids, vec![Some(2), Some(2), Some(7), None, None, None]);
-    }
-
-    /// An extraction answer cut off mid-fact keeps the facts it finished (braces and escapes inside strings do not
-    /// confuse it); an answer without a single finished fact keeps nothing.
-    #[test]
-    fn a_cut_off_extraction_keeps_its_complete_facts() {
-        use super::complete_items;
-        let cut = r#"{"facts": [{"text": "Owner line {first} is \"Owner: docs-team\".", "kind": "lesson", "entities": [{"name": "docs"}]}, {"text": "Second fact", "kind": "fact"}, {"text": "Third fact is cut off at "#;
-        let kept = complete_items(cut, "facts").unwrap();
-        assert_eq!(kept.len(), 2);
-        assert_eq!(
-            kept[0]["text"],
-            "Owner line {first} is \"Owner: docs-team\"."
-        );
-        assert_eq!(kept[1]["text"], "Second fact");
-        assert!(complete_items(r#"{"facts": [{"text": "cut"#, "facts").is_none());
-        assert!(complete_items("no json at all", "facts").is_none());
-    }
-
-    /// The noisy facts the 2026-10-25 memory-reuse run extracted are refused; the useful ones from the same run pass.
-    #[test]
-    fn episode_details_are_not_memories() {
-        use super::ephemeral;
-        for (text, what) in [
-            ("Agent agent_01M5ST0WXECQ69JP9PZX76J1X4 created a personal skill named deliverable-premerge-check.", "an id"),
-            ("In the docs project, deliverables/bye.txt was added on main by commit 85471b8 for ticket AGN-2.", "a commit hash"),
-            ("deliverables/bye.txt contains two lines; it is 26 bytes, UTF-8 with no BOM.", "an exact file size"),
-        ] {
-            assert_eq!(ephemeral(text), Some(what), "{text}");
-        }
-        for text in [
-            "In the docs project, deliverables must also satisfy the repo's pre-merge checks (the 'Owner:' first line).",
-            "write_file refuses to overwrite an existing file until read_file has been called on it (error code read_first).",
-            "Uploads over 50 MB fail on the staging server.",
-            "Commit subjects in this project start with the ticket key, for example AGN-12: Add greeting.",
-        ] {
-            assert_eq!(ephemeral(text), None, "{text}");
-        }
-    }
-
-    use super::*;
-
-    #[test]
-    fn json_in_prose() {
-        let v = json_object("Sure!\n```json\n{\"facts\": [{\"text\": \"a {b} \\\"c\\\"\"}]}\n```")
-            .unwrap();
-        assert_eq!(v["facts"][0]["text"], "a {b} \"c\"");
-        assert!(json_object("no json").is_none());
-    }
-}
+mod tests;

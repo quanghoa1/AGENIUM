@@ -362,18 +362,7 @@ impl App {
                 }
             } else {
                 // Project-level events (spec, plan) carry the project in their payload.
-                let pid = project.to_string();
-                for e in events::since(c, 0, usize::MAX >> 1)? {
-                    let mine = match e.ticket {
-                        Some(t) => keys.contains_key(&t),
-                        None => {
-                            e.payload.get("project").and_then(|p| p.as_str()) == Some(pid.as_str())
-                        }
-                    };
-                    if mine {
-                        v.push(e);
-                    }
-                }
+                v.extend(events::of_project(c, &project.to_string())?);
             }
             Ok(v)
         })?;
@@ -389,48 +378,46 @@ impl App {
             });
         }
         // Refused protocol calls live in the run logs (they changed nothing, so the event log has no trace).
-        for t in &tickets {
-            for r in self.store.read(|c| runs::for_ticket(c, t.id))? {
-                for l in self.store.read(|c| runs::log_entries(c, r.id))? {
-                    let tool = l.data["tool"].as_str().unwrap_or_default();
-                    // ADR-161: every command that left the sandbox, approved by the user or automatically.
-                    if l.kind == "tool"
-                        && tool == "shell"
-                        && l.data["result"]
-                            .as_str()
-                            .is_some_and(|t| t.contains(OUTSIDE_MARK))
-                    {
-                        out.push(AuditEntry {
-                            at: l.at.clone(),
-                            actor: names
-                                .get(&r.agent)
-                                .cloned()
-                                .unwrap_or_else(|| r.agent.to_string()),
-                            ticket: Some(t.key.clone()),
-                            action: "outside_sandbox".into(),
-                            intent_id: Some(format!("{}:{}", r.id, l.n)),
-                            accepted: true,
-                            detail: serde_json::json!({ "args": l.data["args"] }),
-                        });
-                        continue;
-                    }
-                    if l.kind != "tool"
-                        || l.data["ok"] != false
-                        || ProtocolTool::from_str(tool).is_err()
-                    {
-                        continue;
-                    }
-                    out.push(AuditEntry {
-                        at: l.at,
-                        actor: names.get(&r.agent).cloned().unwrap_or_else(|| r.agent.to_string()),
-                        ticket: Some(t.key.clone()),
-                        action: tool.to_owned(),
-                        intent_id: Some(format!("{}:{}", r.id, l.n)),
-                        accepted: false,
-                        detail: serde_json::json!({ "args": l.data["args"], "error": l.data["result"] }),
-                    });
-                }
+        for line in self.store.read(|c| runs::audit_tool_lines(c, project))? {
+            // Only the tickets asked for (one, or all of the project's).
+            let Some(tk) = keys.get(&line.ticket) else {
+                continue;
+            };
+            let (r, l) = (line.run, line.entry);
+            let actor = names
+                .get(&line.agent)
+                .cloned()
+                .unwrap_or_else(|| line.agent.to_string());
+            let tool = l.data["tool"].as_str().unwrap_or_default();
+            // ADR-161: every command that left the sandbox, approved by the user or automatically.
+            if tool == "shell"
+                && l.data["result"]
+                    .as_str()
+                    .is_some_and(|t| t.contains(OUTSIDE_MARK))
+            {
+                out.push(AuditEntry {
+                    at: l.at.clone(),
+                    actor,
+                    ticket: Some(tk.clone()),
+                    action: "outside_sandbox".into(),
+                    intent_id: Some(format!("{}:{}", r, l.n)),
+                    accepted: true,
+                    detail: serde_json::json!({ "args": l.data["args"] }),
+                });
+                continue;
             }
+            if l.data["ok"] != false || ProtocolTool::from_str(tool).is_err() {
+                continue;
+            }
+            out.push(AuditEntry {
+                at: l.at,
+                actor,
+                ticket: Some(tk.clone()),
+                action: tool.to_owned(),
+                intent_id: Some(format!("{}:{}", r, l.n)),
+                accepted: false,
+                detail: serde_json::json!({ "args": l.data["args"], "error": l.data["result"] }),
+            });
         }
         out.sort_by(|a, b| a.at.cmp(&b.at));
         Ok(out)

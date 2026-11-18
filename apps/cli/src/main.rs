@@ -379,7 +379,12 @@ async fn main() -> Result<()> {
         | Cmd::Permission { .. }
         | Cmd::Approve { .. }
         | Cmd::Decline { .. }
-        | Cmd::Events { .. } => work::run(&cli).await?,
+        | Cmd::Events { .. } => {
+            let r = work::run(&cli).await;
+            // The browser the runs used is closed, its cookies written first (the desktop app does so on exit).
+            agenium_tools::browser::shutdown_all().await;
+            r?
+        }
         Cmd::Ticket(tc) => ticket::run(&cli, tc).await?,
         Cmd::Team(tc) => team::run(&cli, tc).await?,
         Cmd::Role(rc) => role::run(&cli, rc).await?,

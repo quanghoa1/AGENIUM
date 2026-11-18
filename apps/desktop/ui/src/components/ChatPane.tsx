@@ -313,7 +313,6 @@ export function ChatPane({
     // Not while a turn sent from the other pane is in flight: its message is in the conversation only once it ends.
     if (turns === 0) api.chatHistory(project).then(setLines);
     reloadQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
   // A run of the agent that ends (the turn that read the queue among them) may have added to the conversation, and a
   // project that becomes done gets its Lead's summary in it. Not when a run starts: the message a turn takes is in
@@ -326,27 +325,23 @@ export function ChatPane({
     if (lastEnd <= seenEnd.current) return;
     seenEnd.current = lastEnd;
     api.chatHistory(project).then(setLines);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastEnd]);
   const status = app.projects.find((p) => p.id === project)?.status;
   useEffect(() => {
     if (status === "Completed") api.chatHistory(project).then(setLines);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
   useEffect(() => {
-    // While messages wait, the queue is read again; once the Lead's turn takes them, the conversation shows them.
+    // While messages wait, the queue is read again on each event: the Lead's turn takes them just before its
+    // RunStarted, and once it has, the conversation shows them.
     if (queue.length === 0) return;
-    const t = window.setInterval(() => {
-      api
-        .leadQueue(project)
-        .then((q) => {
-          if (q.length < queue.length) api.chatHistory(project).then(setLines);
-          setQueue(q);
-        })
-        .catch(() => {});
-    }, 2500);
-    return () => window.clearInterval(t);
-  }, [project, queue.length]);
+    api
+      .leadQueue(project)
+      .then((q) => {
+        if (q.length < queue.length) api.chatHistory(project).then(setLines);
+        setQueue(q);
+      })
+      .catch(() => {});
+  }, [project, app.tick]);
   useEffect(() => {
     if (!prefill) return;
     setText(prefill.text);

@@ -10,12 +10,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::api::{pid, ModelArg};
+use crate::api::{aid, blocking, pid, ModelArg};
 use crate::state::{err, Desktop, R};
-
-fn aid(s: &str) -> R<AgentId> {
-    s.parse().map_err(|e: IdParseError| e.to_string())
-}
 
 fn tid(s: &str) -> R<TeamId> {
     s.parse().map_err(|e: IdParseError| e.to_string())
@@ -31,11 +27,6 @@ pub fn roles(d: State<'_, Desktop>) -> R<Value> {
 #[tauri::command]
 pub fn put_role(d: State<'_, Desktop>, role: RoleDef) -> R<Value> {
     Ok(json!(d.opened()?.app.put_role(&role).map_err(err)?))
-}
-
-#[tauri::command]
-pub fn remove_role(d: State<'_, Desktop>, id: String) -> R<()> {
-    d.opened()?.app.remove_role(&id).map_err(err)
 }
 
 // ---------------------------------------------------------------- agents
@@ -305,9 +296,15 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
     let mut plugin_skills: Vec<Value> = Vec::new();
     for p in o.app.plugins().map_err(err)? {
         let whole = format!("{}{}", agenium_skills::PLUGIN_PREFIX, p.name);
-        let dir = o.app.skill_registry().plugins_dir().join(&p.name).join("skills");
+        let dir = o
+            .app
+            .skill_registry()
+            .plugins_dir()
+            .join(&p.name)
+            .join("skills");
         for name in p.skills.keys() {
-            let Ok(s) = agenium_skills::validate(&dir.join(name), agenium_skills::Origin::Plugin) else {
+            let Ok(s) = agenium_skills::validate(&dir.join(name), agenium_skills::Origin::Plugin)
+            else {
                 continue;
             };
             let entry = agenium_skills::plugin_skill_entry(&p.name, name);
@@ -316,9 +313,11 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
                 .filter(|a| a.skills.contains(&entry) || a.skills.contains(&whole))
                 .map(|a| a.name.as_str())
                 .collect();
-            plugin_skills.push(json!({ "name": name, "description": s.meta.description, "version": s.meta.version,
+            plugin_skills.push(
+                json!({ "name": name, "description": s.meta.description, "version": s.meta.version,
                 "tags": s.meta.tags, "files": s.files.len(), "users": users, "dir": s.meta.dir,
-                "plugin": p.name, "entry": entry }));
+                "plugin": p.name, "entry": entry }),
+            );
         }
     }
     Ok(json!({ "skills": skills, "problems": problems, "plugin_skills": plugin_skills }))
@@ -329,12 +328,18 @@ pub fn skill_library(d: State<'_, Desktop>) -> R<Value> {
 pub async fn import_skill(d: State<'_, Desktop>, path: String, replace: bool) -> R<Value> {
     let src = PathBuf::from(path.trim().trim_matches('"'));
     let o = d.opened()?;
-    let meta = o.app.import_library_skill(&src, replace).map_err(err)?;
-    // ADR-88: advisory skill-shape checks shown after import (one job, when-to-use, steps, tools, proof).
-    let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
-    let mut notes = o.app.library_skill_notes(&meta.name);
-    // ADR-92: explicit opposite directives against the rest of the library (advice; the user decides).
-    notes.extend(o.app.library_skill_conflicts(&meta.name));
+    let o2 = o.clone();
+    // A folder copy or a zip extraction, and the library read again: off the async runtime.
+    let (meta, body, notes) = blocking(move || {
+        let meta = o2.app.import_library_skill(&src, replace).map_err(err)?;
+        // ADR-88: advisory skill-shape checks shown after import (one job, when-to-use, steps, tools, proof).
+        let body = o2.app.library_skill_body(&meta.name).unwrap_or_default();
+        let mut notes = o2.app.library_skill_notes(&meta.name);
+        // ADR-92: explicit opposite directives against the rest of the library (advice; the user decides).
+        notes.extend(o2.app.library_skill_conflicts(&meta.name));
+        Ok((meta, body, notes))
+    })
+    .await?;
     // ADR-90: when the judge is on, a calibrated read of the skill against the methodology principles.
     let quality = o.app.skill_quality(&body).await.unwrap_or_default();
     Ok(
@@ -432,19 +437,24 @@ pub async fn save_skill(
             Ok((f.path, bytes))
         })
         .collect::<R<_>>()?;
-    let meta = o
-        .app
-        .save_library_skill(
-            name.trim(),
-            &content,
-            create,
-            &files,
-            &removed.unwrap_or_default(),
-        )
-        .map_err(err)?;
-    let body = o.app.library_skill_body(&meta.name).unwrap_or_default();
-    let mut notes = o.app.library_skill_notes(&meta.name);
-    notes.extend(o.app.library_skill_conflicts(&meta.name));
+    let o2 = o.clone();
+    let (meta, body, notes) = blocking(move || {
+        let meta = o2
+            .app
+            .save_library_skill(
+                name.trim(),
+                &content,
+                create,
+                &files,
+                &removed.unwrap_or_default(),
+            )
+            .map_err(err)?;
+        let body = o2.app.library_skill_body(&meta.name).unwrap_or_default();
+        let mut notes = o2.app.library_skill_notes(&meta.name);
+        notes.extend(o2.app.library_skill_conflicts(&meta.name));
+        Ok((meta, body, notes))
+    })
+    .await?;
     let quality = o.app.skill_quality(&body).await;
     Ok(json!({ "name": meta.name, "shape_notes": notes, "quality": quality }))
 }
@@ -486,9 +496,7 @@ pub fn skill_text(d: State<'_, Desktop>, name: String, plugin: Option<String>) -
         ),
         None => o.app.skill_registry().library(),
     };
-    let s = set
-        .get(&name)
-        .ok_or_else(|| format!("no skill {name:?}"))?;
+    let s = set.get(&name).ok_or_else(|| format!("no skill {name:?}"))?;
     let raw = std::fs::read_to_string(s.meta.dir.join("SKILL.md")).unwrap_or_default();
     Ok(json!({ "name": s.meta.name, "body": s.body, "raw": raw, "files": s.files }))
 }
@@ -535,7 +543,7 @@ pub fn put_mcp(d: State<'_, Desktop>, mut server: McpServerConfig) -> R<()> {
 #[tauri::command]
 pub fn import_mcp_json(d: State<'_, Desktop>, text: String) -> R<Value> {
     let r = d.opened()?.app.import_mcp_json(&text).map_err(err)?;
-    Ok(json!({ "servers": r.servers }))
+    Ok(json!({ "servers": r.servers, "replaced": r.replaced }))
 }
 
 #[tauri::command]

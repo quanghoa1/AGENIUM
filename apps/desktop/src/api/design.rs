@@ -9,7 +9,10 @@ use tauri::Emitter;
 
 /// What a helper's model writes as it writes it, for its chat (`agenium://helper`): `text` and `thinking` pieces, and
 /// `restart` when the answer is asked again. Only shown, never kept: the whole answer comes back from the command.
-fn live(app: tauri::AppHandle, session: Option<String>) -> impl Fn(&agenium_llm::ChatEvent) + Send + Sync {
+fn live(
+    app: tauri::AppHandle,
+    session: Option<String>,
+) -> impl Fn(&agenium_llm::ChatEvent) + Send + Sync {
     move |e| {
         let (kind, text) = match e {
             agenium_llm::ChatEvent::TextDelta(t) => ("text", t.as_str()),
@@ -140,32 +143,28 @@ pub async fn read_document_path(
 ) -> R<Value> {
     let o = d.opened()?;
     let p = std::path::PathBuf::from(path.trim().trim_matches('"'));
-    let meta = std::fs::metadata(&p).map_err(|e| format!("{}: {e}", p.display()))?;
-    if !meta.is_file() {
-        return Err(format!("{} is not a file", p.display()));
-    }
-    if meta.len() > agenium_documents::MAX_BYTES as u64 {
-        return Err(format!(
-            "{} is larger than {} MB",
-            p.display(),
-            agenium_documents::MAX_BYTES / 1024 / 1024
-        ));
-    }
-    let bytes = std::fs::read(&p).map_err(|e| e.to_string())?;
     let name = p
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "document".into());
+    let bytes = blocking(move || {
+        let meta = std::fs::metadata(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+        if !meta.is_file() {
+            return Err(format!("{} is not a file", p.display()));
+        }
+        if meta.len() > agenium_documents::MAX_BYTES as u64 {
+            return Err(format!(
+                "{} is larger than {} MB",
+                p.display(),
+                agenium_documents::MAX_BYTES / 1024 / 1024
+            ));
+        }
+        std::fs::read(&p).map_err(|e| e.to_string())
+    })
+    .await?;
     let c = o.app.read_document(&name, &bytes).await.map_err(err)?;
     let file = keep_attachment(&o, project.as_deref(), &name, &bytes)?;
     Ok(json!({ "name": name, "text": c.text, "format": c.format, "notes": c.notes, "file": file }))
-}
-
-/// What reads documents here: markitdown when it is installed, and the formats Agenium reads itself.
-#[tauri::command]
-pub fn document_readers(d: State<'_, Desktop>) -> R<Value> {
-    let o = d.opened()?;
-    serde_json::to_value(o.app.document_readers()).map_err(|e| e.to_string())
 }
 
 /// An agent's skill proposal (ADR-152): its SKILL.md and the evidence behind it, to open in the skill editor.

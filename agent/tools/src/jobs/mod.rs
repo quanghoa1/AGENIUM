@@ -181,9 +181,13 @@ impl Jobs {
     fn take(&self, id: u32) -> JobRead {
         let mut map = self.map.lock().unwrap_or_else(|e| e.into_inner());
         let j = map.get_mut(&id).expect("checked by the caller");
-        let bytes = j.live.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        let new_output = agenium_sandbox::decode_output(&bytes[j.read.min(bytes.len())..]);
-        j.read = bytes.len();
+        // Only the bytes not handed over yet are copied (the buffer can hold tens of MB).
+        let new_output = {
+            let bytes = j.live.lock().unwrap_or_else(|e| e.into_inner());
+            let out = agenium_sandbox::decode_output(&bytes[j.read.min(bytes.len())..]);
+            j.read = bytes.len();
+            out
+        };
         let state = match &*j.done.lock().unwrap_or_else(|e| e.into_inner()) {
             None => JobState::Running {
                 secs: j.started.elapsed().as_secs(),
@@ -195,9 +199,15 @@ impl Jobs {
                 timed_out: o.timed_out,
             },
         };
-        // Read to its end by the agent: the run does not hand it over again.
+        // Read to its end by the agent: the run does not hand it over again, and keeps only how it ended.
         if !matches!(state, JobState::Running { .. }) {
             j.told = true;
+            j.live.lock().unwrap_or_else(|e| e.into_inner()).clear();
+            j.read = 0;
+            if let Some(Ok(o)) = &mut *j.done.lock().unwrap_or_else(|e| e.into_inner()) {
+                o.stdout = String::new();
+                o.stderr = String::new();
+            }
         }
         JobRead {
             command: j.command.clone(),

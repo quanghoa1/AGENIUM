@@ -70,12 +70,15 @@ impl Proc {
         last.join(" | ")
     }
 
-    /// Whether the CLI's own process has exited (a host process; a contained one is not asked). Its output can stay
-    /// open after it: a process it started holds the pipe, and the run waited for an end that could not come.
+    /// Whether the CLI's own process has exited. Its output can stay open after it: a process it started holds the
+    /// pipe, and the run waited for an end that could not come (45 minutes for a contained one).
     pub(super) fn exited(&mut self) -> bool {
         match &mut self.handle {
             Handle::Host { child, .. } => matches!(child.try_wait(), Ok(Some(_))),
-            Handle::Contained(_) => false,
+            // Never waits: a lock held elsewhere (a kill going on) is asked again later.
+            Handle::Contained(c) => c
+                .try_lock()
+                .is_ok_and(|mut c| matches!(c.try_wait(), Ok(Some(_)))),
         }
     }
 

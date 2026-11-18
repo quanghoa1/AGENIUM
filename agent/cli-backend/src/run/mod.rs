@@ -182,6 +182,9 @@ struct State {
     /// What the CLI's own tool steps returned, by id, until the step ends (`Event::ToolOutput`).
     outputs: std::collections::HashMap<String, (String, bool)>,
     session: Option<String>,
+    /// The session's usage as the CLI last reported it, for a CLI that reports the session's total
+    /// (`Driver::usage_is_session_total`).
+    reported: Usage,
     /// The run goes on in the CLI's session of an earlier run (ADR-134).
     resumed: bool,
     effect: Option<Effect>,
@@ -269,10 +272,20 @@ fn logged_out(error: &str) -> bool {
         "oauth token has expired",
         "token has expired",
         "unauthorized",
-        "401",
     ]
     .iter()
     .any(|k| e.contains(k))
+        || status_401(&e)
+}
+
+/// `401` as an HTTP status (a whole number, not part of a token count or a request id).
+fn status_401(e: &str) -> bool {
+    e.match_indices("401").any(|(i, _)| {
+        let before = e[..i].chars().next_back();
+        let after = e[i + 3..].chars().next();
+        !before.is_some_and(|c| c.is_alphanumeric() || c == '.' || c == ',')
+            && !after.is_some_and(|c| c.is_alphanumeric() || c == '.' || c == ',')
+    })
 }
 
 /// The outcome of a turn that ended on an error: a used-up subscription waits for the user (the agent is set aside and
@@ -395,7 +408,7 @@ impl CliRun<'_> {
         // The CLI and its model (`claude:haiku`): another model of the same CLI resumes the session when what it holds
         // fits its window; otherwise it starts a new one, shown the conversation so far fitted (ADR-155).
         let cli = self.label.clone();
-        if let Some(id) = self
+        if let Some((id, reported)) = self
             .session
             .as_ref()
             .and_then(|s| s.restore(home.path(), self.driver, &cli))
@@ -405,6 +418,7 @@ impl CliRun<'_> {
                 &format!("the CLI's session of the ticket's earlier run goes on ({id})"),
             );
             st.session = Some(id);
+            st.reported = reported;
             st.resumed = true;
         }
         let home_env = self
@@ -419,7 +433,17 @@ impl CliRun<'_> {
         let sync = async {
             loop {
                 tokio::time::sleep(LOGIN_SYNC).await;
-                if let Err(e) = self.driver.finish(&setup) {
+                // File work and, for a login caught half written, a short wait: not on an async worker that other
+                // runs share (a single-threaded runtime has no other).
+                let finish = || self.driver.finish(&setup);
+                let r = if tokio::runtime::Handle::current().runtime_flavor()
+                    == tokio::runtime::RuntimeFlavor::MultiThread
+                {
+                    tokio::task::block_in_place(finish)
+                } else {
+                    finish()
+                };
+                if let Err(e) = r {
                     tracing::warn!(error = %e, "CLI login sync failed");
                 }
             }
@@ -457,6 +481,7 @@ impl CliRun<'_> {
                 st.session.as_deref(),
                 total,
                 st.context,
+                st.reported,
             );
         }
         drop(server);
@@ -467,6 +492,26 @@ impl CliRun<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A 401 status is a lost login; a 401 inside a number or an id is not (audit M-13).
+    #[test]
+    fn only_a_401_status_is_a_lost_login() {
+        for e in [
+            "claude turn failed: API Error: 401 {\"type\":\"error\"}",
+            "HTTP 401: Unauthorized",
+            "status=401",
+        ] {
+            assert!(logged_out(e), "{e}");
+        }
+        for e in [
+            "prompt is too long: 240100 tokens > 200000 maximum",
+            "request id req_01HX4019AB failed",
+            "used 4,401 tokens",
+            "stream ended after 1401 ms",
+        ] {
+            assert!(!logged_out(e), "{e}");
+        }
+    }
 
     #[test]
     fn a_used_up_subscription_is_a_quota_not_a_failure() {

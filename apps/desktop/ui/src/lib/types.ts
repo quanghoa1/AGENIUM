@@ -11,11 +11,11 @@ export type TicketStatus =
   | "Closed"
   | "Cancelled";
 export type AgentStatus = "Idle" | "Working" | "Waiting" | "QuotaExhausted" | "Offline";
-export type RoleKind = "lead" | "worker";
+type RoleKind = "lead" | "worker";
 export type BackendKind = "Api" | "Cli";
 /** A reasoning-effort level by the vendor's own name ("low", "high", "max", Codex's "ultra", ...); each model has its own (ADR-114). */
 export type Effort = string;
-export type TicketKind = "Epic" | "Story" | "Task" | "Bug" | "Requirement";
+type TicketKind = "Epic" | "Story" | "Task" | "Bug" | "Requirement";
 
 export interface Usage {
   tokens_in: number;
@@ -50,7 +50,7 @@ export interface Status {
   model?: ModelPrep;
 }
 
-export interface ModelPrep {
+interface ModelPrep {
   phase: "checking" | "installing" | "ready" | "error";
   step: string;
   error?: string | null;
@@ -190,7 +190,7 @@ export interface RunRow {
   source?: string | null;
 }
 
-export interface AgentRow {
+interface AgentRow {
   id: string;
   name: string;
   role: string;
@@ -266,7 +266,7 @@ export interface Ticket {
   updated_at: string;
 }
 
-export type CommentKind =
+type CommentKind =
   | "Question"
   | "Answer"
   | "Progress"
@@ -312,7 +312,7 @@ export interface TicketDetail {
   audit: AuditEntry[];
 }
 
-export interface PlanItem {
+interface PlanItem {
   id: string;
   milestone: string;
   title: string;
@@ -421,7 +421,7 @@ export interface TeamTemplate {
   custom?: boolean;
 }
 
-export interface CliInfo {
+interface CliInfo {
   kind: string;
   path?: string | null;
   version?: string | null;
@@ -488,7 +488,7 @@ export interface OverlayMergeDraft {
   diff: string;
 }
 
-export interface OverlayView {
+interface OverlayView {
   skill: string;
   base_version: string;
   diff: string;
@@ -500,7 +500,7 @@ export interface OverlayView {
 }
 
 /** A skill the agent created itself from a validated lesson (ADR-91). */
-export interface CreatedSkill {
+interface CreatedSkill {
   lesson: number;
   lesson_text: string;
   reason: string;
@@ -738,7 +738,7 @@ export interface McpServerRow {
   signed_in: boolean;
 }
 
-export interface UsageWindow {
+interface UsageWindow {
   window: "5h" | "day" | "week" | "month";
   used_percent: number;
   resets_at?: string | null;
@@ -880,7 +880,7 @@ export interface LiveAgent {
   open_tickets: { key: string; title: string; status: TicketStatus; project: string }[];
 }
 
-export interface LiveTeam {
+interface LiveTeam {
   id: string;
   name: string;
   solo: boolean;

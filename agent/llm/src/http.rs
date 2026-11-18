@@ -35,6 +35,9 @@ impl Http {
     fn map_send(e: reqwest::Error) -> LlmError {
         if e.is_timeout() {
             LlmError::Timeout
+        } else if e.is_connect() {
+            // Nothing was sent: safe to send again, even a billed request.
+            LlmError::Network(format!("cannot connect: {e}"))
         } else {
             LlmError::Network(e.to_string())
         }

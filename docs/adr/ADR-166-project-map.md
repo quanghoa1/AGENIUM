@@ -127,3 +127,13 @@ A wrong map misleads more than no map does. Static analysis also cannot map anyt
     - All were confirmed when the tickets closed; nothing was stale.
     - The fix ticket started with the map's links in its work order. Codex also asked `map_query` twice.
   - The store and map tests also pass on Ubuntu 25.10.
+
+## Amendment (2026-11-18): the pre-0.1.3 audit
+
+- On a project in its own folder (ADR-159), the recheck after a ticket closes and the Map page's code view read
+  Agenium's branch (`.agenium/base`), not the user's (audit H-3).
+- A cancelled ticket takes back only its own tentative links, and a node of it only when no other link uses it. A link
+  confirmed when its ticket closes confirms its two ends, whoever added them; a node that is there keeps its owner
+  (audit M-5).
+- The recheck reads each file once, a path search walks each node's own links, and settling runs off the async
+  workers (audit L-15).

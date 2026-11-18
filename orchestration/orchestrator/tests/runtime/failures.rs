@@ -172,6 +172,10 @@ async fn a_run_that_cannot_go_on_leaves_nothing_open() {
         TicketStatus::Assigned
     );
     assert_eq!(app.agent(agent).unwrap().status, AgentStatus::Idle);
+    // A round does not start it again and again (it spun until a pause): it ends, and the next round tries again.
+    let round = tokio::time::timeout(std::time::Duration::from_secs(20), rt.tick(project)).await;
+    assert!(round.expect("the round ended").unwrap().is_empty());
+    assert!(open(&app).is_empty());
     set_removed(false);
 
     // A run that fails after its start (here: its CLI cannot run) is ended with the error.

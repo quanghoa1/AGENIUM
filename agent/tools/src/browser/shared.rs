@@ -35,10 +35,21 @@ fn procs() -> &'static tokio::sync::Mutex<HashMap<PathBuf, Proc>> {
     P.get_or_init(Default::default)
 }
 
-/// Tabs of runs open in each profile's browser (kept apart from `procs`: a tab is closed in a `Drop`).
-fn tabs() -> &'static std::sync::Mutex<HashMap<PathBuf, usize>> {
-    static T: OnceLock<std::sync::Mutex<HashMap<PathBuf, usize>>> = OnceLock::new();
+/// Tabs of runs open in each profile's browser, and a count of uses that an idle wait checks it was not passed by
+/// (kept apart from `procs`: a tab is closed in a `Drop`).
+fn tabs() -> &'static std::sync::Mutex<HashMap<PathBuf, (usize, u64)>> {
+    static T: OnceLock<std::sync::Mutex<HashMap<PathBuf, (usize, u64)>>> = OnceLock::new();
     T.get_or_init(Default::default)
+}
+
+/// `profile`'s browser is being used: an idle wait started before ends without closing it.
+fn used(profile: &Path) {
+    tabs()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .entry(profile.to_path_buf())
+        .or_default()
+        .1 += 1;
 }
 
 static GEN: AtomicU64 = AtomicU64::new(0);
@@ -50,6 +61,8 @@ pub(super) async fn port(
     visible: Option<bool>,
 ) -> Result<(u16, u64, bool), ToolError> {
     let mut m = procs().lock().await;
+    // Counted before its tab opens: an idle wait ending in between does not close the browser under it.
+    used(profile);
     if let Some(p) = m.get_mut(profile) {
         let alive = match &mut p.child {
             Some(c) => matches!(c.try_wait(), Ok(None)),
@@ -64,8 +77,9 @@ pub(super) async fn port(
         m.remove(profile);
     }
     let visible = visible.unwrap_or(false);
-    if let Some(port) = left_running(profile).await {
-        if !visible {
+    if let Some((port, headless)) = left_running(profile).await {
+        // A window left open is the user's: used as it is, and never closed for being idle.
+        if !visible || !headless {
             let gen = GEN.fetch_add(1, Ordering::Relaxed) + 1;
             m.insert(
                 profile.to_path_buf(),
@@ -74,10 +88,10 @@ pub(super) async fn port(
                     _tree: None,
                     port,
                     gen,
-                    visible: false,
+                    visible: !headless,
                 },
             );
-            return Ok((port, gen, false));
+            return Ok((port, gen, !headless));
         }
         close(port).await;
     }
@@ -132,38 +146,43 @@ pub async fn shutdown_all() {
 
 /// A tab of a run opened in `profile`'s browser; closing a run's last tab starts the idle wait.
 pub(super) fn opened(profile: &Path) {
-    *tabs()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .entry(profile.to_path_buf())
-        .or_default() += 1;
+    let mut t = tabs().lock().unwrap_or_else(|e| e.into_inner());
+    let e = t.entry(profile.to_path_buf()).or_default();
+    e.0 += 1;
+    e.1 += 1;
 }
 
 pub(super) fn closed(profile: &Path, port: u16, id: &str) {
-    // The tab goes at once (a plain request: this runs in a `Drop`).
-    let _ = get_sync(port, &format!("/json/close/{id}"));
-    let left = {
+    let (left, uses) = {
         let mut t = tabs().lock().unwrap_or_else(|e| e.into_inner());
-        let n = t.entry(profile.to_path_buf()).or_default();
-        *n = n.saturating_sub(1);
-        *n
+        let e = t.entry(profile.to_path_buf()).or_default();
+        e.0 = e.0.saturating_sub(1);
+        *e
     };
-    if left > 0 {
-        return;
-    }
+
+    // This runs in a `Drop`: with a runtime, nothing here waits on the browser.
     let Ok(rt) = tokio::runtime::Handle::try_current() else {
+        let _ = get_sync(port, &format!("/json/close/{id}"));
         return;
     };
-    let profile = profile.to_path_buf();
+    let (profile, id) = (profile.to_path_buf(), id.to_owned());
     rt.spawn(async move {
+        let _ = reqwest::Client::new()
+            .get(format!("http://127.0.0.1:{port}/json/close/{id}"))
+            .timeout(Duration::from_secs(2))
+            .send()
+            .await;
+        if left > 0 {
+            return;
+        }
         tokio::time::sleep(IDLE).await;
+        let mut m = procs().lock().await;
+        // Unused since this wait began (no tab open, no run asked for it), and not the user's window.
         let unused = tabs()
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .get(&profile)
-            .is_none_or(|n| *n == 0);
-        let mut m = procs().lock().await;
-        // The window the user may still be working in stays.
+            .is_none_or(|e| e.0 == 0 && e.1 == uses);
         if unused && m.get(&profile).is_some_and(|p| !p.visible) {
             if let Some(p) = m.remove(&profile) {
                 close(p.port).await;
@@ -206,11 +225,25 @@ async fn answers(port: u16) -> bool {
         .is_ok_and(|r| r.status().is_success())
 }
 
-/// The port of a browser still running on `profile` (it writes the port to `DevToolsActivePort`).
-async fn left_running(profile: &Path) -> Option<u16> {
+/// The port of a browser still running on `profile` (it writes the port to `DevToolsActivePort`), and whether it is
+/// headless (its user agent says so).
+async fn left_running(profile: &Path) -> Option<(u16, bool)> {
     let text = std::fs::read_to_string(profile.join("DevToolsActivePort")).ok()?;
     let port: u16 = text.lines().next()?.trim().parse().ok()?;
-    answers(port).await.then_some(port)
+    let v: Value = reqwest::Client::new()
+        .get(format!("http://127.0.0.1:{port}/json/version"))
+        .timeout(Duration::from_secs(2))
+        .send()
+        .await
+        .ok()?
+        .text()
+        .await
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())?;
+    let headless = v["User-Agent"]
+        .as_str()
+        .is_some_and(|a| a.contains("HeadlessChrome"));
+    Some((port, headless))
 }
 
 /// Asks the browser to close (it writes its cookies and session), then waits for its port to go quiet.

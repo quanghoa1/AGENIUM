@@ -1,11 +1,10 @@
 # <AGENIUM_ROOT>/config.toml — ví dụ (Agenium v1.0)
+# Every key and its default: foundation/config/src/config.rs. Keys left out take their default.
 schema_version = 1
 
 [app]
 language = "vi"            # UI: "en" | "vi"
 theme = "system"
-telemetry = false          # quyết định 26: tắt mặc định
-crash_report = false       # opt-in
 
 [paths]
 projects_dir = "projects"  # tương đối với root
@@ -28,34 +27,31 @@ max_attempts = 8
 max_total_secs = 300
 
 [usage]
-show_tokens = true         # chỉ hiển thị (quyết định 3k), không chặn
-show_estimated_cost = true
-pricing_file = "pricing.toml"
+price_catalogue_url = "https://models.dev/api.json"
 
 [backup]
 hourly_keep = 24
 daily_keep = 7
 weekly_keep = 4
+pre_migrate_keep = 3
 
 [memory]
-embedder = "fastembed:bge-small-en-v1.5"   # xem lại sau spike S6
-language = "en"
 chat_idle_minutes = 20     # learn from the chat with the Lead once it has been quiet this long; 0 = never (ADR-98)
 trace_recall = false       # remind a work run of the project's closed tickets' raw traces (ADR-158; off: no gain measured)
 
 [secrets]
-backend = "keyring"        # "keyring" | "vault" (phương án B, spike S5)
+backend = "vault"          # "vault" (default: encrypted vault, its master key in the OS keyring) | "keyring"
 
 [[providers]]
 id = "anthropic"
 kind = "anthropic"
-api_key_ref = "keyring:agenium/provider/anthropic"
+api_key_ref = "provider/anthropic"   # a secret name; the key itself is never in this file
 
 [[providers]]
 id = "openai"
 kind = "openai_compat"
 base_url = "https://api.openai.com/v1"
-api_key_ref = "keyring:agenium/provider/openai"
+api_key_ref = "provider/openai"
 
 [[providers]]
 id = "local-ollama"

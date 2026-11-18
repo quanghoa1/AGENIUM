@@ -18,6 +18,27 @@ pub(super) fn read_checked(
     rel: &str,
     max: u64,
 ) -> Result<Vec<u8>, ToolError> {
+    let (f, len) = open_checked(ctx, p, rel)?;
+    if len > max {
+        return Err(ToolError::new(
+            "too_large",
+            format!("{rel} is {len} bytes; use grep or read a range"),
+        ));
+    }
+    let mut bytes = Vec::with_capacity(len as usize);
+    f.take(max)
+        .read_to_end(&mut bytes)
+        .map_err(|e| io_err(rel, e))?;
+    Ok(bytes)
+}
+
+/// `p` (a path already checked) opened where it really is: inside the run's roots, with no other name; and its length.
+/// Also for a file handed to another program (an upload), which reads it by its path.
+pub(super) fn open_checked(
+    ctx: &ToolCtx,
+    p: &Path,
+    rel: &str,
+) -> Result<(std::fs::File, u64), ToolError> {
     let meta = std::fs::metadata(p).map_err(|e| io_err(rel, e))?;
     if meta.is_dir() {
         return Err(ToolError::new(
@@ -27,12 +48,6 @@ pub(super) fn read_checked(
     }
     let f = open_regular(p, false, false).map_err(|e| io_err(rel, e))?;
     let len = f.metadata().map(|m| m.len()).unwrap_or(meta.len());
-    if len > max {
-        return Err(ToolError::new(
-            "too_large",
-            format!("{rel} is {len} bytes; use grep or read a range"),
-        ));
-    }
     if let Some(real) = real_path(&f) {
         let inside = std::iter::once(&ctx.root).chain(&ctx.read_roots).any(|r| {
             paths::within(
@@ -56,9 +71,5 @@ pub(super) fn read_checked(
             ),
         ));
     }
-    let mut bytes = Vec::with_capacity(len as usize);
-    f.take(max)
-        .read_to_end(&mut bytes)
-        .map_err(|e| io_err(rel, e))?;
-    Ok(bytes)
+    Ok((f, len))
 }

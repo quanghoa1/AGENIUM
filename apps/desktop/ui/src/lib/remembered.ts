@@ -1,6 +1,7 @@
 // The model the user picked last in a place (ADR-152), kept in the root: a form or a helper chat opens with it. One that
 // can no longer run here (its provider removed, its CLI gone) is not used: the form opens as before, with a note.
-import { api, type ModelArg, type PrefKey } from "./api";
+import { api, type ModelArg } from "./api";
+import { type PrefKey } from "./apiTypes";
 import type { Capabilities } from "./types";
 
 /** Whether `m` can be used with what this computer has now. */

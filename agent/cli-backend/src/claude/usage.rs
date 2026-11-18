@@ -63,13 +63,9 @@ pub async fn rate_limits(
     .current_dir(&cwd)
     .stdin(std::process::Stdio::null())
     .stdout(std::process::Stdio::piped())
-    .stderr(std::process::Stdio::null())
-    .kill_on_drop(true);
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("cannot start claude: {e}"))?;
+    .stderr(std::process::Stdio::null());
+    let (mut child, _tree) =
+        crate::probe::spawn(&mut cmd).map_err(|e| format!("cannot start claude: {e}"))?;
     let stdout = child.stdout.take().ok_or("claude stdout missing")?;
     let read = async {
         let mut lines = BufReader::new(stdout).lines();

@@ -1,6 +1,7 @@
-//! Agent-created skills (ADR-91): an agent may distil a NEW skill into its own skills folder (`propose_new_skill`), the
+//! Agent-proposed skills (ADR-91, ADR-152): an agent may distil a NEW skill from a lesson (`propose_new_skill`), the
 //! way it updates an existing one through an overlay (ADR-73) — but under stricter gates, because a new skill is new
-//! knowledge that steers every later run. The ideas come from hermes-agent (skills created after complex work) and
+//! knowledge that steers every later run. Since ADR-152 it is a proposal: the user decides whether it goes into the
+//! library. The ideas come from hermes-agent (skills created after complex work) and
 //! harness2 (keep only evidence-supported lessons, check a change before adopting it); the mechanism is our own:
 //!
 //! - **evidence**: the lesson behind the skill is a live, trusted Lesson (not from web pages or tool output) that held
@@ -11,7 +12,7 @@
 //! - **well-formed**: the full skill shape (Job, When to use, Steps, Tools, Proof) is filled and the body stays short
 //!   (ADR-88); only a SKILL.md — an agent never writes scripts or reference files into a skill;
 //! - **safe**: no injected instructions, no secrets; it is validated as a skill before it is swapped in;
-//! - **contained**: it lives only in the agent's own folder, so it never changes the library, a role, or another agent;
+//! - **contained**: it is a proposal until the user saves it into the library; it never changes a role or another agent;
 //! - **accountable, anti-drift**: every creation is audited and listed for the user, who can delete it; when a
 //!   lesson it stands on (the one it was made from, or a revision's) stops holding — deleted, retired, or its
 //!   confidence falls after reopens; a refinement of it carries on — the skill is flagged and the user is asked to
@@ -33,7 +34,7 @@ use crate::{OrchError, Result};
 pub const MAX_CREATED_SKILLS: usize = 12;
 
 /// Skill proposals of one agent that may wait for the user at once (ADR-152).
-pub const MAX_PENDING_PROPOSALS: usize = 5;
+pub(crate) const MAX_PENDING_PROPOSALS: usize = 5;
 
 /// Below this confidence a lesson no longer supports the skill built on it.
 pub const DOUBTFUL_CONFIDENCE: f64 = 0.3;

@@ -42,7 +42,7 @@ impl Observer for Forward<'_> {
 }
 
 /// A side call offers no protocol tool.
-struct NoProtocol;
+pub(super) struct NoProtocol;
 
 #[async_trait]
 impl Protocol for NoProtocol {
@@ -61,7 +61,7 @@ impl Protocol for NoProtocol {
 
 /// An empty folder for a CLI's side turn, removed when dropped with the temporary folder its commands would use (a CLI
 /// that runs in the sandbox writes its git config there).
-struct Scratch(PathBuf);
+pub(super) struct Scratch(pub(super) PathBuf);
 
 impl Drop for Scratch {
     fn drop(&mut self) {

@@ -3,7 +3,7 @@
 import { type MutableRefObject, useEffect, useRef } from "react";
 import { inTauri } from "./api";
 
-export interface DropEvent {
+interface DropEvent {
   type: "enter" | "over" | "leave" | "drop";
   paths: string[];
 }

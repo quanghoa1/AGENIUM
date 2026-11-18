@@ -5,7 +5,8 @@ import { AlertTriangle, ArrowDownToLine, CheckCircle2, Loader2, RotateCcw, XCirc
 import { useEffect, useState } from "react";
 import { ConfirmModal } from "../../components/motion";
 import { Mono, cn } from "../../components/ui";
-import { api, type CliUpdateInfo, type CliUpdated } from "../../lib/api";
+import { api } from "../../lib/api";
+import { type CliUpdateInfo, type CliUpdated } from "../../lib/apiTypes";
 import { friendly } from "../../lib/errors";
 import { useApp } from "../../lib/store";
 
@@ -20,8 +21,9 @@ function newerThan(a?: string | null, b?: string | null): boolean {
   return false;
 }
 
-/** The update state of every installed CLI, by program name; read again with `reload`. */
-export function useCliUpdates(tick: number) {
+/** The update state of every installed CLI, by program name: read once, then again only with `reload` (each read asks
+ * the registry). */
+export function useCliUpdates() {
   const [list, setList] = useState<Record<string, CliUpdateInfo>>({});
   const reload = () =>
     api
@@ -30,7 +32,7 @@ export function useCliUpdates(tick: number) {
       .catch(() => undefined);
   useEffect(() => {
     reload();
-  }, [tick]);
+  }, []);
   return { list, reload };
 }
 

@@ -141,7 +141,11 @@ async fn agenium_s_browser_is_used_like_a_person_s_and_keeps_what_sites_saved() 
         json!({"action": "eval", "expression": "document.getElementById('list').scrollTop > 0"}),
     )
     .await;
-    assert_eq!(top.trim(), "true", "the list under the mouse scrolled");
+    assert_eq!(
+        top.lines().nth(1),
+        Some("true"),
+        "the list under the mouse scrolled"
+    );
     let o = b(&c, json!({"action": "look"})).await;
     let two = b(&c, json!({"action": "click", "ref": ref_of(&o, "\"Two\"")})).await;
     assert!(two.contains("second page"), "{two}");

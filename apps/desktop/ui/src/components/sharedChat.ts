@@ -25,7 +25,6 @@ export function useShared<T>(key: string, init: T): [T, (next: T | ((prev: T) =>
     return () => {
       e.subs.delete(sub);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const set = useCallback(
     (next: T | ((prev: T) => T)) => {
@@ -33,7 +32,6 @@ export function useShared<T>(key: string, init: T): [T, (next: T | ((prev: T) =>
       e.value = typeof next === "function" ? (next as (p: T) => T)(e.value as T) : next;
       e.subs.forEach((s) => s(e.value));
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [key],
   );
   return [value, set];

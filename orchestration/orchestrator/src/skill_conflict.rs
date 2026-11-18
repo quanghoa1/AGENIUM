@@ -21,7 +21,7 @@ pub const SAME_SUBJECT_WORDS: f32 = 0.40;
 /// positive and a 0.056 margin. It misses close paraphrases that score 0.69–0.74 (stated in ADR-92).
 pub const SAME_SUBJECT_MEANING: f32 = 0.77;
 
-fn cosine(a: &[f32], b: &[f32]) -> f32 {
+pub(crate) fn cosine(a: &[f32], b: &[f32]) -> f32 {
     let d: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
     let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();

@@ -111,6 +111,19 @@ fn cargo(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// The desktop UI type-checks and builds (`tsc -b && vite build`).
+fn ui_build() -> Result<()> {
+    let npm = if cfg!(windows) { "npm.cmd" } else { "npm" };
+    let st = Command::new(npm)
+        .args(["--prefix", "apps/desktop/ui", "run", "build"])
+        .current_dir(root())
+        .status()?;
+    if !st.success() {
+        bail!("the desktop UI did not build");
+    }
+    Ok(())
+}
+
 /// Vendored Codex sources must stay byte-for-byte upstream (`vendor/codex-sandbox/FILES.lock`).
 fn vendor_check() -> Result<()> {
     use sha2::{Digest, Sha256};
@@ -180,6 +193,20 @@ fn main() -> Result<()> {
                 "warnings",
             ])?;
             cargo(&["test", "--workspace"])?;
+            // The desktop app is a workspace of its own (audit M-25): its Rust, then its UI's types and build.
+            let desktop = ["--manifest-path", "apps/desktop/Cargo.toml"];
+            cargo(&["fmt", desktop[0], desktop[1], "--check"])?;
+            cargo(&[
+                "clippy",
+                desktop[0],
+                desktop[1],
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ])?;
+            cargo(&["test", desktop[0], desktop[1]])?;
+            ui_build()?;
             schemas(true)?;
             ratchet::ratchet(false)?;
             vendor_check()

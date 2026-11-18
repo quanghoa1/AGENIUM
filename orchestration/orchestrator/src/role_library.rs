@@ -2,8 +2,6 @@
 //! agent read the same kind of contract whatever the role. The check is advice shown with the role (missing or empty
 //! sections, too long, nearly the same as another role); it never refuses a save.
 
-use std::collections::BTreeSet;
-
 use serde::Deserialize;
 
 use crate::team_templates::RoleSpec;
@@ -58,26 +56,7 @@ pub fn role_skeleton() -> String {
         .join("\n")
 }
 
-/// `## Heading` -> its body, in file order.
-fn sections(text: &str) -> Vec<(String, String)> {
-    let mut out: Vec<(String, String)> = Vec::new();
-    for line in text.lines() {
-        if let Some(h) = line.strip_prefix("## ") {
-            out.push((h.trim().to_lowercase(), String::new()));
-        } else if let Some((_, body)) = out.last_mut() {
-            body.push_str(line);
-            body.push('\n');
-        }
-    }
-    out
-}
-
-fn words(text: &str) -> BTreeSet<String> {
-    text.split(|c: char| !c.is_alphanumeric())
-        .filter(|w| w.len() >= 3)
-        .map(str::to_lowercase)
-        .collect()
-}
+use crate::skill_shape::{headings as sections, words};
 
 /// Advice about a role text; `others` are the other roles (id, text).
 pub fn lint_role(id: &str, text: &str, others: &[(&str, &str)]) -> Vec<String> {
@@ -149,7 +128,7 @@ mod tests {
                 all.push((t.role_dir(&r.id), r.prompt.clone()));
             }
         }
-        let ids: BTreeSet<&str> = all.iter().map(|(id, _)| id.as_str()).collect();
+        let ids: std::collections::BTreeSet<&str> = all.iter().map(|(id, _)| id.as_str()).collect();
         assert_eq!(ids.len(), all.len(), "a library role hides a template role");
         let others: Vec<(&str, &str)> = all.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
         for (id, text) in &all {

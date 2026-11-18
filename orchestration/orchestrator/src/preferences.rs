@@ -8,7 +8,7 @@ use crate::app::App;
 use crate::{OrchError, Result};
 
 /// The keys a choice is kept under (anything else is refused: the table is not a general store).
-pub const KEYS: [&str; 4] = [
+pub(crate) const KEYS: [&str; 4] = [
     "model.agent",
     "model.team",
     "model.skill_writer",

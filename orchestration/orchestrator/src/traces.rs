@@ -7,7 +7,7 @@ use agenium_core::{Comment, CommentBody};
 use serde_json::Value;
 
 /// About how long a passage is: a paragraph or two, as measured.
-pub const CHUNK: usize = 700;
+pub(crate) const CHUNK: usize = 700;
 
 /// One passage of a ticket's traces: its comment's kind, when it was written, its text.
 #[derive(Debug, Clone, PartialEq)]

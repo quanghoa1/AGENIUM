@@ -193,11 +193,9 @@ create the plan from it. Tell the user the plan is being drafted",
         let pid = project.to_string();
         Ok(self
             .store
-            .read(|c| agenium_store::core::events::recent_of_kind(c, "PlanDrafted", 50))?
+            .read(|c| agenium_store::core::events::recent_of_kind_in(c, "PlanDrafted", &pid, 50))?
             .into_iter()
-            .filter(|e| {
-                e.payload["project"] == pid.as_str() && e.payload["spec_version"] == spec_version
-            })
+            .filter(|e| e.payload["spec_version"] == spec_version)
             .find_map(|e| serde_json::from_value(e.payload["draft"].clone()).ok()))
     }
 

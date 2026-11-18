@@ -2,7 +2,8 @@
 import { AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "../../components/ui";
-import { api, type Scorecard, type SkillEffect } from "../../lib/api";
+import { api } from "../../lib/api";
+import { type Scorecard, type SkillEffect } from "../../lib/apiTypes";
 import type { Key } from "../../lib/i18n";
 import { useApp } from "../../lib/store";
 

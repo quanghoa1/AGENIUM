@@ -154,6 +154,8 @@ impl Shared {
             ));
         }
         let now = agenium_core::now_iso();
+        // A node that is there keeps its owner: another ticket's tentative node is not taken over (its cancel would
+        // then drop what this ticket links to).
         let keep = old.as_ref().is_some_and(|o| o.status == CONFIRMED);
         let n = MapNode {
             key: r.key(),
@@ -169,10 +171,9 @@ impl Shared {
             },
             evidence,
             status: if keep { CONFIRMED } else { self.status() }.into(),
-            ticket: if keep {
-                old.as_ref().and_then(|o| o.ticket.clone())
-            } else {
-                self.who.ticket.as_ref().map(|t| t.to_string())
+            ticket: match &old {
+                Some(o) => o.ticket.clone(),
+                None => self.who.ticket.as_ref().map(|t| t.to_string()),
             },
             agent: old
                 .as_ref()

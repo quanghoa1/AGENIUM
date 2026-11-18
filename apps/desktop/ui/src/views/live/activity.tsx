@@ -109,12 +109,17 @@ export function roomsOf(data: LiveData, soloName: string): Room[] {
 }
 
 export interface LogLine {
+  id: number;
   at: number;
   agent?: string;
   project?: string;
   icon: ReactNode;
   text: ReactNode;
 }
+
+let lastLineId = 0;
+/** Gives a line an id of its own: the log is a sliding window, so a row keeps its key as older lines drop off. */
+export const withId = (l: Omit<LogLine, "id">): LogLine => ({ ...l, id: ++lastLineId });
 
 export function RoomLog({ lines }: { lines: LogLine[] }) {
   const app = useApp();
@@ -123,11 +128,11 @@ export function RoomLog({ lines }: { lines: LogLine[] }) {
     // Scroll this list only (scrollIntoView would scroll the page around it too).
     const el = end.current?.parentElement;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [lines.length]);
+  }, [lines[lines.length - 1]?.id]);
   return (
     <div className="h-full overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed">
-      {lines.map((l, i) => (
-        <div key={i} className="flex items-start gap-2">
+      {lines.map((l) => (
+        <div key={l.id} className="flex items-start gap-2">
           <span className="shrink-0 text-subtle">{new Date(l.at).toLocaleTimeString(app.lang === "vi" ? "vi-VN" : "en-GB", { hour12: false })}</span>
           <span className="mt-0.5 shrink-0">{l.icon}</span>
           <span className="min-w-0 text-muted">{l.text}</span>

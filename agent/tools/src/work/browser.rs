@@ -206,6 +206,9 @@ impl Tool for BrowserTool {
                  answer when done; go on with the browser after their answer. Their sign-in stays for later runs."
             )));
         }
+        if let Some(u) = &url {
+            reachable(&ctx.fetch_allow, u, profile.is_some()).await?;
+        }
         let temp = std::env::temp_dir().join("agenium");
         let mut b = ctx.browser.get(&temp, &ctx.fetch_allow, profile).await?;
         match a.action {
@@ -242,7 +245,10 @@ impl Tool for BrowserTool {
                 )
                 .await?;
                 let downloads = ctx.root.join(".agenium").join("downloads");
-                if std::fs::create_dir_all(&downloads).is_ok() {
+                // Only where it really is inside the worktree (a command could have made it a link out of it).
+                if std::fs::create_dir_all(&downloads).is_ok()
+                    && crate::paths::real_display(&ctx.root, &downloads).is_some()
+                {
                     let _ = b
                         .call(
                             "Page.setDownloadBehavior",
@@ -369,6 +375,8 @@ impl Tool for BrowserTool {
                 if !file.is_file() {
                     return Err(ToolError::new("not_found", format!("{rel} is not a file")));
                 }
+                // The browser reads it by its path: it must be the worktree's file, not another name of one elsewhere.
+                super::real_read::open_checked(ctx, &file, rel)?;
                 let el = element(&a, "upload")?;
                 let v = b
                     .eval(&format!("(() => {{ const e = {el}; if (e === 'stale' || !e) return e; e.setAttribute('data-agenium-upload', '1'); return true; }})()"))
@@ -393,8 +401,15 @@ impl Tool for BrowserTool {
             BrowserAction::Show => unreachable!("answered above"),
             BrowserAction::Eval => {
                 let v = b.eval(need(&a.expression, "expression", "eval")?).await?;
+                still_allowed(ctx, &mut b, profile.is_some()).await?;
                 let s = serde_json::to_string_pretty(&v).unwrap_or_default();
-                return Ok(ToolOutput::text(crate::text::truncate(&s, 20_000, 2_000).0));
+                // What a page's script returns is the page's: data, like the page.
+                let mut o = ToolOutput::text(crate::untrusted::fence(
+                    &host_of(&b.url),
+                    &crate::text::truncate(&s, 20_000, 2_000).0,
+                ));
+                o.untrusted = true;
+                return Ok(o);
             }
             BrowserAction::Screenshot => return screenshot(ctx, &mut b, &a).await,
         }
@@ -402,6 +417,8 @@ impl Tool for BrowserTool {
         if let Some(u) = v["url"].as_str() {
             b.url = u.to_owned();
         }
+        // A click, a form or a redirect can take the page anywhere: where it went is checked as an open is.
+        still_allowed(ctx, &mut b, profile.is_some()).await?;
         let mut out = format!(
             "{}\n{}\n\n{}",
             v["title"].as_str().unwrap_or(""),
@@ -428,11 +445,71 @@ impl Tool for BrowserTool {
             out.push_str("\n\nConsole errors:\n");
             out.push_str(&errors.join("\n"));
         }
-        let mut o = ToolOutput::text(out);
-        // What a page shows may come from anyone (a mail, a post): treat it like fetched content.
+        // What a page shows may come from anyone (a mail, a post): fenced like fetched content (ADR-142).
+        let mut o = ToolOutput::text(crate::untrusted::fence(&host_of(&b.url), &out));
         o.untrusted = true;
         Ok(o)
     }
+}
+
+/// The host of a page's address, to name it as the source of what it shows.
+fn host_of(url: &str) -> String {
+    reqwest::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_owned))
+        .unwrap_or_else(|| "a web page".into())
+}
+
+/// An http(s) page the run may open is not on a private network by its name either: the name is resolved and each
+/// address judged, as `fetch` does (a public-looking name can point at the LAN or at 169.254.169.254).
+async fn reachable(allow: &[String], url: &str, open: bool) -> Result<(), ToolError> {
+    let Ok(u) = reqwest::Url::parse(url) else {
+        return Ok(());
+    };
+    let host = u.host_str().unwrap_or_default().trim_matches(['[', ']']);
+    let local =
+        host == "localhost" || host.ends_with(".localhost") || host == "127.0.0.1" || host == "::1";
+    if !open || local || !matches!(u.scheme(), "http" | "https") {
+        return Ok(());
+    }
+    super::fetch::fetch_target(&u, allow, true)
+        .await
+        .map(|_| ())
+}
+
+/// Where the page is now is somewhere the run may open; else the page is left (blank) and the step refused.
+async fn still_allowed(ctx: &ToolCtx, b: &mut Browser, open: bool) -> Result<(), ToolError> {
+    let here = b
+        .eval("location.href")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| b.url.clone());
+    if here.is_empty()
+        || ["about:", "data:", "blob:", "chrome-error:"]
+            .iter()
+            .any(|s| here.starts_with(s))
+    {
+        return Ok(());
+    }
+    let checked = match url_allowed(&here, &ctx.fetch_allow, &ctx.root, open) {
+        Ok(u) => reachable(&ctx.fetch_allow, &u, open).await,
+        Err(e) => Err(e),
+    };
+    if let Err(e) = checked {
+        let _ = b
+            .call("Page.navigate", json!({ "url": "about:blank" }))
+            .await;
+        b.url = "about:blank".into();
+        return Err(ToolError::new(
+            "address_not_allowed",
+            format!(
+                "the page went to {here}, which this run may not open ({}); it was left",
+                e.message
+            ),
+        ));
+    }
+    Ok(())
 }
 
 async fn screenshot(
@@ -482,10 +559,8 @@ async fn screenshot(
     // Always under .agenium/shots/ (outside git), whatever the role's write scope: it is evidence, not work.
     let rel = format!(".agenium/shots/{file}");
     let path = crate::paths::resolve(&ctx.root, &[], &rel, true)?;
-    if let Some(d) = path.parent() {
-        std::fs::create_dir_all(d).map_err(|e| io_err(&rel, e))?;
-    }
-    std::fs::write(&path, &bytes).map_err(|e| io_err(&rel, e))?;
+    // Written where it really is: not through a link a command planted at the name.
+    super::real_write::write_file(&ctx.root, &path, &rel, &bytes)?;
     let mut o = ToolOutput::text(format!(
         "saved {rel} ({} KB); attach it to your report as {{kind: \"screenshot\", ref: \"{rel}\"}}. The image follows the tool results.",
         (bytes.len() as u64).div_ceil(1024)
@@ -496,4 +571,25 @@ async fn screenshot(
         label: rel,
     });
     Ok(o)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A name is judged by the addresses it has, not by how it looks (audit M-16): `localhost.` is this machine, and
+    /// on a run that reaches the network only public addresses open by name.
+    #[tokio::test]
+    async fn a_name_that_leads_to_a_private_address_does_not_open() {
+        let e = reachable(&[], "http://localhost./", true)
+            .await
+            .unwrap_err();
+        assert_eq!(e.code, "address_not_allowed", "{e}");
+        assert!(
+            reachable(&["localhost.".into()], "http://localhost./", true)
+                .await
+                .is_ok()
+        );
+        assert!(reachable(&[], "http://localhost:3000/", true).await.is_ok());
+    }
 }

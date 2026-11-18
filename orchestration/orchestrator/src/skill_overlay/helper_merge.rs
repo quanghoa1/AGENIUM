@@ -105,21 +105,7 @@ impl App {
     pub fn accept_overlay_merge(&self, agent: AgentId, skill: &str, text: &str) -> Result<()> {
         let (_, new_base, overlay, base) = self.merge_inputs(agent, skill)?;
         let text = unfenced(text);
-        let lower = text.to_lowercase();
-        if let Some(p) = INJECTION.iter().find(|p| {
-            lower.contains(*p)
-                && !overlay.to_lowercase().contains(*p)
-                && !new_base.to_lowercase().contains(*p)
-        }) {
-            return Err(invalid(format!(
-                "the merge adds {p:?}, which reads as injected instructions: refused"
-            )));
-        }
-        if self.redactor.redact(&text) != text {
-            return Err(invalid(
-                "the merge carries something that looks like a secret: refused",
-            ));
-        }
+        self.text_gate(&[&overlay, &new_base], &text, "merge")?;
         let dir = self.overlay_dir(agent, skill);
         let staging_root = dir.with_file_name(format!(".merge-{}", ulid::Ulid::new()));
         let staging = staging_root.join(skill);
@@ -129,9 +115,9 @@ impl App {
             let _ = std::fs::remove_dir_all(&staging_root);
             return Err(invalid(format!("the merged skill is not valid: {e}")));
         }
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::rename(&staging, &dir)?;
+        let swapped = super::swap_dir(&staging, &dir);
         let _ = std::fs::remove_dir_all(&staging_root);
+        swapped?;
         let version = base
             .meta
             .version

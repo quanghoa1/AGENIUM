@@ -454,14 +454,21 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(open(&tmp.path().join("g.db")).unwrap());
         let held = db.clone();
+        // The read is surely held before the gate is tried (a fixed sleep could lose that race on a busy machine).
+        let (inside, release) = (
+            Arc::new(std::sync::Barrier::new(2)),
+            Arc::new(std::sync::Barrier::new(2)),
+        );
+        let (i, r) = (inside.clone(), release.clone());
         let reader = std::thread::spawn(move || {
             held.read(|_| -> Result<(), StoreError> {
-                std::thread::sleep(Duration::from_millis(600));
+                i.wait();
+                r.wait();
                 Ok(())
             })
             .unwrap();
         });
-        std::thread::sleep(Duration::from_millis(100));
+        inside.wait();
         assert!(
             !db.checkpoint_gate(Duration::from_millis(100)).unwrap(),
             "gave up"
@@ -469,6 +476,7 @@ mod tests {
         // The pool is open again: a read goes through.
         db.read(|c| -> Result<i64, StoreError> { Ok(c.query_row("SELECT 1", [], |r| r.get(0))?) })
             .unwrap();
+        release.wait();
         reader.join().unwrap();
         assert!(
             db.checkpoint_gate(Duration::from_secs(5)).unwrap(),

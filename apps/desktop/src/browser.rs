@@ -16,20 +16,31 @@ const PICKER: &str = include_str!("browser_picker.js");
 /// A pick larger than this is dropped (the page builds it, so it is bounded here too).
 const MAX_PICK: usize = 64 * 1024;
 
-type R<T> = Result<T, String>;
+use crate::state::R;
 
-/// http(s) pages other than the app's own origins (a page there would run Agenium's interface again).
-fn allowed(url: &Url) -> bool {
+/// http(s) pages other than the app's own origins (a page there would run Agenium's interface again); `dev` is the
+/// dev server that serves the interface in development.
+fn allowed(url: &Url, dev: Option<&Url>) -> bool {
     matches!(url.scheme(), "http" | "https")
         && !matches!(
             url.host_str(),
             Some("tauri.localhost" | "ipc.localhost" | "asset.localhost")
         )
+        && dev.is_none_or(|d| url.origin() != d.origin())
 }
 
-fn parse(url: &str) -> R<Url> {
+/// The dev server's URL in development; `None` in a built app.
+fn dev_url(app: &AppHandle) -> Option<Url> {
+    app.config()
+        .build
+        .dev_url
+        .clone()
+        .filter(|_| tauri::is_dev())
+}
+
+fn parse(url: &str, dev: Option<&Url>) -> R<Url> {
     let u: Url = url.trim().parse().map_err(|e| format!("not a URL: {e}"))?;
-    if !allowed(&u) {
+    if !allowed(&u, dev) {
         return Err("only http and https pages open in the browser".into());
     }
     Ok(u)
@@ -64,7 +75,8 @@ pub async fn browser_open(
     h: f64,
 ) -> R<()> {
     let name = label(&tab)?;
-    let url = parse(&url)?;
+    let dev = dev_url(&app);
+    let url = parse(&url, dev.as_ref())?;
     if let Some(wv) = app.get_webview(&name) {
         wv.navigate(url).map_err(|e| e.to_string())?;
         place(&wv, x, y, w, h)?;
@@ -100,7 +112,7 @@ pub async fn browser_open(
                 }
                 return false;
             }
-            allowed(u)
+            allowed(u, dev.as_ref())
         })
         .on_page_load(|wv, payload| {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
@@ -350,13 +362,16 @@ pub async fn browser_save_pick(
         .project(crate::api::pid(&project)?)
         .map_err(|e| e.to_string())?;
     let dir = std::path::Path::new(&p.path).join(".agenium").join("picks");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let file = dir.join(format!(
-        "{}.png",
-        ulid::Ulid::new().to_string().to_lowercase()
-    ));
-    std::fs::write(&file, &bytes).map_err(|e| e.to_string())?;
-    Ok(file.display().to_string())
+    crate::api::blocking(move || {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let file = dir.join(format!(
+            "{}.png",
+            ulid::Ulid::new().to_string().to_lowercase()
+        ));
+        std::fs::write(&file, &bytes).map_err(|e| e.to_string())?;
+        Ok(file.display().to_string())
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -365,8 +380,11 @@ mod tests {
 
     #[test]
     fn only_web_pages_outside_the_app_open() {
-        assert!(parse("http://localhost:3000/cart").is_ok());
-        assert!(parse("https://example.com").is_ok());
+        assert!(parse("http://localhost:3000/cart", None).is_ok());
+        assert!(parse("https://example.com", None).is_ok());
+        let dev: Url = "http://localhost:5173".parse().unwrap();
+        assert!(parse("http://localhost:5173/#/live", Some(&dev)).is_err());
+        assert!(parse("http://localhost:3000/", Some(&dev)).is_ok());
         for bad in [
             "file:///C:/Windows/win.ini",
             "http://tauri.localhost/",
@@ -374,7 +392,7 @@ mod tests {
             "javascript:alert(1)",
             "not a url",
         ] {
-            assert!(parse(bad).is_err(), "{bad}");
+            assert!(parse(bad, None).is_err(), "{bad}");
         }
         assert!(label("t1").is_ok());
         // A 4x3 RGBA picture cut to its middle 2x1 with no margin.

@@ -3,7 +3,8 @@
 // Go now; Claude reports during its own runs, or reads now on the Claude row's button (one small Haiku turn).
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api, onUsage } from "../lib/api";
+import { api } from "../lib/api";
+import { onUsage } from "../lib/events";
 import type { Key } from "../lib/i18n";
 import { useApp } from "../lib/store";
 import type { VendorUsage } from "../lib/types";

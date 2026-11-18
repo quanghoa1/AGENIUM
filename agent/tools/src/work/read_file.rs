@@ -93,7 +93,23 @@ pub(super) async fn document_text(
     bytes: &[u8],
     unsandboxed: bool,
 ) -> Result<(String, &'static str), ToolError> {
-    let own = agenium_documents::convert(name, bytes);
+    // Parsing a large or broken document is CPU work that can take long: off the async workers, and given up after a
+    // minute (a stop cannot reach into the parser).
+    let own = {
+        let (n, b) = (name.to_owned(), bytes.to_vec());
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            tokio::task::spawn_blocking(move || agenium_documents::convert(&n, &b)),
+        )
+        .await
+        {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => Err(agenium_documents::DocError::Broken(e.to_string())),
+            Err(_) => Err(agenium_documents::DocError::Broken(
+                "reading it took longer than a minute".into(),
+            )),
+        }
+    };
     if agenium_documents::better_with_markitdown(name) || own.is_err() {
         if let Some(m) = agenium_documents::markitdown::find() {
             if let Ok(c) = m.convert(name, bytes, unsandboxed).await {

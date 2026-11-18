@@ -60,7 +60,7 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Recall into the work order; rule vs hint by scope; reuse signals (helped / hurt) | `retrieve.rs`, `gm2_scope_trap` | memory reuse: first merge with memory on 3/3 on Haiku, Sonnet, Opus, gpt-6-luna, gpt-6.1-sol; 0/3 off (memory-eval.md §4) |
 | Lessons validated per context, decay, consolidation, shared pool | `validation_decay_and_consolidation`, `pooled_recall_...` | learning chain (below) |
 | Learning from the Lead chat, long chat summary | `the_chat_with_the_lead_is_learned...`, `a_long_chat_is_summarised...` | `real_checks chat` on DeepSeek |
-| Memory settled by its vectors, the judge on unclear pairs, contradictions to the user (ADR-145) | `settle::tests`, `agent/memory/tests/settle.rs`, runtime `the_memory_is_settled_once_enough_was_learned`, UI smoke (Tidy → a contradiction decided) | `memory_settle_eval` (70 labelled pairs) and `memory_settle_scale` (1,000 crowded facts), bge + Jev: 17/20 folded, 18/20 contradictions, 0 wrong folds in both |
+| Memory settled by its vectors, the judge on unclear pairs, contradictions to the user (ADR-145) | `settle::tests`, `agent/memory/tests/settle.rs`, runtime `the_memory_is_not_settled_without_the_embedding_model`, UI smoke (Tidy → a contradiction decided) | `memory_settle_eval` (70 labelled pairs) and `memory_settle_scale` (1,000 crowded facts), bge + Jev: 17/20 folded, 18/20 contradictions, 0 wrong folds in both |
 
 ## Skills — `agent/skills`, `orchestration/orchestrator/src/skill_*`
 
@@ -85,6 +85,19 @@ a real model or vendor CLI, not the scripted provider. The last section lists wh
 | Anthropic, Gemini, OpenAI-compatible, Responses, OpenCode relay; 32 presets | `adapters.rs` (contract tests), `every_vendor_preset_builds_an_adapter` | OpenCode Go (DeepSeek), OpenRouter (free models); the rest are contract-tested only |
 | Strict tool arguments to Anthropic's and OpenAI's own APIs, fitted within Claude's limits; a refused schema sent again plain (ADR-144) | `strict::tests`, `strict_tools_go_strict_only_to_claude_and_openai`, `a_refused_strict_schema_is_sent_again_plain` | not yet against the live APIs |
 | Deprecated models marked with one to use instead | `a_deprecated_model_is_told_its_family_s_newest`, UI smoke (price view) | — |
+
+## 0.1.2 and ADR-162..166 (2026-11-16..18)
+
+What each ADR records as verified; the details are in the ADRs.
+
+| Check | Result |
+|---|---|
+| Release 0.1.2: plugins from a private repository, one plugin skill alone, learned into and rebased (ADR-157 amendments of 2026-11-16 and 2026-11-17) | The private `quanghoa1/agenium-pentest` downloaded with a pasted token, the "choose Private" message without one, `obra/superpowers` anonymously (2026-11-16). Tests: `plugins/source.rs` `download` with a stand-in server, `agent/skills/tests/skills.rs`, `orchestrator/tests/team/plugin_skills.rs`, `helper_merge.rs`, `plugins::token::tests::a_repositorys_token_is_kept_used_replaced_and_forgotten`; the UI smoke installs a plugin through the form and gives one of its skills alone to an agent |
+| A criterion on the real path, diagnosis after a reopen, the pre-merge check at submit (ADR-162) | Tests: `prompt::tests::rules_ask_for_the_real_path_no_hidden_failures_and_a_diagnosis`, `tests/runtime/quality_rules.rs` (4 tests). Real: `quality_rules_real.rs`, a Solo on Claude Code `haiku`, effort low, Windows MXC (2026-11-17): a mock-only fix reopened, the next run diagnosed first, a submit refused by the check then accepted, merged; three runs, every check passed. Not run for real: the cap of two refusals and a check that cannot run (scripted tests only) |
+| Reading the web: own search for Claude Code and Codex, `web_search` with keys first and Exa's free search last, an open `fetch` (ADR-163) | Tests in `agent/tools`, `agent/cli-backend` and the orchestrator; the UI smoke (Exa alone, Brave and Tavily keys before it, one removed). Real: `web_research_real.rs` (real pages and searches; a Solo on Claude Code and on Codex found ripgrep's latest release with its own search, read it with `fetch` and cited the URL) |
+| A long command goes on as a job in an API run; a report waits for the checklist (ADR-164) | Tests: `agent/loop/tests/loop/commands.rs`. `long_command_real.rs --scripted` passed on Windows 11 and Ubuntu 25.10 (2026-11-18). Not run yet on a real API model (both OpenCode keys answered 401 that day) |
+| Agenium's own browser, shared across runs (ADR-165) | Tests: `agent/tools/tests/browser_shared.rs` (a local site: password never shown, select, click, `wait_for`, stale ref, upload, scroll, back, storage kept, open and refused addresses). By hand (`--ignored`): Gmail's sign-in page read and opened with `show` on Windows 11 (Edge), 2026-11-18. Ubuntu 25.10: the tests pass, `show` answers `no_screen` (no display) |
+| The project map (ADR-166) | Tests: `tests/runtime/map.rs`, `map/refs.rs` and `map/verify.rs` units, the UI smoke (step 8c). Real: `map_real.rs` with Claude Code (Haiku) and Codex (gpt-6-luna), 2026-11-18: a new project, a review and research mapped, every link confirmed on close, none stale. The store and map tests pass on Ubuntu 25.10 |
 
 ## Runs of 2026-10-31
 

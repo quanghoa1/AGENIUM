@@ -18,7 +18,7 @@ Add an **optional, fail-open** Jev read of a skill's *quality*, on top of the al
 - `App::skill_quality(body)` asks Jev four calibrated Nouls — **one job**, **actionable steps**, **proof demands
   evidence**, **no stale embedded code** — and returns one note per principle with the verdict and confidence
   (`"proof demands evidence: weak (41%)"`, thresholds 0.7 / 0.3, between is "weak").
-- Gated by `[judge].skill_quality` (off by default). `None` when the judge is off/disabled, the flag is off, or the call
+- Gated by `[judge].skill_quality` (off by default; on by default since ADR-128). `None` when the judge is off/disabled, the flag is off, or the call
   fails; a key/quota failure disables the judge (ADR-81). The deterministic shape check always runs regardless, so skill
   checking never depends on Jev being on.
 - Surfaced in both places a skill changes: when the **user imports** one (`import_skill` returns `quality` beside

@@ -94,3 +94,24 @@ copying onto Chromium.
     - the tests pass;
     - Gmail's sign-in page reads the same;
     - `show` answers `no_screen`, since the VM has no display.
+
+## Amendment (2026-11-18): the pre-0.1.3 audit
+
+- **A name is judged by its addresses** (audit M-16). On a run that reaches the network, a page's host is resolved
+  and every address is judged as `fetch` judges it: a public-looking name that leads to the LAN or to
+  `169.254.169.254` does not open. After every step (a click, a form, a redirect, `back`, `eval`) the page's address
+  is checked the same way; a page that went somewhere the run may not open is left (`about:blank`) and the step is
+  refused with `address_not_allowed`.
+- **The page is data** (audit M-19). What a step shows and what `eval` returns are fenced as untrusted content from
+  the page's host (ADR-142).
+- **Files where they really are** (audit M-18). A screenshot is written through the checked write, an upload is
+  refused when the file has other names or leads outside the run's roots, and the downloads folder must really be in
+  the worktree.
+- **The shared browser** (audit L-32..L-36): an idle wait never closes the browser a run is opening a tab in; a run's
+  end no longer waits on the browser; a browser left open in a window by an earlier Agenium is the user's and is not
+  closed for being idle; a step that meets a browser started again says so (`browser_restarted`); the CLI closes the
+  browser when its command ends.
+- **Accepted risk: the DevTools port** (audit M-17). The shared browser listens for DevTools on a loopback port
+  without a token, as every Chrome started with `--remote-debugging-port` does. A program already running as the user
+  on the machine could drive it, but such a program can also read the profile folder itself. Moving to
+  `--remote-debugging-pipe` is not done: the owner's rule is orchestration, not extra hardening.

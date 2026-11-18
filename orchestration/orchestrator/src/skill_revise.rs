@@ -8,10 +8,8 @@
 use agenium_core::forms::ProposeSkillUpdate;
 use agenium_core::*;
 use agenium_skills::{Origin, Owner};
-use agenium_store::FactKind;
 
 use crate::app::App;
-use crate::skill_overlay::{INJECTION, MIN_CONTEXTS};
 use crate::{OrchError, Result};
 
 fn refuse<T>(m: impl Into<String>) -> Result<T> {
@@ -37,69 +35,16 @@ impl App {
         if !created.contains_key(name) {
             return refuse(format!("{name:?} is not a skill you created"));
         }
+        let lesson = self.lesson_gate(agent, u.lesson, &u.reason)?;
         let mem = self.agent_memory_store(agent)?;
-        let lesson = mem.get(u.lesson).map_err(|_| {
-            OrchError::Invalid(format!("lesson #{} is not in your memory", u.lesson))
-        })?;
-        if lesson.kind != FactKind::Lesson || !lesson.is_live() {
-            return refuse(format!("#{} is not a live lesson", u.lesson));
-        }
-        if lesson.untrusted {
-            return refuse(format!(
-                "lesson #{} came from external content (a page, a file, a tool output): it cannot change a skill",
-                u.lesson
-            ));
-        }
-        let held = self.evidenced_contexts(&lesson).len();
-        if held < MIN_CONTEXTS {
-            return refuse(format!(
-                "lesson #{} held in {held} context(s) on record (closed tickets); a skill changes only after a lesson \
-                 held in {MIN_CONTEXTS}",
-                u.lesson
-            ));
-        }
-        if u.reason.trim().is_empty() {
-            return refuse("give the reason for the change");
-        }
         let own = self
             .skill_registry()
             .dir_of(&Owner::Agent(agent.to_string()))
             .join(name);
         let current = std::fs::read_to_string(own.join(agenium_skills::SKILL_FILE))?;
         let updated = crate::skill_overlay::revised_text(&current, u)?;
-        let lower = updated.to_lowercase();
-        if let Some(p) = INJECTION
-            .iter()
-            .find(|p| lower.contains(*p) && !current.to_lowercase().contains(*p))
-        {
-            return refuse(format!(
-                "the change adds {p:?}, which reads as injected instructions: refused"
-            ));
-        }
-        if self.redactor().redact(&updated) != updated
-            || !agenium_secrets::scan_text(&updated).is_empty()
-        {
-            return refuse("the change carries something that looks like a secret: refused");
-        }
-        // No new contradiction with another skill the agent uses (one already there does not block it, ADR-92).
-        let others: Vec<(String, String)> = self
-            .known_skills(Some(&a), name)
-            .into_iter()
-            .map(|k| (k.name, k.guidance))
-            .collect();
-        let strip = crate::skill_shape::strip_frontmatter;
-        let before = crate::skill_conflict::directive_conflicts(name, &strip(&current), &others);
-        let introduced: Vec<String> =
-            crate::skill_conflict::directive_conflicts(name, &strip(&updated), &others)
-                .into_iter()
-                .filter(|c| !before.contains(c))
-                .collect();
-        if !introduced.is_empty() {
-            return refuse(format!(
-                "the change {}; reconcile the two skills first (or improve the other one)",
-                introduced.join("; ")
-            ));
-        }
+        self.text_gate(&[&current], &updated, "change")?;
+        self.conflict_gate(&a, name, &current, &updated)?;
         // The shape and size gate a new skill passes (`lint_skill`: its sections, `## Proof`, the length cap, not a
         // copy of another): a revision skipped it and could drop the proof or grow past the cap (audit M4,
         // 2026-10-31; ADR-147: a revision passes the same gates). Only what the change brings counts, as above.
@@ -115,7 +60,13 @@ impl App {
                 bodies.push((s.meta.name.clone(), s.body.clone()));
             }
         }
-        let lint = |text: &str| crate::skill_shape::lint_skill(name, &strip(text), &bodies);
+        let lint = |text: &str| {
+            crate::skill_shape::lint_skill(
+                name,
+                &crate::skill_shape::strip_frontmatter(text),
+                &bodies,
+            )
+        };
         let had = lint(&current);
         let brought: Vec<String> = lint(&updated)
             .into_iter()

@@ -2,8 +2,9 @@
 
 use super::*;
 
-/// ADR-149: when the Lead's chat turn and another of its runs overlap, the user's messages wait in the queue until no
-/// run of the Lead goes on, then one chat turn reads them all; none is lost or misrouted.
+/// ADR-149: while the Lead's chat turn goes on, the user's messages wait in the queue until no run of the Lead goes
+/// on, then one chat turn reads them all; none is lost or misrouted. An inbox run does not start beside the chat turn
+/// (it planned the same work at once; audit M-2): it waits too.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn overlapping_lead_runs_keep_the_users_messages() {
     let f = fixture();
@@ -22,13 +23,16 @@ async fn overlapping_lead_runs_keep_the_users_messages() {
     app.approve_spec(project, 1).unwrap();
     app.apply(&as_lead, Intent::CreatePlan(plan(&[("PI-1", &[])])))
         .unwrap();
-    // The chat turn's first step runs an inbox run of the same Lead to its end (as the scheduler can meanwhile).
+    // During the chat turn's first step, the scheduler would run the Lead's inbox: it does not.
     let r = rt.clone();
     p.push(Box::new(move |_| {
         let inbox = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(r.inbox(project))
         });
-        assert!(inbox.unwrap().is_some());
+        assert!(
+            inbox.unwrap().is_none(),
+            "the inbox waits for the chat turn"
+        );
         assert!(
             r.steer(project, "And keep it small.").unwrap(),
             "the chat turn still goes on: the message waits"
@@ -36,30 +40,21 @@ async fn overlapping_lead_runs_keep_the_users_messages() {
         Ok(calls_response("", vec![("list_dir", json!({}))]))
     }));
     let r = rt.clone();
-    p.push(Box::new(move |_| {
+    p.push(Box::new(move |req| {
         assert!(r.steer(project, "Use Rust.").unwrap());
-        Err(agenium_llm::LlmError::Unsupported(
-            "the inbox run stops here".into(),
-        ))
-    }));
-    p.push(Box::new(|req| {
         let all: String = req.messages.iter().map(|m| m.text()).collect();
-        assert!(
-            !all.contains("Use Rust.") && !all.contains("keep it small"),
-            "{all}"
-        );
+        assert!(!all.contains("keep it small"), "{all}");
         Ok(calls_response("Noted.", vec![]))
     }));
     let s = rt.chat(project, "Plan an API.").await.unwrap();
     assert_eq!(s.outcome, "Completed");
     assert_eq!(app.undelivered_lead_messages(project).unwrap().len(), 2);
-    // No run of the Lead goes on: its next chat turn reads both, oldest first ("Use Rust." was sent during the inbox
-    // run the chat turn's first step ran).
+    // No run of the Lead goes on: its next chat turn reads both, oldest first.
     p.push(Box::new(|req| {
         let last = req.messages.last().unwrap().text();
         let rust = last.find("Use Rust.").unwrap();
         let small = last.find("And keep it small.").unwrap();
-        assert!(rust < small, "{last}");
+        assert!(small < rust, "{last}");
         Ok(calls_response("Small, in Rust.", vec![]))
     }));
     let left = rt.work(project).await.unwrap();

@@ -56,7 +56,7 @@ export function McpPanel() {
     if (mode === "json") {
       api
         .importMcpJson(form.json)
-        .then((r) => (app.notify(r.servers.join(", ")), done()))
+        .then((r) => (app.notify(r.servers.join(", ") + (r.replaced.length ? ` · ${app.t("library.mcpReplaced").replace("{x}", r.replaced.join(", "))}` : "")), done()))
         .catch((e) => app.notify(String(e)));
       return;
     }

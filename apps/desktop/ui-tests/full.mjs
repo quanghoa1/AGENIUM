@@ -10,6 +10,7 @@
 //   closed-ticket: a closed ticket with a diff (default AGN-1); fresh-ticket: one closed after this build, so its runs
 //   carry the memory lines (default AGN-3).
 import { mkdirSync, writeFileSync } from "node:fs";
+import { connect, sleep } from "./cdp.mjs";
 
 const out = process.argv[2] ?? "ui-full";
 const port = process.argv[3] ?? "9223";
@@ -17,61 +18,7 @@ const done = process.argv[4] ?? "AGN-1";
 const fresh = process.argv[5] ?? "AGN-3";
 mkdirSync(out, { recursive: true });
 
-let targets = [];
-for (let i = 0; i < 120 && !targets.some((x) => x.type === "page"); i++) {
-  try {
-    targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-  } catch {
-    /* the app is starting */
-  }
-  if (!targets.some((x) => x.type === "page")) await new Promise((r) => setTimeout(r, 1000));
-}
-const page = targets.find((x) => x.type === "page");
-if (!page) {
-  console.log("FAIL no app page on the DevTools port");
-  process.exit(1);
-}
-const ws = new WebSocket(page.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-let id = 0;
-const pending = new Map();
-const errors = [];
-ws.addEventListener("message", (m) => {
-  const msg = JSON.parse(m.data);
-  if (msg.id && pending.has(msg.id)) (pending.get(msg.id))(msg), pending.delete(msg.id);
-  if (msg.method === "Runtime.exceptionThrown")
-    errors.push("exception: " + msg.params.exceptionDetails.text + " " + (msg.params.exceptionDetails.exception?.description ?? ""));
-  if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error")
-    errors.push("console.error: " + msg.params.args.map((a) => a.value ?? a.description).join(" "));
-});
-const send = (method, params = {}) =>
-  new Promise((r) => {
-    const i = ++id;
-    pending.set(i, r);
-    ws.send(JSON.stringify({ id: i, method, params }));
-  });
-const js = async (expr) => (await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const until = async (expr, ms = 20000) => {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (await js(expr)) return true;
-    await sleep(250);
-  }
-  return false;
-};
-const shot = async (name) => {
-  const s = await send("Page.captureScreenshot", { format: "png" });
-  if (s.result?.data) writeFileSync(`${out}/${name}.png`, Buffer.from(s.result.data, "base64"));
-};
-let fails = 0;
-const results = [];
-const check = (name, ok, seen = "") => {
-  if (!ok) fails++;
-  const line = `${ok ? "PASS" : "FAIL"} ${name}${seen ? `: ${seen}` : ""}`;
-  results.push(line);
-  console.log(line);
-};
+const { ws, send, js, until, shot, check, results, errors, failed, typeInto } = await connect(port, out);
 const main = () => js("document.querySelector('main')?.innerText ?? ''");
 const has = (text, ms = 15000) => until(`(document.querySelector('main')?.innerText ?? '').includes(${JSON.stringify(text)})`, ms);
 const go = async (view) => {
@@ -86,12 +33,6 @@ const click = (text, scope = "document") =>
     if (!b || b.disabled) return false; b.click(); return true; })()`);
 const clickExact = (text) =>
   js(`(() => { const b = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(text)}); if (!b) return false; b.click(); return true; })()`);
-const typeInto = (selector, value) =>
-  js(`(() => {
-    const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return false;
-    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, ${JSON.stringify(value)});
-    el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
 const noNewErrors = (before) => errors.length === before;
 
 await send("Runtime.enable");
@@ -129,11 +70,11 @@ await shot("02-board");
 check("the board shows its tickets and the project picker", board.includes(done) && board.includes("AGN-2") && (await js("[...document.querySelectorAll('main select option')].some((o) => o.textContent.includes('uidemo'))")));
 const cards = () => js("[...document.querySelectorAll('main [draggable=true]')].map((c) => c.innerText.split('\\n')[0])");
 await typeInto("main input[type=search]", "AGN-2");
-await sleep(600);
+await until(`((cs) => cs.length >= 1 && cs.every((c) => c.innerText.includes("AGN-2")))([...document.querySelectorAll('main [draggable=true]')])`, 5000);
 const narrowed = await cards();
 await shot("03-board-search");
 await typeInto("main input[type=search]", "");
-await sleep(400);
+await until(`[...document.querySelectorAll('main [draggable=true]')].some((c) => c.innerText.includes(${JSON.stringify(done)}))`, 5000);
 check("the board's search narrows the cards", Array.isArray(narrowed) && narrowed.length >= 1 && narrowed.every((k) => k.includes("AGN-2")), JSON.stringify(narrowed));
 await js(`[...document.querySelectorAll('main [draggable=true]')].find((x) => x.innerText.includes(${JSON.stringify(done)}))?.click()`);
 const tp = await until(`!!${dlg} && ${dlg}.innerText.includes(${JSON.stringify(done)}) && ${inDlg("/criteria|acceptance/i")}`, 20000);
@@ -161,7 +102,7 @@ e0 = errors.length;
 await go("runs");
 await shot("08-runs");
 await typeInto("main input[type=search]", done);
-await sleep(600);
+await until(`((rs) => rs.length >= 2 && rs.every((r) => r.includes(${JSON.stringify(done)})))([...document.querySelectorAll('main tbody tr')].map((r) => r.innerText))`, 5000);
 const runRows = await js("[...document.querySelectorAll('main tbody tr')].map((r) => r.innerText)");
 check("the runs' search narrows the list", Array.isArray(runRows) && runRows.length >= 2 && runRows.every((r) => r.includes(done)), `${runRows?.length} rows`);
 // The oldest run of the ticket is its work run (the review came after it).
@@ -180,21 +121,19 @@ if (await click("Terminal", M)) {
 // 5. Memory in runs: the fresh work run lists the memories it was reminded of; the memory run what it learned, from where.
 await go("runs");
 await typeInto("main input[type=search]", fresh);
-await sleep(600);
+await until(`((rs) => rs.length >= 1 && rs.every((r) => r.includes(${JSON.stringify(fresh)})))([...document.querySelectorAll('main tbody tr')].map((r) => r.innerText))`, 5000);
 const freshRows = await js("[...document.querySelectorAll('main tbody tr')].map((r) => r.innerText)");
 const memRow = (freshRows ?? []).findIndex((r) => /memory from/i.test(r));
 check("the runs list says what a memory run learned from", memRow >= 0, JSON.stringify(freshRows).slice(0, 300));
 await js("[...document.querySelectorAll('main tbody tr')].filter((r) => !/memory from/i.test(r.innerText)).at(-1)?.click()");
-await until(`location.hash.startsWith('#/run/') && /steps/i.test(${M}?.innerText ?? '')`, 15000);
-await sleep(600);
+await until(`location.hash.startsWith('#/run/') && /memory recalled/i.test(${M}?.innerText ?? '')`, 15000);
 await shot("11-run-memory-recalled");
 check("a work run shows the memories it was reminded of", await js(`/memory recalled/i.test(${M}.innerText)`), (await main()).slice(0, 300));
 await go("runs");
 await typeInto("main input[type=search]", fresh);
-await sleep(600);
+await until(`[...document.querySelectorAll('main tbody tr')].map((r) => r.innerText).some((r) => /memory from/i.test(r))`, 5000);
 await js("[...document.querySelectorAll('main tbody tr')].find((r) => /memory from/i.test(r.innerText))?.click()");
-await until(`location.hash.startsWith('#/run/') && /steps/i.test(${M}?.innerText ?? '')`, 15000);
-await sleep(600);
+await until(`location.hash.startsWith('#/run/') && /memory learned/i.test(${M}?.innerText ?? '')`, 15000);
 await shot("12-run-memory-learned");
 const mem = await main();
 check("the memory run names its ticket and what it learned", /learned from/i.test(mem) && mem.includes(fresh) && /memory learned/i.test(mem) && (/Added|Updated|Retired|Nothing new worth keeping/.test(mem)), mem.slice(0, 400));
@@ -203,11 +142,11 @@ check("runs screens have no console errors", noNewErrors(e0), errs(e0));
 // 6. Live: the office, the agent's dock, its tools, the plan.
 e0 = errors.length;
 await go("live");
-await sleep(1500);
+await until("!!document.querySelector('main canvas')", 10000);
 await shot("13-live");
 check("the live office is drawn", await js("!!document.querySelector('main canvas')"));
 await click("solo-ds", M);
-await sleep(800);
+await until(`/deepseek/i.test(${M}?.innerText ?? '')`, 8000);
 const dock = await main();
 check("the dock shows the agent and its model", dock.includes("solo-ds") && /deepseek/i.test(dock));
 if (await click("Tools / Skills / MCP", M)) {
@@ -246,10 +185,10 @@ for (const [view, want, name] of [
 e0 = errors.length;
 await go("agents");
 await typeInto("main input[type=search]", "zzz-nobody");
-await sleep(500);
+await until(`!${M}.innerText.includes('solo-ds')`, 5000);
 const none = !(await js(`${M}.innerText.includes('solo-ds')`));
 await typeInto("main input[type=search]", "deepseek");
-await sleep(500);
+await until(`${M}.innerText.includes('solo-ds')`, 5000);
 const byModel = await js(`${M}.innerText.includes('solo-ds')`);
 await shot("18-agents-search");
 await typeInto("main input[type=search]", "");
@@ -324,20 +263,20 @@ check("usage lists the vendors' prices", /vendor prices/i.test(u) && /\$\d/.test
 // A real pointer over the newest column of the first chart (a focus() is not delivered while the window is in the back).
 const col = await js("(() => { const r = document.querySelector('main svg[role=img]')?.querySelectorAll('rect[tabindex]'); const b = r?.length && [...r].at(-1).getBoundingClientRect(); return b ? [b.x + b.width / 2, b.y + b.height / 2] : null; })()");
 if (col) await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: col[0], y: col[1] });
-await sleep(400);
+await until("[...document.querySelectorAll('main .pointer-events-none.absolute')].some((t) => t.innerText.includes('Σ'))", 5000);
 const tip = await js("[...document.querySelectorAll('main .pointer-events-none.absolute')].map((t) => t.innerText).join(' / ')");
 await shot("28-usage-tooltip");
 check("a column's tooltip lists each vendor's value and the total", /Σ/.test(tip ?? "") && /opencode-go/.test(tip ?? ""), tip);
 await click("Table", M);
-await sleep(500);
+await until("document.querySelectorAll('main table').length >= 3", 5000);
 check("a chart reads as a table", await js("document.querySelectorAll('main table').length >= 3"));
 await shot("29-usage-table");
 await click("Chart", M);
 await click("Cost", M);
-await sleep(500);
+await until(`/\\$\\d/.test([...document.querySelectorAll('main ul')].map((l) => l.innerText).join(' '))`, 5000);
 check("the rankings switch to cost", await js(`/\\$\\d/.test([...document.querySelectorAll('main ul')].map((l) => l.innerText).join(' '))`));
 await click("7 days", M);
-await sleep(500);
+await until("document.querySelectorAll('main svg[role=img]').length >= 2", 5000);
 check("a narrower range keeps the charts", await js("document.querySelectorAll('main svg[role=img]').length >= 2"));
 await shot("30-usage-7days");
 await click("All time", M);
@@ -376,7 +315,7 @@ await sleep(1500);
 await shot("32-judge-key-added");
 check("a judge key is added under its name", listed);
 await js(`[...document.querySelectorAll('main button')].find((b) => b.textContent.trim() === 'Remove')?.click()`);
-await sleep(800);
+await until("[...document.querySelectorAll('.card')].some((c) => c.querySelector('.btn-danger') && c.innerText.includes('ui-check'))", 5000);
 await js(`[...document.querySelectorAll('.card')].find((c) => c.querySelector('.btn-danger') && c.innerText.includes('ui-check'))?.querySelector('.btn-danger')?.click()`);
 const keyGone = await until(`/no key yet/i.test(${M}.innerText)`, 15000);
 await shot("33-judge-key-removed");
@@ -435,7 +374,7 @@ await go("projects");
 const closedCard = `[...document.querySelectorAll('main .card')].find((c) => c.querySelector('.text-sm.font-semibold')?.textContent.trim() === 'uidemo')`;
 check("a closed project's card offers Reopen, not a team", await js(`(() => { const b = [...${closedCard}.querySelectorAll('button')].map((b) => b.textContent.trim()); return b.includes('Reopen') && !b.includes('Add a team'); })()`));
 await js(`[...${closedCard}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Reopen')?.click()`);
-await sleep(1500);
+await until("!![...document.querySelectorAll('.card select')].at(-1)?.selectedOptions[0]", 8000);
 const offered = await js(`[...document.querySelectorAll('.card select')].at(-1)?.selectedOptions[0]?.textContent ?? ''`);
 await shot("40-reopen-ask");
 await js(`[...document.querySelectorAll('.card button')].filter((b) => b.textContent.trim() === 'Reopen').at(-1)?.click()`);
@@ -445,6 +384,6 @@ check("reopening offers the team that worked on it and puts it back", /worked on
 
 check("no console errors overall", errors.length === 0, errors.slice(0, 5).join(" | ").slice(0, 400));
 writeFileSync(`${out}/result.txt`, results.join("\n") + "\n");
-console.log(fails === 0 ? "ALL PASS" : `${fails} FAILED`);
+console.log(failed() === 0 ? "ALL PASS" : `${failed()} FAILED`);
 ws.close();
-process.exit(fails === 0 ? 0 : 1);
+process.exit(failed() === 0 ? 0 : 1);

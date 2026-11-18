@@ -15,11 +15,13 @@ mod cli_brain;
 mod cli_fit;
 mod context;
 mod execute;
+mod inbox_round;
 mod lead_runs;
 pub mod learn;
 mod mcp_gate;
 mod models;
 mod offline_back;
+mod planner_round;
 mod pool;
 mod quota_back;
 mod recall;
@@ -121,6 +123,8 @@ pub struct Runtime {
     pub mcp: Arc<agenium_mcp::McpHub>,
     /// What each (provider, model) can do, looked up once (ADR-31).
     model_infos: Mutex<std::collections::HashMap<(String, String), Option<agenium_llm::ModelInfo>>>,
+    /// Providers whose model listing just failed, and when: not asked again for a minute (a run asks several times).
+    model_list_failed: Mutex<std::collections::HashMap<String, std::time::Instant>>,
     /// Each agent CLI's detection (version and login probes) and when it was made; reused for [`CLI_INFO_TTL`].
     cli_infos: Mutex<
         std::collections::HashMap<
@@ -177,6 +181,7 @@ impl Runtime {
         Self {
             project_cancels: Mutex::default(),
             model_infos: Mutex::default(),
+            model_list_failed: Mutex::default(),
             cli_infos: Mutex::default(),
             inbox_failures: Mutex::default(),
             planner_failures: Mutex::default(),
@@ -195,44 +200,4 @@ impl Runtime {
             memory_k: k,
         }
     }
-}
-
-pub(crate) async fn futures_join_all<F: std::future::Future>(
-    futs: impl Iterator<Item = F>,
-) -> Vec<F::Output> {
-    let v: Vec<F> = futs.collect();
-    let mut out = Vec::with_capacity(v.len());
-    // Runs of different agents proceed concurrently.
-    let pinned: Vec<std::pin::Pin<Box<F>>> = v.into_iter().map(Box::pin).collect();
-    let results = join_all_boxed(pinned).await;
-    out.extend(results);
-    out
-}
-
-async fn join_all_boxed<F: std::future::Future>(
-    mut futs: Vec<std::pin::Pin<Box<F>>>,
-) -> Vec<F::Output> {
-    use std::task::Poll;
-    let mut results: Vec<Option<F::Output>> = futs.iter().map(|_| None).collect();
-    std::future::poll_fn(|cx| {
-        let mut pending = false;
-        for (i, f) in futs.iter_mut().enumerate() {
-            if results[i].is_none() {
-                match f.as_mut().poll(cx) {
-                    Poll::Ready(v) => results[i] = Some(v),
-                    Poll::Pending => pending = true,
-                }
-            }
-        }
-        if pending {
-            Poll::Pending
-        } else {
-            Poll::Ready(())
-        }
-    })
-    .await;
-    results
-        .into_iter()
-        .map(|r| r.expect("every future completed"))
-        .collect()
 }

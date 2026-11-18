@@ -76,8 +76,12 @@ impl App {
             return Ok(json!({ "done": false, "warnings": warnings }));
         }
         let n = mem.undo(&undo).map_err(OrchError::from)?;
-        // A skill the agent built on a lesson that is gone now is flagged for review (ADR-91).
-        let flagged = self.audit_created_skills(r.agent)?;
+        // A skill the agent built on a lesson that is gone now is flagged for review (ADR-91). Its failure does not
+        // stop the mark below: an undo that is not marked is offered again (and refused by the store).
+        let flagged = self.audit_created_skills(r.agent).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "the agent's skills were not checked after the undo");
+            Vec::new()
+        });
         self.run_log(
             run,
             REVERTED,

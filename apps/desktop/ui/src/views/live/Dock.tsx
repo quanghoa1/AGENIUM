@@ -1,6 +1,6 @@
 import { Bot, Crown, Lock, MessageSquareReply, Users } from "lucide-react";
 import { ContextGauge } from "../../components/ContextGauge";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatPane, type Prefill } from "../../components/ChatPane";
 import { Avatar, CacheHit, Empty, Mono, OutcomeBadge, TicketStatusBadge, ago, cn, modelLabel, tokens } from "../../components/ui";
 import { VendorBadge } from "../../components/VendorBadge";
@@ -20,13 +20,27 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
   const team = data.teams.find((t) => t.id === a.team);
   const lead = team?.lead ? data.agents.find((x) => x.agent.id === team.lead) : undefined;
   const [trace, setTrace] = useState<AgentTrace | null>(null);
+  const shown = useRef<AgentTrace | null>(null);
   const live = !!a.run;
+  const liveRun = a.run?.run.id;
   useEffect(() => {
     setTrace(null);
+    shown.current = null;
   }, [a.agent.id]);
   useEffect(() => {
     let stop = false;
-    const load = () => api.agentTrace(a.agent.id).then((t) => !stop && setTrace(t));
+    // A live run's log is read from where the view is (its whole log every 1.5 s, audit M-27); another run, whole.
+    const load = () => {
+      const prev = shown.current;
+      const more = !!liveRun && prev?.run?.id === liveRun && prev.steps.length > 0;
+      const after = more ? prev!.steps[prev!.steps.length - 1].n : undefined;
+      return api.agentTrace(a.agent.id, liveRun, after).then((t) => {
+        if (stop) return;
+        const next = more && t.run?.id === liveRun ? { ...t, steps: [...prev!.steps, ...t.steps], terminal: [...prev!.terminal, ...t.terminal] } : t;
+        shown.current = next;
+        setTrace(next);
+      });
+    };
     load();
     // While a run is live, poll its log (tool results land there); otherwise refresh on events.
     const h = live ? window.setInterval(load, 1500) : undefined;
@@ -34,7 +48,7 @@ export function Dock({ a, data, act, prefill, onPick, onAskLead, view }: { a: Li
       stop = true;
       if (h) window.clearInterval(h);
     };
-  }, [a.agent.id, live, app.tick]);
+  }, [a.agent.id, live, liveRun, app.tick]);
   // The run's tool, skill and MCP calls, and what the Jev judge said for it (a skill pick, an evidence read).
   const calls = (trace?.steps ?? []).filter((e) => e.kind === "tool" || e.kind === "judge");
   const stream = act?.stream && !act.stream.done ? act.stream : undefined;

@@ -131,7 +131,7 @@ pub fn from_codex_rate_limits(r: &Value, now: &str) -> VendorUsage {
 
 /// OpenCode Go `GET <base>/usage`: `usage.{rolling,weekly,monthly}` with `percent` (used), `resetsAt` (RFC 3339)
 /// and `status` (`ok` or `rate-limited`).
-pub fn from_opencode_go(provider: &str, v: &Value, now: &str) -> VendorUsage {
+pub(crate) fn from_opencode_go(provider: &str, v: &Value, now: &str) -> VendorUsage {
     let mut u = VendorUsage::new(&format!("opencode-go:{provider}"), now);
     u.plan = Some("Go".into());
     let mut limited = vec![];

@@ -324,6 +324,95 @@ pub fn log_entries(c: &Connection, run: RunId) -> Result<Vec<LogEntry>, StoreErr
     .collect()
 }
 
+type Row4 = (i64, String, String, String);
+
+fn row4(r: &Row) -> rusqlite::Result<Row4> {
+    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+}
+
+fn entry((n, kind, data, at): Row4) -> Result<LogEntry, StoreError> {
+    Ok(LogEntry {
+        n: n as u32,
+        kind,
+        data: from_json(&data)?,
+        at,
+    })
+}
+
+/// How many `tool` lines run `run` has, and its last one: what the Live page shows of a run going on, without reading
+/// its whole log every few seconds.
+pub fn tool_summary(c: &Connection, run: RunId) -> Result<(u32, Option<LogEntry>), StoreError> {
+    let n: i64 = c.query_row(
+        "SELECT count(*) FROM run_log WHERE run = ?1 AND kind = 'tool'",
+        [run.to_string()],
+        |r| r.get(0),
+    )?;
+    let last = c
+        .query_row(
+            "SELECT n, kind, data, at FROM run_log WHERE run = ?1 AND kind = 'tool' ORDER BY n DESC LIMIT 1",
+            [run.to_string()],
+            row4,
+        )
+        .optional()?
+        .map(entry)
+        .transpose()?;
+    Ok((n as u32, last))
+}
+
+/// The lines of run `run` after line `after` (0: all), oldest first: a view that has the earlier ones reads only these.
+pub fn log_since(c: &Connection, run: RunId, after: u32) -> Result<Vec<LogEntry>, StoreError> {
+    let mut st = c.prepare_cached(
+        "SELECT n, kind, data, at FROM run_log WHERE run = ?1 AND n > ?2 ORDER BY n",
+    )?;
+    let rows = st.query_map(params![run.to_string(), after as i64], row4)?;
+    rows.map(|r| entry(r?)).collect()
+}
+
+/// One `tool` line of a ticket's run, with its run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ToolLine {
+    pub run: RunId,
+    pub agent: AgentId,
+    pub ticket: TicketId,
+    pub entry: LogEntry,
+}
+
+/// The `tool` lines of `project`'s ticket runs that failed or ran `shell` (what the audit trail reads), in one query.
+pub fn audit_tool_lines(c: &Connection, project: ProjectId) -> Result<Vec<ToolLine>, StoreError> {
+    let mut st = c.prepare_cached(
+        "SELECT r.id, r.agent, r.ticket, l.n, l.kind, l.data, l.at FROM run_log l JOIN run r ON r.id = l.run
+         WHERE r.ticket IN (SELECT id FROM ticket WHERE project = ?1) AND l.kind = 'tool'
+           AND (json_extract(l.data, '$.ok') = 0 OR json_extract(l.data, '$.tool') = 'shell')
+         ORDER BY l.at, l.n",
+    )?;
+    let rows = st.query_map([project.to_string()], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get(4)?,
+            r.get::<_, String>(5)?,
+            r.get(6)?,
+        ))
+    })?;
+    rows.map(|r| {
+        let (run, agent, ticket, n, kind, data, at) = r?;
+        Ok(ToolLine {
+            run: parse(&run, "run id")?,
+            agent: parse(&agent, "agent id")?,
+            ticket: parse(&ticket, "ticket id")?,
+            entry: LogEntry {
+                n: n as u32,
+                kind,
+                data: from_json(&data)?,
+                at,
+            },
+        })
+    })
+    .collect()
+}
+
 // ---------------------------------------------------------------- permission grants
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -23,6 +23,7 @@ agenium-sandbox.workspace = true
 agenium-secrets.workspace = true
 agenium-skills.workspace = true
 agenium-store.workspace = true
+agenium-tools.workspace = true
 agenium-vcs.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true

@@ -1,6 +1,6 @@
 # ADR-103: A context overflow is recovered from, and compaction cannot make things worse
 
-Status: Accepted (2026-10-26). Evidence: `agent/llm/src/error.rs` (`overflow_tests`), `agent/loop/tests/loop.rs`
+Status: Accepted (2026-10-26). Evidence: `agent/llm/src/error.rs` (`overflow_tests`), `agent/loop/tests/loop/`
 (`an_overflow_clears_old_results_and_sends_again`, `an_overflow_with_nothing_to_clear_compacts_then_gives_up`,
 `notes_cut_by_the_output_limit_are_not_used`, `a_large_new_result_counts_before_the_next_request`). Amends ADR-100.
 Source: the pi coding agent's bug history (`docs/reference/PI-COMPARISON.md`): overflow detection per vendor, summaries

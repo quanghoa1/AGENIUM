@@ -21,7 +21,7 @@ ADR-126; research in [`docs/reference/JEV-OPPORTUNITIES.md`](../reference/JEV-OP
 5. **Prefetch at submit**: when the done check has to ask (ADR-126), the review's per-criterion questions ride in the
    same request (`Judging::merge`) over the same report text (`judge::report_text`, used at submit and at review), so
    the review run finds them in the cache: one request instead of two, the report sent once.
-6. **Output trimmer** (`[judge] trim_output`, off by default): in a work run, `shell` and `grep` are wrapped
+6. **Output trimmer** (`[judge] trim_output`, off by default; on by default since ADR-128): in a work run, `shell` and `grep` are wrapped
    (`judge::trim::wrap`) so a result over 80 lines is split in 30-line chunks and the judge is asked, for each middle
    chunk, whether it holds something the ticket needs (at most 8 chunks, one request). The first and last chunk and
    every chunk with an error, failure, warning, panic or exit code are always kept; a chunk goes only when the judge is

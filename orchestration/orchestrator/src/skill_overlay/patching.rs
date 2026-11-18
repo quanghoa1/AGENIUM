@@ -2,18 +2,10 @@
 
 use super::*;
 
-pub(super) fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+/// The library's copy: no symlinks followed, the size limits kept.
+pub(super) fn copy_dir(from: &Path, to: &Path) -> Result<()> {
     std::fs::create_dir_all(to)?;
-    for e in std::fs::read_dir(from)? {
-        let e = e?;
-        let target = to.join(e.file_name());
-        if e.file_type()?.is_dir() {
-            copy_dir(&e.path(), &target)?;
-        } else {
-            std::fs::copy(e.path(), target)?;
-        }
-    }
-    Ok(())
+    agenium_skills::copy_dir(from, to).map_err(|e| invalid(e.to_string()))
 }
 
 /// Applies a unified diff to `text` with `git apply` in a scratch folder (`a/`/`b/` prefixes or none).

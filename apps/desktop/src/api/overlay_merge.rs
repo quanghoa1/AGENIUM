@@ -15,7 +15,9 @@ pub async fn draft_overlay_merge(
     model: ModelArg,
 ) -> R<OverlayMergeDraft> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|_| format!("bad agent id {agent:?}"))?;
+    let id: AgentId = agent
+        .parse()
+        .map_err(|_| format!("bad agent id {agent:?}"))?;
     let (backend, binding) = model.binding()?;
     o.rt.draft_overlay_merge(id, &skill, backend, &binding)
         .await
@@ -31,8 +33,8 @@ pub fn accept_overlay_merge(
     text: String,
 ) -> R<()> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|_| format!("bad agent id {agent:?}"))?;
-    o.app
-        .accept_overlay_merge(id, &skill, &text)
-        .map_err(err)
+    let id: AgentId = agent
+        .parse()
+        .map_err(|_| format!("bad agent id {agent:?}"))?;
+    o.app.accept_overlay_merge(id, &skill, &text).map_err(err)
 }

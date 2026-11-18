@@ -33,7 +33,7 @@ pub async fn cli_models_each<'a>(
     app: &App,
     clis: impl Iterator<Item = &'a CliInfo>,
 ) -> Vec<(&'static str, Option<Result<Vec<ModelInfo>, String>>)> {
-    crate::runtime::futures_join_all(
+    futures::future::join_all(
         clis.map(|c| async move { (c.kind.program(), cli_models_of(app, c).await) }),
     )
     .await

@@ -61,9 +61,6 @@ pub struct AppSection {
     /// UI language: "en" | "vi".
     pub language: String,
     pub theme: String,
-    /// Decision 26: off, never sends anything.
-    pub telemetry: bool,
-    pub crash_report: bool,
 }
 
 impl Default for AppSection {
@@ -71,8 +68,6 @@ impl Default for AppSection {
         Self {
             language: "en".into(),
             theme: "system".into(),
-            telemetry: false,
-            crash_report: false,
         }
     }
 }
@@ -83,6 +78,18 @@ pub struct PathsSection {
     /// Relative to the root, or absolute.
     pub projects_dir: String,
     pub backups_dir: String,
+}
+
+impl PathsSection {
+    /// The backups folder: `backups_dir` under `root`, or where it says when absolute.
+    pub fn backups(&self, root: &std::path::Path) -> std::path::PathBuf {
+        let d = std::path::PathBuf::from(&self.backups_dir);
+        if d.is_absolute() {
+            d
+        } else {
+            root.join(d)
+        }
+    }
 }
 
 impl Default for PathsSection {
@@ -286,10 +293,6 @@ impl JudgeSection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UsageSection {
-    /// Display only (decision 3k): nothing is ever blocked by cost or tokens.
-    pub show_tokens: bool,
-    pub show_estimated_cost: bool,
-    pub pricing_file: String,
     /// Public model catalogue (models.dev format) the prices of API models come from; empty = off.
     pub price_catalogue_url: String,
 }
@@ -297,9 +300,6 @@ pub struct UsageSection {
 impl Default for UsageSection {
     fn default() -> Self {
         Self {
-            show_tokens: true,
-            show_estimated_cost: true,
-            pricing_file: "pricing.toml".into(),
             price_catalogue_url: "https://models.dev/api.json".into(),
         }
     }
@@ -331,9 +331,6 @@ impl Default for BackupSection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MemorySection {
-    /// `<kind>:<model>`; memory is English-only (ADR-40), so an English model is the default.
-    pub embedder: String,
-    pub language: String,
     /// Facts per agent from which the ANN sidecar replaces exact search (ADR-50).
     pub ann_threshold: u64,
     /// Facts injected into a work order.
@@ -355,8 +352,6 @@ pub struct MemorySection {
 impl Default for MemorySection {
     fn default() -> Self {
         Self {
-            embedder: "local:bge-small-en-v1.5".into(),
-            language: "en".into(),
             ann_threshold: 100_000,
             top_k: 8,
             learn: true,
@@ -713,81 +708,7 @@ impl Config {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const EXAMPLE: &str = r#"
-schema_version = 1
-[app]
-language = "vi"
-# Removed setting (ADR-40 amendment): old files still load.
-user_language = "vi"
-[runtime]
-max_parallel_agents = 2
-[[providers]]
-id = "anthropic"
-kind = "anthropic"
-api_key_ref = "provider/anthropic"
-[[providers]]
-id = "local-ollama"
-kind = "openai_compat"
-base_url = "http://localhost:11434/v1"
-some_future_key = 1
-[[providers.model_caps]]
-model = "qwen3:8b"
-tools = true
-context_window = 32768
-"#;
-
-    #[test]
-    fn partial_file_gets_defaults() {
-        let c = Config::parse(EXAMPLE).unwrap();
-        assert_eq!(c.app.language, "vi");
-        assert_eq!(c.runtime.max_parallel_agents, 2);
-        assert_eq!(c.runtime.max_steps_per_run, 200);
-        assert_eq!(c.retry, RetrySection::default());
-        assert_eq!(c.providers[1].max_concurrency, 4);
-        let caps = c.providers[1].caps("qwen3:8b").unwrap();
-        assert_eq!(
-            (caps.tools, caps.vision, caps.context_window),
-            (Some(true), None, Some(32768))
-        );
-        assert!(c.providers[0].caps("qwen3:8b").is_none());
-        assert_eq!(c.secrets.backend, SecretsBackend::Vault);
-        assert_eq!(c.sandbox.approval, ApprovalPolicy::Sandboxed);
-        assert!(
-            !c.sandbox.off && !c.sandbox.runs_unsandboxed(),
-            "the sandbox is on by default (ADR-160)"
-        );
-        let mut off = c.sandbox.clone();
-        off.off = true;
-        assert!(
-            off.runs_unsandboxed(),
-            "turning the sandbox off runs commands without one"
-        );
-        assert!(
-            c.sandbox.network,
-            "sandboxed commands may reach the network by default (ADR-84)"
-        );
-        assert!(!c.app.telemetry);
-    }
-
-    #[test]
-    fn round_trip_and_checks() {
-        let tmp = tempfile::tempdir().unwrap();
-        let p = tmp.path().join("config.toml");
-        let c = Config::parse(EXAMPLE).unwrap();
-        c.save(&p).unwrap();
-        assert_eq!(Config::load(&p).unwrap(), c);
-        assert!(Config::parse("[app]\nlanguage = \"fr\"").is_err());
-        assert!(Config::parse("schema_version = 99").is_err());
-        assert!(Config::parse("[[providers]]\nid=\"x\"\nkind=\"openai_compat\"").is_err());
-        assert!(Config::parse(
-            "[[providers]]\nid=\"x\"\nkind=\"mock\"\n[[providers]]\nid=\"x\"\nkind=\"mock\""
-        )
-        .is_err());
-    }
-}
+mod tests;
 
 #[cfg(test)]
 mod bom_tests {

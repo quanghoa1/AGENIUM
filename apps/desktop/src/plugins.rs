@@ -1,16 +1,12 @@
 //! IPC commands of plugins (ADR-157): import from a vendor's repository after a preview, update whole from the
 //! vendor, remove, and turn a whole plugin on or off for an agent. The rules are the orchestrator's.
 
-use agenium_core::*;
 use agenium_orchestrator::plugins::{Plugin, PluginPreview};
 use serde_json::{json, Value};
 use tauri::State;
 
+use crate::api::aid;
 use crate::state::{err, Desktop, R};
-
-fn aid(s: &str) -> R<AgentId> {
-    s.parse().map_err(|e: IdParseError| e.to_string())
-}
 
 /// The installed plugins, each with the agents that have it on.
 #[tauri::command]

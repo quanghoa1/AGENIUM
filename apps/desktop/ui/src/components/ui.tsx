@@ -85,7 +85,7 @@ const ticketTone: Record<TicketStatus, string> = {
   Cancelled: "border-zinc-500/30 bg-zinc-500/5 text-zinc-500",
 };
 
-export type RunState = "Agreeing" | "Running" | "Paused" | "Done" | "Closed";
+type RunState = "Agreeing" | "Running" | "Paused" | "Done" | "Closed";
 
 /** Colour of a project's run state, like a ticket's status: running glows green, paused amber, done blue. */
 export const runTone: Record<RunState, string> = {
@@ -234,7 +234,7 @@ export function RoleChip({ lead, planner, solo }: { lead?: boolean; planner?: bo
 }
 
 /** Two or three letters for an agent's name: `sc-backend` -> BA, `lead-1` -> L1 (a numbered name keeps its number). */
-export function initials(name: string): string {
+function initials(name: string): string {
   const parts = name.split(/[-_\s.]+/).filter(Boolean);
   if (parts.length === 0) return "";
   const last = parts[parts.length - 1];

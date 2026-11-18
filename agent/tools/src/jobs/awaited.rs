@@ -128,7 +128,7 @@ impl Jobs {
     }
 
     /// Whether job `id` runs (it may still wait for the user's approval).
-    pub fn is_running(&self, id: u32) -> bool {
+    pub(crate) fn is_running(&self, id: u32) -> bool {
         self.map
             .lock()
             .unwrap_or_else(|e| e.into_inner())

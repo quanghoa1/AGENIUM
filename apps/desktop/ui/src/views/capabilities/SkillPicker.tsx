@@ -2,7 +2,8 @@ import { AlertTriangle, FileUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "../../components/motion";
 import { cn } from "../../components/ui";
-import { api, type FoundSkill } from "../../lib/api";
+import { api } from "../../lib/api";
+import { type FoundSkill } from "../../lib/apiTypes";
 import { useApp } from "../../lib/store";
 
 /** The skills a chosen folder holds: tick the ones to import (those that can be, and are not in the library yet, start

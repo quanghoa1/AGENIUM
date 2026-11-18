@@ -217,6 +217,43 @@ async fn provider_errors_map_to_agent_states() {
     );
 }
 
+/// A stop during an outage's retry waits ends the run at once, with no further attempt (audit M-11).
+#[tokio::test]
+async fn a_stop_ends_the_retry_waits() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    for _ in 0..3 {
+        p.push_error(LlmError::Http {
+            status: 529,
+            kind: "overloaded_error".into(),
+            message: "".into(),
+            quota: false,
+            retry_after: None,
+        });
+    }
+    let mut c = cfg();
+    c.retry = RetryPolicy {
+        base: Duration::from_secs(60),
+        cap: Duration::from_secs(60),
+        max_attempts: 3,
+        max_total: Duration::from_secs(300),
+    };
+    let r = run(&p, &ctx, &tools, &proto, c);
+    let stop = r.cancel.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        stop.cancel();
+    });
+    let started = std::time::Instant::now();
+    assert_eq!(r.run(&order()).await.outcome, Outcome::Cancelled);
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(p.remaining(), 2, "no attempt after the stop");
+}
+
 #[tokio::test]
 async fn cancel_and_chat_mode() {
     let (_t, ctx, tools, proto) = harness();

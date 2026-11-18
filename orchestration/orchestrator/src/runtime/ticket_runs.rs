@@ -18,9 +18,7 @@ impl Runtime {
         opened: &mut Option<RunId>,
     ) -> Result<RunSummary> {
         // Decision 19: changes made to the worktree outside Agenium are undone before the agent continues.
-        if let Err(e) = self.app.guard_worktree(project, key) {
-            tracing::warn!(ticket = %key, error = %e, "worktree guard failed");
-        }
+        self.guard_worktree(project, key).await;
         let t = self.app.ticket(project, key)?;
         let agent_id = t
             .assignee
@@ -48,8 +46,15 @@ impl Runtime {
         *opened = Some(start.run);
         if !start.continuation {
             // A dependent ticket starts from the main that contains its dependencies' merged work.
-            if let Err(e) = self.app.catch_up_worktree(project, key) {
-                tracing::warn!(ticket = %key, error = %e, "worktree not brought up to date");
+            let (app, k) = (self.app.clone(), key.clone());
+            match tokio::task::spawn_blocking(move || app.catch_up_worktree(project, &k)).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(e)) => {
+                    tracing::warn!(ticket = %key, error = %e, "worktree not brought up to date")
+                }
+                Err(e) => {
+                    tracing::warn!(ticket = %key, error = %e, "worktree not brought up to date")
+                }
             }
         }
         let t = self.app.ticket(project, key)?;
@@ -117,11 +122,13 @@ impl Runtime {
                 .iter()
                 .map(|r| serde_json::json!({ "id": r.id, "kind": r.kind, "text": r.text, "shared": r.shared, "exact": r.exact }))
                 .collect();
-            let _ = self.app.run_log(
+            if let Err(e) = self.app.run_log(
                 start.run,
                 "memory",
                 serde_json::json!({ "recalled": shown }),
-            );
+            ) {
+                tracing::warn!(error = %e, "the recall record was not logged");
+            }
         }
         // The project's closed tickets, beside the memory (ADR-158): in the first message only, as the memory is.
         let traces = if prev.is_empty() {
@@ -306,7 +313,6 @@ impl Runtime {
             .await;
         let (report, cost) = res?;
         self.finish(
-            project,
             &t,
             &agent,
             start.run,
@@ -330,9 +336,7 @@ impl Runtime {
         key: &TicketKey,
         opened: &mut Option<RunId>,
     ) -> Result<RunSummary> {
-        if let Err(e) = self.app.guard_worktree(project, key) {
-            tracing::warn!(ticket = %key, error = %e, "worktree guard failed");
-        }
+        self.guard_worktree(project, key).await;
         let t = self.app.ticket(project, key)?;
         let (team, _) = self
             .app
@@ -351,7 +355,13 @@ impl Runtime {
         let root = PathBuf::from(&ws.worktree);
         let repo = self.app.repo(&self.app.project(project)?);
         // A diff that cannot be read is said so: shown empty, it would read as "no code changes".
-        let diff = match repo.diff(&root, &ws.base_sha) {
+        let base = ws.base_sha.clone();
+        let tree = root.clone();
+        let diff = match tokio::task::spawn_blocking(move || repo.diff(&tree, &base))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r.map_err(|e| e.to_string()))
+        {
             Ok(d) if d.trim().is_empty() => "(no code changes)".to_owned(),
             Ok(d) => agenium_tools::text::truncate(&d, 30_000, 600).0,
             Err(e) => {
@@ -388,6 +398,9 @@ impl Runtime {
             })?
             .value;
         *opened = Some(run);
+        // Known from the start: a review that errors is still not taken for the agent's last work conversation.
+        self.app
+            .run_log(run, "run", serde_json::json!({ "kind": "review" }))?;
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;
@@ -520,7 +533,6 @@ impl Runtime {
             self.index_traces_soon(project);
         }
         let summary = self.finish(
-            project,
             &t,
             &lead,
             run,
@@ -534,5 +546,16 @@ impl Runtime {
             tracing::warn!(ticket = %key, error = %e, "memory pipeline skipped");
         }
         Ok(summary)
+    }
+
+    /// Decision 19: changes made to the worktree outside Agenium are undone before the agent continues. Git work: off
+    /// the async workers.
+    async fn guard_worktree(&self, project: ProjectId, key: &TicketKey) {
+        let (app, k) = (self.app.clone(), key.clone());
+        match tokio::task::spawn_blocking(move || app.guard_worktree(project, &k)).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => tracing::warn!(ticket = %key, error = %e, "worktree guard failed"),
+            Err(e) => tracing::warn!(ticket = %key, error = %e, "worktree guard failed"),
+        }
     }
 }

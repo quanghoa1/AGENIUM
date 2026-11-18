@@ -58,7 +58,7 @@ pub struct BodyField {
 }
 
 /// The user's additions to an endpoint's requests.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct Custom {
     pub headers: Vec<(String, String)>,
     /// Effort levels the user gave a model: a chosen level is sent for it.
@@ -66,6 +66,21 @@ pub struct Custom {
     pub body: Vec<BodyField>,
     /// Where the effort level goes instead of `reasoning_effort`.
     pub effort_field: Option<Vec<String>>,
+}
+
+// Header values can be keys: only their names are printed.
+impl std::fmt::Debug for Custom {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Custom")
+            .field(
+                "headers",
+                &self.headers.iter().map(|(k, _)| k).collect::<Vec<_>>(),
+            )
+            .field("efforts", &self.efforts)
+            .field("body", &self.body)
+            .field("effort_field", &self.effort_field)
+            .finish()
+    }
 }
 
 /// A field path as segments, checked: plain names, not too deep, not one of Agenium's own fields.
@@ -95,7 +110,7 @@ pub fn check_path(path: &str) -> Result<Vec<String>, String> {
 }
 
 /// A field's value as typed: JSON when it parses (`0.2`, `true`, `{"a": 1}`), else the text itself.
-pub fn parse_value(text: &str) -> Result<Value, String> {
+pub(crate) fn parse_value(text: &str) -> Result<Value, String> {
     let t = text.trim();
     if t.len() > MAX_VALUE_BYTES {
         return Err(format!("a value is at most {MAX_VALUE_BYTES} bytes"));

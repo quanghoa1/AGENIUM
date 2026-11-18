@@ -5,6 +5,7 @@
 // Usage: node skills.mjs <screenshot-dir> [devtools-port] [root]
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { connect, sleep } from "./cdp.mjs";
 
 const out = process.argv[2] ?? "ui-skills";
 const port = process.argv[3] ?? "9223";
@@ -12,25 +13,7 @@ const root = process.argv[4] ?? "";
 mkdirSync(out, { recursive: true });
 const NAME = "ui-skill-test";
 
-const page = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((x) => x.type === "page");
-const ws = new WebSocket(page.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-let id = 0;
-const pending = new Map();
-const errors = [];
-ws.addEventListener("message", (m) => {
-  const msg = JSON.parse(m.data);
-  if (msg.id && pending.has(msg.id)) (pending.get(msg.id))(msg), pending.delete(msg.id);
-  if (msg.method === "Runtime.exceptionThrown") errors.push(msg.params.exceptionDetails.text);
-  if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") errors.push(msg.params.args.map((a) => a.value ?? a.description).join(" "));
-});
-const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
-const js = async (expr) => (await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const until = async (expr, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await js(expr)) return true; await sleep(200); } return false; };
-const shot = async (name) => { const s = await send("Page.captureScreenshot", { format: "png" }); writeFileSync(`${out}/${name}.png`, Buffer.from(s.result.data, "base64")); };
-let fails = 0;
-const check = (name, ok, seen = "") => { if (!ok) fails++; console.log(`${ok ? "PASS" : "FAIL"} ${name}${seen ? `: ${seen}` : ""}`); };
+const { ws, send, js, until, shot, check, errors, failed } = await connect(port, out);
 const dlg = "document.querySelector('[role=dialog]')";
 const clickText = (t, scope = dlg) => js(`(() => { const b = [...(${scope} ?? document).querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(t)}); if (!b || b.disabled) return false; b.click(); return true; })()`);
 const setInput = (sel, v) => js(`(() => { const el = ${dlg}.querySelector(${JSON.stringify(sel)}); if (!el) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(v)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
@@ -158,6 +141,6 @@ await sleep(400);
 await js(`(() => { const b = [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'Delete').pop(); b?.click(); return !!b; })()`);
 check("the test skill is deleted", await until(`!(${card})`, 10000));
 check("no error in the page", errors.length === 0, errors.join(" | ").slice(0, 300));
-console.log(fails ? `${fails} FAILED` : "all passed");
+console.log(failed() ? `${failed()} FAILED` : "all passed");
 ws.close();
-process.exit(fails ? 1 : 0);
+process.exit(failed() ? 1 : 0);

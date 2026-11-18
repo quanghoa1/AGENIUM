@@ -1,14 +1,14 @@
 // Typed wrappers over the Tauri IPC commands. Outside Tauri (a plain browser: `npm run dev` for layout work and
 // screenshots) the demo backend in demo.ts answers instead, read-only.
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { demo } from "./demo";
-import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, FolderInfo, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MapGraph, MapNodeView, MapStats, MemoryData, ModelCapsRow, ModelInfo, NeedItem, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, Reference, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
+import type { CachedModels, ChatTurn, CliUpdateInfo, CliUpdated, FoundSkill, HelperSession, MarkitdownStatus, NewSkill, PrefKey, ReadDoc, Scorecard, SkillDoc, SkillEffect, SkillProposal, SkillWrite, TeamDesign, WebSearchStatus } from "./apiTypes";
+import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, FolderInfo, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MapGraph, MapNodeView, MapStats, MemoryData, ModelCapsRow, NeedItem, OverlayMergeDraft, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, Reference, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!inTauri) return demo(cmd, args) as Promise<T>;
+  // Loaded on demand so the demo backend stays out of the app bundle.
+  if (!inTauri) return import("./demo").then((m) => m.demo(cmd, args)) as Promise<T>;
   return invoke<T>(cmd, args);
 }
 
@@ -141,8 +141,6 @@ export const api = {
       prefix,
       roleModels,
     }),
-  createSolo: (project: string, name: string, model: ModelArg) =>
-    call<unknown>("create_solo", { project, name, model }),
   setAgentModel: (agent: string, model: ModelArg) => call<void>("set_agent_model", { agent, model }),
   /** The agent's context against the window of the model it has now (ADR-155). */
   agentContext: (agent: string) => call<{ used: number; was: number; window: number; over: boolean }>("agent_context", { agent }),
@@ -159,7 +157,6 @@ export const api = {
   resumeProject: (project: string) => call<void>("resume_project", { project }),
   stopAll: () => call<void>("stop_all"),
   supportBundle: (out: string) => call<string>("support_bundle", { out }),
-  judgeStatus: () => call<{ configured: boolean; disabled: boolean; reason?: string | null }>("judge_status"),
   enableJudge: (name?: string) => call<void>("enable_judge", { name: name ?? null }),
   judgeAddKey: (name: string, key: string) => call<void>("judge_add_key", { name, key }),
   judgeRemoveKey: (name: string) => call<void>("judge_remove_key", { name }),
@@ -176,7 +173,6 @@ export const api = {
   roles: () => call<RoleInfo[]>("roles"),
   putRole: (role: { id: string; prompt: string; tags: string[]; allowed_paths: string[]; planner: boolean; lead: boolean }) =>
     call<RoleInfo>("put_role", { role }),
-  removeRole: (id: string) => call<void>("remove_role", { id }),
   createAgent: (form: { name: string; role: string; tags?: string[] | null; model: ModelArg; skills: string[]; mcp: string[] }) =>
     call<AgentRecord>("create_agent", { form }),
   setAgentRole: (agent: string, role: string, tags?: string[] | null) => call<void>("set_agent_role", { agent, role, tags }),
@@ -214,7 +210,7 @@ export const api = {
     call<{ name: string; body: string; raw: string; files: string[] }>("skill_text", { name, plugin: plugin ?? null }),
   // ADR-157: the helper merges an agent's copy onto its skill's updated base; the user accepts (or edits) it.
   draftOverlayMerge: (agent: string, skill: string, model: ModelArg) =>
-    call<import("./types").OverlayMergeDraft>("draft_overlay_merge", { agent, skill, model }),
+    call<OverlayMergeDraft>("draft_overlay_merge", { agent, skill, model }),
   acceptOverlayMerge: (agent: string, skill: string, text: string) => call<void>("accept_overlay_merge", { agent, skill, text }),
   // Re-run the shape, conflict and (when the judge is on) quality checks on a library skill on demand (ADR-88/90/92).
   evaluateSkill: (name: string) => call<{ shape_notes: string[]; quality: string[] | null }>("evaluate_skill", { name }),
@@ -232,7 +228,7 @@ export const api = {
   setMcpApproval: (server: string | null, approval: McpApproval | null) => call<McpApprovalSettings>("set_mcp_approval", { server, approval }),
   toolSearch: () => call<ToolSearchSettings>("tool_search_settings"),
   setToolSearch: (section: ToolSearchSettings) => call<ToolSearchSettings>("set_tool_search", { section }),
-  importMcpJson: (text: string) => call<{ servers: string[] }>("import_mcp_json", { text }),
+  importMcpJson: (text: string) => call<{ servers: string[]; replaced: string[] }>("import_mcp_json", { text }),
   removeMcp: (id: string, force = false) => call<void>("remove_mcp", { id, force }),
   loginMcp: (id: string) => call<{ client_id: string; scope?: string | null }>("login_mcp", { id }),
   logoutMcp: (id: string) => call<void>("logout_mcp", { id }),
@@ -317,250 +313,6 @@ export const api = {
   // Live tab
   live: () => call<LiveData>("live"),
   agentBus: (agent: string, limit?: number) => call<BusItem[]>("agent_bus", { agent, limit }),
-  agentTrace: (agent: string, run?: string) => call<AgentTrace>("agent_trace", { agent, run }),
+  agentTrace: (agent: string, run?: string, after?: number) => call<AgentTrace>("agent_trace", { agent, run, after }),
 };
 
-/** Committed domain events (`agenium://event`), live run output (`agenium://run`), command approvals. */
-export async function onEvent(f: (e: EventRecord) => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen<EventRecord>("agenium://event", (e) => f(e.payload));
-}
-
-export async function onRun(f: (run: string, ev: any, agent: string | null) => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen<{ run: string; agent?: string | null; event: any }>("agenium://run", (e) =>
-    f(e.payload.run, e.payload.event, e.payload.agent ?? null),
-  );
-}
-
-/** The preview browser's events, per tab: its page changed, an element was picked, the page left picking (Esc). */
-export async function onBrowser(f: {
-  url: (tab: string, u: string) => void;
-  picked: (tab: string, json: string) => void;
-  pickOff: (tab: string) => void;
-}): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  const offs = await Promise.all([
-    listen<{ tab: string; url: string }>("agenium://browser-url", (e) => f.url(e.payload.tab, e.payload.url)),
-    listen<{ tab: string; pick: string }>("agenium://browser-picked", (e) => f.picked(e.payload.tab, e.payload.pick)),
-    listen<{ tab: string }>("agenium://browser-pick-off", (e) => f.pickOff(e.payload.tab)),
-  ]);
-  return () => offs.forEach((o) => o());
-}
-
-/** The embedding model's preparation moved on (`agenium://model`). */
-export async function onModel(f: () => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen("agenium://model", () => f());
-}
-
-/** A step of a markitdown install, or a newer version found (`agenium://markitdown`, ADR-152). */
-export async function onMarkitdown(f: (e: { step?: string; update?: string }) => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen<{ step?: string; update?: string }>("agenium://markitdown", (e) => f(e.payload));
-}
-
-/** A piece of a drafting helper's answer as its model writes it (`agenium://helper`, ADR-151). */
-export async function onHelper(f: (p: import("../components/helperLive").HelperPiece) => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen<import("../components/helperLive").HelperPiece>("agenium://helper", (e) => f(e.payload));
-}
-
-/** The vendors' usage was read again (`agenium://usage`). */
-export async function onUsage(f: () => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen("agenium://usage", () => f());
-}
-
-export async function onApproval(f: (a: CommandApproval) => void): Promise<UnlistenFn> {
-  if (!inTauri) return () => {};
-  return listen<CommandApproval>("agenium://approval", (e) => f(e.payload));
-}
-
-/** A source's models as kept in the model cache. */
-export interface CachedModels {
-  value: ModelInfo[];
-  at?: string | null;
-  error?: string | null;
-}
-
-/** One turn of a helper chat: the user's text, or the helper's whole answer (sent back so a change edits its draft). */
-export interface ChatTurn {
-  role: "user" | "assistant";
-  text: string;
-}
-
-/** A skill the team designer would give a role but the library lacks. */
-export interface NewSkill {
-  name: string;
-  does: string;
-  when: string;
-  roles: string[];
-}
-
-export interface TeamDesign {
-  reply: string;
-  questions: string[];
-  /** `based_on`: the template this draft is a variant of (the user may save it over that one). */
-  draft: { template: TeamTemplate; why: string; roles: { id: string; why: string }[]; new_skills: NewSkill[]; notes: string[]; based_on?: string | null } | null;
-  raw: string;
-  model: string;
-}
-
-export interface SkillDoc {
-  name: string;
-  text: string;
-  /** Where the original is kept for the project's runs (chat attachments). */
-  file?: string | null;
-}
-
-export interface SimilarSkill {
-  name: string;
-  words: number;
-  meaning?: number | null;
-  level: "duplicate" | "near";
-}
-
-export interface SkillWrite {
-  reply: string;
-  questions: string[];
-  draft: {
-    name: string;
-    description: string;
-    tags: string[];
-    body: string;
-    files: { path: string; text: string }[];
-    skill_md: string;
-    exists: boolean;
-    notes: string[];
-    /** The library skill this draft improves (a merge): saving it edits that skill. */
-    extends?: string | null;
-    /** That skill's SKILL.md as it is now. */
-    original?: string | null;
-    similar: SimilarSkill[];
-  } | null;
-  raw: string;
-  model: string;
-}
-
-/** A document read as Markdown (ADR-152). */
-export interface ReadDoc {
-  name: string;
-  text: string;
-  format: string;
-  notes: string[];
-  file?: string | null;
-}
-
-export interface HelperSession {
-  id: string;
-  kind: "design" | "skill";
-  title: string;
-  /** The user named it: the title no longer follows the draft. */
-  named?: boolean;
-  model: ModelArg | null;
-  turns: ChatTurn[];
-  transcript: { user: boolean; text: string; questions?: string[]; model?: string }[];
-  attachments: SkillDoc[];
-  draft?: unknown;
-  source?: { proposal?: string; seed?: NewSkill } | null;
-  status: "open" | "saved" | "closed";
-  result?: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SkillProposal {
-  id: string;
-  agent: string;
-  agent_name?: string;
-  name: string;
-  text: string;
-  lesson_text: string;
-  contexts: string[];
-  similar: SimilarSkill[];
-  notes: string[];
-  reason: string;
-  status: string;
-  skill?: string | null;
-}
-
-/** The order web searches go in (ADR-163): the user's keys, the strongest first, then Exa's free search. */
-export interface WebSearchStatus {
-  order: { api: string; key: boolean }[];
-}
-
-export interface MarkitdownStatus {
-  source: "agenium" | "path" | "none";
-  program?: string | null;
-  version?: string | null;
-  method?: string | null;
-  installed_at?: string | null;
-  pinned: string;
-  latest?: string | null;
-  update: boolean;
-  checked_at?: string | null;
-  tested_at?: string | null;
-  tests: [string, string][];
-  busy: boolean;
-  size_mb: number;
-  blocked: boolean;
-}
-
-export interface CliUpdateInfo {
-  kind: string;
-  program: string;
-  installed?: string | null;
-  latest?: string | null;
-  latest_error?: string | null;
-  verified?: string | null;
-  update: boolean;
-  beyond_verified: boolean;
-  can_pin: boolean;
-  busy: number;
-  /** The installed version answered Agenium's check after an update on this machine. */
-  checked?: { version: string; at: string; updater_had_none: boolean } | null;
-}
-
-export interface CliUpdated {
-  kind: string;
-  before?: string | null;
-  after?: string | null;
-  output: string;
-  check_ok: boolean;
-  check: string;
-  rollback?: string | null;
-}
-
-export interface Criterion {
-  id: string;
-  status: "ok" | "warn" | "info";
-  note: string;
-}
-
-export interface Scorecard {
-  criteria: Criterion[];
-  ok: number;
-  warn: number;
-}
-
-/** A skill folder found in a chosen folder: `exists`, the library has one of its name. */
-export interface FoundSkill {
-  path: string;
-  name: string;
-  description: string;
-  error: string | null;
-  exists: boolean;
-}
-
-export interface SkillEffect {
-  tickets: number;
-  reopened: number;
-  others: number;
-  others_reopened: number;
-  enough: boolean;
-  worse: boolean;
-}
-
-/** Where a model is picked and remembered (ADR-152). */
-export type PrefKey = "model.agent" | "model.team" | "model.skill_writer" | "model.designer";

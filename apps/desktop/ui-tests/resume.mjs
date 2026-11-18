@@ -4,64 +4,15 @@
 // Before starting the app, set an agent aside in its root, e.g. with sqlite3:
 //   UPDATE agent SET status = 'QuotaExhausted' WHERE name = '<agent>';
 // Usage: node resume.mjs <screenshot-dir> [devtools-port] [agent-name]
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { connect, sleep } from "./cdp.mjs";
 
 const out = process.argv[2] ?? "ui-resume";
 const port = process.argv[3] ?? "9223";
 const agent = process.argv[4] ?? "solo-ds";
 mkdirSync(out, { recursive: true });
 
-let targets = [];
-for (let i = 0; i < 120 && !targets.some((x) => x.type === "page"); i++) {
-  try {
-    targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-  } catch {
-    /* the app is starting */
-  }
-  if (!targets.some((x) => x.type === "page")) await new Promise((r) => setTimeout(r, 1000));
-}
-const page = targets.find((x) => x.type === "page");
-if (!page) {
-  console.log("FAIL no app page on the DevTools port");
-  process.exit(1);
-}
-const ws = new WebSocket(page.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-let id = 0;
-const pending = new Map();
-const errors = [];
-ws.addEventListener("message", (m) => {
-  const msg = JSON.parse(m.data);
-  if (msg.id && pending.has(msg.id)) (pending.get(msg.id))(msg), pending.delete(msg.id);
-  if (msg.method === "Runtime.exceptionThrown") errors.push("exception: " + msg.params.exceptionDetails.text);
-  if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error")
-    errors.push("console.error: " + msg.params.args.map((a) => a.value ?? a.description).join(" "));
-});
-const send = (method, params = {}) =>
-  new Promise((r) => {
-    const i = ++id;
-    pending.set(i, r);
-    ws.send(JSON.stringify({ id: i, method, params }));
-  });
-const js = async (expr) => (await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const until = async (expr, ms = 20000) => {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (await js(expr)) return true;
-    await sleep(250);
-  }
-  return false;
-};
-const shot = async (name) => {
-  const s = await send("Page.captureScreenshot", { format: "png" });
-  if (s.result?.data) writeFileSync(`${out}/${name}.png`, Buffer.from(s.result.data, "base64"));
-};
-let fails = 0;
-const check = (name, ok, seen = "") => {
-  if (!ok) fails++;
-  console.log(`${ok ? "PASS" : "FAIL"} ${name}${seen ? `: ${seen}` : ""}`);
-};
+const { ws, send, js, until, shot, check, errors, failed } = await connect(port, out);
 const main = () => js("document.querySelector('main')?.innerText ?? ''");
 const go = async (view) => {
   await js(`window.location.hash = ${JSON.stringify("/" + view)}`);
@@ -117,6 +68,6 @@ await shot("05-agents-after");
 check("Resume puts it back to work: the item and the buttons go", gone && cardAfter === 0, `card buttons ${cardAfter}`);
 
 check("no error in the page", errors.length === 0, errors.join(" | ").slice(0, 300));
-console.log(fails ? `${fails} FAILED` : "all passed");
+console.log(failed() ? `${failed()} FAILED` : "all passed");
 ws.close();
-process.exit(fails ? 1 : 0);
+process.exit(failed() ? 1 : 0);

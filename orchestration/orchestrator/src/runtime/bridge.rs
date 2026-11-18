@@ -547,7 +547,9 @@ pub struct RunObserver {
     pub live: Option<LiveFn>,
     pub steps: Mutex<u32>,
     /// When each pending tool call (by name) was emitted, for its duration in the run log.
-    pub tool_started: Mutex<std::collections::HashMap<String, std::time::Instant>>,
+    /// When each tool call started, by tool name in call order (the observer is not told the call id).
+    pub tool_started:
+        Mutex<std::collections::HashMap<String, std::collections::VecDeque<std::time::Instant>>>,
     /// The model's price (an API provider), and the run's cost so far, priced request by request.
     pub price: Option<agenium_llm::pricing::Price>,
     pub cost: Mutex<f64>,
@@ -578,7 +580,9 @@ impl Observer for RunObserver {
             self.tool_started
                 .lock()
                 .unwrap_or_else(|p| p.into_inner())
-                .insert(c.name.clone(), std::time::Instant::now());
+                .entry(c.name.clone())
+                .or_default()
+                .push_back(std::time::Instant::now());
         }
         if let Some(l) = &self.live {
             l(e);
@@ -602,7 +606,8 @@ impl Observer for RunObserver {
             .tool_started
             .lock()
             .unwrap_or_else(|p| p.into_inner())
-            .remove(name)
+            .get_mut(name)
+            .and_then(|q| q.pop_front())
             .map(|t| t.elapsed().as_millis() as u64);
         let mut entry = serde_json::json!({ "tool": name, "args": args, "ok": ok, "result": preview, "ms": ms });
         let check = name == "shell"
@@ -614,7 +619,10 @@ impl Observer for RunObserver {
                 entry["tree"] = tree.into();
             }
         }
-        let _ = self.app.run_log(self.run, "tool", entry);
+        // The done-check and the verification read this log: a lost line is said.
+        if let Err(e) = self.app.run_log(self.run, "tool", entry) {
+            tracing::warn!(error = %e, "a tool call was not logged");
+        }
     }
 
     fn response(&self, usage: &Usage) {

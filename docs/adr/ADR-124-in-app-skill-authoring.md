@@ -37,7 +37,7 @@ disclosure, ADR-61/88), which an import-only flow could not create in the app.
 ## Consequences
 
 - `agent/skills/src/lib.rs` (`Registry::write`, `Origin: Copy`), test `write_create_and_edit`.
-- `orchestration/orchestrator/src/registry.rs` (`save_library_skill`).
+- `orchestration/orchestrator/src/registry/library.rs` (`save_library_skill`).
 - `apps/desktop/src/manage.rs` (`skill_skeleton`, `save_skill`, `evaluate_skill_text`, `skill_file`,
   `save_skill_file`; `skill_text` returns `raw`), `main.rs` registrations.
 - UI: `components/MonacoEditor.tsx` (new), `views/Capabilities.tsx` (`SkillEditor`), `lib/api.ts`, i18n.

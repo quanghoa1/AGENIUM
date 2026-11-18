@@ -671,10 +671,10 @@ pub struct ProposeSkillUpdate {
     pub lesson: i64,
 }
 
-/// Create a NEW skill in your own skills folder, distilled from a validated lesson (ADR-91). Strongly gated so agents
-/// do not create skills carelessly: the lesson must have held in two different contexts, the skill must follow the full
-/// shape (## Job, ## When to use, ## Steps, ## Tools, ## Proof, all filled), and it must not duplicate a skill you
-/// already have. Your own copy only; the user reviews or deletes it; it never changes another agent's skills.
+/// Propose a NEW skill, distilled from a validated lesson (ADR-91). Strongly gated so agents do not propose skills
+/// carelessly: the lesson must have held in two different contexts, the skill must follow the full shape (## Job,
+/// ## When to use, ## Steps, ## Tools, ## Proof, all filled), and it must not duplicate a skill you already have. The
+/// user decides whether it goes into the skill library (ADR-152); it never changes another agent's skills.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProposeNewSkill {

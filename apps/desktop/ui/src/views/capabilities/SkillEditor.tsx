@@ -5,7 +5,8 @@ import { AlertTriangle, CheckCircle2, FileCode2, FileImage, FileText, FileUp, Gi
 import { Suspense, lazy, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Overlay } from "../../components/motion";
 import { Mono, cn } from "../../components/ui";
-import { api, type Scorecard } from "../../lib/api";
+import { api } from "../../lib/api";
+import { type Scorecard } from "../../lib/apiTypes";
 import { friendly } from "../../lib/errors";
 import { useApp } from "../../lib/store";
 import { ScorecardView } from "./Scorecard";

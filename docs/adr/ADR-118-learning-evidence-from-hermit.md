@@ -11,7 +11,7 @@ its machinery, behind stricter gates. Two of its rules exposed gaps in ours:
 
 - *"A deployed rule silences its own counter-evidence: silence after deployment is not confirmation"*
   (`materials/skills/failure-discipline/SKILL.md` §4). Our pipeline counted a validated context for **every** lesson
-  shown to a run that closed cleanly (`agent/memory/src/pipeline.rs`): a hint from another context, or a project rule
+  shown to a run that closed cleanly (`agent/memory/src/pipeline/mod.rs`): a hint from another context, or a project rule
   put before every run whatever the ticket, earned a context by a quiet close. Two such contexts unlock creating a skill
   (ADR-91) and the shared pool (ADR-87).
 - Every knowledge-base entry carries `derived_from`, links to the examples it came from. Our contexts are strings

@@ -7,10 +7,15 @@ pub fn scan_diff(diff: &str) -> Vec<StagedFinding> {
     let mut out = Vec::new();
     let mut file = String::new();
     let mut line_no = 0usize;
+    // `+++ ` is a file header only before the file's first hunk: inside one it is an added line starting `++ `.
+    let mut in_hunk = false;
     for l in diff.lines() {
-        if let Some(f) = l.strip_prefix("+++ ") {
+        if l.starts_with("diff --git ") {
+            in_hunk = false;
+        } else if let (false, Some(f)) = (in_hunk, l.strip_prefix("+++ ")) {
             file = f.trim_start_matches("b/").to_owned();
         } else if let Some(h) = l.strip_prefix("@@ ") {
+            in_hunk = true;
             // @@ -a,b +c,d @@
             line_no = h
                 .split_whitespace()

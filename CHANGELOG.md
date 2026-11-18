@@ -2,7 +2,44 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
-## Unreleased
+## 0.1.3 — 2026-11-18
+
+### Fixes from the pre-0.1.3 audit
+
+- **Rounds:** a ticket whose worktree could not be made no longer keeps its project's round spinning (it waits for the
+  next round); a store error no longer stops the runs going on; a failed start is not run again in the same round. The
+  Lead's inbox and the blocking-question deadline are looked at during a long round too, and an inbox run no longer
+  starts beside the Lead's chat turn.
+- **Offline agents:** a Lead whose chat turn, inbox run or planner run ended Offline is tried again by itself, as work
+  and review runs were.
+- **Stop:** the stop button ends an API run's waits between retries at once, with no attempt after it.
+- **Logins:** a CLI error that merely contains "401" (a token count, a request id) is no longer taken for a lost login.
+  On the copy path, a sandboxed Codex run can no longer write another login over your own. Codex's usage is no longer
+  counted again on every resumed turn.
+- **CLIs:** a sandboxed CLI that ended while a process it started held its output no longer waits 45 minutes; probes
+  (versions, models, usage, updates) end with their whole process tree and read their output as it comes. CLI runs
+  keep the machine's proxy and CA settings.
+- **Git:** no hook runs from Agenium's git calls on your project's own checkout (a hook merged from a ticket ran at the
+  next worktree or commit). The secret scan no longer misses an added line that starts with `++ `.
+- **Browser:** a public-looking name that leads to your network does not open, and where a page goes after a click or
+  a redirect is checked too; what pages show is marked as untrusted data; screenshots and uploads go through the
+  checked file access. See ADR-165's amendment, which also records the DevTools port as an accepted risk.
+- **Project map:** on a project in its own folder the map reads Agenium's branch; cancelling a ticket no longer takes
+  links other tickets added.
+- **Folded conversations:** a tool result can no longer pass for your words when an API run's history is summarized.
+- **Windows:** the `cmd` fallback keeps a command's quotes.
+- **Speed:** the Audit page, the Live page, an agent's trace and its message bus read only what they show; the
+  Providers page asks npm for updates once, not on every refresh; a plugin lookup no longer hashes every file; one
+  undone memory re-embeds that memory only; documents are read off the async workers with a time limit.
+- **Plugins and skills:** a damaged `installed_plugins.json` is reported instead of being emptied on the next save; a
+  skill copy is never lost when a folder swap fails on Windows; one copy that cannot be rebased no longer fails a
+  plugin install; an MCP JSON paste with two names for one server id is refused, and replaced servers are named.
+- **Settings:** `runtime.max_reopen_before_escalate` and `backup.pre_migrate_keep` now take effect, and pre-migrate
+  snapshots go to `paths.backups_dir`. Seven settings that did nothing were removed (old files still load).
+- **Docs:** the README's setup command, template list and version are right again; ADRs and the index say where later
+  decisions changed them.
+- **Housekeeping:** dead commands and code removed, large files split, and `cargo xtask ci` now also checks the
+  desktop app and builds its UI.
 
 ### The project map (ADR-166)
 
@@ -504,7 +541,7 @@ The first public build: the desktop app for Windows and Linux (Ubuntu), and the 
 - The team starting and a project done are told (with the way there; a done project also as a desktop notification);
   the Lead's chat leads to the live office, the tickets and the runs, and its ticket keys open the ticket.
 - First start prepares the local embedding model (bundled with the installer) before the app opens.
-- Installers: Windows (NSIS, MSI), Linux (`.deb`, AppImage) and macOS (an ad-hoc signed `.app` in a `.dmg`, not
+- Installers: Windows (NSIS), Linux (`.deb`, AppImage) and macOS (an ad-hoc signed `.app` in a `.dmg`, not
   notarized; Apple silicon; checked in macOS run 7: installed from the `.dmg`, it starts and copies its model). Found on a clean Windows 11 VM (2026-11-01): the app built since the vector index (ADR-125) did not start
   there, as it needed the C++ library of the build machine (`libstdc++-6.dll`); it is now linked in, and local CI fails
   a Windows build that imports a DLL of the build toolchain (`check-dlls.ps1`).

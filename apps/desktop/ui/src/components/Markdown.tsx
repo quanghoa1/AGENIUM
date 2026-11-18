@@ -59,7 +59,7 @@ function inline(text: string, key = 0): ReactNode[] {
 }
 
 /** The cells of a table row: split on `|`, not inside `code` and not when escaped (`\|`). */
-export function cells(row: string): string[] {
+function cells(row: string): string[] {
   const t = row.trim().replace(/^\|/, "").replace(/\|$/, "");
   const out: string[] = [];
   let cur = "";

@@ -175,8 +175,15 @@ pub fn restore(
     Ok(m)
 }
 
+static PRE_MIGRATE_KEEP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(3);
+
+/// How many pre-migrate snapshots are kept per database (`backup.pre_migrate_keep`), set when Agenium starts.
+pub fn set_pre_migrate_keep(n: u32) {
+    PRE_MIGRATE_KEEP.store(n.max(1), std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Pre-migrate snapshot of an open connection: `<dir>/pre-migrate/<name>-v<from>-<stamp>.db.zst`; keeps the
-/// newest 3 per name.
+/// newest per name (3 unless set).
 pub fn pre_migrate_snapshot(
     c: &Connection,
     dir: &Path,
@@ -209,7 +216,7 @@ pub fn pre_migrate_snapshot(
         (v.parse::<u32>().unwrap_or(0), stamp.to_owned())
     };
     files.sort_by_key(order);
-    while files.len() > 3 {
+    while files.len() > PRE_MIGRATE_KEEP.load(std::sync::atomic::Ordering::Relaxed) as usize {
         let old = files.remove(0);
         fs::remove_file(&old).map_err(|e| StoreError::io(&old, e))?;
     }

@@ -263,12 +263,31 @@ impl AgentStore {
         })
     }
 
-    /// Replaces the vectors of every live fact (embedder change with the same dimension).
+    /// Replaces the vectors of the live facts whose vector is missing or another embedder's (an embedder change with
+    /// the same dimension, a fact an undo brought back): only those, not the whole memory.
     pub fn reindex(
         &self,
         embed: impl Fn(&[String]) -> Result<Vec<Vec<f32>>, String>,
     ) -> Result<u64, StoreError> {
-        let facts = self.live(usize::MAX >> 1)?;
+        struct Stale {
+            id: i64,
+            text: String,
+        }
+        let facts: Vec<Stale> = self.db.read(|c| -> Result<Vec<Stale>, StoreError> {
+            let mut st = c.prepare(
+                "SELECT id, text FROM fact WHERE superseded_by IS NULL AND (model_id IS NULL OR model_id <> ?1)",
+            )?;
+            let rows = st.query_map([&self.model_id], |r| {
+                Ok(Stale {
+                    id: r.get(0)?,
+                    text: r.get(1)?,
+                })
+            })?;
+            Ok(rows.collect::<rusqlite::Result<_>>()?)
+        })?;
+        if facts.is_empty() {
+            return Ok(0);
+        }
         let texts: Vec<String> = facts.iter().map(|f| f.text.clone()).collect();
         let vecs = embed(&texts).map_err(StoreError::Invalid)?;
         if vecs.len() != facts.len() {

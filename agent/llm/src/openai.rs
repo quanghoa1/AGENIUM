@@ -460,6 +460,15 @@ impl StreamState {
                 .as_str()
                 .unwrap_or_default()
                 .to_owned();
+            // A limit or exhausted credit told inside the stream is what the same answer over HTTP is (audit L-28).
+            let low = message.to_ascii_lowercase();
+            if kind.contains("rate_limit")
+                || kind == "insufficient_quota"
+                || low.contains("rate limit")
+                || low.contains("exceeded your current quota")
+            {
+                return Err(map_error(429, &HeaderMap::new(), data));
+            }
             return Err(LlmError::Stream {
                 retryable: kind.contains("overload") || kind.contains("server"),
                 kind,
@@ -675,7 +684,13 @@ impl OpenAiCompat {
         match r {
             Ok(()) => {}
             // Some servers close right after the final chunk without `[DONE]`.
-            Err(LlmError::StreamDropped(_)) if st.finish.is_some() => {}
+            Err(LlmError::StreamDropped(_)) if st.finish.is_some() => {
+                if st.usage == Usage::default() {
+                    tracing::warn!(
+                        "the stream closed after its last chunk, before the usage: this answer's tokens are not counted"
+                    );
+                }
+            }
             Err(e) => return Err(e),
         }
         let resp = st.finish()?;

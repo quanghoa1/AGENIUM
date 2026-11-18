@@ -202,6 +202,16 @@ async fn agents_build_the_map_agenium_checks_it_and_a_closed_ticket_confirms_it(
     .unwrap();
     app.map_settle(project).unwrap();
     assert!(app.map_search(project, "file:config").unwrap().is_empty());
+
+    // A project on a side branch (ADR-159): Agenium's branch is checked out in `.agenium/base`, and the map reads it.
+    let base = std::path::PathBuf::from(&app.project(project).unwrap().path).join(".agenium/base");
+    std::fs::create_dir_all(base.join(".git")).unwrap();
+    std::fs::create_dir_all(base.join("src")).unwrap();
+    std::fs::write(base.join("src/app.py"), "# Agenium's branch\n").unwrap();
+    assert!(app
+        .map_code(project, "src/app.py:1")
+        .unwrap()
+        .contains("Agenium's branch"));
 }
 
 /// A page Agenium reads itself: a link from what the page says, refused when the page does not say it.

@@ -83,7 +83,7 @@ const HOOK_TIMEOUT: u64 = 3600;
 const DENY: &str = r#"{"decision":"deny","reason":"Agenium could not check this tool call"}"#;
 
 /// The user's own Grok folder (`GROK_HOME` or `~/.grok`).
-pub fn user_grok_dir() -> Option<PathBuf> {
+pub(crate) fn user_grok_dir() -> Option<PathBuf> {
     if let Some(d) = std::env::var_os("GROK_HOME") {
         return Some(PathBuf::from(d));
     }
@@ -167,12 +167,10 @@ pub async fn models(program: &Path) -> Result<Vec<String>, String> {
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true);
-    #[cfg(windows)]
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    let out = tokio::time::timeout(std::time::Duration::from_secs(40), cmd.output())
+    let out = crate::probe::output(cmd, std::time::Duration::from_secs(40))
         .await
-        .map_err(|_| "grok models did not answer in 40 s".to_owned())?
-        .map_err(|e| format!("cannot start grok: {e}"))?;
+        .map_err(|e| format!("cannot start grok: {e}"))?
+        .ok_or_else(|| "grok models did not answer in 40 s".to_owned())?;
     let m = parse_models(&String::from_utf8_lossy(&out.stdout));
     if m.is_empty() {
         Err("grok models listed nothing".into())

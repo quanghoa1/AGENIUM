@@ -383,3 +383,49 @@ async fn openrouter_cache_writes_are_not_input() {
     );
     assert_eq!(r.usage.total_input(), 5000);
 }
+
+/// A rate limit or exhausted quota told inside the stream is classified as the same answer over HTTP (audit L-28):
+/// retried, or a quota; not a fatal error.
+#[test]
+fn limits_inside_the_stream_are_limits() {
+    let ev = |data: &str| agenium_llm::sse::SseEvent {
+        event: None,
+        data: data.into(),
+    };
+    let mut st = openai::StreamState::default();
+    let e = st
+        .apply(
+            &ev(r#"{"error":{"type":"rate_limit_exceeded","message":"Rate limit reached"}}"#),
+            &|_| {},
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            e,
+            LlmError::Http {
+                status: 429,
+                quota: false,
+                ..
+            }
+        ),
+        "{e:?}"
+    );
+    let mut st = gemini::StreamState::default();
+    let e = st
+        .apply(
+            &ev(r#"{"error":{"status":"RESOURCE_EXHAUSTED","message":"Your prepayment credits are depleted"}}"#),
+            &|_| {},
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            e,
+            LlmError::Http {
+                status: 429,
+                quota: true,
+                ..
+            }
+        ),
+        "{e:?}"
+    );
+}

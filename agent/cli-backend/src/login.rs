@@ -131,8 +131,16 @@ pub fn sync_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
     };
     let user = std::fs::read(user_file)?;
     // A login the CLI was stopped while writing would log the other side out.
-    let json = |b: &[u8]| serde_json::from_slice::<Value>(b).is_ok();
-    let whole = |b: &[u8]| !b.is_empty() && (!json(&before) || json(b));
+    let parsed = |b: &[u8]| serde_json::from_slice::<Value>(b).ok();
+    let before_v = parsed(&before);
+    let whole = |b: &[u8]| !b.is_empty() && (before_v.is_none() || parsed(b).is_some());
+    // What comes out of the run must also be the same login (the run's home is writable: injected text could make
+    // the model write `{}` or another account there, as `guard_linked` checks on the linked path; audit M-10).
+    let same = |b: &[u8]| match (&before_v, parsed(b)) {
+        (None, _) => true,
+        (Some(k), Some(v)) => same_login(k, &v),
+        (Some(_), None) => false,
+    };
     if now != before {
         if user != before {
             tracing::warn!(
@@ -142,12 +150,14 @@ pub fn sync_login(user_file: &Path, home_file: &Path) -> std::io::Result<()> {
             // Settled: the next sync brings the user's into the copy.
             return replace(&original(home_file), &now);
         }
-        if !whole(&now) {
+        if !whole(&now) || !same(&now) {
             tracing::warn!(
                 file = %user_file.display(),
-                "the refreshed login is not whole; keeping the user's"
+                "the refreshed login is not whole or not the same login; keeping the user's"
             );
-            return Ok(());
+            // The run's copy goes back to the user's.
+            replace(home_file, &user)?;
+            return replace(&original(home_file), &user);
         }
         replace(user_file, &now)?;
         return replace(&original(home_file), &now);

@@ -320,5 +320,10 @@ mod tests {
             (f[0].file.as_str(), f[0].line, f[0].rule.as_str()),
             ("src/cfg.rs", 11, "github-token")
         );
+        // An added line that itself starts with `++ ` is a line, not a header (audit L-39).
+        let d = "diff --git a/x b/x\n+++ b/notes.md\n@@ -0,0 +1,1 @@\n+++ ghp_abcdefghijklmnopqrstuvwxyz0123456789\n";
+        let f = scan_diff(d);
+        assert_eq!(f.len(), 1, "{f:?}");
+        assert_eq!((f[0].file.as_str(), f[0].line), ("notes.md", 1));
     }
 }

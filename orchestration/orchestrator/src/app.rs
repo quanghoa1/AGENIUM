@@ -161,7 +161,15 @@ impl App {
         };
         // The user's sandbox choice for this computer (ADR-160).
         agenium_sandbox::set_off(config.sandbox.off);
-        let store = Arc::new(CoreStore::open(&layout.core_db(), &layout.backups())?);
+        agenium_core::ticket::set_max_reopen_before_escalate(
+            config.runtime.max_reopen_before_escalate,
+        );
+        agenium_store::backup::set_pre_migrate_keep(config.backup.pre_migrate_keep);
+        // Pre-migrate snapshots go where the user's backups go (`paths.backups_dir`).
+        let store = Arc::new(CoreStore::open(
+            &layout.core_db(),
+            &config.paths.backups(&layout.root),
+        )?);
         let bus = Bus::new(4096);
         store.set_sink(Some(Arc::new(bus.clone())));
         let backend = match config.secrets.backend {
@@ -528,7 +536,7 @@ impl App {
             &self.layout.agent_db(&id),
             dim,
             model_id,
-            &self.layout.backups(),
+            &self.backups_dir(),
             options,
         )?);
         m.insert(id, s.clone());
@@ -557,7 +565,7 @@ impl App {
             &dir.join(format!("{project}-traces.db")),
             e.dim(),
             e.model_id(),
-            &self.layout.backups(),
+            &self.backups_dir(),
         )?);
         m.insert(project, s.clone());
         Ok(s)

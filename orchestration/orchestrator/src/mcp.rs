@@ -15,7 +15,7 @@ use crate::app::App;
 use crate::{OrchError, Result};
 
 /// Vault lookups for the MCP hub (also registers the values with the redactor).
-pub fn secret_fn(app: Arc<App>) -> SecretFn {
+pub(crate) fn secret_fn(app: Arc<App>) -> SecretFn {
     Arc::new(move |name: &str| {
         app.secret(name)
             .ok()
@@ -107,6 +107,8 @@ pub fn plaintext_secrets(cfg: &McpServerConfig) -> Vec<String> {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct JsonImport {
     pub servers: Vec<String>,
+    /// Servers that were there and are replaced by the import.
+    pub replaced: Vec<String>,
 }
 
 /// One key an agent can set for a server it uses.
@@ -137,11 +139,18 @@ pub(crate) fn servers_from_json(map: &serde_json::Value) -> Result<Vec<(String, 
         .as_object()
         .ok_or_else(|| OrchError::Invalid("expected an object \"mcpServers\"".into()))?;
     let mut configs = Vec::new();
+    let mut named: BTreeMap<String, &String> = BTreeMap::new();
     for (name, s) in map {
         let id = server_id(name);
         if !agenium_config::valid_mcp_id(&id) {
             return Err(OrchError::Invalid(format!(
                 "cannot derive a server id from {name:?}"
+            )));
+        }
+        // "GitHub" and "github" (or two long names alike in their first 32 characters) are one id: say so.
+        if let Some(other) = named.insert(id.clone(), name) {
+            return Err(OrchError::Invalid(format!(
+                "{other:?} and {name:?} are the same server id {id:?}: rename one"
             )));
         }
         let strings = |key: &str| -> BTreeMap<String, String> {
@@ -249,8 +258,14 @@ impl App {
             .into_iter()
             .map(|(_, c)| c)
             .collect();
+        let had = self.config();
         let out = JsonImport {
             servers: configs.iter().map(|c| c.id.clone()).collect(),
+            replaced: configs
+                .iter()
+                .filter(|c| had.mcp.iter().any(|m| m.id == c.id))
+                .map(|c| c.id.clone())
+                .collect(),
         };
         self.update_config(|c| {
             for cfg in configs {

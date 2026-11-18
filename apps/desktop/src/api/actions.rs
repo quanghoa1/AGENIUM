@@ -180,8 +180,7 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
                     use agenium_orchestrator::runtime::acceptance::shot_of;
                     let (shots, words): (Vec<&str>, Vec<&str>) =
                         text.lines().partition(|l| shot_of(l).is_some());
-                    let words = words.join("
-");
+                    let words = words.join("\n");
                     if !words.trim().is_empty() {
                         out.push(json!({ "role": m.role, "text": words.trim() }));
                     }
@@ -237,7 +236,7 @@ pub async fn approve(
 
 /// Runs a command's slow work (git, the pre-merge check, embeddings, files) on the blocking pool. A command without
 /// `async` runs on the window's thread in Tauri 2: the whole window would freeze until it returns.
-pub(super) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> R<T> + Send + 'static) -> R<T> {
+pub(crate) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> R<T> + Send + 'static) -> R<T> {
     tauri::async_runtime::spawn_blocking(f)
         .await
         .map_err(|e| e.to_string())?
@@ -531,41 +530,9 @@ pub fn create_team(
 }
 
 #[tauri::command]
-pub fn create_solo(
-    d: State<'_, Desktop>,
-    project: String,
-    name: String,
-    model: ModelArg,
-) -> R<Value> {
-    let o = d.opened()?;
-    let b = binding(&model.provider, &model.model, &model.effort)?;
-    let (_, a) = o
-        .app
-        .create_solo(
-            pid(&project)?,
-            &CreateAgent {
-                name,
-                role: "solo".into(),
-                role_kind: RoleKind::Lead,
-                tags: vec![],
-                model: b.clone(),
-            },
-        )
-        .map_err(err)?;
-    if model.backend.as_deref() == Some("cli") {
-        o.app
-            .set_agent_backend(a.id, BackendKind::Cli, &b)
-            .map_err(err)?;
-        // The agent as it is now (on its CLI), not as it was created.
-        return Ok(json!(o.app.agent(a.id).map_err(err)?));
-    }
-    Ok(json!(a))
-}
-
-#[tauri::command]
 pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) -> R<()> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     let (backend, b) = model.binding()?;
     o.app.set_agent_backend(id, backend, &b).map_err(err)
 }
@@ -575,7 +542,7 @@ pub fn set_agent_model(d: State<'_, Desktop>, agent: String, model: ModelArg) ->
 #[tauri::command]
 pub async fn agent_context(d: State<'_, Desktop>, agent: String) -> R<Value> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     let a = o.app.agent(id).map_err(err)?;
     let (used, was) = o.app.context_now(id).map_err(err)?.unwrap_or((0, 0));
     let window = o.rt.window_of(&a).await;
@@ -592,7 +559,7 @@ pub async fn agent_context(d: State<'_, Desktop>, agent: String) -> R<Value> {
 #[tauri::command]
 pub async fn context_check(d: State<'_, Desktop>, agent: String, model: ModelArg) -> R<Value> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     let (backend, b) = model.binding()?;
     let now = o.app.context_now(id).map_err(err)?;
     let window = o.rt.window_for(backend, &b.provider, &b.model).await;
@@ -677,14 +644,14 @@ pub async fn refresh_prices(d: State<'_, Desktop>) -> R<Value> {
 #[tauri::command]
 pub fn rename_agent(d: State<'_, Desktop>, agent: String, name: String) -> R<()> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     o.app.rename_agent(id, &name).map_err(err)
 }
 
 #[tauri::command]
 pub fn set_agent_status(d: State<'_, Desktop>, agent: String, status: String) -> R<()> {
     let o = d.opened()?;
-    let id: AgentId = agent.parse().map_err(|e: IdParseError| e.to_string())?;
+    let id = aid(&agent)?;
     // The user can only bring an agent back (after a model change or new credit): Idle.
     if status != "Idle" {
         return Err("only Idle can be set by hand".into());
@@ -692,7 +659,6 @@ pub fn set_agent_status(d: State<'_, Desktop>, agent: String, status: String) ->
     o.app.set_agent_status(id, AgentStatus::Idle).map_err(err)
 }
 
-/// The user stops a project's team (its runs stop after the current step).
 /// The user reopens a closed project (ADR-130): with a free team on it, waiting for a busy one (`wait`), or none.
 #[tauri::command]
 pub fn reopen_project(
@@ -735,6 +701,7 @@ pub fn close_project(d: State<'_, Desktop>, project: String) -> R<Value> {
     Ok(json!({ "team": team, "taken_by": taken }))
 }
 
+/// The user stops a project's team (its runs stop after the current step).
 #[tauri::command]
 pub fn pause_project(d: State<'_, Desktop>, project: String) -> R<()> {
     d.opened()?.rt.pause_project(pid(&project)?).map_err(err)

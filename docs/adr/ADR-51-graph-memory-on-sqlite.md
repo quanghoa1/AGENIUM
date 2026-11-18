@@ -1,9 +1,9 @@
 # ADR-51: Graph memory on SQLite (entities, edges, scoped lessons, graph-expanded hybrid retrieval)
 
-- **Status:** Proposed — design only; nothing here is implemented or applied. Needs owner confirmation of §10 (sharing between agents), because it touches decision 2 ("memory is private per agent"). Implementation is placed in M1.5 / M4.5 (§14).
+- **Status:** Proposed — design only; nothing here is implemented or applied. (Note 2026-11-18: since built as the agent migration `agent_002`, `foundation/store/src/schema/agent_002.sql`; see ADR-52 §19.) Needs owner confirmation of §10 (sharing between agents), because it touches decision 2 ("memory is private per agent"). Implementation is placed in M1.5 / M4.5 (§14).
 - **Date:** 2026-10-23 (Asia/Saigon)
 - **Amends:** decision 2 (Memory), ADR-49 (store), ADR-50 (vector index). **Replaces the statement** "no graph traversal needed" in `STORE-PARITY.md` §5 and ADR-49: the *ticket/dependency* graph is relational (join tables, computed in `agenium-core`), the *memory* graph is planned here.
-- **Schema sketch:** `schemas/sql/drafts/agent_003_graph_memory.sql` (draft, not a migration; not mirrored by `cargo xtask schemas`). Example queries are self-tested in `docs/bench-raw/graph-queries-selftest.py`; the CTE feasibility probe is `docs/bench-raw/graph-cte-probe.py` with results in `docs/bench-raw/linux-graph-cte-probe.txt`.
+- **Schema sketch:** `docs/design/SCHEMAS/sql/drafts/agent_003_graph_memory.sql` (draft, not a migration; not mirrored by `cargo xtask schemas`). Example queries are self-tested in `docs/reference/bench-raw/graph-queries-selftest.py`; the CTE feasibility probe is `docs/reference/bench-raw/graph-cte-probe.py` with results in `docs/reference/bench-raw/linux-graph-cte-probe.txt`.
 
 ## 1. Why
 
@@ -13,7 +13,7 @@ Decision: model this as **relational tables inside the existing per-agent SQLite
 
 ## 2. Data model (per-agent DB `agents/<id>.db`)
 
-Full DDL: `schemas/sql/drafts/agent_003_graph_memory.sql`. Summary:
+Full DDL: `docs/design/SCHEMAS/sql/drafts/agent_003_graph_memory.sql`. Summary:
 
 | Table | Purpose | Key fields |
 |---|---|---|
@@ -158,7 +158,7 @@ Pack rules: only facts with `shareable=1` (set by Lead/user, never by the extrac
 
 ## 12. Limits and what was measured
 
-Feasibility probe (`docs/bench-raw/linux-graph-cte-probe.txt`; python `sqlite3` 3.46, Linux 8 cores, warm cache; **not** the Rust store; synthetic graph with skewed in-degree, 10% of edges scoped, context vendor=netgear, average undirected degree ≈ 6; set-based and path-guarded shapes, depth 1–3, 100 random and 100 hub-biased seeds):
+Feasibility probe (`docs/reference/bench-raw/linux-graph-cte-probe.txt`; python `sqlite3` 3.46, Linux 8 cores, warm cache; **not** the Rust store; synthetic graph with skewed in-degree, 10% of edges scoped, context vendor=netgear, average undirected degree ≈ 6; set-based and path-guarded shapes, depth 1–3, 100 random and 100 hub-biased seeds):
 
 | Edges (entities) | depth 1 p50 / p95 | depth 2 p50 / p95 | depth 3 p50 / p95 |
 |---|---|---|---|

@@ -34,9 +34,10 @@ set for an agent; an update takes everything from the vendor; and the format is 
 5. **Whole per agent**: the agent's skill binding holds `plugin:<name>`; its skills load with origin `plugin` (never
    over a role or library skill of the same name, never replaced by an agent's own skill), its servers are bound with
    every tool at each run (API and CLI brains alike, through Agenium's MCP). The agent page's Plugin tab is the only
-   switch.
+   switch. (Amended 2026-11-17, below: an agent can also be given one skill of a plugin alone.)
 6. **Read-only**: a plugin's skill is no role, library or created skill of the agent, so `propose_skill_update`,
    overlays and skill proposals refuse it; a new skill of its name is refused as existing.
+   (Amended 2026-11-17, below: an agent learns into its own copy of a plugin's skill; the vendor's copy stays read-only.)
 7. **Update**: the ref it follows is fetched again; the preview shows the skills and servers added, changed (by a
    digest of their files) and removed, and the agents that have it on; applying replaces the whole set. **Remove**
    deletes the folder and the record and switches it off for every agent.
@@ -48,7 +49,8 @@ set for an agent; an update takes everything from the vendor; and the format is 
 - A vendor's hook-based behaviour (ponytail's status band, superpowers' session hooks) is not reproduced; its skills
   are. Verified 2026-11-04 with both repositories: superpowers 7.0.2 (15 skills, hooks skipped) and ponytail 5.3.3
   (6 skills, hooks and commands skipped); a Devin agent with superpowers on listed and loaded `brainstorming`.
-- shortcut: GitHub only (no GitLab or private repositories with a token); add a source when a vendor needs it.
+- shortcut: GitHub only (no GitLab); add a source when a vendor needs it. Private repositories with a token came in
+  the 2026-11-16 amendment.
 
 ## Amendment (2026-11-04): hooks run Agenium's way, and nothing stays once a plugin is gone
 
@@ -64,7 +66,8 @@ in at `SessionStart`); run them Agenium's way, and leave nothing of a removed pl
    plugin's folder read-only, its `data/` the only folder it writes, no network, at most 60 s, Claude Code's input
    (`hook_event_name`, `session_id`, `cwd`, `source`/`prompt`/`tool_name`+`tool_input`) on stdin, `CLAUDE_PLUGIN_ROOT`,
    `CLAUDE_PLUGIN_DATA` and `CLAUDE_PROJECT_DIR` set and put in the command; its PowerShell form where the sandbox runs
-   PowerShell. Without a sandbox a hook is not run. Exit 2 or a `deny`/`ask` decision refuses a tool call (`ask`
+   PowerShell. Without a sandbox a hook is not run (since ADR-160: when the user turned the sandbox off, it runs on
+   the host). Exit 2 or a `deny`/`ask` decision refuses a tool call (`ask`
    refuses too for now and tells the agent to use `request_permission`); a hook never allows what Agenium refuses.
 3. **Nothing stored**: what `SessionStart` says joins the run's instructions and what `UserPromptSubmit` says joins that
    turn's instructions, rebuilt at every run, never in a stored message. Switching a plugin off or removing it ends

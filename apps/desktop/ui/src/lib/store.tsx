@@ -13,7 +13,8 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { api, inTauri, onApproval, onEvent, onModel, onRun } from "./api";
+import { api, inTauri } from "./api";
+import { onApproval, onEvent, onModel, onRun } from "./events";
 import { dictionaries, type Key, type Lang } from "./i18n";
 import type { CommandApproval, ProjectSummary, Status } from "./types";
 import { setAgoLang } from "../components/ui";
@@ -51,7 +52,7 @@ function parseHash(): Route {
   return { view: (view || "overview") as View, id: id ? decodeURIComponent(id) : undefined };
 }
 
-export type ThemeMode = "dark" | "light" | "system";
+type ThemeMode = "dark" | "light" | "system";
 
 /** Live output of one run: streamed text, the tail of its thinking, tool calls, and what it does right now. */
 export interface LiveRun {
@@ -73,7 +74,7 @@ export interface LiveRun {
 }
 
 /** One step of a turn in progress: a stretch of text, or a call (its args once the call is known whole). */
-export type LiveStep = { kind: "text"; text: string } | { kind: "tool"; id?: string; name: string; args?: unknown };
+type LiveStep = { kind: "text"; text: string } | { kind: "tool"; id?: string; name: string; args?: unknown };
 
 const TAIL = 20_000;
 /** Finished runs are dropped from the live map after this long (ms). */
@@ -398,7 +399,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (was[p.id] === "Running" && p.run_state === "Done")
         notify(t("run.doneToast").replace("{p}", name), { label: t("run.review"), run: () => (setProject(p.id), go("projects")) });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
   const value = useMemo<Ctx>(

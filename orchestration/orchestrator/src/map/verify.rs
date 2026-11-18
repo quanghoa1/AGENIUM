@@ -80,12 +80,36 @@ impl Evidence {
     }
 }
 
+thread_local! {
+    /// The files read while [`cached`] runs: a recheck reads each file once, not once per link.
+    static FILES: std::cell::RefCell<Option<std::collections::HashMap<std::path::PathBuf, Result<String, String>>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` with every file it reads kept for its duration (on this thread).
+pub fn cached<T>(f: impl FnOnce() -> T) -> T {
+    FILES.with(|c| *c.borrow_mut() = Some(Default::default()));
+    let out = f();
+    FILES.with(|c| *c.borrow_mut() = None);
+    out
+}
+
 fn read(root: &Path, file: &str) -> Result<String, String> {
     let p = root.join(file);
-    if !agenium_tools::paths::confined(&p, root) {
-        return Err(format!("{file} is outside the project"));
+    if let Some(hit) = FILES.with(|c| c.borrow().as_ref().and_then(|m| m.get(&p).cloned())) {
+        return hit;
     }
-    std::fs::read_to_string(&p).map_err(|_| format!("{file} is not a text file of the project"))
+    let got = if !agenium_tools::paths::confined(&p, root) {
+        Err(format!("{file} is outside the project"))
+    } else {
+        std::fs::read_to_string(&p).map_err(|_| format!("{file} is not a text file of the project"))
+    };
+    FILES.with(|c| {
+        if let Some(m) = c.borrow_mut().as_mut() {
+            m.insert(p, got.clone());
+        }
+    });
+    got
 }
 
 /// Where the code node `r` is: a file's whole length, a symbol's declaration (by the outline of its file).
@@ -214,6 +238,9 @@ pub fn moved(root: &Path, ev: &Evidence, src: &Ref, dst: &Ref) -> Option<Evidenc
     } else {
         (1, read(root, file).ok()?.lines().count() as u32)
     };
+    if hi < lo {
+        return None;
+    }
     let text = read(root, file).ok()?;
     let term = dst.term();
     text.lines()

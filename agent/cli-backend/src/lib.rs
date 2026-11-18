@@ -14,6 +14,7 @@ pub mod grok;
 pub mod login;
 pub mod login_access;
 pub mod opencode;
+mod probe;
 pub mod run;
 mod tool_paths;
 pub mod updates;
@@ -27,8 +28,8 @@ pub use run::{CliRun, Limits};
 /// OpenCode have no setting for theirs; they waited 80 s).
 pub const FOREGROUND_LIMIT: std::time::Duration = std::time::Duration::from_secs(45);
 
-/// The driver of `kind`; `None` when Agenium does not drive that CLI (yet). Only CLIs whose headless contract and
-/// per-run isolation were verified are listed (ADR-56).
+/// The driver of `kind`. Only CLIs whose headless contract and per-run isolation were verified are known (ADR-56);
+/// every one of them is driven (Devin since ADR-156). `None` is kept for a CLI detected before it is driven.
 pub fn driver(kind: CliKind) -> Option<&'static dyn Driver> {
     match kind {
         CliKind::Agy => Some(&agy::Agy),

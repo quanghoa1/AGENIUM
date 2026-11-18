@@ -41,13 +41,34 @@ impl Runtime {
         {
             return v.clone();
         }
-        let listed =
+        const FAILED_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+        let failed_lately = self
+            .model_list_failed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(provider_id)
+            .is_some_and(|t| t.elapsed() < FAILED_TTL);
+        let listed = if failed_lately {
+            None
+        } else {
             tokio::time::timeout(std::time::Duration::from_secs(15), provider.list_models())
                 .await
                 .ok()
-                .and_then(|r| r.ok());
-        // A failed or slow listing is not remembered: the next run asks again.
+                .and_then(|r| r.ok())
+        };
+        // A failed or slow listing is not remembered for long: a run a minute later asks again.
         let answered = listed.is_some();
+        {
+            let mut failed = self
+                .model_list_failed
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if answered {
+                failed.remove(provider_id);
+            } else if !failed_lately {
+                failed.insert(provider_id.to_owned(), std::time::Instant::now());
+            }
+        }
         let mut info = listed
             .unwrap_or_default()
             .into_iter()
@@ -166,6 +187,10 @@ impl Runtime {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .retain(|(p, _), _| p != id);
+        self.model_list_failed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(id);
     }
 
     /// Whether the agent's CLI can run now: known, driven by Agenium, installed, at least the checked version, not

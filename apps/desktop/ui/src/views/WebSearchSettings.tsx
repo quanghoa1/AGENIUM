@@ -4,7 +4,8 @@
 import { CheckCircle2, Circle, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Section } from "../components/ui";
-import { api, type WebSearchStatus } from "../lib/api";
+import { api } from "../lib/api";
+import { type WebSearchStatus } from "../lib/apiTypes";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
 

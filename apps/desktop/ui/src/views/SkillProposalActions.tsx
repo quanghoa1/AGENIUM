@@ -3,7 +3,8 @@
 // library and is switched on for the agent that proposed it.
 import { Loader2, Pencil, Wand2, X } from "lucide-react";
 import { useState } from "react";
-import { api, type SkillProposal } from "../lib/api";
+import { api } from "../lib/api";
+import { type SkillProposal } from "../lib/apiTypes";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
 import { SkillEditor } from "./capabilities/SkillEditor";

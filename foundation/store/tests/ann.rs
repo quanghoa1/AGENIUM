@@ -452,7 +452,16 @@ fn reindex_and_vectorless_facts_stay_consistent() {
     s.add(&NewFact::fact("zero vector", "t"), Some(&[0.0; DIM]))
         .unwrap();
     assert_eq!(s.index_status().size, live.len());
-    // Re-embedding every fact replaces every vector in the sidecar.
+    // Another embedder (same dimension): re-embedding every fact replaces every vector in the sidecar.
+    drop(s);
+    let s = AgentStore::open_with(
+        &db(tmp.path()),
+        DIM,
+        "toy-2",
+        &tmp.path().join("backups"),
+        opts(IndexMode::Ann),
+    )
+    .unwrap();
     let fresh: std::collections::HashMap<String, Vec<f32>> = s
         .live(10_000)
         .unwrap()

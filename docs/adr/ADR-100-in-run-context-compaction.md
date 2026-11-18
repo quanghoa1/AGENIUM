@@ -1,6 +1,6 @@
 # ADR-100: In-run context management — clear old tool results, then compact, then checkpoint
 
-Status: Accepted (2026-10-26). Evidence: `agent/loop/tests/loop.rs` (`old_tool_results_are_cleared_when_the_context_fills`,
+Status: Accepted (2026-10-26). Evidence: `agent/loop/tests/loop/` (`old_tool_results_are_cleared_when_the_context_fills`,
 `a_full_context_is_summarised_and_the_run_goes_on`, `after_two_compactions_the_run_checkpoints`; the first two fail
 when their feature is switched off). Amends decision 36 (the checkpoint at 85 % of the window).
 

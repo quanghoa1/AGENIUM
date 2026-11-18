@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 use agenium_core::forms::ProposeSkillUpdate;
 use agenium_core::*;
 use agenium_skills::{Origin, Owner, Skill};
-use agenium_store::FactKind;
 use serde::Serialize;
 
 use crate::app::App;
@@ -61,10 +60,34 @@ pub struct RebaseOutcome {
     pub skill: String,
     pub from_version: String,
     pub to_version: String,
-    /// `up-to-date`, `rebased`, `conflict`, or `no-base`.
+    /// `up-to-date`, `rebased`, `conflict`, `no-base`, or `error` (it could not be read or written; left as it was).
     pub status: String,
     /// On a conflict: the merged text with `<<<<<<<` markers, for the user to resolve (the overlay is left unchanged).
     pub conflict_preview: Option<String>,
+}
+
+/// Puts `staging` in the place of `dir`: the old folder is moved aside first and put back if the move fails (an
+/// antivirus or an indexer holding a file on Windows), so a failed swap never loses the copy.
+pub(crate) fn swap_dir(staging: &std::path::Path, dir: &std::path::Path) -> std::io::Result<()> {
+    let aside = dir.with_file_name(format!(
+        ".old-{}-{}",
+        dir.file_name().unwrap_or_default().to_string_lossy(),
+        ulid::Ulid::new()
+    ));
+    let had = dir.exists();
+    if had {
+        std::fs::rename(dir, &aside)?;
+    }
+    if let Err(e) = std::fs::rename(staging, dir) {
+        if had {
+            let _ = std::fs::rename(&aside, dir);
+        }
+        return Err(e);
+    }
+    if had {
+        let _ = std::fs::remove_dir_all(&aside);
+    }
+    Ok(())
 }
 
 fn invalid(m: impl Into<String>) -> OrchError {
@@ -217,31 +240,8 @@ impl App {
                 "{name:?} is not a role, library or plugin skill of yours, nor one you created"
             ))
         })?;
+        let lesson = self.lesson_gate(agent, u.lesson, &u.reason)?;
         let mem = self.agent_memory_store(agent)?;
-        let lesson = mem
-            .get(u.lesson)
-            .map_err(|_| invalid(format!("lesson #{} is not in your memory", u.lesson)))?;
-        if lesson.kind != FactKind::Lesson || !lesson.is_live() {
-            return Err(invalid(format!("#{} is not a live lesson", u.lesson)));
-        }
-        // ADR-92: like a new skill, a lesson that came from external content never changes a skill.
-        if lesson.untrusted {
-            return Err(invalid(format!(
-                "lesson #{} came from external content (a page, a file, a tool output): it cannot change a skill",
-                u.lesson
-            )));
-        }
-        let held = self.evidenced_contexts(&lesson).len();
-        if held < MIN_CONTEXTS {
-            return Err(invalid(format!(
-                "lesson #{} held in {held} context(s) on record (closed tickets); a skill changes only after a lesson \
-                 held in {MIN_CONTEXTS}",
-                u.lesson
-            )));
-        }
-        if u.reason.trim().is_empty() {
-            return Err(invalid("give the reason for the change"));
-        }
         let dir = self.overlay_dir(agent, name);
         let fresh = !dir.join("SKILL.md").is_file();
         let current = if fresh {
@@ -251,41 +251,8 @@ impl App {
         };
         let current = std::fs::read_to_string(current)?;
         let updated = updated_text(&current, u)?;
-        let lower = updated.to_lowercase();
-        if let Some(p) = INJECTION
-            .iter()
-            .find(|p| lower.contains(*p) && !current.to_lowercase().contains(*p))
-        {
-            return Err(invalid(format!(
-                "the change adds {p:?}, which reads as injected instructions: refused"
-            )));
-        }
-        if !agenium_vcs::scan_diff(&u.patch).is_empty() || self.redactor.redact(&updated) != updated
-        {
-            return Err(invalid(
-                "the change carries something that looks like a secret: refused",
-            ));
-        }
-        // ADR-92: the change must not introduce an explicit contradiction with another skill the agent uses (an
-        // inconsistency that was already there before the change does not block it).
-        let others: Vec<(String, String)> = self
-            .known_skills(Some(&a), name)
-            .into_iter()
-            .map(|k| (k.name, k.guidance))
-            .collect();
-        let strip = crate::skill_shape::strip_frontmatter;
-        let before = crate::skill_conflict::directive_conflicts(name, &strip(&current), &others);
-        let introduced: Vec<String> =
-            crate::skill_conflict::directive_conflicts(name, &strip(&updated), &others)
-                .into_iter()
-                .filter(|c| !before.contains(c))
-                .collect();
-        if !introduced.is_empty() {
-            return Err(invalid(format!(
-                "the change {}; reconcile the two skills first (or improve the other one)",
-                introduced.join("; ")
-            )));
-        }
+        self.text_gate(&[&current], &updated, "change")?;
+        self.conflict_gate(&a, name, &current, &updated)?;
         // Write into a staging copy, validate the skill, then swap it in.
         // (The staging folder carries the skill's name: a skill's name must equal its folder's.)
         let staging_root = dir.with_file_name(format!(".update-{}", ulid::Ulid::new()));
@@ -296,9 +263,9 @@ impl App {
             let _ = std::fs::remove_dir_all(&staging_root);
             return Err(invalid(format!("the updated skill is not valid: {e}")));
         }
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::rename(&staging, &dir)?;
+        let swapped = swap_dir(&staging, &dir);
         let _ = std::fs::remove_dir_all(&staging_root);
+        swapped?;
         let base_text = std::fs::read_to_string(base.meta.dir.join("SKILL.md"))?;
         let cumulative = diff_texts(&base_text, &updated)?;
         // ADR-88: the same skill-shape checks the user sees when authoring also run on an agent's self-upgrade, as
@@ -379,8 +346,20 @@ impl App {
         let mut out = Vec::new();
         let mut conflicts = Vec::new();
         for o in mem.overlays()? {
-            let outcome = self.rebase_one(agent, &a, mem.as_ref(), &o)?;
-            if outcome.status == "conflict" {
+            // One copy that fails is said; the others are still rebased.
+            let outcome = self
+                .rebase_one(agent, &a, mem.as_ref(), &o)
+                .unwrap_or_else(|e| {
+                    tracing::warn!(skill = %o.skill, error = %e, "a skill copy could not be rebased");
+                    RebaseOutcome {
+                        skill: o.skill.clone(),
+                        from_version: o.base_version.clone(),
+                        to_version: o.base_version.clone(),
+                        status: "error".into(),
+                        conflict_preview: Some(e.to_string()),
+                    }
+                });
+            if matches!(outcome.status.as_str(), "conflict" | "error") {
                 conflicts.push(outcome.skill.clone());
             }
             out.push(outcome);
@@ -453,9 +432,9 @@ impl App {
                 Some(format!("the rebased skill is not valid: {e}\n\n{merged}"));
             return Ok(outcome);
         }
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::rename(&staging, &dir)?;
+        let swapped = swap_dir(&staging, &dir);
         let _ = std::fs::remove_dir_all(&staging_root);
+        swapped?;
         let cumulative = diff_texts(&new_base, &merged)?;
         mem.put_overlay(
             &o.skill,

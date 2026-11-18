@@ -158,7 +158,7 @@ function Digit({ d }: { d: number }) {
 }
 
 /** A whole number whose digits roll to the new value (keyed from the right so the units column stays put). */
-export function RollingNumber({ value }: { value: number }) {
+function RollingNumber({ value }: { value: number }) {
   const digits = String(Math.max(0, Math.round(value))).split("").map(Number);
   return (
     <span className="inline-flex tabular-nums" aria-hidden>

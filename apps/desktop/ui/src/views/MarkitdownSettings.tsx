@@ -6,7 +6,9 @@ import { CheckCircle2, Download, Loader2, RefreshCw, ShieldCheck, Trash2, XCircl
 import { useEffect, useState } from "react";
 import { ConfirmModal } from "../components/motion";
 import { Mono, Section, ago } from "../components/ui";
-import { api, onMarkitdown, type MarkitdownStatus } from "../lib/api";
+import { api } from "../lib/api";
+import { type MarkitdownStatus } from "../lib/apiTypes";
+import { onMarkitdown } from "../lib/events";
 import { friendly } from "../lib/errors";
 import { useApp } from "../lib/store";
 

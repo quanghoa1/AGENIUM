@@ -5,31 +5,15 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use agenium_backend::{Effect, NoopObserver, Protocol, WorkOrder};
+use agenium_backend::{NoopObserver, WorkOrder};
+
+use super::side_chat::{NoProtocol, Scratch};
 use agenium_cli_backend::{CliRun, Control, Driver, Limits};
 use agenium_llm::{
     ChatEvent, ChatRequest, ChatResponse, LlmError, Message, ModelInfo, Provider, Role, StopReason,
 };
-use agenium_tools::{DenyAll, ToolCtx, ToolError};
+use agenium_tools::{DenyAll, ToolCtx};
 use async_trait::async_trait;
-
-/// A side call offers no protocol tool.
-struct NoProtocol;
-
-#[async_trait]
-impl Protocol for NoProtocol {
-    async fn call(
-        &self,
-        name: &str,
-        _args: serde_json::Value,
-        _call_id: &str,
-    ) -> std::result::Result<(serde_json::Value, Effect), ToolError> {
-        Err(ToolError::new(
-            "no_tools",
-            format!("{name} is not available here: answer in text"),
-        ))
-    }
-}
 
 /// A CLI's side turns at most (a memory answer is one short call), and how long it may last.
 const STEPS: u32 = 4;
@@ -84,6 +68,8 @@ impl Provider for CliBrain {
     ) -> std::result::Result<ChatResponse, LlmError> {
         let dir = std::env::temp_dir().join(format!("agenium-brain-{}", ulid::Ulid::new()));
         std::fs::create_dir_all(&dir).map_err(|e| LlmError::Config(e.to_string()))?;
+        // Removed however the turn ends, a cancel too.
+        let _scratch = Scratch(dir.clone());
         let ctx = ToolCtx::new(
             &dir,
             "brain",
@@ -130,8 +116,6 @@ impl Provider for CliBrain {
             .find(|m| m.role == Role::Assistant && !m.text().trim().is_empty())
             .map(Message::text)
             .unwrap_or_default();
-        agenium_sandbox::remove_run_temp_dir(&dir);
-        let _ = std::fs::remove_dir_all(&dir);
         // A run that stopped before it finished (its step limit, its time, a cancel) left at most part of an answer:
         // memory drawn from it would be drawn from half a reply.
         if !matches!(report.outcome, agenium_backend::Outcome::Completed) {

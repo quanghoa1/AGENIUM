@@ -40,6 +40,9 @@ struct Kept {
     /// Tokens of context the session filled at its last step (0: not reported).
     #[serde(default)]
     context: u64,
+    /// The session's usage as the CLI last reported it, for a CLI that reports the session's total.
+    #[serde(default)]
+    reported: agenium_llm::Usage,
 }
 
 /// The CLI of a `cli:model` label.
@@ -51,9 +54,14 @@ const KEPT: &str = "agenium-session.json";
 const HOME: &str = "home";
 
 impl SessionStore {
-    /// Brings a kept session of `cli` back into `home` (before the run's own files are written there); its id, or
-    /// `None` when there is nothing to resume.
-    pub fn restore(&self, home: &Path, driver: &dyn Driver, cli: &str) -> Option<String> {
+    /// Brings a kept session of `cli` back into `home` (before the run's own files are written there); its id and the
+    /// usage the CLI last reported for it, or `None` when there is nothing to resume.
+    pub fn restore(
+        &self,
+        home: &Path,
+        driver: &dyn Driver,
+        cli: &str,
+    ) -> Option<(String, agenium_llm::Usage)> {
         if self.held == 0 || !driver.resumes_across_runs() {
             return None;
         }
@@ -62,7 +70,7 @@ impl SessionStore {
             return None;
         }
         copy_tree(&self.dir.join(HOME), home, &[]).ok()?;
-        Some(kept.id)
+        Some((kept.id, kept.reported))
     }
 
     /// Whether the run would resume the kept session (the same CLI and model, holding the run's earlier messages):
@@ -93,6 +101,7 @@ impl SessionStore {
     /// Keeps the run's home (without the login copy), the CLI's session id and how many messages of the ticket's
     /// conversation it holds (`total`) for the ticket's next run; a run with no session, or a CLI that cannot resume
     /// one, keeps nothing (and ends what was kept).
+    #[allow(clippy::too_many_arguments)]
     pub fn keep(
         &self,
         home: &Path,
@@ -101,6 +110,7 @@ impl SessionStore {
         id: Option<&str>,
         total: usize,
         context: u64,
+        reported: agenium_llm::Usage,
     ) {
         let _ = std::fs::remove_dir_all(&self.dir);
         let (Some(id), true) = (id, driver.resumes_across_runs()) else {
@@ -126,6 +136,7 @@ impl SessionStore {
             id: id.to_owned(),
             total,
             context,
+            reported,
         };
         let r = copy_tree(home, &self.dir.join(HOME), &skip).and_then(|()| {
             std::fs::write(
@@ -201,11 +212,22 @@ mod tests {
             held,
             window: 0,
         };
-        store(0).keep(&home, claude, "claude", Some("s1"), 5, 0);
+        store(0).keep(
+            &home,
+            claude,
+            "claude",
+            Some("s1"),
+            5,
+            0,
+            Default::default(),
+        );
         assert!(!kept.join("home/.credentials.json").exists());
         assert!(!original(&kept.join("home/.credentials.json")).exists());
         assert_eq!(
-            store(5).restore(&next, claude, "claude").as_deref(),
+            store(5)
+                .restore(&next, claude, "claude")
+                .map(|r| r.0)
+                .as_deref(),
             Some("s1")
         );
         assert_eq!(
@@ -224,12 +246,20 @@ mod tests {
             store(0).restore(&next, claude, "claude").is_none(),
             "a fresh start"
         );
-        store(0).keep(&home, claude, "claude", None, 5, 0);
+        store(0).keep(&home, claude, "claude", None, 5, 0, Default::default());
         assert!(!kept.exists(), "a run with no session keeps nothing");
         // Codex's databases hold the old home's path: its sessions are kept without them.
         std::fs::write(home.join("state_5.sqlite"), "paths").unwrap();
         std::fs::write(home.join("state_5.sqlite-wal"), "paths").unwrap();
-        store(0).keep(&home, &crate::codex::Codex, "codex", Some("t1"), 5, 0);
+        store(0).keep(
+            &home,
+            &crate::codex::Codex,
+            "codex",
+            Some("t1"),
+            5,
+            0,
+            Default::default(),
+        );
         assert!(kept.join("home/projects/wt/s1.jsonl").exists());
         assert!(
             !kept.join("home/state_5.sqlite").exists()
@@ -254,7 +284,15 @@ mod tests {
             window,
         };
         // Written by Opus, 90 000 tokens of context.
-        store(0, 0).keep(&home, claude, "claude:opus", Some("s1"), 5, 90_000);
+        store(0, 0).keep(
+            &home,
+            claude,
+            "claude:opus",
+            Some("s1"),
+            5,
+            90_000,
+            Default::default(),
+        );
         assert!(
             store(5, 200_000).would_resume(claude, "claude:sonnet"),
             "fits a window as large"
@@ -286,11 +324,20 @@ mod tests {
         assert_eq!(
             store(5, 200_000)
                 .restore(&next, claude, "claude:sonnet")
+                .map(|r| r.0)
                 .as_deref(),
             Some("s1")
         );
         // A session whose size was not reported resumes only on its own model.
-        store(0, 0).keep(&home, claude, "claude:opus", Some("s2"), 5, 0);
+        store(0, 0).keep(
+            &home,
+            claude,
+            "claude:opus",
+            Some("s2"),
+            5,
+            0,
+            Default::default(),
+        );
         assert!(!store(5, 1_000_000).would_resume(claude, "claude:sonnet"));
     }
 }

@@ -242,11 +242,14 @@ impl Judge {
     }
 }
 
-/// Busy or slow, worth another try: a rate limit, an overloaded or unavailable service, a timeout.
+/// Worth another try at once: a rate limit or a busy service that asks for no longer wait than ours, or no
+/// connection. Not a timeout: the request may have been read and billed (a judge call is optional; it goes without).
 fn retryable(e: &LlmError) -> bool {
     match e {
-        LlmError::Timeout => true,
-        LlmError::Network(m) => m.contains("rate limited") || m.contains("busy"),
+        LlmError::Network(m) => {
+            (m.contains("rate limited") || m.contains("busy") || m.starts_with("cannot connect"))
+                && !m.contains("retry after")
+        }
         _ => false,
     }
 }
@@ -283,7 +286,7 @@ impl Answer {
     }
 }
 
-fn map_err(status: u16, _: &reqwest::header::HeaderMap, body: &str) -> LlmError {
+fn map_err(status: u16, headers: &reqwest::header::HeaderMap, body: &str) -> LlmError {
     let detail = serde_json::from_str::<Value>(body)
         .ok()
         .and_then(|v| {
@@ -302,6 +305,16 @@ fn map_err(status: u16, _: &reqwest::header::HeaderMap, body: &str) -> LlmError 
         402 => LlmError::Config(format!("TypeSafe quota exhausted: {detail}")),
         429 if exhausted => LlmError::Config(format!("TypeSafe quota exhausted: {detail}")),
         400 | 422 => LlmError::Config(format!("TypeSafe request invalid: {detail}")),
+        // A wait asked for that is longer than ours: not tried again now.
+        429 | 503 | 529
+            if headers
+                .get("retry-after")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .is_some_and(|s| s > 1) =>
+        {
+            LlmError::Network(format!("TypeSafe rate limited (retry after): {detail}"))
+        }
         429 => LlmError::Network(format!("TypeSafe rate limited: {detail}")),
         503 | 529 => LlmError::Network(format!("TypeSafe busy (HTTP {status}): {detail}")),
         _ => LlmError::Network(format!("TypeSafe HTTP {status}: {detail}")),

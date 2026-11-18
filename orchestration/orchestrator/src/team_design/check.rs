@@ -108,13 +108,6 @@ pub(super) fn answer(
     Ok((a.reply.trim().to_owned(), questions, draft))
 }
 
-/// [`answer`]'s team check, for a team given as JSON.
-pub fn check_team(v: Value, ctx: &DesignCtx) -> std::result::Result<TeamDraft, String> {
-    let t: RawTeam = serde_json::from_value(v)
-        .map_err(|e| format!("the team's fields are not as asked: {e}"))?;
-    check(t, ctx)
-}
-
 fn check(t: RawTeam, ctx: &DesignCtx) -> std::result::Result<TeamDraft, String> {
     let mut notes = Vec::new();
     // The id: valid and not one the user already has (a draft never overwrites a template).

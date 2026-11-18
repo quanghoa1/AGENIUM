@@ -144,6 +144,11 @@ impl AgentStore {
                     _ => {}
                 }
             }
+            // Vectors are not carried: every fact brought in is embedded again by this machine's model (`reindex`).
+            tx.execute(
+                "UPDATE fact SET model_id = NULL WHERE superseded_by IS NULL",
+                [],
+            )?;
             Ok(n)
         })
     }

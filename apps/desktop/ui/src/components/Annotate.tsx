@@ -76,9 +76,7 @@ export function Annotate({ image, onDone, onCancel }: { image: string; onDone: (
       paint();
     };
     i.src = `data:image/png;base64,${image}`;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [image]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => paint(), [shapes]);
 
   const at = (e: React.PointerEvent): [number, number] => {

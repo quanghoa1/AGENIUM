@@ -1,9 +1,8 @@
 //! Detection of installed agent CLIs: path, version, login state, minimum version.
 
-use std::io::Read;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -113,37 +112,8 @@ pub struct CliInfo {
 /// Runs a command with a deadline; returns combined stdout + stderr.
 fn run(program: &PathBuf, args: &[&str], timeout: Duration) -> Option<String> {
     let mut cmd = Command::new(program);
-    cmd.args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // The desktop app has no console: without this each probe opens a terminal window.
-        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    }
-    let mut child = cmd.spawn().ok()?;
-    let start = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(_)) => break,
-            Ok(None) if start.elapsed() < timeout => std::thread::sleep(Duration::from_millis(25)),
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return None;
-            }
-        }
-    }
-    let mut s = String::new();
-    if let Some(mut o) = child.stdout.take() {
-        let _ = o.read_to_string(&mut s);
-    }
-    if let Some(mut e) = child.stderr.take() {
-        let _ = e.read_to_string(&mut s);
-    }
-    Some(s)
+    cmd.args(args);
+    crate::probe::output_blocking(cmd, timeout)
 }
 
 /// First `a.b.c` (or `a.b`) in a version banner.
@@ -170,9 +140,8 @@ pub fn detect(kind: CliKind) -> CliInfo {
     };
     let banner = run(&path, &["--version"], Duration::from_secs(20));
     let version = banner.as_deref().and_then(parse_version);
-    // Usable: a checked version, and a CLI Agenium drives (devin is detected but not driven, ADR-56).
-    let driven = crate::driver(kind).is_some();
-    let compatible = driven && version.is_some_and(|v| v >= kind.min_version());
+    // Usable: a checked version (every known CLI is driven, ADR-56, ADR-156).
+    let compatible = version.is_some_and(|v| v >= kind.min_version());
     let login = match kind.login_probe() {
         Some((args, read)) => run(&path, args, Duration::from_secs(20))
             .as_deref()
@@ -192,7 +161,6 @@ pub fn detect(kind: CliKind) -> CliInfo {
         None => Login::Unknown,
     };
     let note = match (version, compatible) {
-        _ if !driven => Some("Agenium does not drive this CLI".into()),
         (None, _) => Some("cannot read its version".into()),
         (Some(_), false) => Some(format!(
             "older than the checked minimum {}",
@@ -210,8 +178,7 @@ pub fn detect(kind: CliKind) -> CliInfo {
     }
 }
 
-/// Every known CLI, installed or not.
-/// Every known CLI, each probed on its own thread (one slow CLI no longer adds up with the others).
+/// Every known CLI, installed or not, each probed on its own thread (one slow CLI no longer adds up with the others).
 pub fn detect_all() -> Vec<CliInfo> {
     std::thread::scope(|s| {
         let hs: Vec<_> = CliKind::ALL

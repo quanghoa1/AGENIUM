@@ -283,8 +283,6 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
       return demoUsage;
     case "support_bundle":
       return "C:/Temp/agenium-support-demo";
-    case "judge_status":
-      return { configured: false, disabled: false, reason: null };
     case "enable_judge":
       return null;
     case "export_agent":

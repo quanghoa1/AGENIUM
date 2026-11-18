@@ -117,7 +117,7 @@ pub async fn chat_with_retry(
 }
 
 /// Connection details for building a provider (from `config.toml` + the secret store).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProviderSpec {
     pub id: String,
     pub kind: String,
@@ -126,6 +126,20 @@ pub struct ProviderSpec {
     pub max_concurrency: usize,
     /// The user's additions to an OpenAI-compatible endpoint's requests (headers resolved, fields checked).
     pub custom: custom::Custom,
+}
+
+// The key is never printed.
+impl std::fmt::Debug for ProviderSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProviderSpec")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("base_url", &self.base_url)
+            .field("api_key", &self.api_key.as_ref().map(|_| "<set>"))
+            .field("max_concurrency", &self.max_concurrency)
+            .field("custom", &self.custom)
+            .finish()
+    }
 }
 
 pub fn build_provider(spec: &ProviderSpec) -> Result<Arc<dyn Provider>, LlmError> {

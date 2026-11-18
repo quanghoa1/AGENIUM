@@ -1,7 +1,8 @@
 # PROGRESS — Agenium
 
 Where Agenium stands, what has been verified and how, and what has not. The history below is kept as written; the
-first section is current. Plain-language overview: [README](../README.md); evidence map:
+first section is the state at 0.1.0 (2026-10-28). Later releases are in the [CHANGELOG](../CHANGELOG.md)
+and the evidence map. Plain-language overview: [README](../README.md); evidence map:
 [VERIFICATION.md](VERIFICATION.md); decisions: [adr/](adr/README.md).
 
 ## Release 0.1 (status 2026-10-28)
@@ -155,7 +156,7 @@ root:
 | Strict Content Security Policy in the app window | DONE: only the app's own scripts, no remote content, workers and Monaco allowed; `freezePrototype` left off (it breaks Monaco) | `apps/desktop/tauri.conf.json`; release build checked on a test instance: inline script and external fetch blocked, all 16 views and the Monaco/xterm chunks load with no violation |
 | Real team run on a mixed team after the latest changes | DONE: Claude Opus Lead, Codex, Grok, agy, DeepSeek; 4/4 tickets merged, the delivered app's tests pass; 4 findings fixed (ADR-116) | [results/team-mixed-20261027.md](../quality/eval/results/team-mixed-20261027.md) |
 | Documentation for users | DONE: README (English, Vietnamese), Jev guide, changelog, NOTICE with bundled third-party licenses | [README](../README.md), [README.vi](../README.vi.md), [JEV.md](JEV.md) |
-| Windows installer, tested on a clean VM | DONE: NSIS (77 MB) and MSI (102 MB), per-user install, embedding model bundled. Clean Windows 11 23H2 VM: silent install, model copied at first start without a download, **28/28 UI smoke checks pass on the installed app**, silent uninstall leaves nothing. Found and fixed: the before-build paths, a language dialog that blocked `/S`, the first-start language, the missing-Git message. Found, not fixed: **MXC containers are not available on Windows 11 23H2**, so there every agent command waits for approval (decision pending) | `apps/desktop/tauri.bundle.json`; VM run 2026-10-27 |
+| Windows installer, tested on a clean VM | DONE: NSIS (77 MB) and MSI (102 MB; the MSI was dropped later, ADR-154), per-user install, embedding model bundled. Clean Windows 11 23H2 VM: silent install, model copied at first start without a download, **28/28 UI smoke checks pass on the installed app**, silent uninstall leaves nothing. Found and fixed: the before-build paths, a language dialog that blocked `/S`, the first-start language, the missing-Git message. Found, not fixed: **MXC containers are not available on Windows 11 23H2**, so there every agent command waits for approval (decision pending) | `apps/desktop/tauri.bundle.json`; VM run 2026-10-27 |
 | Running without a sandbox (ADR-117), on the clean Windows 11 23H2 VM | DONE 2026-10-27 with the rebuilt installer: UI smoke 29/29; the Settings option appears only there, its confirmation works, the policy saves; a DeepSeek Solo agent (OpenCode Go key, kept in a throwaway root's vault, deleted after) built a 2-ticket request: 39 shell commands ran, 0 refused, 0 permission requests, both tickets closed. Found: the agent asked the same question (no Python) on both tickets, as an answer on one ticket does not reach its siblings | VM run 2026-10-27 |
 | Linux (Ubuntu) package, tested on a VM | DONE: `.deb` (93 MB; depends on git, bubblewrap, WebKitGTK 4.1) and AppImage (171 MB), built on the Ubuntu 25.10 VM. The `.deb` installs, the bundled model is copied at first start, setup and the overview render, **the bubblewrap sandbox works**; the AppImage starts too; `apt remove` leaves nothing in `/usr/lib/Agenium` | VM run 2026-10-27 (screens checked on a virtual display) |
 | macOS installer (`.dmg`), tested on macOS | DONE: `Agenium_0.1.0_aarch64.dmg` (96 MB), ad-hoc signed `.app` with the model, Apple silicon only; installed from the `.dmg` it starts, shows setup and copies its model (run 7, Devin cloud, 2026-11-01). Not notarized: Gatekeeper rejects it until it has a Developer ID | `docs/reference/bench-raw/macos-2026-11-01-run7` |
@@ -403,7 +404,7 @@ the container). All 172 workspace tests pass with commands inside MXC; the suite
   298 passed / 1 failed, a root not created yet kept its `/var` name, fixed; stream_run and git status pass).
 
 ## Next steps (proposed order, 2026-10-25)
-(Superseded by [Release 0.1](#release-01-status-2026-10-27) at the top; kept as written.)
+(Superseded by [Release 0.1](#release-01-status-2026-10-28) at the top; kept as written.)
 M4, M4.5 and the self-contained M5 items are done (ADR-64..93). What remains needs an owner decision or real
 infrastructure, not mechanical work:
 - **egress proxy** — DROPPED ([ADR-83](adr/ADR-83-no-egress-proxy.md), [ADR-84](adr/ADR-84-network-posture-and-unified-fetch.md)):
