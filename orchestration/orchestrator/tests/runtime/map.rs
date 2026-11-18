@@ -285,3 +285,60 @@ async fn a_link_from_the_web_holds_only_when_the_page_says_it() {
         .unwrap_err();
     assert_eq!(e.code, "still_holds");
 }
+
+/// ADR-166 amended: a ticket's work in a code base that put nothing on the map is reminded once at its report; the
+/// second report goes through. A one-file script is not reminded.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn work_in_a_code_base_is_reminded_once_to_map_it() {
+    let f = fixture();
+    let p = Arc::new(ScriptedProvider::new("mock"));
+    let (app, rt) = runtime(&f, p.clone(), Arc::new(AutoApprove));
+    let (project, _) = solo_with_tickets(&app, &["PI-1"]);
+    commit(
+        &app,
+        project,
+        &[
+            ("shop/api.py", "from shop.orders import total\n"),
+            ("shop/orders.py", "from shop.db import find\n"),
+            ("shop/db.py", "def find():\n    return 1\n"),
+        ],
+    );
+    p.push_calls(
+        "",
+        vec![(
+            "submit_report",
+            serde_json::to_value(report("AGN-1")).unwrap(),
+        )],
+    );
+    p.push(Box::new(|req| {
+        let r = last_result(req);
+        assert!(
+            r.contains("map_first") && r.contains("a code base of 3 source files"),
+            "{r}"
+        );
+        Ok(calls_response(
+            "",
+            vec![(
+                "submit_report",
+                serde_json::to_value(report("AGN-1")).unwrap(),
+            )],
+        ))
+    }));
+    p.push(Box::new(|req| {
+        assert!(!last_result(req).contains("map_first"), "asked once");
+        Ok(calls_response("Reported.", vec![]))
+    }));
+    rt.run_ticket(project, &key("AGN-1")).await.unwrap();
+    assert_eq!(
+        app.ticket(project, &key("AGN-1")).unwrap().status,
+        TicketStatus::Resolved
+    );
+
+    // A one-file script: nothing is due.
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("hello.py"), "print('hi')\n").unwrap();
+    let t = app.ticket(project, &key("AGN-1")).unwrap();
+    assert!(app
+        .map_due(project, t.id, agenium_core::RunId::new(), d.path())
+        .is_none());
+}

@@ -9,7 +9,10 @@ async fn scripted_golden_tasks_pass() {
         // A work run and a review; `ask-first` asks the user first, and its work goes on in a second run.
         let runs = if t.id == "ask-first" { 3 } else { 2 };
         // `mcp-fallback(-late)`: the server's own search fails once by design (out of quota).
-        let errors = u32::from(t.id == "mcp-fallback" || t.id == "mcp-fallback-late");
+        // `rename-function` (three source files): its first report is reminded once of the project map (ADR-166).
+        let errors = u32::from(
+            t.id == "mcp-fallback" || t.id == "mcp-fallback-late" || t.id == "rename-function",
+        );
         assert_eq!(
             (r.runs, r.tool_errors, r.reopened),
             (runs, errors, 0),

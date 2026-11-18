@@ -31,6 +31,14 @@ impl Ref {
                 "{kind:?} is not a kind: a short lowercase word (file, symbol, service, domain, vendor, product…)"
             )));
         }
+        // A URL is a page's address, not a kind of thing: it made nodes of kind "https" (Codex, 2026-11-18). The place is
+        // named (domain:, page:), and the address is the evidence of a link.
+        if matches!(kind.as_str(), "http" | "https" | "ftp" | "www") {
+            return Err(bad(format!(
+                "{raw:?} is an address, not a map name: name the place (domain:github.com, page:ripgrep guide) and give \
+                 the address as a link's evidence {{\"url\": …}}"
+            )));
+        }
         if name.is_empty() || name.chars().count() > 200 {
             return Err(bad(format!(
                 "{raw:?} has no name or a name over 200 characters"
@@ -134,6 +142,8 @@ mod tests {
 
     #[test]
     fn names_parse_into_keys_and_terms() {
+        let e = Ref::parse("https://github.com/BurntSushi/ripgrep/releases").unwrap_err();
+        assert!(e.to_string().contains("an address, not a map name"), "{e}");
         let s = Ref::parse("symbol:./src\\app.py#Config.load").unwrap();
         assert_eq!(s.key(), "symbol:src/app.py#Config.load");
         assert_eq!(s.term(), "load");

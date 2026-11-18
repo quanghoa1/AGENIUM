@@ -304,6 +304,12 @@ impl Runtime {
                 run,
             },
         ));
+        // A ticket's work that traced a code base or a system and mapped nothing is reminded once at its report
+        // (ADR-166 amended).
+        if let (RunKind::Work, Some(t)) = (kind, ticket) {
+            let (app, tid, tree) = (self.app.clone(), t.id, root.to_path_buf());
+            ctx.map_due = Some(Arc::new(move || app.map_due(project, tid, run, &tree)));
+        }
         let mut exclude = exclude.to_vec();
         if kind != RunKind::Plan {
             exclude.push(ProtocolTool::SubmitPlanDraft);

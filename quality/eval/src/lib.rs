@@ -127,21 +127,48 @@ fn scripted(task: &Task) -> Arc<ScriptedProvider> {
     let acs: Vec<Value> = (0..task.acceptance.len())
         .map(|i| json!({"ac_id": format!("AC-{}", i + 1), "status": "Met", "evidence": "see diff"}))
         .collect();
-    p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1", "summary": task.title, "acceptance": acs, "confidence": 0.9}))]);
-    p.push_calls(
-        "",
-        vec![(
-            "review_ticket",
-            json!({"ticket_id": "AGN-1", "decision": "Approve"}),
-        )],
-    );
-    p.push_calls(
-        "",
-        vec![(
-            "close_ticket",
-            json!({"ticket_id": "AGN-1", "reason": "All acceptance criteria met; merged"}),
-        )],
-    );
+    let report =
+        json!({"ticket_id": "AGN-1", "summary": task.title, "acceptance": acs, "confidence": 0.9});
+    p.push_calls("", vec![("submit_report", report.clone())]);
+    // A code base of several files is reminded once to be put on the project map (ADR-166): the scripted agent says it
+    // has nothing to add and reports again, as an agent may; then the Lead reviews and closes.
+    let resubmitted = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let review = json!({"ticket_id": "AGN-1", "decision": "Approve"});
+    let close = json!({"ticket_id": "AGN-1", "reason": "All acceptance criteria met; merged"});
+    let reminded = |req: &agenium_llm::ChatRequest| {
+        req.messages.last().is_some_and(|m| {
+            m.parts.iter().any(|x| {
+                matches!(x, agenium_llm::Part::ToolResult { content, .. } if content.contains("map_first"))
+            })
+        })
+    };
+    {
+        let (r, again, review) = (report.clone(), resubmitted.clone(), review.clone());
+        p.push(Box::new(move |req| {
+            if reminded(req) {
+                again.store(true, std::sync::atomic::Ordering::Relaxed);
+                return Ok(agenium_llm::mock::calls_response(
+                    "",
+                    vec![("submit_report", r.clone())],
+                ));
+            }
+            Ok(agenium_llm::mock::calls_response(
+                "",
+                vec![("review_ticket", review.clone())],
+            ))
+        }));
+    }
+    {
+        let (again, review, close) = (resubmitted.clone(), review.clone(), close.clone());
+        p.push(Box::new(move |_| {
+            Ok(if again.load(std::sync::atomic::Ordering::Relaxed) {
+                agenium_llm::mock::calls_response("", vec![("review_ticket", review.clone())])
+            } else {
+                agenium_llm::mock::calls_response("", vec![("close_ticket", close.clone())])
+            })
+        }));
+    }
+    p.push_calls("", vec![("close_ticket", close)]);
     p
 }
 

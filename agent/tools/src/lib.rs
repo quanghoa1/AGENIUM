@@ -220,7 +220,14 @@ pub struct ToolCtx {
     /// The profile of Agenium's own browser (ADR-165), for a run that reaches the network: its tab is in that shared
     /// browser, signed in where the user signed in. `None`: a private browser of the run, fenced to the allowlist.
     pub browser_profile: Option<PathBuf>,
+    /// What the run should put on the project map before it reports (ADR-166 amended), asked once at `submit_report`:
+    /// set by the runtime for a ticket's work run; `None` where nothing is due.
+    pub map_due: Option<MapDue>,
+    map_nudged: AtomicBool,
 }
+
+/// See [`ToolCtx::map_due`].
+pub type MapDue = Arc<dyn Fn() -> Option<String> + Send + Sync>;
 
 impl ToolCtx {
     pub fn new(root: &Path, run: &str, gate: Arc<dyn CommandGate>) -> Self {
@@ -257,7 +264,18 @@ impl ToolCtx {
             awaits_commands: false,
             browser: Default::default(),
             browser_profile: None,
+            map_due: None,
+            map_nudged: AtomicBool::new(false),
         }
+    }
+
+    /// The map's reminder, the first time it is asked for (then never again in the run).
+    pub fn map_reminder(&self) -> Option<String> {
+        let due = self.map_due.as_ref()?;
+        if self.map_nudged.swap(true, Ordering::Relaxed) {
+            return None;
+        }
+        due()
     }
 
     /// Whether the run has been stopped.

@@ -14,6 +14,7 @@ use serde::Serialize;
 
 use crate::{App, Result};
 
+mod due;
 pub mod refs;
 pub mod tools;
 pub mod verify;
@@ -409,9 +410,16 @@ impl App {
         };
         let mut seeds: Vec<&MapNode> = w.nodes.values().filter(|n| named(n)).collect();
         seeds.sort_by(|a, b| a.key.cmp(&b.key));
+        // A small map is shown whole when the ticket names none of it (a fix that says what is wrong, not where): the
+        // work then starts from what is known (found by the unprompted map runs, 2026-11-18).
+        let whole = seeds.is_empty() && w.links.len() <= 24;
+        if whole {
+            seeds = w.nodes.values().collect();
+            seeds.sort_by(|a, b| a.key.cmp(&b.key));
+        }
         let mut lines = Vec::new();
         let mut shown = HashSet::new();
-        for s in seeds.iter().take(8) {
+        for s in seeds.iter().take(if whole { usize::MAX } else { 8 }) {
             for l in w.links.iter().filter(|l| l.src == s.key || l.dst == s.key) {
                 if lines.len() >= 24 || !shown.insert(l.id) {
                     continue;

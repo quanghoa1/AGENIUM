@@ -38,6 +38,10 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
   interval of the difference says chance does not explain it; a skill switched on and never loaded is pointed out;
   hidden characters in a skill's text are refused or warned on; labelled example skills now measure the scorecard in
   CI, which found and fixed numbered steps passing as concrete.
+- **Project map:** it holds code bases and systems researched, not every task. When a ticket's work traced a code
+  base (3 or more source files) or read web pages about a system and mapped nothing, the agent is reminded once at its
+  report; a one-file script is not. A small map comes whole with the next ticket, and an address is no longer taken
+  for a node's name.
 - **Settings:** `runtime.max_reopen_before_escalate` and `backup.pre_migrate_keep` now take effect, and pre-migrate
   snapshots go to `paths.backups_dir`. Seven settings that did nothing were removed (old files still load).
 - **Docs:** the README's setup command, template list and version are right again; ADRs and the index say where later

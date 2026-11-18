@@ -138,9 +138,33 @@ A wrong map misleads more than no map does. Static analysis also cannot map anyt
 - The recheck reads each file once, a path search walks each node's own links, and settling runs off the async
   workers (audit L-15).
 
-## Amendment (2026-11-18): only what later work would trace again
+## Amendment (2026-11-18): what goes on the map, and a reminder when it is due
 
-The end-to-end run of 0.1.3 had an agent build a one-file tool and add nothing to the map, which is right: the map is
-for how a codebase's files and modules depend on each other and how a system or a vendor fits together, not a record
-of every task. The rule and `map_add`'s description now say so (not a one-file script, a one-off command, or every
-function touched), so a stronger model does not fill the map with noise.
+The map is for two kinds of work: a code base (how its files and functions depend on each other) and a system
+researched or reconnoitred (a product, a vendor: its parts, domains, API and where they live). Not a record of every
+task: a one-file script or a one-off command puts nothing on it.
+
+Measured with `map_real.rs … unprompted` (the tickets say nothing of the map): told only by the rule in the prompt,
+Claude Code (Haiku) mapped nothing in all three kinds of work, a three-module tool, a review of a code base, ripgrep
+researched on the web. So:
+
+- **A reminder at the report, once** (`map/due.rs`, `submit_refusal`). When a ticket's work run reports without
+  having called `map_add`, Agenium looks at what it did:
+  - a worktree of at least 3 source files whose files changed by the ticket are not on the map (or, for work that
+    changed none, a review, nothing of the code base is);
+  - at least 2 web pages read (the run's tools or a CLI's own).
+
+  Either one refuses the first `submit_report` with `map_first`: what to put on the map for that kind of work, with an
+  example link and its evidence. Nothing to connect (pages not about a system, one file of code) may be said in the
+  report instead. Asked once a run.
+- **The rule and `map_add`'s description** say what to map and what not.
+- **A small map is shown whole** in a ticket's work order when the ticket names none of it (a fix that says what is
+  wrong, not where), so the next work starts from it.
+- **A URL is not a name:** `https://…` as a node is refused, with how to name the place (`domain:`, `page:`) and give
+  the address as a link's evidence.
+
+Result, unprompted, 2026-11-18:
+- **Claude Code (Haiku):** the code base, its review and ripgrep researched are mapped (files and their imports;
+  ripgrep's repository and guide from pages); the one-file script leaves the map empty.
+- **Codex (gpt-6-luna):** ALL PASS. Files and functions with their calls; the fix asked `map_query` first;
+  ripgrep's places named and backed by pages; nothing for the script.

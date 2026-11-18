@@ -3,12 +3,30 @@
 //! - review: an existing code base is reviewed and its structure mapped.
 //! - research: a tool's public face (its repository, releases, documentation) is mapped from pages Agenium reads itself.
 //!
-//! Each map entry must have passed Agenium's checks; after the tickets close nothing stays tentative or stale.
+//! - trivial: a one-file script; the map must stay empty (no noise: the map is for code bases and systems).
 //!
-//! cargo run -p agenium-eval --example map_real -- <claude|codex> [model] [code|review|research|all]
+//! Each map entry must have passed Agenium's checks; after the tickets close nothing stays tentative or stale.
+//! `unprompted`: the tickets say nothing of the map, so it shows whether agents map on their own what is worth it
+//! (a code base, a system they research) and leave out what is not (a one-file script).
+//!
+//! cargo run -p agenium-eval --example map_real -- <claude|codex> [model] [code|review|research|trivial|all]
+//!   [unprompted]
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+/// The tickets say nothing of the map (see the module docs).
+static UNPROMPTED: AtomicBool = AtomicBool::new(false);
+
+/// `text`, or nothing when the run is unprompted.
+fn ask(text: &str) -> &str {
+    if UNPROMPTED.load(Ordering::Relaxed) {
+        ""
+    } else {
+        text
+    }
+}
 
 use agenium_core::agent::{BackendKind, Effort, RoleKind};
 use agenium_core::forms::*;
@@ -286,7 +304,8 @@ async fn code(cli: &str, model: &str, fails: &mut u32) -> Result<(), Box<dyn std
             "Write a small Python 3 command-line tool in three modules: wordcount/reader.py with read_text(path) that \
              returns a file's text; wordcount/counter.py with count_words(path) that calls read_text and returns how \
              many words the text has; wordcount/cli.py with main(argv) that calls count_words on the file named in \
-             argv and prints the number. Add tests/test_counter.py and run it with `python -m unittest`. {MAP_ASK}"
+             argv and prints the number. Add tests/test_counter.py and run it with `python -m unittest`. {}",
+            ask(MAP_ASK)
         ),
         "`python -m wordcount.cli README.md` prints the number of words of README.md",
         None,
@@ -294,8 +313,11 @@ async fn code(cli: &str, model: &str, fails: &mut u32) -> Result<(), Box<dyn std
     // The fix waits for the build: one drive runs both, the fix after the build closed (and its map was confirmed).
     let k2 = p.ticket(
         "count_words ignores punctuation",
-        "count_words counts \"one, two!\" as two words already, but a dash on its own (\"one - two\") counts as a word: \
-         it must not. Find where words are counted (ask the project map first: map_query) and fix it, with a test.",
+        &format!(
+            "count_words counts \"one, two!\" as two words already, but a dash on its own (\"one - two\") counts as a \
+             word: it must not. Find where words are counted{} and fix it, with a test.",
+            ask(" (ask the project map first: map_query)")
+        ),
         "count_words of \"one - two\" is 2",
         Some(&k1),
     )?;
@@ -317,7 +339,15 @@ async fn code(cli: &str, model: &str, fails: &mut u32) -> Result<(), Box<dyn std
     check(
         fails,
         "the map holds its modules and the calls between them, all checked",
-        g.nodes.len() >= 4 && code_links >= 2 && g.links.iter().all(|l| l.status == "confirmed"),
+        // Unprompted, the three modules and how they depend on each other are enough (functions are a plus).
+        g.nodes.len()
+            >= if UNPROMPTED.load(Ordering::Relaxed) {
+                3
+            } else {
+                4
+            }
+            && code_links >= 2
+            && g.links.iter().all(|l| l.status == "confirmed"),
         &format!(
             "{} nodes, {code_links} code links, map_add called {} times",
             g.nodes.len(),
@@ -352,7 +382,9 @@ async fn code(cli: &str, model: &str, fails: &mut u32) -> Result<(), Box<dyn std
     check(
         fails,
         "the fix had the map before changing code (in its work order, or asked)",
-        given.contains("count_words") || map_calls(&log2, "map_query") >= 1,
+        given.contains("count_words")
+            || (UNPROMPTED.load(Ordering::Relaxed) && given.contains("-->"))
+            || map_calls(&log2, "map_query") >= 1,
         &format!(
             "map_query called {} times; tools used: {}",
             map_calls(&log2, "map_query"),
@@ -387,9 +419,12 @@ async fn review(cli: &str, model: &str, fails: &mut u32) -> Result<(), Box<dyn s
         "Review the shop code",
         &format!(
             "Review the source of this project for bugs and security risks. Write deliverables/review.md with each \
-             finding, its file and line, and why it matters. Put the code's structure on the project map as you trace \
-             it: the modules, their functions, and how a request flows from shop/api.py down to the database. {}",
-            "Use map_add with the file and line of each call or import; fix and add again anything the map refuses."
+             finding, its file and line, and why it matters.{}",
+            ask(
+                " Put the code's structure on the project map as you trace it: the modules, their functions, and how a \
+                 request flows from shop/api.py down to the database. Use map_add with the file and line of each call \
+                 or import; fix and add again anything the map refuses."
+            )
         ),
         "deliverables/review.md names the SQL injection in shop/db.py with its line",
         None,
@@ -409,11 +444,19 @@ async fn review(cli: &str, model: &str, fails: &mut u32) -> Result<(), Box<dyn s
         review.to_lowercase().contains("injection"),
         &review.chars().take(160).collect::<String>(),
     );
-    let path = p.app.map_path(
+    // Function by function when asked; unprompted, the modules' chain is enough.
+    let path = match p.app.map_path(
         p.id,
         "symbol:shop/api.py#handle",
         "symbol:shop/db.py#find_order",
-    )?;
+    )? {
+        Some(x) => Some(x),
+        None if UNPROMPTED.load(Ordering::Relaxed) => {
+            p.app
+                .map_path(p.id, "file:shop/api.py", "file:shop/db.py")?
+        }
+        None => None,
+    };
     check(
         fails,
         "the map holds the request's chain from the API to the database",
@@ -444,15 +487,36 @@ async fn research(
     )])?;
     let k = p.ticket(
         "Map ripgrep's public face",
-        "Find out where ripgrep (BurntSushi/ripgrep) lives on the web: its source repository, where its releases are \
-         downloaded from, and where its user guide is. Write deliverables/ripgrep.md with what you found and the pages \
-         you read. Put it on the project map with map_add: product:ripgrep and the places as nodes (repository, \
-         domain:..., the guide), joined by links such as hosted_at, releases_at, documented_at, each with the {\"url\"} \
-         of a page you read that names both ends. Fix and add again anything the map refuses.",
+        &format!(
+            "Find out where ripgrep (BurntSushi/ripgrep) lives on the web: its source repository, where its releases \
+             are downloaded from, and where its user guide is. Write deliverables/ripgrep.md with what you found and \
+             the pages you read.{}",
+            ask(
+                " Put it on the project map with map_add: product:ripgrep and the places as nodes (repository, \
+                 domain:..., the guide), joined by links such as hosted_at, releases_at, documented_at, each with the \
+                 {\"url\"} of a page you read that names both ends. Fix and add again anything the map refuses."
+            )
+        ),
         "deliverables/ripgrep.md names ripgrep's repository, its releases and its guide, each with a URL",
         None,
     )?;
     let s = p.drive(&k).await?;
+    // The run's tools in order, a refusal with its code: whether the map's reminder came and what the agent did.
+    for l in p.log(&k).lines().filter(|l| l.starts_with("tool ")) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&l[5..]) {
+            let res = v["result"].as_str().unwrap_or_default();
+            println!(
+                "    {} ok={} {}",
+                v["tool"].as_str().unwrap_or_default(),
+                v["ok"],
+                if v["ok"] == false {
+                    res.chars().take(120).collect::<String>()
+                } else {
+                    String::new()
+                }
+            );
+        }
+    }
     let g = p.dump();
     let web = g
         .links
@@ -484,6 +548,42 @@ async fn research(
     Ok(())
 }
 
+/// A one-file script: nothing in it is worth mapping, so the map stays empty.
+async fn trivial(
+    cli: &str,
+    model: &str,
+    fails: &mut u32,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("== trivial: a one-file script, nothing to map");
+    let tmp = tempfile::tempdir()?;
+    let mut p = Project::open(tmp.path(), "hello", "HI", cli, model)?;
+    p.plan(&[(
+        "Greeting script",
+        "`python hello.py Ann` prints Hello, Ann!",
+    )])?;
+    let k = p.ticket(
+        "Greeting script",
+        "Write hello.py: it prints \"Hello, <name>!\" for the name given as its argument. Run it once to check.",
+        "`python hello.py Ann` prints Hello, Ann!",
+        None,
+    )?;
+    let s = p.drive(&k).await?;
+    let g = p.dump();
+    check(
+        fails,
+        "the script's ticket closed",
+        s == TicketStatus::Closed,
+        &format!("{s:?}"),
+    );
+    check(
+        fails,
+        "the map stays empty for a one-file script",
+        g.nodes.is_empty() && g.links.is_empty(),
+        &format!("{} nodes, {} links", g.nodes.len(), g.links.len()),
+    );
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -497,6 +597,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .into()
     });
     let which = args.get(2).cloned().unwrap_or_else(|| "all".into());
+    UNPROMPTED.store(args.iter().any(|a| a == "unprompted"), Ordering::Relaxed);
+    if UNPROMPTED.load(Ordering::Relaxed) {
+        println!("(unprompted: the tickets say nothing of the map)");
+    }
     let mut fails = 0;
     if matches!(which.as_str(), "code" | "all") {
         code(&cli, &model, &mut fails).await?;
@@ -506,6 +610,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if matches!(which.as_str(), "research" | "all") {
         research(&cli, &model, &mut fails).await?;
+    }
+    if matches!(which.as_str(), "trivial" | "all") {
+        trivial(&cli, &model, &mut fails).await?;
     }
     println!(
         "{}",

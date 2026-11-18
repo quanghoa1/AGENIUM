@@ -1,6 +1,7 @@
 //! What a `submit_report` waits for, in an API run and a CLI's run alike: a command of the run still going (its result
-//! is not known yet, ADR-133) and the agent's own checklist with items not done (ADR-164). The checklist refuses at
-//! most [`TODO_REFUSALS`] times in a run; after that the report goes through, the refusals kept in the run's log.
+//! is not known yet, ADR-133), the agent's own checklist with items not done (ADR-164), and once, the project map
+//! when the work traced a code base or a system and put nothing on it (ADR-166 amended). The checklist refuses at most
+//! [`TODO_REFUSALS`] times in a run; after that the report goes through, the refusals kept in the run's log.
 
 use std::sync::atomic::Ordering;
 
@@ -37,7 +38,9 @@ pub fn submit_refusal(ctx: &ToolCtx) -> Option<ToolError> {
         .map(|i| format!("- {}", i.text))
         .collect();
     if open.is_empty() {
-        return None;
+        return ctx
+            .map_reminder()
+            .map(|text| ToolError::new("map_first", text));
     }
     let n = ctx.todo_refusals.fetch_add(1, Ordering::Relaxed) + 1;
     (n <= TODO_REFUSALS).then(|| {
