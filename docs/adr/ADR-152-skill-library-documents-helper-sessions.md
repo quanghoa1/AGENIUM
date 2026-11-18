@@ -155,3 +155,22 @@ Lead found no such file in the project. A document attached in the Lead's chat i
 file=…>`, the block's note says `read_file` opens it again); every run of the project has that folder among its read
 roots (like the picks of ADR-121). Desktop `read_document`/`read_document_path` take the project. Verified with codex:
 asked to copy item 5 from the original, it called `read_file` on `.agenium/attachments/seo-checklist.docx`.
+
+## Amendment (2026-11-18): the effect with intervals, labelled cases, hidden characters, skills never loaded
+
+Read against NVIDIA SkillEvaluator ([study](../reference/SKILLEVALUATOR-STUDY.md)).
+
+- **Criterion 12 is judged with intervals.** A skill is "worse" only when its reopen rate is higher by at least 20
+  points and the 95% interval of the difference (Newcombe's hybrid score, from Wilson intervals) lies above zero; one
+  reopened ticket of five against none of five flagged it before. The note gives the interval and says "provisional"
+  when it is wider than 40 points. The comparison is not controlled (a skill is loaded on the tickets it fits): it is
+  a reason to look at a skill, never a verdict (`skill_quality/effect.rs`).
+- **A skill switched on and never loaded** after the agents that have it closed 10 tickets is a warning on criterion 12:
+  its description may not say when it applies (`effect::never_loaded`).
+- **Labelled cases** in the repository measure the checks: 20 skills for the scorecard's text criteria
+  (`skill_quality/labelled.rs`) and 6 pairs for the contradiction check (`skill_conflict.rs`). They found that every
+  numbered list passed as concrete steps (the list's own "1." counted as a number); fixed.
+- **Hidden characters** (bidi controls U+202A–202E and U+2066–2069, zero-width U+200B and U+2060, a byte-order mark
+  inside the text, tag characters U+E0000–E007F, and a joiner outside a script that uses it) are found wherever a
+  skill's text is checked: an agent's proposal, an update, a merge, and the scorecard's "safe". The injection phrases
+  are in one place (`skill_safety.rs`) and no longer flag a skill that merely names "the system prompt".

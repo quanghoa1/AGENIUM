@@ -51,6 +51,8 @@ pub struct Context<'a> {
     pub conflicts: &'a [String],
     pub secret: bool,
     pub effect: Option<&'a Effect>,
+    /// Never loaded, though the agents that have it switched on closed this many tickets ([`effect::never_loaded`]).
+    pub never_loaded: Option<usize>,
 }
 
 fn sections(body: &str) -> BTreeMap<String, String> {
@@ -160,8 +162,15 @@ pub fn scorecard(name: &str, description: &str, body: &str, ctx: &Context) -> Sc
             let items: Vec<&str> = steps.lines().filter(|l| ITEM.is_match(l)).collect();
             let lower = steps.to_lowercase();
             let vague: Vec<&&str> = VAGUE.iter().filter(|v| lower.contains(**v)).collect();
+            // Read past the item's own mark: the "1." of a numbered list is not a number the step names (every
+            // numbered list passed as concrete; found by the labelled cases).
             let concrete = items
                 .iter()
+                .map(|l| {
+                    l.trim_start()
+                        .trim_start_matches(|ch: char| ch.is_ascii_digit())
+                        .trim_start_matches(['.', ')', '-', '*'])
+                })
                 .filter(|l| {
                     l.contains('`') || l.chars().any(|ch| ch.is_ascii_digit()) || l.contains(':')
                 })
@@ -294,16 +303,11 @@ pub fn scorecard(name: &str, description: &str, body: &str, ctx: &Context) -> Sc
     });
 
     // 10. Safe.
-    let lower = format!("{description}\n{body}").to_lowercase();
-    let injected = crate::skill_overlay::INJECTION
-        .iter()
-        .find(|p| lower.contains(*p));
+    let injected = crate::skill_safety::findings(&format!("{description}\n{body}"))
+        .into_iter()
+        .next();
     out.push(match (injected, ctx.secret) {
-        (Some(p), _) => c(
-            "safe",
-            false,
-            format!("{p:?} reads as injected instructions"),
-        ),
+        (Some(p), _) => c("safe", false, format!("{p} reads as injected instructions")),
         (None, true) => c("safe", false, "something in it looks like a secret"),
         (None, false) => c("safe", true, ""),
     });
@@ -326,7 +330,16 @@ pub fn scorecard(name: &str, description: &str, body: &str, ctx: &Context) -> Sc
 
     // 12. Helps: fewer reopens where it was loaded.
     out.push(match ctx.effect {
-        None => info("effective", "not loaded in a closed ticket yet"),
+        None => match ctx.never_loaded {
+            Some(n) if n >= effect::UNUSED_AFTER => c(
+                "effective",
+                false,
+                format!(
+                    "switched on, yet never loaded in the {n} tickets its agents closed: say in its description when                      it applies, or switch it off"
+                ),
+            ),
+            _ => info("effective", "not loaded in a closed ticket yet"),
+        },
         Some(e) if !e.enough => info(
             "effective",
             format!(
@@ -340,8 +353,18 @@ pub fn scorecard(name: &str, description: &str, body: &str, ctx: &Context) -> Sc
             "effective",
             !e.worse,
             format!(
-                "{} of {} tickets reopened with it, {} of {} without",
-                e.reopened, e.tickets, e.others_reopened, e.others
+                "{} of {} tickets reopened with it, {} of {} without (the difference is {} to {} points, 95%{})",
+                e.reopened,
+                e.tickets,
+                e.others_reopened,
+                e.others,
+                e.diff_low,
+                e.diff_high,
+                if e.diff_high - e.diff_low > 40 {
+                    "; few tickets yet, provisional"
+                } else {
+                    ""
+                }
             ),
         ),
     });
@@ -383,7 +406,22 @@ impl App {
         let text = format!("{description}\n{body}");
         let secret =
             self.redactor().redact(&text) != text || !agenium_secrets::scan_text(&text).is_empty();
-        let effects = self.skill_effects()?;
+        let closed = self
+            .store()
+            .read(agenium_store::core::skill_use::closed_tickets)?;
+        let effects = effect::effects(&closed);
+        // The agents that have it switched on, by name (a library skill) or as a plugin's skill.
+        let on_for: Vec<String> = self
+            .agents()?
+            .into_iter()
+            .filter(|a| {
+                a.skills.iter().any(|s| {
+                    s == name || agenium_skills::plugin_skill_of(s).is_some_and(|(_, k)| k == name)
+                })
+            })
+            .map(|a| a.id.to_string())
+            .collect();
+        let never_loaded = skip.and_then(|s| effect::never_loaded(s, &on_for, &closed));
         Ok(scorecard(
             name,
             description,
@@ -394,10 +432,14 @@ impl App {
                 conflicts: &conflicts,
                 secret,
                 effect: skip.and_then(|s| effects.get(s)),
+                never_loaded,
             },
         ))
     }
 }
+
+#[cfg(test)]
+mod labelled;
 
 #[cfg(test)]
 mod tests {
@@ -412,6 +454,7 @@ mod tests {
             conflicts: &[],
             secret: false,
             effect: None,
+            never_loaded: None,
         }
     }
 
@@ -448,6 +491,7 @@ mod tests {
                 conflicts: &[],
                 secret: false,
                 effect: None,
+                never_loaded: None,
             },
         );
         let warn: Vec<&str> = s
@@ -507,6 +551,8 @@ mod tests {
             others_reopened: 1,
             enough: true,
             worse: true,
+            diff_low: 2,
+            diff_high: 80,
         };
         let s = scorecard(
             "seo-check",
@@ -514,6 +560,7 @@ mod tests {
             GOOD,
             &Context {
                 effect: Some(&worse),
+                never_loaded: None,
                 ..ctx(Origin::Builtin)
             },
         );
@@ -523,5 +570,21 @@ mod tests {
             "{}",
             s.criteria[11].note
         );
+        // Switched on and never loaded in many tickets: said; in a few, not yet.
+        let unused = |n| {
+            scorecard(
+                "seo-check",
+                "Checks a page for search engines before release. Use when a page is about to ship.",
+                GOOD,
+                &Context {
+                    never_loaded: Some(n),
+                    ..ctx(Origin::Builtin)
+                },
+            )
+            .criteria[11]
+                .status
+        };
+        assert_eq!(unused(12), "warn");
+        assert_eq!(unused(3), "info");
     }
 }

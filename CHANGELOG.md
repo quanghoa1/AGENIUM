@@ -34,6 +34,10 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 - **Plugins and skills:** a damaged `installed_plugins.json` is reported instead of being emptied on the next save; a
   skill copy is never lost when a folder swap fails on Windows; one copy that cannot be rebased no longer fails a
   plugin install; an MCP JSON paste with two names for one server id is refused, and replaced servers are named.
+- **Skill checks** (read against NVIDIA SkillEvaluator): a skill is called worse for its reopens only when the 95%
+  interval of the difference says chance does not explain it; a skill switched on and never loaded is pointed out;
+  hidden characters in a skill's text are refused or warned on; labelled example skills now measure the scorecard in
+  CI, which found and fixed numbered steps passing as concrete.
 - **Settings:** `runtime.max_reopen_before_escalate` and `backup.pre_migrate_keep` now take effect, and pre-migrate
   snapshots go to `paths.backups_dir`. Seven settings that did nothing were removed (old files still load).
 - **Docs:** the README's setup command, template list and version are right again; ADRs and the index say where later

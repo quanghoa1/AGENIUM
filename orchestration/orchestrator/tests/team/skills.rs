@@ -615,10 +615,11 @@ fn a_skill_loaded_in_tickets_that_get_reopened_is_flagged() {
     let t = team();
     let f = &t.f;
     all_library_skills(&f.app);
-    // 12 closed tickets of the web worker: 6 loaded code-review (4 reopened), 6 did not (1 reopened).
-    for i in 0..12u32 {
-        let loads = i < 6;
-        let reopened = if loads { i < 4 } else { i == 6 };
+    // 20 closed tickets of the web worker: 10 loaded code-review (8 reopened), 10 did not (1 reopened). Fewer, as
+    // 4 of 6 against 1 of 6, are within what chance explains: not flagged (the 95% interval of the difference).
+    for i in 0..20u32 {
+        let loads = i < 10;
+        let reopened = if loads { i < 8 } else { i == 10 };
         f.app
             .store()
             .commit(None, "test", |w| -> std::result::Result<(), agenium_store::StoreError> {
@@ -683,9 +684,9 @@ fn a_skill_loaded_in_tickets_that_get_reopened_is_flagged() {
     let seo = &e["code-review"];
     assert_eq!(
         (seo.tickets, seo.reopened, seo.others, seo.others_reopened),
-        (6, 4, 6, 1)
+        (10, 8, 10, 1)
     );
-    assert!(seo.worse);
+    assert!(seo.worse && seo.diff_low > 0, "{seo:?}");
     let body = f.app.library_skill_body("code-review").unwrap();
     let card = f
         .app
@@ -699,5 +700,5 @@ fn a_skill_loaded_in_tickets_that_get_reopened_is_flagged() {
         .unwrap();
     let effective = card.criteria.iter().find(|c| c.id == "effective").unwrap();
     assert_eq!(effective.status, "warn", "{effective:?}");
-    assert!(effective.note.contains("4 of 6"), "{}", effective.note);
+    assert!(effective.note.contains("8 of 10"), "{}", effective.note);
 }

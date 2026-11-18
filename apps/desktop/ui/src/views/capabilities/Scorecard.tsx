@@ -72,7 +72,11 @@ export function EffectBadge({ e }: { e?: SkillEffect }) {
   return (
     <span
       className={cn("chip", e.worse ? "border-amber-500/50 text-amber-600 dark:text-amber-400" : "border-line-strong text-subtle")}
-      title={e.worse ? app.t("quality.worse") : e.enough ? `${e.others_reopened}/${e.others} ${app.t("quality.without")}` : app.t("quality.notEnough")}
+      title={
+        e.enough
+          ? `${e.worse ? app.t("quality.worse") + " · " : ""}${e.others_reopened}/${e.others} ${app.t("quality.without")} · ${app.t("quality.range").replace("{a}", String(e.diff_low)).replace("{b}", String(e.diff_high))}`
+          : app.t("quality.notEnough")
+      }
     >
       {e.worse && <AlertTriangle className="h-3 w-3" />} {text}
     </span>

@@ -49,6 +49,7 @@ pub mod skill_proposals;
 pub mod skill_propose;
 pub mod skill_quality;
 pub mod skill_revise;
+mod skill_safety;
 pub mod skill_shape;
 pub mod skill_similar;
 pub mod skill_write;

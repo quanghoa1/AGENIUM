@@ -27,7 +27,7 @@ use agenium_store::{AgentStore, FactKind};
 use serde::{Deserialize, Serialize};
 
 use crate::app::App;
-use crate::skill_overlay::{INJECTION, MIN_CONTEXTS};
+use crate::skill_overlay::MIN_CONTEXTS;
 use crate::{OrchError, Result};
 
 /// Most skills one agent may create (overlays of existing skills do not count).
@@ -220,10 +220,12 @@ impl App {
 
         // Safe: no injected instructions, no secrets.
         let body = u.body.trim();
-        let lower = format!("{description}\n{body}").to_lowercase();
-        if let Some(p) = INJECTION.iter().find(|p| lower.contains(*p)) {
+        if let Some(p) = crate::skill_safety::findings(&format!("{description}\n{body}"))
+            .into_iter()
+            .next()
+        {
             return refuse(format!(
-                "the skill contains {p:?}, which reads as injected instructions: refused"
+                "the skill contains {p}, which reads as injected instructions: refused"
             ));
         }
         let text = format!("---\nname: {name}\ndescription: {description}\n---\n\n{body}\n");

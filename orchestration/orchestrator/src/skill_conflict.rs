@@ -441,6 +441,58 @@ mod tests {
         }
     }
 
+    /// Labelled pairs (NVIDIA SkillEvaluator's review, 2026-11-18: measure a check against cases a person judged), in
+    /// any clone. The opposite directives are caught; a paraphrased contradiction is a known miss (ADR-92); unrelated
+    /// rules and the same rule said twice are not conflicts.
+    #[test]
+    fn opposite_directives_against_labelled_pairs() {
+        let pairs: [(&str, &str, bool); 6] = [
+            (
+                "1. Always squash the commits before merging a branch.",
+                "1. Never squash the commits before merging a branch, so history shows each step.",
+                true,
+            ),
+            (
+                "1. Always pin the dependency versions in the lock file.",
+                "1. Do not pin the dependency versions in the lock file.",
+                true,
+            ),
+            (
+                "1. Always write a changelog entry for a change users see.",
+                "1. Never commit a secret to the repository.",
+                false,
+            ),
+            (
+                "1. Always run the full test suite before a release.",
+                "1. Run the full test suite before every release, because it catches regressions.",
+                false,
+            ),
+            (
+                "1. Always use tabs to indent Go files.",
+                "1. Never indent Go code with tab characters.",
+                false, // a paraphrase: a known miss of a high-precision check
+            ),
+            (
+                "1. Always log the request id of a failed call.",
+                "1. Never log a password or a token.",
+                false,
+            ),
+        ];
+        let mut wrong = Vec::new();
+        for (a, b, want) in pairs {
+            let got = !directive_conflicts(
+                "a",
+                &format!("## Steps\n{a}\n"),
+                &[("b".into(), format!("## Steps\n{b}\n"))],
+            )
+            .is_empty();
+            if got != want {
+                wrong.push(format!("{a} | {b}: conflict {got}, labelled {want}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
     #[test]
     fn an_opposite_directive_is_caught() {
         let lib = library();

@@ -5,7 +5,7 @@ use agenium_core::AgentId;
 use agenium_store::FactKind;
 
 use crate::app::App;
-use crate::skill_overlay::{INJECTION, MIN_CONTEXTS};
+use crate::skill_overlay::MIN_CONTEXTS;
 use crate::{OrchError, Result};
 
 fn refuse<T>(m: impl Into<String>) -> Result<T> {
@@ -50,14 +50,16 @@ impl App {
     /// `after` adds no injected instruction that none of `before` had, and carries nothing that looks like a secret.
     /// `what` names it in the refusal ("change", "merge").
     pub(crate) fn text_gate(&self, before: &[&str], after: &str, what: &str) -> Result<()> {
-        let lower = after.to_lowercase();
-        let had: Vec<String> = before.iter().map(|b| b.to_lowercase()).collect();
-        if let Some(p) = INJECTION
+        let had: Vec<String> = before
             .iter()
-            .find(|p| lower.contains(*p) && !had.iter().any(|b| b.contains(*p)))
+            .flat_map(|b| crate::skill_safety::findings(b))
+            .collect();
+        if let Some(p) = crate::skill_safety::findings(after)
+            .into_iter()
+            .find(|p| !had.contains(p))
         {
             return refuse(format!(
-                "the {what} adds {p:?}, which reads as injected instructions: refused"
+                "the {what} adds {p}, which reads as injected instructions: refused"
             ));
         }
         if self.redactor().redact(after) != after || !agenium_secrets::scan_text(after).is_empty() {

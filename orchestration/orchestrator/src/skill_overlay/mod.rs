@@ -24,20 +24,6 @@ use patching::*;
 /// Validated contexts a lesson needs before it may change a skill (decision 35).
 pub const MIN_CONTEXTS: usize = 2;
 
-/// Phrases that turn a skill into someone else's instructions (prompt injection); an update carrying one is refused.
-pub(crate) const INJECTION: &[&str] = &[
-    "ignore previous instructions",
-    "ignore all previous",
-    "disregard the above",
-    "disregard your instructions",
-    "you are now",
-    "system prompt",
-    "| sh",
-    "| bash",
-    "iex(",
-    "invoke-expression",
-];
-
 /// What the user sees of an agent's overlay.
 #[derive(Debug, Clone, Serialize)]
 pub struct OverlayView {

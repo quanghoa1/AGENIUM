@@ -185,6 +185,9 @@ export interface SkillEffect {
   others_reopened: number;
   enough: boolean;
   worse: boolean;
+  /** The 95% interval of the difference of the reopen rates (with it minus without), in points. */
+  diff_low: number;
+  diff_high: number;
 }
 
 /** Where a model is picked and remembered (ADR-152). */
