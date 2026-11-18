@@ -311,17 +311,6 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
           { id: 7, text: "The shop API runs on port 8080 in development.", kind: "fact", scope: {}, source: "ticket:SHOP-2", untrusted: false, confidence: 0.55, weight: 0.8, created_at: iso(9000) },
         ],
       };
-    case "memory_graph":
-      return {
-        entities: [
-          { id: 1, kind: "project", name: "shop", description: null, mentions: 2, degree: 1 },
-          { id: 2, kind: "concept", name: "release notes", description: null, mentions: 1, degree: 1 },
-        ],
-        edges: [{ id: 1, src: 1, dst: 2, kind: "uses" }],
-        fact_links: [[12, 2, "subject"], [7, 1, "subject"]],
-        fact_pairs: [],
-        more: 0,
-      };
     case "memory_action":
       return { ok: true };
     case "decide_role_proposal":
@@ -460,7 +449,46 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "lead_queue":
     case "plugins":
       return [];
+    case "map_stats":
+      return { nodes: DEMO_MAP.nodes.length, links: DEMO_MAP.links.length, stale: 1, tentative: 0, kinds: [["product", 3], ["domain", 2], ["vendor", 1], ["symbol", 2]] };
+    case "map_search": {
+      const q = String(args?.q ?? "").toLowerCase().split(":").pop()!.trim();
+      return DEMO_MAP.nodes.filter((n) => n.name.toLowerCase().includes(q));
+    }
+    case "map_around":
+    case "map_path":
+      return DEMO_MAP;
+    case "map_code":
+      return "    3  def main():\n>   4      cfg = config.load_config()\n    5      run(cfg)";
     default:
       return null;
   }
 }
+
+const demoNode = (key: string, summary = "", status = "confirmed") => {
+  const [kind, ...rest] = key.split(":");
+  return { key, kind, name: rest.join(":"), summary, status, agent: "researcher", evidence: "", added_at: iso(600), checked_at: iso(60), degree: 1, ticket: "RS-4" };
+};
+const demoLink = (id: number, src: string, kind: string, dst: string, evidence: string, status = "confirmed") => ({ id, src, kind, dst, status, evidence, agent: "researcher", added_at: iso(600), ticket: "RS-4" });
+const DEMO_MAP = {
+  nodes: [
+    demoNode("vendor:anthropic", "Makes Claude."),
+    demoNode("product:claude web", "Chat in the browser."),
+    demoNode("product:claude desktop", "Windows and macOS app."),
+    demoNode("product:claude code", "Coding agent in the terminal."),
+    demoNode("domain:claude.ai"),
+    demoNode("domain:api.anthropic.com"),
+    demoNode("symbol:src/app.py#main", "Entry point"),
+    demoNode("symbol:src/config.py#load_config"),
+  ],
+  links: [
+    demoLink(1, "vendor:anthropic", "makes", "product:claude web", "https://www.anthropic.com/claude"),
+    demoLink(2, "vendor:anthropic", "makes", "product:claude desktop", "https://claude.ai/download"),
+    demoLink(3, "vendor:anthropic", "makes", "product:claude code", "https://docs.claude.com/en/docs/claude-code/overview"),
+    demoLink(4, "product:claude web", "hosted_at", "domain:claude.ai", "https://claude.ai"),
+    demoLink(5, "product:claude code", "requests", "domain:api.anthropic.com", "https://docs.claude.com/en/docs/claude-code/overview"),
+    demoLink(6, "product:claude desktop", "requests", "domain:api.anthropic.com", "https://claude.ai/download", "stale"),
+    demoLink(7, "symbol:src/app.py#main", "calls", "symbol:src/config.py#load_config", "src/app.py:4"),
+  ],
+  more: 0,
+};

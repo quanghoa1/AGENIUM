@@ -4,6 +4,18 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## Unreleased
 
+### The project map (ADR-166)
+
+- Each project has a map of how its parts connect: code (files, functions, the calls and imports between them) and
+  anything else agents learn about (a product, its domains, the API it calls). Agents add to it while they work; Agenium
+  checks every piece against the code it cites or a page it reads itself before keeping it, and refuses what does not
+  hold. A ticket's additions are confirmed when it closes; links whose code later changes follow it or turn stale.
+- Agents ask the map before tracing code again: what calls a function, what depends on it, the chain from one part to
+  another, each with its evidence.
+- The new Map page shows it as BloodHound shows its graph: search (with `kind:` to keep one kind), the path between two
+  parts, and a panel with a node's links and the cited code. You only look at it; agents keep it.
+- The memory graph tab is gone from the Memory page; the memory itself works as before.
+
 ### Agenium's own browser (ADR-165)
 
 - Agents that may reach the network browse in Agenium's own browser, which keeps sign-ins between runs like your own

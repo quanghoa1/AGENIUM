@@ -18,6 +18,7 @@ mod design;
 mod escalate;
 mod failures;
 mod folders;
+mod map;
 mod mcp;
 mod mcp_search;
 mod memory;

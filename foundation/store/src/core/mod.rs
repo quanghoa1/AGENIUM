@@ -11,6 +11,7 @@ pub mod events;
 pub mod helper_calls;
 pub mod helper_sessions;
 pub mod ledger;
+pub mod map;
 pub mod ops;
 pub mod plans;
 pub mod preferences;
@@ -67,6 +68,10 @@ pub const CORE_MIGRATIONS: &[Migration] = &[
     Migration {
         version: 8,
         sql: include_str!("../schema/core_008.sql"),
+    },
+    Migration {
+        version: 9,
+        sql: include_str!("../schema/core_009.sql"),
     },
 ];
 

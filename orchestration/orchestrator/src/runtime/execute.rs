@@ -294,6 +294,16 @@ impl Runtime {
                 ticket.map(|t| t.key.to_string()),
             ));
         }
+        // ADR-166: every run of the project's agents asks the project map and adds to it what it checked.
+        work.extend(crate::map::tools::tools(
+            self.app.clone(),
+            crate::map::tools::Who {
+                project,
+                ticket: ticket.map(|t| t.key.clone()),
+                agent: agent.name.clone(),
+                run,
+            },
+        ));
         let mut exclude = exclude.to_vec();
         if kind != RunKind::Plan {
             exclude.push(ProtocolTool::SubmitPlanDraft);

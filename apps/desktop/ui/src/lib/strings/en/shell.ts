@@ -8,6 +8,7 @@ export const shell = {
   "nav.tickets": "Tickets",
   "nav.runs": "Runs",
   "nav.browser": "Browser",
+  "nav.map": "Map",
   "browser.open": "Open",
   "browser.unlinked": "no project",
   "browser.link": "This is {p}'s app",

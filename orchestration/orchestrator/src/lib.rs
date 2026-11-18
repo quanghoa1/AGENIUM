@@ -20,6 +20,7 @@ pub mod key_prefix;
 pub mod lead_messages;
 pub mod maintenance;
 pub mod manifest;
+pub mod map;
 pub mod markitdown_setup;
 pub mod mcp;
 pub mod memory_revert;

@@ -529,16 +529,47 @@ export interface MemoryData {
   hide_below: number;
 }
 
-/** An agent's memory graph (ADR-51): entities, their edges, which facts are about which entity, verdicts on pairs. */
-export interface MemoryGraphData {
-  entities: { id: number; kind: string; name: string; description?: string | null; mentions: number; degree: number }[];
-  edges: { id: number; src: number; dst: number; kind: string }[];
-  /** [fact, entity, role] */
-  fact_links: [number, number, string][];
-  /** [a, b, "conflict" | "distinct"] */
-  fact_pairs: [number, number, string][];
-  /** Entities left out (the least connected). */
+/** One part of a project's map (ADR-166), as its agents added it and Agenium checked it. */
+export interface MapNodeView {
+  key: string;
+  kind: string;
+  name: string;
+  file?: string | null;
+  lines?: [number, number] | null;
+  summary: string;
+  status: string;
+  ticket?: string | null;
+  agent: string;
+  evidence: string;
+  added_at: string;
+  checked_at: string;
+  degree: number;
+}
+
+export interface MapLinkView {
+  id: number;
+  src: string;
+  kind: string;
+  dst: string;
+  status: string;
+  evidence: string;
+  ticket?: string | null;
+  agent: string;
+  added_at: string;
+}
+
+export interface MapGraph {
+  nodes: MapNodeView[];
+  links: MapLinkView[];
   more: number;
+}
+
+export interface MapStats {
+  nodes: number;
+  links: number;
+  stale: number;
+  tentative: number;
+  kinds: [string, number][];
 }
 
 export interface AgentDetail {

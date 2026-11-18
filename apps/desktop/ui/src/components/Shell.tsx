@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Bot, Brain, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Settings, Sun, Terminal, Users, Wrench } from "lucide-react";
+import { BarChart3, Bell, Bot, Brain, ChevronLeft, ChevronRight, Cpu, FileClock, FolderKanban, Globe, KanbanSquare, Layers, LayoutDashboard, MessageSquare, MessagesSquare, Monitor, Moon, OctagonX, Pause, Play, Radio, Settings, Sun, Terminal, Users, Waypoints, Wrench } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import type { Key } from "../lib/i18n";
@@ -62,6 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
         { id: "needs", label: "nav.needs", icon: <Bell className="h-4 w-4" />, badge: needs || undefined, tone: "amber" },
         { id: "tickets", label: "nav.tickets", icon: <KanbanSquare className="h-4 w-4" />, badge: current?.tickets || undefined, tone: "cyan" },
         { id: "runs", label: "nav.runs", icon: <Terminal className="h-4 w-4" /> },
+        { id: "map", label: "nav.map", icon: <Waypoints className="h-4 w-4" /> },
         { id: "browser", label: "nav.browser", icon: <Globe className="h-4 w-4" /> },
       ],
     },

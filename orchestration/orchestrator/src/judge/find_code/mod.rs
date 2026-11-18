@@ -10,7 +10,7 @@
 //! and `find_code` is enabled; read-only; fail-open (no judge: the tool says so and the agent uses grep).
 
 mod files;
-mod outline;
+pub(crate) mod outline;
 mod rate;
 mod render;
 mod search;

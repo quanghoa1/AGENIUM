@@ -17,6 +17,7 @@ import { MemoryView } from "./views/Memory";
 import { TemplatesView } from "./views/Templates";
 import { LibraryView, ProvidersView } from "./views/Capabilities";
 import { LiveView } from "./views/Live";
+import { ProjectMapView } from "./views/ProjectMap";
 import { BrowserView } from "./views/Browser";
 import { ChatView } from "./views/Chat";
 import { NeedsView } from "./views/Needs";
@@ -67,6 +68,8 @@ function Router() {
         return <LiveView />;
       case "browser":
         return <BrowserView />;
+      case "map":
+        return <ProjectMapView />;
       case "library":
         return <LibraryView />;
       case "chat":

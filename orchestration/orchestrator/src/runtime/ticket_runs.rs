@@ -136,6 +136,7 @@ impl Runtime {
                 .run_log(start.run, "memory", serde_json::json!({ "traces": traces }));
         }
         let traces_text = trace_recall::text(&traces);
+        let map_text = self.app.map_near(project, &t);
         let all_comments = self.app.store().read(|c| comments::for_ticket(c, t.id))?;
         let requirements = self.app.ticket_requirements(project, &t)?;
         let guidance = self.app.project_guidance(project)?;
@@ -227,9 +228,10 @@ impl Runtime {
                     .map(agenium_memory::retrieve::label)
                     .collect();
                 let mut first = format!(
-                    "{}{}{}{}\n{}",
+                    "{}{}{}{}{}\n{}",
                     prompt::memory_text(&facts),
                     traces_text,
+                    map_text,
                     prompt::ticket_text(&t, None),
                     requirements,
                     self.plan_outline(project, &t.plan_item)?

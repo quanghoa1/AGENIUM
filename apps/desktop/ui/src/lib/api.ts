@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { demo } from "./demo";
-import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, FolderInfo, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MemoryData, MemoryGraphData, ModelCapsRow, ModelInfo, NeedItem, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, Reference, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
+import type { AgentDetail, AgentEntry, AgentMcpKey, AgentRecord, AgentTrace, ApprovalPolicy, AuditEntry, BusItem, Capabilities, ChatLine, Column, CommandApproval, CommandPolicy, EventRecord, FolderInfo, InboxItem, JudgeActivity, JudgeConfig, JudgeForm, LeadSuggestion, LibrarySkill, LiveData, LocalServer, McpApproval, McpApprovalSettings, McpServerConfig, McpServerRow, MapGraph, MapNodeView, MapStats, MemoryData, ModelCapsRow, ModelInfo, NeedItem, Overview, PlanView, Plugin, PluginPreview, PriceView, ProjectSummary, QueuedMessage, Reference, RoleInfo, RunDetail, RunRow, Status, TeamRecord, TeamsData, TeamTemplate, TicketDetail, ToolSearchSettings, VendorUsage } from "./types";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -84,7 +84,6 @@ export const api = {
   capabilities: (refresh = false, clis = true) => call<Capabilities>("capabilities", { refresh, clis }),
   templates: () => call<TeamTemplate[]>("templates"),
   memory: (agent: string) => call<MemoryData>("memory", { agent }),
-  memoryGraph: (agent: string) => call<MemoryGraphData>("memory_graph", { agent }),
   resolveMemoryConflict: (agent: string, a: number, b: number, choice: "a" | "b" | "both") =>
     call<void>("resolve_memory_conflict", { agent, a, b, choice }),
   memoryAction: (agent: string, action: string, fact?: number, skill?: string) =>
@@ -293,6 +292,11 @@ export const api = {
   removeMarkitdown: () => call<MarkitdownStatus>("remove_markitdown"),
   /** Web search in Settings (ADR-163): the order and which keys are set; a key never comes back. */
   webSearchStatus: () => call<WebSearchStatus>("web_search_status"),
+  mapStats: (project: string) => call<MapStats>("map_stats", { project }),
+  mapSearch: (project: string, q: string) => call<MapNodeView[]>("map_search", { project, q }),
+  mapAround: (project: string, key: string | null, depth = 1) => call<MapGraph>("map_around", { project, key, depth }),
+  mapPath: (project: string, from: string, to: string) => call<MapGraph | null>("map_path", { project, from, to }),
+  mapCode: (project: string, evidence: string) => call<string>("map_code", { project, evidence }),
   setWebSearchKey: (key: string) => call<WebSearchStatus>("set_web_search_key", { key }),
   removeWebSearchKey: (api: string) => call<WebSearchStatus>("remove_web_search_key", { api }),
   /** A skill on the 12 criteria (ADR-152), checked locally; `skip` is the library skill being scored. */

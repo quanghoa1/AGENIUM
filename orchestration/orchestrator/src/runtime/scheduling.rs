@@ -12,6 +12,10 @@ impl Runtime {
     /// executed.
     pub async fn tick(&self, project: ProjectId) -> Result<Vec<RunSummary>> {
         self.agents_back();
+        // ADR-166: what closed tickets added to the project map is confirmed, what cancelled ones added goes.
+        if let Err(e) = self.app.map_settle(project) {
+            tracing::warn!(error = %e, "project map not settled");
+        }
         // Before work runs: a ticket the user reopened is learned from while it is still Reopened (ADR-147).
         self.learn_owed(project).await;
         // The user's queued messages first: the user waits on them, the inbox and the work do not (ADR-149).

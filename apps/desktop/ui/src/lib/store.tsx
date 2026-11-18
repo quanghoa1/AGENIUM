@@ -38,7 +38,8 @@ export type View =
   | "chat"
   | "live"
   | "library"
-  | "browser";
+  | "browser"
+  | "map";
 
 export interface Route {
   view: View;

@@ -10,10 +10,9 @@ import { api } from "../lib/api";
 import { useApp } from "../lib/store";
 import type { AgentEntry, Fact, MemoryData } from "../lib/types";
 import { MemoryConflicts } from "./MemoryConflicts";
-import { MemoryGraph } from "./memory/MemoryGraph";
 import { OverlayMerge } from "./memory/OverlayMerge";
 
-type Tab = "lesson" | "fact" | "preference" | "overlay" | "graph";
+type Tab = "lesson" | "fact" | "preference" | "overlay";
 
 function Bar({ value, tone }: { value: number; tone: string }) {
   return (
@@ -206,7 +205,6 @@ export function MemoryView() {
                 { value: "fact" as const, label: `${app.t("memory.facts")} (${counts.fact})` },
                 { value: "preference" as const, label: `${app.t("memory.preferences")} (${counts.preference})` },
                 { value: "overlay" as const, label: `${app.t("memory.overlays")} (${(data?.overlays.length ?? 0) + Object.keys(data?.created ?? {}).length})` },
-                { value: "graph" as const, label: app.t("memory.graph") },
               ]}
             />
             {tab !== "overlay" && (
@@ -224,8 +222,6 @@ export function MemoryView() {
           {tab === "lesson" && <div className="flex items-start gap-2 rounded-lg border border-line bg-elevated/40 p-2.5 text-[11px] text-muted"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />{app.t("memory.lessonNote")}</div>}
           {!data ? (
             <div className="text-xs text-subtle">{app.t("common.loading")}</div>
-          ) : tab === "graph" && agent ? (
-            <MemoryGraph agent={agent} facts={(data.facts ?? []).filter((f) => showFaded || f.weight >= data.hide_below)} query={q} />
           ) : tab === "overlay" ? (
             <div className="space-y-3">
               {/* ADR-91: skills the agent created itself — the lesson behind each, flagged when it stops holding. */}

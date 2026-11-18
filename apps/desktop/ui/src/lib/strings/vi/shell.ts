@@ -10,6 +10,7 @@ export const shell: Record<keyof typeof en, string> = {
   "nav.tickets": "Ticket",
   "nav.runs": "Run",
   "nav.browser": "Trình duyệt",
+  "nav.map": "Bản đồ",
   "browser.open": "Mở",
   "browser.unlinked": "chưa gắn dự án",
   "browser.link": "Đây là app của {p}",

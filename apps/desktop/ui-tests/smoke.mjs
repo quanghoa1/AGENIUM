@@ -265,7 +265,7 @@ const builtinBack = await until("window.__TAURI_INTERNALS__.invoke('templates').
 check("the built-in comes back", builtinBack);
 
 // 4. Every view renders, without console errors.
-const views = ["overview", "tickets", "runs", "needs", "projects", "agents", "teams", "providers", "templates", "memory", "audit", "usage", "settings", "live", "library", "chat", "browser"];
+const views = ["overview", "tickets", "runs", "needs", "projects", "agents", "teams", "providers", "templates", "memory", "audit", "usage", "settings", "live", "library", "chat", "browser", "map"];
 for (const v of views) {
   const before = errors.length;
   await js(`window.location.hash = '/${v}'`);
@@ -389,7 +389,55 @@ check(
   "web search: Tavily and Brave keys go before the free Exa in Settings, and one is removed alone",
   wsFree === "Exa" && wsBoth && wsOne && !wsStatus.includes("smoke-0123"),
   wsStatus
-);// The price view carries the models the catalogue marks deprecated (shown on runtime badges and in the model picker).
+);// 8c. The project map (ADR-166): agents add to it, the user only looks. Rows written straight into the test root's
+// database (as a closed ticket's run leaves them); the page draws them, its search finds a node, the node's panel shows
+// its links grouped by type and the cited code as the project has it, and a right-click offers the path menu.
+{
+  const { DatabaseSync } = await import("node:sqlite");
+  const projects = JSON.parse((await invoke("projects")) || "[]");
+  const shop = projects.find((x) => x.name === "smoke shop");
+  mkdirSync(join(shop.path, "src"), { recursive: true });
+  writeFileSync(join(shop.path, "src", "app.py"), "import config\n\ndef main():\n    cfg = config.load_config()\n    get('https://api.example.com')\n");
+  const db = new DatabaseSync(join(process.env.AGENIUM_HOME, "db", "core.db"));
+  db.exec("PRAGMA busy_timeout = 5000");
+  const at = new Date().toISOString();
+  const node = db.prepare("INSERT INTO map_node (project, key, kind, name, file, line_start, line_end, summary, evidence, status, ticket, agent, run, created_at, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  node.run(shop.id, "symbol:src/app.py#main", "symbol", "src/app.py#main", "src/app.py", 3, 5, "Entry point", "{}", "confirmed", "SMOK-1", "ada", "r1", at, at);
+  node.run(shop.id, "symbol:src/config.py#load_config", "symbol", "src/config.py#load_config", "src/config.py", 1, 2, "", "{}", "confirmed", "SMOK-1", "ada", "r1", at, at);
+  node.run(shop.id, "domain:api.example.com", "domain", "api.example.com", null, null, null, "The shop's API", '{"file":"src/app.py","line":5}', "confirmed", "SMOK-1", "ada", "r1", at, at);
+  const link = db.prepare("INSERT INTO map_link (project, src, kind, dst, evidence, status, ticket, agent, run, created_at, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  link.run(shop.id, "symbol:src/app.py#main", "calls", "symbol:src/config.py#load_config", '{"file":"src/app.py","line":4}', "confirmed", "SMOK-1", "ada", "r1", at, at);
+  link.run(shop.id, "symbol:src/app.py#main", "requests", "domain:api.example.com", '{"file":"src/app.py","line":5}', "stale", "SMOK-1", "ada", "r1", at, at);
+  db.close();
+  const before = errors.length;
+  await js(`window.location.hash = '/map'`);
+  await until("!!document.querySelector('main select.input')", 10000);
+  await js(`(() => { const s = [...document.querySelectorAll('main select')].find(x => [...x.options].some(o => o.value === ${JSON.stringify(shop.id)}));
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, ${JSON.stringify(shop.id)}); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  const drawn = await until("document.querySelectorAll('main svg[role=img] g[data-key]').length === 3", 15000);
+  const stats = await js("document.querySelector('[data-testid=map-stats]')?.innerText ?? ''");
+  await shot("map-overview");
+  await typeInto("#map-search", "load");
+  const hit = await until("!!document.querySelector('[data-testid=map-hits] button')", 10000);
+  await js("document.querySelector('[data-testid=map-hits] button').click()");
+  const panel = await until("(document.querySelector('[data-testid=map-node-panel]')?.innerText ?? '').includes('load_config')", 10000);
+  // From load_config, its caller: main's panel lists both links, one stale.
+  await js("[...document.querySelectorAll('[data-testid=map-node-panel] li button')].find(b => b.innerText.includes('main'))?.click()");
+  const mainPanel = await until("(() => { const t = document.querySelector('[data-testid=map-node-panel]')?.innerText ?? ''; return t.includes('calls') && t.includes('requests') && /stale/i.test(t); })()", 10000);
+  await js("[...document.querySelectorAll('[data-testid=map-node-panel] li')].find(li => li.innerText.includes('load_config'))?.querySelectorAll('button')[1]?.click()");
+  const code = await until("[...document.querySelectorAll('[data-testid=map-node-panel] pre')].some(p => p.innerText.includes('>    4') && p.innerText.includes('load_config'))", 10000);
+  await shot("map-node-panel");
+  await js("document.querySelector('main svg[role=img] g[data-key]')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 300, clientY: 300 }))");
+  const menu = await until("(document.querySelector('[data-testid=map-menu]')?.innerText ?? '').includes('Start a path here')", 5000);
+  const path = JSON.parse((await invoke("map_path", { project: shop.id, from: "symbol:src/app.py#main", to: "domain:api.example.com" })) || "null");
+  check(
+    "the project map draws what agents added, finds a node, shows its links with the cited code, and offers the path menu",
+    drawn && stats.includes("3 nodes") && stats.includes("1 stale") && hit && panel && mainPanel && code && menu && path?.links?.length === 1 && errors.length === before,
+    `${stats} drawn=${drawn} hit=${hit} panel=${panel} main=${mainPanel} code=${code} menu=${menu} ${errors.slice(before).join(" | ").slice(0, 200)}`
+  );
+}
+
+// The price view carries the models the catalogue marks deprecated (shown on runtime badges and in the model picker).
 const pv = JSON.parse((await invoke("prices")) || "{}");
 check("the price view lists deprecated models", !!pv && typeof pv.deprecated === "object", Object.keys(pv ?? {}).join(","));
 
@@ -425,14 +473,6 @@ if (exported) {
   const shownConflict = await until(`!!${card} && ${card}.innerText.includes('9090') && ${card}.innerText.includes('8080')`, 30000);
   await shot("memory-conflict");
   check("tidying folds the same memories and shows the contradicting ones", shownConflict, memo?.id);
-  // The graph tab draws the two contradicting memories joined by a red line, and a click shows the other one.
-  await clickText("Graph", "document.querySelector('main')");
-  const graph = "document.querySelector('main svg[role=img]')";
-  const drawn = await until(`!!${graph} && ${graph}.querySelectorAll('rect').length >= 2 && [...${graph}.querySelectorAll('line')].some(l => l.getAttribute('stroke') === '#e5484d')`, 15000);
-  await js(`${graph}.querySelector('g.cursor-pointer')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
-  const linked = await until(`(document.querySelector('main')?.innerText ?? '').includes('contradiction') && [...document.querySelectorAll('main li button')].some(b => /8080|9090/.test(b.innerText))`, 10000);
-  await shot("memory-graph");
-  check("the memory graph joins the contradicting memories and lists what a node touches", drawn && linked);
   await clickText("Lessons", "document.querySelector('main')");
   await js(`(() => { const side = [...${card}.querySelectorAll('div')].find(d => d.querySelectorAll('button').length === 1 && d.innerText.includes('9090')); side?.querySelector('button')?.click(); })()`);
   const decided = await until(`!${card}`, 15000);
