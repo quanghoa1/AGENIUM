@@ -70,6 +70,8 @@ export interface LiveRun {
   toolArgs?: unknown;
   /** When the current call started (ms): a logged call of the same tool since then means it has finished. */
   toolAt?: number;
+  /** Calls made and not ended yet (`tool` events less `tool_end` ones): the run is "calling a tool" only while some are. */
+  pending?: number;
   done: boolean;
   /** Model calls answered so far (one `usage` event each): what changes the run's context. */
   calls?: number;
@@ -154,6 +156,7 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     next.thinking = (cur.thinking + ev.text).slice(-2000);
     next.phase = "thinking";
   } else if (ev.type === "restart") {
+    next.pending = 0;
     next.text = "";
     next.steps = cur.steps.filter((s) => s.kind === "tool");
     next.phase = "thinking";
@@ -162,17 +165,28 @@ function applyRunEvent(prev: Record<string, LiveRun>, run: string, ev: any, agen
     next.tool = ev.name;
     next.toolArgs = undefined;
     next.toolAt = next.at;
-    next.steps = [...cur.steps.slice(-60), { kind: "tool", id: ev.id, name: ev.name }];
+    // A call announced again (a CLI may report a step more than once) stays one step.
+    const known = ev.id && cur.steps.some((s) => s.kind === "tool" && s.id === ev.id);
+    next.steps = known ? cur.steps : [...cur.steps.slice(-60), { kind: "tool", id: ev.id, name: ev.name }];
   } else if (ev.type === "tool") {
     next.tools = [...cur.tools.slice(-50), { name: ev.name, args: ev.args }];
     next.phase = "tool";
     next.tool = ev.name;
     next.toolArgs = ev.args;
-    // The call its start announced, now known whole; or one that came whole at once.
-    const i = cur.steps.findIndex((s) => s.kind === "tool" && s.args === undefined && (s.id ? s.id === ev.id : s.name === ev.name));
+    // The step its start announced (by id, even when already filled: a call reported twice stays one), or the first
+    // unfilled one of its name; or a call that came whole at once.
+    const byId = ev.id ? cur.steps.findIndex((s) => s.kind === "tool" && s.id === ev.id) : -1;
+    const again = byId >= 0 && (cur.steps[byId] as { args?: unknown }).args !== undefined;
+    // Counted once per call, as its end is told once.
+    next.pending = (cur.pending ?? 0) + (again ? 0 : 1);
+    const i = byId >= 0 ? byId : cur.steps.findIndex((s) => s.kind === "tool" && s.args === undefined && !s.id && s.name === ev.name);
     const step: LiveStep = { kind: "tool", id: ev.id, name: ev.name, args: ev.args };
     next.steps = i >= 0 ? cur.steps.map((s, k) => (k === i ? step : s)) : [...cur.steps.slice(-60), step];
     if (i < 0) next.toolAt = next.at;
+  } else if (ev.type === "tool_end") {
+    // Its result is in: once no call goes on, the model reasons about it (it showed as running until the model wrote).
+    next.pending = Math.max(0, (cur.pending ?? 0) - 1);
+    if (next.pending === 0 && cur.phase === "tool") next.phase = "thinking";
   } else if (ev.type === "usage") {
     next.calls = (cur.calls ?? 0) + 1;
     // A step ended: the next one starts by thinking. An API step ends as its tool calls start running: the tool

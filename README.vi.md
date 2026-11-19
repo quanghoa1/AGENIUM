@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Phiên bản 0.1.5 tiền phát hành" src="https://img.shields.io/badge/version-0.1.5--pre-2563EB" />
+  <img alt="Phiên bản 0.1.6 tiền phát hành" src="https://img.shields.io/badge/version-0.1.6--pre-2563EB" />
   <img alt="Giấy phép Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0EA5E9" />
   <img alt="Rust 1.89+" src="https://img.shields.io/badge/rust-1.89%2B-F97316" />
   <img alt="Windows và Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-10B981" />
@@ -96,7 +96,7 @@ các nhà cung cấp khác dùng cùng bộ tool với một bộ đọc dễ d�
 
 ### Ứng dụng desktop
 
-Tải bộ cài cho hệ điều hành của bạn từ [trang releases](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.5_x64-setup.exe` cho Windows 10/11;
+Tải bộ cài cho hệ điều hành của bạn từ [trang releases](https://github.com/quanghoa1/AGENIUM/releases/latest) — `Agenium_0.1.6_x64-setup.exe` cho Windows 10/11;
 trên Linux, tự build `.deb` hoặc AppImage từ mã nguồn (xem bên dưới). Agenium cần **Git** ([Git for Windows](https://git-scm.com/downloads);
 app sẽ báo trên trang Dự án nếu máy chưa có). Model embedding chạy trên máy đi kèm bộ cài.
 Bộ cài Windows hỏi nơi Agenium lưu công việc của bạn (skill, MCP server, agent, dự án, memory), ví dụ một thư mục ở ổ
@@ -148,7 +148,7 @@ Agent làm tốt hơn trong dự án nhờ chính công việc của nó, theo n
 
 ## Tình trạng
 
-**0.1.5 là bản ứng viên phát hành** cho Windows và Linux; macOS đã chạy đủ bộ test, bản desktop đi sau. Mỗi
+**0.1.6 là bản ứng viên phát hành** cho Windows và Linux; macOS đã chạy đủ bộ test, bản desktop đi sau. Mỗi
 hành vi đều có test tự động — unit, contract, end-to-end và test sự cố — và được kiểm chứng với model thật, qua API và
 qua các CLI lập trình, trong các task một agent, các lượt chạy cả nhóm và các chuỗi memory. Bằng chứng nằm trong
 [docs/VERIFICATION.md](docs/VERIFICATION.md); dữ liệu chạy thật nằm trong [`quality/eval/results`](quality/eval/results).

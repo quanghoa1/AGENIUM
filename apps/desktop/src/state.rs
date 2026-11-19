@@ -338,6 +338,7 @@ fn live_json(e: &agenium_llm::ChatEvent) -> Option<serde_json::Value> {
         E::ToolCall(c) => {
             serde_json::json!({ "type": "tool", "id": c.id, "name": c.name, "args": c.args })
         }
+        E::ToolEnded { name } => serde_json::json!({ "type": "tool_end", "name": name }),
         E::Usage(u) => serde_json::json!({ "type": "usage", "input": u.input, "output": u.output }),
         E::Restart => serde_json::json!({ "type": "restart" }),
         // One model call ended, not the run (an API run makes one per step; a CLI run none): the run's end reaches the

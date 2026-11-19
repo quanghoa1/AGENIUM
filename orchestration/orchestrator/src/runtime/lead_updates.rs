@@ -54,9 +54,10 @@ impl Runtime {
             format!("the language of the user's latest message to you:\n<user_message>\n{last}\n</user_message>")
         };
         format!(
-            "\n\nWhen you are done, end with one to three sentences for the user on what you did and what comes next \
-             (the user reads them in your chat), written in {language}\nTickets, comments, questions, reviews and all a \
-             worker reads stay in English."
+            "\n\nThe user reads in your chat what you write here. Your run may end right after your last call (closing \
+             or reopening the ticket, or handling the last item), so write it in the same message as that call: one to \
+             three sentences for the user on what you did and what comes next, in {language}\nTickets, comments, \
+             questions, reviews and all a worker reads stay in English."
         )
     }
 

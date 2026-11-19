@@ -2,6 +2,15 @@
 
 All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each change are in [docs/adr](docs/adr/README.md).
 
+## 0.1.6 — 2026-11-19
+
+- **A finished call no longer looks like a second call:** a call kept showing as running (pulsing in the chat, in
+  the Tools tab and the office) until the model wrote again, so while the agent thought it looked called twice.
+  Agenium now tells the live views when a call ends; a call a CLI reports twice stays one step.
+- **The Lead's note to you comes with its last call:** a review's run ends at close_ticket, before the Lead wrote its
+  few words to you (the chat showed its English thinking instead). It now writes them in the same message as its last
+  call, in your language.
+
 ## 0.1.5 — 2026-11-19
 
 - **A stopped ticket goes on without waiting for the others:** a ticket whose run stopped stayed in progress, its

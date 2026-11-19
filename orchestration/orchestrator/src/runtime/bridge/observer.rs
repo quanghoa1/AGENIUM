@@ -88,6 +88,12 @@ impl Observer for RunObserver {
         if let Err(e) = self.app.run_log(self.run, "tool", entry) {
             tracing::warn!(error = %e, "a tool call was not logged");
         }
+        // The live views stop showing it as running (they showed it until the model wrote again, 2026-11-19).
+        if let Some(l) = &self.live {
+            l(&ChatEvent::ToolEnded {
+                name: name.to_owned(),
+            });
+        }
     }
 
     fn response(&self, usage: &Usage) {

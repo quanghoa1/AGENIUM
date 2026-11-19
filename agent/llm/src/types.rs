@@ -226,6 +226,11 @@ pub enum ChatEvent {
         name: String,
     },
     ToolCall(ToolCall),
+    /// A tool call ended (its result is in): the live views stop showing it as running. Named as the run's log names
+    /// it (a CLI's own tool `cli:<name>`, Agenium's tools by their own name).
+    ToolEnded {
+        name: String,
+    },
     Usage(Usage),
     /// A dropped stream is being retried: discard partial output shown so far.
     Restart,

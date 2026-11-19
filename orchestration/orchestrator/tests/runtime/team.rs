@@ -320,7 +320,8 @@ async fn team_lead_inbox_takes_a_plan_to_closed_tickets() {
         .find(|t| t.contains("Lead inbox"))
         .unwrap();
     assert!(
-        inbox_task.contains("end with one to three sentences for the user")
+        inbox_task
+            .contains("in the same message as that call: one to three sentences for the user")
             && inbox_task.contains("all a worker reads stay in English"),
         "{inbox_task}"
     );
