@@ -12,9 +12,14 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
   waiting for you, as a sandbox-blocked command already was; so does a command as administrator or an install (`sudo`,
   `apt`, `winget`…), which asked even with auto-approve on. Spec and plan approvals still wait for you; so does an MCP
   tool the server marks destructive.
-- **The Lead's chat no longer shows a turn that then vanishes:** its inbox and plan turns (creating tickets, deciding a
-  worker's permission) streamed into the chat pane while running and disappeared when they ended, since they are not
-  part of the conversation. The pane now streams only a chat turn. (`RunStarted` carries the run's kind.)
+- **The Lead's chat shows its work, like a CLI agent's:** after the spec and the plan the chat went quiet, and the Lead's
+  own runs (its inbox: creating and assigning tickets, deciding a worker's permission; its reviews) showed in the chat
+  while they ran and vanished at their end. They now stream into the chat as they go and stay once they end, as a turn
+  of their own ("lead works with the team", "lead reviews AGN-2"): every ticket created, assigned, reviewed or closed
+  and what the Lead wrote. They are kept apart from the conversation the model reads. (`RunStarted` carries the run's
+  kind.)
+- **The Lead tells you what it did in your language:** an inbox run or a review now ends with a few sentences for you,
+  in the language of your latest message to the Lead; tickets, comments, reviews and all a worker reads stay English.
 - **A finished call no longer shows twice in Live → Tools / Skills / MCP:** the spinning "in progress" row of a call
   stayed until the model wrote or called again, so a call that had ended (its row in the log) also showed as still
   running, for any tool (`map_query`, a web search, a command).

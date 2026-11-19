@@ -421,7 +421,7 @@ impl Runtime {
                     .join("\n"),
             )
             .await?;
-        let task = format!("{memory}{task}");
+        let task = format!("{memory}{task}{}", self.user_note_rule(lead.id, project));
         let soul = self.soul_and_role(&lead);
         let started = Instant::now();
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
@@ -482,11 +482,13 @@ impl Runtime {
         let (report, cost) = res?;
         let usage = bridge::summary(&report.usage, cost, started.elapsed().as_millis() as u64);
         let label = report.outcome.label();
+        let text = last_answer(&report.messages);
+        // Before the run ends: the chat reloads at its end and shows what the Lead did then.
+        self.note_lead_update(lead.id, project, run, "inbox", None, &text);
         self.app.finish_run(run, &label, report.steps, &usage)?;
         self.agent_state_after(&lead, None, &report.outcome)?;
         self.app
             .run_log(run, "run", serde_json::json!({ "kind": "inbox" }))?;
-        let text = last_answer(&report.messages);
         Ok(Some(RunSummary {
             run,
             kind: "inbox".into(),

@@ -10,6 +10,8 @@ export const work = {
   "context.ofRun": "The context of this run, on the model it ran with ({model}). The agent's current model and window are on its page and on the chat.",
   "chat.changeModel": "Change model",
   "chat.modelTitle": "The model {name} answers with",
+  "chat.update.inbox": "{name} works with the team",
+  "chat.update.review": "{name} reviews {ticket}",
   "context.hint": "Tokens the model read at the run's last request, against its context window. From 60% old tool results are cleared; from 85% the older conversation is compacted into notes; a conversation resumed on a model with a smaller window is folded to fit before the run starts.",
   "control.compact": "Context compacted",
   "control.fit": "Folded to fit the model's window",

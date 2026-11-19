@@ -17,6 +17,7 @@ mod context;
 mod execute;
 mod inbox_round;
 mod lead_runs;
+pub mod lead_updates;
 pub mod learn;
 mod mcp_gate;
 mod models;

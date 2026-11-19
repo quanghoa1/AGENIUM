@@ -2,10 +2,10 @@
 // reasoning folded in an expandable "thinking" block, the tool being called, the text as it streams), the input.
 // Used by the chat page and by the Live tab (where the input can be pre-filled and focused from elsewhere).
 import { EvidenceImage } from "./EvidenceImage";
-import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Package, Send, Wrench, X } from "lucide-react";
+import { Brain, ChevronDown, ChevronRight, Loader2, MessageSquarePlus, Package, Send, Users, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import { runKind, useApp, useLive, type LiveRun } from "../lib/store";
+import { leadRun, useApp, useLive, type LiveRun } from "../lib/store";
 import type { ChatLine, QueuedMessage } from "../lib/types";
 import { AttachmentBar, DocChip, material, splitMaterial, useAttachments } from "./Attachments";
 import { LeadQueue } from "./LeadQueue";
@@ -73,6 +73,8 @@ function turnsOf(lines: ChatLine[]): { at: number; user?: ChatLine; steps: ChatL
   lines.forEach((l, i) => {
     const last = out[out.length - 1];
     if (l.role === "user") out.push({ at: i, user: l, steps: [] });
+    // What the Lead did in its own run (an inbox run, a review): a turn of its own, after the turn it followed.
+    else if (l.role === "update") out.push({ at: i, steps: [l] });
     else if (last && !last.user) last.steps.push(l);
     else out.push({ at: i, steps: [l] });
   });
@@ -304,7 +306,7 @@ export function ChatPane({
       : agentId
         ? busy
           ? newest(() => true)
-          : newest((run) => runKind.get(run) === "chat")
+          : newest(leadRun)
         : undefined;
   // Any run of the Lead going on (a chat turn from another window, a review, an inbox run): a message waits for it.
   const leadWorking = busy || (!!agentId && Object.values(live).some((l) => !l.done && l.agent === agentId));
@@ -480,7 +482,12 @@ export function ChatPane({
                     </div>
                   ) : (
                     (({ item: l }) =>
-                  l.role === "memory" ? (
+                  l.role === "update" ? (
+                    <div key={k} className="flex items-center gap-1.5 text-[11px] font-medium text-subtle">
+                      <Users className="h-3 w-3" />
+                      {app.t(l.text === "review" ? "chat.update.review" : "chat.update.inbox").replace("{name}", agentName).replace("{ticket}", l.ticket ?? "")}
+                    </div>
+                  ) : l.role === "memory" ? (
                     <Recalled key={k} text={l.text} />
                   ) : l.role === "plugin" ? (
                     <PluginNote key={k} line={l} />

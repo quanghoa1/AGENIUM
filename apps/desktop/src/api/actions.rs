@@ -132,7 +132,26 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
             .find(|p| bare.contains(&format!("mcp__{p}-")))
             .cloned()
     };
+    // What the Lead did in its own runs (an inbox run, a review): shown between the turns it came between.
+    let updates = mem
+        .load_messages(&agenium_orchestrator::runtime::lead_updates::session(p))
+        .unwrap_or_default();
+    let push_updates = |out: &mut Vec<Value>, at: &dyn Fn(u64) -> bool| {
+        for u in updates.iter().filter(|u| u["at"].as_u64().is_some_and(at)) {
+            out.push(json!({ "role": "update", "text": u["kind"], "ticket": u["ticket"] }));
+            for c in u["calls"].as_array().into_iter().flatten() {
+                out.push(
+                    json!({ "role": "tool", "text": c["name"], "args": c["args"], "ok": c["ok"] }),
+                );
+            }
+            if let Some(t) = u["text"].as_str().filter(|t| !t.trim().is_empty()) {
+                out.push(json!({ "role": "assistant", "text": t }));
+            }
+        }
+    };
+    let count = msgs.len() as u64;
     for (i, m) in msgs.into_iter().enumerate() {
+        push_updates(&mut out, &|at| at == i as u64);
         let Ok(m) = serde_json::from_value::<agenium_llm::Message>(m) else {
             continue;
         };
@@ -202,6 +221,7 @@ pub fn chat_history(d: State<'_, Desktop>, project: String) -> R<Value> {
             }
         }
     }
+    push_updates(&mut out, &|at| at >= count);
     Ok(json!(out))
 }
 

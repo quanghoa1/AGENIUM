@@ -295,6 +295,51 @@ async fn team_lead_inbox_takes_a_plan_to_closed_tickets() {
     let pv = app.plan_view(project).unwrap();
     assert!(pv.items.iter().all(|i| i.done), "both plan items ticked");
     assert!(app.lead_inbox(project).unwrap().is_empty());
+    // The chat keeps what the Lead did in its own runs: the inbox run's tickets and assignments, then its reviews.
+    let e = app.embedder();
+    let updates = app
+        .agent_store(lead, e.dim(), e.model_id())
+        .unwrap()
+        .load_messages(&agenium_orchestrator::runtime::lead_updates::session(
+            project,
+        ))
+        .unwrap();
+    let moves = |u: &serde_json::Value| -> Vec<String> {
+        u["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    // The inbox run ends with words for the user in their language; the work stays English.
+    let inbox_task = p
+        .requests()
+        .iter()
+        .map(|r| r.messages[0].text())
+        .find(|t| t.contains("Lead inbox"))
+        .unwrap();
+    assert!(
+        inbox_task.contains("end with one to three sentences for the user")
+            && inbox_task.contains("all a worker reads stay in English"),
+        "{inbox_task}"
+    );
+    assert_eq!(updates[0]["kind"], "inbox");
+    assert_eq!(
+        moves(&updates[0]),
+        [
+            "create_ticket",
+            "create_ticket",
+            "assign_ticket",
+            "assign_ticket"
+        ]
+    );
+    assert!(
+        updates
+            .iter()
+            .any(|u| u["kind"] == "review" && u["ticket"] == "AGN-2"),
+        "{updates:?}"
+    );
 }
 
 /// ADR-59 through the scheduler: approved spec -> planner run (draft) -> Lead inbox run (create_plan from the

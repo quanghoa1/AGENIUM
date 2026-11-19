@@ -122,9 +122,11 @@ export function useApp(): Ctx {
 
 /** The tool calls of this session, oldest first, whatever page was open when they were made (the Live page's room
  * log shows them when it opens; they are not stored). */
-/** A run's kind by id, from its RunStarted ("chat", "inbox", "plan", "review", "work"): the Lead's chat pane shows a
- *  live turn only for a "chat" run, so its inbox and plan turns (ticketless too) no longer appear and then vanish. */
+/** A run's kind by id, from its RunStarted ("chat", "inbox", "plan", "review", "work"). */
 export const runKind = new Map<string, string>();
+/** A run the Lead's chat shows as it goes: a chat turn, or the Lead's own work (an inbox run, a review), which the chat
+ *  keeps once it ends (the Lead's updates). A Solo agent's work run is not one: its chat would lose it at its end. */
+export const leadRun = (run: string) => ["chat", "inbox", "review"].includes(runKind.get(run) ?? "");
 export const recentCalls: { at: number; run: string; agent: string | null; name: string; args: unknown }[] = [];
 
 /** Live output of the runs in progress (and of those finished in the last minutes), by run id. */

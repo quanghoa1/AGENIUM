@@ -587,7 +587,9 @@ export interface AgentDetail {
 export interface ChatLine {
   /** `memory`: what the agent recalled for the user's message (the agent's own, not the user's words); `tool`: a call
    * the agent made in its turn (`text` its name, `args`, `ok` false when it failed). */
-  role: "user" | "assistant" | "system" | "memory" | "tool" | "plugin";
+  role: "user" | "assistant" | "system" | "memory" | "tool" | "plugin" | "update";
+  /** Role `update`: the ticket a Lead's review was about (`text` is the run's kind: `inbox`, `review`). */
+  ticket?: string | null;
   text: string;
   args?: unknown;
   ok?: boolean;

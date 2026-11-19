@@ -12,6 +12,8 @@ export const work: Record<keyof typeof en, string> = {
   "context.ofRun": "Context của run này, trên model mà run đã chạy ({model}). Model và cửa sổ hiện tại của agent xem ở trang agent và trang chat.",
   "chat.changeModel": "Đổi model",
   "chat.modelTitle": "Model mà {name} dùng để trả lời",
+  "chat.update.inbox": "{name} làm việc với team",
+  "chat.update.review": "{name} review {ticket}",
   "context.hint": "Số token model đọc ở request gần nhất của run, so với cửa sổ context của model. Từ 60% các kết quả tool cũ được dọn; từ 85% phần hội thoại cũ được nén thành ghi chú; hội thoại nạp lại cho một model có cửa sổ nhỏ hơn được nén cho vừa trước khi run bắt đầu.",
   "control.compact": "Đã nén context",
   "control.fit": "Đã nén cho vừa cửa sổ của model",

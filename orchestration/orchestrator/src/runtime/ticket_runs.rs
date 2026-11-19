@@ -428,6 +428,7 @@ impl Runtime {
                 ),
             )
             .await?;
+        let note = self.user_note_rule(lead.id, project);
         let builder = |ctx: &ToolCtx, specs: &[ToolSpec]| -> Result<WorkOrder> {
             let (manifest, run_context) =
                 self.manifest(&lead, solo, ctx, specs, None, &ctx.fetch_allow);
@@ -462,7 +463,7 @@ impl Runtime {
                  Check every criterion before you decide and put every problem you find in this one review: the worker \
                  fixes them in one round, and your next review looks only at what the fix changed, not at anything new you \
                  could have raised now. \
-                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.\n\n{}{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
+                 Approving a code ticket runs the merge queue at once and tells you the result. After a successful merge (or for a ticket without code), call close_ticket with a reason.{note}\n\n{}{}{}{}\n{}\n## Diff (branch agenium/{key} against its base)\n```diff\n{}\n```",
                 memory,
                 prompt::ticket_text(&t, None),
                 requirements,
@@ -501,6 +502,14 @@ impl Runtime {
         if self.app.ticket(project, key)?.status == TicketStatus::Closed {
             self.index_traces_soon(project);
         }
+        self.note_lead_update(
+            lead.id,
+            project,
+            run,
+            "review",
+            Some(key),
+            &last_answer(&report.messages),
+        );
         let summary = self.finish(
             &t,
             &lead,
