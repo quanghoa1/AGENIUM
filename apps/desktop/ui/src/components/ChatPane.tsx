@@ -339,7 +339,14 @@ export function ChatPane({
     api
       .leadQueue(project)
       .then((q) => {
-        if (q.length < queue.length) api.chatHistory(project).then(setLines);
+        // Taken by the Lead's turn now starting: shown as sent until that turn ends and the conversation keeps them.
+        // The conversation has them only once the turn ends: reloading it now dropped them while the Lead thought
+        // (2026-11-19). The reload at the turn's end replaces these lines (a failed turn puts them back in the queue).
+        // By text as well as id: the pane's own copy of a message it just queued has no id from the app yet.
+        const ids = new Set(q.map((m) => m.id));
+        const texts = new Set(q.map((m) => m.text));
+        const taken = queue.filter((m) => !ids.has(m.id) && !texts.has(m.text));
+        if (taken.length) setLines((l) => [...l, ...taken.map((m) => ({ role: "user" as const, text: m.text }))]);
         setQueue(q);
       })
       .catch(() => {});

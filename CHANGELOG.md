@@ -10,6 +10,9 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 - **The Lead's note to you comes with its last call:** a review's run ends at close_ticket, before the Lead wrote its
   few words to you (the chat showed its English thinking instead). It now writes them in the same message as its last
   call, in your language.
+- **A message sent while the Lead was busy no longer vanishes while it answers:** taken from the queue by the Lead's
+  turn, it left the chat until the turn ended (the conversation keeps it only then). It now shows as sent from the
+  moment the Lead takes it.
 
 ## 0.1.5 — 2026-11-19
 
