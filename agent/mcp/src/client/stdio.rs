@@ -176,7 +176,18 @@ impl Wire for Stdio {
                         json!({ "requestId": id, "reason": "timeout" }),
                     )
                     .await;
-                Err(McpError::Timeout(timeout))
+                let detail = {
+                    let s = self.stderr_tail();
+                    if s.trim().is_empty() {
+                        "the server printed nothing to stderr; it may be waiting on input, a license or an open file".into()
+                    } else {
+                        format!("server stderr: {s}")
+                    }
+                };
+                Err(McpError::Timeout {
+                    after: timeout,
+                    detail,
+                })
             }
         }
     }

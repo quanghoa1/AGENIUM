@@ -42,8 +42,8 @@ pub enum McpError {
     Rpc { code: i64, message: String },
     #[error("HTTP {status}: {body}")]
     Http { status: u16, body: String },
-    #[error("no answer within {0:?}")]
-    Timeout(Duration),
+    #[error("no answer within {after:?}{}", if detail.is_empty() { String::new() } else { format!("; {detail}") })]
+    Timeout { after: Duration, detail: String },
     /// The server wants a signed-in user (OAuth, ADR-97); the text says how.
     #[error("{0}")]
     AuthRequired(String),

@@ -269,7 +269,10 @@ impl Wire for Http {
         let body = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
         tokio::time::timeout(timeout, self.exchange(id, body))
             .await
-            .map_err(|_| McpError::Timeout(timeout))?
+            .map_err(|_| McpError::Timeout {
+                after: timeout,
+                detail: String::new(),
+            })?
     }
 
     async fn notify(&self, method: &str, params: Value) -> Result<()> {

@@ -161,9 +161,12 @@ impl McpTool {
 
 fn tool_error(e: McpError) -> ToolError {
     match e {
-        McpError::Timeout(d) => ToolError::new(
+        McpError::Timeout { after, detail } => ToolError::new(
             "timeout",
-            format!("the MCP tool did not answer within {d:?}"),
+            format!(
+                "the MCP tool did not answer within {after:?}{} (a slow tool needs a longer timeout_secs for this server in its settings; the MCP test only lists tools, it does not run one)",
+                if detail.is_empty() { String::new() } else { format!("; {detail}") }
+            ),
         ),
         McpError::Rpc { code, message } => {
             ToolError::new("mcp_error", format!("{message} (code {code})"))

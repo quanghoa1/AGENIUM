@@ -13,6 +13,10 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 - **A message sent while the Lead was busy no longer vanishes while it answers:** taken from the queue by the Lead's
   turn, it left the chat until the turn ended (the conversation keeps it only then). It now shows as sent from the
   moment the Lead takes it.
+- **A timed-out MCP tool call says why:** the error now carries the server's recent stderr (for a stdio server) and
+  notes that the Test button only lists a server's tools, it does not run one, and that a slow tool needs a longer
+  `timeout_secs` for that server. A call that hung with nothing on stderr is told it may be waiting on input, a license
+  or an open file.
 
 ## 0.1.5 — 2026-11-19
 

@@ -166,7 +166,10 @@ impl Sse {
         });
         let endpoint = tokio::time::timeout(timeout, ready_rx)
             .await
-            .map_err(|_| McpError::Timeout(timeout))?
+            .map_err(|_| McpError::Timeout {
+                after: timeout,
+                detail: String::new(),
+            })?
             .map_err(|_| {
                 McpError::Transport("the event stream ended before naming its endpoint".into())
             })?;
@@ -215,7 +218,10 @@ impl Wire for Sse {
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .remove(&id);
-                Err(McpError::Timeout(timeout))
+                Err(McpError::Timeout {
+                    after: timeout,
+                    detail: String::new(),
+                })
             }
         }
     }
