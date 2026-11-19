@@ -68,8 +68,21 @@ impl CliRun<'_> {
         cx: &CheckCtx<'_>,
         st: &mut State,
     ) -> Value {
+        let (hook_name, hook_input) = crate::driver::hook_call(payload);
         let check = if st.stop.is_some() || st.effect.is_some_and(|e| e != Effect::Continue) {
             Check::Deny("the run is ending".into())
+        } else if let Some((_, warned)) = st
+            .repeated
+            .as_mut()
+            .filter(|(k, _)| *k == format!("{hook_name}\u{1f}{hook_input}"))
+        {
+            if *warned {
+                st.stop = Some(Stop::Loop(format!("cli:{hook_name}")));
+                Check::Deny("the same call again after the warning: the run stops".into())
+            } else {
+                *warned = true;
+                Check::Deny(agenium_backend::REPEATED_CALL.into())
+            }
         } else {
             self.driver.check(payload, cx)
         };

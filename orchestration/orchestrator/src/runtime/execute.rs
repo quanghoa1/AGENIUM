@@ -588,6 +588,50 @@ pick another model or set tools = true in its [[providers.model_caps]] if this i
             Outcome::Refused { why } => {
                 note(&self.app, format!("{} stopped: its model declined to go on ({why}). Its last answer was not kept. Reword the ticket where it touches that, or give {} another model, then resume it.", agent.name, agent.name))?;
             }
+            Outcome::LoopDetected { .. } | Outcome::TooManyErrors { .. } if kind == "work" => {
+                note(&self.app, format!("Run stopped ({label})."))?;
+                // The worker was stuck: its Lead (the user, for a Solo agent) is asked how it goes on.
+                let why = match &report.outcome {
+                    Outcome::LoopDetected { tool } => {
+                        format!("I made the same {tool} call over and over")
+                    }
+                    _ => "my calls kept failing".to_owned(),
+                };
+                let context = self
+                    .app
+                    .store()
+                    .read(|c| runs::log_entries(c, run))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .rev()
+                    // The call's own error, not Agenium's refusal of its repeat.
+                    .find(|e| {
+                        let r = e.data["result"].as_str().unwrap_or_default();
+                        e.kind == "tool"
+                            && e.data["ok"] == false
+                            && !r.contains("was not run again")
+                            && !r.contains("the same call was made repeatedly")
+                            && !r.contains("not executed: the run is ending")
+                    })
+                    .map(|e| {
+                        let cut = |v: &serde_json::Value, n: usize| -> String {
+                            let s = v
+                                .as_str()
+                                .map(str::to_owned)
+                                .unwrap_or_else(|| v.to_string());
+                            s.chars().take(n).collect()
+                        };
+                        format!(
+                            "Last failing call: {} {}\nIts result: {}",
+                            cut(&e.data["tool"], 80),
+                            cut(&e.data["args"], 400),
+                            cut(&e.data["result"], 800)
+                        )
+                    })
+                    .unwrap_or_default();
+                self.app
+                    .ask_for_stuck_run(t.project, &t.key, agent.id, &why, &context)?;
+            }
             Outcome::LoopDetected { .. }
             | Outcome::TooManyErrors { .. }
             | Outcome::NoProgress

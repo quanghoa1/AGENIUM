@@ -10,7 +10,9 @@ pub struct ShellArgs {
     /// Working directory relative to the worktree root.
     #[serde(default)]
     pub workdir: Option<String>,
-    /// Timeout in milliseconds (default 120000, at most 600000).
+    /// Timeout in milliseconds (default 120000, at most 600000). In a ticket's run a longer one (up to 3600000) suits a
+    /// build or a test suite of many minutes: past the first minutes the command goes on as a job, you end your turn,
+    /// and its result comes to you when it ends (no need to watch it).
     #[serde(default)]
     pub timeout_ms: Option<u64>,
     /// Start it in the background and return at once with a job id (a server, a watcher, a long build); read its
@@ -53,11 +55,17 @@ run outside it, and outside_sandbox asks that up front for a command that cannot
                 "workdir must be inside your worktree",
             ));
         }
-        let timeout = a
-            .timeout_ms
-            .map(Duration::from_millis)
+        let asked = a.timeout_ms.map(Duration::from_millis);
+        let timeout = asked
             .unwrap_or(ctx.limits.shell_timeout)
             .min(ctx.limits.shell_timeout_max);
+        // A command the run waits for (it goes on as a job, the agent idle meanwhile) may run as long as the agent asked,
+        // up to a job's lifetime: a test suite of 20 minutes was killed at 10 (2026-11-19). Asked for less, it still
+        // gets `shell_timeout_max` before it is ended.
+        let awaited = asked
+            .unwrap_or_default()
+            .max(ctx.limits.shell_timeout_max)
+            .min(crate::jobs::MAX_LIFETIME);
         let mut spec = agenium_sandbox::CommandSpec {
             command: a.command.clone(),
             cwd: cwd.clone(),
@@ -74,9 +82,12 @@ run outside it, and outside_sandbox asks that up front for a command that cannot
         // run's loop waits for such a job too (ADR-164): the call answers at the timeout and the command goes on, up
         // to the longest a command may run, instead of being killed with its work lost.
         let answer_at = match (ctx.foreground_limit, ctx.awaits_commands) {
-            (Some(limit), _) => Some(limit),
+            (Some(limit), _) => {
+                spec.timeout = awaited;
+                Some(limit)
+            }
             (None, true) => {
-                spec.timeout = ctx.limits.shell_timeout_max;
+                spec.timeout = awaited;
                 Some(timeout)
             }
             (None, false) => None,

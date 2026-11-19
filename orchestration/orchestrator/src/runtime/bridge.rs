@@ -450,9 +450,12 @@ impl Protocol for RunProtocol {
                 _ => "invalid_arguments",
             };
             let msg = match &e {
-                IntentError::Fields { errors, .. } => format!(
-                    "{e} | detail: {}",
-                    serde_json::to_string(errors).unwrap_or_default()
+                IntentError::Fields { tool, errors } => format!(
+                    "{e} | detail: {}{}",
+                    serde_json::to_string(errors).unwrap_or_default(),
+                    super::call_hints::hint(tool, errors)
+                        .map(|h| format!(" | hint: {h}"))
+                        .unwrap_or_default()
                 ),
                 _ => e.to_string(),
             };

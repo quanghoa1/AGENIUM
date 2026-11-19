@@ -29,6 +29,7 @@ mod permissions;
 mod planning;
 mod questions;
 mod reports;
+mod stuck;
 mod team;
 mod ticket_intents;
 mod ticket_reads;

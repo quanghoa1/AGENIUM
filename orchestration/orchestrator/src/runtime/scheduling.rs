@@ -209,7 +209,21 @@ impl Runtime {
                 Step::Work(id, r) => {
                     busy.remove(&id);
                     match r {
-                        Ok(s) => out.push(s),
+                        Ok(s) => {
+                            // A run that stopped with its ticket still in progress may go on in this round, when its
+                            // restart rules say (`ready_to_autostart`, the stall nudge): held to the round's end, the
+                            // ticket waited for the longest run of the round (2026-11-19: 45 minutes behind another
+                            // worker's run, its worker idle).
+                            let open = self
+                                .app
+                                .store()
+                                .read(|c| tickets::get(c, id))
+                                .is_ok_and(|t| t.status == TicketStatus::InProgress);
+                            if open {
+                                working.remove(&id);
+                            }
+                            out.push(s)
+                        }
                         Err(e) => tracing::warn!(error = %e, "work run failed to start"),
                     }
                 }

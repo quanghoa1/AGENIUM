@@ -464,6 +464,8 @@ async fn repeated_step_is_a_loop() {
             tool: "cli:view_file".into()
         }
     );
+    // agy asks its hook before it reports a step: three identical steps run, the fourth is refused by the hook with a
+    // warning (it never shows in the stream), the fifth stops the run.
     assert_eq!(report.steps, 3);
 }
 

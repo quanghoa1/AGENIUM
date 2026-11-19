@@ -61,6 +61,33 @@ async fn a_command_past_its_timeout_goes_on_and_its_end_comes_to_the_agent() {
     );
 }
 
+/// A command the agent gives a longer timeout than the usual most (a test suite of 20 minutes) runs that long while the
+/// agent waits, instead of being ended at `shell_timeout_max` (2026-11-19). Here scaled down: the usual most is 2 s.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_long_command_asked_for_runs_past_the_usual_most() {
+    let (_t, mut ctx, tools, proto) = harness();
+    ctx.awaits_commands = true;
+    ctx.limits.shell_timeout_max = std::time::Duration::from_secs(2);
+    let cmd = slow(&ctx);
+    let p = ScriptedProvider::new("m");
+    p.push_calls(
+        "",
+        vec![("shell", json!({"command": cmd, "timeout_ms": 6000}))],
+    );
+    p.push_calls("I wait for the tests.", vec![]);
+    p.push_calls("", vec![("submit_report", json!({"ticket_id": "AGN-1"}))]);
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert_eq!(r.outcome, Outcome::Completed);
+    let reqs = p.requests();
+    let first = texts(reqs[1].messages.last().unwrap());
+    assert!(first.contains("time limit 6 s"), "{first}");
+    let ended = texts(reqs[2].messages.last().unwrap());
+    assert!(
+        ended.contains("has ended: exit code 0") && ended.contains("done"),
+        "ran to its end past the usual 2 s: {ended}"
+    );
+}
+
 #[tokio::test]
 async fn a_report_with_the_checklist_unfinished_goes_back_twice_then_through() {
     let (_t, ctx, tools, proto) = harness();

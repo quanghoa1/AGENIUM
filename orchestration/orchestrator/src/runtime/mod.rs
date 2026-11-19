@@ -10,6 +10,7 @@
 
 pub mod acceptance;
 pub mod bridge;
+mod call_hints;
 mod chat_history;
 mod cli_brain;
 mod cli_fit;

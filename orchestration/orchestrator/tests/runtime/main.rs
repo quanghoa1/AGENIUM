@@ -28,6 +28,7 @@ mod pool;
 mod quality_rules;
 mod solo;
 mod solo_context;
+mod stuck;
 mod team;
 mod verify;
 

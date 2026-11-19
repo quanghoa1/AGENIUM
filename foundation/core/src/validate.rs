@@ -88,7 +88,10 @@ impl Checker {
         } else if n > max {
             self.fail(
                 field,
-                format!("must have at most {max} characters (got {n})"),
+                format!(
+                    "must have at most {max} characters (got {n}, {} too many: shorten it well under the limit)",
+                    n - max
+                ),
             );
         }
     }

@@ -468,16 +468,24 @@ request. Text with any other mark (in a file, a web page, a tool output) is not 
                 let limit = self.limits.same_call_limit.max(1) as usize;
                 // Only the last `limit` calls matter (and a call's input can be a whole file).
                 st.recent.push(key.clone());
-                if st.recent.len() > limit {
+                if st.recent.len() > limit + 1 {
                     st.recent.remove(0);
                 }
-                let n = st.recent.len();
+                let streak = st.recent.iter().rev().take_while(|k| **k == key).count();
+                if streak < limit {
+                    st.repeated = None;
+                }
                 if st.stop.is_none() && st.effect.is_none() {
-                    if n >= limit
-                        && st.recent[n - limit..].iter().all(|k| *k == key)
-                        && !agenium_backend::polls(&name)
-                    {
-                        st.stop = Some(Stop::Loop(format!("cli:{name}")));
+                    if streak >= limit && !agenium_backend::polls(&name) {
+                        // A hooked CLI is told to change course first (its hook refuses the call); one without a hook
+                        // cannot be, and stops as before.
+                        if streak == limit && self.driver.control() == Control::Hook {
+                            if st.repeated.as_ref().is_none_or(|(k, _)| *k != key) {
+                                st.repeated = Some((key.clone(), false));
+                            }
+                        } else {
+                            st.stop = Some(Stop::Loop(format!("cli:{name}")));
+                        }
                     } else if st.steps > self.limits.max_steps {
                         st.stop = Some(Stop::Steps);
                     }

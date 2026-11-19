@@ -50,7 +50,7 @@ async fn completes_on_submit_and_carries_call_ids() {
 }
 
 #[tokio::test]
-async fn identical_call_three_times_stops_but_different_args_do_not() {
+async fn identical_call_is_refused_then_stops_but_different_args_do_not() {
     let (_t, ctx, tools, proto) = harness();
     std::fs::write(ctx.root.join("a.txt"), "a").unwrap();
     std::fs::write(ctx.root.join("b.txt"), "b").unwrap();
@@ -58,21 +58,46 @@ async fn identical_call_three_times_stops_but_different_args_do_not() {
     for f in ["a.txt", "b.txt", "a.txt", "b.txt"] {
         p.push_calls("", vec![("read_file", json!({"path": f}))]);
     }
-    for _ in 0..3 {
+    for _ in 0..4 {
         p.push_calls("", vec![("read_file", json!({"path": "a.txt"}))]);
     }
     let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    // The third identical call is refused with a warning (the run goes on); the fourth stops it.
     assert_eq!(
         r.outcome,
         Outcome::LoopDetected {
             tool: "read_file".into()
         }
     );
-    assert_eq!(r.steps, 7);
+    assert_eq!(r.steps, 8);
+    let warned = r
+        .messages
+        .iter()
+        .any(|m| m.text().contains("was not run again"))
+        || serde_json::to_string(&r.messages)
+            .unwrap()
+            .contains("was not run again");
+    assert!(warned, "the agent was told to change course first");
 }
 
 #[tokio::test]
-async fn three_invalid_calls_in_a_row_stop_the_run() {
+async fn the_same_refusal_three_times_in_a_row_stops_the_run() {
+    let (_t, ctx, tools, proto) = harness();
+    let p = ScriptedProvider::new("m");
+    for x in 1..=3 {
+        p.push_calls("", vec![("no_such_tool", json!({ "x": x }))]);
+    }
+    let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
+    assert!(
+        matches!(&r.outcome, Outcome::TooManyErrors { .. }),
+        "{:?}",
+        r.outcome
+    );
+    assert_eq!(r.steps, 3);
+}
+
+#[tokio::test]
+async fn changing_refusals_get_twice_the_room() {
     let (_t, ctx, tools, proto) = harness();
     let p = ScriptedProvider::new("m");
     p.push_calls("", vec![("no_such_tool", json!({}))]);
@@ -90,13 +115,18 @@ async fn three_invalid_calls_in_a_row_stop_the_run() {
             )],
         ))
     }));
+    // Three refusals in a row, each a different one: the agent may be fixing its call, so it goes on (up to six).
+    for name in ["missing_one", "missing_two"] {
+        p.push_calls("", vec![(name, json!({}))]);
+    }
+    p.push_calls("", vec![("missing_three", json!({}))]);
     let r = run(&p, &ctx, &tools, &proto, cfg()).run(&order()).await;
     assert!(
-        matches!(&r.outcome, Outcome::TooManyErrors { last } if last.contains("invalid_json")),
+        matches!(&r.outcome, Outcome::TooManyErrors { last } if last.contains("missing_three")),
         "{:?}",
         r.outcome
     );
-    assert_eq!(r.steps, 6);
+    assert_eq!(r.steps, 9);
 }
 
 #[tokio::test]

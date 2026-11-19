@@ -4,6 +4,24 @@ All notable changes to Agenium. Dates are Asia/Saigon. Decisions behind each cha
 
 ## 0.1.5 — 2026-11-19
 
+- **A stopped ticket goes on without waiting for the others:** a ticket whose run stopped stayed in progress, its
+  worker idle, until every other run of the round ended (45 minutes behind another worker's long run). It now goes on
+  as soon as its restart rules allow.
+- **Long builds and test suites run to their end while the agent waits:** a command the agent gives a long timeout
+  (up to an hour) goes on as a job past the first minutes; the agent ends its turn and the result comes to it when the
+  command ends, so it neither watches it nor spends tokens meanwhile. Commands were ended at 10 minutes before.
+- **A stuck worker asks its Lead instead of going quiet:** the same call three times in a row stopped the run at once
+  and told no one but a note on the ticket. Now the third identical call is refused with a warning to change course
+  (for a CLI agent through its hook), and only one more stops the run. When a worker's run stops that way, or because
+  its calls kept failing, Agenium asks on its behalf a blocking Blocker question on the ticket with the reason and the
+  last failing call: the Lead answers how to go on (the worker's next run reads it) or hands it to you; a Solo agent's
+  goes to you.
+- **A worker fixing its call is not stopped for it:** three refused calls in a row stopped the run even when each was
+  a different refusal (a report's summary cut from 997 to 828 to 814 characters for a limit of 800). The same refusal
+  three times still stops it; refusals that change get up to six tries. A text over its limit now says by how much
+  and to shorten it well under the limit, and a refused call comes with a hint on how to make it right: a report whose
+  summary is too long is told to write the full report into a file in its scope, name it in the summary and attach it
+  as an artifact.
 - **Agenium's browser starts on machines with a Windows compatibility layer:** Edge relaunched itself when it saw
   `__COMPAT_LAYER` (here `DetectorsAppHealth`, inherited from whatever started Agenium) and the process Agenium watched
   ended without DevTools, so agents could not open a page. The browser now starts without that variable.

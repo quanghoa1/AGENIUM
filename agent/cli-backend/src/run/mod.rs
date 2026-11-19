@@ -211,6 +211,11 @@ struct State {
     /// The CLI's own tool calls its hook let through, by [`tool_key`]: a hooked CLI's step that ends without one did
     /// not run (its hook never reached Agenium, so the CLI blocked it).
     allowed: Vec<String>,
+    /// The call (`name` U+001F `input`) made `same_call_limit` times in a row, and whether the agent was warned: a
+    /// hooked CLI's hook refuses it once with a warning (the agent changes course); asked for once more, the run stops.
+    /// Kept by the hook as well as the stream: a CLI may ask its hook before it reports the step, and a refused step
+    /// never shows in the stream.
+    repeated: Option<(String, bool)>,
 }
 
 /// A tool's name as the hook and the stream both spell it (they differ in case and separators).

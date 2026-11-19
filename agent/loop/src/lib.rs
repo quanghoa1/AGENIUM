@@ -49,6 +49,12 @@ fn budget_note(left: u32, max: u32) -> String {
 type Executed = (Result<String, ToolError>, Effect, bool, Vec<ImageData>);
 
 /// Validation-type error codes: three in a row stop the run.
+/// What an agent is told when it makes the same call `same_call_limit` times in a row (the call is not run).
+pub const REPEATED_CALL: &str = "this exact call was made several times in a row, so it was not run again. Read its \
+                                 last result, then change the command, its arguments or your approach; when you cannot \
+                                 go on, ask for help (ask_question, category Blocker). The same call once more stops \
+                                 your run.";
+
 fn is_invalid_call(code: &str) -> bool {
     matches!(
         code,
@@ -144,9 +150,13 @@ impl Run<'_> {
         };
         let mut usage = Usage::default();
         let mut model = self.cfg.model.clone();
-        // The last `same_call_limit` calls only (a call's arguments can be a whole file).
+        // The last `same_call_limit` + 1 calls only (a call's arguments can be a whole file).
         let mut last_calls: std::collections::VecDeque<(String, String)> = Default::default();
         let mut errors_in_row = 0u32;
+        // The same refusal over and over (`same_errors` in a row, its text `last_error`): an agent that cannot fix its
+        // call. Refusals that change from one call to the next are an agent fixing its arguments (2026-11-19: a report
+        // cut from 997 to 814 characters for a limit of 800 was stopped at its third try): they get twice the room.
+        let (mut same_errors, mut last_error) = (0u32, String::new());
         let mut nudges = 0u32;
         let mut step = 0u32;
         let mut compactions = 0u32;
@@ -425,14 +435,24 @@ impl Run<'_> {
                 };
             for (i, c) in calls.iter().enumerate() {
                 let key = (c.name.clone(), c.args.to_string());
+                let limit = self.cfg.same_call_limit.max(1) as usize;
                 last_calls.push_back(key.clone());
-                if last_calls.len() > self.cfg.same_call_limit.max(1) as usize {
+                if last_calls.len() > limit + 1 {
                     last_calls.pop_front();
                 }
-                let n = last_calls.len();
-                let limit = self.cfg.same_call_limit.max(1) as usize;
-                let looping = n >= limit && last_calls.iter().all(|k| *k == key) && !polls(&c.name);
-                let (res, eff, untrusted, images) = if looping {
+                // The same call `limit` times in a row is not run again: the agent is told to change course. Once more
+                // after that, the run stops (2026-11-19: a run stopped at once on a retried command, telling no one).
+                let streak = last_calls.iter().rev().take_while(|k| **k == key).count();
+                let repeated = streak == limit && !polls(&c.name);
+                let looping = streak > limit && !polls(&c.name);
+                let (res, eff, untrusted, images) = if repeated {
+                    (
+                        Err(ToolError::new("repeated_call", REPEATED_CALL)),
+                        Effect::Continue,
+                        false,
+                        vec![],
+                    )
+                } else if looping {
                     (
                         Err(ToolError::new(
                             "loop_detected",
@@ -456,16 +476,36 @@ impl Run<'_> {
                 };
                 self.observer.tool(&c.name, &c.args, &res);
                 match &res {
-                    Err(e) if is_invalid_call(&e.code) => errors_in_row += 1,
-                    Err(e) if e.code == "loop_detected" || e.code == "skipped" => {}
-                    _ => errors_in_row = 0,
+                    Err(e) if is_invalid_call(&e.code) => {
+                        errors_in_row += 1;
+                        let text = e.to_string();
+                        same_errors = if text == last_error {
+                            same_errors + 1
+                        } else {
+                            1
+                        };
+                        last_error = text;
+                    }
+                    Err(e)
+                        if matches!(
+                            e.code.as_str(),
+                            "loop_detected" | "skipped" | "repeated_call"
+                        ) => {}
+                    _ => {
+                        errors_in_row = 0;
+                        same_errors = 0;
+                        last_error.clear();
+                    }
                 }
                 if looping && stop.is_none() {
                     stop = Some(Outcome::LoopDetected {
                         tool: c.name.clone(),
                     });
                 }
-                if errors_in_row >= self.cfg.error_limit && stop.is_none() {
+                let limit = self.cfg.error_limit;
+                if (same_errors >= limit || errors_in_row >= limit.saturating_mul(2))
+                    && stop.is_none()
+                {
                     stop = Some(Outcome::TooManyErrors {
                         last: res
                             .as_ref()
